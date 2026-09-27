@@ -1,0 +1,91 @@
+const { test } = require('node:test');
+const assert = require('node:assert/strict');
+const vm = require('node:vm');
+const fs = require('node:fs');
+const m = vm.createContext({});
+vm.runInContext(fs.readFileSync(`${__dirname}/../GroupsModel.js`, 'utf8'), m);
+const fixture = () => ({ bar: { layout: { left: [
+  { id: 'clock', powerbarInstance: 'one', format: 'HH:mm', powerbarVisibility: 'managed' },
+  { id: 'clock', powerbarInstance: 'two', format: 'ddd' },
+  { id: 'network', powerbarInstance: 'three', nested: { preserved: true } }
+], center: [], right: [] } }, plugins: [{ id: 'service', settings: { keep: true } }] });
+const plain = value => JSON.parse(JSON.stringify(value));
+test('group visibility and placement change without changing member settings', () => {
+  const c = fixture(), original = JSON.stringify(c.bar.layout);
+  m.create(c, 'a', 'A'); m.assign(c, 'one', 'a');
+  m.edit(c, 'a', { section: 'center', visibility: 'hidden', icon: '󰤨', label: 'Network' });
+  assert.equal(m.render(c.bar.layout, m.groups(c.bar)).center.length, 0);
+  m.edit(c, 'a', { visibility: 'managed' });
+  const header = m.render(c.bar.layout, m.groups(c.bar)).center[0];
+  assert.equal(header.powerbarVisibility, 'managed');
+  assert.equal(header.powerbarInstance, 'group:a');
+  assert.equal(JSON.stringify(c.bar.layout), original);
+  assert.deepEqual(plain(m.groups(c.bar)[0].items), ['one']);
+});
+test('group membership preserves widget instances, settings, visibility and service config', () => {
+  const c = fixture(), before = JSON.stringify(c.bar.layout), plugins = JSON.stringify(c.plugins);
+  assert.equal(m.create(c, 'tools', 'Tools'), true);
+  assert.equal(m.assign(c, 'two', 'tools'), true);
+  assert.equal(m.owner(m.groups(c.bar), 'one'), null);
+  assert.equal(m.owner(m.groups(c.bar), 'two').id, 'tools');
+  assert.equal(JSON.stringify(c.bar.layout), before);
+  assert.equal(JSON.stringify(c.plugins), plugins);
+  assert.equal(m.remove(c, 'tools'), true);
+  assert.equal(m.owner(m.groups(c.bar), 'two'), null);
+  assert.equal(JSON.stringify(c.bar.layout), before);
+});
+test('transfer and reorder are exclusive, stable and reversible', () => {
+  const c = fixture(); m.create(c, 'a', 'A'); m.create(c, 'b', 'B');
+  m.assign(c, 'one', 'a'); m.assign(c, 'two', 'a'); m.assign(c, 'three', 'a', 'two');
+  assert.deepEqual(plain(m.groups(c.bar)[0].items), ['one', 'three', 'two']);
+  m.assign(c, 'two', 'a', 'one');
+  assert.deepEqual(plain(m.groups(c.bar)[0].items), ['two', 'one', 'three']);
+  m.assign(c, 'one', 'b');
+  assert.deepEqual(plain(m.groups(c.bar)[0].items), ['two', 'three']);
+  assert.deepEqual(plain(m.groups(c.bar)[1].items), ['one']);
+  m.assign(c, 'one', ''); assert.equal(m.owner(m.groups(c.bar), 'one'), null);
+});
+test('stale destinations, unknown widgets and duplicate IDs do not lose membership', () => {
+  const c = fixture(); m.create(c, 'a', 'A'); m.assign(c, 'one', 'a');
+  const before = JSON.stringify(c);
+  assert.equal(m.assign(c, 'one', 'missing'), false);
+  assert.equal(m.assign(c, 'unknown', 'a'), false);
+  assert.equal(m.assign(c, 'group:a', 'a'), false);
+  assert.equal(m.create(c, 'a', 'duplicate'), false);
+  assert.equal(JSON.stringify(c), before);
+});
+test('group header placement is a runtime projection, not a duplicated widget', () => {
+  const c = fixture(); m.create(c, 'a', 'A'); m.edit(c, 'a', { section: 'left', before: 'two' });
+  const before = JSON.stringify(c.bar.layout), rendered = m.render(c.bar.layout, m.groups(c.bar));
+  assert.deepEqual(plain(rendered.left.map(e => e.powerbarInstance)), ['one', 'group:a', 'two', 'three']);
+  assert.equal(JSON.stringify(c.bar.layout), before);
+});
+test('group icons reorder around other groups without nesting', () => {
+  const c = fixture(); m.create(c, 'a', 'A'); m.create(c, 'b', 'B');
+  m.edit(c, 'a', { section: 'left', before: 'two' });
+  m.edit(c, 'b', { section: 'left', before: 'two' });
+  assert.equal(m.moveHeader(c, 'a', 'left', '', 'b', true, 'shown'), true);
+  assert.deepEqual(plain(m.render(c.bar.layout, m.groups(c.bar)).left.map(e => e.powerbarInstance)),
+    ['one', 'group:b', 'group:a', 'two', 'three']);
+  assert.equal(m.moveHeader(c, 'a', 'right', '', '', false, 'managed'), true);
+  assert.equal(m.groups(c.bar).find(g => g.id === 'a').visibility, 'managed');
+  assert.equal(m.render(c.bar.layout, m.groups(c.bar)).right[0].powerbarInstance, 'group:a');
+});
+test('malformed manual config does not nest groups or assign one instance twice', () => {
+  const list = m.groups({ powerbarGroups: [null, { id: 'a', items: ['one', 'one', 'group:b'] }, { id: 'a' }, { id: 'b', items: ['one', 'two'] }] });
+  assert.deepEqual(plain(list.map(g => g.items)), [['one'], ['two']]);
+});
+
+test('group display options preserve membership and reject unknown values', () => {
+  const c = fixture(); m.create(c, 'a', 'Tools'); m.assign(c, 'one', 'a');
+  m.edit(c, 'a', { face: 'both', tooltip: false, badge: false,
+    badgeMode: 'members', orientation: 'vertical', memberDisplay: 'name' });
+  const group = m.groups(c.bar)[0];
+  assert.equal(group.face, 'both'); assert.equal(group.tooltip, false);
+  assert.equal(group.badge, false); assert.equal(group.badgeMode, 'members');
+  assert.equal(group.orientation, 'vertical'); assert.equal(group.memberDisplay, 'name');
+  assert.deepEqual(plain(group.items), ['one']);
+  m.edit(c, 'a', { face: 'bad', orientation: 'bad', memberDisplay: 'bad' });
+  assert.equal(m.groups(c.bar)[0].face, 'both');
+  assert.equal(m.groups(c.bar)[0].orientation, 'vertical');
+});

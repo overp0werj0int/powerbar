@@ -3,7 +3,8 @@
   "id": "p0werj0int.powerbar",
   "name": "Powerbar",
   "version": "1.0.0",
-  "author": "Omarchy",
+  "author": "p0werj0int",
+  "license": "MIT",
   "description": "Status bar with widgets",
   "kinds": [
     "bar"

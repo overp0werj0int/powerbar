@@ -11,7 +11,7 @@ function entrySettings(entry) {
   if (!isPlainObject(entry)) return {}
   var copy = {}
   for (var key in entry) {
-    if (key === "id") continue
+    if (key === "id" || key === "powerbarInstance") continue
     copy[key] = entry[key]
   }
   return copy
@@ -55,6 +55,26 @@ function entryIndex(entries, name) {
   return -1
 }
 
+function moveInstanceInConfig(config, fromRegion, instanceKey, toRegion, beforeKey, visibility) {
+  var layout = config && config.bar && config.bar.layout
+  if (!isPlainObject(layout) || ["left", "center", "right"].indexOf(fromRegion) < 0 ||
+      ["left", "center", "right"].indexOf(toRegion) < 0 || !instanceKey) return false
+  var from = layout[fromRegion], to = layout[toRegion]
+  if (!Array.isArray(from) || !Array.isArray(to)) return false
+  var fromIndex = from.findIndex(function(entry) { return entry && entry.powerbarInstance === instanceKey })
+  if (fromIndex < 0 || instanceKey === beforeKey) return false
+  if (visibility !== undefined && ["shown", "managed", "hidden"].indexOf(visibility) < 0) return false
+  var toIndex = beforeKey ? to.findIndex(function(entry) { return entry && entry.powerbarInstance === beforeKey }) : to.length
+  if (toIndex < 0) return false
+  if (from === to && fromIndex < toIndex) toIndex--
+  if (from === to && fromIndex === toIndex &&
+      (visibility === undefined || from[fromIndex].powerbarVisibility === visibility)) return false
+  var entry = from.splice(fromIndex, 1)[0]
+  if (visibility !== undefined) entry.powerbarVisibility = visibility
+  to.splice(toIndex, 0, entry)
+  return true
+}
+
 function entriesBefore(entries, name) {
   var index = entryIndex(entries, name)
   return index <= 0 ? [] : entries.slice(0, index)
@@ -93,6 +113,8 @@ function inlineSettingsDelta(current, next) {
     for (var j = 0; j < a.length; j++) {
       if (entryId(a[j]) !== entryId(b[j])) return null
       if (JSON.stringify(a[j]) === JSON.stringify(b[j])) continue
+      if (a[j].powerbarInstance !== b[j].powerbarInstance) return null
+      if (entrySettings(a[j]).powerbarVisibility !== entrySettings(b[j]).powerbarVisibility) return null
       if (customModuleType(a[j]) || customModuleType(b[j])) return null
       if (counts[entryId(b[j])] > 1) return null
       changes.push({ region: region, index: j, entry: b[j] })
@@ -220,6 +242,7 @@ if (typeof module !== "undefined") {
     pinTrayToInner: pinTrayToInner,
     moduleString: moduleString,
     entryIndex: entryIndex,
+    moveInstanceInConfig: moveInstanceInConfig,
     entriesBefore: entriesBefore,
     entriesAfter: entriesAfter,
     inlineSettingsDelta: inlineSettingsDelta,

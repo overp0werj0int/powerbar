@@ -1,0 +1,60 @@
+# Groups
+
+Named groups are Powerbar configuration, not additional plugins. Persist them
+in `bar.powerbarGroups` with stable IDs, labels, icons, zones, optional placement
+anchors, and ordered lists of existing `powerbarInstance` keys. Widgets stay in
+their existing layout entries, retaining settings and service enablement.
+No new processes, packages, credentials, or network calls are required.
+
+Group members stay off the main bar and out of the zone's managed drawer. The
+group icon opens the existing ManagedDrawer with that group's ordered members.
+Hover opens temporarily; click pins/unpins. Only one drawer is active per bar;
+switching groups closes any child panel. Existing animation, dismissal, and
+keyboard interaction apply. Nested groups are excluded.
+Icon-only drawers follow the bar orientation and use the Powerbar island appearance.
+NAME and BOTH member displays always use a vertical menu with Powerbar's border,
+opacity, blur, and shadow, Omarchy's menu font, and the main theme's corner radius.
+Keyboard opening leaves rows unselected until
+the user navigates; reopening never carries a cursor highlight forward.
+
+Groups preferences provide creation, deletion, labels, icons, positions, widget
+assignment, transfer, and ordering. Deleting a group restores its widgets' prior
+visibility and placement. Explicitly hidden widgets remain hidden.
+
+Layout and Groups use the same OrganizationGrid component for cards, drop targets,
+keyboard movement, and destination controls. Layout uses zones and visibility rows;
+Groups uses ordered member/available columns. Group headers appear in Layout with
+their saved name and stock icon. Their visibility is independent of their members;
+member activity reveals a managed group header. The stock icon picker preserves
+the Omarchy menu glyph's custom font.
+
+The unified Appearance page applies the same border, rounding, shadow, blur, and
+opacity to every bar surface. Legacy main-bar effects are the fallback; extended
+overrides no longer split the appearance. Blur toggles remap the bar surface once
+to apply the compositor namespace; drawer transitions do not remap it.
+
+Verification: pure model tests pass for identity, duplicates, preservation,
+transfer, ordering and deletion. QML syntax checks and the existing activity and
+animated-slot suites pass. Live checks covered creation, renaming, preference
+drag assignment/transfer/reordering, ordered drawers, hover and pin opening, and
+dragging a drawer member onto another group's bar icon. Temporary groups were
+removed afterward. Outside-click dismissal and horizontal group placement still
+need manual acceptance checks.
+
+Preferences refactor validation: all four model test files and seven QML test
+checks pass. Live horizontal checks covered group creation, assignment by drag,
+renaming, stock menu icon selection, keyboard zone movement in Layout, opacity
+slider persistence, and compositor namespace changes when toggling blur. Test
+groups and appearance overrides were removed. Vertical layout was not visually
+rechecked in this refactor.
+
+Mini Bar parity: per-group glyph/text/both face, tooltip, badge on/off, SUM/COUNT
+aggregation, optional member property overrides, and native/name/both drawer
+member display. Grouped native widgets
+remain loaded while closed. Drawer members can be dragged out to return them to
+the bar. The same `SectionHeading` style is shared by Groups and Appearance.
+
+Badge values are read reactively from widget root properties through
+`GroupBadgeModel.js`; no process, poller, or duplicate service is introduced.
+The custom property names are constrained to plain QML property identifiers.
+The host's service-facade limitation for third-party widgets remains.
