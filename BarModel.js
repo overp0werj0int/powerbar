@@ -2,6 +2,23 @@ function isPlainObject(value) {
   return !!value && typeof value === "object" && !Array.isArray(value)
 }
 
+// Bar style: "flat" hugs the screen edges like Omarchy's own bar, "floating"
+// is one continuous surface held off the edges, "islands" floats each zone.
+// Configs from before styles existed kept only the islands switch.
+var barStyles = ["flat", "floating", "islands"]
+function barStyle(config) {
+  var value = config && config.powerbarStyle
+  if (barStyles.indexOf(value) >= 0) return value
+  return config && config.powerbarIslands === true ? "islands" : "flat"
+}
+function setBarStyle(config, value) {
+  if (barStyles.indexOf(value) < 0) return false
+  if (!config.bar) config.bar = {}
+  config.bar.powerbarStyle = value
+  delete config.bar.powerbarIslands
+  return true
+}
+
 function normalizePosition(value) {
   var next = String(value || "").trim()
   return /^(top|bottom|left|right)$/.test(next) ? next : "top"
@@ -232,6 +249,8 @@ function nearestDropTarget(candidates, point, vertical) {
 
 if (typeof module !== "undefined") {
   module.exports = {
+    barStyle: barStyle,
+    setBarStyle: setBarStyle,
     isDrawnSlot: isDrawnSlot,
     pickDrawnSlot: pickDrawnSlot,
     pickPanelSlot: pickPanelSlot,

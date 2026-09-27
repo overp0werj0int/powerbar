@@ -6,6 +6,7 @@ import Quickshell.Wayland
 import qs.Commons
 import qs.Ui
 import "PreferencesModel.js" as Model
+import "BarModel.js" as BarModel
 import "AppearanceModel.js" as AppearanceModel
 import "GroupsModel.js" as Groups
 
@@ -104,6 +105,11 @@ Item {
       if (!config.bar) config.bar = {}
       config.bar[key] = value
     })
+    status = result === false ? "Could not save. Check that shell.json is writable." : "Changes apply as you make them"
+  }
+  function setBarStyle(value) {
+    if (!bar || !bar.shell) return
+    var result = bar.shell.mutateShellConfig(function(config) { BarModel.setBarStyle(config, value) })
     status = result === false ? "Could not save. Check that shell.json is writable." : "Changes apply as you make them"
   }
   function resetOptions(operation) {
@@ -379,11 +385,11 @@ Item {
             }
             PrefsSection {
               title: "Style"
-              PrefsToggle {
-                label: "Islands"
-                description: "Each zone floats as its own surface over a transparent bar"
-                checked: prefs.config.powerbarIslands === true
-                onToggled: function(checked) { prefs.setOption("powerbarIslands", checked) }
+              BarStylePicker {
+                Layout.fillWidth: true
+                bar: prefs.bar
+                wallpaper: prefs.wallpaper
+                onChosen: function(value) { prefs.setBarStyle(value) }
               }
               PrefsSlider {
                 label: "Space between widgets"
@@ -433,7 +439,7 @@ Item {
             BarPreview { Layout.fillWidth: true }
             PrefsSection {
               title: "Borders and rounding"
-              description: "Border color follows your theme."
+              description: "For floating bars, islands and drawers. Border color follows your theme."
               PrefsToggle {
                 label: "Borders"
                 checked: prefs.config.powerbarIslandBorders !== false
@@ -556,19 +562,23 @@ Item {
   component BarPreview: BarBackdrop {
     id: preview
     readonly property var effects: prefs.bar ? prefs.bar.surfaceEffects : ({})
-    readonly property real barY: (height - (prefs.bar ? prefs.bar.barSize : 0)) / 2
+    // The preview is the strip of screen along the bar's edge: a flat bar
+    // touches the edges, floating bars and islands keep the bar's edge gap.
+    readonly property real gap: prefs.bar && !prefs.bar.flat ? prefs.bar.edgeGap : 0
+    readonly property real barY: prefs.bar && prefs.bar.position === "bottom"
+      ? height - prefs.bar.barSize - gap : gap
     implicitHeight: prefs.bar ? prefs.bar.barSize + Style.space(72) : Style.space(100)
     source: prefs.wallpaper
     position: prefs.bar ? prefs.bar.position : "top"
 
     EffectSurface {
       visible: prefs.bar && !prefs.bar.islands
-      x: Style.space(24); y: preview.barY
-      width: parent.width - Style.space(48)
+      x: preview.gap; y: preview.barY
+      width: parent.width - preview.gap * 2
       height: prefs.bar ? prefs.bar.barSize : 0
       color: prefs.bar ? prefs.bar.mainSurfaceColor : "transparent"
-      radius: prefs.bar ? prefs.bar.islandRounding : 0
-      borderSpec: prefs.bar ? prefs.bar.islandBorder : Border.none()
+      radius: prefs.bar && prefs.bar.floating ? prefs.bar.islandRounding : 0
+      borderSpec: prefs.bar && prefs.bar.floating ? prefs.bar.islandBorder : Border.none()
       shadowEnabled: !!preview.effects.shadow
       shadowSize: preview.effects.shadowSize || 0
       shadowOpacity: preview.effects.shadowOpacity || 0
@@ -584,8 +594,8 @@ Item {
         width: contentWidth
         height: prefs.bar ? prefs.bar.barSize : 0
         y: preview.barY
-        x: modelData === "left" ? Style.space(24) + (prefs.bar && prefs.bar.islands ? 0 : Style.space(4))
-          : modelData === "right" ? preview.width - Style.space(24) - width - (prefs.bar && prefs.bar.islands ? 0 : Style.space(4))
+        x: modelData === "left" ? preview.gap
+          : modelData === "right" ? preview.width - preview.gap - width
           : (preview.width - width) / 2
         visible: shown.length > 0
         EffectSurface {

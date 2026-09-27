@@ -36,7 +36,7 @@ part of them works from the keyboard.
 - **Groups** lists your groups beside an editor for the selected one: name, a
   stock Omarchy icon, placement, what the bar shows, badge, how members appear
   in the drawer, and the member list.
-- **General** covers screen edge, center anchor, autohide, animations, islands,
+- **General** covers screen edge, center anchor, autohide, animations, bar style,
   widget spacing, and drawer timing. Size, fonts, and colors follow Omarchy.
 - **Appearance** covers borders, rounding, blur, background opacity, and shadow,
   with a live preview of the bar over your wallpaper.
@@ -58,19 +58,39 @@ With the pointer, drag any widget in Layout or between the member lists; the
 landing place is previewed before you let go.
 
 Changes apply immediately and persist through the host in `~/.config/omarchy/shell.json`.
-Islands wrap each visible zone in the theme’s popup border and corner rounding,
-using the shared surface appearance over a transparent backdrop. Turning islands off
-uses that same appearance for the full bar. The preferences button stays in
-the right island (bottom island on vertical bars).
+**Bar style** (General → Style) is one of three, each shown as a small preview
+of your screen:
+
+- **Flat** runs edge to edge and meets the screen edges, square, like Omarchy's
+  own bar.
+- **Floating** is one continuous surface held off the screen edges, with the
+  theme's border and corner rounding.
+- **Islands** wrap each visible zone in the theme's border and corner rounding
+  over a transparent backdrop.
+
+Floating bars and islands keep the same distance from the edges, and all three
+use the shared surface appearance. The preferences button stays in the right
+zone (bottom zone on vertical bars).
 
 **Autohide** (General → Behavior) stops the bar from reserving screen space and
 parks it past its edge. Moving the pointer to that edge slides it back over the
 windows, and it stays out while hovered, while a drawer, widget panel, drag or
 Preferences is open, then slides away 400 ms after the pointer leaves. A 2 px
 strip along the edge remains clickable for the bar while it is hidden. It works
-in both continuous and island modes and on every edge.
+with every bar style and on every edge.
 
-The added bar keys are `powerbarIslands`, `powerbarAutoHide` and `powerbarSpacing`; each layout entry
+While the bar is hidden, widget activity still shows: when a widget's icon or
+value changes, its island slides out (the whole bar for flat and floating
+styles), the widget is highlighted as if hovered, and after 2.5 seconds it slides
+back. More activity keeps it out. Activity in a group member highlights the
+group's icon. The clock is ignored, since it changes every minute, and so is
+anything in the first few seconds after the bar starts or its layout changes,
+while widgets load their first values.
+
+The added bar keys are `powerbarStyle` (`flat`, `floating` or `islands`),
+`powerbarAutoHide` and `powerbarSpacing`. Configs from before bar styles keep
+working: `powerbarIslands: true` reads as islands and anything else as flat,
+and choosing a style replaces the old key; each layout entry
 may have `powerbarVisibility` (`shown`, `managed`, or `hidden`). Without an explicit choice, Omarchy system
 widgets default to Always shown and custom widgets to Managed. Stable
 `powerbarInstance` keys are assigned once to distinguish duplicate instances.

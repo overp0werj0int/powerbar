@@ -103,6 +103,29 @@ Item {
 
   function closeManagedDrawer() { if (managedOwner) managedOwner.close("immediate") }
   onBarHiddenChanged: if (barHidden) closeManagedDrawer()
+  // How long an autohidden bar, or one island, stays out after a widget changes.
+  readonly property int autoHidePeekMs: 2500
+  // Widgets load their first values just after the bar (re)builds; that is
+  // not activity, so peeks wait until the bar has settled.
+  property real peekQuietUntil: Date.now() + 6000
+  onBarConfigSerialChanged: peekQuietUntil = Date.now() + 6000
+  // Widget activity on an autohidden bar: slide out the widget's zone (islands)
+  // or the whole bar, and highlight the widget, or its group's icon, meanwhile.
+  function autoHidePeek(slot) {
+    if (!autoHide || barHidden || !slot || ManagedModel.quietActivity(slot.moduleName)) return
+    if (Date.now() < peekQuietUntil) return
+    var window = slotWindow(slot)
+    if (!window || typeof window.peek !== "function") return
+    var target = slot, zone = slot.region
+    if (slot.memberGroup) {
+      zone = slot.memberGroup.section
+      target = moduleSlots.find(function(s) {
+        return s && s.groupHeader && s.entry.powerbarGroupId === slot.memberGroup.id && sameWindow(slotWindow(s), window)
+      }) || slot
+    }
+    window.peek(zone)
+    target.flashActivity()
+  }
   function reportActivity(key) {
     if (!key) return
     var next = Object.assign({}, activityDeadlines)
@@ -1046,14 +1069,25 @@ Item {
   readonly property color mainSurfaceColor: Qt.alpha(background, surfaceEffects.backgroundOpacity)
   readonly property color extendedSurfaceColor: mainSurfaceColor
 
-  readonly property bool islands: barConfig.powerbarIslands === true
+  readonly property string barStyle: BarModel.barStyle(barConfig)
+  readonly property bool islands: barStyle === "islands"
+  readonly property bool floating: barStyle === "floating"
+  readonly property bool flat: barStyle === "flat"
+  // Floating bars and islands keep this distance from the screen edges.
+  readonly property real edgeGap: Style.space(4)
   readonly property bool autoHide: barConfig.powerbarAutoHide === true
   readonly property real islandPadding: Style.space(4)
   readonly property bool vertical: position === "left" || position === "right"
   readonly property int barSize: vertical ? Style.bar.sizeVertical : Style.bar.sizeHorizontal
   readonly property real renderedBarSize: barSize
   readonly property real barScale: 1
-  readonly property int barExtent: Math.ceil(renderedBarSize + (islands ? Style.space(8) : 0))
+  // Item highlight shared by the bar, its drawers and Preferences' layout
+  // tiles: a fill in the bar's own foreground, nested inside island corners.
+  readonly property color highlightHoverColor: Style.hoverFillFor(barForeground, Color.accent)
+  readonly property color highlightSelectedColor: Style.selectedFillFor(barForeground, Color.accent)
+  readonly property real highlightRounding: Math.max(Style.space(4), islandRounding - Style.space(3))
+  function highlightInset(extent) { return Math.min(Style.space(3), Math.max(0, (extent - Style.space(16)) / 2)) }
+  readonly property int barExtent: Math.ceil(renderedBarSize + (flat ? 0 : edgeGap * 2))
   readonly property real widgetSpacing: Style.space(Math.max(0, Math.min(24, Number(barConfig.powerbarSpacing) || 0)))
   readonly property var themeIslandBorder: Border.surfaceSpec("popups", "border", Color.popups.border, 1)
   readonly property real islandRounding: typeof barConfig.powerbarIslandRounding === "number"
@@ -1853,7 +1887,30 @@ Item {
       onTriggered: if (!barWindow.autoHideHeld) barWindow.autoHideRevealed = false
     }
     readonly property real autoHideDistance: root.barExtent + root.mainEffects.shadowSize + Style.space(8)
-    property real autoHideOffset: autoHideActive && !autoHideRevealed ? autoHideDistance : 0
+    // Zones slid out by widget activity: "all" for flat and floating bars, or
+    // single zones for islands. One timer ends them; new activity extends it.
+    property var peekZones: ({})
+    function peek(zone) {
+      if (!autoHideActive) return
+      var next = Object.assign({}, peekZones)
+      next[root.islands ? zone : "all"] = true
+      peekZones = next
+      peekEnd.restart()
+    }
+    Timer { id: peekEnd; interval: root.autoHidePeekMs; onTriggered: barWindow.peekZones = ({}) }
+    readonly property bool peeking: !!(peekZones.all || peekZones.left || peekZones.center || peekZones.right)
+    property real autoHideOffset: autoHideActive && !autoHideRevealed && !peeking ? autoHideDistance : 0
+    // While one island peeks the strip is out, so the others are pushed back
+    // past the edge by the same distance, on the same curve.
+    function zoneTucked(zone) { return root.islands && autoHideActive && !autoHideRevealed && peeking && !peekZones[zone] }
+    property real leftShift: zoneTucked("left") ? autoHideDistance : 0
+    property real centerShift: zoneTucked("center") ? autoHideDistance : 0
+    property real rightShift: zoneTucked("right") ? autoHideDistance : 0
+    Behavior on leftShift { enabled: root.animationsEnabled; NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
+    Behavior on centerShift { enabled: root.animationsEnabled; NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
+    Behavior on rightShift { enabled: root.animationsEnabled; NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
+    function shiftX(amount) { return root.position === "left" ? -amount : root.position === "right" ? amount : 0 }
+    function shiftY(amount) { return root.position === "top" ? -amount : root.position === "bottom" ? amount : 0 }
     Behavior on autoHideOffset {
       enabled: root.animationsEnabled
       NumberAnimation { duration: 180; easing.type: Easing.OutCubic }
@@ -1933,12 +1990,28 @@ Item {
         : root.position === "top" ? -barWindow.autoHideOffset : 0
       width: root.vertical ? root.barExtent : barWindow.width
       height: root.vertical ? barWindow.height : root.barExtent
-      color: root.islands ? "transparent" : root.mainSurfaceColor
-      shadowEnabled: !root.islands && root.mainEffects.shadow
+      // A flat bar is this strip itself, square and edge to edge like
+      // Omarchy's bar; the other styles draw their surfaces inside it.
+      color: root.flat ? root.mainSurfaceColor : "transparent"
+      shadowEnabled: root.flat && root.mainEffects.shadow
       shadowSize: root.mainEffects.shadowSize
       shadowOpacity: root.mainEffects.shadowOpacity
-      radius: root.islands ? 0 : root.islandRounding
-      borderSpec: root.islands ? Border.none() : root.islandBorder
+      radius: 0
+      borderSpec: Border.none()
+    }
+    // A floating bar: one continuous surface, held off the edges like islands.
+    EffectSurface {
+      visible: root.floating
+      x: mainStrip.x + (root.vertical ? (root.barExtent - root.barSize) / 2 : root.edgeGap)
+      y: mainStrip.y + (root.vertical ? root.edgeGap : (root.barExtent - root.barSize) / 2)
+      width: root.vertical ? root.barSize : mainStrip.width - root.edgeGap * 2
+      height: root.vertical ? mainStrip.height - root.edgeGap * 2 : root.barSize
+      color: root.mainSurfaceColor
+      shadowEnabled: root.mainEffects.shadow
+      shadowSize: root.mainEffects.shadowSize
+      shadowOpacity: root.mainEffects.shadowOpacity
+      radius: root.islandRounding
+      borderSpec: root.islandBorder
     }
     Loader {
       x: mainStrip.x
@@ -2024,16 +2097,15 @@ Item {
                 else drawer.sourceLeave(zoneTarget.modelData)
               }
             }
-            HoverUnderline {
+            HoverHighlight {
               anchors.fill: parent
-              z: 50
-              active: zoneHover.hovered && !root.barDragSource
+              anchors.margins: root.highlightInset(parent.height)
+              z: -1
+              hovered: zoneHover.hovered && !root.barDragSource
               motionEnabled: root.animationsEnabled
-              accent: Color.accent
-              contentItem: parent
-              horizontalInset: Style.space(4)
-              bottomInset: Style.space(2)
-              lineThickness: Style.space(2)
+              hoverColor: root.highlightHoverColor
+              selectedColor: root.highlightSelectedColor
+              rounding: root.highlightRounding
             }
           }
         }
@@ -2111,6 +2183,7 @@ Item {
         anchors.fill: parent
 
         IslandSurface {
+          transform: Translate { x: barWindow.shiftX(barWindow.leftShift); y: barWindow.shiftY(barWindow.leftShift) }
           x: leftModules.x - root.islandPadding
           y: (parent.height - height) / 2
           width: leftModules.width + root.islandPadding * 2
@@ -2118,15 +2191,20 @@ Item {
           visible: root.islands && leftModules.width > 0
         }
         IslandSurface {
+          transform: Translate { x: barWindow.shiftX(barWindow.rightShift); y: barWindow.shiftY(barWindow.rightShift) }
           x: rightModules.width > 0 ? rightModules.x - root.islandPadding : preferencesButton.x - root.islandPadding
           y: (parent.height - height) / 2
           width: preferencesButton.x + preferencesButton.width + root.islandPadding - x
           height: root.barSize
         }
-        CenterModules { anchors.fill: parent }
+        CenterModules {
+          anchors.fill: parent
+          transform: Translate { x: barWindow.shiftX(barWindow.centerShift); y: barWindow.shiftY(barWindow.centerShift) }
+        }
 
         LeftModules {
           id: leftModules
+          transform: Translate { x: barWindow.shiftX(barWindow.leftShift); y: barWindow.shiftY(barWindow.leftShift) }
           anchors.left: parent.left
           anchors.leftMargin: Style.space(8)
           anchors.verticalCenter: parent.verticalCenter
@@ -2134,13 +2212,15 @@ Item {
 
         PreferencesButton {
           id: preferencesButton
+          transform: Translate { x: barWindow.shiftX(barWindow.rightShift); y: barWindow.shiftY(barWindow.rightShift) }
           anchors.right: parent.right
-          anchors.rightMargin: Style.space(root.islands ? 8 : 4)
+          anchors.rightMargin: Style.space(root.flat ? 4 : 8)
           anchors.verticalCenter: parent.verticalCenter
         }
 
         RightModules {
           id: rightModules
+          transform: Translate { x: barWindow.shiftX(barWindow.rightShift); y: barWindow.shiftY(barWindow.rightShift) }
           anchors.right: preferencesButton.left
           anchors.rightMargin: Style.space(8)
           anchors.verticalCenter: parent.verticalCenter
@@ -2155,6 +2235,7 @@ Item {
         anchors.fill: parent
 
         IslandSurface {
+          transform: Translate { x: barWindow.shiftX(barWindow.leftShift); y: barWindow.shiftY(barWindow.leftShift) }
           x: (parent.width - width) / 2
           y: leftModules.y - root.islandPadding
           width: root.barSize
@@ -2162,15 +2243,20 @@ Item {
           visible: root.islands && leftModules.height > 0
         }
         IslandSurface {
+          transform: Translate { x: barWindow.shiftX(barWindow.rightShift); y: barWindow.shiftY(barWindow.rightShift) }
           x: (parent.width - width) / 2
           y: rightModules.height > 0 ? rightModules.y - root.islandPadding : preferencesButton.y - root.islandPadding
           width: root.barSize
           height: preferencesButton.y + preferencesButton.height + root.islandPadding - y
         }
-        CenterModules { anchors.fill: parent }
+        CenterModules {
+          anchors.fill: parent
+          transform: Translate { x: barWindow.shiftX(barWindow.centerShift); y: barWindow.shiftY(barWindow.centerShift) }
+        }
 
         LeftModules {
           id: leftModules
+          transform: Translate { x: barWindow.shiftX(barWindow.leftShift); y: barWindow.shiftY(barWindow.leftShift) }
           anchors.top: parent.top
           anchors.topMargin: Style.space(8)
           anchors.horizontalCenter: parent.horizontalCenter
@@ -2178,13 +2264,15 @@ Item {
 
         PreferencesButton {
           id: preferencesButton
+          transform: Translate { x: barWindow.shiftX(barWindow.rightShift); y: barWindow.shiftY(barWindow.rightShift) }
           anchors.bottom: parent.bottom
-          anchors.bottomMargin: Style.space(root.islands ? 8 : 4)
+          anchors.bottomMargin: Style.space(root.flat ? 4 : 8)
           anchors.horizontalCenter: parent.horizontalCenter
         }
 
         RightModules {
           id: rightModules
+          transform: Translate { x: barWindow.shiftX(barWindow.rightShift); y: barWindow.shiftY(barWindow.rightShift) }
           anchors.bottom: preferencesButton.top
           anchors.bottomMargin: Style.space(8)
           anchors.horizontalCenter: parent.horizontalCenter
@@ -2215,11 +2303,15 @@ Item {
     height: implicitHeight
     Accessible.role: Accessible.Button
     Accessible.name: "Powerbar preferences"
-    Rectangle {
+    HoverHighlight {
       anchors.fill: parent
-      anchors.margins: Style.space(2)
-      radius: Style.cornerRadius
-      color: Qt.alpha(root.barForeground, buttonMouse.containsMouse ? 0.14 : 0)
+      anchors.margins: root.highlightInset(parent.height)
+      hovered: buttonMouse.containsMouse && !root.barDragSource && !root.barHidden
+      selected: preferencesPane.opened
+      motionEnabled: root.animationsEnabled
+      hoverColor: root.highlightHoverColor
+      selectedColor: root.highlightSelectedColor
+      rounding: root.highlightRounding
     }
     Grid {
       id: preferencesGlyph
@@ -2229,17 +2321,6 @@ Item {
         model: 9
         Rectangle { width: Style.space(2); height: width; radius: width / 2; color: root.barForeground }
       }
-    }
-    HoverUnderline {
-      anchors.fill: parent
-      z: 1
-      active: buttonMouse.containsMouse && !root.barDragSource && !root.barHidden
-      motionEnabled: root.animationsEnabled
-      accent: Color.accent
-      contentItem: preferencesGlyph
-      horizontalInset: Style.space(4)
-      bottomInset: Style.space(2)
-      lineThickness: Style.space(2)
     }
     MouseArea {
       id: buttonMouse
@@ -2755,16 +2836,6 @@ Item {
     // The released image is still gliding into this slot.
     readonly property bool settleHidden: root.slotSettleHidden(slot)
     readonly property bool panelOpen: root.activePopout === slot.activeItem
-    // Modules bigger than the mark they want (a text label in a padded slot,
-    // a multi-line stack on a vertical bar) can say how long the open-panel
-    // dot should be along the bar, so it tracks what the module paints
-    // instead of a fraction of whatever slot it happens to fill.
-    readonly property real panelIndicatorExtent: {
-      var key = root.vertical ? "openPanelIndicatorHeight" : "openPanelIndicatorWidth"
-      var hint = activeItem && key in activeItem ? activeItem[key] : undefined
-      if (hint !== undefined && hint !== null && hint > 0) return Math.round(hint)
-      return Math.max(Style.space(10), Math.round((root.vertical ? slot.naturalHeight : slot.naturalWidth) * 0.55))
-    }
     readonly property string instanceKey: entry && entry.powerbarInstance ? entry.powerbarInstance : moduleName + ":" + region
     readonly property var preview: DragModel.slot(root.dragPreview, instanceKey, "bar:" + region)
     readonly property var memberGroup: groupHeader ? null : root.groupFor(instanceKey)
@@ -2792,13 +2863,21 @@ Item {
     onActivityUntilChanged: syncActivity()
     onManagedChanged: syncActivity()
     Timer { id: activityExpiry; repeat: false; onTriggered: slot.activityVisible = false }
+    // Highlighted like a hover while an autohidden bar shows it for activity.
+    property bool activityFlash: false
+    function flashActivity() { activityFlash = true; flashEnd.restart() }
+    Timer { id: flashEnd; interval: root.autoHidePeekMs; onTriggered: slot.activityFlash = false }
     Repeater {
       model: slot.activityTargets
       ActivityObserver {
         required property var modelData
         target: modelData
-        enabledForActivity: slot.managed || !!(slot.memberGroup && slot.memberGroup.visibility === "managed")
-        onActivity: root.reportActivity(slot.instanceKey)
+        readonly property bool reveals: slot.managed || !!(slot.memberGroup && slot.memberGroup.visibility === "managed")
+        enabledForActivity: reveals || root.autoHide
+        onActivity: {
+          if (reveals) root.reportActivity(slot.instanceKey)
+          root.autoHidePeek(slot)
+        }
       }
     }
     function activate() {
@@ -2813,8 +2892,6 @@ Item {
     readonly property bool needsPlaceholder: (alwaysShown || managed) && (!activeItem || !activeItem.visible || activeItem.opacity === 0 || activeItem.implicitWidth <= 0 || activeItem.implicitHeight <= 0)
     readonly property real naturalWidth: needsPlaceholder ? root.barSize : activeItem && activeItem.visible ? (root.vertical ? root.barSize : activeItem.implicitWidth) : 0
     readonly property real naturalHeight: needsPlaceholder ? root.barSize : activeItem && activeItem.visible ? activeItem.implicitHeight : 0
-    // What the hover mark measures: the painted widget, not its padded slot.
-    readonly property Item hoverContentItem: needsPlaceholder ? placeholderButton : activeItem
     // While settling, the committed slot keeps the extent of the drop gap it
     // replaces, then eases to its natural size so neighbours never step.
     readonly property real settleExtraWidth: settleHidden && !centerAnchorSlot
@@ -2926,45 +3003,22 @@ Item {
     }
 
     }
-    Rectangle {
-      id: openPanelIndicator
-      parent: presentation
-
-      readonly property int inset: Style.space(2)
-
-      visible: opacity > 0
-      opacity: slot.panelOpen && !slot.dragSource ? 0.9 : 0
-      color: Color.accent
-      radius: Math.min(width, height) / 2
-      width: root.vertical ? Style.space(2) : slot.panelIndicatorExtent
-      height: root.vertical ? slot.panelIndicatorExtent : Style.space(2)
-      // The mark sits on the module's inner edge — the one facing the
-      // desktop — so it underlines a top bar, overlines a bottom one, and
-      // points inward from a left or right one. It reads as pointing at the
-      // panel that opens on that side.
-      x: root.vertical
-        ? (root.position === "left" ? parent.width - width - inset : inset)
-        : Math.round((parent.width - width) / 2)
-      y: root.vertical
-        ? Math.round((parent.height - height) / 2)
-        : (root.position === "top" ? parent.height - height - inset : inset)
-      z: 50
-
-      Behavior on opacity {
-        NumberAnimation { duration: 120; easing.type: Easing.OutCubic }
-      }
-    }
-    HoverUnderline {
+    // Hover and an open panel share the Preferences tile look: a rounded
+    // fill behind the widget, inset from the bar's edges.
+    HoverHighlight {
       parent: presentation
       anchors.fill: parent
-      z: 49
-      active: slot.hovered && slot.mainVisible && !slot.dragSource && !slot.panelOpen && !root.barHidden && !preferencesPane.opened
+      anchors.topMargin: root.vertical ? 0 : root.highlightInset(parent.height)
+      anchors.bottomMargin: root.vertical ? 0 : root.highlightInset(parent.height)
+      anchors.leftMargin: root.vertical ? root.highlightInset(parent.width) : 0
+      anchors.rightMargin: root.vertical ? root.highlightInset(parent.width) : 0
+      z: -1
+      hovered: (slot.hovered || slot.activityFlash) && slot.mainVisible && !slot.dragSource && !root.barHidden && !preferencesPane.opened
+      selected: slot.panelOpen && !slot.dragSource
       motionEnabled: root.animationsEnabled
-      accent: Color.accent
-      contentItem: slot.hoverContentItem
-      horizontalInset: Style.space(4)
-      bottomInset: Style.space(2)
-      lineThickness: Style.space(2)
+      hoverColor: root.highlightHoverColor
+      selectedColor: root.highlightSelectedColor
+      rounding: root.highlightRounding
     }
 
     MouseArea {

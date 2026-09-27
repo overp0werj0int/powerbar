@@ -29,6 +29,10 @@ function menuLabelStart(showNative, naturalWidth, inset, iconGap) {
 function cursorVisible(keyboardMode, cursorActive, count) {
   return !!keyboardMode && !!cursorActive && count > 0
 }
+// Widgets whose presentation changes on a clock rather than on an event; an
+// autohidden bar should not slide out for them every minute.
+var quietWidgets = ["omarchy.clock"]
+function quietActivity(id) { return quietWidgets.indexOf(String(id || "")) >= 0 }
 function snapshot(target) {
   if (!target) return ""
   var values = []

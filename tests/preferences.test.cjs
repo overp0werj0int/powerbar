@@ -120,3 +120,13 @@ test('drops insert before the item at the gap or at the end of the zone', () => 
   assert.equal(model.dropBefore(items, 1), 2);
   assert.equal(model.dropBefore(items, 2), -1);
 });
+test('bar style reads the style, falls back to the old islands switch, and replaces it', () => {
+  assert.equal(barModel.barStyle({}), 'flat');
+  assert.equal(barModel.barStyle({ powerbarIslands: true }), 'islands');
+  assert.equal(barModel.barStyle({ powerbarIslands: true, powerbarStyle: 'floating' }), 'floating');
+  assert.equal(barModel.barStyle({ powerbarStyle: 'bogus' }), 'flat');
+  const config = { bar: { powerbarIslands: true, keep: 1 } };
+  assert.equal(barModel.setBarStyle(config, 'floating'), true);
+  assert.deepEqual({ ...config.bar }, { keep: 1, powerbarStyle: 'floating' });
+  assert.equal(barModel.setBarStyle(config, 'rounded'), false);
+});

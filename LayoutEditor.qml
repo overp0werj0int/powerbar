@@ -279,21 +279,24 @@ Item {
                   visible: rowItem.modelData.mode === "shown"
                   source: editor.preferences.wallpaper
                   position: editor.bar.position
-                }
-                // A continuous bar is one strip behind all three zones.
-                BorderSurface {
-                  anchors.fill: parent
-                  anchors.margins: rowBody.inset
-                  visible: rowItem.modelData.mode === "shown" && !editor.bar.islands
-                  color: editor.bar.mainSurfaceColor
-                  radius: editor.bar.islandRounding
-                  borderSpec: editor.bar.islandBorder
+                  // Flat and floating bars are one strip behind all three
+                  // zones: flat meets the edges, floating keeps the gap.
+                  BorderSurface {
+                    visible: !editor.bar.islands
+                    x: editor.bar.flat ? 0 : rowBody.inset
+                    y: editor.bar.flat ? 0 : rowBody.inset
+                    width: parent.width - x * 2
+                    height: editor.bar.flat ? cellsRow.height + rowBody.inset : cellsRow.height
+                    color: editor.bar.mainSurfaceColor
+                    radius: editor.bar.flat ? 0 : editor.bar.islandRounding
+                    borderSpec: editor.bar.flat ? Border.none() : editor.bar.islandBorder
+                  }
                 }
 
                 RowLayout {
                   id: cellsRow
                   x: rowBody.inset
-                  y: rowBody.inset
+                  y: rowItem.modelData.mode === "shown" && editor.bar.flat ? rowBody.inset / 2 : rowBody.inset
                   width: parent.width - rowBody.inset * 2
                   spacing: rowItem.modelData.mode === "shown" && !editor.bar.islands ? 0 : Style.space(10)
                   Repeater {

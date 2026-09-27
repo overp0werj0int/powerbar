@@ -323,21 +323,17 @@ Item {
               id: memberHover
               enabled: drawer.opened && !bar.barDragSource
             }
-            HoverUnderline {
-              x: mount.contentOffsetX
-              y: mount.contentOffsetY
-              width: mount.baseWidth
-              height: mount.baseHeight
-              z: 20
-              active: memberHover.hovered && drawer.opened && !bar.barDragSource && !preview.hidden
+            HoverHighlight {
+              x: mount.contentOffsetX + bar.highlightInset(mount.baseHeight) * (drawer.namedMenu || mount.labelled ? 1 : 0)
+              y: mount.contentOffsetY + bar.highlightInset(mount.baseHeight)
+              width: mount.baseWidth - bar.highlightInset(mount.baseHeight) * (drawer.namedMenu || mount.labelled ? 2 : 0)
+              height: mount.baseHeight - bar.highlightInset(mount.baseHeight) * 2
+              z: -1
+              hovered: memberHover.hovered && drawer.opened && !bar.barDragSource && !preview.hidden
               motionEnabled: bar.animationsEnabled
-              accent: Color.accent
-              // Menu rows share one row-width stroke; icons measure their ink.
-              mode: drawer.namedMenu || mount.labelled ? "row" : "icon"
-              contentItem: mount.modelData ? mount.modelData.hoverContentItem : null
-              horizontalInset: drawer.namedMenu || mount.labelled ? Style.space(8) : Style.space(6)
-              bottomInset: Style.space(2)
-              lineThickness: Style.space(2)
+              hoverColor: bar.highlightHoverColor
+              selectedColor: bar.highlightSelectedColor
+              rounding: bar.highlightRounding
             }
             Text {
               id: label

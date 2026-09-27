@@ -73,3 +73,8 @@ test('combined menu labels sit close to the icon while name-only rows retain an 
   assert.equal(m.menuLabelStart(true, 26, 8, 2), 28);
   assert.equal(m.menuLabelStart(false, 26, 8, 2), 8);
 });
+test('clock-driven widgets never count as activity for an autohidden bar', () => {
+  assert.equal(m.quietActivity('omarchy.clock'), true);
+  assert.equal(m.quietActivity('omarchy.audio'), false);
+  assert.equal(m.quietActivity(undefined), false);
+});
