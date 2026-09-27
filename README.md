@@ -11,30 +11,51 @@ credited as the source of the cloned bar.
 ## Preferences
 
 Click the nine-dot button at the far right of a horizontal bar (at the bottom
-of a vertical bar). Preferences open in the center of that monitor.
+of a vertical bar). Preferences open in the center of that monitor, and every
+part of them works from the keyboard.
 
-- **General:** screen edge, islands, autohide, animations, center anchor, managed timing, and widget spacing.
-  Size, fonts, and colors follow Omarchy.
-- **Layout:** three columns (Left, Center, Right) and three visibility rows.
-  Drag a widget to a cell to append it, or onto another widget to insert before it.
-  Each cell scrolls independently when it has many widgets. Groups appear with their
-  names and chosen icons; their members are edited on the Groups page.
-- **Always shown** keeps a widget slot visible. If the widget has no visible content,
-  Powerbar displays a fallback icon; clicking it opens the widget when it exposes
-  an `open()` method, or preferences otherwise. Widgets still control their own
-  internal content and availability.
-- **Managed** is hidden at rest. Events and icon/value changes reveal the widget
-  for 10 seconds by default. Hover its zone to open a drawer of managed widgets.
-- **Always hidden** removes the widget from the bar without deleting its settings
-  or disabling its plugin elsewhere in the shell.
-- **Groups:** create named drawers, choose a stock Omarchy icon, and assign or reorder widgets.
-- **Appearance:** shared borders, rounding, shadows, blur, and background opacity.
+- **Layout** shows your bar as it looks, on your wallpaper, with live images of
+  its widgets. Columns are the zones (Left, Center, Right); rows are visibility:
+  - **On the bar** keeps a widget slot visible. If the widget has no visible
+    content, Powerbar displays a fallback icon; clicking it opens the widget when
+    it exposes an `open()` method, or preferences otherwise.
+  - **In the drawer** (Managed) is hidden at rest. Events and icon/value changes
+    reveal the widget for 10 seconds by default. Hover its zone to open a
+    drawer of these widgets.
+  - **Hidden** removes the widget from the bar without deleting its settings or
+    disabling its plugin elsewhere in the shell.
 
-Tab / Shift+Tab navigate controls. Enter / Space activate them. Ctrl+1 / Ctrl+2 / Ctrl+3 / Ctrl+4
-switch pages; sidebar Up / Down also switches pages. On a focused widget,
-Ctrl+Left / Right changes its zone and Ctrl+Up / Down changes visibility.
-Alternatively, select a widget and use the destination controls and **Move**.
-Escape, the close button, or clicking outside dismisses the panel.
+  Widgets appear as they draw themselves, including third-party widgets:
+  drawer and group members are rendered live because they stay loaded, and a
+  hidden widget shows the last look Powerbar saw, kept in
+  `~/.cache/powerbar/widgets/`. A widget that has never been shown falls back
+  to a stock glyph.
+
+  The inspector beside the grid shows the selected widget or group: its zone,
+  visibility, group, and whether it is pinned to the exact screen center.
+- **Groups** lists your groups beside an editor for the selected one: name, a
+  stock Omarchy icon, placement, what the bar shows, badge, how members appear
+  in the drawer, and the member list.
+- **General** covers screen edge, center anchor, autohide, animations, islands,
+  widget spacing, and drawer timing. Size, fonts, and colors follow Omarchy.
+- **Appearance** covers borders, rounding, blur, background opacity, and shadow,
+  with a live preview of the bar over your wallpaper.
+
+### Keys
+
+The footer always lists the keys for whatever has focus, and an accent ring
+follows keyboard focus.
+
+| Where | Keys |
+| --- | --- |
+| Anywhere | `1`–`4` or Ctrl+`1`–`4` switch pages, Ctrl+Tab cycles them, Tab / Shift+Tab move between controls, Esc closes |
+| Forms | `j` / `k` or Up / Down move between controls, `h` / `l` or Left / Right adjust (Shift for larger steps), Space / Enter toggle or choose |
+| Layout grid | `h` `j` `k` `l` move; Space picks up the widget, then `h` / `l` move it along and across zones and `j` / `k` change its row; Space or Enter drops it, Esc puts it back; `x` hides or restores; Enter or Tab opens the inspector; `g` edits a group |
+| Group list | `j` / `k` choose, `n` makes a group, `x` twice dissolves it, Enter edits |
+| Member lists | `j` / `k` choose, Space picks up to reorder, `x` removes, Enter adds from Available, `/` filters |
+
+With the pointer, drag any widget in Layout or between the member lists; the
+landing place is previewed before you let go.
 
 Changes apply immediately and persist through the host in `~/.config/omarchy/shell.json`.
 Islands wrap each visible zone in the theme’s popup border and corner rounding,
@@ -42,7 +63,7 @@ using the shared surface appearance over a transparent backdrop. Turning islands
 uses that same appearance for the full bar. The preferences button stays in
 the right island (bottom island on vertical bars).
 
-**Autohide** (General → Bar style) stops the bar from reserving screen space and
+**Autohide** (General → Behavior) stops the bar from reserving screen space and
 parks it past its edge. Moving the pointer to that edge slides it back over the
 windows, and it stays out while hovered, while a drawer, widget panel, drag or
 Preferences is open, then slides away 400 ms after the pointer leaves. A 2 px
@@ -65,13 +86,11 @@ on the focused monitor; `omarchy-shell powerbar closePreferences` closes them.
 
 ## Groups
 
-Open **Preferences → Groups** to create named drawers. The Groups panel uses
-compact group chips and the same ruled appearance sections as the Appearance
-page. Choose a group to rename it, select a stock Omarchy glyph, set its zone,
-and edit its members. Right-click a group icon on the bar to open that group in
+Open **Preferences → Groups** to create named drawers. Choose a group to rename
+it, select a stock Omarchy glyph, set its zone, and edit its members. Right-click a group icon on the bar to open that group in
 preferences. Groups also appear with their names and icons in Layout.
 
-Each group independently chooses its bar face (**glyph**, **text**, or **both**),
+Each group independently chooses what the bar shows (**icon**, **name**, or **both**),
 name tooltip, notification badge, badge mode, and drawer member display
 (**native icon**, **name**, or **both**). Icon-only drawers follow the bar's
 orientation. The same Powerbar border, shadow, blur, opacity, and animation
@@ -81,14 +100,14 @@ radius; icon-only drawers use Powerbar's island rounding.
 Badges read live count properties from the existing hosted widgets, without
 polling or extra widget instances. Powerbar recognizes `unseenCount`, `downCount`,
 `updateCount`, `badgeCount`, `notificationCount`, `unreadCount`, `alertCount`,
-`pendingCount`, and `count`. **SUM** adds the values; **COUNT** shows how many
+`pendingCount`, and `count`. **Values** adds the values; **Busy widgets** shows how many
 members have a positive value. The badge becomes urgent when a member exposes
 an urgent boolean or a positive `downCount` / `alertCount`. Select a member in
 Groups to enter a custom badge or urgent property name. `none` explicitly
 excludes a member from badge aggregation.
 
-Drag widgets between the available and member columns, reorder them within the
-group, or drop a member onto another group chip to transfer it. On the bar, drag
+Drag widgets between the Available and member lists, or reorder them within the
+group. On the bar, drag
 an icon onto a group icon or an open group drawer to add it; drag a member onto
 another group icon or drawer to transfer it. Drag a member onto the main bar to
 remove it from its group and show it in that zone. Dragging outside the bar and

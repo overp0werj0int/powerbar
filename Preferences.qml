@@ -1,7 +1,7 @@
 import QtQuick
 import QtQuick.Layouts
-import QtQuick.Controls as Controls
 import Quickshell
+import Quickshell.Io
 import Quickshell.Wayland
 import qs.Commons
 import qs.Ui
@@ -9,15 +9,21 @@ import "PreferencesModel.js" as Model
 import "AppearanceModel.js" as AppearanceModel
 import "GroupsModel.js" as Groups
 
+// Powerbar preferences. Everything is reachable from the keyboard: 1-4 switch
+// pages, Tab and j/k walk controls, h/l adjust them, Esc closes. The footer
+// always lists the keys that apply to whatever has focus.
 Item {
   id: prefs
   property var bar: null
   property bool opened: false
   property var targetScreen: null
   property int page: 0
-  property string status: "Changes save automatically"
+  property string status: "Changes apply as you make them"
+  property var snapshots: ({})
+  property int openSerial: 0
+  readonly property string wallpaper: bar ? "file://" + bar.stateHome + "/omarchy/current/background?v=" + openSerial : ""
   readonly property var config: bar ? bar.barConfig : ({})
-  readonly property var entries: Model.records(config.layout, function(id) { var widgets = bar.barWidgetRegistry.widgets; return bar.barWidgetRegistry.metadataFor(id) })
+  readonly property var entries: Model.records(config.layout, function(id) { return bar.barWidgetRegistry.metadataFor(id) })
   readonly property var layoutEntries: {
     var result = entries.filter(function(e) { return !bar.groupFor(e.instanceKey) })
     bar.groups.forEach(function(g) {
@@ -30,44 +36,78 @@ Item {
     })
     return result.sort(function(a, b) { return a.index - b.index || (a.groupId ? -1 : b.groupId ? 1 : 0) })
   }
-  readonly property var sections: ["left", "center", "right"]
-  readonly property var modes: ["shown", "managed", "hidden"]
+  readonly property var pages: [
+    { title: "Layout", icon: "󰕰" }, { title: "Groups", icon: "󰉋" },
+    { title: "General", icon: "󰒓" }, { title: "Appearance", icon: "󰏘" }
+  ]
+  readonly property var pageItems: [layoutPage, groupsPage, generalPage, appearancePage]
+  readonly property var hints: pageItems[page] ? pageItems[page].hints : []
 
-  function revealGeneralControl(item) {
-    var view = (prefs.page === 3 ? appearanceScroll : generalScroll).contentItem
-    if (!view || !view.contentItem) return
-    var point = item.mapToItem(view.contentItem, 0, 0)
-    if (point.y < view.contentY) view.contentY = point.y
-    else if (point.y + item.height > view.contentY + view.height)
-      view.contentY = point.y + item.height - view.height
-  }
   function open(payloadJson) {
     bar.closeManagedDrawer()
     bar.clearTooltip()
     bar.requestPopout(prefs)
+    snapshots = ({})
+    openSerial++
+    cacheListing.running = true
     opened = true
-    Qt.callLater(function() { [generalTab, layoutTab, groupsTab, appearanceTab][prefs.page].forceActiveFocus() })
+    refreshSnapshots()
+    Qt.callLater(focusPage)
   }
   function close() {
     opened = false
     if (bar) bar.releasePopout(prefs)
   }
   function show(screen) { targetScreen = screen; open("{}") }
-  function showGroup(screen, id) { groupsEditor.selectedId = id; page = 2; show(screen) }
+  function showGroup(screen, id) { if (id) groupsPage.selectedId = id; page = 1; show(screen) }
+  function openGroup(id) { groupsPage.selectedId = id; setPage(1) }
+  function setPage(index) {
+    if (index < 0 || index >= pages.length) return
+    page = index
+    Qt.callLater(focusPage)
+  }
+  function focusPage() { if (pageItems[page]) pageItems[page].focusFirst() }
+  function refreshSnapshots() {
+    if (!opened || !bar || !targetScreen) return
+    bar.captureWidgetImages(targetScreen, function(key, image) {
+      var next = Object.assign({}, prefs.snapshots)
+      next[key] = image
+      prefs.snapshots = next
+    })
+  }
   function title(record) {
     if (record.groupId) return record.label
+    if (record.label) return record.label
     var metadata = bar.barWidgetRegistry.metadataFor(record.id)
-    return metadata && (metadata.displayName || metadata.name) || record.id.split('.').pop()
+    return metadata && (metadata.displayName || metadata.name) || String(record.id).split('.').pop()
+  }
+  // Saved widget images on disk, listed once per opening.
+  property var cachedImages: ({})
+  function cachedImageUrl(key) {
+    if (!bar) return ""
+    var file = bar.widgetImageFile(key)
+    return cachedImages[file.slice(file.lastIndexOf("/") + 1)] ? "file://" + file + "?v=" + openSerial : ""
+  }
+  Process {
+    id: cacheListing
+    command: ["ls", "-1", prefs.bar ? prefs.bar.widgetImageDir : "/nonexistent"]
+    property var found: ({})
+    stdout: SplitParser { onRead: function(line) { cacheListing.found[String(line).trim()] = true } }
+    onStarted: found = ({})
+    onExited: prefs.cachedImages = found
   }
   function iconFont(record) { return Groups.iconFont(icon(record)) || Style.font.family }
-  function icon(record) { return record.groupId ? record.icon : Model.icon(record.id) }
+  function icon(record) { return record.groupId ? record.icon : Model.icon(String(record.id || "")) }
   function setOption(key, value) {
     if (!bar || !bar.shell) return
     var result = bar.shell.mutateShellConfig(function(config) {
       if (!config.bar) config.bar = {}
       config.bar[key] = value
     })
-    status = result === false ? "Could not save preferences" : "Changes save automatically"
+    status = result === false ? "Could not save. Check that shell.json is writable." : "Changes apply as you make them"
+  }
+  function resetOptions(operation) {
+    if (bar && bar.shell) bar.shell.mutateShellConfig(function(config) { if (config.bar) operation(config.bar) })
   }
   function move(record, section, mode, before) {
     if (!record || !bar || !bar.shell) return
@@ -79,7 +119,15 @@ Item {
           before: anchor && anchor.powerbarInstance || "" })
       } else changed = Model.move(config, record, section, mode, Math.ceil(before))
     })
-    status = accepted === false ? "Could not save layout" : changed ? "Layout updated" : "Layout changed elsewhere. Select the widget again."
+    status = accepted === false ? "Could not save the layout. Check that shell.json is writable."
+      : changed ? "Changes apply as you make them" : "The layout changed elsewhere. Try again."
+  }
+
+  // Widget images go stale whenever the bar re-renders.
+  Timer { id: snapshotDelay; interval: 260; onTriggered: prefs.refreshSnapshots() }
+  Connections {
+    target: prefs.bar
+    function onBarConfigChanged() { if (prefs.opened) snapshotDelay.restart() }
   }
 
   PanelWindow {
@@ -95,402 +143,478 @@ Item {
 
     Rectangle {
       anchors.fill: parent
-      color: Qt.rgba(0, 0, 0, 0.38)
+      color: Color.menu.scrim
       MouseArea { anchors.fill: parent; onClicked: prefs.close() }
     }
 
     BorderSurface {
-      id: surface
+      id: card
       anchors.centerIn: parent
-      width: Math.min(parent.width - Style.space(40), Style.space(1240))
-      height: Math.min(parent.height - Style.space(56), Style.space(800))
+      width: Math.min(parent.width - Style.space(48), Style.space(1180))
+      height: Math.min(parent.height - Style.space(64), Style.space(790))
       color: Qt.rgba(Color.popups.background.r, Color.popups.background.g, Color.popups.background.b, 1)
       borderSpec: Border.surfaceSpec("popups", "border", Color.popups.border, 1)
       radius: Style.cornerRadius
       focus: true
-      Keys.onEscapePressed: prefs.close()
-      // Ctrl+1/2 switches pages without walking the entire grid.
+      opacity: prefs.opened ? 1 : 0
+      scale: prefs.opened ? 1 : 0.98
+      Behavior on opacity { enabled: prefs.bar && prefs.bar.animationsEnabled; NumberAnimation { duration: 140; easing.type: Easing.OutCubic } }
+      Behavior on scale { enabled: prefs.bar && prefs.bar.animationsEnabled; NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
+
+      // Keys nothing inside wanted: page switching and closing.
       Keys.onPressed: function(event) {
-        if (event.modifiers & Qt.ControlModifier) {
-          if (event.key === Qt.Key_1) { prefs.page = 0; generalTab.forceActiveFocus(); event.accepted = true }
-          if (event.key === Qt.Key_2) { prefs.page = 1; layoutTab.forceActiveFocus(); event.accepted = true }
-          if (event.key === Qt.Key_4) { prefs.page = 3; appearanceTab.forceActiveFocus(); event.accepted = true }
-          if (event.key === Qt.Key_3) { prefs.page = 2; groupsTab.forceActiveFocus(); event.accepted = true }
-        }
+        var ctrl = event.modifiers & Qt.ControlModifier
+        var digit = event.key - Qt.Key_1
+        if (event.key === Qt.Key_Escape) { prefs.close(); event.accepted = true }
+        else if (digit >= 0 && digit < prefs.pages.length && !(event.modifiers & Qt.AltModifier)) { prefs.setPage(digit); event.accepted = true }
+        else if (ctrl && event.key === Qt.Key_Tab) { prefs.setPage((prefs.page + 1) % prefs.pages.length); event.accepted = true }
+        else if (ctrl && event.key === Qt.Key_Backtab) { prefs.setPage((prefs.page + prefs.pages.length - 1) % prefs.pages.length); event.accepted = true }
       }
-      MouseArea { anchors.fill: parent } // Contain clicks inside the card.
+      // Ctrl+digit works even while typing in a field.
+      Shortcut { sequences: ["Ctrl+1"]; onActivated: prefs.setPage(0) }
+      Shortcut { sequences: ["Ctrl+2"]; onActivated: prefs.setPage(1) }
+      Shortcut { sequences: ["Ctrl+3"]; onActivated: prefs.setPage(2) }
+      Shortcut { sequences: ["Ctrl+4"]; onActivated: prefs.setPage(3) }
+      MouseArea { anchors.fill: parent } // Keep clicks inside the card.
 
-      RowLayout {
+      // One accent ring follows keyboard focus from control to control, so the
+      // current place is obvious whatever the theme's own focus styling.
+      // Lists and grids that draw their own cursor opt out with ownsFocusRing.
+      BorderSurface {
+        id: focusRing
+        readonly property Item focused: card.Window.activeFocusItem
+        readonly property Item target: prefs.opened && focused && focused !== card && !focused.ownsFocusRing
+          && focused.width > 0 && focused.height > 0 ? focused : null
+        readonly property real pad: Style.space(3)
+        property bool gliding: false
+        z: 1000
+        visible: !!target && target.visible
+        color: "transparent"
+        radius: Style.cornerRadius + pad
+        borderSpec: Border.flat(Color.accent, Math.max(1, Style.space(2)))
+        onTargetChanged: { gliding = true; glideEnd.restart(); follow() }
+        function follow() {
+          if (!target) return
+          var p = target.mapToItem(card, 0, 0)
+          x = p.x - pad
+          y = p.y - pad
+          width = target.width + pad * 2
+          height = target.height + pad * 2
+        }
+        Timer { id: glideEnd; interval: 170; onTriggered: focusRing.gliding = false }
+        FrameAnimation { running: focusRing.visible; onTriggered: focusRing.follow() }
+        Behavior on x { enabled: focusRing.gliding && prefs.bar.animationsEnabled; NumberAnimation { duration: 140; easing.type: Easing.OutCubic } }
+        Behavior on y { enabled: focusRing.gliding && prefs.bar.animationsEnabled; NumberAnimation { duration: 140; easing.type: Easing.OutCubic } }
+        Behavior on width { enabled: focusRing.gliding && prefs.bar.animationsEnabled; NumberAnimation { duration: 140; easing.type: Easing.OutCubic } }
+        Behavior on height { enabled: focusRing.gliding && prefs.bar.animationsEnabled; NumberAnimation { duration: 140; easing.type: Easing.OutCubic } }
+      }
+
+      ColumnLayout {
         anchors.fill: parent
-        anchors.margins: Style.space(22)
-        spacing: Style.space(24)
-        ColumnLayout {
-          Layout.preferredWidth: Style.space(156)
-          Layout.minimumWidth: Style.space(156)
-          Layout.maximumWidth: Style.space(156)
+        anchors.leftMargin: Style.space(28)
+        anchors.rightMargin: Style.space(28)
+        anchors.topMargin: Style.space(20)
+        anchors.bottomMargin: Style.space(14)
+        spacing: 0
+
+        // ---------------------------------------------------------- header
+        RowLayout {
+          Layout.fillWidth: true
+          spacing: Style.space(28)
+          Text {
+            text: "Powerbar"
+            textFormat: Text.PlainText
+            color: Color.popups.text
+            font.family: Style.font.family
+            font.pixelSize: Style.font.heading
+            font.bold: true
+          }
+          Row {
+            spacing: Style.space(4)
+            Repeater {
+              model: prefs.pages
+              Item {
+                id: tab
+                required property var modelData
+                required property int index
+                readonly property bool current: prefs.page === index
+                width: tabRow.implicitWidth + Style.space(20)
+                height: tabRow.implicitHeight + Style.space(18)
+                Accessible.role: Accessible.PageTab
+                Accessible.name: modelData.title
+                Accessible.selected: current
+                Row {
+                  id: tabRow
+                  anchors.centerIn: parent
+                  spacing: Style.space(8)
+                  KeyCap {
+                    text: tab.index + 1
+                    foreground: tab.current ? Color.accent : Color.popups.text
+                    anchors.verticalCenter: parent.verticalCenter
+                  }
+                  Text {
+                    text: tab.modelData.title
+                    textFormat: Text.PlainText
+                    color: tab.current ? Color.popups.text : Qt.alpha(Color.popups.text, tabMouse.containsMouse ? 0.85 : 0.55)
+                    font.family: Style.font.family
+                    font.pixelSize: Style.font.body
+                    font.bold: tab.current
+                    anchors.verticalCenter: parent.verticalCenter
+                  }
+                }
+                Rectangle {
+                  anchors.bottom: parent.bottom
+                  anchors.horizontalCenter: parent.horizontalCenter
+                  width: tab.current ? parent.width - Style.space(12) : 0
+                  height: Math.max(2, Style.space(2))
+                  radius: height / 2
+                  color: Color.accent
+                  Behavior on width { enabled: prefs.bar && prefs.bar.animationsEnabled; NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
+                }
+                MouseArea {
+                  id: tabMouse
+                  anchors.fill: parent
+                  hoverEnabled: true
+                  cursorShape: Qt.PointingHandCursor
+                  onClicked: prefs.setPage(tab.index)
+                }
+              }
+            }
+          }
+          Item { Layout.fillWidth: true }
+          Item {
+            implicitWidth: closeRow.implicitWidth
+            implicitHeight: closeRow.implicitHeight
+            opacity: closeMouse.containsMouse ? 1 : 0.65
+            Accessible.role: Accessible.Button
+            Accessible.name: "Close"
+            Row {
+            id: closeRow
+            spacing: Style.space(8)
+            KeyCap { text: "esc"; anchors.verticalCenter: parent.verticalCenter }
+            Text {
+              text: "Close"
+              textFormat: Text.PlainText
+              color: Color.popups.text
+              font.family: Style.font.family
+              font.pixelSize: Style.font.bodySmall
+              anchors.verticalCenter: parent.verticalCenter
+            }
+            }
+            MouseArea {
+              id: closeMouse
+              anchors.fill: parent
+              anchors.margins: -Style.space(6)
+              hoverEnabled: true
+              cursorShape: Qt.PointingHandCursor
+              onClicked: prefs.close()
+            }
+          }
+        }
+        Rectangle { Layout.fillWidth: true; Layout.preferredHeight: 1; color: Qt.alpha(Color.popups.text, 0.1) }
+
+        // ----------------------------------------------------------- pages
+        StackLayout {
+          Layout.fillWidth: true
           Layout.fillHeight: true
-          spacing: Style.space(10)
-          Label { text: "POWERBAR"; font.pixelSize: Style.font.body; font.bold: true; color: Color.accent; Layout.topMargin: Style.space(8) }
-          Label { text: "Preferences"; color: Qt.alpha(Color.popups.text, 0.65); Layout.bottomMargin: Style.space(26) }
-          Button {
-            id: generalTab
-            text: "General"; iconText: "󰒓"; selected: prefs.page === 0
-            focusable: true; leftAlign: true; Layout.fillWidth: true
-            onClicked: prefs.page = 0
-            Keys.onDownPressed: { prefs.page = 1; layoutTab.forceActiveFocus() }
-          }
-          Button {
-            id: layoutTab
-            text: "Layout"; iconText: "󰙀"; selected: prefs.page === 1
-            focusable: true; leftAlign: true; Layout.fillWidth: true
-            onClicked: prefs.page = 1
-            Keys.onUpPressed: { prefs.page = 0; generalTab.forceActiveFocus() }
-            Keys.onDownPressed: { prefs.page = 2; groupsTab.forceActiveFocus() }
-          }
-          Button {
-            id: groupsTab
-            text: "Groups"; iconText: "󰉋"; selected: prefs.page === 2
-            focusable: true; leftAlign: true; Layout.fillWidth: true
-            onClicked: prefs.page = 2
-            Keys.onUpPressed: { prefs.page = 1; layoutTab.forceActiveFocus() }
-            Keys.onDownPressed: { prefs.page = 3; appearanceTab.forceActiveFocus() }
-          }
-          Button {
-            id: appearanceTab
-            text: "Appearance"; iconText: "󰏘"; selected: prefs.page === 3
-            focusable: true; leftAlign: true; Layout.fillWidth: true
-            onClicked: prefs.page = 3
-            Keys.onUpPressed: { prefs.page = 2; groupsTab.forceActiveFocus() }
-          }
-          Item { Layout.fillHeight: true }
-          Label { text: "Ctrl+1 / 2 / 3 / 4\nSwitch pages"; color: Qt.alpha(Color.popups.text, 0.65); font.pixelSize: Style.font.bodySmall }
-        }
-        Rectangle { Layout.fillHeight: true; width: 1; color: Color.popups.border; opacity: 0.25 }
-        ColumnLayout {
-          Layout.fillWidth: true; Layout.fillHeight: true
-          spacing: Style.space(16)
-          RowLayout {
-            Layout.fillWidth: true
-            ColumnLayout {
-              Layout.fillWidth: true
-              Label { text: prefs.page === 3 ? "One consistent appearance" : prefs.page === 0 ? "Make it your bar" : prefs.page === 2 ? "A place for everything" : "Everything in its place"; font.pixelSize: Style.space(25); font.bold: true }
-              Label { text: prefs.page === 3 ? "Shared by the full bar, main islands, and every extended island." : prefs.page === 0 ? "Placement and behavior, across all your screens." : prefs.page === 2 ? "Named drawers for related widgets. Hover to open, click to pin." : "Drag widgets between zones. Drop onto a widget to place before it."; color: Qt.alpha(Color.popups.text, 0.65); Layout.fillWidth: true; wrapMode: Text.WordWrap }
-            }
-            Button { text: "✕"; tooltipText: "Close · Esc"; focusable: true; onClicked: prefs.close() }
-          }
+          Layout.topMargin: Style.space(20)
+          Layout.bottomMargin: Style.space(14)
+          currentIndex: prefs.page
 
-          Controls.ScrollView {
-            id: generalScroll
-            visible: prefs.page === 0
-            Layout.fillWidth: true; Layout.fillHeight: true
-            contentWidth: availableWidth
-            clip: true
-            ColumnLayout {
-              width: parent.width
-              spacing: Style.space(22)
-              SettingGroup {
-                title: "POSITION"
-                description: "Choose the screen edge for your bar."
-                RowLayout {
-                  Repeater {
-                    model: ["top", "bottom", "left", "right"]
-                    Button {
-                      required property string modelData
-                      text: modelData.charAt(0).toUpperCase() + modelData.slice(1)
-                      selected: prefs.bar.position === modelData; bordered: true; focusable: true
-                      onClicked: prefs.setOption("position", modelData)
-                    }
-                  }
-                }
-              }
-              SettingGroup {
-                title: "BAR STYLE"
-                description: "Choose a continuous bar or separate zone islands, and whether the bar hides."
-                Controls.CheckBox {
-                  text: "Animations"
-                  checked: prefs.bar.animationsEnabled
-                  onToggled: prefs.setOption("powerbarAnimations", checked)
-                  onActiveFocusChanged: if (activeFocus) prefs.revealGeneralControl(this)
-                  font.family: Style.font.family
-                  palette.windowText: Color.popups.text
-                  palette.highlight: Color.accent
-                  Accessible.description: "Subtle spring movement for main and extended islands"
-                }
-                Controls.CheckBox {
-                  text: "Islands"
-                  checked: prefs.config.powerbarIslands === true
-                  onToggled: prefs.setOption("powerbarIslands", checked)
-                  font.family: Style.font.family
-                  palette.windowText: Color.popups.text
-                  palette.button: Color.popups.background
-                  palette.buttonText: Color.popups.text
-                  palette.highlight: Color.accent
-                  Accessible.description: "Separate bar zones with themed borders and rounding on a transparent background"
-                }
-                Label {
-                  text: "Separate zones into themed islands on a transparent background."
-                  color: Qt.alpha(Color.popups.text, 0.65)
-                  Layout.fillWidth: true
-                  wrapMode: Text.WordWrap
-                }
-                Controls.CheckBox {
-                  text: "Autohide"
-                  checked: prefs.config.powerbarAutoHide === true
-                  onToggled: prefs.setOption("powerbarAutoHide", checked)
-                  font.family: Style.font.family
-                  palette.windowText: Color.popups.text
-                  palette.button: Color.popups.background
-                  palette.buttonText: Color.popups.text
-                  palette.highlight: Color.accent
-                  Accessible.description: "Hide the bar past the screen edge and slide it over windows when the pointer reaches the edge"
-                }
-                Label {
-                  text: "Slide the bar over windows only when the pointer reaches the screen edge."
-                  color: Qt.alpha(Color.popups.text, 0.65)
-                  Layout.fillWidth: true
-                  wrapMode: Text.WordWrap
-                }
+          LayoutEditor { id: layoutPage; preferences: prefs }
+          GroupsPreferences { id: groupsPage; preferences: prefs }
 
+          PrefsForm {
+            id: generalPage
+            PrefsSection {
+              title: "Placement"
+              PrefsChoice {
+                label: "Screen edge"
+                options: [{ value: "top", label: "Top" }, { value: "bottom", label: "Bottom" }, { value: "left", label: "Left" }, { value: "right", label: "Right" }]
+                value: prefs.bar ? prefs.bar.position : ""
+                onChosen: function(value) { prefs.setOption("position", value) }
               }
-              SettingGroup {
-                title: "CENTER ANCHOR"
-                description: "Keep one widget at the exact screen center, or center the whole group."
-                Controls.ComboBox {
-                  id: anchorCombo
-                  Layout.preferredWidth: Style.space(320)
-                  model: [{ label: "Center as a group", value: "" }].concat(prefs.layoutEntries.filter(function(e) { return e.section === "center" && e.mode !== "hidden" }).map(function(e) { return { label: prefs.title(e), value: e.id } }))
-                  textRole: "label"; valueRole: "value"
-                  currentIndex: { for (var i = 0; i < model.length; i++) if (model[i].value === prefs.bar.centerAnchor) return i; return 0 }
-                  onActivated: prefs.setOption("centerAnchor", currentValue)
-                  palette.button: Color.popups.background; palette.buttonText: Color.popups.text
-                  palette.base: Color.popups.background; palette.text: Color.popups.text; palette.highlight: Color.accent
-                  font.family: Style.font.family
-                }
-              }
-              SettingGroup {
-                title: "MANAGED WIDGETS"
-                description: "Reveal on events, icon or value changes. Hover a zone to access its managed widgets."
-                NumberSlider {
-                  label: "Activity reveal"; unit: "s"; minimum: 1; maximum: 60
-                  value: prefs.bar.managedRevealSeconds
-                  onEdited: function(value) { prefs.setOption("powerbarManagedRevealSeconds", value) }
-                }
-                NumberSlider {
-                  label: "Time to enter drawer"; unit: "s"; minimum: 1; maximum: 15
-                  value: prefs.bar.managedEntrySeconds
-                  onEdited: function(value) { prefs.setOption("powerbarManagedEntryGraceSeconds", value) }
-                }
-                NumberSlider {
-                  label: "Delay after leaving drawer"; unit: "s"; minimum: 1; maximum: 15
-                  value: prefs.bar.managedExitSeconds
-                  onEdited: function(value) { prefs.setOption("powerbarManagedExitGraceSeconds", value) }
-                }
-                Button {
-                  text: "Reset managed timing"; focusable: true
-                  onActiveFocusChanged: if (activeFocus) prefs.revealGeneralControl(this)
-                  onClicked: prefs.bar.shell.mutateShellConfig(function(config) {
-                    delete config.bar.powerbarManagedRevealSeconds
-                    delete config.bar.powerbarManagedEntryGraceSeconds
-                    delete config.bar.powerbarManagedExitGraceSeconds
-                  })
-                }
-              }
-              SettingGroup {
-                title: "SPACING"
-                description: "Space between widgets on the bar."
-                NumberSlider {
-                  label: "Widget spacing"
-                  minimum: 0; maximum: 24
-                  value: Number(prefs.config.powerbarSpacing || 0)
-                  onEdited: function(value) { prefs.setOption("powerbarSpacing", value) }
-                }
-              }
-            }
-          }
-
-          Controls.ScrollView {
-            id: appearanceScroll
-            visible: prefs.page === 3
-            Layout.fillWidth: true; Layout.fillHeight: true
-            contentWidth: availableWidth; clip: true
-            ColumnLayout {
-              width: parent.width; spacing: Style.space(20)
-              SectionHeading { title: "APPEARANCE"; Layout.fillWidth: true }
               RowLayout {
-                Layout.fillWidth: true; spacing: Style.space(32)
-              SettingGroup {
-                Layout.preferredWidth: 1
-                Layout.alignment: Qt.AlignTop
-                title: "BORDERS AND ROUNDING"
-                description: "Border color follows your theme. Thickness and rounding can be customized."
-                Controls.CheckBox {
-                  text: "Show borders"
-                  checked: prefs.config.powerbarIslandBorders !== false
-                  onToggled: prefs.setOption("powerbarIslandBorders", checked)
-                  font.family: Style.font.family
-                  palette.windowText: Color.popups.text
-                  palette.highlight: Color.accent
-                }
-                NumberSlider {
-                  label: "Border thickness"
-                  minimum: 0; maximum: 4; stepSize: 0.5
-                  value: typeof prefs.config.powerbarIslandBorderWidth === "number"
-                    ? prefs.config.powerbarIslandBorderWidth : Border.top(prefs.bar.themeIslandBorder) / Style.space(1)
-                  enabled: prefs.config.powerbarIslandBorders !== false
-                  onEdited: function(value) { prefs.setOption("powerbarIslandBorderWidth", value) }
-                }
-                NumberSlider {
-                  label: "Corner rounding"
-                  minimum: 0; maximum: 32
-                  value: prefs.bar.islandRounding / Style.space(1)
-                  onEdited: function(value) { prefs.setOption("powerbarIslandRounding", value) }
-                }
-                Button {
-                  text: "Use theme borders and rounding"; focusable: true
-                  onActiveFocusChanged: if (activeFocus) prefs.revealGeneralControl(this)
-                  onClicked: {
-                    prefs.bar.shell.mutateShellConfig(function(config) {
-                      delete config.bar.powerbarIslandBorders
-                      delete config.bar.powerbarIslandBorderWidth
-                      delete config.bar.powerbarIslandRounding
-                    })
+                Layout.fillWidth: true
+                spacing: Style.space(16)
+                ColumnLayout {
+                  Layout.fillWidth: true
+                  spacing: Style.space(2)
+                  Text { text: "Center"; textFormat: Text.PlainText; color: Color.popups.text; font.family: Style.font.family; font.pixelSize: Style.font.body; font.bold: true }
+                  Text {
+                    text: "Center the middle zone as a whole, or pin one widget to the exact screen center"
+                    textFormat: Text.PlainText
+                    color: Qt.alpha(Color.popups.text, 0.6)
+                    font.family: Style.font.family
+                    font.pixelSize: Style.font.bodySmall
+                    wrapMode: Text.WordWrap
+                    Layout.fillWidth: true
                   }
                 }
+                Dropdown {
+                  showLabel: false
+                  Layout.preferredWidth: Style.space(260)
+                  options: [{ label: "The whole zone", value: "" }].concat(prefs.layoutEntries.filter(function(e) {
+                    return e.section === "center" && e.mode === "shown" && !e.groupId
+                  }).map(function(e) { return { label: prefs.title(e), value: e.id } }))
+                  value: prefs.bar ? prefs.bar.centerAnchor : ""
+                  onChanged: function(value) { prefs.setOption("centerAnchor", value) }
+                }
               }
-              EffectsGroup { Layout.preferredWidth: 1; Layout.alignment: Qt.AlignTop }
+            }
+            PrefsSection {
+              title: "Behavior"
+              PrefsToggle {
+                label: "Autohide"
+                description: "The bar stays off screen and slides over your windows when the pointer reaches its edge"
+                checked: prefs.config.powerbarAutoHide === true
+                onToggled: function(checked) { prefs.setOption("powerbarAutoHide", checked) }
+              }
+              PrefsToggle {
+                label: "Animations"
+                description: "Widgets and drawers ease into place as they change"
+                checked: prefs.bar ? prefs.bar.animationsEnabled : true
+                onToggled: function(checked) { prefs.setOption("powerbarAnimations", checked) }
+              }
+            }
+            PrefsSection {
+              title: "Style"
+              PrefsToggle {
+                label: "Islands"
+                description: "Each zone floats as its own surface over a transparent bar"
+                checked: prefs.config.powerbarIslands === true
+                onToggled: function(checked) { prefs.setOption("powerbarIslands", checked) }
+              }
+              PrefsSlider {
+                label: "Space between widgets"
+                minimum: 0; maximum: 24
+                value: Number(prefs.config.powerbarSpacing || 0)
+                onEdited: function(value) { prefs.setOption("powerbarSpacing", value) }
+              }
+            }
+            PrefsSection {
+              title: "Drawer widgets"
+              description: "Widgets set to the drawer appear on the bar briefly when they change, and all of them open in a drawer when you hover their zone."
+              PrefsSlider {
+                label: "Stay on the bar after a change"
+                unit: "s"; minimum: 1; maximum: 60
+                value: prefs.bar ? prefs.bar.managedRevealSeconds : 10
+                onEdited: function(value) { prefs.setOption("powerbarManagedRevealSeconds", value) }
+              }
+              PrefsSlider {
+                label: "Time to reach the drawer"
+                unit: "s"; minimum: 1; maximum: 15
+                value: prefs.bar ? prefs.bar.managedEntrySeconds : 5
+                onEdited: function(value) { prefs.setOption("powerbarManagedEntryGraceSeconds", value) }
+              }
+              PrefsSlider {
+                label: "Drawer stays open after you leave"
+                unit: "s"; minimum: 1; maximum: 15
+                value: prefs.bar ? prefs.bar.managedExitSeconds : 3
+                onEdited: function(value) { prefs.setOption("powerbarManagedExitGraceSeconds", value) }
+              }
+              Button {
+                text: "Restore default timing"
+                iconText: "󰑓"
+                focusable: true
+                bordered: true
+                foreground: Color.popups.text
+                onClicked: prefs.resetOptions(function(bar) {
+                  delete bar.powerbarManagedRevealSeconds
+                  delete bar.powerbarManagedEntryGraceSeconds
+                  delete bar.powerbarManagedExitGraceSeconds
+                })
               }
             }
           }
 
-          OrganizationGrid {
-            preferences: prefs; visible: prefs.page === 1
-            entries: prefs.layoutEntries
-            onMove: function(record, section, mode, before) { prefs.move(record, section, mode, before) }
+          PrefsForm {
+            id: appearancePage
+            BarPreview { Layout.fillWidth: true }
+            PrefsSection {
+              title: "Borders and rounding"
+              description: "Border color follows your theme."
+              PrefsToggle {
+                label: "Borders"
+                checked: prefs.config.powerbarIslandBorders !== false
+                onToggled: function(checked) { prefs.setOption("powerbarIslandBorders", checked) }
+              }
+              PrefsSlider {
+                label: "Border thickness"
+                minimum: 0; maximum: 4; stepSize: 0.5
+                enabled: prefs.config.powerbarIslandBorders !== false
+                value: typeof prefs.config.powerbarIslandBorderWidth === "number"
+                  ? prefs.config.powerbarIslandBorderWidth : prefs.bar ? Border.top(prefs.bar.themeIslandBorder) / Style.space(1) : 1
+                onEdited: function(value) { prefs.setOption("powerbarIslandBorderWidth", value) }
+              }
+              PrefsSlider {
+                label: "Corner rounding"
+                minimum: 0; maximum: 32
+                value: prefs.bar ? prefs.bar.islandRounding / Style.space(1) : 0
+                onEdited: function(value) { prefs.setOption("powerbarIslandRounding", value) }
+              }
+              Button {
+                text: "Use the theme's borders and rounding"
+                iconText: "󰑓"
+                focusable: true
+                bordered: true
+                foreground: Color.popups.text
+                onClicked: prefs.resetOptions(function(bar) {
+                  delete bar.powerbarIslandBorders
+                  delete bar.powerbarIslandBorderWidth
+                  delete bar.powerbarIslandRounding
+                })
+              }
+            }
+            PrefsSection {
+              title: "Surface"
+              description: "Blur uses your desktop's blur strength. Shadows follow each surface's shape."
+              PrefsToggle {
+                label: "Background blur"
+                checked: prefs.bar ? prefs.bar.surfaceEffects.blur : false
+                onToggled: function(checked) { prefs.setOption("powerbarBlur", checked) }
+              }
+              PrefsSlider {
+                label: "Background opacity"
+                unit: "%"; minimum: 0; maximum: 100
+                value: prefs.bar ? prefs.bar.surfaceEffects.backgroundOpacity * 100 : 100
+                onEdited: function(value) { prefs.setOption("powerbarBackgroundOpacity", value) }
+              }
+              PrefsToggle {
+                label: "Shadow"
+                checked: prefs.bar ? prefs.bar.surfaceEffects.shadow : false
+                onToggled: function(checked) { prefs.setOption("powerbarShadow", checked) }
+              }
+              PrefsSlider {
+                label: "Shadow softness"
+                minimum: 0; maximum: 32
+                enabled: prefs.bar && prefs.bar.surfaceEffects.shadow
+                value: prefs.bar ? prefs.bar.surfaceEffects.shadowSize : 16
+                onEdited: function(value) { prefs.setOption("powerbarShadowSize", value) }
+              }
+              PrefsSlider {
+                label: "Shadow strength"
+                unit: "%"; minimum: 0; maximum: 45
+                enabled: prefs.bar && prefs.bar.surfaceEffects.shadow
+                value: prefs.bar ? prefs.bar.surfaceEffects.shadowOpacity * 100 : 30
+                onEdited: function(value) { prefs.setOption("powerbarShadowOpacity", value) }
+              }
+              Button {
+                text: "Reset surface"
+                iconText: "󰑓"
+                focusable: true
+                bordered: true
+                foreground: Color.popups.text
+                onClicked: prefs.resetOptions(function(bar) { AppearanceModel.reset(bar) })
+              }
+            }
           }
-          GroupsPreferences { id: groupsEditor; preferences: prefs; visible: prefs.page === 2; Layout.fillWidth: true; Layout.fillHeight: true }
-          Label { text: prefs.status; color: Qt.alpha(Color.popups.text, 0.65); font.pixelSize: Style.font.bodySmall }
+        }
+
+        // ---------------------------------------------------------- footer
+        Rectangle { Layout.fillWidth: true; Layout.preferredHeight: 1; color: Qt.alpha(Color.popups.text, 0.1) }
+        RowLayout {
+          Layout.fillWidth: true
+          Layout.topMargin: Style.space(12)
+          spacing: Style.space(18)
+          Repeater {
+            model: prefs.hints
+            Row {
+              required property var modelData
+              spacing: Style.space(6)
+              Repeater {
+                model: String(parent.modelData.keys).split(" ")
+                KeyCap { required property string modelData; text: modelData; anchors.verticalCenter: parent ? parent.verticalCenter : undefined }
+              }
+              Text {
+                text: parent.modelData.label
+                textFormat: Text.PlainText
+                color: Qt.alpha(Color.popups.text, 0.6)
+                font.family: Style.font.family
+                font.pixelSize: Style.font.caption
+                anchors.verticalCenter: parent.verticalCenter
+              }
+            }
+          }
+          Item { Layout.fillWidth: true }
+          Text {
+            text: prefs.status
+            textFormat: Text.PlainText
+            color: Qt.alpha(Color.popups.text, 0.45)
+            font.family: Style.font.family
+            font.pixelSize: Style.font.caption
+            elide: Text.ElideLeft
+            Layout.maximumWidth: Style.space(320)
+          }
         }
       }
-
-    }
-  }
-  component Label: Text {
-    textFormat: Text.PlainText
-    color: Color.popups.text
-    font.family: Style.font.family
-    font.pixelSize: Style.font.body
-  }
-  component EffectsGroup: SettingGroup {
-    id: effectsGroup
-    readonly property string prefix: "powerbar"
-    readonly property var effects: prefs.bar.surfaceEffects
-    title: "SURFACE AND SHADOW"
-    description: "Blur uses your desktop's blur strength. Shadows follow the surface's shape."
-    Controls.CheckBox {
-      text: "Background blur"
-      checked: effectsGroup.effects.blur
-      onToggled: prefs.setOption(effectsGroup.prefix + "Blur", checked)
-      onActiveFocusChanged: if (activeFocus) prefs.revealGeneralControl(this)
-      font.family: Style.font.family
-      palette.windowText: Color.popups.text; palette.highlight: Color.accent
-    }
-    NumberSlider {
-      label: "Background opacity"; unit: "%"; minimum: 0; maximum: 100
-      value: effectsGroup.effects.backgroundOpacity * 100
-      onEdited: function(value) { prefs.setOption(effectsGroup.prefix + "BackgroundOpacity", value) }
-    }
-    Controls.CheckBox {
-      text: "Show shadow"
-      checked: effectsGroup.effects.shadow
-      onToggled: prefs.setOption(effectsGroup.prefix + "Shadow", checked)
-      onActiveFocusChanged: if (activeFocus) prefs.revealGeneralControl(this)
-      font.family: Style.font.family
-      palette.windowText: Color.popups.text; palette.highlight: Color.accent
-    }
-    NumberSlider {
-      label: "Shadow softness"; minimum: 0; maximum: 32
-      value: effectsGroup.effects.shadowSize
-      enabled: effectsGroup.effects.shadow
-      onEdited: function(value) { prefs.setOption(effectsGroup.prefix + "ShadowSize", value) }
-    }
-    NumberSlider {
-      label: "Shadow opacity"; unit: "%"; minimum: 0; maximum: 45
-      value: effectsGroup.effects.shadowOpacity * 100
-      enabled: effectsGroup.effects.shadow
-      onEdited: function(value) { prefs.setOption(effectsGroup.prefix + "ShadowOpacity", value) }
-    }
-    Button {
-      text: "Reset appearance"; focusable: true
-      onActiveFocusChanged: if (activeFocus) prefs.revealGeneralControl(this)
-      onClicked: prefs.bar.shell.mutateShellConfig(function(config) {
-        AppearanceModel.reset(config.bar)
-      })
     }
   }
 
-  component NumberSlider: ColumnLayout {
-    id: control
-    property string label: ""
-    property string unit: "px"
-    property real minimum: 0
-    property real maximum: 100
-    property real stepSize: 1
-    property real value: 0
-    signal edited(real value)
-    Layout.fillWidth: true
-    Layout.maximumWidth: Style.space(520)
-    spacing: Style.space(4)
-    RowLayout {
-      Layout.fillWidth: true
-      Label { text: control.label; Layout.fillWidth: true }
-      Label {
-        text: (control.stepSize < 1 ? slider.snappedValue.toFixed(1) : Math.round(slider.snappedValue)) + " " + control.unit
-        color: Color.accent
-      }
+  // A miniature of the bar with its current surface, drawn over a neutral
+  // backdrop so transparency, borders and shadows read at a glance.
+  component BarPreview: BarBackdrop {
+    id: preview
+    readonly property var effects: prefs.bar ? prefs.bar.surfaceEffects : ({})
+    readonly property real barY: (height - (prefs.bar ? prefs.bar.barSize : 0)) / 2
+    implicitHeight: prefs.bar ? prefs.bar.barSize + Style.space(72) : Style.space(100)
+    source: prefs.wallpaper
+    position: prefs.bar ? prefs.bar.position : "top"
+
+    EffectSurface {
+      visible: prefs.bar && !prefs.bar.islands
+      x: Style.space(24); y: preview.barY
+      width: parent.width - Style.space(48)
+      height: prefs.bar ? prefs.bar.barSize : 0
+      color: prefs.bar ? prefs.bar.mainSurfaceColor : "transparent"
+      radius: prefs.bar ? prefs.bar.islandRounding : 0
+      borderSpec: prefs.bar ? prefs.bar.islandBorder : Border.none()
+      shadowEnabled: !!preview.effects.shadow
+      shadowSize: preview.effects.shadowSize || 0
+      shadowOpacity: preview.effects.shadowOpacity || 0
     }
-    Controls.Slider {
-      id: slider
-      Layout.fillWidth: true
-      from: control.minimum; to: control.maximum
-      stepSize: control.stepSize
-      snapMode: Controls.Slider.SnapAlways
-      value: control.value
-      // Qt's own drag-time snapping (stepSize + SnapAlways) doesn't reliably
-      // hold the handle to sub-1 steps, so the visuals below snap explicitly
-      // instead of trusting slider.visualPosition/value during a drag.
-      readonly property real snappedValue: Math.round(value / control.stepSize) * control.stepSize
-      readonly property real snappedVisualPosition: (snappedValue - from) / (to - from)
-      onMoved: control.edited(snappedValue)
-      onActiveFocusChanged: if (activeFocus) prefs.revealGeneralControl(control)
-      Accessible.name: control.label
-      background: Rectangle {
-        x: slider.leftPadding
-        y: slider.topPadding + (slider.availableHeight - height) / 2
-        width: slider.availableWidth; height: Style.space(4)
-        radius: height / 2
-        color: Qt.alpha(Color.popups.text, 0.18)
-        Rectangle {
-          width: slider.snappedVisualPosition * parent.width; height: parent.height
-          radius: parent.radius; color: Color.accent
+    Repeater {
+      model: ["left", "center", "right"]
+      Item {
+        required property string modelData
+        readonly property var shown: prefs.layoutEntries.filter(function(e) {
+          return e.section === modelData && e.mode === "shown" && prefs.snapshots[e.instanceKey]
+        }).slice(0, 4)
+        readonly property real contentWidth: zoneRow.implicitWidth + Style.space(16)
+        width: contentWidth
+        height: prefs.bar ? prefs.bar.barSize : 0
+        y: preview.barY
+        x: modelData === "left" ? Style.space(24) + (prefs.bar && prefs.bar.islands ? 0 : Style.space(4))
+          : modelData === "right" ? preview.width - Style.space(24) - width - (prefs.bar && prefs.bar.islands ? 0 : Style.space(4))
+          : (preview.width - width) / 2
+        visible: shown.length > 0
+        EffectSurface {
+          anchors.fill: parent
+          visible: prefs.bar && prefs.bar.islands
+          color: prefs.bar ? prefs.bar.mainSurfaceColor : "transparent"
+          radius: prefs.bar ? prefs.bar.islandRounding : 0
+          borderSpec: prefs.bar ? prefs.bar.islandBorder : Border.none()
+          shadowEnabled: !!preview.effects.shadow
+          shadowSize: preview.effects.shadowSize || 0
+          shadowOpacity: preview.effects.shadowOpacity || 0
+        }
+        Row {
+          id: zoneRow
+          anchors.centerIn: parent
+          spacing: prefs.bar ? Math.max(Style.space(2), prefs.bar.widgetSpacing) : 0
+          Repeater {
+            model: parent.parent.shown
+            Image {
+              required property var modelData
+              readonly property var image: prefs.snapshots[modelData.instanceKey]
+              source: image ? image.url : ""
+              width: image ? image.width : 0
+              height: image ? image.height : 0
+              anchors.verticalCenter: parent.verticalCenter
+            }
+          }
         }
       }
-      handle: Rectangle {
-        x: slider.leftPadding + slider.snappedVisualPosition * (slider.availableWidth - width)
-        y: slider.topPadding + (slider.availableHeight - height) / 2
-        implicitWidth: Style.space(18); implicitHeight: implicitWidth
-        radius: width / 2
-        color: slider.pressed ? Color.popups.text : Color.accent
-        border.width: slider.activeFocus ? Style.space(2) : 0
-        border.color: Color.popups.text
-      }
     }
-  }
-  component SettingGroup: ColumnLayout {
-    property string title: ""
-    property string description: ""
-    Layout.fillWidth: true
-    spacing: Style.space(10)
-    Label { text: parent.title; font.bold: true; color: Color.accent; font.pixelSize: Style.font.bodySmall }
-    Label { text: parent.description; color: Qt.alpha(Color.popups.text, 0.65); Layout.fillWidth: true; wrapMode: Text.WordWrap }
   }
 }

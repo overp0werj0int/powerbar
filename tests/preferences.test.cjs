@@ -87,3 +87,36 @@ test('visibility changes rebuild slots while ordinary settings remain incrementa
   after.left[0] = { id: 'a', format: 'HH:mm' };
   assert.equal(barModel.inlineSettingsDelta(before, after).length, 1);
 });
+const layoutEntries = [
+  { instanceKey: 'a', section: 'left', mode: 'shown', index: 0 },
+  { instanceKey: 'b', section: 'left', mode: 'shown', index: 2 },
+  { instanceKey: 'c', section: 'left', mode: 'managed', index: 1 },
+  { instanceKey: 'd', section: 'right', mode: 'shown', index: 0 }
+];
+const counter = (exclude) => (section, mode) => model.cell(layoutEntries, section, mode, exclude).length;
+test('cells list one zone and visibility in bar order', () => {
+  assert.deepEqual(model.cell(layoutEntries, 'left', 'shown').map(e => e.instanceKey), ['a', 'b']);
+  assert.deepEqual(model.cell(layoutEntries, 'left', 'shown', 'a').map(e => e.instanceKey), ['b']);
+});
+test('cursor walks across zone edges and rests on empty cells', () => {
+  const count = counter('');
+  assert.deepEqual({ ...model.stepCursor(count, { section: 'left', mode: 'shown', pos: 1 }, 1, 0) }, { section: 'center', mode: 'shown', pos: 0 });
+  assert.deepEqual({ ...model.stepCursor(count, { section: 'center', mode: 'shown', pos: 0 }, 1, 0) }, { section: 'right', mode: 'shown', pos: 0 });
+  assert.deepEqual({ ...model.stepCursor(count, { section: 'center', mode: 'shown', pos: 0 }, -1, 0) }, { section: 'left', mode: 'shown', pos: 1 });
+  assert.deepEqual({ ...model.stepCursor(count, { section: 'left', mode: 'shown', pos: 1 }, 0, 1) }, { section: 'left', mode: 'managed', pos: 0 });
+  assert.deepEqual({ ...model.stepCursor(count, { section: 'left', mode: 'shown', pos: 0 }, -1, -1) }, { section: 'left', mode: 'shown', pos: 0 });
+});
+test('a lifted item offers every gap and hands over between zones', () => {
+  const count = counter('a');
+  assert.deepEqual({ ...model.stepLift(count, { section: 'left', mode: 'shown', pos: 0 }, 1, 0) }, { section: 'left', mode: 'shown', pos: 1 });
+  assert.deepEqual({ ...model.stepLift(count, { section: 'left', mode: 'shown', pos: 1 }, 1, 0) }, { section: 'center', mode: 'shown', pos: 0 });
+  assert.deepEqual({ ...model.stepLift(count, { section: 'right', mode: 'shown', pos: 0 }, -1, 0) }, { section: 'center', mode: 'shown', pos: 0 });
+  assert.deepEqual({ ...model.stepLift(count, { section: 'center', mode: 'shown', pos: 0 }, -1, 0) }, { section: 'left', mode: 'shown', pos: 1 });
+  assert.deepEqual({ ...model.stepLift(count, { section: 'left', mode: 'shown', pos: 1 }, 0, 2) }, { section: 'left', mode: 'hidden', pos: 0 });
+});
+test('drops insert before the item at the gap or at the end of the zone', () => {
+  const items = model.cell(layoutEntries, 'left', 'shown');
+  assert.equal(model.dropBefore(items, 0), 0);
+  assert.equal(model.dropBefore(items, 1), 2);
+  assert.equal(model.dropBefore(items, 2), -1);
+});

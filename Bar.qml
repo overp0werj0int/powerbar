@@ -62,6 +62,40 @@ Item {
     return editGroups(function(config) { GroupsModel.assign(config, key, id, before || "") })
   }
   function showGroups(screen, id) { preferencesPane.showGroup(screen, id || "") }
+  // Live images of one screen's widgets, keyed by instance, so Preferences can
+  // show each widget as it really looks. Widgets on the bar are captured with
+  // their slot; drawer and group members, loaded but off the bar, render their
+  // own item. Every image is also kept on disk, so a widget that is later
+  // hidden, and therefore never loaded, still shows its last look.
+  readonly property string widgetImageDir: (Quickshell.env("XDG_CACHE_HOME") || home + "/.cache") + "/powerbar/widgets"
+  function widgetImageFile(key) { return widgetImageDir + "/" + String(key).replace(/[^A-Za-z0-9._-]/g, "_") + ".png" }
+  function captureWidgetImages(screen, done) {
+    moduleSlots.forEach(function(slot) {
+      if (!slot) return
+      var window = slotWindow(slot)
+      if (!window || !screen || !sameWindow(window, { screen: screen })) return
+      var onBar = slot.mainVisible && !slot.drawerHost && slot.visible
+      var item = onBar ? slot.presentationItem : slot.needsPlaceholder ? null : slot.activeItem
+      if (!item || typeof item.grabToImage !== "function") return
+      var width = onBar ? item.width : Math.max(item.width, item.implicitWidth)
+      var height = onBar ? item.height : Math.max(item.height, item.implicitHeight)
+      if (width <= 0 || height <= 0) return
+      var key = slot.instanceKey
+      item.grabToImage(function(result) {
+        if (!result || !result.url) return
+        if (key.indexOf("group:") !== 0) result.saveToFile(root.widgetImageFile(key))
+        done(key, { url: result.url, width: width, height: height })
+      }, Qt.size(Math.ceil(width * 2), Math.ceil(height * 2)))
+    })
+  }
+  Process { running: true; command: ["mkdir", "-p", root.widgetImageDir] }
+  // Seed the image cache once the bar has settled, so widgets hidden later
+  // keep a real look even if Preferences was never opened while they showed.
+  Timer {
+    interval: 5000
+    running: true
+    onTriggered: if (Quickshell.screens.length) root.captureWidgetImages(Quickshell.screens[0], function() {})
+  }
   property var activityDeadlines: ({})
   readonly property real managedRevealSeconds: ManagedModel.seconds(barConfig.powerbarManagedRevealSeconds, 10, 60)
   readonly property real managedEntrySeconds: ManagedModel.seconds(barConfig.powerbarManagedEntryGraceSeconds, 5, 15)
@@ -148,6 +182,10 @@ Item {
       preferencesPane.show(screen)
     }
     function closePreferences(): void { preferencesPane.close() }
+    function preferencesPage(page: int): void {
+      if (!preferencesPane.opened) preferences()
+      preferencesPane.setPage(page - 1)
+    }
     function managed(zone: string): void { root.openManagedZone(zone) }
     function closeManaged(): void { root.closeManagedDrawer() }
     function group(id: string): void {

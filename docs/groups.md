@@ -21,12 +21,13 @@ Groups preferences provide creation, deletion, labels, icons, positions, widget
 assignment, transfer, and ordering. Deleting a group restores its widgets' prior
 visibility and placement. Explicitly hidden widgets remain hidden.
 
-Layout and Groups use the same OrganizationGrid component for cards, drop targets,
-keyboard movement, and destination controls. Layout uses zones and visibility rows;
-Groups uses ordered member/available columns. Group headers appear in Layout with
-their saved name and stock icon. Their visibility is independent of their members;
-member activity reveals a managed group header. The stock icon picker preserves
-the Omarchy menu glyph's custom font.
+Layout (`LayoutEditor.qml`) and Groups (`GroupsPreferences.qml`) share one
+interaction model: a keyboard cursor, Space to pick an item up, movement to
+preview where it lands, Space or release to drop, Esc to put it back. Layout uses
+zones and visibility rows; Groups uses ordered member and available lists. Group
+headers appear in Layout with their saved name and stock icon. Their visibility is independent of their members;
+member activity reveals a managed group header. The stock icon grid (`IconGrid.qml`)
+preserves the Omarchy menu glyph's custom font.
 
 The unified Appearance page applies the same border, rounding, shadow, blur, and
 opacity to every bar surface. Legacy main-bar effects are the fallback; extended
@@ -52,7 +53,7 @@ Mini Bar parity: per-group glyph/text/both face, tooltip, badge on/off, SUM/COUN
 aggregation, optional member property overrides, and native/name/both drawer
 member display. Grouped native widgets
 remain loaded while closed. Drawer members can be dragged out to return them to
-the bar. The same `SectionHeading` style is shared by Groups and Appearance.
+the bar. Groups, General and Appearance share the `Prefs*` form components.
 
 Badge values are read reactively from widget root properties through
 `GroupBadgeModel.js`; no process, poller, or duplicate service is introduced.
