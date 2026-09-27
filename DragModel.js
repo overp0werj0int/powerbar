@@ -1,15 +1,17 @@
 // Shared preview decisions for bar zones and extended islands.
 function slot(state, key, surface) {
-  var result = { hidden: false, holdSpace: false, before: false, after: false, groupTarget: false }
+  var result = { hidden: false, holdSpace: false, before: false, after: false, into: false }
   if (!state || !state.ready) return result
   result.hidden = state.sourceKey === key && state.sourceSurface === surface
   result.holdSpace = result.hidden && state.self === true
   if (state.targetKey !== key || state.targetSurface !== surface || result.hidden) return result
-  result.groupTarget = key.indexOf("group:") === 0
-  if (!result.groupTarget) {
-    result.before = !state.after
-    result.after = !!state.after
-  }
+  // Group icons make way like any other icon; dropping into a group happens
+  // in its drawer, which opens while a drag rests on the icon. A widget
+  // dragged out of a drawer cannot open another one, so for it a group icon
+  // is a container it drops into.
+  if (state.into) { result.into = true; return result }
+  result.before = !state.after
+  result.after = !!state.after
   return result
 }
 function endGap(state, surface) {

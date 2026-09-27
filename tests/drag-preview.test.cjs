@@ -23,12 +23,15 @@ test('the same preview policy works in drawers and empty islands', () => {
   assert.equal(drag.endGap({ ...preview, targetKey: '', targetSurface: 'bar:center' }, 'bar:center'), true);
 });
 
-test('a group icon highlights as a container and no preview appears before capture', () => {
+test('a group icon makes way like any icon and no preview appears before capture', () => {
   const preview = state('group:tools', 'bar:right');
-  assert.equal(drag.slot(preview, 'group:tools', 'bar:right').groupTarget, true);
-  assert.equal(drag.slot(preview, 'group:tools', 'bar:right').before, false);
+  assert.equal(drag.slot(preview, 'group:tools', 'bar:right').before, true);
+  assert.equal(drag.slot({ ...preview, after: true }, 'group:tools', 'bar:right').after, true);
   assert.equal(drag.slot({ ...preview, ready: false }, 'clock:two', 'bar:left').hidden, false);
-  assert.equal(drag.slot({ ...preview, ready: false }, 'group:tools', 'bar:right').groupTarget, false);
+  assert.equal(drag.slot({ ...preview, ready: false }, 'group:tools', 'bar:right').before, false);
+  const into = drag.slot({ ...preview, into: true }, 'group:tools', 'bar:right');
+  assert.equal(into.into, true);
+  assert.equal(into.before || into.after, false);
 });
 
 test('pickup keeps the source space until the pointer leaves it', () => {

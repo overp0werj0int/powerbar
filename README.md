@@ -127,9 +127,13 @@ Groups to enter a custom badge or urgent property name. `none` explicitly
 excludes a member from badge aggregation.
 
 Drag widgets between the Available and member lists, or reorder them within the
-group. On the bar, drag
-an icon onto a group icon or an open group drawer to add it; drag a member onto
-another group icon or drawer to transfer it. Drag a member onto the main bar to
+group. On the bar, group icons make way for a dragged icon like any other,
+so dropping beside a group places the icon next to it. Rest the drag on a group
+icon for a moment and its drawer opens: drop among the members to add the icon,
+which takes the group's member style (its own look, its name, or both) as soon
+as it is over the drawer. Moving away closes the drawer again. A member dragged
+out of a group drawer can instead be dropped straight onto another group icon to
+transfer it. Drag a member onto the main bar to
 remove it from its group and show it in that zone. Dragging outside the bar and
 drawers cancels the move. Hover opens a group drawer temporarily; click pins
 it. Click again, press Escape, or click outside to close it. Native widget clicks,
@@ -215,8 +219,7 @@ drag it back to the main bar to make it Always shown. Group members can use
 these same destinations, which removes them from the group.
 During a drag, the icon itself follows the pointer. The source space stays put
 until the icon leaves it; then nearby icons make room with a short animation,
-and the receiving island grows with the gap. Group icons highlight as container
-targets. Dropping a group icon beside another group reorders the groups; dropping
+and the receiving island grows with the gap, plus a small lip at both ends so the space past its last icon is an obvious place to drop. A release that drifts a little off the bar's inner edge still lands on the bar. Dropping a group icon beside another group reorders the groups; dropping
 it into a managed drawer makes the whole group Managed. Groups cannot be nested.
 Small Managed targets appear on the bar during a drag, so an icon from one
 extended island can move directly into another zone's Managed collection even

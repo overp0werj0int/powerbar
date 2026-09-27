@@ -376,7 +376,7 @@ Item {
       key = source.instanceKey
       surface = barDragSourceSurface
     }
-    return { ready: !!source && barDragImageReady, sourceKey: source ? source.instanceKey : "",
+    return { ready: !!source && barDragImageReady, sourceKey: source ? source.instanceKey : "", into: !!drop && drop.into === true,
       sourceSurface: barDragSourceSurface, targetKey: key, targetSurface: surface, after: after,
       self: !!drop && drop.source === true }
   }
@@ -692,6 +692,10 @@ Item {
     // Interrupting a glide (a new press, a destroyed source) still applies the
     // drop the user already made.
     commitPendingDrop()
+    springOpen.stop()
+    springClose.stop()
+    springGroupSlot = null
+    springOpenedDrawer = null
     barDragSource = null
     barDragSourceSurface = ""
     barDragSourceRect = null
@@ -837,15 +841,76 @@ Item {
     return true
   }
 
+  // A drag resting on a group icon opens that group's drawer, so the widget
+  // can be dropped among its members; leaving both closes it again.
+  property var springGroupSlot: null
+  property var springOpenedDrawer: null
+  Timer {
+    id: springOpen
+    interval: 400
+    onTriggered: {
+      var slot = root.springGroupSlot
+      var window = slot ? root.slotWindow(slot) : null
+      if (!root.barDragSource || !window || !window.managedDrawer) return
+      window.managedDrawer.openGroup(slot.entry.powerbarGroupId, slot, false)
+      root.springOpenedDrawer = window.managedDrawer
+    }
+  }
+  // The spring-opened drawer stays while the pointer is on the group icon, in
+  // the drawer, or crossing between them; otherwise it closes after a short
+  // grace, so a pointer drifting on its way to the drawer does not lose it.
+  Timer {
+    id: springClose
+    interval: 450
+    onTriggered: {
+      var drawer = root.springOpenedDrawer
+      root.springOpenedDrawer = null
+      if (drawer && drawer.opened) drawer.close()
+    }
+  }
+  function onSpringPath(drawer, scenePoint) {
+    if (!drawer || !drawer.opened || !scenePoint) return false
+    var p = drawer.mapFromItem(null, scenePoint.x, scenePoint.y)
+    var reach = drawer.gap + root.barExtent + Style.space(8)
+    var margin = Style.space(12)
+    return root.vertical
+      ? p.y >= -margin && p.y <= drawer.height + margin && p.x >= -reach && p.x <= drawer.width + reach
+      : p.x >= -margin && p.x <= drawer.width + margin && p.y >= -reach && p.y <= drawer.height + reach
+  }
+  function updateSpringGroup(drop, source, overGroup, scenePoint) {
+    var canSpring = source && !source.groupHeader && !source.drawerHost
+    var target = canSpring && overGroup ? overGroup : null
+    if (target !== springGroupSlot) {
+      springGroupSlot = target
+      if (target) springOpen.restart()
+      else springOpen.stop()
+    }
+    var drawer = springOpenedDrawer
+    if (!drawer) return
+    var keep = !!target || onSpringPath(drawer, scenePoint)
+      || (drop && (drop.drawer === drawer || (drop.slot && drop.slot.drawerHost)))
+    if (keep) springClose.stop()
+    else if (!springClose.running) springClose.start()
+  }
+  function groupSlotAt(scenePoint, source) {
+    var window = root.slotWindow(source) || root.barDragWindow
+    return moduleSlots.find(function(slot) {
+      if (!slot || !slot.groupHeader || slot.drawerHost || !slot.mainVisible || !root.sameWindow(root.slotWindow(slot), window)) return false
+      var p = slot.mapFromItem(null, scenePoint.x, scenePoint.y)
+      return p.x >= 0 && p.y >= 0 && p.x < slot.width && p.y < slot.height
+    }) || null
+  }
+
   function updateIconDrag(scenePoint, slot) {
     if (root.barDragSource !== slot) return
     var screenPoint = root.barDragScreenPoint(scenePoint)
     root.barDragScreenX = screenPoint.x
     root.barDragScreenY = screenPoint.y
     var drop = root.moduleDropAtScene(scenePoint, slot)
+    root.updateSpringGroup(drop, slot, root.groupSlotAt(scenePoint, slot), scenePoint)
     var old = root.barDragDrop
     if (old && drop && old.source === drop.source && old.slot === drop.slot && old.after === drop.after &&
-        old.drawer === drop.drawer && old.zone === drop.zone && old.managedZone === drop.managedZone) return
+        old.drawer === drop.drawer && old.zone === drop.zone && old.managedZone === drop.managedZone && old.into === drop.into) return
     root.barDragDrop = drop
   }
 
@@ -909,9 +974,8 @@ Item {
   // Returns null for drops whose destination has no open gap to aim at.
   function predictDropSettle(sourceSlot, drop) {
     var target = drop.slot
+    if (drop.into && target) return { item: target.presentationItem, local: null, fade: true }
     if (!target || target.drawerHost || target.centerAnchorSlot) return null
-    if (target.groupHeader)
-      return sourceSlot.groupHeader ? null : { item: target.presentationItem, local: null, fade: true }
     var along = root.vertical ? sourceSlot.naturalHeight : sourceSlot.naturalWidth
     var start = drop.after === true
       ? (root.vertical ? target.naturalHeight : target.naturalWidth) + root.widgetSpacing : 0
@@ -1077,6 +1141,24 @@ Item {
   readonly property real edgeGap: Style.space(4)
   readonly property bool autoHide: barConfig.powerbarAutoHide === true
   readonly property real islandPadding: Style.space(4)
+  // The island a dragged icon would land in grows a little at both ends, a
+  // visible landing lip past its last icon.
+  readonly property string dragTargetZone: {
+    var drop = barDragDrop
+    if (!barDragSource || !drop || drop.source) return ""
+    if (drop.slot && !drop.slot.drawerHost) return drop.slot.region
+    return drop.zone || ""
+  }
+  readonly property real dragLip: Style.space(6)
+  property real leftLip: islands && dragTargetZone === "left" ? dragLip : 0
+  property real centerLip: islands && dragTargetZone === "center" ? dragLip : 0
+  property real rightLip: islands && dragTargetZone === "right" ? dragLip : 0
+  Behavior on leftLip { enabled: root.animationsEnabled; NumberAnimation { duration: root.dragMotionDuration; easing.type: root.dragMotionEasing } }
+  Behavior on centerLip { enabled: root.animationsEnabled; NumberAnimation { duration: root.dragMotionDuration; easing.type: root.dragMotionEasing } }
+  Behavior on rightLip { enabled: root.animationsEnabled; NumberAnimation { duration: root.dragMotionDuration; easing.type: root.dragMotionEasing } }
+  function islandPad(zone) {
+    return islandPadding + (zone === "left" ? leftLip : zone === "center" ? centerLip : rightLip)
+  }
   readonly property bool vertical: position === "left" || position === "right"
   readonly property int barSize: vertical ? Style.bar.sizeVertical : Style.bar.sizeHorizontal
   readonly property real renderedBarSize: barSize
@@ -1417,11 +1499,35 @@ Item {
     root.shell.mutateShellConfig(function(config) {
       var layout = config.bar && config.bar.layout
       var from = layout && layout[source.region], to = layout && layout[toRegion]
+      // A group icon is not a layout entry: it sits before its anchor entry, so
+      // "before the group" means before that anchor (or the zone's end).
+      if (beforeKey && beforeKey.indexOf("group:") === 0) {
+        var group = GroupsModel.groups(config.bar).find(function(g) { return "group:" + g.id === beforeKey })
+        beforeKey = group && Array.isArray(to) && to.some(function(entry) { return entry && entry.powerbarInstance === group.before }) ? group.before : ""
+      }
       if (!Array.isArray(from) || !Array.isArray(to) ||
           !from.some(function(entry) { return entry && entry.powerbarInstance === source.instanceKey }) ||
           (beforeKey && !to.some(function(entry) { return entry && entry.powerbarInstance === beforeKey }))) return
       changed = BarModel.moveInstanceInConfig(config, source.region, source.instanceKey, toRegion, beforeKey, visibility)
       if (source.memberGroup) changed = GroupsModel.assign(config, source.instanceKey, "") || changed
+    })
+    return changed
+  }
+
+  // After a group icon: the widget takes the group's place before its anchor,
+  // and the group re-anchors on the widget so it stays in front of it.
+  function dropAfterGroup(source, groupId) {
+    if (!source || !root.shell) return false
+    var changed = false
+    root.shell.mutateShellConfig(function(config) {
+      var group = GroupsModel.groups(config.bar).find(function(g) { return g.id === groupId })
+      var to = group && config.bar.layout && config.bar.layout[group.section]
+      if (!group || !Array.isArray(to)) return
+      var anchor = to.some(function(entry) { return entry && entry.powerbarInstance === group.before }) ? group.before : ""
+      if (!BarModel.moveInstanceInConfig(config, source.region, source.instanceKey, group.section, anchor, "shown")
+          && !(source.region === group.section)) return
+      if (source.memberGroup) GroupsModel.assign(config, source.instanceKey, "")
+      changed = GroupsModel.edit(config, groupId, { before: source.instanceKey }) || true
     })
     return changed
   }
@@ -1442,9 +1548,16 @@ Item {
         return null
       var stripX = root.position === "right" ? sourceWindow.width - root.barExtent : 0
       var stripY = root.position === "bottom" ? sourceWindow.height - root.barExtent : 0
-      var inStrip = root.vertical ? barPoint.x >= stripX && barPoint.x <= stripX + root.barExtent : barPoint.y >= stripY && barPoint.y <= stripY + root.barExtent
       var drawer = sourceWindow.managedDrawer
       var inDrawer = drawer && drawer.opened && barPoint.x >= drawer.x && barPoint.x <= drawer.x + drawer.width && barPoint.y >= drawer.y && barPoint.y <= drawer.y + drawer.height
+      // A release that drifts a little off the bar's inner edge still lands on
+      // the bar, unless it is over an open drawer.
+      var slack = inDrawer ? 0 : root.barSize * 0.6
+      var cross = root.vertical ? barPoint.x : barPoint.y
+      var stripStart = root.vertical ? stripX : stripY
+      var inStrip = root.position === "top" || root.position === "left"
+        ? cross >= stripStart && cross <= stripStart + root.barExtent + slack
+        : cross >= stripStart - slack && cross <= stripStart + root.barExtent
       if (!inStrip && !inDrawer) return null
       if (inStrip) zone = root.barZoneAt(barPoint, sourceWindow)
       if (inStrip && typeof sourceWindow.managedDropZoneAt === "function")
@@ -1491,6 +1604,8 @@ Item {
         scenePoint.y >= sourceRect.y && scenePoint.y <= sourceRect.y + sourceRect.height)
       return { source: true }
     if (managedZone) return { managedZone: managedZone }
+    if (hit && hit.slot.groupHeader && !hit.slot.drawerHost && sourceSlot.drawerHost && !sourceSlot.groupHeader)
+      return { slot: hit.slot, into: true }
     if (hit) return { slot: hit.slot, after: alongColumn
       ? DragModel.afterPointer(scenePoint.y, hit.y, hit.contentY, hit.contentHeight)
       : DragModel.afterPointer(scenePoint.x, hit.x, hit.contentX, hit.contentWidth) }
@@ -1498,7 +1613,6 @@ Item {
       return candidate.slot.region === zone
     })
     var nearest = BarModel.nearestDropTarget(nearby, scenePoint, alongColumn)
-    if (!inDrawer && nearest && nearest.slot.groupHeader) nearest = null
     return nearest || (inDrawer ? { drawer: drawer } : { zone: zone })
   }
 
@@ -1565,7 +1679,11 @@ Item {
       return root.dropBarModule(sourceSlot, drop.drawer.zone, "", "managed")
     }
     if (drop.zone) return root.dropBarModule(sourceSlot, drop.zone, "", "shown")
-    if (targetSlot.groupHeader) return root.assignGroup(sourceSlot.instanceKey, targetSlot.entry.powerbarGroupId)
+    if (drop.into) return root.assignGroup(sourceSlot.instanceKey, targetSlot.entry.powerbarGroupId)
+    if (targetSlot.groupHeader && !targetSlot.drawerHost && afterTarget)
+      return root.dropAfterGroup(sourceSlot, targetSlot.entry.powerbarGroupId)
+    if (targetSlot.groupHeader && !targetSlot.drawerHost)
+      return dropBarModule(sourceSlot, targetSlot.region, targetSlot.instanceKey, "shown")
     if (targetSlot.drawerHost && targetSlot.memberGroup) {
       var group = targetSlot.memberGroup
       var index = group.items.indexOf(targetSlot.instanceKey) + (afterTarget ? 1 : 0)
@@ -2184,17 +2302,17 @@ Item {
 
         IslandSurface {
           transform: Translate { x: barWindow.shiftX(barWindow.leftShift); y: barWindow.shiftY(barWindow.leftShift) }
-          x: leftModules.x - root.islandPadding
+          x: leftModules.x - root.islandPad("left")
           y: (parent.height - height) / 2
-          width: leftModules.width + root.islandPadding * 2
+          width: leftModules.width + root.islandPad("left") * 2
           height: root.barSize
           visible: root.islands && leftModules.width > 0
         }
         IslandSurface {
           transform: Translate { x: barWindow.shiftX(barWindow.rightShift); y: barWindow.shiftY(barWindow.rightShift) }
-          x: rightModules.width > 0 ? rightModules.x - root.islandPadding : preferencesButton.x - root.islandPadding
+          x: rightModules.width > 0 ? rightModules.x - root.islandPad("right") : preferencesButton.x - root.islandPad("right")
           y: (parent.height - height) / 2
-          width: preferencesButton.x + preferencesButton.width + root.islandPadding - x
+          width: preferencesButton.x + preferencesButton.width + root.islandPad("right") - x
           height: root.barSize
         }
         CenterModules {
@@ -2237,17 +2355,17 @@ Item {
         IslandSurface {
           transform: Translate { x: barWindow.shiftX(barWindow.leftShift); y: barWindow.shiftY(barWindow.leftShift) }
           x: (parent.width - width) / 2
-          y: leftModules.y - root.islandPadding
+          y: leftModules.y - root.islandPad("left")
           width: root.barSize
-          height: leftModules.height + root.islandPadding * 2
+          height: leftModules.height + root.islandPad("left") * 2
           visible: root.islands && leftModules.height > 0
         }
         IslandSurface {
           transform: Translate { x: barWindow.shiftX(barWindow.rightShift); y: barWindow.shiftY(barWindow.rightShift) }
           x: (parent.width - width) / 2
-          y: rightModules.height > 0 ? rightModules.y - root.islandPadding : preferencesButton.y - root.islandPadding
+          y: rightModules.height > 0 ? rightModules.y - root.islandPad("right") : preferencesButton.y - root.islandPad("right")
           width: root.barSize
-          height: preferencesButton.y + preferencesButton.height + root.islandPadding - y
+          height: preferencesButton.y + preferencesButton.height + root.islandPad("right") - y
         }
         CenterModules {
           anchors.fill: parent
@@ -2358,9 +2476,60 @@ Item {
     // sit under the cursor without stealing the MouseArea's active pointer grab.
     mask: Region {}
 
+    // Over a group drawer the ghost takes that group's member style: its own
+    // look, its name, or both, as a menu row would show it.
+    readonly property var targetGroup: {
+      var drop = root.barDragDrop
+      if (!root.barDragSource || !drop) return null
+      var id = drop.drawer && drop.drawer.groupId ? drop.drawer.groupId
+        : drop.slot && drop.slot.drawerHost && drop.slot.memberGroup ? drop.slot.memberGroup.id : ""
+      return id ? root.groups.find(function(g) { return g.id === id }) || null : null
+    }
+    readonly property string display: targetGroup ? targetGroup.memberDisplay : "native"
+    readonly property string sourceTitle: {
+      var source = root.barDragSource
+      if (!source) return ""
+      if (source.groupHeader && source.groupConfig) return source.groupConfig.label
+      var metadata = root.barWidgetRegistry.metadataFor(root.canonicalWidgetId(source.moduleName)) || {}
+      return metadata.displayName || String(source.moduleName).split(".").pop()
+    }
+    BorderSurface {
+      id: labelGhost
+      visible: ghostWindow.visible && ghostWindow.display !== "native" && !root.barDragSettling
+      x: Math.round(root.barDragScreenX - root.barDragOffsetX)
+      y: Math.round(root.barDragScreenY - root.barDragOffsetY)
+      width: labelRow.implicitWidth + Style.space(20)
+      height: Math.max(root.barDragImageHeight, labelText.implicitHeight + Style.space(12))
+      radius: Style.cornerRadius
+      color: Qt.alpha(root.background, Math.max(0.85, root.surfaceEffects.backgroundOpacity))
+      borderSpec: Border.flat(Color.accent, Math.max(1, Style.space(2)))
+      Row {
+        id: labelRow
+        anchors.verticalCenter: parent.verticalCenter
+        x: Style.space(10)
+        spacing: Style.space(8)
+        Image {
+          visible: ghostWindow.display === "both"
+          source: root.barDragImageUrl
+          width: visible ? root.barDragImageWidth : 0
+          height: root.barDragImageHeight
+          fillMode: Image.PreserveAspectFit
+          anchors.verticalCenter: parent.verticalCenter
+        }
+        Text {
+          id: labelText
+          text: ghostWindow.sourceTitle
+          textFormat: Text.PlainText
+          color: root.barForeground
+          font.family: Style.font.menuFamily
+          font.pixelSize: Style.font.bodySmall
+          anchors.verticalCenter: parent.verticalCenter
+        }
+      }
+    }
     Image {
       readonly property var settle: root.barDragSettling ? root.dragSettleFrame(root.barDragSettleProgress) : null
-      visible: ghostWindow.visible && status === Image.Ready
+      visible: ghostWindow.visible && status === Image.Ready && (ghostWindow.display === "native" || root.barDragSettling)
       x: Math.round(settle ? settle.x : root.barDragScreenX - root.barDragOffsetX)
       y: Math.round(settle ? settle.y : root.barDragScreenY - root.barDragOffsetY)
       opacity: settle ? settle.opacity : 1
@@ -2472,9 +2641,9 @@ Item {
           readonly property real end: centerRoot.hasAnchor
             ? (afterModules.width > 0 ? afterModules.x + afterModules.width : centerAnchorModule.x + centerAnchorModule.width)
             : groupModules.x + groupModules.width
-          x: start - root.islandPadding
+          x: start - root.islandPad("center")
           y: (parent.height - height) / 2
-          width: end - start + root.islandPadding * 2
+          width: end - start + root.islandPad("center") * 2
           height: root.barSize
           visible: root.islands && end > start
         }
@@ -2549,9 +2718,9 @@ Item {
             ? (afterModules.height > 0 ? afterModules.y + afterModules.height : centerAnchorModule.y + centerAnchorModule.height)
             : groupModules.y + groupModules.height
           x: (parent.width - width) / 2
-          y: start - root.islandPadding
+          y: start - root.islandPad("center")
           width: root.barSize
-          height: end - start + root.islandPadding * 2
+          height: end - start + root.islandPad("center") * 2
           visible: root.islands && end > start
         }
         CenterGestureArea { anchors.fill: parent }
@@ -3013,7 +3182,7 @@ Item {
       anchors.leftMargin: root.vertical ? root.highlightInset(parent.width) : 0
       anchors.rightMargin: root.vertical ? root.highlightInset(parent.width) : 0
       z: -1
-      hovered: (slot.hovered || slot.activityFlash) && slot.mainVisible && !slot.dragSource && !root.barHidden && !preferencesPane.opened
+      hovered: (slot.hovered || slot.activityFlash || slot.preview.into) && slot.mainVisible && !slot.dragSource && !root.barHidden && !preferencesPane.opened
       selected: slot.panelOpen && !slot.dragSource
       motionEnabled: root.animationsEnabled
       hoverColor: root.highlightHoverColor
@@ -3126,15 +3295,6 @@ Item {
           : face === "both" ? group.icon + "  " + group.label : group.icon
         fontFamily: face === "glyph" ? (GroupsModel.iconFont(text) || Style.font.family) : Style.font.family
         textRotation: root.vertical && face !== "glyph" ? 90 : 0
-        Rectangle {
-          anchors.fill: parent
-          anchors.margins: Style.space(1)
-          color: "transparent"
-          border.color: Color.accent
-          border.width: slot.preview.groupTarget ? Style.space(2) : 0
-          radius: Math.min(width, height) / 2
-          Behavior on border.width { NumberAnimation { duration: 80; easing.type: Easing.OutCubic } }
-        }
         fixedHeight: root.vertical && face !== "glyph" ? Math.max(root.barSize, faceMetrics.width + Style.space(8)) : -1
         tooltipText: group && (group.tooltip === undefined ? face === "glyph" : group.tooltip)
           ? group.label : ""

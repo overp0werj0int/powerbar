@@ -85,7 +85,8 @@ anchor opens its gap in the neighboring list so the anchored icon stays centered
 | From | To | Result |
 | --- | --- | --- |
 | Main island | Main island or empty zone | Move the instance, set Always shown |
-| Main island | Group icon or open group drawer | Add or reorder group membership |
+| Main island | Beside a group icon | Move the instance next to the group |
+| Main island | Group drawer (opens after resting on its icon) | Add or reorder group membership |
 | Main island | Open managed drawer or Managed target | Move the instance, set Managed |
 | Group drawer | Main island | Remove membership, set Always shown |
 | Group drawer | Other group icon | Transfer membership |
