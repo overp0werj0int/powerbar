@@ -275,6 +275,40 @@ Item {
   property string omarchyPath: Quickshell.env("OMARCHY_PATH")
   // Injected by the host shell so bar slots can resolve enabled widgets.
   property var barWidgetRegistry: fallbackBarWidgetRegistry
+  // Omarchy keeps a per-bar copy of its widget registry. After switching bars
+  // (and so on a first install), that copy can still point at widget
+  // components the shell has since rebuilt and destroyed, which leaves every
+  // widget a placeholder until the shell is restarted. When Powerbar finds such
+  // entries it asks the shell to rescan its plugins once, which hands it fresh
+  // components; the 30 s guard keeps a lasting fault from looping.
+  // A rescan reloads every plugin, Powerbar included, so the guard lives in a
+  // runtime file rather than in this instance: at most one rescan a minute.
+  function registryStale() {
+    var widgets = barWidgetRegistry && barWidgetRegistry.widgets || {}
+    for (var id in widgets) if (widgets[id] && !widgets[id].component) return true
+    return false
+  }
+  function checkRegistry() {
+    if (!registryStale()) return
+    var now = Date.now()
+    if (now - Number(String(registryHealStamp.text() || "0").trim() || 0) < 60000) return
+    registryHealStamp.setText(String(now))
+    console.info("powerbar: widget registry is stale after a bar switch; asking the shell to rescan plugins")
+    Util.execArgv(["omarchy-shell", "shell", "rescanPlugins"])
+  }
+  FileView {
+    id: registryHealStamp
+    path: (Quickshell.env("XDG_RUNTIME_DIR") || "/tmp") + "/powerbar-registry-rescan"
+    blockLoading: true
+    printErrors: false
+  }
+  Connections {
+    target: root.barWidgetRegistry
+    ignoreUnknownSignals: true
+    function onRevisionChanged() { registryCheck.restart() }
+  }
+  onBarWidgetRegistryChanged: registryCheck.restart()
+  Timer { id: registryCheck; interval: 2500; onTriggered: root.checkRegistry() }
   // Read-only registry view for third-party full bars; the built-in bar does
   // not otherwise need it, but declaring it keeps clone construction atomic.
   property var pluginRegistry: null
@@ -1496,7 +1530,7 @@ Item {
     return source ? Util.fileUrl(source) : ""
   }
 
-  Component.onCompleted: applyBarConfig()
+  Component.onCompleted: { applyBarConfig(); registryCheck.restart() }
 
   // Revealing the indicators widens the center island, which can slide a
   // neighbour under a stationary pointer or move the hovered icon away from it.
@@ -3146,9 +3180,19 @@ Item {
     }
     readonly property string displayName: registryMetadata && (registryMetadata.displayName || registryMetadata.name)
       || String(moduleName).split(".").pop()
+    // A widget that hid itself (the update widget with nothing pending) still
+    // has its own button; its placeholder presses that, as a click on the
+    // widget would, before falling back to Preferences.
+    function hiddenPrimaryTarget() {
+      return root.targetsForSlot(slot).find(function(target) {
+        return target && typeof target.triggerPress === "function" && target.interactive !== false
+          && target.pressable !== false && target.concealed !== true
+      }) || null
+    }
     function canActivate() {
       if (root.targetsForSlot(slot).some(function(target) { return root.moduleTargetClickable(target) })) return true
-      return !!activeItem && (typeof activeItem.toggle === "function" || typeof activeItem.open === "function")
+      if (activeItem && (typeof activeItem.toggle === "function" || typeof activeItem.open === "function")) return true
+      return !!hiddenPrimaryTarget()
     }
     function activate() {
       var targets = root.targetsForSlot(slot)
@@ -3157,6 +3201,8 @@ Item {
       }
       if (activeItem && typeof activeItem.toggle === "function") { activeItem.toggle(); return true }
       if (activeItem && typeof activeItem.open === "function") { activeItem.open(); return true }
+      var hidden = hiddenPrimaryTarget()
+      if (hidden) { hidden.triggerPress(Qt.LeftButton); return true }
       return false
     }
     readonly property bool needsPlaceholder: (alwaysShown || managed) && (!activeItem || !activeItem.visible || activeItem.opacity === 0 || activeItem.implicitWidth <= 0 || activeItem.implicitHeight <= 0)

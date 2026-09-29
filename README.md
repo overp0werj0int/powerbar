@@ -17,8 +17,10 @@ part of them works from the keyboard.
 - **Layout** shows your bar as it looks, on your wallpaper, with live images of
   its widgets. Columns are the zones (Left, Center, Right); rows are visibility:
   - **On the bar** keeps a widget slot visible. If the widget has no visible
-    content, Powerbar displays a fallback icon; clicking it opens the widget when
-    it exposes an `open()` method, or preferences otherwise.
+    content, Powerbar displays a fallback icon. Clicking it does what clicking
+    the widget would: it presses the widget's own button even while the widget
+    hides itself (the Omarchy update widget runs `omarchy-update`), or calls its
+    `toggle()` or `open()`; only a widget with no action opens preferences.
   - **In the drawer** (Managed) is hidden at rest. Events and icon/value changes
     reveal the widget for 2.5 seconds, the same time an autohidden bar peeks
     out for activity, so the widget and its island leave together. Hover its zone to open a
@@ -106,6 +108,15 @@ The system tray retains Omarchy's placement at the inner edge of its section.
 Widget files hot-reload; changes to the mounted bar engine require
 `omarchy restart shell`. Verify the live instance with `hyprctl instances`
 first if the terminal's `HYPRLAND_INSTANCE_SIGNATURE` might be stale.
+
+**Switching bars.** Omarchy gives each replacement bar its own copy of the
+widget registry. After switching to the stock bar and back (which is also what
+a first install does), that copy can point at widget components the shell has
+already rebuilt, so widgets would show only placeholders until the shell
+restarts. Powerbar notices this a couple of seconds after it loads and asks the
+shell to rescan its plugins once (`omarchy-shell shell rescanPlugins`, at most
+once a minute), after which every widget loads normally. The bar disappears
+for a few seconds while that happens.
 
 For keyboard launchers, `omarchy-shell powerbar preferences` opens preferences
 on the focused monitor; `omarchy-shell powerbar closePreferences` closes them.
