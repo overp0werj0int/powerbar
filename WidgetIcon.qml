@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Window
 import qs.Commons
 
 // A widget's own look at icon size: its live rendering when it is loaded, the
@@ -14,15 +15,40 @@ Item {
   readonly property var live: key ? preferences.snapshots[key] : null
   readonly property string cachedUrl: !live && key !== "" && !record.groupId ? preferences.cachedImageUrl(key) : ""
   readonly property bool useCache: cachedUrl !== ""
-  readonly property bool hasImage: !!live || (useCache && cached.status === Image.Ready)
-  readonly property real aspect: live ? live.width / Math.max(1, live.height)
-    : cached.implicitWidth / Math.max(1, cached.implicitHeight)
+  // Images saved from a vertical bar before Powerbar stopped capturing one are
+  // columns, taller than they are wide; they fall back to the glyph instead.
+  readonly property bool cacheUsable: useCache && cached.status === Image.Ready
+    && cached.sourceSize.height <= cached.sourceSize.width * 1.3
+  readonly property bool hasImage: !!live || cacheUsable
+  // Images are grabbed at twice their size; a large bar's slots include a lip
+  // above and below the widget (beside it on a vertical bar), trimmed here so
+  // the icon shows the widget alone at either bar size.
+  readonly property var bar: preferences.bar
+  // Saved images are grabbed at twice the widget's size, which the display
+  // scale multiplies again.
+  readonly property real savedScale: 2 * Math.max(1, Screen.devicePixelRatio)
+  readonly property real imageWidth: live ? live.width : cached.sourceSize.width / savedScale
+  readonly property real imageHeight: live ? live.height : cached.sourceSize.height / savedScale
+  // Every image comes from a horizontal bar (a vertical one is never
+  // captured), so only a horizontal bar's lip is ever trimmed.
+  readonly property real horizontalBarSize: bar ? bar.barSizeFor(false) : 0
+  readonly property real lip: bar ? Math.max(0, (horizontalBarSize - Style.bar.sizeHorizontal) / 2) : 0
+  readonly property real trimX: 0
+  readonly property real trimY: bar && imageHeight >= horizontalBarSize ? lip : 0
+  readonly property real aspect: Math.max(1, imageWidth - trimX * 2) / Math.max(1, imageHeight - trimY * 2)
   implicitHeight: hasImage ? size : glyph.implicitHeight
   implicitWidth: hasImage ? Math.min(size * maxAspect, size * aspect) : glyph.implicitWidth
+  clip: hasImage && (trimX > 0 || trimY > 0)
   Accessible.ignored: true
 
+  Item {
+    id: frame
+    anchors.centerIn: parent
+    width: icon.width * icon.imageWidth / Math.max(1, icon.imageWidth - icon.trimX * 2)
+    height: icon.height * icon.imageHeight / Math.max(1, icon.imageHeight - icon.trimY * 2)
+  }
   Image {
-    anchors.fill: parent
+    anchors.fill: frame
     visible: !!icon.live
     source: icon.live ? icon.live.url : ""
     fillMode: Image.PreserveAspectFit
@@ -31,8 +57,8 @@ Item {
   }
   Image {
     id: cached
-    anchors.fill: parent
-    visible: icon.useCache && status === Image.Ready
+    anchors.fill: frame
+    visible: icon.cacheUsable
     source: icon.cachedUrl
     asynchronous: true
     cache: false

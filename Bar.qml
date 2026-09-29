@@ -69,7 +69,11 @@ Item {
   // hidden, and therefore never loaded, still shows its last look.
   readonly property string widgetImageDir: (Quickshell.env("XDG_CACHE_HOME") || home + "/.cache") + "/powerbar/widgets"
   function widgetImageFile(key) { return widgetImageDir + "/" + String(key).replace(/[^A-Za-z0-9._-]/g, "_") + ".png" }
+  // Preferences always draws the bar horizontally, so only a horizontal bar is
+  // captured: a vertical bar's widgets lay themselves out for a column, and
+  // capturing them would also overwrite the saved horizontal look.
   function captureWidgetImages(screen, done) {
+    if (vertical) return
     moduleSlots.forEach(function(slot) {
       if (!slot) return
       var window = slotWindow(slot)
@@ -1140,7 +1144,15 @@ Item {
   // Floating bars and islands keep this distance from the screen edges.
   readonly property real edgeGap: Style.space(4)
   readonly property bool autoHide: barConfig.powerbarAutoHide === true
-  readonly property real islandPadding: Style.space(4)
+  // The large bar is as thick as Preferences' Layout page draws it: the theme's
+  // bar size plus a lip above and below each widget. Widgets keep their own
+  // size and gain room around them; the islands' ends open up to match.
+  readonly property bool largeBar: barConfig.powerbarLargeBar === true
+  readonly property real largeBarLip: Style.space(6)
+  function barSizeFor(vertical) {
+    return (vertical ? Style.bar.sizeVertical : Style.bar.sizeHorizontal) + (largeBar ? largeBarLip * 2 : 0)
+  }
+  readonly property real islandPadding: Style.space(largeBar ? 8 : 4)
   // The island a dragged icon would land in grows a little at both ends, a
   // visible landing lip past its last icon.
   readonly property string dragTargetZone: {
@@ -1160,7 +1172,10 @@ Item {
     return islandPadding + (zone === "left" ? leftLip : zone === "center" ? centerLip : rightLip)
   }
   readonly property bool vertical: position === "left" || position === "right"
-  readonly property int barSize: vertical ? Style.bar.sizeVertical : Style.bar.sizeHorizontal
+  readonly property int barSize: barSizeFor(vertical)
+  // Widgets are drawn at this size whether or not the bar is large, so lists
+  // of widget icons outside the bar keep to it.
+  readonly property int themeBarSize: vertical ? Style.bar.sizeVertical : Style.bar.sizeHorizontal
   readonly property real renderedBarSize: barSize
   readonly property real barScale: 1
   // Item highlight shared by the bar, its drawers and Preferences' layout
@@ -2579,7 +2594,7 @@ Item {
 
         required property string modelData
         readonly property bool edgeVertical: modelData === "left" || modelData === "right"
-        readonly property int edgeSize: edgeVertical ? Style.bar.sizeVertical : Style.bar.sizeHorizontal
+        readonly property int edgeSize: root.barSizeFor(edgeVertical)
 
         x: modelData === "right" ? parent.width - edgeSize : 0
         y: modelData === "bottom" ? parent.height - edgeSize : 0

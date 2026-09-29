@@ -460,7 +460,7 @@ Item {
       anchors.verticalCenter: parent.verticalCenter
       preferences: pane.preferences
       record: ghost.record || ({})
-      size: Math.round(pane.bar.barSize * 0.8)
+      size: Math.round(pane.bar.themeBarSize * 0.8)
     }
     Text {
       id: ghostText
@@ -647,7 +647,7 @@ Item {
                 WidgetIcon {
                   preferences: pane.preferences
                   record: row.record
-                  size: Math.round(pane.bar.barSize * 0.8)
+                  size: Math.round(pane.bar.themeBarSize * 0.8)
                   Layout.preferredWidth: Math.max(Style.space(20), implicitWidth)
                 }
                 Text {

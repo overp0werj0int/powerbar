@@ -17,8 +17,10 @@ ClippingRectangle {
     asynchronous: true
     cache: false
     fillMode: Image.PreserveAspectCrop
-    verticalAlignment: backdrop.position === "bottom" ? Image.AlignBottom : Image.AlignTop
-    horizontalAlignment: backdrop.position === "right" ? Image.AlignRight : backdrop.position === "left" ? Image.AlignLeft : Image.AlignHCenter
+    // Previews always draw a horizontal bar, so a side bar reads as top (left)
+    // or bottom (right) of the screen.
+    verticalAlignment: backdrop.position === "bottom" || backdrop.position === "right" ? Image.AlignBottom : Image.AlignTop
+    horizontalAlignment: Image.AlignHCenter
     sourceSize.width: Style.space(1600)
     opacity: status === Image.Ready ? 1 : 0
     Behavior on opacity { NumberAnimation { duration: 160 } }

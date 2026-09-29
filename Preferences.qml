@@ -438,6 +438,15 @@ Item {
             id: appearancePage
             BarPreview { Layout.fillWidth: true }
             PrefsSection {
+              title: "Size"
+              PrefsToggle {
+                label: "Large bar"
+                description: "A taller bar with more room around each widget. Text and icons keep their size."
+                checked: prefs.bar ? prefs.bar.largeBar : false
+                onToggled: function(checked) { prefs.setOption("powerbarLargeBar", checked) }
+              }
+            }
+            PrefsSection {
               title: "Borders and rounding"
               description: "For floating bars, islands and drawers. Border color follows your theme."
               PrefsToggle {
@@ -565,7 +574,7 @@ Item {
     // The preview is the strip of screen along the bar's edge: a flat bar
     // touches the edges, floating bars and islands keep the bar's edge gap.
     readonly property real gap: prefs.bar && !prefs.bar.flat ? prefs.bar.edgeGap : 0
-    readonly property real barY: prefs.bar && prefs.bar.position === "bottom"
+    readonly property real barY: prefs.bar && (prefs.bar.position === "bottom" || prefs.bar.position === "right")
       ? height - prefs.bar.barSize - gap : gap
     implicitHeight: prefs.bar ? prefs.bar.barSize + Style.space(72) : Style.space(100)
     source: prefs.wallpaper
@@ -588,9 +597,10 @@ Item {
       Item {
         required property string modelData
         readonly property var shown: prefs.layoutEntries.filter(function(e) {
-          return e.section === modelData && e.mode === "shown" && prefs.snapshots[e.instanceKey]
+          return e.section === modelData && e.mode === "shown"
+            && (prefs.snapshots[e.instanceKey] || prefs.cachedImageUrl(e.instanceKey) !== "")
         }).slice(0, 4)
-        readonly property real contentWidth: zoneRow.implicitWidth + Style.space(16)
+        readonly property real contentWidth: zoneRow.implicitWidth + (prefs.bar ? prefs.bar.islandPadding * 2 : 0)
         width: contentWidth
         height: prefs.bar ? prefs.bar.barSize : 0
         y: preview.barY
@@ -614,12 +624,14 @@ Item {
           spacing: prefs.bar ? Math.max(Style.space(2), prefs.bar.widgetSpacing) : 0
           Repeater {
             model: parent.parent.shown
-            Image {
+            // Live on a horizontal bar, otherwise the saved horizontal look:
+            // the preview is always a horizontal bar.
+            WidgetIcon {
               required property var modelData
-              readonly property var image: prefs.snapshots[modelData.instanceKey]
-              source: image ? image.url : ""
-              width: image ? image.width : 0
-              height: image ? image.height : 0
+              preferences: prefs
+              record: modelData
+              size: prefs.bar ? prefs.bar.themeBarSize : Style.font.iconLarge
+              maxAspect: 40
               anchors.verticalCenter: parent.verticalCenter
             }
           }

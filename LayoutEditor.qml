@@ -410,7 +410,8 @@ Item {
     readonly property bool targeted: !!editor.lifted && !!editor.liftTarget
       && editor.liftTarget.section === section && editor.liftTarget.mode === mode
     readonly property bool cursorHere: !editor.lifted && editor.cursorCell.section === section && editor.cursorCell.mode === mode
-    implicitHeight: barRow ? editor.bar.barSize + Style.space(12) : Math.max(Style.space(58), flow.implicitHeight + Style.space(16))
+    // The bar row is as thick as the bar itself, so it follows the bar size.
+    implicitHeight: barRow ? editor.bar.barSize : Math.max(Style.space(58), flow.implicitHeight + Style.space(16))
     // The bar row never wraps: like the bar, a zone keeps one line and
     // shrinks to fit, aligned the way the zone aligns on screen.
     readonly property real contentWidth: flow.childrenRect.width
@@ -468,7 +469,7 @@ Item {
     }
   }
 
-  component Tile: BorderSurface {
+  component Tile: Item {
     id: tile
     property var record: ({})
     property bool placeholder: false
@@ -480,21 +481,34 @@ Item {
     readonly property bool isCursor: !ghost && !editor.lifted && editor.cursorKey !== "" && record.instanceKey === editor.cursorKey
     readonly property bool hovered: !ghost && !editor.lifted && editor.hoverKey === record.instanceKey
     readonly property int memberCount: record.groupId ? (editor.bar.groups.find(function(g) { return g.id === record.groupId }) || { items: [] }).items.length : 0
-    implicitWidth: body.implicitWidth + Style.space(snapshot ? 8 : 16)
-    implicitHeight: Math.max(snapshot ? snapshot.height + Style.space(6) : Style.spacing.controlHeight, body.implicitHeight + Style.space(8))
-    radius: Math.max(Style.cornerRadius - Style.space(2), Style.space(4))
+    // On the bar row a tile is a bar slot: as thick as the bar, with its
+    // highlight inset the way the bar insets its own.
+    readonly property bool onBar: mode === "shown" && !ghost
+    // On the bar row a widget is drawn as it looks: live on a horizontal bar,
+    // otherwise its saved horizontal look. Only without either does it fall
+    // back to a glyph and its name.
+    readonly property bool pictured: !!snapshot || (onBar && rowIcon.hasImage)
+    implicitWidth: body.implicitWidth + Style.space(pictured ? 8 : 16)
+    implicitHeight: onBar ? editor.bar.barSize
+      : Math.max(snapshot ? snapshot.height + Style.space(6) : Style.spacing.controlHeight, body.implicitHeight + Style.space(8))
     opacity: mode === "hidden" && !placeholder && !ghost ? 0.62 : ghost ? 0.9 : 1
-    color: placeholder ? Qt.alpha(Color.accent, 0.16)
-      : ghost ? Color.popups.background
-      : isCursor && editor.gridFocused ? Style.focusFillFor(Color.popups.text, Color.accent)
-      : isCursor ? Style.selectedFillFor(Color.popups.text, Color.accent)
-      : hovered ? Style.hoverFillFor(Color.popups.text, Color.accent)
-      : snapshot ? "transparent" : Qt.alpha(Color.popups.text, 0.06)
-    borderSpec: placeholder || ghost ? Border.flat(Color.accent, Math.max(1, Style.space(2)))
-      : isCursor && editor.gridFocused ? Border.controlSpec("focus", Color.popups.text, Color.accent)
-      : isCursor ? Border.flat(Qt.alpha(Color.popups.text, 0.35), 1)
-      : Border.none()
-    Behavior on color { ColorAnimation { duration: 90 } }
+
+    BorderSurface {
+      anchors.fill: parent
+      anchors.margins: tile.onBar ? editor.bar.highlightInset(tile.height) : 0
+      radius: tile.onBar ? editor.bar.highlightRounding : Math.max(Style.cornerRadius - Style.space(2), Style.space(4))
+      color: tile.placeholder ? Qt.alpha(Color.accent, 0.16)
+        : tile.ghost ? Color.popups.background
+        : tile.isCursor && editor.gridFocused ? Style.focusFillFor(Color.popups.text, Color.accent)
+        : tile.isCursor ? Style.selectedFillFor(Color.popups.text, Color.accent)
+        : tile.hovered ? Style.hoverFillFor(Color.popups.text, Color.accent)
+        : tile.pictured ? "transparent" : Qt.alpha(Color.popups.text, 0.06)
+      borderSpec: tile.placeholder || tile.ghost ? Border.flat(Color.accent, Math.max(1, Style.space(2)))
+        : tile.isCursor && editor.gridFocused ? Border.controlSpec("focus", Color.popups.text, Color.accent)
+        : tile.isCursor ? Border.flat(Qt.alpha(Color.popups.text, 0.35), 1)
+        : Border.none()
+      Behavior on color { ColorAnimation { duration: 90 } }
+    }
 
     Row {
       id: body
@@ -510,14 +524,16 @@ Item {
         anchors.verticalCenter: parent.verticalCenter
       }
       WidgetIcon {
+        id: rowIcon
         visible: !tile.snapshot
         preferences: editor.preferences
         record: tile.record
-        size: Math.round(editor.bar.barSize * 0.85)
+        size: Math.round(tile.onBar ? editor.bar.themeBarSize : editor.bar.themeBarSize * 0.85)
+        maxAspect: tile.onBar ? 40 : 3.2
         anchors.verticalCenter: parent.verticalCenter
       }
       Text {
-        visible: !tile.snapshot
+        visible: !tile.pictured
         text: tile.record.instanceKey ? editor.preferences.title(tile.record) : ""
         textFormat: Text.PlainText
         color: Color.popups.text
@@ -528,7 +544,7 @@ Item {
         anchors.verticalCenter: parent.verticalCenter
       }
       Text {
-        visible: tile.memberCount > 0 && !tile.snapshot
+        visible: tile.memberCount > 0 && !tile.pictured
         text: tile.memberCount
         textFormat: Text.PlainText
         color: Qt.alpha(Color.popups.text, 0.55)
@@ -602,7 +618,7 @@ Item {
             visible: !panel.snapshot
             preferences: editor.preferences
             record: panel.record || ({})
-            size: editor.bar.barSize
+            size: editor.bar.themeBarSize
           }
         }
         Text {
@@ -677,7 +693,7 @@ Item {
             WidgetIcon {
               preferences: editor.preferences
               record: parent.member || ({})
-              size: Math.round(editor.bar.barSize * 0.8)
+              size: Math.round(editor.bar.themeBarSize * 0.8)
             }
             Text {
               text: parent.member ? editor.preferences.title(parent.member) : "Unavailable widget"

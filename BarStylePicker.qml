@@ -18,6 +18,7 @@ RowLayout {
   ]
   property int cursor: 0
   signal chosen(string value)
+  readonly property string miniEdge: bar && (bar.position === "bottom" || bar.position === "right") ? "bottom" : "top"
   function indexOfValue() { return Math.max(0, styles.findIndex(function(s) { return s.value === picker.value })) }
 
   spacing: Style.space(12)
@@ -62,7 +63,7 @@ RowLayout {
           anchors.fill: parent
           anchors.margins: Style.space(4)
           source: picker.wallpaper
-          position: picker.bar ? picker.bar.position : "top"
+          position: picker.miniEdge
           MiniBar { anchors.fill: parent; style: option.modelData.value }
         }
         MouseArea {
@@ -100,8 +101,10 @@ RowLayout {
   component MiniBar: Item {
     id: mini
     property string style: "flat"
-    readonly property bool vertical: picker.bar ? picker.bar.vertical : false
-    readonly property string edge: picker.bar ? picker.bar.position : "top"
+    // Always a horizontal bar, like every Preferences preview; a side bar is
+    // shown along the top or bottom.
+    readonly property bool vertical: false
+    readonly property string edge: picker.bar && (picker.bar.position === "bottom" || picker.bar.position === "right") ? "bottom" : "top"
     readonly property real along: vertical ? height : width
     readonly property real thick: Style.space(12)
     readonly property real gap: style === "flat" ? 0 : Style.space(3)

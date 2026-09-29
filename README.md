@@ -29,7 +29,9 @@ part of them works from the keyboard.
   drawer and group members are rendered live because they stay loaded, and a
   hidden widget shows the last look Powerbar saw, kept in
   `~/.cache/powerbar/widgets/`. A widget that has never been shown falls back
-  to a stock glyph.
+  to a stock glyph. Every preview draws a horizontal bar at your bar's size,
+  whatever edge the bar is on; with a side bar, widgets show their saved
+  horizontal look, since only a horizontal bar is ever captured.
 
   The inspector beside the grid shows the selected widget or group: its zone,
   visibility, group, and whether it is pinned to the exact screen center.
@@ -38,8 +40,8 @@ part of them works from the keyboard.
   in the drawer, and the member list.
 - **General** covers screen edge, center anchor, autohide, animations, bar style,
   widget spacing, and drawer timing. Size, fonts, and colors follow Omarchy.
-- **Appearance** covers borders, rounding, blur, background opacity, and shadow,
-  with a live preview of the bar over your wallpaper.
+- **Appearance** covers bar size, borders, rounding, blur, background opacity,
+  and shadow, with a live preview of the bar over your wallpaper.
 
 ### Keys
 
@@ -172,6 +174,12 @@ Moving between zones replays the opening animation at the new zone.
 Widgets control their own icon and status animations.
 Main-bar actions finish drawer dismissal immediately before opening a popup.
 Turn Animations off to make these changes immediate.
+
+**Large bar** (`powerbarLargeBar`) makes the bar 12 px thicker (Omarchy's size
+plus a 6 px lip above and below each widget) and doubles the islands' end padding.
+Text and icons keep their size; widgets gain room around them and their hover
+highlights grow with the slot. Drawers, the Appearance preview and the Layout
+page's bar row follow the same thickness.
 
 **Appearance** applies one set of controls to the full bar, main islands, and
 extended islands, including group drawers: borders (0–6 px), rounding (0–32 px),
@@ -426,7 +434,8 @@ Widgets receive `bar` (the shell root), `moduleName` (string), and `settings` (o
 - `bar.fontFamily` — current monospace family
 - `bar.position` — `"top" | "bottom" | "left" | "right"`
 - `bar.vertical` — boolean shortcut
-- `bar.barSize` — 26 horizontal / 28 vertical
+- `bar.barSize` — 26 horizontal / 28 vertical, 12 more with Large bar; size a
+  widget's slot to it and keep its content at the theme's size
 - `bar.run(command)` — fire-and-forget bash exec
 - `bar.shellQuote(value)` — safe shell-quote a string
 - `bar.showTooltip(target, text)` / `bar.hideTooltip(target)` — shared tooltip popup
