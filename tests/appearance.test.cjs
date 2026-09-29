@@ -28,3 +28,14 @@ test('reset removes legacy fallbacks and preserves unrelated preferences', () =>
   assert.equal(model.effects(settings).shadow, false);
   assert.equal(model.effects(settings).backgroundOpacity, 1);
 });
+test('surfaces over windows keep a readable opacity unless blurred or opted out', () => {
+  assert.equal(model.overlayOpacity({ backgroundOpacity: 0.5 }), 0.88);
+  assert.equal(model.overlayOpacity({ backgroundOpacity: 0.95 }), 0.95);
+  assert.equal(model.overlayOpacity({ backgroundOpacity: 0.5, blur: true }), 0.5);
+  assert.equal(model.overlayOpacity({ backgroundOpacity: 0.5, readableOverlay: false }), 0.5);
+  assert.equal(model.effects({ powerbarReadableOverlay: false }).readableOverlay, false);
+  assert.equal(model.effects({}).readableOverlay, true);
+  const bar = { powerbarReadableOverlay: false, keep: 1 };
+  model.reset(bar);
+  assert.deepEqual({ ...bar }, { keep: 1 });
+});

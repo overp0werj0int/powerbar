@@ -33,6 +33,12 @@ function cursorVisible(keyboardMode, cursorActive, count) {
 // autohidden bar should not slide out for them every minute.
 var quietWidgets = ["omarchy.clock"]
 function quietActivity(id) { return quietWidgets.indexOf(String(id || "")) >= 0 }
+// Whether a widget's activity may slide an autohidden bar out: never for
+// clock-driven widgets, and not for widgets the user has opted out.
+function peeksOnActivity(entry, id) {
+  if (quietActivity(id)) return false
+  return !(entry && typeof entry === "object" && entry.powerbarActivityPeek === false)
+}
 function snapshot(target) {
   if (!target) return ""
   var values = []

@@ -13,6 +13,7 @@ import "GroupsModel.js" as GroupsModel
 import "GroupBadgeModel.js" as GroupBadgeModel
 import "AppearanceModel.js" as AppearanceModel
 import "DragModel.js" as DragModel
+import "HighlightModel.js" as HighlightModel
 
 Item {
   id: root
@@ -36,6 +37,30 @@ Item {
     var group = groups.find(function(g) { return g.id === id })
     if (!group) return { count: 0, urgent: false }
     return GroupBadgeModel.aggregate(groupSlots(id, window).map(function(slot) { return slot.badgeInfo }), group.badgeMode)
+  }
+  function layoutEntryFor(key) {
+    var layout = barConfig && barConfig.layout || {}
+    for (var section of ["left", "center", "right"])
+      for (var entry of (layout[section] || []))
+        if (entry && entry.powerbarInstance === key) return entry
+    return null
+  }
+  function activityPeeksFor(key, id) { return ManagedModel.peeksOnActivity(layoutEntryFor(key), id) }
+  function quietActivityId(id) { return ManagedModel.quietActivity(id) }
+  // Per-widget opt-out from sliding an autohidden bar out on activity.
+  function setActivityPeek(key, enabled) {
+    if (!shell || typeof shell.mutateShellConfig !== "function") return false
+    return shell.mutateShellConfig(function(config) {
+      for (var section of ["left", "center", "right"]) {
+        for (var entry of (config.bar.layout[section] || [])) {
+          if (entry && entry.powerbarInstance === key) {
+            if (enabled) delete entry.powerbarActivityPeek
+            else entry.powerbarActivityPeek = false
+            return
+          }
+        }
+      }
+    })
   }
   function editMemberBadge(key, field, value) {
     if (field !== "badgeProperty" && field !== "urgentProperty") return false
@@ -101,14 +126,18 @@ Item {
     onTriggered: if (Quickshell.screens.length) root.captureWidgetImages(Quickshell.screens[0], function() {})
   }
   property var activityDeadlines: ({})
-  readonly property real managedRevealSeconds: ManagedModel.seconds(barConfig.powerbarManagedRevealSeconds, 10, 60)
-  readonly property real managedEntrySeconds: ManagedModel.seconds(barConfig.powerbarManagedEntryGraceSeconds, 5, 15)
-  readonly property real managedExitSeconds: ManagedModel.seconds(barConfig.powerbarManagedExitGraceSeconds, 3, 15)
+  // Drawer timing is fixed; Preferences no longer offers it. The shell.json
+  // keys still override it for anyone who sets them by hand. Activity keeps a
+  // drawer widget on the bar exactly as long as an autohidden bar peeks for it,
+  // so the widget and its island leave together.
+  readonly property real managedRevealSeconds: ManagedModel.seconds(barConfig.powerbarManagedRevealSeconds, 2.5, 60)
+  readonly property real managedEntrySeconds: ManagedModel.seconds(barConfig.powerbarManagedEntryGraceSeconds, 1, 15)
+  readonly property real managedExitSeconds: ManagedModel.seconds(barConfig.powerbarManagedExitGraceSeconds, 1, 15)
 
   function closeManagedDrawer() { if (managedOwner) managedOwner.close("immediate") }
   onBarHiddenChanged: if (barHidden) closeManagedDrawer()
   // How long an autohidden bar, or one island, stays out after a widget changes.
-  readonly property int autoHidePeekMs: 2500
+  readonly property int autoHidePeekMs: Math.round(managedRevealSeconds * 1000)
   // Widgets load their first values just after the bar (re)builds; that is
   // not activity, so peeks wait until the bar has settled.
   property real peekQuietUntil: Date.now() + 6000
@@ -116,7 +145,8 @@ Item {
   // Widget activity on an autohidden bar: slide out the widget's zone (islands)
   // or the whole bar, and highlight the widget, or its group's icon, meanwhile.
   function autoHidePeek(slot) {
-    if (!autoHide || barHidden || !slot || ManagedModel.quietActivity(slot.moduleName)) return
+    if (!autoHide || !autoHideActivity || barHidden || !slot) return
+    if (!activityPeeksFor(slot.instanceKey, slot.moduleName)) return
     if (Date.now() < peekQuietUntil) return
     var window = slotWindow(slot)
     if (!window || typeof window.peek !== "function") return
@@ -683,7 +713,10 @@ Item {
     return !!target && target.visible !== false && target.opacity !== 0 && target.tooltipHovered === true
   }
 
+  // Once a tooltip has been read, its neighbours along the bar show at once.
+  property real tooltipWarmUntil: 0
   function clearTooltip() {
+    if (tooltipShown) tooltipWarmUntil = Date.now() + 800
     tooltipTimer.stop()
     pendingTooltipTarget = null
     pendingTooltipText = ""
@@ -1134,8 +1167,11 @@ Item {
   readonly property var surfaceEffects: AppearanceModel.effects(barConfig)
   readonly property var mainEffects: surfaceEffects
   readonly property var extendedEffects: surfaceEffects
-  readonly property color mainSurfaceColor: Qt.alpha(background, surfaceEffects.backgroundOpacity)
-  readonly property color extendedSurfaceColor: mainSurfaceColor
+  // Drawers always lie over windows, and so does a bar that autohides; those
+  // surfaces keep a readable minimum opacity (AppearanceModel.overlayOpacity).
+  readonly property color overlaySurfaceColor: Qt.alpha(background, AppearanceModel.overlayOpacity(surfaceEffects))
+  readonly property color mainSurfaceColor: autoHide ? overlaySurfaceColor : Qt.alpha(background, surfaceEffects.backgroundOpacity)
+  readonly property color extendedSurfaceColor: overlaySurfaceColor
 
   readonly property string barStyle: BarModel.barStyle(barConfig)
   readonly property bool islands: barStyle === "islands"
@@ -1144,6 +1180,8 @@ Item {
   // Floating bars and islands keep this distance from the screen edges.
   readonly property real edgeGap: Style.space(4)
   readonly property bool autoHide: barConfig.powerbarAutoHide === true
+  // Whether widget activity slides an autohidden bar out (on by default).
+  readonly property bool autoHideActivity: barConfig.powerbarAutoHideActivity !== false
   // The large bar is as thick as Preferences' Layout page draws it: the theme's
   // bar size plus a lip above and below each widget. Widgets keep their own
   // size and gain room around them; the islands' ends open up to match.
@@ -1152,7 +1190,10 @@ Item {
   function barSizeFor(vertical) {
     return (vertical ? Style.bar.sizeVertical : Style.bar.sizeHorizontal) + (largeBar ? largeBarLip * 2 : 0)
   }
-  readonly property real islandPadding: Style.space(largeBar ? 8 : 4)
+  // Island ends leave room for a padded text highlight at the same inset the
+  // highlight keeps from the bar's edges.
+  readonly property real highlightPad: Style.space(4)
+  readonly property real islandPadding: Math.max(Style.space(largeBar ? 8 : 4), highlightInset(barSize) + highlightPad)
   // The island a dragged icon would land in grows a little at both ends, a
   // visible landing lip past its last icon.
   readonly property string dragTargetZone: {
@@ -1873,6 +1914,7 @@ Item {
       tooltipText = pendingTooltipText
       pendingTooltipTarget = null
       pendingTooltipText = ""
+      tooltipTimer.interval = Date.now() < tooltipWarmUntil ? 1 : 400
       tooltipTimer.restart()
     })
   }
@@ -2022,6 +2064,17 @@ Item {
     readonly property real autoHideDistance: root.barExtent + root.mainEffects.shadowSize + Style.space(8)
     // Zones slid out by widget activity: "all" for flat and floating bars, or
     // single zones for islands. One timer ends them; new activity extends it.
+    // Per-zone layers between the islands and the widgets, where bar item
+    // highlights are drawn so a widget's own clipped slot cannot cut them.
+    property var highlightLayers: ({})
+    property var zoneIslands: ({})
+    function registerHighlight(zone, layer, island) {
+      var layers = Object.assign({}, highlightLayers), islands = Object.assign({}, zoneIslands)
+      layers[zone] = layer
+      islands[zone] = island
+      highlightLayers = layers
+      zoneIslands = islands
+    }
     property var peekZones: ({})
     function peek(zone) {
       if (!autoHideActive) return
@@ -2032,21 +2085,25 @@ Item {
     }
     Timer { id: peekEnd; interval: root.autoHidePeekMs; onTriggered: barWindow.peekZones = ({}) }
     readonly property bool peeking: !!(peekZones.all || peekZones.left || peekZones.center || peekZones.right)
-    property real autoHideOffset: autoHideActive && !autoHideRevealed && !peeking ? autoHideDistance : 0
+    readonly property bool autoHideShown: !autoHideActive || autoHideRevealed || peeking
+    property real autoHideOffset: autoHideShown ? 0 : autoHideDistance
+    // Sliding out answers the pointer, so it is a touch slower than sliding
+    // away; tucked islands move on the strip's exact curve so they cancel out.
+    readonly property int autoHideMotionMs: autoHideShown ? 180 : 130
     // While one island peeks the strip is out, so the others are pushed back
     // past the edge by the same distance, on the same curve.
     function zoneTucked(zone) { return root.islands && autoHideActive && !autoHideRevealed && peeking && !peekZones[zone] }
     property real leftShift: zoneTucked("left") ? autoHideDistance : 0
     property real centerShift: zoneTucked("center") ? autoHideDistance : 0
     property real rightShift: zoneTucked("right") ? autoHideDistance : 0
-    Behavior on leftShift { enabled: root.animationsEnabled; NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
-    Behavior on centerShift { enabled: root.animationsEnabled; NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
-    Behavior on rightShift { enabled: root.animationsEnabled; NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
+    Behavior on leftShift { enabled: root.animationsEnabled; NumberAnimation { duration: barWindow.autoHideMotionMs; easing.type: Easing.OutCubic } }
+    Behavior on centerShift { enabled: root.animationsEnabled; NumberAnimation { duration: barWindow.autoHideMotionMs; easing.type: Easing.OutCubic } }
+    Behavior on rightShift { enabled: root.animationsEnabled; NumberAnimation { duration: barWindow.autoHideMotionMs; easing.type: Easing.OutCubic } }
     function shiftX(amount) { return root.position === "left" ? -amount : root.position === "right" ? amount : 0 }
     function shiftY(amount) { return root.position === "top" ? -amount : root.position === "bottom" ? amount : 0 }
     Behavior on autoHideOffset {
       enabled: root.animationsEnabled
-      NumberAnimation { duration: 180; easing.type: Easing.OutCubic }
+      NumberAnimation { duration: barWindow.autoHideMotionMs; easing.type: Easing.OutCubic }
     }
     readonly property real autoHideEdge: 2
 
@@ -2215,7 +2272,7 @@ Item {
           WidgetButton {
             bar: root
             text: "󰇘"
-            tooltipText: "Managed widgets · " + zoneTarget.modelData
+            tooltipText: ({ left: "Left", center: "Center", right: "Right" })[zoneTarget.modelData] + " drawer"
             visible: zoneTarget.members.length > 0 && !root.moduleSlots.some(function(slot) {
               return slot.region === zoneTarget.modelData && root.sameWindow(root.targetWindow(slot), barWindow) && slot.mainVisible && slot.width > 0
             })
@@ -2316,6 +2373,7 @@ Item {
         anchors.fill: parent
 
         IslandSurface {
+          id: leftIsland
           transform: Translate { x: barWindow.shiftX(barWindow.leftShift); y: barWindow.shiftY(barWindow.leftShift) }
           x: leftModules.x - root.islandPad("left")
           y: (parent.height - height) / 2
@@ -2324,6 +2382,7 @@ Item {
           visible: root.islands && leftModules.width > 0
         }
         IslandSurface {
+          id: rightIsland
           transform: Translate { x: barWindow.shiftX(barWindow.rightShift); y: barWindow.shiftY(barWindow.rightShift) }
           x: rightModules.width > 0 ? rightModules.x - root.islandPad("right") : preferencesButton.x - root.islandPad("right")
           y: (parent.height - height) / 2
@@ -2334,6 +2393,8 @@ Item {
           anchors.fill: parent
           transform: Translate { x: barWindow.shiftX(barWindow.centerShift); y: barWindow.shiftY(barWindow.centerShift) }
         }
+        HighlightLayer { zone: "left"; island: leftIsland }
+        HighlightLayer { zone: "right"; island: rightIsland }
 
         LeftModules {
           id: leftModules
@@ -2368,6 +2429,7 @@ Item {
         anchors.fill: parent
 
         IslandSurface {
+          id: leftIsland
           transform: Translate { x: barWindow.shiftX(barWindow.leftShift); y: barWindow.shiftY(barWindow.leftShift) }
           x: (parent.width - width) / 2
           y: leftModules.y - root.islandPad("left")
@@ -2376,6 +2438,7 @@ Item {
           visible: root.islands && leftModules.height > 0
         }
         IslandSurface {
+          id: rightIsland
           transform: Translate { x: barWindow.shiftX(barWindow.rightShift); y: barWindow.shiftY(barWindow.rightShift) }
           x: (parent.width - width) / 2
           y: rightModules.height > 0 ? rightModules.y - root.islandPad("right") : preferencesButton.y - root.islandPad("right")
@@ -2386,6 +2449,8 @@ Item {
           anchors.fill: parent
           transform: Translate { x: barWindow.shiftX(barWindow.centerShift); y: barWindow.shiftY(barWindow.centerShift) }
         }
+        HighlightLayer { zone: "left"; island: leftIsland }
+        HighlightLayer { zone: "right"; island: rightIsland }
 
         LeftModules {
           id: leftModules
@@ -2415,6 +2480,19 @@ Item {
   }
 
   Component { id: emptyModuleComponent; Item { implicitWidth: 0; implicitHeight: 0; visible: false } }
+
+  component HighlightLayer: Item {
+    id: layer
+    property string zone: ""
+    property Item island: null
+    anchors.fill: parent
+    Accessible.ignored: true
+    function register() {
+      var window = root.targetWindow(layer)
+      if (window && typeof window.registerHighlight === "function") window.registerHighlight(zone, layer, island)
+    }
+    Component.onCompleted: Qt.callLater(register)
+  }
 
   // Shared theme chrome; dimensions follow the rendered zone, including drawers.
   component IslandSurface: EffectSurface {
@@ -2663,6 +2741,7 @@ Item {
           visible: root.islands && end > start
         }
         CenterGestureArea { anchors.fill: parent }
+        HighlightLayer { zone: "center"; island: centerIsland }
 
         // Tracks the island itself (not a fixed slice of the bar) so the
         // leftmost indicators are covered; the island only grows under the
@@ -2739,6 +2818,7 @@ Item {
           visible: root.islands && end > start
         }
         CenterGestureArea { anchors.fill: parent }
+        HighlightLayer { zone: "center"; island: centerIsland }
 
         Item {
           y: centerIsland.y
@@ -3064,6 +3144,12 @@ Item {
         }
       }
     }
+    readonly property string displayName: registryMetadata && (registryMetadata.displayName || registryMetadata.name)
+      || String(moduleName).split(".").pop()
+    function canActivate() {
+      if (root.targetsForSlot(slot).some(function(target) { return root.moduleTargetClickable(target) })) return true
+      return !!activeItem && (typeof activeItem.toggle === "function" || typeof activeItem.open === "function")
+    }
     function activate() {
       var targets = root.targetsForSlot(slot)
       for (var target of targets) {
@@ -3089,9 +3175,9 @@ Item {
     targetInsetX: !root.vertical && !centerAnchorSlot && preview.before ? root.dragGapWidth : 0
     targetInsetY: root.vertical && !centerAnchorSlot && preview.before ? root.dragGapHeight : 0
     motionEnabled: root.animationsEnabled && !drawerHost
-    motionDuration: root.dragMotionActive ? root.dragMotionDuration : 100
-    motionEasing: root.dragMotionActive ? root.dragMotionEasing : Easing.OutBack
-    motionOvershoot: root.dragMotionActive ? 0 : 0.3
+    motionDuration: root.dragMotionActive ? root.dragMotionDuration : 120
+    motionEasing: root.dragMotionActive ? root.dragMotionEasing : Easing.OutCubic
+    motionOvershoot: 0
     z: modulePointer.dragging ? 100 : 0
 
     HoverHandler {
@@ -3147,7 +3233,7 @@ Item {
       anchors.fill: parent
       bar: root
       text: PreferencesModel.icon(slot.moduleName)
-      tooltipText: slot.moduleName + " · currently inactive"
+      tooltipText: slot.displayName + " is inactive. " + (slot.canActivate() ? "Click to open it." : "Click to set it up.")
       onPressed: {
         if (!slot.activate()) preferencesPane.show(root.targetWindow(slot).screen)
       }
@@ -3187,22 +3273,52 @@ Item {
     }
 
     }
-    // Hover and an open panel share the Preferences tile look: a rounded
-    // fill behind the widget, inset from the bar's edges.
+    // Hover, activity and an open panel share one highlight: the bar's
+    // thickness less a fixed inset, as long as the widget visibly paints plus
+    // equal padding (a square for icons), one nested radius, kept inside its
+    // island. It is drawn in the zone's highlight layer, beneath the widgets.
     HoverHighlight {
-      parent: presentation
-      anchors.fill: parent
-      anchors.topMargin: root.vertical ? 0 : root.highlightInset(parent.height)
-      anchors.bottomMargin: root.vertical ? 0 : root.highlightInset(parent.height)
-      anchors.leftMargin: root.vertical ? root.highlightInset(parent.width) : 0
-      anchors.rightMargin: root.vertical ? root.highlightInset(parent.width) : 0
-      z: -1
+      id: barHighlight
+      readonly property var hostWindow: root.targetWindow(slot)
+      readonly property Item hostLayer: hostWindow && hostWindow.highlightLayers ? hostWindow.highlightLayers[slot.region] || null : null
+      parent: hostLayer || presentation
       hovered: (slot.hovered || slot.activityFlash || slot.preview.into) && slot.mainVisible && !slot.dragSource && !root.barHidden && !preferencesPane.opened
       selected: slot.panelOpen && !slot.dragSource
       motionEnabled: root.animationsEnabled
       hoverColor: root.highlightHoverColor
       selectedColor: root.highlightSelectedColor
-      rounding: root.highlightRounding
+      onShownChanged: place()
+      FrameAnimation { running: barHighlight.visible; onTriggered: barHighlight.place() }
+      function place() {
+        var host = barHighlight.parent
+        if (!host || presentation.width <= 0 || presentation.height <= 0) return
+        var inset = root.highlightInset(root.barSize)
+        var thickness = root.barSize - inset * 2
+        var origin = presentation.mapToItem(host, 0, 0)
+        var along = root.vertical ? presentation.height : presentation.width
+        var ink = root.vertical ? along : HighlightModel.inkWidth(slot.needsPlaceholder ? placeholderButton : slot.activeItem, 0)
+        if (ink <= 0 || ink > along) ink = along
+        var island = barHighlight.hostWindow && barHighlight.hostWindow.zoneIslands ? barHighlight.hostWindow.zoneIslands[slot.region] : null
+        var laneStart, laneEnd
+        if (root.islands && island && island.visible) {
+          var i = island.mapToItem(host, 0, 0)
+          laneStart = (root.vertical ? i.y : i.x) + inset
+          laneEnd = laneStart + (root.vertical ? island.height : island.width) - inset * 2
+        } else {
+          var edge = (root.floating ? root.edgeGap : 0) + inset
+          laneStart = edge
+          laneEnd = (root.vertical ? host.height : host.width) - edge
+        }
+        var g = HighlightModel.pill({ center: (root.vertical ? origin.y : origin.x) + along / 2, ink: ink,
+          thickness: thickness, pad: root.highlightPad, rounding: root.highlightRounding,
+          laneStart: laneStart, laneEnd: laneEnd })
+        var cross = ((root.vertical ? host.width : host.height) - thickness) / 2
+        x = root.vertical ? cross : g.start
+        y = root.vertical ? g.start : cross
+        width = root.vertical ? thickness : g.length
+        height = root.vertical ? g.length : thickness
+        rounding = g.radius
+      }
     }
 
     MouseArea {

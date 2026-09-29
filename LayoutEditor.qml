@@ -108,8 +108,15 @@ Item {
     if (!unchanged) preferences.move(record, target.section, target.mode, before)
   }
   // Keep an item's place in its zone when only its visibility changes.
+  // Rows widgets were hidden from this session, so showing one again restores it.
+  property var hiddenFrom: ({})
   function setPlacement(record, section, mode) {
     if (!record || (record.section === section && record.mode === mode)) return
+    if (mode === "hidden" && record.mode !== "hidden") {
+      var remembered = Object.assign({}, hiddenFrom)
+      remembered[record.instanceKey] = record.mode
+      hiddenFrom = remembered
+    }
     var before = section !== record.section ? -1 : record.groupId ? record.index : record.index + 1
     cursorKey = record.instanceKey
     preferences.move(record, section, mode, before)
@@ -193,7 +200,7 @@ Item {
           } else if (key === Qt.Key_Escape && editor.lifted) editor.cancel()
           else if ((t === "x" || key === Qt.Key_Delete) && !editor.lifted && editor.cursorRecord) {
             var r = editor.cursorRecord
-            editor.setPlacement(r, r.section, r.mode === "hidden" ? "shown" : "hidden")
+            editor.setPlacement(r, r.section, Model.toggledHidden(r.mode, editor.hiddenFrom[r.instanceKey]))
           } else if (t === "g" && !editor.lifted && editor.cursorRecord && editor.cursorRecord.groupId)
             editor.preferences.openGroup(editor.cursorRecord.groupId)
           else return
@@ -484,6 +491,11 @@ Item {
     // On the bar row a tile is a bar slot: as thick as the bar, with its
     // highlight inset the way the bar insets its own.
     readonly property bool onBar: mode === "shown" && !ghost
+    // Press feedback: the tile dips while the pointer holds it, before a drag.
+    readonly property bool pressedDown: !ghost && !placeholder && !!editor.pressed && !editor.pointerLift
+      && editor.pressed.record.instanceKey === record.instanceKey
+    scale: pressedDown ? 0.97 : 1
+    Behavior on scale { enabled: editor.bar.animationsEnabled; NumberAnimation { duration: 120; easing.type: Easing.OutCubic } }
     // On the bar row a widget is drawn as it looks: live on a horizontal bar,
     // otherwise its saved horizontal look. Only without either does it fall
     // back to a glyph and its name.
@@ -648,13 +660,15 @@ Item {
         spacing: Style.space(10)
         PrefsChoice {
           label: "Zone"
+          stacked: true
           options: [{ value: "left", label: "Left" }, { value: "center", label: "Center" }, { value: "right", label: "Right" }]
           value: panel.record ? panel.record.section : ""
           onChosen: function(value) { editor.setPlacement(panel.record, value, panel.record.mode) }
         }
         PrefsChoice {
           label: "Visibility"
-          options: [{ value: "shown", label: "Bar" }, { value: "managed", label: "Drawer" }, { value: "hidden", label: "Hidden" }]
+          stacked: true
+          options: [{ value: "shown", label: "On the bar" }, { value: "managed", label: "In the drawer" }, { value: "hidden", label: "Hidden" }]
           value: panel.record ? panel.record.mode : ""
           onChosen: function(value) { editor.setPlacement(panel.record, panel.record.section, value) }
         }
@@ -664,6 +678,20 @@ Item {
           description: "Other center widgets arrange around it"
           checked: !!panel.record && editor.bar.centerAnchor === panel.record.id
           onToggled: function(checked) { editor.preferences.setOption("centerAnchor", checked ? panel.record.id : "") }
+        }
+        PrefsToggle {
+          readonly property bool clockDriven: !!panel.record && editor.bar.quietActivityId(panel.record.id)
+          readonly property bool applies: editor.bar.autoHide && editor.bar.autoHideActivity && !clockDriven
+          visible: !!panel.record && !panel.isGroup
+          label: "Show on activity"
+          description: clockDriven ? "It changes on a clock, so it never brings the bar out"
+            : !editor.bar.autoHide ? "Applies while the bar autohides"
+            : !editor.bar.autoHideActivity ? "Turned off for every widget in General"
+            : "Slide the bar out briefly when this widget changes"
+          enabled: applies
+          opacity: enabled ? 1 : 0.45
+          checked: !!panel.record && !clockDriven && editor.bar.activityPeeksFor(panel.record.instanceKey, panel.record.id)
+          onToggled: function(checked) { editor.bar.setActivityPeek(panel.record.instanceKey, checked) }
         }
       }
 

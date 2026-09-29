@@ -4,16 +4,20 @@ import qs.Commons
 import qs.Ui
 
 // A labelled pick-one row. The chips are a single focus stop: h/l or
-// Left/Right walk them, Space or Enter chooses.
-RowLayout {
+// Left/Right walk them, Space or Enter chooses. Narrow places stack the label
+// above the chips.
+GridLayout {
   id: row
+  property bool stacked: false
   property string label: ""
   property string description: ""
   property var options: []
   property string value: ""
   signal chosen(string value)
   Layout.fillWidth: true
-  spacing: Style.space(16)
+  columns: stacked ? 1 : 2
+  columnSpacing: Style.space(16)
+  rowSpacing: Style.space(6)
 
   ColumnLayout {
     Layout.fillWidth: true

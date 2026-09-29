@@ -19,7 +19,8 @@ Item {
   property bool opened: false
   property var targetScreen: null
   property int page: 0
-  property string status: "Changes apply as you make them"
+  // Changes save as they are made, so the footer stays quiet unless one fails.
+  property string status: ""
   property var snapshots: ({})
   property int openSerial: 0
   readonly property string wallpaper: bar ? "file://" + bar.stateHome + "/omarchy/current/background?v=" + openSerial : ""
@@ -105,12 +106,12 @@ Item {
       if (!config.bar) config.bar = {}
       config.bar[key] = value
     })
-    status = result === false ? "Could not save. Check that shell.json is writable." : "Changes apply as you make them"
+    status = result === false ? "Could not save. Check that shell.json is writable." : ""
   }
   function setBarStyle(value) {
     if (!bar || !bar.shell) return
     var result = bar.shell.mutateShellConfig(function(config) { BarModel.setBarStyle(config, value) })
-    status = result === false ? "Could not save. Check that shell.json is writable." : "Changes apply as you make them"
+    status = result === false ? "Could not save. Check that shell.json is writable." : ""
   }
   function resetOptions(operation) {
     if (bar && bar.shell) bar.shell.mutateShellConfig(function(config) { if (config.bar) operation(config.bar) })
@@ -126,7 +127,7 @@ Item {
       } else changed = Model.move(config, record, section, mode, Math.ceil(before))
     })
     status = accepted === false ? "Could not save the layout. Check that shell.json is writable."
-      : changed ? "Changes apply as you make them" : "The layout changed elsewhere. Try again."
+      : changed ? "" : "The layout changed elsewhere. Try again."
   }
 
   // Widget images go stale whenever the bar re-renders.
@@ -186,33 +187,60 @@ Item {
       // One accent ring follows keyboard focus from control to control, so the
       // current place is obvious whatever the theme's own focus styling.
       // Lists and grids that draw their own cursor opt out with ownsFocusRing.
-      BorderSurface {
-        id: focusRing
-        readonly property Item focused: card.Window.activeFocusItem
-        readonly property Item target: prefs.opened && focused && focused !== card && !focused.ownsFocusRing
-          && focused.width > 0 && focused.height > 0 ? focused : null
-        readonly property real pad: Style.space(3)
-        property bool gliding: false
+      // The ring is clipped to the scrolling area its control sits in, so a
+      // control scrolled out of view never drags the ring over the header or
+      // footer. Only controls on the pages get it: popups and dropdown lists
+      // sit above the card and keep their own highlight.
+      Item {
+        id: ringClip
         z: 1000
-        visible: !!target && target.visible
-        color: "transparent"
-        radius: Style.cornerRadius + pad
-        borderSpec: Border.flat(Color.accent, Math.max(1, Style.space(2)))
-        onTargetChanged: { gliding = true; glideEnd.restart(); follow() }
-        function follow() {
-          if (!target) return
-          var p = target.mapToItem(card, 0, 0)
-          x = p.x - pad
-          y = p.y - pad
-          width = target.width + pad * 2
-          height = target.height + pad * 2
+        clip: true
+        visible: focusRing.shown
+
+        BorderSurface {
+          id: focusRing
+          readonly property Item focused: card.Window.activeFocusItem
+          readonly property Item target: prefs.opened && focused && focused !== card && !focused.ownsFocusRing
+            && focused.width > 0 && focused.height > 0 && focusRing.onPages(focused) ? focused : null
+          readonly property real pad: Style.space(3)
+          property bool gliding: false
+          // Visibility lives on the clipping parent; a child's own `visible`
+          // reads false while its parent is hidden, so it cannot drive it.
+          readonly property bool shown: !!target && target.visible
+          color: "transparent"
+          radius: Style.cornerRadius + pad
+          borderSpec: Border.flat(Color.accent, Math.max(1, Style.space(2)))
+          onTargetChanged: { gliding = true; glideEnd.restart(); follow() }
+          function onPages(item) {
+            for (var p = item; p; p = p.parent) if (p === pages) return true
+            return false
+          }
+          function viewportOf(item) {
+            for (var p = item.parent; p && p !== pages; p = p.parent)
+              if (p.contentY !== undefined && p.flicking !== undefined) return p
+            return pages
+          }
+          function follow() {
+            if (!target) return
+            var view = viewportOf(target)
+            var v = view.mapToItem(card, 0, 0)
+            ringClip.x = v.x - pad
+            ringClip.y = v.y - pad
+            ringClip.width = view.width + pad * 2
+            ringClip.height = view.height + pad * 2
+            var p = target.mapToItem(ringClip, 0, 0)
+            x = p.x - pad
+            y = p.y - pad
+            width = target.width + pad * 2
+            height = target.height + pad * 2
+          }
+          Timer { id: glideEnd; interval: 170; onTriggered: focusRing.gliding = false }
+          FrameAnimation { running: focusRing.shown; onTriggered: focusRing.follow() }
+          Behavior on x { enabled: focusRing.gliding && prefs.bar.animationsEnabled; NumberAnimation { duration: 140; easing.type: Easing.OutCubic } }
+          Behavior on y { enabled: focusRing.gliding && prefs.bar.animationsEnabled; NumberAnimation { duration: 140; easing.type: Easing.OutCubic } }
+          Behavior on width { enabled: focusRing.gliding && prefs.bar.animationsEnabled; NumberAnimation { duration: 140; easing.type: Easing.OutCubic } }
+          Behavior on height { enabled: focusRing.gliding && prefs.bar.animationsEnabled; NumberAnimation { duration: 140; easing.type: Easing.OutCubic } }
         }
-        Timer { id: glideEnd; interval: 170; onTriggered: focusRing.gliding = false }
-        FrameAnimation { running: focusRing.visible; onTriggered: focusRing.follow() }
-        Behavior on x { enabled: focusRing.gliding && prefs.bar.animationsEnabled; NumberAnimation { duration: 140; easing.type: Easing.OutCubic } }
-        Behavior on y { enabled: focusRing.gliding && prefs.bar.animationsEnabled; NumberAnimation { duration: 140; easing.type: Easing.OutCubic } }
-        Behavior on width { enabled: focusRing.gliding && prefs.bar.animationsEnabled; NumberAnimation { duration: 140; easing.type: Easing.OutCubic } }
-        Behavior on height { enabled: focusRing.gliding && prefs.bar.animationsEnabled; NumberAnimation { duration: 140; easing.type: Easing.OutCubic } }
       }
 
       ColumnLayout {
@@ -321,6 +349,7 @@ Item {
 
         // ----------------------------------------------------------- pages
         StackLayout {
+          id: pages
           Layout.fillWidth: true
           Layout.fillHeight: true
           Layout.topMargin: Style.space(20)
@@ -346,9 +375,9 @@ Item {
                 ColumnLayout {
                   Layout.fillWidth: true
                   spacing: Style.space(2)
-                  Text { text: "Center"; textFormat: Text.PlainText; color: Color.popups.text; font.family: Style.font.family; font.pixelSize: Style.font.body; font.bold: true }
+                  Text { text: "Pinned to screen center"; textFormat: Text.PlainText; color: Color.popups.text; font.family: Style.font.family; font.pixelSize: Style.font.body; font.bold: true }
                   Text {
-                    text: "Center the middle zone as a whole, or pin one widget to the exact screen center"
+                    text: "One center widget can sit at the exact screen center while the rest arrange around it"
                     textFormat: Text.PlainText
                     color: Qt.alpha(Color.popups.text, 0.6)
                     font.family: Style.font.family
@@ -360,7 +389,7 @@ Item {
                 Dropdown {
                   showLabel: false
                   Layout.preferredWidth: Style.space(260)
-                  options: [{ label: "The whole zone", value: "" }].concat(prefs.layoutEntries.filter(function(e) {
+                  options: [{ label: "None", value: "" }].concat(prefs.layoutEntries.filter(function(e) {
                     return e.section === "center" && e.mode === "shown" && !e.groupId
                   }).map(function(e) { return { label: prefs.title(e), value: e.id } }))
                   value: prefs.bar ? prefs.bar.centerAnchor : ""
@@ -375,6 +404,16 @@ Item {
                 description: "The bar stays off screen and slides over your windows when the pointer reaches its edge"
                 checked: prefs.config.powerbarAutoHide === true
                 onToggled: function(checked) { prefs.setOption("powerbarAutoHide", checked) }
+              }
+              PrefsToggle {
+                label: "Show on widget activity"
+                description: prefs.config.powerbarAutoHide === true
+                  ? "When a widget changes, its island (or the whole bar) slides out briefly"
+                  : "Applies while the bar autohides"
+                enabled: prefs.config.powerbarAutoHide === true
+                opacity: enabled ? 1 : 0.45
+                checked: prefs.config.powerbarAutoHideActivity !== false
+                onToggled: function(checked) { prefs.setOption("powerbarAutoHideActivity", checked) }
               }
               PrefsToggle {
                 label: "Animations"
@@ -398,40 +437,6 @@ Item {
                 onEdited: function(value) { prefs.setOption("powerbarSpacing", value) }
               }
             }
-            PrefsSection {
-              title: "Drawer widgets"
-              description: "Widgets set to the drawer appear on the bar briefly when they change, and all of them open in a drawer when you hover their zone."
-              PrefsSlider {
-                label: "Stay on the bar after a change"
-                unit: "s"; minimum: 1; maximum: 60
-                value: prefs.bar ? prefs.bar.managedRevealSeconds : 10
-                onEdited: function(value) { prefs.setOption("powerbarManagedRevealSeconds", value) }
-              }
-              PrefsSlider {
-                label: "Time to reach the drawer"
-                unit: "s"; minimum: 1; maximum: 15
-                value: prefs.bar ? prefs.bar.managedEntrySeconds : 5
-                onEdited: function(value) { prefs.setOption("powerbarManagedEntryGraceSeconds", value) }
-              }
-              PrefsSlider {
-                label: "Drawer stays open after you leave"
-                unit: "s"; minimum: 1; maximum: 15
-                value: prefs.bar ? prefs.bar.managedExitSeconds : 3
-                onEdited: function(value) { prefs.setOption("powerbarManagedExitGraceSeconds", value) }
-              }
-              Button {
-                text: "Restore default timing"
-                iconText: "󰑓"
-                focusable: true
-                bordered: true
-                foreground: Color.popups.text
-                onClicked: prefs.resetOptions(function(bar) {
-                  delete bar.powerbarManagedRevealSeconds
-                  delete bar.powerbarManagedEntryGraceSeconds
-                  delete bar.powerbarManagedExitGraceSeconds
-                })
-              }
-            }
           }
 
           PrefsForm {
@@ -441,7 +446,7 @@ Item {
               title: "Size"
               PrefsToggle {
                 label: "Large bar"
-                description: "A taller bar with more room around each widget. Text and icons keep their size."
+                description: "More room around each widget; text and icons keep their size"
                 checked: prefs.bar ? prefs.bar.largeBar : false
                 onToggled: function(checked) { prefs.setOption("powerbarLargeBar", checked) }
               }
@@ -494,6 +499,12 @@ Item {
                 unit: "%"; minimum: 0; maximum: 100
                 value: prefs.bar ? prefs.bar.surfaceEffects.backgroundOpacity * 100 : 100
                 onEdited: function(value) { prefs.setOption("powerbarBackgroundOpacity", value) }
+              }
+              PrefsToggle {
+                label: "Readable over windows"
+                description: "Drawers, and a bar that autohides, stay at least 88% opaque unless blur is on"
+                checked: prefs.bar ? prefs.bar.surfaceEffects.readableOverlay : true
+                onToggled: function(checked) { prefs.setOption("powerbarReadableOverlay", checked) }
               }
               PrefsToggle {
                 label: "Shadow"
@@ -555,7 +566,7 @@ Item {
           Text {
             text: prefs.status
             textFormat: Text.PlainText
-            color: Qt.alpha(Color.popups.text, 0.45)
+            color: Color.urgent
             font.family: Style.font.family
             font.pixelSize: Style.font.caption
             elide: Text.ElideLeft

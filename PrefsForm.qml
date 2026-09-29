@@ -36,6 +36,19 @@ Controls.ScrollView {
     var next = from ? from.nextItemInFocusChain(forward) : column.nextItemInFocusChain(true)
     if (next && page.contains(next)) next.forceActiveFocus(forward ? Qt.TabFocusReason : Qt.BacktabFocusReason)
   }
+  // An open dropdown list floats above the page; scrolling closes it, as
+  // native menus do, instead of carrying it over the rest of the window.
+  function closePopups(item) {
+    for (var i = 0; i < item.children.length; i++) {
+      var child = item.children[i]
+      if (child.popupOpen === true && typeof child.close === "function") child.close()
+      else closePopups(child)
+    }
+  }
+  Connections {
+    target: page.contentItem
+    function onContentYChanged() { page.closePopups(column) }
+  }
   function focusFirst() {
     var next = column.nextItemInFocusChain(true)
     if (next && contains(next)) next.forceActiveFocus(Qt.TabFocusReason)

@@ -78,3 +78,9 @@ test('clock-driven widgets never count as activity for an autohidden bar', () =>
   assert.equal(m.quietActivity('omarchy.audio'), false);
   assert.equal(m.quietActivity(undefined), false);
 });
+test('widgets peek an autohidden bar unless clock-driven or opted out', () => {
+  assert.equal(m.peeksOnActivity({ id: 'omarchy.audio' }, 'omarchy.audio'), true);
+  assert.equal(m.peeksOnActivity({ id: 'omarchy.audio', powerbarActivityPeek: false }, 'omarchy.audio'), false);
+  assert.equal(m.peeksOnActivity({ id: 'omarchy.clock' }, 'omarchy.clock'), false);
+  assert.equal(m.peeksOnActivity(null, 'omarchy.audio'), true);
+});

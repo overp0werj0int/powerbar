@@ -20,7 +20,8 @@ part of them works from the keyboard.
     content, Powerbar displays a fallback icon; clicking it opens the widget when
     it exposes an `open()` method, or preferences otherwise.
   - **In the drawer** (Managed) is hidden at rest. Events and icon/value changes
-    reveal the widget for 10 seconds by default. Hover its zone to open a
+    reveal the widget for 2.5 seconds, the same time an autohidden bar peeks
+    out for activity, so the widget and its island leave together. Hover its zone to open a
     drawer of these widgets.
   - **Hidden** removes the widget from the bar without deleting its settings or
     disabling its plugin elsewhere in the shell.
@@ -39,7 +40,7 @@ part of them works from the keyboard.
   stock Omarchy icon, placement, what the bar shows, badge, how members appear
   in the drawer, and the member list.
 - **General** covers screen edge, center anchor, autohide, animations, bar style,
-  widget spacing, and drawer timing. Size, fonts, and colors follow Omarchy.
+  and widget spacing. Size, fonts, and colors follow Omarchy.
 - **Appearance** covers bar size, borders, rounding, blur, background opacity,
   and shadow, with a live preview of the bar over your wallpaper.
 
@@ -81,7 +82,10 @@ Preferences is open, then slides away 400 ms after the pointer leaves. A 2 px
 strip along the edge remains clickable for the bar while it is hidden. It works
 with every bar style and on every edge.
 
-While the bar is hidden, widget activity still shows: when a widget's icon or
+While the bar is hidden, widget activity still shows (turn this off with
+**Show on widget activity** under General → Behavior, or for single widgets
+with **Show on activity** in the Layout inspector; the keys are
+`powerbarAutoHideActivity` and a widget's `powerbarActivityPeek: false`): when a widget's icon or
 value changes, its island slides out (the whole bar for flat and floating
 styles), the widget is highlighted as if hovered, and after 2.5 seconds it slides
 back. More activity keeps it out. Activity in a group member highlights the
@@ -122,7 +126,7 @@ radius; icon-only drawers use Powerbar's island rounding.
 Badges read live count properties from the existing hosted widgets, without
 polling or extra widget instances. Powerbar recognizes `unseenCount`, `downCount`,
 `updateCount`, `badgeCount`, `notificationCount`, `unreadCount`, `alertCount`,
-`pendingCount`, and `count`. **Values** adds the values; **Busy widgets** shows how many
+`pendingCount`, and `count`. **Add up counts** adds the values; **Count busy widgets** shows how many
 members have a positive value. The badge becomes urgent when a member exposes
 an urgent boolean or a positive `downCount` / `alertCount`. Select a member in
 Groups to enter a custom badge or urgent property name. `none` explicitly
@@ -164,28 +168,39 @@ existing drawer without adding a second widget host or helper daemon.
 
 ## Shadows and backdrop blur
 
-General → Bar style offers **Animations** (enabled by default). Main
-and extended islands spring to their new size as widgets change; extended islands open with
-a subtle 55 ms overshoot and contract over 38 ms when dismissed.
-Widget spacing and island size share a 100 ms spring-style resize, keeping icons
-inside the island while neighbours move into or out of the row.
+General → Behavior offers **Animations** (enabled by default). Main
+and extended islands ease to their new size as widgets change; drawers grow out
+of their edge over 160 ms and close over 110 ms, both on a strong ease-out
+without overshoot. Widget spacing and island size share a 120 ms ease-out
+resize, keeping icons inside the island while neighbours move into or out of the
+row. An autohiding bar slides out over 180 ms and away over 130 ms. Once one
+bar tooltip has shown, its neighbours show without the usual delay.
 Widgets leave the main bar before opening begins and return after closing finishes.
 Moving between zones replays the opening animation at the new zone.
 Widgets control their own icon and status animations.
 Main-bar actions finish drawer dismissal immediately before opening a popup.
 Turn Animations off to make these changes immediate.
 
+Hovering a widget, activity in it and an open panel share one highlight: as
+thick as the bar less a small inset, as long as what the widget visibly paints
+plus equal padding, and never shorter than it is thick. Every icon therefore
+gets the same circle or rounded square and text gets a pill; one corner radius,
+nested inside the island's, and the highlight never leaves its island.
+
 **Large bar** (`powerbarLargeBar`) makes the bar 12 px thicker (Omarchy's size
 plus a 6 px lip above and below each widget) and doubles the islands' end padding.
-Text and icons keep their size; widgets gain room around them and their hover
-highlights grow with the slot. Drawers, the Appearance preview and the Layout
+Text and icons keep their size; widgets gain room around them and their
+highlights grow with the bar. Drawers, the Appearance preview and the Layout
 page's bar row follow the same thickness.
 
 **Appearance** applies one set of controls to the full bar, main islands, and
 extended islands, including group drawers: borders (0–6 px), rounding (0–32 px),
 shadow on/off, softness (0–32 px), shadow opacity (0–45%), blur on/off, and
 background opacity (0–100%). Opacity works independently of blur. Blur strength
-follows the desktop's Hyprland settings.
+follows the desktop's Hyprland settings. **Readable over windows** (on by
+default, `powerbarReadableOverlay`) keeps surfaces that lie over windows, which
+means every drawer and the bar itself while it autohides, at least 88% opaque
+unless blur is on, so page text never shows through widgets.
 
 Shared effect keys use `powerbarBlur`, `powerbarBackgroundOpacity`, `powerbarShadow`,
 `powerbarShadowSize`, and `powerbarShadowOpacity`. Existing main-bar settings supply

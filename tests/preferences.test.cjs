@@ -130,3 +130,11 @@ test('bar style reads the style, falls back to the old islands switch, and repla
   assert.deepEqual({ ...config.bar }, { keep: 1, powerbarStyle: 'floating' });
   assert.equal(barModel.setBarStyle(config, 'rounded'), false);
 });
+test('showing a hidden widget again returns it to the row it left', () => {
+  assert.equal(model.toggledHidden('shown'), 'hidden');
+  assert.equal(model.toggledHidden('managed'), 'hidden');
+  assert.equal(model.toggledHidden('hidden', 'managed'), 'managed');
+  assert.equal(model.toggledHidden('hidden', 'shown'), 'shown');
+  assert.equal(model.toggledHidden('hidden'), 'shown');
+  assert.equal(model.toggledHidden('hidden', 'hidden'), 'shown');
+});

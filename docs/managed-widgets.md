@@ -20,7 +20,7 @@ For existing entries, preserve an explicit `powerbarVisibility`. Apply the syste
 
 ## Activity reveal
 
-A qualifying event reveals its managed widget in its assigned main-bar zone for **10 seconds by default**.
+A qualifying event reveals its managed widget in its assigned main-bar zone for **2.5 seconds**.
 
 - Keep its configured order among the zone's widgets; activity does not reorder items.
 - **Proposed:** another qualifying event restarts the deadline at the latest event plus the configured duration. Repeated events do not enqueue appearances.
@@ -89,17 +89,19 @@ Align to the hovered zone and keep the entire drawer on that monitor. Fit to its
 
 **Proposed:** show one managed drawer at a time across monitors. Activity state is shared for the same configured widget, while hover ownership and positioning belong to the source monitor. Unplugging that monitor closes its drawer and clears pending timers.
 
-## Preferences
+## Timing
 
-Add a **Managed widgets** group to General. All numerical controls are sliders with a visible seconds value and keyboard support.
+Drawer timing is fixed rather than offered in Preferences, where three
+separate delays proved hard to reason about:
 
-| Setting | Default | Proposed range | Proposed saved bar key |
-| --- | --- | --- | --- |
-| Activity reveal duration | 10 s | 1–60 s | `powerbarManagedRevealSeconds` |
-| Time to enter the drawer | 5 s | 1–15 s | `powerbarManagedEntryGraceSeconds` |
-| Delay after leaving the drawer | 3 s | 1–15 s | `powerbarManagedExitGraceSeconds` |
+| Timing | Value | Advanced `shell.json` key (range) |
+| --- | --- | --- |
+| Activity reveal on the bar, and an autohidden bar's activity peek | 2.5 s | `powerbarManagedRevealSeconds` (1–60) |
+| Time to reach the drawer after leaving the zone | 1 s | `powerbarManagedEntryGraceSeconds` (1–15) |
+| Drawer stays open after the pointer leaves it | 1 s | `powerbarManagedExitGraceSeconds` (1–15) |
 
-The activity-duration setting is requested; exposing the two hover delays is **proposed**. Defaults remain 10/5/5 when values are missing. Validate finite numbers and clamp persisted values to supported ranges. Provide a reset to defaults. **Proposed:** changes to durations apply to future timer starts rather than retroactively closing an active interaction.
+The keys still override the defaults when set by hand; Preferences neither
+shows nor writes them.
 
 ## Keyboard and interaction
 

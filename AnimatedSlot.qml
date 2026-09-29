@@ -9,9 +9,9 @@ Item {
   property real targetInsetX: 0
   property real targetInsetY: 0
   property bool motionEnabled: true
-  property int motionDuration: 100
-  property int motionEasing: Easing.OutBack
-  property real motionOvershoot: 0.3
+  property int motionDuration: 120
+  property int motionEasing: Easing.OutCubic
+  property real motionOvershoot: 0
   property bool ready: false
   property real animatedWidth: targetWidth
   property real animatedHeight: targetHeight

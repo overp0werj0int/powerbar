@@ -21,18 +21,21 @@ Item {
   onPresentingChanged: if (!presenting && bar.managedOwner === drawer) bar.managedOwner = null
   Behavior on reveal {
     enabled: bar.animationsEnabled && !drawer.instantClose && !drawer.replaying
+    // Drawers open a few dozen times a day: quick, a strong ease-out both
+    // ways, and closing faster than opening.
     NumberAnimation {
-      duration: drawer.opened ? 55 : 38
-      easing.type: drawer.opened ? Easing.OutBack : Easing.InCubic
-      easing.overshoot: 0.65
+      duration: drawer.opened ? 160 : 110
+      easing.type: Easing.BezierSpline
+      easing.bezierCurve: [0.23, 1, 0.32, 1, 1, 1]
     }
   }
   opacity: Math.max(0, Math.min(1, reveal))
   transform: Scale {
     origin.x: bar.vertical ? (bar.position === "left" ? 0 : drawer.width) : drawer.zone === "left" ? 0 : drawer.zone === "right" ? drawer.width : drawer.width / 2
     origin.y: !bar.vertical ? (bar.position === "top" ? 0 : drawer.height) : drawer.zone === "left" ? 0 : drawer.zone === "right" ? drawer.height : drawer.height / 2
-    xScale: (bar.vertical ? 0.72 : 0.9) + (bar.vertical ? 0.28 : 0.1) * Math.max(0, drawer.reveal)
-    yScale: (bar.vertical ? 0.9 : 0.72) + (bar.vertical ? 0.1 : 0.28) * Math.max(0, drawer.reveal)
+    // Grows out of its edge from nearly full size; nothing appears from nothing.
+    xScale: (bar.vertical ? 0.94 : 0.98) + (bar.vertical ? 0.06 : 0.02) * Math.max(0, drawer.reveal)
+    yScale: (bar.vertical ? 0.98 : 0.94) + (bar.vertical ? 0.02 : 0.06) * Math.max(0, drawer.reveal)
   }
   property bool grabReady: false
   onOpenedChanged: {
@@ -313,9 +316,9 @@ Item {
             targetInsetX: !drawer.stripVertical && preview.before ? bar.dragGapWidth : 0
             targetInsetY: drawer.stripVertical && preview.before ? bar.dragGapHeight : 0
             motionEnabled: bar.animationsEnabled && drawer.opened && !drawer.replaying
-            motionDuration: bar.dragMotionActive ? bar.dragMotionDuration : 100
-            motionEasing: bar.dragMotionActive ? bar.dragMotionEasing : Easing.OutBack
-            motionOvershoot: bar.dragMotionActive ? 0 : 0.3
+            motionDuration: bar.dragMotionActive ? bar.dragMotionDuration : 120
+            motionEasing: bar.dragMotionActive ? bar.dragMotionEasing : Easing.OutCubic
+            motionOvershoot: 0
             opacity: preview.hidden || (modelData && modelData.settleHidden) ? 0 : 1
             Component.onCompleted: if (modelData) modelData.drawerHost = mount
             Component.onDestruction: if (modelData && modelData.drawerHost === mount) modelData.drawerHost = null

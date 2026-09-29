@@ -123,6 +123,8 @@ Item {
                 readonly property bool dissolving: pane.pendingDissolve === modelData.id
                 width: parent.width
                 height: rowContent.implicitHeight + Style.space(16)
+                scale: rowMouse.pressed ? 0.98 : 1
+                Behavior on scale { enabled: pane.bar.animationsEnabled; NumberAnimation { duration: 120; easing.type: Easing.OutCubic } }
                 radius: Style.cornerRadius
                 color: dissolving ? Qt.alpha(Color.urgent, 0.16)
                   : current && groupList.activeFocus ? Style.focusFillFor(Color.popups.text, Color.accent)
@@ -163,8 +165,9 @@ Item {
                     Text {
                       text: groupRow.dissolving ? "Press x again to dissolve"
                         : groupRow.modelData.items.length + (groupRow.modelData.items.length === 1 ? " widget, " : " widgets, ")
-                          + ({ left: "left", center: "center", right: "right" })[groupRow.modelData.section]
-                          + (groupRow.modelData.visibility === "managed" ? " drawer" : groupRow.modelData.visibility === "hidden" ? ", hidden" : "")
+                          + (groupRow.modelData.visibility === "hidden" ? "hidden"
+                            : (groupRow.modelData.visibility === "managed" ? "in the " : "on the ")
+                              + groupRow.modelData.section + (groupRow.modelData.visibility === "managed" ? " drawer" : ""))
                       textFormat: Text.PlainText
                       color: groupRow.dissolving ? Color.urgent : Qt.alpha(Color.popups.text, 0.55)
                       font.family: Style.font.family
@@ -201,7 +204,8 @@ Item {
         Layout.fillWidth: true
         text: "New group"
         iconText: "󰐕"
-        focusable: true
+        // Reached with n; Tab goes straight from the list to the editor.
+        focusable: false
         bordered: true
         foreground: Color.popups.text
         onClicked: pane.create()
@@ -299,7 +303,7 @@ Item {
           }
           PrefsChoice {
             label: "Visibility"
-            options: [{ value: "shown", label: "Bar" }, { value: "managed", label: "Drawer" }, { value: "hidden", label: "Hidden" }]
+            options: [{ value: "shown", label: "On the bar" }, { value: "managed", label: "In the drawer" }, { value: "hidden", label: "Hidden" }]
             value: pane.selectedGroup ? pane.selectedGroup.visibility : ""
             onChosen: function(value) { pane.edit({ visibility: value }) }
           }
@@ -328,7 +332,7 @@ Item {
           PrefsChoice {
             visible: !!pane.selectedGroup && pane.selectedGroup.badge
             label: "Badge counts"
-            options: [{ value: "sum", label: "Values" }, { value: "members", label: "Busy widgets" }]
+            options: [{ value: "sum", label: "Add up counts" }, { value: "members", label: "Count busy widgets" }]
             value: pane.selectedGroup ? pane.selectedGroup.badgeMode : ""
             onChosen: function(value) { pane.edit({ badgeMode: value }) }
           }
@@ -339,7 +343,7 @@ Item {
           PrefsChoice {
             label: "Widgets show"
             description: pane.selectedGroup && pane.selectedGroup.memberDisplay !== "native" ? "Named widgets open as a vertical menu" : ""
-            options: [{ value: "native", label: "Themselves" }, { value: "name", label: "Names" }, { value: "both", label: "Both" }]
+            options: [{ value: "native", label: "Icon" }, { value: "name", label: "Name" }, { value: "both", label: "Both" }]
             value: pane.selectedGroup ? pane.selectedGroup.memberDisplay : ""
             onChosen: function(value) { pane.edit({ memberDisplay: value }) }
           }
@@ -407,21 +411,33 @@ Item {
           RowLayout {
             Layout.fillWidth: true
             spacing: Style.space(10)
+            ColumnLayout {
+              Layout.fillWidth: true
+              Layout.preferredWidth: 1
+              spacing: Style.space(4)
+              Text { text: "Count property"; textFormat: Text.PlainText; color: Color.popups.text; font.family: Style.font.family; font.pixelSize: Style.font.bodySmall; font.bold: true }
             TextField {
               Layout.fillWidth: true
               text: memberList.current ? memberList.current.badgeProperty || "" : ""
-              placeholderText: "Count from (auto)"
+              placeholderText: "Detected automatically"
               foreground: Color.popups.text
               Accessible.name: "Badge count property"
               onEditingFinished: if (memberList.current) pane.bar.editMemberBadge(memberList.current.instanceKey, "badgeProperty", text.trim())
             }
+            }
+            ColumnLayout {
+              Layout.fillWidth: true
+              Layout.preferredWidth: 1
+              spacing: Style.space(4)
+              Text { text: "Urgent property"; textFormat: Text.PlainText; color: Color.popups.text; font.family: Style.font.family; font.pixelSize: Style.font.bodySmall; font.bold: true }
             TextField {
               Layout.fillWidth: true
               text: memberList.current ? memberList.current.urgentProperty || "" : ""
-              placeholderText: "Urgent when (auto)"
+              placeholderText: "Detected automatically"
               foreground: Color.popups.text
               Accessible.name: "Urgent property"
               onEditingFinished: if (memberList.current) pane.bar.editMemberBadge(memberList.current.instanceKey, "urgentProperty", text.trim())
+            }
             }
           }
         }
@@ -627,6 +643,8 @@ Item {
               readonly property bool isCursor: !list.lifted && list.activeFocus && list.items[list.cursor] === record
               width: parent.width
               height: Style.spacing.controlHeight + Style.space(2)
+              scale: !placeholder && listPointer.pressed && !ghost.record && listPointer.pressedRecord === record ? 0.98 : 1
+              Behavior on scale { enabled: pane.bar.animationsEnabled; NumberAnimation { duration: 120; easing.type: Easing.OutCubic } }
               radius: Math.max(0, Style.cornerRadius - Style.space(2))
               color: placeholder ? Qt.alpha(Color.accent, 0.16)
                 : isCursor ? Style.focusFillFor(Color.popups.text, Color.accent)
@@ -694,6 +712,7 @@ Item {
       MouseArea {
         anchors.fill: parent
         anchors.rightMargin: Style.space(28)
+        id: listPointer
         preventStealing: true
         property var pressedRecord: null
         property point origin

@@ -87,3 +87,9 @@ function stepLift(count, target, dx, dy) {
 function dropBefore(items, pos) {
   return pos >= 0 && pos < items.length ? items[pos].index : -1
 }
+
+// Hiding with x and showing again returns a widget to the row it left.
+function toggledHidden(currentMode, rememberedMode) {
+  if (currentMode !== "hidden") return "hidden"
+  return rememberedMode === "shown" || rememberedMode === "managed" ? rememberedMode : "shown"
+}
