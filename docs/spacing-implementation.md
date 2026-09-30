@@ -10,6 +10,62 @@ Wherever the plan and the spec disagree, the spec wins. Where the code
 disagrees with the spec, change the code. The current highlight and alignment
 geometry is not a reference.
 
+## Status, 1 October 2026
+
+Implemented and committed, together with the rendering performance work
+(docs/rendering-performance-implementation.md).
+
+**Implemented and live-checked:**
+- **Cells:** `CellModel.js`, with node tests, and `HighlightModel.inkRect`.
+- **Bar layout:** cell-sized slots, per-end island pads, and the preferences
+  button as the last cell.
+- **Highlights:** highlight = cell, and the badge on the cell's corner.
+- **Spacing:** both spacing modes and the Preferences row.
+- **Vertical bars:** glyphs centred across the bar by their ink, and group
+  faces falling back to their glyph.
+- **Drawers:** strips and menus with the new placement, and the group icon's
+  open fill.
+- **Motion:** every animation follows the Animations switch.
+- **Highlight layers:** they now register when their window appears.
+  Previously they never registered, so bar highlights drew inside each
+  widget's own box.
+
+**Placement fixes after live testing:**
+- **Ink:** `inkRect` counts only what is visible. A child that clips has its
+  ink cut to its box (the tray's closed drawer, hidden indicators), and a
+  plain fill covering the widget is background (Scratchpeek's own pill).
+  The kit's icon button counts as an icon only up to 16 px of ink, because
+  the battery's is a whole string.
+- **Width hold:** a cell losing at least one icon cell shrinks at once.
+  `powerbarWidthHold: false` opts a widget out (the tray and Indicators
+  animate their own width), and orientation, bar size or spacing changes
+  reset the hold.
+- **Across the bar:** slots are at least the bar's thickness, with the
+  widget's box centred (the Agent Orchestrator is 27 px tall on a 38 px bar).
+- **Orientation:** retained slots and lists are positioned by `x`/`y`, never
+  by anchors switched by orientation, which removed their size bindings when
+  the bar moved edge.
+- **Drag lip:** removed; the outlined placeholder shows where a widget lands.
+
+**Checked only in code and tests:**
+- **Needs a pointer or keyboard:** compound thumbs, the Equal gaps overlap
+  fade, drag landing and the placeholder outline, and the keyboard cursor
+  ring. Checking these would have meant moving the pointer or sending keys.
+- **Animations off:** that the shell stays idle, with a highlight showing
+  and Animations off.
+
+**Differences from the spec:**
+- **Landing rule:** landing uses the ghost's ink centre with a 3 px dead
+  zone, compared with the rendered cell centre (past any open gap), rather
+  than with a separately computed resting layout.
+- **Free text:** capped at 160 px of ink by the slot's clip, without the fade.
+- **Pointer bridge:** the drawer's pointer area does not yet span the 4 px
+  gap; the dismissal delay covers the crossing.
+- **Menu counts:** members show no counts in menus; Powerbar has no
+  per-member count yet.
+- **Preferences focus ring:** follows geometry changes through
+  `GeometryObserver` (rendering performance work), no longer per frame.
+
 ## The numbers
 
 B is the bar's thickness: `Style.bar.sizeHorizontal` (26) or
