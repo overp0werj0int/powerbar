@@ -13,7 +13,10 @@ switching groups closes any child panel. Existing animation, dismissal, and
 keyboard interaction apply. Nested groups are excluded.
 Icon-only drawers follow the bar orientation and use the Powerbar island appearance.
 NAME and BOTH member displays always use a vertical menu with Powerbar's border,
-opacity, blur, and shadow, Omarchy's menu font, and the main theme's corner radius.
+opacity, blur, and shadow, Omarchy's menu font, and the island radius (rows sit one
+inset in, so their corners are concentric with the menu's). Geometry, placement and
+motion for strips and menus follow the spacing specification
+([spacing-lab/spacing-lab.html](spacing-lab/spacing-lab.html), "Extended islands").
 Keyboard opening leaves rows unselected until
 the user navigates; reopening never carries a cursor highlight forward.
 

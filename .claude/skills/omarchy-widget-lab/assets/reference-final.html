@@ -1,0 +1,2060 @@
+<title>Powerbar Spacing Lab</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+:root {
+  --ground: #f5f1f0;
+  --panel: #fffdfc;
+  --ink: #261f1f;
+  --muted: #6e6264;
+  --line: #e2d9d7;
+  --accent: #5f5889;
+  --accent-soft: rgba(95, 88, 137, 0.12);
+  --good: #3f7a5a;
+  --warn: #9a5b3c;
+  --code-bg: #efe9e8;
+  /* The bar's own world: the current Omarchy theme, fixed in both page themes. */
+  --bar-fg: 220, 215, 214;
+  --bar-bg: rgba(41, 35, 35, 0.72);
+  --bar-accent: #a39eb8;
+  --bar-urgent: #b98686;
+  --sans: "Instrument Sans", "Segoe UI", system-ui, sans-serif;
+  --mono: "JetBrains Mono", "JetBrainsMono Nerd Font", ui-monospace, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --ground: #1c1818;
+    --panel: #241f1f;
+    --ink: #ebe5e4;
+    --muted: #a69b9d;
+    --line: #3a3131;
+    --accent: #b8b2d6;
+    --accent-soft: rgba(184, 178, 214, 0.14);
+    --good: #8cc5a3;
+    --warn: #e0a383;
+    --code-bg: #2c2626;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --ground: #1c1818;
+  --panel: #241f1f;
+  --ink: #ebe5e4;
+  --muted: #a69b9d;
+  --line: #3a3131;
+  --accent: #b8b2d6;
+  --accent-soft: rgba(184, 178, 214, 0.14);
+  --good: #8cc5a3;
+  --warn: #e0a383;
+  --code-bg: #2c2626;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--ground);
+  color: var(--ink);
+  font: 15px/1.55 var(--sans);
+  padding-inline: 20px;
+  padding-block: 0 64px;
+}
+.page { max-width: 1180px; margin: 0 auto; }
+h1, h2, h3 { text-wrap: balance; line-height: 1.2; margin: 0; font-weight: 600; }
+h1 { font-size: clamp(30px, 4.4vw, 46px); letter-spacing: -0.02em; }
+h2 { font-size: 24px; letter-spacing: -0.01em; }
+h3 { font-size: 16px; }
+p { margin: 0; }
+code, .mono { font-family: var(--mono); font-size: 0.86em; }
+code { background: var(--code-bg); padding: 1px 5px; border-radius: 4px; }
+a { color: var(--accent); }
+section { margin-top: 64px; }
+.section-head { display: grid; gap: 6px; margin-bottom: 20px; max-width: 70ch; }
+.section-head p { color: var(--muted); }
+
+/* Header */
+header.top { padding-block: 44px 20px; display: grid; gap: 14px; }
+header.top .lead { font-size: 17px; max-width: 68ch; color: var(--muted); }
+header.top .lead strong { color: var(--ink); font-weight: 600; }
+
+/* Controls */
+.controls { display: flex; flex-wrap: wrap; gap: 14px 22px; align-items: center; margin: 18px 0 12px; }
+.ctl { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
+.seg { display: inline-flex; background: var(--panel); border: 1px solid var(--line); border-radius: 999px; padding: 3px; gap: 2px; }
+.seg button {
+  font: 500 13px var(--sans); color: var(--ink); background: transparent; border: 0;
+  padding: 5px 12px; border-radius: 999px; cursor: pointer;
+}
+.seg button[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent); }
+.seg button:focus-visible, .tog:focus-visible, input[type=range]:focus-visible, .hit:focus-visible, .btn:focus-visible {
+  outline: 2px solid var(--accent); outline-offset: 2px;
+}
+.tog { display: inline-flex; align-items: center; gap: 7px; font: 500 13px var(--sans); color: var(--ink);
+  background: var(--panel); border: 1px solid var(--line); border-radius: 999px; padding: 5px 12px; cursor: pointer; }
+.tog::before { content: ""; width: 8px; height: 8px; border-radius: 50%; border: 1.5px solid var(--muted); }
+.tog[aria-pressed="true"]::before { background: var(--accent); border-color: var(--accent); }
+.ctl input[type=range] { width: 110px; accent-color: var(--accent); }
+.ctl output { font-family: var(--mono); font-size: 12px; color: var(--ink); min-width: 3ch; }
+.btn { font: 500 13px var(--sans); color: var(--ink); background: var(--panel); border: 1px solid var(--line);
+  border-radius: 8px; padding: 6px 12px; cursor: pointer; }
+
+/* The wallpaper stage and the bar world */
+.stage {
+  position: relative;
+  background: #3a2e2e url("wall.jpg") center top / cover no-repeat;
+  border-radius: 14px;
+  padding: 22px 20px 26px;
+  overflow-x: auto;
+}
+.stage.tight { padding: 16px 16px 20px; border-radius: 10px; }
+.zones { display: flex; flex-wrap: wrap; gap: 22px 28px; align-items: flex-start; justify-content: space-between; }
+.zones.strip { flex-wrap: nowrap; justify-content: space-between; width: max-content; min-width: 100%; }
+.zone-wrap { position: relative; }
+.zones:not(.strip) > .zone-wrap:nth-child(2) { margin-inline: auto; }
+.zones:not(.strip) > .zone-wrap:nth-child(3) { margin-left: auto; }
+.zone-wrap.xray { padding-bottom: 22px; }
+.island { position: relative; flex: none; }
+.island.bg {
+  background: var(--bar-bg);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.37);
+  outline: 0.5px solid rgba(var(--bar-fg), 0.16);
+}
+.stripbg { position: absolute; background: var(--bar-bg); box-shadow: 0 1px 4px rgba(0,0,0,.37); outline: 0.5px solid rgba(var(--bar-fg), .16); }
+.island img, .island .lbl, .island .prefs { position: absolute; pointer-events: none; user-select: none; }
+/* Captures are often wider than a vertical bar or a menu cell; never let a host
+   stylesheet (the published page adds img { max-width: 100% }) squeeze them. */
+.page img { max-width: none; max-height: none; }
+.island .content { transition: transform 120ms ease; transform-origin: center; }
+.island .content.pressed { transform: scale(0.97); }
+.lbl { color: rgb(var(--bar-fg)); font-family: var(--mono); white-space: nowrap; overflow: hidden; }
+.lbl.fade { -webkit-mask-image: linear-gradient(90deg, #000 78%, transparent); mask-image: linear-gradient(90deg, #000 78%, transparent); }
+.prefs { display: grid; grid-template-columns: repeat(3, 1fr); }
+.prefs i { display: block; border-radius: 50%; background: rgb(var(--bar-fg)); opacity: 0.9; }
+.hl { position: absolute; opacity: 0; transition: opacity 90ms ease, background-color 120ms ease, box-shadow 120ms ease; pointer-events: none; }
+.hl.on { opacity: 1; }
+.hl.all { opacity: 1; background: rgba(var(--bar-fg), 0.10); }
+.hl.hover { background: rgba(var(--bar-fg), 0.13); }
+.hl.pressed { background: rgba(var(--bar-fg), 0.19); }
+.hl.open { background: rgba(var(--bar-fg), 0.22); }
+.hl.focus { background: rgba(var(--bar-fg), 0.13); box-shadow: inset 0 0 0 1.5px var(--bar-accent); }
+.hl.activity { background: rgba(163, 158, 184, 0.30); }
+.hl.urgent { background: rgba(185, 134, 134, 0.34); }
+.hl.drop { background: transparent; box-shadow: inset 0 0 0 1px rgba(var(--bar-fg), 0.45); }
+.hl.track { background: rgba(var(--bar-fg), 0.06); }
+.hl.on.older { opacity: 0.45; }
+.hl.newest { z-index: 1; }
+.thumb { position: absolute; opacity: 0; background: rgba(var(--bar-fg), 0.15); transition: opacity 90ms ease; pointer-events: none; }
+.thumb.on { opacity: 1; }
+.badge { position: absolute; background: var(--bar-accent); color: #292323; font: 600 9px/1 var(--mono);
+  display: flex; align-items: center; justify-content: center; border-radius: 999px; pointer-events: none; z-index: 3; }
+.hit { position: absolute; top: 0; background: transparent; border: 0; padding: 0; margin: 0; cursor: pointer; z-index: 4; border-radius: 2px; }
+.xbox { position: absolute; border: 1px dashed rgba(var(--bar-fg), 0.38); pointer-events: none; }
+.xink { position: absolute; background: rgba(163, 158, 184, 0.28); border-left: 1px solid var(--bar-accent); border-right: 1px solid var(--bar-accent); pointer-events: none; }
+.xlab { position: absolute; font: 500 10px/1 var(--mono); color: rgba(var(--bar-fg), 0.92); transform: translateX(-50%);
+  white-space: nowrap; pointer-events: none; text-shadow: 0 1px 2px rgba(0,0,0,.6); }
+.xlab.end { color: var(--bar-accent); }
+.xline { position: absolute; height: 1px; background: rgba(var(--bar-fg), 0.55); pointer-events: none; }
+
+/* Metric chips */
+.chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.chip { font: 500 12px var(--mono); padding: 4px 10px; border-radius: 999px; background: var(--panel); border: 1px solid var(--line); color: var(--ink); }
+.chip b { font-weight: 500; color: var(--muted); margin-right: 6px; font-family: var(--sans); }
+.chip.good { border-color: color-mix(in srgb, var(--good) 45%, var(--line)); }
+.chip.good::after { content: " ✓"; color: var(--good); }
+.chip.bad { border-color: color-mix(in srgb, var(--warn) 45%, var(--line)); }
+.chip.bad::after { content: " ✗"; color: var(--warn); }
+
+/* The rule */
+.rule { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); gap: 28px; align-items: start; }
+.formulas { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 6px 0; }
+.formulas .row { display: grid; grid-template-columns: 1fr auto; gap: 4px 16px; padding: 12px 18px; border-top: 1px solid var(--line); }
+.formulas .row:first-child { border-top: 0; }
+.formulas .row .f { font-family: var(--mono); font-size: 13px; color: var(--accent); }
+.formulas .row .v { font-family: var(--mono); font-size: 13px; text-align: right; font-variant-numeric: tabular-nums; }
+.formulas .row p { grid-column: 1 / -1; color: var(--muted); font-size: 13.5px; }
+.why { display: grid; gap: 14px; }
+.why p { max-width: 62ch; }
+
+/* Comparison */
+.compare { display: grid; gap: 14px; }
+.cmp-row { display: grid; grid-template-columns: 170px minmax(0, 1fr); gap: 18px; align-items: center; }
+.cmp-row .name h3 { font-size: 15px; }
+.cmp-row .name p { color: var(--muted); font-size: 13px; }
+
+/* Edge cases */
+.cases { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+.case { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 18px; display: grid; gap: 10px; align-content: start; }
+.case p { color: var(--muted); font-size: 13.5px; }
+.pair { display: grid; gap: 8px; }
+.pair .lab { font: 500 11px var(--sans); color: var(--muted); letter-spacing: 0.04em; margin-bottom: -2px; }
+.pair .stage { padding: 12px 14px 14px; }
+.case .btn { justify-self: start; }
+.case.wide { grid-column: 1 / -1; grid-template-columns: auto minmax(0, 1fr); gap: 24px; align-items: start; }
+.case.wide .stage { padding: 16px 40px; }
+@media (max-width: 860px) { .case.wide { grid-template-columns: minmax(0, 1fr); } .case.wide .stage { justify-self: start; } }
+
+/* States */
+.states { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
+.state { display: grid; gap: 8px; }
+.state .stage { padding: 12px; display: flex; justify-content: center; }
+.state h3 { font-size: 14px; }
+.state p { color: var(--muted); font-size: 12.5px; }
+
+/* Tables */
+.tablewrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); }
+table { border-collapse: collapse; width: 100%; font-size: 13.5px; }
+th, td { text-align: left; padding: 10px 14px; border-top: 1px solid var(--line); vertical-align: top; }
+thead th { border-top: 0; font-weight: 600; color: var(--muted); font-size: 12.5px; }
+td.mono { white-space: nowrap; }
+
+.steps { display: grid; gap: 12px; padding-left: 22px; margin: 0; max-width: 78ch; }
+.steps li { padding-left: 4px; }
+.steps li p { color: var(--muted); font-size: 14px; margin-top: 2px; }
+.sources { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 28px; padding: 0; list-style: none; margin: 0; }
+.sources li { font-size: 13.5px; }
+.sources li span { color: var(--muted); display: block; }
+.note { font-size: 13px; color: var(--muted); margin-top: 10px; max-width: 80ch; }
+
+/* Decisions and the Preferences mock */
+.decided { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 28px; align-items: start; }
+.decided ul { margin: 0; padding-left: 20px; display: grid; gap: 10px; }
+.decided li p { color: var(--muted); font-size: 14px; }
+.status { justify-self: start; display: inline-block; font: 600 11px var(--sans); letter-spacing: 0.04em; color: var(--good);
+  border: 1px solid color-mix(in srgb, var(--good) 45%, var(--line)); border-radius: 999px; padding: 2px 9px; margin-bottom: 8px; }
+.prefs-card { background: #2b2525; color: #dcd7d6; border: 1px solid rgba(220,215,214,.14); border-radius: 12px;
+  padding: 20px 22px; display: grid; gap: 16px; font-family: var(--mono); box-shadow: 0 8px 28px rgba(0,0,0,.35); }
+.prefs-card h4 { margin: 0; font: 600 13px var(--mono); }
+.prow { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px 16px; align-items: center; }
+.prow .pl { font-weight: 700; font-size: 13px; }
+.prow .pd { font-size: 11.5px; color: rgba(220,215,214,.6); margin-top: 2px; }
+.chipset { display: inline-flex; border: 1px solid rgba(220,215,214,.2); border-radius: 8px; padding: 2px; gap: 2px; }
+.chipset button { font: 500 11.5px var(--mono); color: #dcd7d6; background: transparent; border: 0; border-radius: 6px; padding: 5px 10px; cursor: pointer; }
+.chipset button[aria-pressed="true"] { background: rgba(220,215,214,.16); }
+.chipset button:focus-visible { outline: 1.5px solid #a39eb8; outline-offset: 1px; }
+.pslider { height: 4px; border-radius: 2px; background: rgba(220,215,214,.18); position: relative; width: 150px; }
+.pslider i { position: absolute; left: 0; top: -4px; width: 12px; height: 12px; border-radius: 50%; background: #dcd7d6; }
+.names th:first-child, .names td:first-child { white-space: nowrap; }
+
+/* Drag lab */
+.drag-area { position: relative; }
+.drag-area .island img, .drag-area .island .ph { transition-property: left, width, opacity; transition-timing-function: cubic-bezier(0.37, 0, 0.63, 1); }
+.drag-area .island { transition: width 150ms cubic-bezier(0.37, 0, 0.63, 1); }
+.ph { position: absolute; background: rgba(var(--bar-fg), 0.05); box-shadow: inset 0 0 0 1px rgba(var(--bar-fg), 0.5); pointer-events: none; }
+.ghost { position: absolute; z-index: 6; background: none; border: 0; padding: 0; cursor: grab; touch-action: none;
+  transform: scale(1.04); transform-origin: center; }
+.ghost .carrier { position: absolute; inset: 0; background: rgba(41, 35, 35, 0.94); box-shadow: 0 6px 16px rgba(0,0,0,.45), inset 0 0 0 0.5px rgba(var(--bar-fg), .22); }
+.ghost .carrier::after { content: ""; position: absolute; inset: 0; border-radius: inherit; background: rgba(var(--bar-fg), 0.13); }
+.ghost img { position: absolute; }
+.ghost-dot { position: absolute; width: 7px; height: 7px; margin-left: -3.5px; border-radius: 50%; background: rgb(var(--bar-fg)); box-shadow: 0 0 0 2px rgba(0,0,0,.35); pointer-events: none; }
+.ghost:active { cursor: grabbing; }
+.ghost .carrier, .ghost .carrier::after { transition: opacity 180ms cubic-bezier(0.23, 1, 0.32, 1), box-shadow 180ms cubic-bezier(0.23, 1, 0.32, 1); }
+.ghost.settling { transition: left 180ms cubic-bezier(0.23, 1, 0.32, 1), top 180ms cubic-bezier(0.23, 1, 0.32, 1), transform 180ms cubic-bezier(0.23, 1, 0.32, 1); }
+.ghost.lifting { transition: top 120ms cubic-bezier(0.23, 1, 0.32, 1), transform 120ms cubic-bezier(0.23, 1, 0.32, 1); }
+.ghost.lifting .carrier, .ghost.lifting .carrier::after { transition-duration: 120ms; }
+.ghost.settled { transform: scale(1); }
+.ghost.settled .carrier { opacity: 0; box-shadow: none; }
+.ph { transition: opacity 120ms ease; }
+.ph.settled { opacity: 0; }
+.ghost img { pointer-events: none; }
+.ghost:focus-visible { outline: 2px solid var(--bar-accent); outline-offset: 2px; border-radius: 8px; }
+.tick { position: absolute; width: 1px; background: var(--bar-accent); opacity: .85; pointer-events: none; }
+.drag-rules { display: grid; gap: 12px; padding-left: 22px; margin: 0; }
+.drag-rules li p { color: var(--muted); font-size: 14px; margin-top: 2px; }
+
+@media (max-width: 860px) {
+  .decided { grid-template-columns: minmax(0, 1fr); }
+  .rule, .cases, .sources { grid-template-columns: minmax(0, 1fr); }
+  .states { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .cmp-row { grid-template-columns: minmax(0, 1fr); gap: 6px; }
+}
+/* Extended islands */
+.ext-stage { padding: 0; position: relative; }
+.ext-abs { position: absolute; }
+.ext-row { position: absolute; background: none; border: 0; padding: 0; margin: 0; cursor: pointer; text-align: left; }
+.ext-row .hl { left: 0; top: 0; width: 100%; height: 100%; }
+.ext-row img { position: absolute; pointer-events: none; }
+.ext-row .lbl { position: absolute; top: 0; text-overflow: ellipsis; }
+.ext-row:focus-visible { outline: none; }
+.ext-bridge { position: absolute; border: 1px dashed var(--bar-accent); background: color-mix(in srgb, var(--bar-accent) 14%, transparent); pointer-events: none; }
+.ext-guide { position: absolute; width: 0; border-left: 1px dashed rgba(var(--bar-fg), .55); pointer-events: none; }
+.zone-wrap.xray.vert { padding-bottom: 0; padding-right: 34px; }
+.xink.v { border: 0; border-top: 1px solid var(--bar-accent); border-bottom: 1px solid var(--bar-accent); }
+.vtext { position: absolute; pointer-events: none; }
+.vtext .lbl { position: absolute; overflow: visible; }
+.vbars { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; margin-top: 14px; }
+.vcol { display: grid; gap: 8px; align-content: start; }
+.vcol .lab { font: 500 11px var(--sans); color: var(--muted); letter-spacing: 0.04em; }
+.vstage { padding: 18px 20px; }
+.vrow { display: flex; gap: 22px; align-items: flex-start; }
+@media (max-width: 860px) { .vbars { grid-template-columns: minmax(0, 1fr); } }
+.ext-drawer { position: absolute; inset: 0; pointer-events: none; transition: opacity 160ms cubic-bezier(0.23, 1, 0.32, 1), transform 160ms cubic-bezier(0.23, 1, 0.32, 1); }
+.ext-drawer > .ext-abs { pointer-events: auto; }
+.ext-drawer.closed { opacity: 0; transform: scale(0.94); transition-duration: 110ms; transition-timing-function: ease-out; }
+.ext-drawer.closed > .ext-abs { pointer-events: none; }
+.ext-guide.axis { border-left-style: dotted; border-left-color: var(--bar-accent); }
+td.ok { color: var(--good); } td.bad { color: var(--warn); }
+html.solo-ext .page > :not(#extended) { display: none; }
+html.solo-ext #ext-cases, html.solo-ext .ext-more { display: none; }
+.ext-status { justify-self: start; display: inline-block; font: 600 11px var(--sans); letter-spacing: 0.04em; color: var(--accent); border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--line)); border-radius: 999px; padding: 2px 9px; margin-bottom: 8px; }
+.ext-more { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 28px; padding-left: 20px; margin: 18px 0 0; }
+.ext-more li p { color: var(--muted); font-size: 13.5px; }
+@media (max-width: 860px) { .ext-more { grid-template-columns: minmax(0, 1fr); } }
+/* Animations off: every transition and animation on the page resolves at once. */
+html.no-motion .page *, html.no-motion .page *::before, html.no-motion .page *::after { transition-duration: 0s !important; transition-delay: 0s !important; animation: none !important; }
+@media (prefers-reduced-motion: reduce) {
+  .hl, .thumb, .island .content { transition: none; }
+}
+</style>
+
+<div class="page">
+  <header class="top">
+    <h1>One cell, one inset</h1>
+    <p class="lead">Powerbar's spacing and highlight specification. Every widget's <strong>layout box is also its highlight</strong>: icons share one cell, text gets the same air an icon has, and every gap, island end and edge uses the same 3&nbsp;px inset, so highlights are concentric with the island. Two modes build on it, Equal slots and Equal gaps. Hover or Tab through the bar: the widgets are your own cached captures, on your current wallpaper and theme.</p>
+  </header>
+
+  <div class="controls" role="group" aria-label="Bar options">
+    <div class="ctl"><span id="algo-l">Spacing</span>
+      <div class="seg" id="algo" role="group" aria-labelledby="algo-l">
+        <button data-v="cells">Equal slots</button><button data-v="gaps">Equal gaps</button>
+      </div>
+    </div>
+    <div class="ctl"><span id="size-l">Bar</span>
+      <div class="seg" id="size" role="group" aria-labelledby="size-l">
+        <button data-v="standard">Standard 26</button><button data-v="large">Large 38</button>
+      </div>
+    </div>
+    <div class="ctl"><span id="style-l">Style</span>
+      <div class="seg" id="style" role="group" aria-labelledby="style-l">
+        <button data-v="islands">Islands</button><button data-v="floating">Floating</button><button data-v="flat">Flat</button>
+      </div>
+    </div>
+    <div class="ctl"><label for="spacing">Spacing</label><input id="spacing" type="range" min="0" max="8" step="1" value="0"><output id="spacing-o">0</output></div>
+    <div class="ctl"><label for="rounding">Island rounding</label><input id="rounding" type="range" min="0" max="20" step="1" value="20"><output id="rounding-o">20</output></div>
+    <div class="ctl"><span id="zoom-l">Zoom</span>
+      <div class="seg" id="zoom" role="group" aria-labelledby="zoom-l">
+        <button data-v="1">1×</button><button data-v="2">2×</button><button data-v="3">3×</button>
+      </div>
+    </div>
+    <button class="tog" id="all" aria-pressed="false">Every highlight at once</button>
+    <button class="tog" id="xray" aria-pressed="false">Boxes and gaps</button>
+    <button class="tog" id="motion" aria-pressed="true">Animations</button>
+  </div>
+
+  <div class="stage" id="hero" aria-label="Powerbar preview"></div>
+  <div class="chips" id="hero-chips" aria-live="polite"></div>
+  <p class="note">Click an item to hold it open (the selected fill a panel or drawer gets). With equal gaps, open one and hover its neighbour to see the older highlight fade. Switch Animations off to see every demo on this page the way Powerbar behaves with its Animations setting off. Tab focuses items and draws the keyboard ring. Rendered from <code>~/.cache/powerbar/widgets</code> captures at 4× and your wallpaper; group faces are drawn in JetBrains Mono Nerd Font, as Powerbar draws them.</p>
+
+  <section id="decisions">
+    <div class="section-head">
+      <span class="status">Final, 30 September 2026</span>
+      <h2>Two spacing options, one highlight</h2>
+      <p>Both options ship and become a choice in Preferences. They share the highlight: the cell's box, centred on the glyph. "One cell, one inset" stays the name of the design idea; users see plainer names.</p>
+    </div>
+    <div class="decided">
+      <ul>
+        <li><strong>Equal slots</strong> is the one cell, one inset rule and the default.<p>Every glyph gets the same square slot, and highlights sit one inset apart. At spacing 0 the icon pitch is 23 px on the standard bar and 35 px on the large bar; Space between widgets 4 gives the standard bar Omarchy's 27 px icon pitch. Corrected on 30 September: icon cells were 24 × 20 on the standard bar, which broke the circles this page describes.</p></li>
+        <li><strong>Equal gaps</strong> puts the same air between every pair of glyphs.<p>Highlights stay symmetric and may overlap in the gaps. Where two overlap, the older one fades to 45%.</p></li>
+        <li><strong>Every animation follows one switch.</strong><p>Preferences → Behavior → Animations (<code>powerbarAnimations</code>). With it off, everything still works and still reads clearly: each change lands in its final state at once, and the bar does no per-frame work.</p></li>
+        <li><strong>Icon cells are square on every bar.</strong><p>C = T, so an icon's highlight is a square, and a circle wherever the island is a capsule. Space between widgets widens gutters and gaps, never cells.</p></li>
+        <li><strong>Vertical bars use the same rule turned on its side.</strong><p>The theme's vertical size (28 px, 40 px large), cells measured along the bar, glyphs centred on the bar's centre line by their ink, nothing wider than T across the bar, badges 1 px inside the island.</p></li>
+        <li><strong>Extended islands are islands.</strong><p>Strips follow the island rule along the bar's axis, one bar gap from the bar, centred on the group icon. Menus stack highlight rows with the island's radius: icons keep their cell, names start after it or at the icon edge, values and counts trail. They line up with the icon that opened them and grow out of it.</p></li>
+        <li><strong>In Preferences</strong> it is a two-chip row called Spacing in the Style section, above the existing "Space between widgets" slider.<p>Config key <code>powerbarSpacingMode</code>: <code>"slots"</code> (default) or <code>"gaps"</code>. Each option's one-line description replaces the row's description when chosen, the way <code>PrefsChoice</code> already works.</p></li>
+      </ul>
+      <div>
+        <div class="prefs-card" id="prefs-mock" aria-label="Preferences mock-up">
+          <h4>Style</h4>
+          <div class="prow">
+            <div><div class="pl">Spacing</div><div class="pd" id="pm-desc"></div></div>
+            <div class="chipset" role="group" aria-label="Spacing"><button type="button" data-v="cells">Equal slots</button><button type="button" data-v="gaps">Equal gaps</button></div>
+          </div>
+          <div class="stage tight" id="pm-preview"></div>
+          <div class="prow">
+            <div><div class="pl">Space between widgets</div></div>
+            <div class="pslider"><i></i></div>
+          </div>
+        </div>
+        <p class="note">A mock-up of the Preferences page, drawn to Powerbar's <code>PrefsChoice</code> layout. The preview is your right island in the chosen option.</p>
+      </div>
+    </div>
+    <div class="tablewrap" style="margin-top:22px">
+      <table class="names">
+        <thead><tr><th>Pair considered</th><th>Verdict</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Equal slots / Equal gaps</strong></td><td>Chosen. Parallel, plain, and each name says what is kept equal. "Slot" is how people describe a place in a row.</td></tr>
+          <tr><td>Equal tiles / Equal gaps</td><td>"Tiles" collides with Hyprland's tiling, the word Omarchy users already use for windows.</td></tr>
+          <tr><td>Grid / Flow</td><td>"Flow" suggests wrapping or reflowing text, not spacing.</td></tr>
+          <tr><td>Aligned / Balanced</td><td>Both sound good and say nothing about what changes.</td></tr>
+          <tr><td>Fixed / Optical</td><td>Designer vocabulary; "optical" needs explaining.</td></tr>
+          <tr><td>One cell, one inset / Equal gaps</td><td>Right for the design doc, too technical for a settings chip.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section id="rule">
+    <div class="section-head">
+      <h2>The rule</h2>
+      <p>Six numbers, all derived from the bar's thickness and the theme. Values update with the controls above.</p>
+    </div>
+    <div class="rule">
+      <div class="formulas" id="formulas"></div>
+      <div class="why">
+        <div class="stage tight" id="rule-demo"></div>
+        <p><strong>Why the box and the highlight are the same thing.</strong> Layout comes from the glyph's measured ink, never from the slot a widget asks for, and the highlight is that layout box. Highlights therefore fit their pitch exactly, sit centred on what is painted, and meet the island's ends concentrically without any adjustment.</p>
+        <p><strong>Two modes, one highlight.</strong> Both modes draw the cell's box centred on the glyph. Equal slots puts the boxes one inset apart, which gives a fixed pitch: highlights never overlap, hit targets are all the same size, and changing the icon font never reflows the island. Equal gaps puts the same air between every pair of glyphs and lets the box spill into the gaps, which looks calmer when glyph widths vary a lot. A later section shows why the spill never reaches a neighbour's glyph.</p>
+        <p><strong>Why one inset everywhere.</strong> Concentric corners need the gap between an inner shape and its container to equal the difference of their radii. Using the same 3 px (plus any Space between widgets, which only widens gutters) for the gutter between cells, the island's ends and the bar's top and bottom makes every highlight nest inside the island with a parallel curve, and makes a row of highlights tile like a segmented control.</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="compare">
+    <div class="section-head">
+      <h2>The two modes side by side</h2>
+      <p>Your right island on the large bar, every highlight shown at once, with the measured air between glyphs underneath. With every item lit, Equal gaps shows where neighbouring cells overlap in the gaps; in use you almost always see one highlight at a time.</p>
+    </div>
+    <div class="compare" id="compare-rows"></div>
+  </section>
+
+  <section id="spill">
+    <div class="section-head">
+      <h2>Why equal-gap highlights can overflow</h2>
+      <p>Equal gaps keeps the same air between glyphs and draws each highlight as the symmetric cell box, even where it spills past the glyph into the gap. The gap is sized so the spill never reaches the next widget's pixels.</p>
+    </div>
+    <div class="rule">
+      <div class="formulas">
+        <div class="row"><span class="f">spill  = (C − ink) / 2</span><span class="v">glyph</span><p>How far a glyph's highlight reaches past its ink on each side. Largest for the narrowest glyph.</p></div>
+        <div class="row"><span class="f">gap  G = C / 2 + 2 + spacing</span><span class="v" id="spill-g"></span><p>Half an icon cell plus 2 px, plus Space between widgets. The spill is below C / 2 for any glyph, so G always covers it.</p></div>
+        <div class="row"><span class="f">clearance = G − spill = 2 + spacing + ink / 2</span><span class="v">≥ 2 px</span><p>Distance from a highlight's end to the next widget's glyph. It doesn't depend on bar size. For text it is G − a = 8 px plus spacing.</p></div>
+        <div class="row"><span class="f">island end = i + spill</span><span class="v">concentric</span><p>Measure the ends from the first and last highlight, not the glyph, so those highlights sit exactly one inset from the island's curve.</p></div>
+        <div class="row"><span class="f">overlap = spill₁ + spill₂ − G</span><span class="v" id="spill-ov"></span><p>Two neighbouring highlights overlap in the gap. They stay symmetric anyway: one highlight at a time is by far the common case, and a trimmed shape would look wrong exactly when two show. The more recently lit one draws on top at full strength; the older one fades to 45%.</p></div>
+      </div>
+      <div class="why">
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Bar</th><th>Spacing</th><th>Cell</th><th>Gap</th><th>Tightest real glyph</th><th>Zero-width glyph</th><th>Worst overlap</th></tr></thead>
+            <tbody id="spill-table"></tbody>
+          </table>
+        </div>
+        <p class="note">Measured over all 40 widget captures in your cache, counting every pixel with alpha above 8 so anti-aliased edges are included. The tightest is the tray chevron, 6.5 px wide, next to any neighbour. "Worst overlap" pairs the two narrowest glyphs; wider glyphs overlap less, and text next to text never overlaps.</p>
+        <div class="pair" id="spill-demos"></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="drag">
+    <div class="section-head">
+      <h2>Dragging widgets of any width</h2>
+      <p>Drag the lifted widget along the island and let go to see it settle. From the keyboard: Space picks it up or drops it, ← and → move it, Esc puts it back. Try the clock over icons and an icon over the Audio group: that mix of sizes is where drag and drop usually breaks.</p>
+    </div>
+    <div class="controls" role="group" aria-label="Drag options">
+      <div class="ctl"><span id="dr-l">Dragging</span><div class="seg" id="dr-item" role="group" aria-labelledby="dr-l">
+        <button data-v="monitor">Icon</button><button data-v="keyboard">EN</button><button data-v="power">Battery</button><button data-v="clock">Clock</button><button data-v="workspaces">Workspaces</button></div></div>
+      <div class="ctl"><span id="dr-rl">Spacing</span><div class="seg" id="dr-rhythm" role="group" aria-labelledby="dr-rl">
+        <button data-v="cells">Equal slots</button><button data-v="gaps">Equal gaps</button></div></div>
+      <button class="tog" id="dr-ticks" aria-pressed="false">Landing boundaries</button>
+      <button class="btn" id="dr-play" type="button">Play a drag and drop</button>
+    </div>
+    <div class="stage" id="drag-stage"></div>
+    <div class="chips" id="drag-chips" aria-live="polite"></div>
+    <div class="rule" style="margin-top:26px">
+      <ol class="drag-rules">
+        <li><strong>The gap is the dragged widget's own landing size.</strong><p>Equal slots: its cell plus one inset. Equal gaps: its glyph plus one gap. A widget's own margins never leak in. Reordering inside an island never changes its length, because the source closes by exactly what the gap opens.</p></li>
+        <li><strong>The placeholder is the widget's highlight, outlined.</strong><p>It has the dragged widget's length, thickness and radius, where it will land. In Equal gaps it spills into the gaps like any highlight, staying 8 px clear of text and at least 2 px clear of glyphs.</p></li>
+        <li><strong>Land at the spot nearest the ghost's centre.</strong><p>Measured on the resting layout (as if the gap were not there), with a 3 px dead zone. The landing spot depends only on where the ghost is, so it cannot flicker even when the gap is wider than its neighbours. The ghost is never more than half a neighbour's cell from where it will land. Using the ghost's centre rather than the pointer means a wide widget grabbed at one end lands where it looks.</p></li>
+        <li><strong>Scale the timing with distance.</strong><p><code>150 ms × √(gap ÷ icon gap)</code>, capped at 260 ms, on an ease-in-out sine. Icons take 150 ms; the clock's 130 px gap takes 260 ms, and its neighbours peak at 2.2× an icon's speed, where a fixed duration would reach 3.7×.</p></li>
+        <li><strong>Everything that moves shares that duration.</strong><p>Neighbours, the placeholder and the island's growing end all use the same timing, so the island's curve and its last cell stay concentric throughout.</p></li>
+        <li><strong>Settle on release.</strong><p>In one 180 ms strong ease-out, the ghost glides its glyph centre onto the landing cell's centre, drops its 2 px lift and 1.04 scale, and fades its surface and shadow, while the placeholder outline fades out. What remains is an ordinary widget in the island; nothing else moves. Picking it up again lifts it in 120 ms. Esc settles it back where it was lifted.</p></li>
+      </ol>
+      <div>
+        <div class="tablewrap">
+          <table id="drag-table"><thead><tr><th>Dragged</th><th>Gap, slots</th><th>Gap, gaps</th><th>Neighbours move in, animations on</th><th>Peak speed</th></tr></thead><tbody></tbody></table>
+        </div>
+        <p class="note">With "Landing boundaries" on, the ticks under the island are the points the ghost's centre (the dot) must cross to move the gap. They sit halfway between neighbouring landing spots, measured without the gap, so they never move while you drag. Peak speed of a neighbour on the ease-in-out sine is π × distance ÷ (2 × duration). Ratios compare with an icon's 35 px gap at 150 ms. I simulated there-and-back sweeps across this island for the icon and the clock in both spacing options: the landing spot changed exactly once per boundary in each direction (10 of 10), and the ghost was never more than 41 px from its landing spot.</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="edges">
+    <div class="section-head">
+      <h2>Edge cases</h2>
+      <p>Each case shows Equal slots above Equal gaps, on the large bar. Hover either one.</p>
+    </div>
+    <div class="cases" id="cases"></div>
+  </section>
+
+  <section id="vertical">
+    <div class="section-head">
+      <h2>Vertical bars</h2>
+      <p>The same rule turned on its side. Cells grow along the bar and never across it, highlights are the cell box in both spacing modes, and glyphs centre on the bar's centre line. Your left, centre and right islands are drawn side by side; hover any of them.</p>
+    </div>
+    <div class="rule">
+      <div class="formulas" id="vformulas"></div>
+      <div class="why">
+        <p><strong>Along the bar, nothing changes.</strong> An icon's cell is C long, text is its ink plus the air a at each end, gutters and island ends are one inset, and Equal gaps keeps G between glyphs with the highlight spilling symmetrically. Both modes reuse the horizontal layout code on the other axis, so a rule can't drift between orientations.</p>
+        <p><strong>Across the bar, centre the ink.</strong> A widget captured for a horizontal bar has a slot shaped for that bar: the tray's chevron sits 14 px right of its slot's centre, System update's 9 px glyph sits in a 38 px slot. On a vertical bar those slots mean nothing, so every glyph centres on the bar's centre line by its ink.</p>
+        <p><strong>The bar never widens.</strong> Content across the bar must fit the highlight's thickness T. Widgets bring a vertical form (the clock's <code>HH / — / mm</code>, workspaces as a column), and a group whose face is wider than T shows its glyph.</p>
+      </div>
+    </div>
+    <div class="controls" role="group" aria-label="Vertical bar options" style="margin-top:22px">
+      <div class="ctl"><span id="vb-sl">Bar</span><div class="seg" id="vb-size" role="group" aria-labelledby="vb-sl">
+        <button data-v="standard">Standard 28</button><button data-v="large">Large 40</button></div></div>
+      <button class="tog" id="vb-all" aria-pressed="true">All highlights</button>
+      <button class="tog" id="vb-xray" aria-pressed="false">Boxes and gaps</button>
+    </div>
+    <div class="vbars" id="vbars"></div>
+    <p class="note">Glyphs are your captures; the AI face, workspace numbers, the clock and EN are their vertical forms drawn in the bar font. The AI group's drawer is open, so it shows the open fill. Tab walks the cells; j and k walk the workspaces.</p>
+  </section>
+
+  <section id="extended">
+    <div class="section-head">
+      <h2>Extended islands</h2>
+      <p>Group drawers and managed drawers are islands too. They are built from the same cells, sit one bar gap from the island that opened them, and line up with the icon that opened them. Icons only gives a strip that follows the bar; names only and icons and names give a menu.</p>
+    </div>
+    <div class="rule">
+      <div class="formulas" id="ext-formulas"></div>
+      <div class="why">
+        <p><strong>A drawer is a second row of the bar.</strong> The strip is an island made by the main rule: the bar's thickness, cells, gutters, ends, radius and spacing mode, along the bar's own axis. It sits one bar gap (the same 4 px as between the bar and the screen edge) from the island, so the two read as related surfaces rather than one merged shape.</p>
+        <p><strong>A menu is the same cells stacked.</strong> Rows are highlight cells, one inset apart and one inset from the menu's edge, so the menu takes the island's radius and every row corner is concentric with it. The layout is the same in both spacing modes: a menu has no row of glyphs to space.</p>
+        <p><strong>Three columns, each with one rule.</strong> An icon keeps its bar cell at the row's start, so its glyph sits exactly where a strip's first glyph would; switching between Icons and Icons and names leaves every glyph where it was. Names start where that cell ends. Anything that is text on the bar, like the clock, is a value: values and counts trail at the row's end, and a row without an icon starts its name at the icon edge, so the menu's content has one left edge.</p>
+        <p><strong>It starts where you pointed.</strong> Below a horizontal bar the first row starts where the group icon's highlight starts, so a group glyph sits directly above its first member's glyph. Beside a vertical bar the first row sits level with the icon. Near a screen edge the menu flips.</p>
+      </div>
+    </div>
+    <div class="controls" role="group" aria-label="Extended island options" style="margin-top:22px">
+      <div class="ctl"><span id="ex-gl">Group</span><div class="seg" id="ex-group" role="group" aria-labelledby="ex-gl">
+        <button data-v="audio">Audio</button><button data-v="ai">AI</button><button data-v="managed">Managed drawer</button></div></div>
+      <div class="ctl"><span id="ex-dl">Members shown as</span><div class="seg" id="ex-display" role="group" aria-labelledby="ex-dl">
+        <button data-v="icons">Icons</button><button data-v="names">Names</button><button data-v="both">Icons and names</button></div></div>
+      <div class="ctl"><span id="ex-el">Bar edge</span><div class="seg" id="ex-edge" role="group" aria-labelledby="ex-el">
+        <button data-v="top">Top</button><button data-v="left">Left</button></div></div>
+      <div class="ctl"><span id="ex-sl">Bar</span><div class="seg" id="ex-size" role="group" aria-labelledby="ex-sl">
+        <button data-v="standard">Standard 26</button><button data-v="large">Large 38</button></div></div>
+      <div class="ctl"><span id="ex-al">Spacing</span><div class="seg" id="ex-algo" role="group" aria-labelledby="ex-al">
+        <button data-v="cells">Equal slots</button><button data-v="gaps">Equal gaps</button></div></div>
+      <button class="tog" id="ex-xray" aria-pressed="false">Boxes and gaps</button>
+    </div>
+    <div id="ext-demo"></div>
+    <div class="chips" id="ext-chips" aria-live="polite"></div>
+    <p class="note">The group icon shows the open fill while its drawer is open; click it to close and reopen the drawer (instant with Animations off). Hover or Tab through the members. Member captures keep their own colours; the Agent Orchestrator's glyph is its own <code>agent.svg</code> without the count it paints over it, which the shared badge shows instead. "Boxes and gaps" shows every row, the glyph axis, the name column and the pointer bridge. Every chip is measured from the drawn page.</p>
+    <div class="rule" style="margin-top:26px">
+      <div>
+        <h3>Checked in every combination</h3>
+        <p class="note" style="margin-top:6px">Each group, display, bar edge, bar size and spacing mode, plus every edge case below in both modes: <span id="ext-audit-n">0</span> drawers drawn off screen and measured from the page itself, in bar pixels.</p>
+      </div>
+      <div class="tablewrap">
+        <table id="ext-audit"><thead><tr><th>Check</th><th>Rule</th><th>Worst measured</th></tr></thead><tbody></tbody></table>
+      </div>
+    </div>
+    <h3 style="margin-top:34px">Extended island edge cases</h3>
+    <p class="note" style="margin-top:6px">Each case shows Equal slots above Equal gaps, on the large bar.</p>
+    <div class="cases" id="ext-cases" style="margin-top:14px"></div>
+    <ul class="ext-more">
+      <li><strong>Many members.</strong><p>A strip longer than the screen, less a bar gap at each end, scrolls along its axis with an 8 px fade at the clipped end; a menu taller than the space below the bar scrolls vertically. The keyboard cursor scrolls its row into view.</p></li>
+      <li><strong>A member whose widget is gone.</strong><p>It is skipped and leaves no hole; the group keeps the reference so the widget returns to its place if reinstalled.</p></li>
+      <li><strong>Bottom bar.</strong><p>The drawer opens above the bar with the same gap and alignment. Menus keep reading top to bottom and anchor their bottom edge.</p></li>
+      <li><strong>Two members with one name.</strong><p>Later ones get a number ("Clock 2") so menu rows stay distinguishable.</p></li>
+      <li><strong>Getting there.</strong><p>The drawer's pointer area spans the gap to the bar (dashed in "Boxes and gaps"), so moving from the icon to the drawer never crosses dead space; the 450 ms leave grace still applies.</p></li>
+      <li><strong>Keyboard.</strong><p>Strips move with the bar's arrows (h/l or j/k on a vertical bar); menus with j/k. Enter activates, Esc closes and returns focus to the group icon. Opening from the keyboard leaves no row selected until you move.</p></li>
+      <li><strong>Opening and closing.</strong><p>160 ms in, 110 ms out, fading and growing from 94% out of the source cell's centre on the drawer's near edge, below a horizontal bar or beside a vertical one. With Animations off the drawer appears and disappears at once, with the same hover delays; click the group icon in the demo to try both.</p></li>
+      <li><strong>Flat and floating bars.</strong><p>Drawers always float, so they always take the island radius and the bar gap, whatever the bar style.</p></li>
+    </ul>
+  </section>
+
+  <section id="states">
+    <div class="section-head">
+      <h2>Highlight states</h2>
+      <p>One shape, one language: every state fills the same cell in the bar's own foreground or the theme's accent. Only focus adds a ring, because keyboard focus must be visible even on top of another state.</p>
+    </div>
+    <div class="states" id="state-grid"></div>
+  </section>
+
+  <section id="motion">
+    <div class="section-head">
+      <h2>Motion</h2>
+      <p>Hover happens tens of times a day, so it barely moves. Things that open or rearrange get just enough motion to explain where they went. All of it is optional: Omarchy has to work well on modest hardware, so with Animations off the bar keeps every function and every cue, and does no per-frame work.</p>
+    </div>
+    <ol class="steps" style="margin-bottom:22px">
+      <li><strong>One switch.</strong><p><code>powerbarAnimations</code>, shown as Preferences → Behavior → Animations and read as <code>animationsEnabled</code>. Every <code>Behavior</code> has <code>enabled: animationsEnabled</code>; every explicit animation checks it before starting and, when off, applies its end state directly. There is no second, per-feature switch.</p></li>
+      <li><strong>Motion never carries information alone.</strong><p>Each animated change ends in a static state that says the same thing: a fill, an outline, a placeholder, a position. Turning motion off removes the travel, never the meaning.</p></li>
+      <li><strong>Logic does not depend on motion.</strong><p>The 8 s width hold, the drag landing rule, highlight recency and the 2.5 s activity peek run the same with Animations off.</p></li>
+      <li><strong>Sequences short-circuit.</strong><p>Anything that waits for an animation, such as a drop that glides before it commits, commits in the same event when Animations is off.</p></li>
+      <li><strong>Off means idle.</strong><p>No <code>FrameAnimation</code>, animation timers or per-frame geometry run with Animations off; highlights re-place when geometry changes. With Animations on, per-frame work runs only while something is actually moving.</p></li>
+    </ol>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Change</th><th>Animations on</th><th>Animations off</th><th>Why it still reads</th></tr></thead>
+        <tbody>
+          <tr><td>Hover fill in or out</td><td class="mono">opacity 90 ms, ease</td><td class="mono">at once</td><td>The fill is the feedback; it never slides between items either way.</td></tr>
+          <tr><td>Press</td><td class="mono">glyph scales to 0.97, 120 ms</td><td class="mono">fill steps to pressed</td><td>The pressed fill (19%) marks the press; the cell never moves.</td></tr>
+          <tr><td>Panel or drawer opens</td><td class="mono">fill to selected 150 ms, drawer 180–300 ms</td><td class="mono">both appear at once</td><td>The selected fill links the open surface to its source.</td></tr>
+          <tr><td>Cell grows (value got wider)</td><td class="mono">width 150 ms, ease-in-out</td><td class="mono">at once</td><td>Neighbours step aside once; the hold below stops repeats.</td></tr>
+          <tr><td>Cell shrinks</td><td class="mono">after 8 s at the smaller size, 180 ms</td><td class="mono">after 8 s, at once</td><td>The hold is logic, not motion, so flickering values stay calm.</td></tr>
+          <tr><td>Drag: neighbours make way</td><td class="mono">150–260 ms by distance, ease-in-out sine</td><td class="mono">gap opens at once</td><td>The outlined placeholder shows the landing spot, and the landing rule is unchanged, so nothing flickers.</td></tr>
+          <tr><td>Drag: widget settles on release</td><td class="mono">180 ms, strong ease-out</td><td class="mono">lands at once, then commits</td><td>The ghost is at most half a neighbour's cell from its spot, so the step is short; the landed widget is under the pointer and shows its hover fill.</td></tr>
+          <tr><td>Drag: widget picked up</td><td class="mono">120 ms lift</td><td class="mono">lift, surface and shadow at once</td><td>Surface and shadow are static cues that it is held.</td></tr>
+          <tr><td>An older highlight is overlapped by a newer one</td><td class="mono">opacity to 45%, 90 ms</td><td class="mono">45% at once</td><td>It is a state, so it stays.</td></tr>
+          <tr><td>Extended island opens or closes</td><td class="mono">160 ms strong ease-out in, 110 ms ease-out out; opacity and scale from 0.94, origin at the source cell's centre on the drawer's near edge</td><td class="mono">appears and disappears at once</td><td>The group icon's open fill and the drawer's place next to it (first row level with it, or starting where it starts) show where it came from. Same in both spacing modes and on both bar edges.</td></tr>
+          <tr><td>Drawer row hovered or walked</td><td class="mono">fill 90 ms ease; keyboard cursor instant</td><td class="mono">fill at once</td><td>The row's own highlight cell carries the state; the cursor never animates.</td></tr>
+          <tr><td>Activity peek</td><td class="mono">bar slides out, accent fill 2.5 s, fade 300 ms</td><td class="mono">bar appears in place, accent fill 2.5 s</td><td>The accent fill still names the widget that changed, for the same time.</td></tr>
+          <tr><td>Autohide reveal and hide</td><td class="mono">slide, ease-out</td><td class="mono">appears and hides in place</td><td>The edge trigger and timings are unchanged.</td></tr>
+          <tr><td>Theme or urgent colour change</td><td class="mono">crossfade</td><td class="mono">at once</td><td>The new colour is the information.</td></tr>
+          <tr><td>Keyboard focus moves</td><td class="mono">instant</td><td class="mono">instant</td><td>Keyboard actions repeat many times a day and must feel immediate.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section id="implement">
+    <div class="section-head">
+      <h2>Implementing the specification</h2>
+      <p>A sequence, in the order it can land without breaking drag and drop or the drawers. <code>docs/spacing-implementation.md</code> expands each step with files, tests and acceptance checks.</p>
+    </div>
+    <ol class="steps">
+      <li><strong>Add <code>CellModel.js</code> with node tests.</strong><p><code>cellLength({ kind, ink, thickness, maxInk })</code> returns the box length (T for glyphs); <code>layoutZone(items, { inset, spacing, mode })</code> returns boxes, ink offsets and the island length. Kinds: glyph (has <code>glyphPaintedWidth</code>), text (has <code>labelWidth</code> or any other ink), compound (two or more registered click targets inside the slot).</p></li>
+      <li><strong>Measure an ink rectangle, not a width.</strong><p>Extend <code>HighlightModel.inkWidth</code> to <code>inkRect</code> returning left and width, so off-centre content (the tray, widgets with trailing gaps like Workspaces' 1.5 px) centres on what is painted.</p></li>
+      <li><strong>Size slots from the cell.</strong><p>In <code>Bar.qml</code> the slot's <code>naturalWidth</code> becomes the cell length and <code>presentation.x</code> shifts by <code>(L − ink) / 2 − inkLeft</code>. Row/Column <code>spacing</code> becomes the gutter (inset plus Space between widgets), <code>islandPadding</code> becomes the inset plus the drag lip. The drag gap is the dragged cell plus the gutter, so the ghost's landing slot matches exactly.</p></li>
+      <li><strong>Make the highlight the slot box.</strong><p><code>highlightGeometry</code> reduces to the slot's rectangle at the inset thickness with radius <code>clamp(islandRounding − inset, 0, T / 2)</code>. Highlights need no end adjustment: the ends are concentric by construction.</p></li>
+      <li><strong>Keep hit areas generous.</strong><p>Each slot's pointer area covers its cell plus half of each gutter and the full bar thickness; the first and last cells extend to the island ends (to the screen edge on a flat bar). Clip each slot to that area so oversized widgets cannot steal clicks from neighbours.</p></li>
+      <li><strong>Give compounds thumbs.</strong><p>For compounds, hovering draws a faint track over the whole cell and a thumb over the hovered click target: side <code>min(T, pitch − 1)</code>, radius <code>r − (T − side) / 2</code>. Workspaces and Indicators already register their buttons as click targets.</p></li>
+      <li><strong>Hold widths.</strong><p>A cell grows at once (150 ms) and shrinks only after 8 s at the smaller size. Cap free text at 160 px of ink with a fade.</p></li>
+      <li><strong>Both modes.</strong><p><code>layoutZone(cells, { mode })</code> with <code>"slots"</code> (cells one inset apart) or <code>"gaps"</code> (glyphs <code>C / 2 + 2</code> apart, island ends at <code>i + spill</code>), read from <code>powerbarSpacingMode</code>. Both use the same highlight box. In gaps mode highlights may overlap: each <code>HoverHighlight</code> records when it lit, and where two overlap the newer gets the higher <code>z</code> and the older drops to 45% opacity. Preferences shows the choice as a <code>PrefsChoice</code> row, Spacing: Equal slots or Equal gaps.</p></li>
+      <li><strong>Drag with landing-size gaps.</strong><p>The drag gap is the dragged widget's landing size, the placeholder is its highlight outlined, the landing spot is the one nearest the ghost's centre on the resting layout (3 px dead zone), and <code>dragMotionDuration</code> becomes <code>clamp(150 × √(gap ÷ icon gap), 150, 260)</code>. On release the ghost settles onto the cell in 180 ms before the layout commits.</p></li>
+      <li><strong>Redefine the Spacing setting.</strong><p>Extra spacing widens the gutters between cells (and the gap in Equal gaps), never the cells, so icon highlights stay square and island ends stay concentric; hit areas still split each gutter, so targets grow with the space. At spacing 0 the icon pitch is 23 px on the standard bar and 35 px on the large bar.</p></li>
+      <li><strong>Lay vertical bars out with the same model.</strong><p>Call <code>layoutZone</code> with along-axis measurements (ink top and height from <code>inkRect</code>) and <code>B = Style.bar.sizeVertical</code> plus the large lip. Centre every glyph across the bar by its ink, not its slot; require content across to fit <code>T</code> (widgets supply a vertical form, group faces fall back to their glyph); clamp badges 1 px inside the island on both axes.</p></li>
+      <li><strong>Build extended islands from the same model.</strong><p>In <code>ManagedDrawer.qml</code>, lay strips out with <code>layoutZone</code> in the current spacing mode at the bar's thickness, radius <code>islandRounding</code> and one-inset ends, along the bar's axis; centre them on the source cell, clamp one <code>edgeGap</code> from the screen edges, then snap an end within <code>T / 2</code> of the island's end. Place drawers one bar gap from the bar with a pointer area spanning the gap. Menus stack <code>T</code>-tall rows one inset apart with one-inset padding and radius <code>islandRounding</code>; names start at <code>C</code> after an icon (glyph centred in the first <code>C</code>) and at <code>air</code> in rows without one (names only, or a value row), so every row's content shares one left edge; members that are not glyphs show their native look right-aligned at <code>air</code> from the row's end, and counts use the shared badge there. Below a horizontal bar the first row starts at the source highlight's start (or ends at its end); beside a vertical bar the first row's centre is level with the source cell's centre (or the last row's). Show a widget's count with the shared badge rather than letting it paint one over its glyph, scale from the source cell's centre, and use the bar's focus ring for the keyboard cursor.</p></li>
+      <li><strong>Put every animation behind the one switch.</strong><p>Give every <code>Behavior</code> and <code>ColorAnimation</code> <code>enabled: animationsEnabled</code>, including the bar's colour crossfade, the move-candidate edge, <code>BarBackdrop</code>'s fade, Active window's width, the Tray reveal and the Layout editor's tile colour. Run the highlights' <code>FrameAnimation</code> only while their slot is moving and animations are on; otherwise re-place on geometry changes. Add a QML test that turns the flag off and checks each change reaches its end state in the same frame.</p></li>
+      <li><strong>Verify on the desktop.</strong><p>Tests for <code>cellLength</code> at both bar sizes, glyph, short text, long text and compound kinds; <code>layoutZone</code> ends at the inset; <code>inkRect</code> for off-centre children. Then screenshot all three bar styles, both sizes and a vertical bar with autohide off, once with Animations on and once off, and check the shell stays idle (no per-frame work) with a highlight showing and Animations off.</p></li>
+    </ol>
+  </section>
+
+  <section id="research">
+    <div class="section-head">
+      <h2>What the research says</h2>
+      <p>The references this rule borrows from, and the part each one contributed.</p>
+    </div>
+    <ul class="sources">
+      <li><a href="https://m3.material.io/components/menus/specs">Material 3 menus</a><span>Menus as stacked rows with container padding, a leading icon column and a fixed icon-to-label gap; labels align in one column.</span></li>
+      <li><a href="https://developer.apple.com/wwdc20/10104">Apple, Adopt the new look of macOS (WWDC20)</a><span>Rounded menus with inset, rounded selections: the row highlight sits inside the menu's padding.</span></li>
+      <li><a href="https://github.com/jordanbaird/Ice">Ice, the Ice Bar</a><span>Hidden menu bar items shown as a second bar under the first: an overflow strip reads as more bar, not as a menu.</span></li>
+      <li><a href="https://www.smashingmagazine.com/2023/08/better-context-menus-safe-triangles/">Smashing, safe triangles</a> and <a href="https://bjk5.com/post/44698559168/breaking-down-amazons-mega-dropdown">Amazon's dropdown</a><span>The path from trigger to menu must be forgiving; no dead space between them.</span></li>
+      <li><a href="https://floating-ui.com/docs/offset">Floating UI, offset</a><span>The distance between an anchor and its floating surface is one gap along the main axis, with separate alignment on the cross axis.</span></li>
+      <li><a href="https://developer.apple.com/videos/play/wwdc2025/356/">Apple, Get to know the new design system (WWDC25)</a><span>Concentricity: nested shapes share a centre, capsules nest in capsules, grouped toolbar items share one glass surface.</span></li>
+      <li><a href="https://www.30secondsofcode.org/css/s/nested-border-radius/">Perfect nested border radius</a> and <a href="https://uxplanet.org/corner-radius-of-nested-elements-in-ui-design-4c27bb24a854">UX Planet on nested corners</a><span>Inner radius equals outer radius minus the gap; equal radii make the gap look uneven.</span></li>
+      <li><a href="https://github.com/x7c1/sutto/pull/82">GNOME Shell panel buttons</a><span><code>-natural-hpadding: 12px</code>, <code>-minimum-hpadding: 6px</code>: highlight padding that shrinks when the panel is crowded, so panel buttons are wider than tall.</span></li>
+      <li><a href="https://errickson.net/blog/mac-menu-bar-spacing.html">macOS menu bar spacing</a> and <a href="https://github.com/jordanbaird/Ice">Ice</a><span>macOS separates <code>NSStatusItemSpacing</code> (gap) from <code>NSStatusItemSelectionPadding</code> (highlight padding); padding about twice the spacing looks best, which is the same idea as wide cells and small gutters.</span></li>
+      <li><a href="https://m3.material.io/components/toolbars/guidelines">Material 3 toolbars</a> and <a href="https://m3.material.io/components/icon-buttons/accessibility">icon button accessibility</a><span>A 24 dp icon inside a 48 dp target; the padding is the target. Icon buttons in bars get a container fill.</span></li>
+      <li><a href="https://www.nngroup.com/articles/fitts-law/">NN/g on Fitts's law</a> and <a href="https://blog.codinghorror.com/fitts-law-and-infinite-width/">Coding Horror, infinite width</a><span>Targets at a screen edge are effectively infinite; a bar should have no dead pixels between items or at its ends.</span></li>
+      <li><a href="https://medium.com/design-bridges/optical-effects-9fca82b4cd9a">Shestopalov, Optical effects in user interfaces</a><span>Mathematically equal spacing can still look uneven; centre shapes on their visual mass, not their box.</span></li>
+      <li><a href="https://help.figma.com/hc/en-us/articles/360040451373-Guide-to-auto-layout">Figma auto layout</a><span>Fixed gap versus space-between versus evenly; fixed gap with padded children is the only one stable under changing content.</span></li>
+    </ul>
+  </section>
+</div>
+
+<script>
+// Measured from ~/.cache/powerbar/widgets captures (4× scale, divided back to bar pixels).
+// w: the widget's implicit width; ink: [left, width, top, height] of what it paints;
+// parts: painted runs along the bar (sub-items of compounds).
+const W = {"keystroke":{"w":27.0,"ink":[8.0,12.0],"parts":[[8.0,12.0]]},"everything":{"w":27.0,"ink":[8.0,10.5],"parts":[[8.0,10.5]]},"workspaces":{"w":105.5,"ink":[7.0,89.0],"parts":[[7.0,5.5],[28.0,5.5],[48.0,9.0],[70.0,5.0],[91.0,5.0]]},"scratchpeek":{"w":103.5,"ink":[9.0,85.25],"parts":[[9.0,7.5],[24.5,5.5],[40.5,2.0],[53.25,41.0]]},"indicators":{"w":126.0,"ink":[8.0,112.5],"parts":[[8.0,6.0],[27.5,8.5],[49.0,7.5],[69.5,8.0],[90.5,8.5],[111.5,9.0]]},"clock":{"w":125.5,"ink":[9.0,107.25],"parts":[[9.0,64.0],[82.0,12.75],[98.25,18.0]]},"keyboard":{"w":24.0,"ink":[7.0,10.0],"parts":[[7.0,10.0]]},"update":{"w":38.0,"ink":[15.5,9.0],"parts":[[15.5,9.0]]},"monitor":{"w":27.0,"ink":[8.0,12.0],"parts":[[8.0,12.0]]},"audio":{"w":27.0,"ink":[7.0,13.5],"parts":[[7.0,13.5]]},"bluetooth":{"w":27.0,"ink":[10.5,7.0],"parts":[[10.5,7.0]]},"power":{"w":54.0,"ink":[6.0,41.5],"parts":[[6.0,22.0],[36.0,11.5]]},"network":{"w":27.0,"ink":[7.5,12.5],"parts":[[7.5,12.5]]},"tray":{"w":54.0,"ink":[38.5,6.0],"parts":[[38.5,6.0]]},"crashdesk":{"w":39.0,"ink":[8.0,20.75],"parts":[[8.0,11.25],[23.25,5.5]]},"notify":{"w":27.0,"ink":[9.0,10.0],"parts":[[9.0,10.0]]},"capture":{"w":27.0,"ink":[6.75,14.5],"parts":[[6.75,14.5]]},"group-ai":{"w":31.5,"ink":[9.0,12.75],"parts":[[9.0,12.75]]},"group-audio":{"w":74.5,"ink":[8.5,56.5],"parts":[[8.5,14.0],[30.5,34.5]]}};
+Object.assign(W, {"omaproton-vpn":{"w":27.0,"h":38.0,"ink":[8.5,11.0],"parts":[[8.5,11.0]]},"omafile":{"w":27.0,"h":38.0,"ink":[8.0,12.0],"parts":[[8.0,12.0]]},"agent-orchestr":{"w":27.0,"h":27.0,"ink":[8.25,10.5],"parts":[[8.25,10.5]]},"sessions":{"w":21.0,"h":38.0,"ink":[6.0,9.5],"parts":[[6.0,9.5]]},"ai-usage-dashboard":{"w":27.0,"h":38.0,"ink":[8.0,12.0],"parts":[[8.0,12.0]]},"microphone":{"w":27.0,"h":38.0,"ink":[9.0,9.5],"parts":[[9.0,9.5]]},"group-audio-glyph":{"w":24.25,"h":38.0,"ink":[8.5,14.0],"parts":[[8.5,14.0]]}});
+// Ink top and height of every capture, for vertical bars (same measurement, other axis).
+const INKY = {"agent-orchestr":[7.0,11.0],"ai-usage-dashboard":[13.5,11.0],"audio":[13.5,10.5],"bluetooth":[13.5,11.0],"capture":[13.25,11.5],"clock":[14.0,11.5],"crashdesk":[13.5,10.5],"everything":[16.5,6.0],"group-ai":[14.5,8.75],"group-audio-glyph":[14.0,10.0],"group-audio":[14.0,10.0],"indicators":[14.0,9.0],"keyboard":[14.5,7.5],"keystroke":[13.0,12.0],"microphone":[13.5,10.5],"monitor":[13.5,11.0],"network":[13.5,10.5],"notify":[13.0,11.5],"omafile":[13.5,10.5],"omaproton-vpn":[14.0,10.0],"power":[13.5,11.0],"scratchpeek":[13.5,9.5],"sessions":[13.5,9.5],"tray":[13.5,10.5],"update":[14.0,9.5],"workspaces":[14.0,9.5]};
+// The Agent Orchestrator paints its own count over its glyph. Powerbar draws counts with
+// the shared badge instead, so w/agent-orchestr.png is its own assets/icons/agent.svg
+// rendered into its 27 px slot without the count, the way BarIconButton centres it.
+const KIND = { keystroke: "glyph", everything: "glyph", "group-ai": "text", workspaces: "compound", scratchpeek: "text",
+  clock: "text", keyboard: "text", update: "glyph", indicators: "compound", monitor: "glyph", "group-audio": "text",
+  bluetooth: "glyph", power: "text", network: "glyph", tray: "glyph", capture: "glyph", notify: "glyph", crashdesk: "text" };
+const NAMES_EXTRA = { "omaproton-vpn": "Proton VPN", omafile: "Omafile", "agent-orchestr": "Agent Orchestrator", sessions: "Session Browser", "ai-usage-dashboard": "AI Usage Dashboard", microphone: "Microphone", "group-audio-glyph": "Audio group" };
+const NAMES = { keystroke: "Keystroke", everything: "Everything", "group-ai": "AI group", workspaces: "Workspaces",
+  scratchpeek: "Scratchpeek", clock: "Clock", keyboard: "Keyboard layout", update: "System update", indicators: "Indicators",
+  monitor: "Monitor", "group-audio": "Audio group", bluetooth: "Bluetooth", power: "Battery", network: "Network",
+  tray: "Tray", capture: "Easy capture", notify: "Notifications", crashdesk: "Crashdesk", prefs: "Powerbar preferences" };
+const ZONES = {
+  left: ["keystroke", "everything", { id: "group-ai", badge: 3 }, "workspaces", "scratchpeek"],
+  center: ["clock", "keyboard", "update", "indicators"],
+  right: ["monitor", "group-audio", "bluetooth", "power", "network", "tray", "prefs"],
+};
+const CAPTURE_H = 38, ICON_SLOT = 27, TYPICAL_GLYPH = 12, MAX_INK = 160, PREFS_INK = 12.5;
+
+let ctx2d = null;
+function textWidth(text) {
+  if (!ctx2d) ctx2d = document.createElement("canvas").getContext("2d");
+  ctx2d.font = '12px "JetBrains Mono", ui-monospace, monospace';
+  return ctx2d.measureText(text).width;
+}
+
+function makeItem(spec) {
+  const s = typeof spec === "string" ? { id: spec } : Object.assign({}, spec);
+  if (s.id === "prefs") return Object.assign(s, { kind: "glyph", prefs: true, name: NAMES.prefs, inkW: PREFS_INK });
+  if (s.text != null) {
+    const w = textWidth(s.text);
+    return Object.assign(s, { kind: "text", label: true, name: s.name || s.text, inkX: 8.5, inkW: w, w: w + 17 });
+  }
+  if (s.id === "ghost") return Object.assign(s, { ghost: true, kind: "glyph", inkW: 0, w: ICON_SLOT, inkX: 0, name: "Drop here" });
+  const d = W[s.id];
+  return Object.assign(s, { kind: s.kind || KIND[s.id] || (d.ink[1] <= 16 ? "glyph" : "text"), name: NAMES[s.id] || NAMES_EXTRA[s.id] || s.id,
+    w: d.w, h: d.h || CAPTURE_H, inkX: d.ink[0], inkW: d.ink[1], parts: d.parts });
+}
+
+// A vertical bar lays the same items along y. Captures keep their pixels; along the
+// bar we use their ink's top and height, across it their ink's left and width.
+// Text uses its vertical form: lines stacked along the bar (the clock's HH / — / mm).
+const VLINE = 13;
+function vForm(lines, pitch) {
+  if (!ctx2d) ctx2d = document.createElement("canvas").getContext("2d");
+  ctx2d.font = '12px "JetBrains Mono", ui-monospace, monospace';
+  const fm = ctx2d.measureText("Hg");
+  const base = (VLINE - (fm.fontBoundingBoxAscent + fm.fontBoundingBoxDescent)) / 2 + fm.fontBoundingBoxAscent;
+  let top = Infinity, bottom = -Infinity, cross = 0;
+  const parts = [], vlines = [];
+  lines.forEach((t, j) => {
+    const m = ctx2d.measureText(t);
+    const y0 = j * pitch + base - m.actualBoundingBoxAscent, y1 = j * pitch + base + m.actualBoundingBoxDescent;
+    top = Math.min(top, y0); bottom = Math.max(bottom, y1);
+    const w = m.actualBoundingBoxLeft + m.actualBoundingBoxRight;
+    cross = Math.max(cross, w);
+    parts.push([y0, y1 - y0]);
+    vlines.push({ t, cx: (m.actualBoundingBoxRight - m.actualBoundingBoxLeft) / 2 });
+  });
+  return { inkX: top, inkW: bottom - top, crossW: cross, parts, vlines, vh: (lines.length - 1) * pitch + VLINE, pitch };
+}
+function makeItemV(spec) {
+  const s = typeof spec === "string" ? { id: spec } : Object.assign({}, spec);
+  s.axisItem = true;
+  if (s.id === "prefs") return Object.assign(s, { kind: "glyph", prefs: true, name: NAMES.prefs, inkX: 0, inkW: PREFS_INK, crossW: PREFS_INK });
+  if (s.vtext) {
+    const f = vForm(s.vtext, s.pitch || VLINE);
+    return Object.assign(s, f, { kind: s.kind || (s.vtext.length > 1 && s.pitch ? "compound" : "text"), name: s.name || s.vtext.join(" ") });
+  }
+  const d = W[s.id], ink = [d.ink[0], d.ink[1], INKY[s.id][0], INKY[s.id][1]];
+  return Object.assign(s, { kind: s.kind || (ink[1] <= 16 ? "glyph" : "text"), name: NAMES[s.id] || NAMES_EXTRA[s.id] || s.id,
+    w: d.w, h: d.h || CAPTURE_H, inkX: ink[2], inkW: ink[3], crossX: ink[0], crossW: ink[1], parts: [[ink[2], ink[3]]] });
+}
+
+function params(o) {
+  // The theme's bar sizes: 26 across a horizontal bar, 28 across a vertical one;
+  // the large bar adds a 6 px lip on each side.
+  const B = (o.vertical ? 28 : 26) + (o.size === "large" ? 12 : 0);
+  const i = Math.min(3, Math.max(0, (B - 16) / 2));
+  const T = B - 2 * i;
+  const R = Math.min(o.rounding, B / 2);
+  const s = o.spacing || 0;
+  // Icon cells are square: the highlight is T by T, so an icon's highlight is a circle
+  // wherever the island is a capsule. Space between widgets widens the gutters only.
+  const cell = T;
+  return {
+    B, i, T, R, s, cell, gut: i + s, vertical: !!o.vertical,
+    air: (cell - TYPICAL_GLYPH) / 2,
+    r: Math.max(0, Math.min(T / 2, R - i)),
+    // Equal gaps: half a cell plus 2 px, so even a zero-width glyph's highlight
+    // stops 2 px short of its neighbour's ink; spacing adds to the gap.
+    gap: T / 2 + 2 + s,
+  };
+}
+
+function cellLength(it, P) {
+  if (it.kind === "glyph") return P.cell;
+  const ink = Math.min(it.inkW, MAX_INK);
+  return Math.max(P.cell, ink + 2 * P.air);
+}
+
+// Compounds: one thumb per sub-target, nested at the same curve as the track.
+function addThumbs(c, P) {
+  const it = c.it;
+  if (it.kind !== "compound") return;
+  const centres = it.parts.map(p => c.contentX + p[0] + p[1] / 2);
+  const diffs = centres.slice(1).map((v, k) => v - centres[k]).sort((a, b) => a - b);
+  const pitch = diffs.length ? diffs[Math.floor(diffs.length / 2)] : P.T;
+  const side = Math.min(P.T, pitch - 1);
+  c.thumbs = centres.map(cx => ({ x: cx - side / 2, side, r: Math.max(0, P.r - (P.T - side) / 2) }));
+}
+
+// Returns { len, cells: [{ it, box, hl, hit, ink, contentX, thumbs, track }] } in bar pixels.
+function layout(specs, algo, P) {
+  const items = specs.map(s => s && s.axisItem ? s : makeItem(s));
+  const cells = [];
+  let x, len;
+  if (algo === "gaps") {
+    // Constant air between glyphs; each highlight is the cell rule's box,
+    // centred on its glyph and free to spill into the gaps. The island ends
+    // are measured from the end highlights, so they stay concentric.
+    const G = P.gap;
+    // A held width (a value that just got narrower) keeps its slot so
+    // neighbours stay put; the glyph centres inside it.
+    const pre = items.map(it => {
+      const inkW = it.label ? Math.min(it.inkW, MAX_INK) : it.inkW;
+      return { it, L: cellLength(it, P), inkW, slot: inkW + (it.heldPad || 0), inkX: it.prefs ? 0 : it.inkX };
+    });
+    x = pre.length ? P.i + (pre[0].L - pre[0].slot) / 2 : P.i;
+    pre.forEach(p => {
+      const inkLeft = x + (p.slot - p.inkW) / 2;
+      const c = { it: p.it, ink: { x: inkLeft, w: p.inkW }, contentX: inkLeft - p.inkX, box: { x: x + p.slot / 2 - p.L / 2, L: p.L } };
+      c.hl = { x: c.box.x, L: p.L, r: P.r };
+      addThumbs(c, P);
+      cells.push(c);
+      x += p.slot + G;
+    });
+    const last = cells[cells.length - 1];
+    len = last ? last.hl.x + last.hl.L + P.i : 2 * P.i;
+  } else {
+    x = P.i;
+    items.forEach(it => {
+      const L = cellLength(it, P);
+      const inkW = it.label ? Math.min(it.inkW, MAX_INK) : it.inkW;
+      const inkX = it.prefs ? 0 : it.inkX;
+      const inkLeft = x + L / 2 - inkW / 2;
+      const c = { it, box: { x, L }, ink: { x: inkLeft, w: inkW }, contentX: inkLeft - inkX, hl: { x, L, r: P.r } };
+      addThumbs(c, P);
+      cells.push(c);
+      x += L + P.gut;
+    });
+    len = x - P.gut + P.i;
+  }
+  // Hit areas: no dead pixels between items; the ends reach the island's edges.
+  cells.forEach((c, k) => {
+    const edgeOf = o => algo === "gaps" ? { a: o.ink.x, b: o.ink.x + o.ink.w } : { a: o.hl.x, b: o.hl.x + o.hl.L };
+    const left = k === 0 ? 0 : (edgeOf(cells[k - 1]).b + edgeOf(c).a) / 2;
+    const right = k === cells.length - 1 ? len : (edgeOf(c).b + edgeOf(cells[k + 1]).a) / 2;
+    c.hit = { x: left, L: right - left };
+  });
+  return { len, cells };
+}
+
+function metrics(lays, P) {
+  const glyph = [], ends = [], hlGaps = [], clear = [];
+  let centred = true;
+  lays.forEach(lay => {
+    const cs = lay.cells.filter(c => !c.it.ghost);
+    if (!cs.length) return;
+    ends.push(cs[0].ink.x, lay.len - (cs[cs.length - 1].ink.x + cs[cs.length - 1].ink.w));
+    for (let k = 1; k < cs.length; k++) {
+      glyph.push(cs[k].ink.x - (cs[k - 1].ink.x + cs[k - 1].ink.w));
+      hlGaps.push(cs[k].hl.x - (cs[k - 1].hl.x + cs[k - 1].hl.L));
+      clear.push(cs[k].ink.x - (cs[k - 1].hl.x + cs[k - 1].hl.L), cs[k].hl.x - (cs[k - 1].ink.x + cs[k - 1].ink.w));
+    }
+    [cs[0], cs[cs.length - 1]].forEach(c => {
+      if (c.it.kind === "compound") return;
+      const off = Math.abs((c.hl.x + c.hl.L / 2) - (c.ink.x + c.ink.w / 2));
+      if (off > 1) centred = false;
+    });
+  });
+  const range = a => a.length ? [Math.min(...a), Math.max(...a)] : [0, 0];
+  return { glyph: range(glyph), ends: range(ends), hl: range(hlGaps), clear: range(clear), centred };
+}
+const fmt = v => (Math.round(v * 2) / 2).toString();
+const fmtRange = r => fmt(r[0]) === fmt(r[1]) ? fmt(r[0]) : fmt(r[0]) + "–" + fmt(r[1]);
+
+function el(tag, cls, style, parent) {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (style) Object.assign(e.style, style);
+  if (parent) parent.appendChild(e);
+  return e;
+}
+const px = v => v + "px";
+
+// Recency counter shared by every bar on the page.
+const lightClock = { n: 10 };
+
+// Draws one island (or zone) into `parent` and returns its controller.
+// opt: { Z, bg, xray, all, interactive, states: { index: state }, part: { index: partIndex }, radius }
+function renderZone(parent, specs, algo, P, opt) {
+  const Z = opt.Z;
+  const V = !!opt.vertical;
+  // Geometry is along the bar (a) and across it (c); a vertical bar swaps the axes.
+  const at = (a, c, la, lc) => V ? { top: px(a * Z), left: px(c * Z), height: px(la * Z), width: px(lc * Z) }
+    : { left: px(a * Z), top: px(c * Z), width: px(la * Z), height: px(lc * Z) };
+  const lay = layout(specs, algo, P);
+  const wrap = el("div", "zone-wrap" + (opt.xray ? " xray" : "") + (V ? " vert" : ""), null, parent);
+  const island = el("div", "island" + (opt.bg ? " bg" : ""), Object.assign(at(0, 0, lay.len, P.B), {
+    borderRadius: px((opt.radius != null ? opt.radius : P.R) * Z) }), wrap);
+  island.style.left = ""; island.style.top = "";
+  const refs = [];
+  lay.cells.forEach((c, k) => {
+    const it = c.it;
+    const hl = el("div", "hl", Object.assign(at(c.hl.x, P.i, c.hl.L, P.T), { borderRadius: px(c.hl.r * Z) }), island);
+    const thumbs = (c.thumbs || []).map(t => el("div", "thumb", Object.assign(at(t.x, (P.B - t.side) / 2, t.side, t.side), { borderRadius: px(t.r * Z) }), island));
+    let content = null;
+    if (it.ghost) {
+      hl.classList.add("drop", "on");
+    } else if (it.prefs) {
+      const dot = 2.5, gap = 2.5, size = dot * 3 + gap * 2;
+      content = el("div", "prefs content", Object.assign(at(c.ink.x, (P.B - size) / 2, size, size), { gap: px(gap * Z) }), island);
+      for (let d = 0; d < 9; d++) el("i", null, { width: px(dot * Z), height: px(dot * Z) }, content);
+    } else if (it.vlines) {
+      // A vertical form: lines stacked along the bar, each centred on the bar's centre line by its ink.
+      content = el("div", "vtext content", Object.assign(at(c.contentX, 0, it.vh, P.B)), island);
+      it.vlines.forEach((ln, j) => {
+        const s = el("span", "lbl", { left: px((P.B / 2 - ln.cx) * Z), top: px(j * it.pitch * Z), height: px(VLINE * Z), lineHeight: px(VLINE * Z), fontSize: px(12 * Z) }, content);
+        s.textContent = ln.t;
+      });
+    } else if (it.label) {
+      const w = Math.min(it.inkW, MAX_INK);
+      content = el("span", "lbl content" + (w < it.inkW ? " fade" : ""), {
+        left: px(c.ink.x * Z), width: px(w * Z + 1), top: 0, height: px(P.B * Z), lineHeight: px(P.B * Z), fontSize: px(12 * Z),
+      }, island);
+      content.textContent = it.text;
+    } else {
+      // Along the bar the ink centres in its cell. Across it, a horizontal bar keeps the
+      // widget's own line box; a vertical bar centres the ink on the bar's centre line.
+      const style = V ? at(c.contentX, P.B / 2 - (it.crossX + it.crossW / 2), it.h, it.w)
+        : at(c.contentX, (P.B - it.h) / 2, it.w, it.h);
+      if (V) { style.width = px(it.w * Z); style.height = px(it.h * Z); }
+      content = el("img", "content", style, island);
+      content.src = "w/" + it.id + ".png";
+      content.alt = "";
+      content.dataset.cx = V ? it.crossX + it.crossW / 2 : it.inkX + it.inkW / 2;
+      content.dataset.cy = V ? it.inkX + it.inkW / 2 : it.h / 2;
+    }
+    if (it.badge) {
+      // The badge rides the highlight's corner at 45° (top-right on a horizontal
+      // bar, outer-top on a vertical one) and always stays 1 px inside the island.
+      const bh = 12, bw = Math.max(12, String(it.badge).length * 6 + 5);
+      const k45 = c.hl.r * (1 - Math.SQRT1_2);
+      let bl, bt;
+      if (!V) {
+        bl = c.hl.x + c.hl.L - k45 - bw / 2; bt = P.i + k45 - bh / 2;
+        bl = Math.max(1, Math.min(lay.len - 1 - bw, bl)); bt = Math.max(1, bt);
+      } else {
+        bl = P.i + P.T - k45 - bw / 2; bt = c.hl.x + k45 - bh / 2;
+        bl = Math.max(1, Math.min(P.B - 1 - bw, bl)); bt = Math.max(1, Math.min(lay.len - 1 - bh, bt));
+      }
+      const b = el("div", "badge", { left: px(bl * Z), top: px(bt * Z), width: px(bw * Z), height: px(bh * Z), fontSize: px(8.5 * Z) }, island);
+      b.textContent = it.badge;
+    }
+    if (opt.xray && !it.ghost) {
+      el("div", "xbox", Object.assign(at(c.box.x, P.i, c.box.L, P.T), { borderRadius: px(Math.min(c.hl.r, 6) * Z) }), island);
+      const xi = el("div", "xink" + (V ? " v" : ""), at(c.ink.x, P.B / 2 - 7, c.ink.w, 14), island);
+      xi.dataset.a = c.ink.x;
+    }
+    let hit = null;
+    if (opt.interactive && !it.ghost) {
+      hit = el("button", "hit", at(c.hit.x, 0, c.hit.L, P.B), island);
+      hit.setAttribute("aria-label", it.name);
+      hit.type = "button";
+    }
+    refs.push({ c, hl, thumbs, content, hit, state: null, part: -1 });
+  });
+  if (opt.xray) {
+    const cs = lay.cells.filter(c => !c.it.ghost);
+    const off = P.B * Z + 7;
+    const label = (a, b, end) => {
+      if (b - a < 0.5) return;
+      if (V) {
+        el("div", "xline", { top: px(a * Z), height: px((b - a) * Z), left: px(off), width: "1px" }, wrap);
+        const t = el("div", "xlab" + (end ? " end" : ""), { top: px((a + b) / 2 * Z), left: px(off + 5), transform: "translateY(-50%)" }, wrap);
+        t.textContent = fmt(b - a);
+      } else {
+        el("div", "xline", { left: px(a * Z), width: px((b - a) * Z), top: px(off) }, wrap);
+        const t = el("div", "xlab" + (end ? " end" : ""), { left: px((a + b) / 2 * Z), top: px(off + 4) }, wrap);
+        t.textContent = fmt(b - a);
+      }
+    };
+    if (cs.length) {
+      label(0, cs[0].ink.x, true);
+      for (let k = 1; k < cs.length; k++) label(cs[k - 1].ink.x + cs[k - 1].ink.w, cs[k].ink.x, false);
+      const last = cs[cs.length - 1];
+      label(last.ink.x + last.ink.w, lay.len, true);
+    }
+  }
+  const stateOf = (r, k) => (opt.states && opt.states[k]) || r.state;
+  // Static states: opt.recent names the most recently lit item.
+  if (opt.states) Object.keys(opt.states).forEach(k => { refs[k].litAt = Number(k) === opt.recent ? 2 : 1; });
+  function paint() {
+    // Highlights stay symmetric even when they overlap. Where two lit highlights
+    // overlap, the more recent one sits on top at full strength and the older
+    // one fades, so the eye goes to what just happened.
+    const lit = refs.map((r, k) => !r.c.it.ghost && !!stateOf(r, k));
+    refs.forEach((r, k) => {
+      if (r.c.it.ghost) return;
+      const st = stateOf(r, k);
+      let older = false;
+      if (lit[k]) {
+        [k - 1, k + 1].forEach(j => {
+          const o = refs[j];
+          if (!o || !lit[j] || (o.litAt || 0) <= (r.litAt || 0)) return;
+          const a0 = r.c.hl.x, a1 = a0 + r.c.hl.L, b0 = o.c.hl.x, b1 = b0 + o.c.hl.L;
+          if (Math.min(a1, b1) - Math.max(a0, b0) > 0) older = true;
+        });
+      }
+      const isCompound = r.thumbs.length > 0;
+      r.hl.className = "hl";
+      if (st) {
+        r.hl.classList.add("on", isCompound && (st === "hover" || st === "pressed") ? "track" : st);
+        if (older) r.hl.classList.add("older");
+        else r.hl.classList.add("newest");
+      } else if (opt.all) r.hl.classList.add("all");
+      const part = opt.part && opt.part[k] != null ? opt.part[k] : r.part;
+      r.thumbs.forEach((t, j) => t.classList.toggle("on", !!st && j === part));
+      if (r.content) r.content.classList.toggle("pressed", st === "pressed");
+    });
+  }
+  if (opt.interactive) {
+    refs.forEach((r, k) => {
+      if (!r.hit) return;
+      const nearestPart = e => {
+        if (!r.thumbs.length) return -1;
+        const box = island.getBoundingClientRect();
+        const aa = V ? (e.clientY - box.top) / Z : (e.clientX - box.left) / Z;
+        let best = 0, bd = Infinity;
+        r.c.thumbs.forEach((t, j) => { const d = Math.abs(t.x + t.side / 2 - aa); if (d < bd) { bd = d; best = j; } });
+        return best;
+      };
+      const base = () => (r.open ? "open" : null);
+      const light = () => { r.litAt = ++lightClock.n; };
+      r.hit.addEventListener("pointerenter", e => { if (!r.state) light(); r.state = r.open ? "open" : "hover"; r.part = nearestPart(e); paint(); });
+      r.hit.addEventListener("pointermove", e => { const p = nearestPart(e); if (p !== r.part) { r.part = p; paint(); } });
+      r.hit.addEventListener("pointerleave", () => { r.state = base(); r.part = -1; paint(); });
+      r.hit.addEventListener("pointerdown", () => { r.state = "pressed"; paint(); });
+      r.hit.addEventListener("click", () => {
+        r.open = !r.open;
+        if (r.open) light();
+        refs.forEach(o => { if (o !== r && o.open) { o.open = false; o.state = null; } });
+        r.state = r.open ? "open" : (r.hit.matches(":focus-visible") ? "focus" : "hover");
+        paint();
+        if (opt.onToggle) opt.onToggle(k, r.open);
+      });
+      r.hit.addEventListener("focus", () => { if (r.hit.matches(":focus-visible")) { light(); r.state = "focus"; if (r.thumbs.length) r.part = 0; paint(); } });
+      r.hit.addEventListener("blur", () => { r.state = base(); r.part = -1; paint(); });
+      r.hit.addEventListener("keydown", e => {
+        if (!r.thumbs.length) return;
+        const next = V ? ["ArrowDown", "j"] : ["ArrowRight", "l"], prev = V ? ["ArrowUp", "k"] : ["ArrowLeft", "h"];
+        if (next.includes(e.key)) { r.part = Math.min(r.thumbs.length - 1, r.part + 1); paint(); e.preventDefault(); }
+        if (prev.includes(e.key)) { r.part = Math.max(0, r.part - 1); paint(); e.preventDefault(); }
+      });
+    });
+  }
+  if (opt.open != null && refs[opt.open]) { refs[opt.open].open = true; refs[opt.open].state = "open"; refs[opt.open].litAt = ++lightClock.n; }
+  paint();
+  return { lay, wrap, island, refs, paint };
+}
+
+// ---------- Hero ----------
+// Animations switch, mirroring Powerbar's own. Starts off for viewers who
+// ask their system for reduced motion.
+const motionOn = () => !document.documentElement.classList.contains("no-motion");
+function applyMotion(on) {
+  document.documentElement.classList.toggle("no-motion", !on);
+  const b = document.getElementById("motion");
+  if (b) b.setAttribute("aria-pressed", String(on));
+}
+const state = { algo: "cells", size: "large", style: "islands", spacing: 0, rounding: 20, zoom: 2, all: false, xray: false };
+try {
+  const saved = JSON.parse(localStorage.getItem("powerbar-spacing-lab") || "null");
+  if (saved) Object.assign(state, saved);
+  if (state.algo !== "cells" && state.algo !== "gaps") state.algo = "cells";
+} catch (e) {}
+if (window.innerWidth < 700 && state.zoom > 1.5) state.zoom = 1.5;
+function save() { try { localStorage.setItem("powerbar-spacing-lab", JSON.stringify(state)); } catch (e) {} }
+
+function renderHero() {
+  const stage = document.getElementById("hero");
+  stage.innerHTML = "";
+  const P = params(state);
+  const Z = state.zoom;
+  const strip = state.style !== "islands";
+  const zones = el("div", "zones" + (strip ? " strip" : ""), null, stage);
+  const lays = [];
+  if (strip) {
+    const bg = el("div", "stripbg", null, zones);
+    zones.style.position = "relative";
+    zones.style.gap = px(56 * Z);
+    ["left", "center", "right"].forEach(z => lays.push(renderZone(zones, ZONES[z], state.algo, P, { Z, bg: false, xray: state.xray, all: state.all, interactive: true }).lay));
+    const inset = state.style === "floating" ? 0 : -8;
+    Object.assign(bg.style, { left: px(inset), right: px(inset), top: 0, height: px(P.B * Z), borderRadius: state.style === "floating" ? px(P.R * Z) : "0" });
+    if (state.style === "flat") { stage.style.paddingInline = "0"; zones.style.paddingInline = "8px"; }
+    else { stage.style.paddingInline = ""; zones.style.paddingInline = ""; }
+  } else {
+    stage.style.paddingInline = "";
+    ["left", "center", "right"].forEach(z => lays.push(renderZone(zones, ZONES[z], state.algo, P, { Z, bg: true, xray: state.xray, all: state.all, interactive: true }).lay));
+  }
+  const m = metrics(lays, P);
+  const chips = document.getElementById("hero-chips");
+  const glyphSpread = m.glyph[1] - m.glyph[0];
+  chips.innerHTML = "";
+  const chip = (label, value, good) => {
+    const c = el("span", "chip" + (good === true ? " good" : good === false ? " bad" : ""), null, chips);
+    c.innerHTML = "<b>" + label + "</b>" + value;
+  };
+  chip("Air between glyphs", fmtRange(m.glyph) + " px", glyphSpread <= 6);
+  chip("Air at island ends", fmtRange(m.ends) + " px");
+  chip("Highlight to the next glyph", "at least " + fmt(m.clear[0]) + " px", m.clear[0] >= 2);
+  if (state.algo === "gaps") chip("Neighbours lit together", "overlap, older fades to 45%");
+  else chip("Gap between highlights", m.hl[0] < -0.25 ? "overlap " + fmt(-m.hl[0]) + " px" : fmtRange(m.hl) + " px", m.hl[0] >= -0.25 && m.hl[1] - m.hl[0] <= 1);
+  chip("End highlights centred on their glyph", m.centred ? "yes" : "no", m.centred);
+  chip("Icon highlight", fmt(P.cell) + " × " + fmt(P.T) + " px", P.cell === P.T);
+  renderRule(P);
+}
+
+function renderRule(P) {
+  const f = document.getElementById("formulas");
+  const rows = [
+    ["inset  i = min(3, (B − 16) / 2)", fmt(P.i) + " px", "The one distance: highlight to bar edge, highlight to highlight, highlight to island end. B is the bar's thickness (" + P.B + " px)."],
+    ["thickness  T = B − 2i", fmt(P.T) + " px", "Every highlight is this tall, whatever it holds."],
+    ["radius  r = clamp(R − i, 0, T / 2)", fmt(P.r) + " px", "Concentric with an island of radius R (" + fmt(P.R) + " px), so the curve at the island's end runs parallel."],
+    ["icon cell  C = T", fmt(P.cell) + " px", "Every glyph gets a square cell, centred on its ink, so its highlight is a square, and a circle wherever the island is a capsule."],
+    ["text air  a = (C − 12) / 2", fmt(P.air) + " px", "Text gets the same side air a typical 12 px glyph has in its cell. Text cell = max(C, ink + 2a), so short text like EN or AI becomes an icon-sized cell."],
+    ["gutter = i + spacing, island end = i", fmt(P.gut) + " / " + fmt(P.i) + " px", "Cells follow each other one inset apart, plus Space between widgets, and the island ends one inset after the last cell. Hit areas split each gutter in half, so there are no dead pixels."],
+  ];
+  f.innerHTML = "";
+  rows.forEach(([form, val, text]) => {
+    const r = el("div", "row", null, f);
+    el("span", "f", null, r).textContent = form;
+    el("span", "v", null, r).textContent = val;
+    el("p", null, null, r).textContent = text;
+  });
+  const demo = document.getElementById("rule-demo");
+  demo.innerHTML = "";
+  const Z = window.innerWidth < 700 ? 1.6 : 2.5;
+  renderZone(demo, ["keystroke", { id: "group-ai", badge: 3 }, "clock"], "cells", P, { Z, bg: true, xray: true, all: true, interactive: true });
+}
+
+function syncControls() {
+  ["algo", "size", "style", "zoom"].forEach(k => {
+    document.querySelectorAll("#" + k + " button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.v === String(state[k]))));
+  });
+  document.getElementById("spacing").value = state.spacing;
+  document.getElementById("spacing-o").value = state.spacing;
+  document.getElementById("rounding").value = state.rounding;
+  document.getElementById("rounding-o").value = state.rounding;
+  document.getElementById("all").setAttribute("aria-pressed", String(state.all));
+  document.getElementById("xray").setAttribute("aria-pressed", String(state.xray));
+}
+function wireMotion() {
+  let on = !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  try { const saved = localStorage.getItem("powerbar-spacing-motion"); if (saved !== null) on = saved === "1"; } catch (e) {}
+  applyMotion(on);
+  document.getElementById("motion").addEventListener("click", () => {
+    const next = !motionOn();
+    applyMotion(next);
+    try { localStorage.setItem("powerbar-spacing-motion", next ? "1" : "0"); } catch (e) {}
+    renderDragLab();
+  });
+}
+function wireControls() {
+  ["algo", "size", "style", "zoom"].forEach(k => {
+    document.querySelectorAll("#" + k + " button").forEach(b => b.addEventListener("click", () => {
+      state[k] = k === "zoom" ? Number(b.dataset.v) : b.dataset.v; save(); syncControls(); renderHero();
+    }));
+  });
+  ["spacing", "rounding"].forEach(k => document.getElementById(k).addEventListener("input", e => {
+    state[k] = Number(e.target.value); save(); syncControls(); renderHero();
+  }));
+  ["all", "xray"].forEach(k => document.getElementById(k).addEventListener("click", () => { state[k] = !state[k]; save(); syncControls(); renderHero(); }));
+}
+
+// ---------- Comparison ----------
+function renderCompare() {
+  const host = document.getElementById("compare-rows");
+  const P = params({ size: "large", rounding: 20, spacing: 0 });
+  const Z = window.innerWidth < 700 ? 1.6 : 2;
+  const rows = [
+    ["cells", "Equal slots", "One cell, one inset: shared cells, glyphs centred on their ink, 3 px everywhere."],
+    ["gaps", "Equal gaps", "Constant air between glyphs; each highlight is the cell's box, spilling into the gaps."],
+  ];
+  rows.forEach(([algo, name, text]) => {
+    const row = el("div", "cmp-row", null, host);
+    const n = el("div", "name", null, row);
+    el("h3", null, null, n).textContent = name;
+    el("p", null, null, n).textContent = text;
+    const right = el("div", null, null, row);
+    const stage = el("div", "stage tight", null, right);
+    const z = renderZone(stage, ZONES.right, algo, P, { Z, bg: true, xray: true, all: true, interactive: true });
+    const m = metrics([z.lay], P);
+    const chips = el("div", "chips", null, right);
+    const c1 = el("span", "chip" + (m.glyph[1] - m.glyph[0] <= 6 ? " good" : " bad"), null, chips);
+    c1.innerHTML = "<b>Glyph air</b>" + fmtRange(m.glyph) + " px";
+    const c2 = el("span", "chip" + (m.clear[0] >= 2 ? " good" : " bad"), null, chips);
+    c2.innerHTML = "<b>Highlight to the next glyph</b>at least " + fmt(m.clear[0]) + " px";
+    const widths = z.lay.cells.filter(c => c.it.kind === "glyph").map(c => c.hl.L);
+    // Widths are those of a highlight shown alone.
+    const even = Math.max(...widths) - Math.min(...widths) < 0.5;
+    const c3 = el("span", "chip" + (even ? " good" : " bad"), null, chips);
+    c3.innerHTML = "<b>Icon highlight widths</b>" + fmtRange([Math.min(...widths), Math.max(...widths)]) + " px";
+  });
+}
+
+// ---------- Edge cases ----------
+const CASES = [
+  { title: "Icon at an island end", text: "The island ends one inset after the last highlight, so an icon's circle at either end runs parallel to the island's curve. No stretching or adjustment is needed.",
+    items: ["monitor", "bluetooth", "network"], states: { 2: "hover" } },
+  { title: "Text at an island end", text: "The clock's pill ends at the inset like any other cell. Its side air matches the air an icon has, so EN and the clock read as one family.",
+    items: ["keyboard", "clock"], states: { 1: "hover" } },
+  { title: "Compound widgets", text: "Workspaces are five targets, not one. A faint track shows the widget's extent and a thumb marks the workspace under the pointer, nested at the same curve. h and l walk the thumbs from the keyboard.",
+    items: ["workspaces", "scratchpeek"], states: { 0: "hover" }, part: { 0: 2 } },
+  { title: "Short text reads as an icon", text: "EN and the AI group face are narrower than an icon cell, so they get exactly an icon's cell. Longer text grows from there.",
+    items: ["keyboard", { id: "group-ai" }, "monitor", "power"], all: true },
+  { title: "Narrow and wide glyphs", text: "Bluetooth paints 7 px, Easy capture 14.5 px. Equal slots centres each glyph on its ink inside a shared cell; Equal gaps keeps the air between glyphs identical.",
+    items: ["bluetooth", "capture", "notify", "audio"], all: true, xray: true },
+  { title: "Content that is off-centre", text: "The tray capture paints its chevron 14 px right of its widget's centre. Layout and highlight centre on the ink, so the fill lands on what you point at.",
+    items: ["tray", "network"], states: { 0: "hover" } },
+  { title: "Oversized slots", text: "System update asks for a 38 px slot around a 9 px glyph. Layout follows the glyph's ink, so it keeps the rhythm whatever slot a widget asks for.",
+    items: ["monitor", "update", "network"], xray: true, all: true },
+  { title: "Badges", text: "The badge rides the highlight's top-right corner at 45°, so it stays inside the island and follows the same curve at any bar size.",
+    items: [{ id: "group-ai", badge: 3 }, "monitor"], states: { 0: "hover" } },
+  { title: "Long widgets", text: "Window titles, media and other free text get at most 160 px of ink and a fade, then the usual air. The cell never pushes the centre island into its neighbours.",
+    items: [{ text: "Bar.qml (~/Projects/powerbar) - nvim" }, "network"], states: { 0: "hover" } },
+  { title: "Values that change width", text: "Battery goes from 9% to 100%. A cell grows at once and shrinks only after 8 s at the smaller size, so flickering values never make the bar breathe.",
+    items: [{ text: "9%", dyn: true }, "network", "prefs"], dynamic: true },
+  { title: "A lone widget", text: "An island with one icon becomes a circle one inset larger than the highlight; with the clock it becomes a capsule. Both come from the same rule.",
+    items: ["network"], second: ["clock"], all: true },
+  { title: "Drag gaps", text: "While dragging, the landing gap is the dragged widget's cell plus one inset, outlined in the cell's own shape. The ghost lands exactly on it, so the commit needs no correction glide.",
+    items: ["monitor", { id: "ghost" }, "bluetooth", "network"], only: true },
+];
+
+function renderCases() {
+  const host = document.getElementById("cases");
+  host.innerHTML = "";
+  const P = params({ size: "large", rounding: 20, spacing: 0 });
+  const Z = window.innerWidth < 700 ? 1.6 : 2.2;
+  CASES.forEach((cs, idx) => {
+    const card = el("article", "case", null, host);
+    el("h3", null, null, card).textContent = cs.title;
+    el("p", null, null, card).textContent = cs.text;
+    const pair = el("div", "pair", null, card);
+    const draw = () => {
+      pair.innerHTML = "";
+      const algos = ["cells", "gaps"];
+      algos.forEach(algo => {
+        el("div", "lab", null, pair).textContent = algo === "gaps" ? "Equal gaps" : "Equal slots";
+        const stage = el("div", "stage", { backgroundPosition: (15 + idx * 7) % 100 + "% 0" }, pair);
+        const inner = el("div", "zones", { justifyContent: "flex-start", gap: "16px" }, stage);
+        let items = cs.items;
+        if (cs.dynamic) items = [{ text: dyn.value, dyn: true, held: dyn.held }, "network", "prefs"];
+        const z = renderZone(inner, items, algo, P, { Z, bg: true, all: !!cs.all, xray: !!cs.xray, interactive: true, states: cs.states, part: cs.part });
+        if (cs.second) renderZone(inner, cs.second, algo, P, { Z, bg: true, all: !!cs.all, interactive: true });
+      });
+    };
+    if (cs.dynamic) {
+      const btn = el("button", "btn", null, card);
+      btn.type = "button";
+      btn.textContent = "Change the battery value";
+      btn.addEventListener("click", () => { dyn.step(); draw(); });
+      dyn.redraw = draw;
+    }
+    draw();
+  });
+}
+// The changing-value case: a cell holds the widest recent width for 8 s.
+const dyn = {
+  values: ["9%", "58%", "100%", "7%", "64%"], k: 0, value: "9%", held: "9%", timer: 0, redraw: null,
+  step() {
+    this.k = (this.k + 1) % this.values.length;
+    this.value = this.values[this.k];
+    if (textWidth(this.value) >= textWidth(this.held)) this.held = this.value;
+    clearTimeout(this.timer);
+    this.timer = setTimeout(() => { this.held = this.value; if (this.redraw) this.redraw(); }, 8000);
+  },
+};
+// Label items size themselves from the held value.
+const baseMakeItem = makeItem;
+makeItem = function(spec) {
+  const it = baseMakeItem(spec);
+  if (spec && spec.dyn && spec.held) {
+    const heldW = textWidth(spec.held);
+    if (heldW > it.inkW) { it.heldPad = heldW - it.inkW; }
+  }
+  return it;
+};
+const baseCellLength = cellLength;
+cellLength = function(it, P) { return baseCellLength(it, P) + (it.heldPad || 0); };
+
+// ---------- States ----------
+function renderStates() {
+  const host = document.getElementById("state-grid");
+  const P = params({ size: "large", rounding: 20, spacing: 0 });
+  const Z = window.innerWidth < 700 ? 1.7 : 2.2;
+  const list = [
+    ["Rest", null, "No fill. The cell still owns its hit area."],
+    ["Hover", "hover", "Foreground at 13%, <code>Style.hoverFillFor</code>. 90 ms fade."],
+    ["Pressed", "pressed", "Foreground at 19%, glyph scales to 0.97."],
+    ["Open", "open", "Foreground at 22%, <code>Style.selectedFillFor</code>, while its panel or drawer is open."],
+    ["Keyboard focus", "focus", "Hover fill plus a 1.5 px accent ring inside the cell."],
+    ["Activity peek", "activity", "Accent at 30% for 2.5 s when an autohidden bar peeks."],
+    ["Urgent", "urgent", "Urgent colour at 34%; the glyph keeps its own colour."],
+    ["Drop target", "drop", "A 1 px outline in the cell's shape where a drag will land."],
+  ];
+  list.forEach(([name, st, text]) => {
+    const card = el("div", "state", null, host);
+    const stage = el("div", "stage tight", null, card);
+    renderZone(stage, ["monitor", "audio", "network"], "cells", P, { Z, bg: true, interactive: false, states: st ? { 1: st } : {} });
+    el("h3", null, null, card).textContent = name;
+    el("p", null, null, card).innerHTML = text;
+  });
+}
+function renderSpill() {
+  const host = document.getElementById("spill-demos");
+  host.innerHTML = "";
+  const P = params({ size: "large", rounding: 20, spacing: 0 });
+  document.getElementById("spill-g").textContent = fmt(P.gap) + " px";
+  // The table follows from the formulas; 6.5 px is the narrowest real glyph (the
+  // tray chevron, alpha above 8), used for both neighbours in the worst overlap.
+  const NARROWEST = 6.5, tb = document.getElementById("spill-table");
+  tb.innerHTML = "";
+  let worst = 0;
+  ["standard", "large"].forEach(size => [0, 4, 8].forEach(sp => {
+    const Q = params({ size, rounding: 20, spacing: sp });
+    const ov = Q.cell - NARROWEST - Q.gap;
+    worst = Math.max(worst, ov);
+    const tr = el("tr", null, null, tb);
+    [size === "large" ? "Large 38" : "Standard 26", sp, fmt(Q.cell), fmt(Q.gap), (Math.round((Q.gap - (Q.cell - NARROWEST) / 2) * 4) / 4) + " px", fmt(Q.gap - Q.cell / 2) + " px", ov > 0 ? fmt(ov) + " px" : "none"]
+      .forEach((v, j) => { el("td", j ? "mono" : null, null, tr).textContent = v; });
+  }));
+  document.getElementById("spill-ov").textContent = "up to " + fmt(worst) + " px";
+  const Z = window.innerWidth < 700 ? 1.6 : 2.2;
+  const demos = [
+    ["The narrowest glyphs, hovered alone: full symmetric cells, clear of both neighbours", ["keyboard", "tray", "bluetooth", "monitor"], { 1: "hover" }, true],
+    ["Same row, Bluetooth hovered", ["keyboard", "tray", "bluetooth", "monitor"], { 2: "hover" }, true],
+    ["Bluetooth's panel open, then the tray hovered: both stay symmetric, the older open fill fades", ["keyboard", "tray", "bluetooth", "monitor"], { 1: "hover", 2: "open" }, false, 1],
+    ["The tray's menu open, then Bluetooth hovered: now the tray is the older one", ["keyboard", "tray", "bluetooth", "monitor"], { 1: "open", 2: "hover" }, false, 2],
+  ];
+  demos.forEach(([label, items, states, xray, recent]) => {
+    el("div", "lab", null, host).textContent = label;
+    const stage = el("div", "stage", null, host);
+    renderZone(stage, items, "gaps", P, { Z, bg: true, xray, interactive: true, states, recent });
+  });
+}
+
+// ---------- Decisions: Preferences mock ----------
+const PM_DESC = { cells: "Every widget gets the same slot; highlights sit side by side", gaps: "The same space between every widget; highlights may overlap" };
+let pmValue = "cells";
+function renderPrefsMock() {
+  document.getElementById("pm-desc").textContent = PM_DESC[pmValue];
+  document.querySelectorAll("#prefs-mock .chipset button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.v === pmValue)));
+  const host = document.getElementById("pm-preview");
+  host.innerHTML = "";
+  const P = params({ size: "large", rounding: 20, spacing: 0 });
+  renderZone(host, ZONES.right, pmValue, P, { Z: window.innerWidth < 700 ? 0.9 : 1.15, bg: true, interactive: true });
+}
+document.querySelectorAll("#prefs-mock .chipset button").forEach(b => b.addEventListener("click", () => { pmValue = b.dataset.v; renderPrefsMock(); }));
+document.getElementById("prefs-mock").addEventListener("keydown", e => {
+  if (!e.target.closest(".chipset")) return;
+  if (["ArrowLeft", "ArrowRight", "h", "l"].includes(e.key)) {
+    pmValue = pmValue === "cells" ? "gaps" : "cells"; renderPrefsMock();
+    document.querySelector('#prefs-mock .chipset button[data-v="' + pmValue + '"]').focus(); e.preventDefault();
+  }
+});
+
+// ---------- Drag lab ----------
+const DRAG = { item: "clock", rhythm: "cells", ticks: false };
+const DRAG_ISLAND = ["keystroke", "bluetooth", "group-audio", "network", "power"];
+const DRAG_ITEMS = [["monitor", "Icon"], ["keyboard", "EN"], ["power", "Battery"], ["clock", "Clock"], ["workspaces", "Workspaces"]];
+function gapFor(d, P, rhythm) { return rhythm === "gaps" ? d.inkW + P.gap : cellLength(d, P) + P.gut; }
+function dragDuration(g, P) {
+  return Math.round(Math.max(150, Math.min(260, 150 * Math.sqrt(g / (P.cell + P.gut)))));
+}
+const peakSpeed = (d, t) => Math.PI * d / (2 * t / 1000);
+let dragSweep = 0;
+function renderDragLab() {
+  cancelAnimationFrame(dragSweep);
+  const stage = document.getElementById("drag-stage");
+  stage.innerHTML = "";
+  const P = params({ size: "large", rounding: 20, spacing: 0 });
+  const Z = window.innerWidth < 700 ? 1.4 : 2.2;
+  const lay = layout(DRAG_ISLAND, DRAG.rhythm, P);
+  const d = makeItem(DRAG.item);
+  const Ld = cellLength(d, P);
+  const g = gapFor(d, P, DRAG.rhythm);
+  const n = lay.cells.length;
+  const last = lay.cells[n - 1];
+  // Landing spots in resting coordinates: where the placeholder starts, and its centre.
+  const spots = [];
+  for (let k = 0; k <= n; k++) {
+    if (DRAG.rhythm === "gaps") {
+      const inkAt = k < n ? lay.cells[k].ink.x : last.ink.x + last.ink.w + P.gap;
+      spots.push({ start: inkAt + d.inkW / 2 - Ld / 2, centre: inkAt + d.inkW / 2 });
+    } else {
+      const at = k < n ? lay.cells[k].hl.x : lay.len;
+      spots.push({ start: at, centre: at + Ld / 2 });
+    }
+  }
+  const dur = dragDuration(g, P);
+  const area = el("div", "drag-area", { width: px((lay.len + g + 2 * Ld) * Z), height: px((P.B + 14) * Z), paddingLeft: px(Ld * 0.5 * Z) }, stage);
+  const holder = el("div", null, { position: "relative", marginLeft: px(0) }, area);
+  const island = el("div", "island bg", { width: px((lay.len + g) * Z), height: px(P.B * Z), borderRadius: px(P.R * Z), transitionDuration: dur + "ms" }, holder);
+  const ph = el("div", "ph", { top: px(P.i * Z), height: px(P.T * Z), width: px(Ld * Z), borderRadius: px(P.r * Z), transitionDuration: dur + "ms" }, island);
+  const imgs = lay.cells.map(c => {
+    const img = el("img", null, { position: "absolute", top: px((P.B - CAPTURE_H) / 2 * Z), width: px(c.it.w * Z), height: px(CAPTURE_H * Z), transitionDuration: dur + "ms" }, island);
+    img.src = "w/" + c.it.id + ".png"; img.alt = "";
+    return img;
+  });
+  if (DRAG.ticks) {
+    for (let k = 0; k < n; k++) {
+      const x = (spots[k].centre + spots[k + 1].centre) / 2;
+      el("div", "tick", { left: px(x * Z), top: px((P.B + 2) * Z), height: px(8 * Z) }, holder);
+    }
+  }
+  // The ghost is the dragged widget picked up: its own cell, on its own
+  // surface with a shadow, lifted 2 px, the capture centred on its ink.
+  const lift = 2;
+  const ghost = el("button", "ghost", { width: px(Ld * Z), height: px(P.T * Z), top: px((P.i - lift) * Z) }, holder);
+  ghost.type = "button";
+  ghost.setAttribute("aria-label", d.name + ". Space picks it up or drops it, arrow keys move it, Escape puts it back.");
+  el("div", "carrier", { borderRadius: px(P.r * Z) }, ghost);
+  const inkCentre = d.inkX + d.inkW / 2;
+  const gimg = el("img", null, { left: px((Ld / 2 - inkCentre) * Z), top: px((P.T - CAPTURE_H) / 2 * Z), width: px(d.w * Z), height: px(CAPTURE_H * Z) }, ghost);
+  gimg.src = "w/" + d.id + ".png"; gimg.alt = "";
+  // With boundaries on, a dot marks the ghost's centre on the tick row: the
+  // gap moves when the dot crosses a tick.
+  const dot = DRAG.ticks ? el("div", "ghost-dot", { top: px((P.B + 3.5) * Z) }, holder) : null;
+  let k = 2, c = spots[2].centre + 6;
+  function place(animate) {
+    lay.cells.forEach((cell, j) => {
+      imgs[j].style.transitionDuration = animate ? dur + "ms" : "0ms";
+      imgs[j].style.left = px((cell.contentX + (j >= k ? g : 0)) * Z);
+    });
+    ph.style.transitionDuration = animate ? dur + "ms" : "0ms";
+    ph.style.left = px(spots[k].start * Z);
+  }
+  function moveGhost(x) {
+    // The ghost stays within reach of the first and last landing spots.
+    c = Math.max(spots[0].centre - 12, Math.min(spots[n].centre + 12, x));
+    ghost.style.left = px((c - Ld / 2) * Z);
+    if (dot) dot.style.left = px(c * Z);
+    let best = k;
+    spots.forEach((sp, j) => { if (Math.abs(sp.centre - c) + P.i < Math.abs(spots[best].centre - c)) best = j; });
+    if (best !== k) { k = best; place(true); }
+  }
+  place(false);
+  moveGhost(c);
+  // Held: lifted 2 px on its own surface, scaled 1.04, placeholder showing.
+  // Settled: an ordinary widget in the island. .lifting and .settling give
+  // the change its timing.
+  let held = true, liftedAt = k;
+  function settle() {
+    cancelAnimationFrame(dragSweep);
+    held = false;
+    c = spots[k].centre;
+    ghost.classList.remove("lifting");
+    ghost.classList.add("settling", "settled");
+    ghost.style.left = px((c - Ld / 2) * Z);
+    ghost.style.top = px(P.i * Z);
+    if (dot) dot.style.left = px(c * Z);
+    ph.classList.add("settled");
+    setTimeout(() => ghost.classList.remove("settling"), 200);
+  }
+  function pickUp() {
+    held = true; liftedAt = k;
+    ghost.classList.remove("settling", "settled");
+    ghost.classList.add("lifting");
+    ghost.style.top = px((P.i - lift) * Z);
+    ph.classList.remove("settled");
+    setTimeout(() => ghost.classList.remove("lifting"), 140);
+  }
+  let grab = null;
+  ghost.addEventListener("pointerdown", e => {
+    cancelAnimationFrame(dragSweep);
+    if (!held) pickUp();
+    ghost.setPointerCapture(e.pointerId);
+    const box = holder.getBoundingClientRect();
+    grab = (e.clientX - box.left) / Z - c;
+  });
+  ghost.addEventListener("pointermove", e => {
+    if (grab === null) return;
+    const box = holder.getBoundingClientRect();
+    moveGhost((e.clientX - box.left) / Z - grab);
+  });
+  const release = () => {
+    if (grab === null) return;
+    grab = null;
+    settle();
+  };
+  ghost.addEventListener("pointerup", release);
+  ghost.addEventListener("pointercancel", release);
+  ghost.addEventListener("keydown", e => {
+    if (e.key === " " || e.key === "Enter") { e.preventDefault(); held ? settle() : pickUp(); return; }
+    if (e.key === "Escape" && held) { e.preventDefault(); k = liftedAt; place(true); settle(); return; }
+    if (e.key === "ArrowRight" || e.key === "l") { if (!held) pickUp(); k = Math.min(n, k + 1); }
+    else if (e.key === "ArrowLeft" || e.key === "h") { if (!held) pickUp(); k = Math.max(0, k - 1); }
+    else return;
+    e.preventDefault();
+    c = spots[k].centre; ghost.style.left = px((c - Ld / 2) * Z); if (dot) dot.style.left = px(c * Z); place(true);
+  });
+  window.__dragLab = { move: moveGhost, settle, pickUp, spots, get index() { return k; } };
+  const hash = /^#ghost-(-?\d+)(-settled)?$/.exec(location.hash);
+  if (hash) { moveGhost(Number(hash[1])); if (hash[2]) settle(); }
+  document.getElementById("dr-play").onclick = () => {
+    cancelAnimationFrame(dragSweep);
+    if (!held) pickUp();
+    // Out to the far end and back, then drop in the middle.
+    const from = spots[0].centre - 12, to = spots[n].centre + 12, T0 = performance.now(), total = 5200;
+    const mid = spots[Math.floor(n / 2)].centre;
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reduce || !motionOn()) {
+      // Without animations the demo still shows the gesture's end: a drop.
+      moveGhost(mid); settle(); return;
+    }
+    const step = now => {
+      const t = Math.min(1, (now - T0) / total);
+      const phase = t < 0.5 ? t * 2 : 2 - t * 2;
+      const e2 = (1 - Math.cos(Math.PI * phase)) / 2;
+      if (t < 1) { moveGhost(from + (to - from) * e2); dragSweep = requestAnimationFrame(step); }
+      else { moveGhost(mid); settle(); }
+    };
+    dragSweep = requestAnimationFrame(step);
+  };
+  // Readouts
+  const chips = document.getElementById("drag-chips");
+  chips.innerHTML = "";
+  const iconPeak = peakSpeed(P.cell + P.gut, 150);
+  const farthest = Math.max(...spots.slice(1).map((sp, j) => (sp.centre - spots[j].centre) / 2)) + P.i;
+  const add = (label, value, good) => { const e = el("span", "chip" + (good === true ? " good" : good === false ? " bad" : ""), null, chips); e.innerHTML = "<b>" + label + "</b>" + value; };
+  add("Gap", fmt(g) + " px");
+  if (motionOn()) {
+    add("Neighbours move in", dur + " ms", dur <= 300);
+    const ratio = peakSpeed(g, dur) / iconPeak;
+    add("Peak speed", Math.round(peakSpeed(g, dur)) + " px/s, " + ratio.toFixed(1) + "× an icon", ratio <= 2.3);
+  } else {
+    add("Neighbours move", "at once (Animations off)");
+  }
+  add("Ghost to landing spot", "at most " + fmt(farthest) + " px");
+  add("Island grows by", fmt(g) + " px, 0 when reordering inside it");
+  // Table
+  const tb = document.querySelector("#drag-table tbody");
+  tb.innerHTML = "";
+  DRAG_ITEMS.forEach(([id, name]) => {
+    const it = makeItem(id);
+    const gs = gapFor(it, P, "cells"), gg = gapFor(it, P, "gaps");
+    const ts = dragDuration(gs, P);
+    const tr = el("tr", null, null, tb);
+    [name, fmt(gs) + " px", fmt(gg) + " px", ts + " ms", (peakSpeed(gs, ts) / iconPeak).toFixed(1) + "× an icon"].forEach((v, j) => {
+      const td = el("td", j ? "mono" : null, null, tr); td.textContent = v;
+    });
+  });
+}
+function wireDrag() {
+  [["dr-item", "item"], ["dr-rhythm", "rhythm"]].forEach(([id, key]) => {
+    const sync = () => document.querySelectorAll("#" + id + " button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.v === DRAG[key])));
+    document.querySelectorAll("#" + id + " button").forEach(b => b.addEventListener("click", () => { DRAG[key] = b.dataset.v; sync(); renderDragLab(); }));
+    sync();
+  });
+  document.getElementById("dr-ticks").addEventListener("click", e => {
+    DRAG.ticks = !DRAG.ticks; e.currentTarget.setAttribute("aria-pressed", String(DRAG.ticks)); renderDragLab();
+  });
+}
+
+// ---------- Vertical bars ----------
+// Vertical forms are drawn in the bar font: the workspaces as a column of numbers
+// at the widget's own 21 px pitch, short text as it is.
+const V_WORKSPACES = { vtext: ["1", "2", "3", "4", "5"], pitch: 21, name: "Workspaces" };
+const V_AI = { vtext: ["AI"], name: "AI group", badge: 3 };
+const VZONES = {
+  left: ["keystroke", "everything", V_AI, V_WORKSPACES],
+  center: [{ vtext: ["12", "—", "56"], name: "Clock" }, { vtext: ["EN"], name: "Keyboard layout" }, "update"],
+  right: ["monitor", "group-audio-glyph", "bluetooth", "network", "tray", "prefs"],
+};
+const VB = { size: "standard", all: true, xray: false };
+if (/^#vbars-large/.test(location.hash)) VB.size = "large";
+if (/xray/.test(location.hash) && /^#vbars/.test(location.hash)) VB.xray = true;
+function renderVerticalBars() {
+  const host = document.getElementById("vbars"); host.innerHTML = "";
+  const P = params({ size: VB.size, rounding: state.rounding, spacing: 0, vertical: true });
+  const Z = window.innerWidth < 700 ? 1.4 : 2;
+  ["cells", "gaps"].forEach((algo, idx) => {
+    const col = el("div", "vcol", null, host);
+    el("div", "lab", null, col).textContent = algo === "gaps" ? "Equal gaps" : "Equal slots";
+    const stage = el("div", "stage vstage", { backgroundPosition: (30 + idx * 40) + "% 0" }, col);
+    const row = el("div", "vrow", { gap: VB.xray ? "46px" : "" }, stage);
+    const lays = [];
+    let crossOff = 0, widest = 0;
+    ["left", "center", "right"].forEach(z => {
+      const specs = VZONES[z].map(makeItemV);
+      const zr = renderZone(row, specs, algo, P, { Z, bg: true, vertical: true, interactive: true, all: VB.all, xray: VB.xray,
+        states: z === "left" ? { 2: "open" } : {} });
+      lays.push(zr.lay);
+      zr.refs.forEach(r => { widest = Math.max(widest, r.c.it.crossW || 0); });
+      // Across the bar: every glyph's ink centre against the bar's centre line, as drawn.
+      const box = zr.island.getBoundingClientRect();
+      zr.island.querySelectorAll("img").forEach(im => {
+        const b = im.getBoundingClientRect();
+        crossOff = Math.max(crossOff, Math.abs((b.left - box.left) / Z + Number(im.dataset.cx) - P.B / 2));
+      });
+    });
+    const m = metrics(lays, P);
+    const chips = el("div", "chips", null, col);
+    chip(chips, "Air between glyphs", fmtRange(m.glyph) + " px", m.glyph[1] - m.glyph[0] <= 6);
+    chip(chips, "Air at island ends", fmtRange(m.ends) + " px");
+    chip(chips, "Highlight to the next glyph", "at least " + fmt(m.clear[0]) + " px", m.clear[0] >= 2);
+    chip(chips, "End highlights centred on their glyph", m.centred ? "yes" : "no", m.centred);
+    chip(chips, "Glyphs off the centre line, worst", fmt(crossOff) + " px", crossOff <= 0.25);
+    chip(chips, "Widest content across", fmt(widest) + " of " + fmt(P.T) + " px", widest <= P.T);
+    chip(chips, "Icon highlight", fmt(P.T) + " × " + fmt(P.cell) + " px", P.cell === P.T);
+  });
+  const f = document.getElementById("vformulas"); f.innerHTML = "";
+  [
+    ["B = the theme's vertical size", fmt(P.B) + " px", "28 px, plus the large bar's 6 px lip on each side (40 px). Everything else follows from it, as on a horizontal bar."],
+    ["i, T = B − 2i", fmt(P.i) + ", " + fmt(P.T) + " px", "The same inset everywhere; highlights are T wide and grow along the bar."],
+    ["icon cell  C = T", fmt(P.cell) + " px", "An icon's cell along the bar is as long as the bar is wide inside the inset, so icon highlights are square here too."],
+    ["text cell = max(C, ink height + 2a)", "a = " + fmt(P.air) + " px", "Text is measured along the bar by its ink height; the clock's three lines get the same air above and below as an icon."],
+    ["gap  G = C / 2 + 2 + spacing", fmt(P.gap) + " px", "Equal gaps along the bar, with each highlight still the symmetric cell box."],
+    ["across  ink centre = B / 2", "0 px off", "Across a vertical bar the glyph's ink centres on the bar's centre line. A widget's horizontal slot (the tray's 54 px) means nothing here."],
+    ["across  content ≤ T", fmt(P.T) + " px", "Nothing grows across the bar. Text uses its vertical form; a group face wider than T shows the group's glyph."],
+    ["badge  1 px inside the island", "outer-top corner", "The badge rides the highlight's corner at 45° and is clamped inside the island on both axes."],
+  ].forEach(([form, val, text]) => {
+    const r = el("div", "row", null, f);
+    el("span", "f", null, r).textContent = form;
+    el("span", "v", null, r).textContent = val;
+    el("p", null, null, r).textContent = text;
+  });
+}
+function wireVerticalBars() {
+  const sync = () => document.querySelectorAll("#vb-size button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.v === VB.size)));
+  document.querySelectorAll("#vb-size button").forEach(b => b.addEventListener("click", () => { VB.size = b.dataset.v; sync(); renderVerticalBars(); }));
+  sync();
+  const all = document.getElementById("vb-all"), xr = document.getElementById("vb-xray");
+  all.setAttribute("aria-pressed", String(VB.all));
+  all.addEventListener("click", () => { VB.all = !VB.all; all.setAttribute("aria-pressed", String(VB.all)); renderVerticalBars(); });
+  xr.addEventListener("click", () => { VB.xray = !VB.xray; xr.setAttribute("aria-pressed", String(VB.xray)); renderVerticalBars(); });
+}
+
+// ---------- Extended islands ----------
+function chip(host, label, value, good) {
+  const c = el("span", "chip" + (good === true ? " good" : good === false ? " bad" : ""), null, host);
+  c.innerHTML = "<b>" + label + "</b>" + value;
+}
+const EXT = { group: "audio", display: "both", edge: "top", size: "large", algo: "cells", xray: false };
+const EXT_GROUPS = {
+  audio: { zone: "right", island: ["monitor", "group-audio", "bluetooth", "power", "network", "tray", "prefs"], source: 1,
+    vertical: ["monitor", "group-audio-glyph", "bluetooth", "network", "tray", "prefs"], vsource: 1,
+    members: [["microphone", "Microphone"], ["audio", "Audio"]] },
+  ai: { zone: "left", island: ["keystroke", "everything", { id: "group-ai", badge: 3 }, "workspaces", "scratchpeek"], source: 2,
+    vertical: ["keystroke", "everything", V_AI, V_WORKSPACES], vsource: 2,
+    members: [["agent-orchestr", "Agent Orchestrator", { badge: 1 }], ["sessions", "Session Browser"], ["ai-usage-dashboard", "AI Usage Dashboard"]] },
+  managed: { zone: "right", island: ["monitor", "bluetooth", "power", "network", "prefs"], source: -1,
+    vertical: ["monitor", "bluetooth", "network", "prefs"], vsource: -1,
+    members: [["omafile", "Omafile"], ["omaproton-vpn", "Proton VPN"]] },
+};
+const EDGE_GAP = 4;
+const badgeW = n => Math.max(12, String(n).length * 6 + 5);
+function menuTextWidth(text) {
+  if (!ctx2d) ctx2d = document.createElement("canvas").getContext("2d");
+  ctx2d.font = '11px "JetBrains Mono", ui-monospace, monospace';
+  return ctx2d.measureText(text).width;
+}
+// Menu geometry, from the bar's own tokens. Row coordinates start at the row's left edge.
+function menuModel(members, display, P) {
+  const both = display === "both";
+  const items = members.map(([id, name, extra]) => {
+    const it = makeItem(Object.assign({ id }, extra || {}));
+    it.name = name;
+    // Anything that is not a glyph on the bar (text, compounds) reads as a value:
+    // it goes where menus put values, at the row's trailing edge.
+    it.native = it.kind !== "glyph";
+    it.labelW = menuTextWidth(name);
+    it.valueW = both && it.native ? Math.min(it.inkW, MAX_INK) : 0;
+    it.badgeW = it.badge ? badgeW(it.badge) : 0;
+    it.trail = (it.valueW ? P.air + it.valueW : 0) + (it.badgeW ? P.air + it.badgeW : 0);
+    return it;
+  });
+  // Icons and names: the icon keeps its bar cell (C) at the row's start, so its glyph
+  // sits exactly where a strip's first glyph would; names start where that cell ends.
+  // Rows without an icon (values, or names only) start their name at a, the edge where
+  // a 12 px glyph starts in its cell, so every row's content starts on one left edge.
+  const labelStart = both ? P.cell : P.air;
+  items.forEach(it => { it.start = both && !it.native ? P.cell : P.air; });
+  const content = Math.max(...items.map(it => it.start + it.labelW + it.trail + P.air));
+  const Wm = Math.min(320, Math.max(4 * P.cell, content + 2 * P.i));
+  const n = items.length;
+  return { items, both, labelStart, W: Wm, rowW: Wm - 2 * P.i, H: n * P.T + (n + 1) * P.i, R: P.R };
+}
+function drawMenu(parent, m, x, y, P, Z, opt) {
+  const menu = el("div", "island bg ext-abs ext-menu", { left: px(x * Z), top: px(y * Z), width: px(m.W * Z), height: px(m.H * Z), borderRadius: px(m.R * Z) }, parent);
+  m.items.forEach((it, k) => {
+    const ry = P.i + k * (P.T + P.i);
+    const row = el("button", "ext-row", { left: px(P.i * Z), top: px(ry * Z), width: px(m.rowW * Z), height: px(P.T * Z) }, menu);
+    row.type = "button"; row.setAttribute("aria-label", it.name);
+    const hl = el("div", "hl" + (opt && opt.all ? " all" : ""), { borderRadius: px(P.r * Z) }, row);
+    const img = (left) => {
+      const im = el("img", "ext-img", { left: px(left * Z), top: px((P.T - it.h) / 2 * Z), width: px(it.w * Z), height: px(it.h * Z) }, row);
+      im.src = "w/" + it.id + ".png"; im.alt = "";
+      im.dataset.cx = it.inkX + it.inkW / 2; im.dataset.cy = it.h / 2; im.dataset.il = it.inkX;
+      return im;
+    };
+    if (m.both && !it.native) img(P.cell / 2 - (it.inkX + it.inkW / 2)).classList.add("glyph");
+    let tx = m.rowW - P.air;
+    if (it.badgeW) {
+      const b = el("div", "badge", { left: px((tx - it.badgeW) * Z), top: px((P.T - 12) / 2 * Z), width: px(it.badgeW * Z), height: px(12 * Z), fontSize: px(8.5 * Z) }, row);
+      b.textContent = it.badge;
+      tx -= it.badgeW + P.air;
+    }
+    if (it.valueW) { img(tx - it.valueW - it.inkX).classList.add("value"); tx -= it.valueW + P.air; }
+    const avail = tx - it.start;
+    const lbl = el("span", "lbl" + (it.start === m.labelStart ? " col" : " edge"), { left: px(it.start * Z), width: px(avail * Z), height: px(P.T * Z), lineHeight: px(P.T * Z), fontSize: px(11 * Z) }, row);
+    lbl.textContent = it.name;
+    lbl.dataset.w = Math.min(it.labelW, avail);
+    if (it.labelW > avail) row.title = it.name;
+    row.addEventListener("pointerenter", () => { hl.className = "hl on hover"; });
+    row.addEventListener("pointerleave", () => { hl.className = "hl" + (opt && opt.all ? " all" : ""); });
+    row.addEventListener("focus", () => { if (row.matches(":focus-visible")) hl.className = "hl on focus"; });
+    row.addEventListener("blur", () => { hl.className = "hl" + (opt && opt.all ? " all" : ""); });
+  });
+  return menu;
+}
+// Draws a slice of the screen: the source island and its extended island.
+// cfg: { group, display, edge, size, algo, xray, members, islandSpecs, source, screenW, screenH, Z }
+function drawExtended(host, cfg) {
+  const V = cfg.edge === "left";
+  const P = params({ size: cfg.size, rounding: state.rounding, spacing: 0, vertical: V });
+  const Z = cfg.Z || (window.innerWidth < 700 ? 1.3 : 1.8);
+  const g = EXT_GROUPS[cfg.group];
+  const members = cfg.members || g.members;
+  const E = EDGE_GAP, d = EDGE_GAP;
+  const stage = el("div", "stage ext-stage", null, host);
+  const cs = getComputedStyle(stage);
+  const inner = stage.clientWidth - parseFloat(cs.paddingLeft || 0) - parseFloat(cs.paddingRight || 0);
+  const Ws = cfg.screenW || Math.max(320, Math.floor(inner / Z));
+  const area = el("div", "ext-area", { position: "relative", width: px(Ws * Z) }, stage);
+  const out = { P, Z, V, area, cfg };
+  const menu = cfg.display !== "icons";
+  const mk = V ? makeItemV : makeItem;
+  const specs = (cfg.islandSpecs || (V ? g.vertical : g.island)).map(s => V ? makeItemV(s) : s);
+  const src = cfg.source != null ? cfg.source : V ? g.vsource : g.source;
+  const lay = layout(specs, cfg.algo, P);
+  // The source island: at the screen's start for the left zone, at its end for the right zone.
+  let ia;
+  if (V) ia = E;
+  else ia = g.zone === "left" ? E : Ws - E - lay.len;
+  // A vertical slice of screen: as tall as given, or tall enough for what is drawn.
+  const Hs = V ? (cfg.screenH || 2000) : null;
+  if (V && g.zone === "right" && cfg.screenH) ia = Hs - E - lay.len;
+  const holder = el("div", "ext-abs", V ? { left: px(E * Z), top: px(ia * Z) } : { left: px(ia * Z), top: px(E * Z) }, area);
+  const drawer = el("div", "ext-drawer", null, area);
+  const zone = renderZone(holder, specs, cfg.algo, P, { Z, bg: true, interactive: true, vertical: V, open: src >= 0 ? src : null,
+    onToggle: (k, open) => { if (k === src) drawer.classList.toggle("closed", !open); } });
+  out.zone = zone;
+  const iStart = ia, iEnd = ia + lay.len;
+  const sc = src >= 0 ? lay.cells[src].hl : null;
+  const sa = sc ? ia + sc.x : null, sL = sc ? sc.L : 0, sMid = sc ? sa + sL / 2 : null;
+  const near = E + P.B + d;         // the drawer's near edge, one bar gap from the bar
+  let da, dLen, dThick;             // along the bar, length along it, extent across it
+  if (!menu) {
+    const mspecs = members.map(([id, , extra]) => mk(Object.assign({ id }, extra || {})));
+    const sl = layout(mspecs, cfg.algo, P);
+    dLen = sl.len; dThick = P.B;
+    const limit = V ? Hs : Ws;
+    // Centre on the source, keep a bar gap from the screen's edges, then snap an end
+    // that lands within half a highlight of the island's end onto it.
+    if (sc) {
+      da = sMid - dLen / 2;
+      out.aligned = "centred on the group icon";
+      const clamped = Math.max(E, Math.min(limit - E - dLen, da));
+      if (clamped !== da) { da = clamped; out.aligned = "kept one bar gap from the screen edge"; }
+      if (Math.abs(da - iStart) <= P.T / 2) { da = iStart; out.aligned = "start meets the island's start"; }
+      else if (Math.abs(da + dLen - iEnd) <= P.T / 2) { da = iEnd - dLen; out.aligned = "end meets the island's end"; }
+    } else {
+      da = g.zone === "left" ? iStart : iEnd - dLen;
+      out.aligned = "lined up with the island's outer end";
+    }
+    const sh = el("div", "ext-abs", V ? { left: px(near * Z), top: px(da * Z) } : { left: px(da * Z), top: px(near * Z) }, drawer);
+    out.strip = renderZone(sh, mspecs, cfg.algo, P, { Z, bg: true, interactive: true, vertical: V, all: cfg.xray, xray: cfg.xray });
+    out.stripMid = da + dLen / 2;
+  } else {
+    const m = menuModel(members, cfg.display, P);
+    out.menu = m;
+    dThick = V ? m.W : m.H; dLen = V ? m.H : m.W;
+    if (!V) {
+      if (sc) {
+        // The first row starts where the source highlight starts; near the screen's
+        // end the menu flips so its rows end where the source highlight ends.
+        da = sa - P.i; out.aligned = "rows start where the group icon starts";
+        if (da + dLen > Ws - E) { da = sa + sL + P.i - dLen; out.aligned = "rows end where the group icon ends"; out.flipped = true; }
+      } else { da = g.zone === "left" ? iStart : iEnd - dLen; out.aligned = "lined up with the island's outer end"; }
+      da = Math.max(E, Math.min(Ws - E - dLen, da));
+      out.menuEl = drawMenu(drawer, m, da, near, P, Z, { all: cfg.xray });
+    } else {
+      if (sc) {
+        // Beside a vertical bar the first row's centre is level with the source cell's
+        // centre; near the screen's bottom the last row is.
+        da = sMid - P.T / 2 - P.i; out.aligned = "first row level with the group icon";
+        if (da + dLen > Hs - E) { da = sMid + P.T / 2 + P.i - dLen; out.aligned = "last row level with the group icon"; out.flipped = true; }
+      } else { da = g.zone === "left" ? iStart : iEnd - dLen; out.aligned = "lined up with the island's outer end"; }
+      da = Math.max(E, Math.min(Hs - E - dLen, da));
+      out.menuEl = drawMenu(drawer, m, near, da, P, Z, { all: cfg.xray });
+    }
+    if (cfg.xray) {
+      // The label column, and the glyph axis in icons and names.
+      const x0 = (V ? near : da) + P.i, y0 = (V ? da : near) + P.i, h = m.H - 2 * P.i;
+      el("div", "ext-guide", { left: px((x0 + m.labelStart) * Z), top: px(y0 * Z), height: px(h * Z) }, drawer);
+      if (m.both) el("div", "ext-guide axis", { left: px((x0 + P.cell / 2) * Z), top: px(y0 * Z), height: px(h * Z) }, drawer);
+    }
+  }
+  out.da = da; out.dLen = dLen;
+  // The drawer grows out of its source: the origin is the source's centre on the drawer's near edge.
+  const originA = (sc ? sMid : (g.zone === "left" ? da : da + dLen));
+  drawer.style.transformOrigin = V ? px(near * Z) + " " + px(originA * Z) : px(originA * Z) + " " + px(near * Z);
+  if (cfg.xray && sc) {
+    // The pointer bridge: the drawer's hit area spans the bar gap where it faces the source.
+    const a = Math.max(sa, da), b = Math.min(sa + sL, da + dLen);
+    if (b > a) el("div", "ext-bridge", V ? { left: px((E + P.B) * Z), top: px(a * Z), width: px(d * Z), height: px((b - a) * Z) }
+      : { left: px(a * Z), top: px((E + P.B) * Z), width: px((b - a) * Z), height: px(d * Z) }, drawer);
+  }
+  const far = near + dThick + E + 8;
+  if (V) {
+    area.style.height = px((cfg.screenH || Math.max(iEnd, da + dLen) + E) * Z);
+    area.style.width = px(Math.min(Ws, far + 30) * Z);
+  } else {
+    area.style.height = px(far * Z);
+  }
+  return out;
+}
+
+// Measures what was drawn, in bar pixels, from the DOM itself.
+function measureExt(out) {
+  const { P, Z, V, area } = out;
+  const o = area.getBoundingClientRect();
+  const R = e => { const r = e.getBoundingClientRect(); return { x: (r.left - o.left) / Z, y: (r.top - o.top) / Z, w: r.width / Z, h: r.height / Z }; };
+  const inkC = img => { const r = R(img); return { x: r.x + Number(img.dataset.cx), y: r.y + Number(img.dataset.cy) }; };
+  const res = { hlOff: 0, cross: 0, badge: Infinity, square: 0 };
+  const spread = a => a.length ? Math.max(...a) - Math.min(...a) : 0;
+  // Every bar-like island: highlights centred on their glyph along the bar, glyphs on the centre line across it.
+  const islands = [out.zone, out.strip].filter(Boolean);
+  islands.forEach(z => {
+    const isl = R(z.island);
+    z.refs.forEach(r => {
+      const it = r.c.it;
+      if (r.c.thumbs && r.c.thumbs.length) return;
+      const h = R(r.hl);
+      if (it.kind === "glyph") res.square = Math.max(res.square, Math.abs(h.w - h.h));
+      if (it.kind === "glyph" && r.content && r.content.tagName === "IMG") {
+        const c = inkC(r.content);
+        res.hlOff = Math.max(res.hlOff, V ? Math.abs(h.y + h.h / 2 - c.y) : Math.abs(h.x + h.w / 2 - c.x));
+        if (V) res.cross = Math.max(res.cross, Math.abs(c.x - (isl.x + isl.w / 2)));
+      }
+    });
+    z.island.querySelectorAll(".badge").forEach(b => {
+      const r = R(b);
+      res.badge = Math.min(res.badge, r.x - isl.x, r.y - isl.y, isl.x + isl.w - r.x - r.w, isl.y + isl.h - r.y - r.h);
+    });
+  });
+  if (out.strip) {
+    const sc = out.zone.refs.find(r => r.open);
+    if (sc) { const h = R(sc.hl), s = R(out.strip.island); res.stripOff = V ? Math.abs(s.y + s.h / 2 - (h.y + h.h / 2)) : Math.abs(s.x + s.w / 2 - (h.x + h.w / 2)); }
+    const bar = R(out.zone.island), s = R(out.strip.island);
+    res.gap = V ? s.x - (bar.x + bar.w) : s.y - (bar.y + bar.h);
+  }
+  if (out.menuEl) {
+    const menu = R(out.menuEl);
+    const bar = R(out.zone.island);
+    res.gap = V ? menu.x - (bar.x + bar.w) : menu.y - (bar.y + bar.h);
+    const rows = [...out.menuEl.querySelectorAll(".ext-row")];
+    const rr = rows.map(R);
+    const insets = [rr[0].x - menu.x, rr[0].y - menu.y, menu.x + menu.w - rr[0].x - rr[0].w, menu.y + menu.h - rr[rr.length - 1].y - rr[rr.length - 1].h];
+    for (let k = 1; k < rr.length; k++) insets.push(rr[k].y - rr[k - 1].y - rr[k - 1].h);
+    res.inset = spread(insets.concat([P.i]));
+    const glyphs = [...out.menuEl.querySelectorAll("img.glyph")].map(inkC);
+    res.axis = spread(glyphs.map(c => c.x));
+    const labels = [...out.menuEl.querySelectorAll(".lbl.col")];
+    res.column = spread(labels.map(l => R(l).x));
+    // Rows without an icon start at a from the row's edge, where icons start.
+    const edges = [...out.menuEl.querySelectorAll(".lbl.edge")].map(l => R(l).x - R(l.parentElement).x);
+    if (edges.length) res.edge = Math.max(...edges.map(e => Math.abs(e - P.air)));
+    res.rightAir = Math.min(...rows.map((row, k) => {
+      const l = row.querySelector(".lbl"), lr = R(l);
+      const next = [...row.querySelectorAll(".badge")].map(R).map(r => r.x)
+        .concat([...row.querySelectorAll("img.value")].map(im => R(im).x + Number(im.dataset.il)));
+      const stop = next.length ? Math.min(...next) : rr[k].x + rr[k].w;
+      return stop - (lr.x + Number(l.dataset.w));
+    }));
+    const sc = out.zone.refs.find(r => r.open);
+    if (sc) {
+      const h = R(sc.hl);
+      const first = out.flipped ? rr[rr.length - 1] : rr[0];
+      res.first = V ? Math.abs(first.y + first.h / 2 - (h.y + h.h / 2))
+        : out.flipped ? Math.abs(first.x + first.w - (h.x + h.w)) : Math.abs(first.x - h.x);
+      if (!V && out.menu.both && !out.flipped && glyphs.length && sc.c.it.kind === "glyph" && sc.content && sc.content.dataset.cx)
+        res.under = Math.abs(glyphs[0].x - inkC(sc.content).x);
+    }
+    out.menuEl.querySelectorAll(".badge").forEach(b => {
+      const r = R(b);
+      res.badge = Math.min(res.badge, r.x - menu.x, r.y - menu.y, menu.x + menu.w - r.x - r.w, menu.y + menu.h - r.y - r.h);
+    });
+  }
+  const dr = R(out.menuEl || out.strip.island);
+  res.screen = V ? Math.min(dr.y, area.getBoundingClientRect().height / Z - dr.y - dr.h) : Math.min(dr.x, (out.cfg.screenW || area.getBoundingClientRect().width / Z) - dr.x - dr.w);
+  return res;
+}
+
+function renderExtRule(P, PH, PV) {
+  const f = document.getElementById("ext-formulas"); f.innerHTML = "";
+  const both = (a, b) => fmt(a) + " / " + fmt(b);
+  const rows = [
+    ["gap to the bar  d = edge gap", fmt(EDGE_GAP) + " px", "The same distance as between the bar and the screen edge. The drawer's pointer area spans it where it faces the source."],
+    ["strip = an island", both(PH.B, PV.B) + " px", "Icons only: the same cells, gutters, ends, radius and spacing mode as the main islands, at the bar's thickness (horizontal / vertical bar), along the same axis as the bar."],
+    ["strip  centred on the source cell", "snap ≤ T / 2", "An end that lands within half a highlight of the island's end snaps to it, so the two islands share an edge."],
+    ["menu rows  T tall, pitch T + i", both(P.T, P.T + P.i) + " px", "Each row is a highlight cell; rows sit one inset apart and one inset from the menu's edge, in both spacing modes."],
+    ["menu radius = R", fmt(P.R) + " px", "The island's own radius. Rows have R − i, so every row corner is concentric with the menu's."],
+    ["names  start at a", fmt(P.air) + " px", "Names only, and rows without an icon: text starts at a, the edge where a 12 px glyph starts in its cell, so every row's content shares one left edge. At least that air stays on its right."],
+    ["icon cell  C, names at C", fmt(P.cell) + " px", "Icons and names: each icon keeps its bar cell at the row's start, so its glyph sits where a strip's first glyph would and every name starts in one column."],
+    ["values  trail at a from the end", "text, compounds", "A member that is not a glyph on the bar (the clock, the battery) shows its native look where menus put values: right-aligned, one air from the row's end. Having no icon, its name starts at the icon edge a."],
+    ["badge  trails at a", "12 px tall", "A count sits at the row's end, one air in, after any value. Widgets that draw their own count use the shared badge instead."],
+    ["menu width  clamp(content, 4C, 320)", fmt(4 * P.cell) + "–320 px", "Content is name plus values plus air. Longer names end in an ellipsis and show in full as a tooltip."],
+    ["first row  starts at the source", "horizontal", "Below a horizontal bar the first row starts where the source highlight starts, or ends where it ends near the screen edge. A menu that fits neither way keeps one bar gap from the screen edge."],
+    ["first row  level with the source", "vertical", "Beside a vertical bar the first row's centre sits level with the source cell's centre, or the last row's near the screen's bottom."],
+  ];
+  rows.forEach(([form, val, text]) => {
+    const r = el("div", "row", null, f);
+    el("span", "f", null, r).textContent = form;
+    el("span", "v", null, r).textContent = val;
+    el("p", null, null, r).textContent = text;
+  });
+}
+function renderExtended() {
+  const host = document.getElementById("ext-demo"); host.innerHTML = "";
+  const out = drawExtended(host, EXT);
+  renderExtRule(out.P, params({ size: EXT.size, rounding: state.rounding, spacing: 0 }), params({ size: EXT.size, rounding: state.rounding, spacing: 0, vertical: true }));
+  document.querySelectorAll("#ex-size button").forEach(b => { b.textContent = (b.dataset.v === "large" ? "Large " : "Standard ") + params({ size: b.dataset.v, rounding: 20, vertical: out.V }).B; });
+  const m = measureExt(out), P = out.P;
+  const chips = document.getElementById("ext-chips"); chips.innerHTML = "";
+  const ok = v => v <= 0.25;
+  chip(chips, "Gap to the bar", fmt(m.gap) + " px", Math.abs(m.gap - EDGE_GAP) <= 0.25);
+  chip(chips, "Placement", out.aligned);
+  if (m.first != null) chip(chips, V_LABEL(out) + " off by", fmt(m.first) + " px", ok(m.first));
+  if (m.under != null) chip(chips, "First glyph under the group glyph, off by", fmt(m.under) + " px", ok(m.under));
+  if (out.menu) {
+    chip(chips, "Menu", fmt(out.menu.W) + " × " + fmt(out.menu.H) + " px, rows every " + fmt(P.T + P.i) + " px");
+    chip(chips, "Row insets", m.inset <= 0.25 ? "all " + fmt(P.i) + " px" : "vary by " + fmt(m.inset) + " px", ok(m.inset));
+    if (out.menu.both) chip(chips, "Glyphs on one axis, spread", fmt(m.axis) + " px", ok(m.axis));
+    chip(chips, "Names in one column, spread", fmt(m.column) + " px", ok(m.column));
+    if (m.edge != null) chip(chips, "Rows without an icon start at the icon edge, off by", fmt(m.edge) + " px", ok(m.edge));
+    chip(chips, "Air after names", "at least " + fmt(m.rightAir) + " px", m.rightAir >= P.air - 0.25);
+  } else {
+    if (/meets/.test(out.aligned)) chip(chips, "Strip end", "shares the island's end", true);
+    else if (m.stripOff != null) chip(chips, "Strip centre off the group icon", fmt(m.stripOff) + " px", ok(m.stripOff));
+  }
+  chip(chips, "Icon highlights square, off by", fmt(m.square) + " px", ok(m.square));
+  chip(chips, "Highlights off their glyph, worst", fmt(m.hlOff) + " px", ok(m.hlOff));
+  if (out.V) chip(chips, "Glyphs off the bar's centre line, worst", fmt(m.cross) + " px", ok(m.cross));
+  if (m.badge < Infinity) chip(chips, "Badges inside their island by", "at least " + fmt(m.badge) + " px", m.badge >= 0.75);
+}
+const V_LABEL = out => out.V ? "Row level with the group icon," : out.flipped ? "Rows end with the group icon," : "Rows start with the group icon,";
+
+const EXT_CASES = [
+  { title: "Near the screen edge", text: "A menu that would run past the screen edge flips: its rows end where the group icon ends, and it keeps a bar gap from the edge.",
+    cfg: { group: "audio", display: "names", edge: "top", islandSpecs: ["monitor", "bluetooth", "group-audio"], source: 2 } },
+  { title: "Strip ends meet the island's", text: "A strip centred on its icon whose end lands within half a highlight of the island's end snaps to it, so the two islands share an edge.",
+    cfg: { group: "ai", display: "icons", edge: "top", islandSpecs: [{ id: "group-ai", badge: 3 }, "workspaces"], source: 0 } },
+  { title: "Long names", text: "Menus stop at 320 px. A longer name ends in an ellipsis and shows in full as a tooltip; the row keeps its right air.",
+    cfg: { group: "ai", display: "names", edge: "top", islandSpecs: [{ id: "group-ai", badge: 3 }, "workspaces"], source: 0,
+      members: [["agent-orchestr", "Agent Orchestrator"], ["ai-usage-dashboard", "AI Usage Dashboard for every provider and model you use"]] } },
+  { title: "A wide native in icons and names", text: "The clock is text on the bar, so in a menu it is a value: its native look trails at the row's end. Having no icon, its name starts at the icon edge, so every row's content shares one left edge inside the menu.",
+    cfg: { group: "audio", display: "both", edge: "top", members: [["microphone", "Microphone"], ["clock", "Clock"], ["audio", "Audio"]] } },
+  { title: "One member", text: "A strip with one icon is a lone island: a circle one inset larger than its highlight, centred on the group icon.",
+    cfg: { group: "audio", display: "icons", edge: "top", members: [["microphone", "Microphone"]] } },
+  { title: "Badges in menus", text: "Counts trail at the row's end, one air in. The Agent Orchestrator paints its own count over its glyph; Powerbar shows the count with the shared badge and draws the glyph clean, so it centres like any other.",
+    cfg: { group: "ai", display: "both", edge: "top", members: [["agent-orchestr", "Agent Orchestrator", { badge: 1 }], ["sessions", "Session Browser"], ["ai-usage-dashboard", "AI Usage Dashboard", { badge: 12 }]] } },
+  { title: "Vertical bar, icons", text: "Beside a vertical bar the strip is a vertical island at the bar's own 28 px, centred on the group icon, one bar gap away.",
+    cfg: { group: "audio", display: "icons", edge: "left" } },
+  { title: "Vertical bar, icons and names", text: "The first row's centre sits level with the group icon's centre. The row's glyph keeps its cell, so glyphs and names line up as below a horizontal bar.",
+    cfg: { group: "ai", display: "both", edge: "left" } },
+  { title: "Vertical bar, near the bottom", text: "A menu that would run past the screen's bottom flips: its last row sits level with the group icon.",
+    cfg: { group: "audio", display: "names", edge: "left", members: [["microphone", "Microphone"], ["audio", "Audio"], ["omafile", "Omafile"]], islandSpecs: ["monitor", "bluetooth", "group-audio-glyph"], source: 2, screenH: 190 } },
+  { title: "Managed drawer", text: "A zone's managed drawer has no source icon; it lines up with its island's outer end and uses the same strip rule.",
+    cfg: { group: "managed", display: "icons", edge: "top" } },
+];
+function renderExtCases() {
+  const host = document.getElementById("ext-cases"); host.innerHTML = "";
+  EXT_CASES.forEach(cs => {
+    const card = el("article", "case", null, host);
+    el("h3", null, null, card).textContent = cs.title;
+    el("p", null, null, card).textContent = cs.text;
+    const pair = el("div", "pair", null, card);
+    ["cells", "gaps"].forEach(algo => {
+      el("div", "lab", null, pair).textContent = algo === "gaps" ? "Equal gaps" : "Equal slots";
+      drawExtended(pair, Object.assign({ size: "large", xray: false, Z: window.innerWidth < 700 ? 1.1 : 1.3 }, cs.cfg, { algo }));
+    });
+  });
+}
+// Every combination of group, display, edge, bar size and spacing mode, plus the cases,
+// drawn off screen and measured.
+function auditExt() {
+  const host = el("div", null, { position: "absolute", left: "-20000px", top: "0", width: "1200px", visibility: "hidden" }, document.body);
+  const worst = { square: 0, edge: 0, hlOff: 0, cross: 0, badge: Infinity, inset: 0, axis: 0, column: 0, rightAir: Infinity, first: 0, under: 0, gap: 0, screen: Infinity, stripOff: 0 };
+  let n = 0;
+  const failures = [];
+  const take = (cfg) => {
+    const out = drawExtended(host, Object.assign({ screenW: 900, Z: 1 }, cfg));
+    const m = measureExt(out);
+    n++;
+    const fails = [];
+    if (m.rightAir != null && m.rightAir < out.P.air - 0.25) fails.push("rightAir " + fmt(m.rightAir));
+    if (m.first != null && m.first > 0.25) fails.push("first " + fmt(m.first));
+    if (!/meets/.test(out.aligned) && m.stripOff != null && m.stripOff > 0.25) fails.push("stripOff " + fmt(m.stripOff) + " " + out.aligned);
+    if (fails.length) failures.push(JSON.stringify(Object.assign({}, cfg, { members: undefined })) + " " + fails.join(", "));
+    ["square", "edge", "hlOff", "cross", "inset", "axis", "column", "first", "under"].forEach(k => { if (m[k] != null) worst[k] = Math.max(worst[k], m[k]); });
+    if (!/meets/.test(out.aligned) && m.stripOff != null) worst.stripOff = Math.max(worst.stripOff, m.stripOff);
+    worst.gap = Math.max(worst.gap, Math.abs(m.gap - EDGE_GAP));
+    if (m.rightAir != null) worst.rightAir = Math.min(worst.rightAir, m.rightAir - out.P.air);
+    worst.badge = Math.min(worst.badge, m.badge);
+    worst.screen = Math.min(worst.screen, m.screen);
+    host.innerHTML = "";
+  };
+  ["audio", "ai", "managed"].forEach(group => ["icons", "names", "both"].forEach(display => ["top", "left"].forEach(edge =>
+    ["standard", "large"].forEach(size => ["cells", "gaps"].forEach(algo => take({ group, display, edge, size, algo }))))));
+  EXT_CASES.forEach(cs => ["cells", "gaps"].forEach(algo => take(Object.assign({ size: "large" }, cs.cfg, { algo, screenW: cs.cfg.edge === "top" ? 560 : 900 }))));
+  host.remove();
+  const tb = document.querySelector("#ext-audit tbody"); tb.innerHTML = "";
+  const rows = [
+    ["Icon highlights square (width − height)", "≤ 0.25 px", worst.square, worst.square <= 0.25],
+    ["Highlight centred on its glyph, along the bar", "≤ 0.25 px", worst.hlOff, worst.hlOff <= 0.25],
+    ["Glyph on the bar's centre line, vertical bars", "≤ 0.25 px", worst.cross, worst.cross <= 0.25],
+    ["Menu glyphs on one axis", "≤ 0.25 px", worst.axis, worst.axis <= 0.25],
+    ["Names after an icon in one column", "≤ 0.25 px", worst.column, worst.column <= 0.25],
+    ["Rows without an icon start at the icon edge a", "≤ 0.25 px", worst.edge, worst.edge <= 0.25],
+    ["Row insets equal (sides, ends, between rows)", "≤ 0.25 px", worst.inset, worst.inset <= 0.25],
+    ["Air after a name, beyond a", "≥ 0 px", worst.rightAir, worst.rightAir >= -0.25],
+    ["First row lined up with the source", "≤ 0.25 px", worst.first, worst.first <= 0.25],
+    ["First glyph under a glyph source", "≤ 0.25 px", worst.under, worst.under <= 0.25],
+    ["Strip centred on the source (unless snapped)", "≤ 0.25 px", worst.stripOff, worst.stripOff <= 0.25],
+    ["Gap to the bar, off 4 px", "≤ 0.25 px", worst.gap, worst.gap <= 0.25],
+    ["Badge inside its island", "≥ 1 px", worst.badge, worst.badge >= 0.75],
+    ["Drawer inside the screen", "≥ 4 px", worst.screen, worst.screen >= 3.75],
+  ];
+  rows.forEach(([name, rule, v, good]) => {
+    const tr = el("tr", null, null, tb);
+    el("td", null, null, tr).textContent = name;
+    el("td", "mono", null, tr).textContent = rule;
+    const td = el("td", "mono " + (good ? "ok" : "bad"), null, tr);
+    td.textContent = fmt(v) + " px " + (good ? "✓" : "✗");
+  });
+  document.getElementById("ext-audit-n").textContent = n;
+  window.__extAudit = { n, worst, failures };
+  if (/audit/.test(location.hash)) { const pre = el("pre", null, { whiteSpace: "pre-wrap", fontSize: "11px" }, document.getElementById("extended")); pre.id = "audit-log"; pre.textContent = failures.join("\n"); }
+}
+function extFromHash() {
+  const h = /^#ext-(audio|ai|managed)-(icons|names|both)-(top|left)-(standard|large)-(cells|gaps)(-xray)?$/.exec(location.hash);
+  if (!h) return false;
+  Object.assign(EXT, { group: h[1], display: h[2], edge: h[3], size: h[4], algo: h[5], xray: !!h[6] });
+  document.documentElement.classList.add("solo-ext");
+  return true;
+}
+function wireExtended() {
+  extFromHash();
+  [["ex-group", "group"], ["ex-display", "display"], ["ex-edge", "edge"], ["ex-size", "size"], ["ex-algo", "algo"]].forEach(([id, key]) => {
+    const sync = () => document.querySelectorAll("#" + id + " button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.v === EXT[key])));
+    document.querySelectorAll("#" + id + " button").forEach(b => b.addEventListener("click", () => { EXT[key] = b.dataset.v; sync(); renderExtended(); }));
+    sync();
+  });
+  document.getElementById("ex-xray").setAttribute("aria-pressed", String(EXT.xray));
+  document.getElementById("ex-xray").addEventListener("click", e => { EXT.xray = !EXT.xray; e.currentTarget.setAttribute("aria-pressed", String(EXT.xray)); renderExtended(); });
+}
+
+function renderAll() {
+  syncControls();
+  renderHero();
+  renderPrefsMock();
+  renderCompare();
+  renderSpill();
+  renderCases();
+  renderStates();
+  renderDragLab();
+  renderVerticalBars();
+  renderExtended();
+  renderExtCases();
+  auditExt();
+}
+wireMotion();
+wireControls();
+wireDrag();
+wireVerticalBars();
+wireExtended();
+const fontsReady = document.fonts && document.fonts.load ? Promise.race([document.fonts.load('12px "JetBrains Mono"'), new Promise(r => setTimeout(r, 1500))]) : Promise.resolve();
+fontsReady.then(renderAll, renderAll);
+</script>

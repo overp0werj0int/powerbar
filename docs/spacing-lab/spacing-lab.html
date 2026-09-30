@@ -354,6 +354,9 @@ html.no-motion .page *, html.no-motion .page *::before, html.no-motion .page *::
         <li><strong>Equal slots</strong> is the one cell, one inset rule and the default.<p>Every glyph gets the same square slot, and highlights sit one inset apart. At spacing 0 the icon pitch is 23 px on the standard bar and 35 px on the large bar; Space between widgets 4 gives the standard bar Omarchy's 27 px icon pitch. Corrected on 30 September: icon cells were 24 × 20 on the standard bar, which broke the circles this page describes.</p></li>
         <li><strong>Equal gaps</strong> puts the same air between every pair of glyphs.<p>Highlights stay symmetric and may overlap in the gaps. Where two overlap, the older one fades to 45%.</p></li>
         <li><strong>Every animation follows one switch.</strong><p>Preferences → Behavior → Animations (<code>powerbarAnimations</code>). With it off, everything still works and still reads clearly: each change lands in its final state at once, and the bar does no per-frame work.</p></li>
+        <li><strong>Icon cells are square on every bar.</strong><p>C = T, so an icon's highlight is a square, and a circle wherever the island is a capsule. Space between widgets widens gutters and gaps, never cells.</p></li>
+        <li><strong>Vertical bars use the same rule turned on its side.</strong><p>The theme's vertical size (28 px, 40 px large), cells measured along the bar, glyphs centred on the bar's centre line by their ink, nothing wider than T across the bar, badges 1 px inside the island.</p></li>
+        <li><strong>Extended islands are islands.</strong><p>Strips follow the island rule along the bar's axis, one bar gap from the bar, centred on the group icon. Menus stack highlight rows with the island's radius: icons keep their cell, names start after it or at the icon edge, values and counts trail. They line up with the icon that opened them and grow out of it.</p></li>
         <li><strong>In Preferences</strong> it is a two-chip row called Spacing in the Style section, above the existing "Space between widgets" slider.<p>Config key <code>powerbarSpacingMode</code>: <code>"slots"</code> (default) or <code>"gaps"</code>. Each option's one-line description replaces the row's description when chosen, the way <code>PrefsChoice</code> already works.</p></li>
       </ul>
       <div>
@@ -480,7 +483,6 @@ html.no-motion .page *, html.no-motion .page *::before, html.no-motion .page *::
 
   <section id="vertical">
     <div class="section-head">
-      <span class="ext-status">Draft for review</span>
       <h2>Vertical bars</h2>
       <p>The same rule turned on its side. Cells grow along the bar and never across it, highlights are the cell box in both spacing modes, and glyphs centre on the bar's centre line. Your left, centre and right islands are drawn side by side; hover any of them.</p>
     </div>
@@ -504,7 +506,6 @@ html.no-motion .page *, html.no-motion .page *::before, html.no-motion .page *::
 
   <section id="extended">
     <div class="section-head">
-      <span class="ext-status">Draft for review</span>
       <h2>Extended islands</h2>
       <p>Group drawers and managed drawers are islands too. They are built from the same cells, sit one bar gap from the island that opened them, and line up with the icon that opened them. Icons only gives a strip that follows the bar; names only and icons and names give a menu.</p>
     </div>
@@ -604,12 +605,12 @@ html.no-motion .page *, html.no-motion .page *::before, html.no-motion .page *::
   <section id="implement">
     <div class="section-head">
       <h2>Implementing the specification</h2>
-      <p>A sequence, in the order it can land without breaking drag and drop or the drawers.</p>
+      <p>A sequence, in the order it can land without breaking drag and drop or the drawers. <code>docs/spacing-implementation.md</code> expands each step with files, tests and acceptance checks.</p>
     </div>
     <ol class="steps">
-      <li><strong>Add <code>CellModel.js</code> with node tests.</strong><p><code>cellLength({ kind, inkWidth, thickness, inset, iconSlot, spacing, maxInk })</code> returns the box length; <code>layoutZone(cells, inset)</code> returns offsets. Kinds: glyph (has <code>glyphPaintedWidth</code>), text (has <code>labelWidth</code> or any other ink), compound (two or more registered click targets inside the slot).</p></li>
+      <li><strong>Add <code>CellModel.js</code> with node tests.</strong><p><code>cellLength({ kind, ink, thickness, maxInk })</code> returns the box length (T for glyphs); <code>layoutZone(items, { inset, spacing, mode })</code> returns boxes, ink offsets and the island length. Kinds: glyph (has <code>glyphPaintedWidth</code>), text (has <code>labelWidth</code> or any other ink), compound (two or more registered click targets inside the slot).</p></li>
       <li><strong>Measure an ink rectangle, not a width.</strong><p>Extend <code>HighlightModel.inkWidth</code> to <code>inkRect</code> returning left and width, so off-centre content (the tray, widgets with trailing gaps like Workspaces' 1.5 px) centres on what is painted.</p></li>
-      <li><strong>Size slots from the cell.</strong><p>In <code>Bar.qml</code> the slot's <code>naturalWidth</code> becomes the cell length and <code>presentation.x</code> shifts by <code>(L − ink) / 2 − inkLeft</code>. Row/Column <code>spacing</code> becomes the inset, <code>islandPadding</code> becomes the inset plus the drag lip. The drag gap is the dragged cell plus one inset, so the ghost's landing slot matches exactly.</p></li>
+      <li><strong>Size slots from the cell.</strong><p>In <code>Bar.qml</code> the slot's <code>naturalWidth</code> becomes the cell length and <code>presentation.x</code> shifts by <code>(L − ink) / 2 − inkLeft</code>. Row/Column <code>spacing</code> becomes the gutter (inset plus Space between widgets), <code>islandPadding</code> becomes the inset plus the drag lip. The drag gap is the dragged cell plus the gutter, so the ghost's landing slot matches exactly.</p></li>
       <li><strong>Make the highlight the slot box.</strong><p><code>highlightGeometry</code> reduces to the slot's rectangle at the inset thickness with radius <code>clamp(islandRounding − inset, 0, T / 2)</code>. Highlights need no end adjustment: the ends are concentric by construction.</p></li>
       <li><strong>Keep hit areas generous.</strong><p>Each slot's pointer area covers its cell plus half of each gutter and the full bar thickness; the first and last cells extend to the island ends (to the screen edge on a flat bar). Clip each slot to that area so oversized widgets cannot steal clicks from neighbours.</p></li>
       <li><strong>Give compounds thumbs.</strong><p>For compounds, hovering draws a faint track over the whole cell and a thumb over the hovered click target: side <code>min(T, pitch − 1)</code>, radius <code>r − (T − side) / 2</code>. Workspaces and Indicators already register their buttons as click targets.</p></li>

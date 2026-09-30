@@ -1,0 +1,661 @@
+<title>__LAB_TITLE__</title>
+<!--
+  Omarchy widget lab template. Copy next to the output of
+  scripts/collect_assets.py (w/, wall.jpg, widgets.js), then:
+    1. Fill every __PLACEHOLDER__ and TODO below; delete sections you don't need.
+    2. Define the options in ALGOS (keep "today" as the baseline).
+    3. Fill CASES, STATES, the rule rows and the research list with real content.
+  references/page-anatomy.md explains every section; assets/reference-lab.html
+  is a finished example (the Powerbar spacing lab).
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+:root {
+  --ground: #f5f1f0; --panel: #fffdfc; --ink: #261f1f; --muted: #6e6264; --line: #e2d9d7;
+  --accent: #5f5889; --accent-soft: rgba(95, 88, 137, 0.12); --good: #3f7a5a; --warn: #9a5b3c; --code-bg: #efe9e8;
+  /* The bar's own world: the user's Omarchy theme, fixed in both page themes.
+     applyTheme() overwrites these from widgets.js. */
+  --bar-fg: 220, 215, 214; --bar-bg: rgba(41, 35, 35, 0.72); --bar-accent: #a39eb8; --bar-urgent: #b98686; --bar-dark: #292323;
+  --sans: "Instrument Sans", "Segoe UI", system-ui, sans-serif;
+  --mono: "JetBrains Mono", "JetBrainsMono Nerd Font", ui-monospace, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark; --ground: #1c1818; --panel: #241f1f; --ink: #ebe5e4; --muted: #a69b9d; --line: #3a3131;
+    --accent: #b8b2d6; --accent-soft: rgba(184, 178, 214, 0.14); --good: #8cc5a3; --warn: #e0a383; --code-bg: #2c2626;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark; --ground: #1c1818; --panel: #241f1f; --ink: #ebe5e4; --muted: #a69b9d; --line: #3a3131;
+  --accent: #b8b2d6; --accent-soft: rgba(184, 178, 214, 0.14); --good: #8cc5a3; --warn: #e0a383; --code-bg: #2c2626;
+}
+* { box-sizing: border-box; }
+body { background: var(--ground); color: var(--ink); font: 15px/1.55 var(--sans); padding-inline: 20px; padding-block: 0 64px; }
+.page { max-width: 1180px; margin: 0 auto; }
+h1, h2, h3 { text-wrap: balance; line-height: 1.2; margin: 0; font-weight: 600; }
+h1 { font-size: clamp(30px, 4.4vw, 46px); letter-spacing: -0.02em; }
+h2 { font-size: 24px; letter-spacing: -0.01em; }
+h3 { font-size: 16px; }
+p { margin: 0; }
+code, .mono { font-family: var(--mono); font-size: 0.86em; }
+code { background: var(--code-bg); padding: 1px 5px; border-radius: 4px; }
+a { color: var(--accent); }
+section { margin-top: 64px; }
+.section-head { display: grid; gap: 6px; margin-bottom: 20px; max-width: 70ch; }
+.section-head p { color: var(--muted); }
+header.top { padding-block: 44px 20px; display: grid; gap: 14px; }
+header.top .lead { font-size: 17px; max-width: 68ch; color: var(--muted); }
+header.top .lead strong { color: var(--ink); font-weight: 600; }
+.note { font-size: 13px; color: var(--muted); margin-top: 10px; max-width: 80ch; }
+
+/* Controls */
+.controls { display: flex; flex-wrap: wrap; gap: 14px 22px; align-items: center; margin: 18px 0 12px; }
+.ctl { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
+.seg { display: inline-flex; background: var(--panel); border: 1px solid var(--line); border-radius: 999px; padding: 3px; gap: 2px; }
+.seg button { font: 500 13px var(--sans); color: var(--ink); background: transparent; border: 0; padding: 5px 12px; border-radius: 999px; cursor: pointer; }
+.seg button[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent); }
+.seg button:focus-visible, .tog:focus-visible, input[type=range]:focus-visible, .hit:focus-visible, .btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.tog { display: inline-flex; align-items: center; gap: 7px; font: 500 13px var(--sans); color: var(--ink); background: var(--panel); border: 1px solid var(--line); border-radius: 999px; padding: 5px 12px; cursor: pointer; }
+.tog::before { content: ""; width: 8px; height: 8px; border-radius: 50%; border: 1.5px solid var(--muted); }
+.tog[aria-pressed="true"]::before { background: var(--accent); border-color: var(--accent); }
+.ctl input[type=range] { width: 110px; accent-color: var(--accent); }
+.ctl output { font-family: var(--mono); font-size: 12px; color: var(--ink); min-width: 3ch; }
+.btn { font: 500 13px var(--sans); color: var(--ink); background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 6px 12px; cursor: pointer; }
+
+/* The wallpaper stage and the bar world */
+.stage { position: relative; background: #3a2e2e url("wall.jpg") center top / cover no-repeat; border-radius: 14px; padding: 22px 20px 26px; overflow-x: auto; }
+.stage.tight { padding: 16px 16px 20px; border-radius: 10px; }
+.zones { display: flex; flex-wrap: wrap; gap: 22px 28px; align-items: flex-start; justify-content: space-between; }
+.zone-wrap { position: relative; }
+.zones > .zone-wrap:nth-child(2) { margin-inline: auto; }
+.zones > .zone-wrap:nth-child(3) { margin-left: auto; }
+.zone-wrap.xray { padding-bottom: 22px; }
+.island { position: relative; flex: none; }
+.island.bg { background: var(--bar-bg); box-shadow: 0 1px 4px rgba(0, 0, 0, 0.37); outline: 0.5px solid rgba(var(--bar-fg), 0.16); }
+.island img, .island .lbl, .island .prefs { position: absolute; pointer-events: none; user-select: none; }
+/* The Artifact host wraps pages with img { max-width: 100% }; captures wider than
+   their island (vertical bars, menu cells) must keep their own size. */
+.page img { max-width: none; max-height: none; }
+.island .content { transition: transform 120ms ease; transform-origin: center; }
+.island .content.pressed { transform: scale(0.97); }
+.lbl { color: rgb(var(--bar-fg)); font-family: var(--mono); white-space: nowrap; overflow: hidden; }
+.lbl.fade { -webkit-mask-image: linear-gradient(90deg, #000 78%, transparent); mask-image: linear-gradient(90deg, #000 78%, transparent); }
+.prefs { display: grid; grid-template-columns: repeat(3, 1fr); }
+.prefs i { display: block; border-radius: 50%; background: rgb(var(--bar-fg)); opacity: 0.9; }
+.hl { position: absolute; opacity: 0; transition: opacity 90ms ease, background-color 120ms ease, box-shadow 120ms ease; pointer-events: none; }
+.hl.on { opacity: 1; }
+.hl.all { opacity: 1; background: rgba(var(--bar-fg), 0.10); }
+.hl.hover { background: rgba(var(--bar-fg), 0.13); }
+.hl.pressed { background: rgba(var(--bar-fg), 0.19); }
+.hl.open { background: rgba(var(--bar-fg), 0.22); }
+.hl.focus { background: rgba(var(--bar-fg), 0.13); box-shadow: inset 0 0 0 1.5px var(--bar-accent); }
+.hl.activity { background: color-mix(in srgb, var(--bar-accent) 30%, transparent); }
+.hl.urgent { background: color-mix(in srgb, var(--bar-urgent) 34%, transparent); }
+.hl.drop { background: transparent; box-shadow: inset 0 0 0 1px rgba(var(--bar-fg), 0.45); }
+.hl.track { background: rgba(var(--bar-fg), 0.06); }
+.hl.on.older { opacity: 0.45; }
+.hl.newest { z-index: 1; }
+.thumb { position: absolute; opacity: 0; background: rgba(var(--bar-fg), 0.15); transition: opacity 90ms ease; pointer-events: none; }
+.thumb.on { opacity: 1; }
+.badge { position: absolute; background: var(--bar-accent); color: var(--bar-dark); font: 600 9px/1 var(--mono); display: flex; align-items: center; justify-content: center; border-radius: 999px; pointer-events: none; z-index: 3; }
+.hit { position: absolute; top: 0; background: transparent; border: 0; padding: 0; margin: 0; cursor: pointer; z-index: 4; border-radius: 2px; }
+.xbox { position: absolute; border: 1px dashed rgba(var(--bar-fg), 0.38); pointer-events: none; }
+.xink { position: absolute; background: color-mix(in srgb, var(--bar-accent) 28%, transparent); border-left: 1px solid var(--bar-accent); border-right: 1px solid var(--bar-accent); pointer-events: none; }
+.xlab { position: absolute; font: 500 10px/1 var(--mono); color: rgba(var(--bar-fg), 0.92); transform: translateX(-50%); white-space: nowrap; pointer-events: none; text-shadow: 0 1px 2px rgba(0,0,0,.6); }
+.xlab.end { color: var(--bar-accent); }
+.xline { position: absolute; height: 1px; background: rgba(var(--bar-fg), 0.55); pointer-events: none; }
+
+/* Metric chips: good and bad are measured, never decorative */
+.chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.chip { font: 500 12px var(--mono); padding: 4px 10px; border-radius: 999px; background: var(--panel); border: 1px solid var(--line); color: var(--ink); }
+.chip b { font-weight: 500; color: var(--muted); margin-right: 6px; font-family: var(--sans); }
+.chip.good { border-color: color-mix(in srgb, var(--good) 45%, var(--line)); }
+.chip.good::after { content: " ✓"; color: var(--good); }
+.chip.bad { border-color: color-mix(in srgb, var(--warn) 45%, var(--line)); }
+.chip.bad::after { content: " ✗"; color: var(--warn); }
+
+/* Rule, comparison, decisions */
+.rule, .decided { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); gap: 28px; align-items: start; }
+.formulas { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 6px 0; }
+.formulas .row { display: grid; grid-template-columns: 1fr auto; gap: 4px 16px; padding: 12px 18px; border-top: 1px solid var(--line); }
+.formulas .row:first-child { border-top: 0; }
+.formulas .row .f { font-family: var(--mono); font-size: 13px; color: var(--accent); }
+.formulas .row .v { font-family: var(--mono); font-size: 13px; text-align: right; font-variant-numeric: tabular-nums; }
+.formulas .row p { grid-column: 1 / -1; color: var(--muted); font-size: 13.5px; }
+.why { display: grid; gap: 14px; }
+.why p { max-width: 62ch; }
+.compare { display: grid; gap: 14px; }
+.cmp-row { display: grid; grid-template-columns: 170px minmax(0, 1fr); gap: 18px; align-items: center; }
+.cmp-row .name h3 { font-size: 15px; }
+.cmp-row .name p { color: var(--muted); font-size: 13px; }
+.status { justify-self: start; display: inline-block; font: 600 11px var(--sans); letter-spacing: 0.04em; color: var(--good); border: 1px solid color-mix(in srgb, var(--good) 45%, var(--line)); border-radius: 999px; padding: 2px 9px; margin-bottom: 8px; }
+.decided ul { margin: 0; padding-left: 20px; display: grid; gap: 10px; }
+.decided li p { color: var(--muted); font-size: 14px; }
+/* A Preferences mock drawn to Powerbar's PrefsChoice layout, in the bar's theme */
+.prefs-card { background: var(--bar-dark); color: rgb(var(--bar-fg)); border: 1px solid rgba(var(--bar-fg), .14); border-radius: 12px; padding: 20px 22px; display: grid; gap: 16px; font-family: var(--mono); box-shadow: 0 8px 28px rgba(0,0,0,.35); }
+.prefs-card h4 { margin: 0; font: 600 13px var(--mono); }
+.prow { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px 16px; align-items: center; }
+.prow .pl { font-weight: 700; font-size: 13px; }
+.prow .pd { font-size: 11.5px; color: rgba(var(--bar-fg), .6); margin-top: 2px; }
+.chipset { display: inline-flex; border: 1px solid rgba(var(--bar-fg), .2); border-radius: 8px; padding: 2px; gap: 2px; }
+.chipset button { font: 500 11.5px var(--mono); color: rgb(var(--bar-fg)); background: transparent; border: 0; border-radius: 6px; padding: 5px 10px; cursor: pointer; }
+.chipset button[aria-pressed="true"] { background: rgba(var(--bar-fg), .16); }
+
+/* Edge cases and states */
+.cases { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+.case { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 18px; display: grid; gap: 10px; align-content: start; }
+.case p { color: var(--muted); font-size: 13.5px; }
+.pair { display: grid; gap: 8px; }
+.pair .lab { font: 500 11px var(--sans); color: var(--muted); letter-spacing: 0.04em; margin-bottom: -2px; }
+.pair .stage { padding: 12px 14px 14px; }
+.states { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
+.state { display: grid; gap: 8px; }
+.state .stage { padding: 12px; display: flex; justify-content: center; }
+.state h3 { font-size: 14px; }
+.state p { color: var(--muted); font-size: 12.5px; }
+
+/* Tables, steps, sources */
+.tablewrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); }
+table { border-collapse: collapse; width: 100%; font-size: 13.5px; }
+th, td { text-align: left; padding: 10px 14px; border-top: 1px solid var(--line); vertical-align: top; }
+thead th { border-top: 0; font-weight: 600; color: var(--muted); font-size: 12.5px; }
+td.mono { white-space: nowrap; }
+.steps { display: grid; gap: 12px; padding-left: 22px; margin: 0; max-width: 78ch; }
+.steps li p { color: var(--muted); font-size: 14px; margin-top: 2px; }
+.sources { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 28px; padding: 0; list-style: none; margin: 0; }
+.sources li { font-size: 13.5px; }
+.sources li span { color: var(--muted); display: block; }
+
+@media (max-width: 860px) {
+  .rule, .decided, .cases, .sources { grid-template-columns: minmax(0, 1fr); }
+  .states { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .cmp-row { grid-template-columns: minmax(0, 1fr); gap: 6px; }
+}
+/* Animations off: every transition and animation on the page resolves at once. */
+html.no-motion .page *, html.no-motion .page *::before, html.no-motion .page *::after { transition-duration: 0s !important; transition-delay: 0s !important; animation: none !important; }
+@media (prefers-reduced-motion: reduce) { .hl, .thumb, .island .content { transition: none; } }
+</style>
+
+<div class="page">
+  <header class="top">
+    <!-- The thesis as a name: the one idea of the proposal, in a few words. -->
+    <h1>__THESIS__</h1>
+    <!-- One paragraph: what changes, why, and that the preview is the user's real bar. Bold the one key idea. -->
+    <p class="lead">__LEAD__</p>
+  </header>
+
+  <div class="controls" role="group" aria-label="Preview options">
+    <div class="ctl"><span id="algo-l">__OPTION_LABEL__</span><div class="seg" id="algo" role="group" aria-labelledby="algo-l"></div></div>
+    <div class="ctl"><span id="size-l">Bar</span><div class="seg" id="size" role="group" aria-labelledby="size-l">
+      <button data-v="standard">Standard 26</button><button data-v="large">Large 38</button></div></div>
+    <div class="ctl"><label for="spacing">Spacing</label><input id="spacing" type="range" min="0" max="8" step="1" value="0"><output id="spacing-o">0</output></div>
+    <div class="ctl"><label for="rounding">Island rounding</label><input id="rounding" type="range" min="0" max="20" step="1" value="20"><output id="rounding-o">20</output></div>
+    <div class="ctl"><span id="zoom-l">Zoom</span><div class="seg" id="zoom" role="group" aria-labelledby="zoom-l">
+      <button data-v="1">1×</button><button data-v="2">2×</button><button data-v="3">3×</button></div></div>
+    <button class="tog" id="all" aria-pressed="false">Every highlight at once</button>
+    <button class="tog" id="xray" aria-pressed="false">Boxes and gaps</button>
+    <button class="tog" id="motion" aria-pressed="true">Animations</button>
+  </div>
+  <div class="stage" id="hero" aria-label="Bar preview"></div>
+  <div class="chips" id="hero-chips" aria-live="polite"></div>
+  <p class="note">Hover, click (holds an item open) or Tab through the bar. Rendered from your <code>~/.cache/powerbar/widgets</code> captures on your wallpaper and theme.</p>
+
+  <!-- DECISIONS: add once the user locks something in; keep the date. Delete until then.
+  <section id="decisions">
+    <div class="section-head"><span class="status">Decided __DATE__</span><h2>__DECISION_TITLE__</h2><p>__DECISION_SUMMARY__</p></div>
+    <div class="decided"><ul><li><strong>…</strong><p>…</p></li></ul><div>optional Preferences mock: .prefs-card, see reference-lab.html</div></div>
+  </section> -->
+
+  <section id="rule">
+    <div class="section-head"><h2>The rule</h2><p>__RULE_SUMMARY__</p></div>
+    <div class="rule">
+      <div class="formulas" id="formulas"></div>
+      <div class="why">
+        <div class="stage tight" id="rule-demo"></div>
+        <!-- 2–3 "why" paragraphs, each opening with a bold claim. -->
+        <p><strong>__WHY_1_CLAIM__</strong> __WHY_1__</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="compare">
+    <div class="section-head"><h2>__COMPARE_TITLE__</h2><p>__COMPARE_SUMMARY__</p></div>
+    <div class="compare" id="compare-rows"></div>
+  </section>
+
+  <!-- VALIDATION: one section per hypothesis the user raises. Formulas + measured table + demos.
+  <section id="validate-__slug__">…</section> -->
+
+  <section id="edges">
+    <div class="section-head"><h2>Edge cases</h2><p>Most cases show today's behaviour above the proposal. Hover either one.</p></div>
+    <div class="cases" id="cases"></div>
+  </section>
+
+  <section id="states">
+    <div class="section-head"><h2>Highlight states</h2><p>__STATES_SUMMARY__</p></div>
+    <div class="states" id="state-grid"></div>
+  </section>
+
+  <section id="motion">
+    <div class="section-head"><h2>Motion</h2><p>__MOTION_SUMMARY__</p></div>
+    <!-- The motion contract (keep): one switch, no information by motion alone,
+         logic independent of motion, sequences short-circuit, off means idle. -->
+    <div class="tablewrap"><table><thead><tr><th>Change</th><th>Animations on</th><th>Animations off</th><th>Why it still reads</th></tr></thead><tbody>
+      <!-- <tr><td>…</td><td class="mono">… ms, easing</td><td class="mono">at once</td><td>the static cue that carries the meaning</td></tr> -->
+    </tbody></table></div>
+  </section>
+
+  <section id="implement">
+    <div class="section-head"><h2>How it maps onto __PROJECT__</h2><p>A sequence, in the order it can land.</p></div>
+    <ol class="steps">
+      <!-- <li><strong>Imperative step naming files.</strong><p>What changes and why, with real function and property names.</p></li> -->
+    </ol>
+  </section>
+
+  <section id="research">
+    <div class="section-head"><h2>What the research says</h2><p>The references this proposal borrows from, and the part each one contributed.</p></div>
+    <ul class="sources">
+      <!-- <li><a href="URL">Source title</a><span>What it contributed, in one line.</span></li> -->
+    </ul>
+  </section>
+</div>
+
+<script src="widgets.js"></script>
+<script>
+// ======================= Page configuration (edit) =======================
+const LAB = window.LAB || { widgets: {}, zones: { left: [], center: [], right: [] }, theme: { colors: {} } };
+// Widgets whose sub-items are separate click targets (thumbs on hover).
+const COMPOUNDS = new Set(["workspaces", "indicators"]);
+// Readable names for aria labels; unknown ids fall back to their slug.
+const NAMES = { prefs: "Powerbar preferences" };
+// What the preview shows, per zone. Default: the user's bar as collected.
+const ZONES = { left: LAB.zones.left, center: LAB.zones.center, right: LAB.zones.right.concat(["prefs"]) };
+// The options being compared. Keep "today" first: it is the baseline every chip measures against.
+// Each layout(items, P) returns { len, cells } (see references/engine.md).
+const ALGOS = {
+  today: { label: "Today", layout: layoutToday },
+  slots: { label: "Equal slots", layout: layoutSlots },
+  gaps: { label: "Equal gaps", layout: layoutGaps },
+};
+const DEFAULT_ALGO = "slots";
+// Rows for "The rule": [formula, value(P), explanation(P)].
+const RULE_ROWS = [
+  ["inset  i = min(3, (B − 16) / 2)", P => fmt(P.i) + " px", P => "Highlight to bar edge, to the next highlight and to the island end. B is " + P.B + " px."],
+  ["thickness  T = B − 2i", P => fmt(P.T) + " px", () => "Every highlight is this tall."],
+  // TODO: the proposal's own formulas
+];
+const RULE_DEMO = () => ZONES.right.slice(0, 3);
+// Edge cases: { title, text, items, states?, part?, all?, xray?, only? }
+const CASES = [
+  // { title: "Icon at an island end", text: "…", items: ["monitor", "bluetooth", "network"], states: { 2: "hover" } },
+];
+// States grid: [title, state, description]
+const STATES = [
+  ["Rest", null, "No fill. The cell still owns its hit area."],
+  ["Hover", "hover", "Foreground at 13%, <code>Style.hoverFillFor</code>."],
+  ["Pressed", "pressed", "Foreground at 19%, glyph scales to 0.97."],
+  ["Open", "open", "Foreground at 22%, <code>Style.selectedFillFor</code>."],
+  ["Keyboard focus", "focus", "Hover fill plus a 1.5 px accent ring."],
+  ["Activity peek", "activity", "Accent at 30% for 2.5 s."],
+  ["Urgent", "urgent", "Urgent colour at 34%."],
+  ["Drop target", "drop", "A 1 px outline in the cell's shape."],
+];
+// ==================== Engine (see references/engine.md) ===================
+const CAPTURE_H = 38, ICON_SLOT = 27, TYPICAL_GLYPH = 12, MAX_INK = 160, PREFS_INK = 12.5;
+const W = LAB.widgets;
+
+function applyTheme() {
+  const c = LAB.theme.colors || {}, root = document.documentElement.style;
+  const rgb = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
+  if (c.foreground) root.setProperty("--bar-fg", rgb(c.foreground).join(", "));
+  if (c.background) { root.setProperty("--bar-bg", "rgba(" + rgb(c.background).join(", ") + ", 0.72)"); root.setProperty("--bar-dark", c.background); }
+  if (c.accent) root.setProperty("--bar-accent", c.accent);
+  if (c.color1) root.setProperty("--bar-urgent", c.color1);
+}
+let ctx2d = null;
+function textWidth(text) {
+  if (!ctx2d) ctx2d = document.createElement("canvas").getContext("2d");
+  ctx2d.font = '12px "JetBrains Mono", ui-monospace, monospace';
+  return ctx2d.measureText(text).width;
+}
+function kindOf(name, d) {
+  if (COMPOUNDS.has(name)) return "compound";
+  return d.ink[1] <= 16 && d.parts.length <= 1 ? "glyph" : "text";
+}
+function makeItem(spec) {
+  const s = typeof spec === "string" ? { id: spec } : Object.assign({}, spec);
+  if (s.id === "prefs") return Object.assign(s, { kind: "glyph", prefs: true, name: NAMES.prefs, inkW: PREFS_INK });
+  if (s.id === "ghost") return Object.assign(s, { ghost: true, kind: "glyph", inkW: 0, w: ICON_SLOT, inkX: 0, name: "Drop here" });
+  if (s.text != null) {
+    const w = textWidth(s.text);
+    return Object.assign(s, { kind: "text", label: true, name: s.name || s.text, inkX: 8.5, inkW: w, w: w + 17 });
+  }
+  const d = W[s.id];
+  if (!d) throw new Error("No capture for " + s.id + "; run collect_assets.py with it");
+  return Object.assign(s, { kind: s.kind || kindOf(s.id, d), name: NAMES[s.id] || s.id.replace(/-/g, " "), w: d.w, h: d.h || CAPTURE_H, inkX: d.ink[0], inkW: d.ink[1], parts: d.parts });
+}
+function params(o) {
+  const B = o.size === "large" ? 38 : 26;
+  const i = Math.min(3, Math.max(0, (B - 16) / 2));
+  const T = B - 2 * i, R = Math.min(o.rounding, B / 2), s = o.spacing || 0;
+  // Icon cells are square (T by T), so icon highlights are circles in a capsule island;
+  // extra spacing widens gutters and gaps, never cells.
+  const cell = T;
+  return { B, i, T, R, s, cell, gut: i + s, air: (cell - TYPICAL_GLYPH) / 2, r: Math.max(0, Math.min(T / 2, R - i)),
+    todayPad: Math.max(o.size === "large" ? 8 : 4, i + 4), todayR: Math.max(0, Math.min(T / 2, Math.max(4, o.rounding - 3))), gap: cell / 2 + 2 + s };
+}
+function cellLength(it, P) {
+  if (it.kind === "glyph") return P.cell;
+  return Math.max(P.cell, Math.min(it.inkW, MAX_INK) + 2 * P.air);
+}
+function inkOf(it) { return it.label ? Math.min(it.inkW, MAX_INK) : it.inkW; }
+function addThumbs(c, P) {
+  if (c.it.kind !== "compound") return;
+  const centres = c.it.parts.map(p => c.contentX + p[0] + p[1] / 2);
+  const diffs = centres.slice(1).map((v, k) => v - centres[k]).sort((a, b) => a - b);
+  const side = Math.min(P.T, (diffs.length ? diffs[Math.floor(diffs.length / 2)] : P.T) - 1);
+  c.thumbs = centres.map(cx => ({ x: cx - side / 2, side, r: Math.max(0, P.r - (P.T - side) / 2) }));
+}
+// Today's Powerbar: widget-owned widths, highlight from ink, end snap.
+function layoutToday(items, P) {
+  const cells = []; let x = P.todayPad;
+  items.forEach((it, k) => {
+    const w = it.prefs ? P.B : it.w, inkX = it.prefs ? (P.B - PREFS_INK) / 2 : it.inkX;
+    cells.push({ it, box: { x, L: w }, ink: { x: x + inkX, w: it.inkW }, contentX: x, hit: { x, L: w } });
+    x += w + (k < items.length - 1 ? P.s : 0);
+  });
+  const len = x + P.todayPad, ls = P.i, le = len - P.i;
+  cells.forEach(c => {
+    let ink = c.it.kind === "compound" ? c.box.L : c.it.inkW;
+    if (!(ink > 0) || ink > c.box.L) ink = c.box.L;
+    let L = ink <= P.T ? P.T : ink + 8, start = c.box.x + c.box.L / 2 - L / 2;
+    if (L > le - ls) { L = le - ls; start = ls; }
+    else {
+      start = Math.max(ls, Math.min(le - L, start));
+      if (start - ls <= P.T / 2) { L += start - ls; start = ls; }
+      if (le - (start + L) <= P.T / 2) L = le - start;
+    }
+    c.hl = { x: start, L, r: P.todayR };
+  });
+  return { len, cells, fixedHits: true };
+}
+// One cell, one inset.
+function layoutSlots(items, P) {
+  const cells = []; let x = P.i;
+  items.forEach(it => {
+    const L = cellLength(it, P), inkW = inkOf(it), inkX = it.prefs ? 0 : it.inkX, inkLeft = x + L / 2 - inkW / 2;
+    const c = { it, box: { x, L }, ink: { x: inkLeft, w: inkW }, contentX: inkLeft - inkX, hl: { x, L, r: P.r } };
+    addThumbs(c, P); cells.push(c); x += L + P.gut;
+  });
+  return { len: x - P.gut + P.i, cells };
+}
+// Equal air between glyphs; highlights are the cell box, spilling into gaps.
+function layoutGaps(items, P) {
+  const cells = [];
+  const pre = items.map(it => ({ it, L: cellLength(it, P), inkW: inkOf(it), slot: inkOf(it) + (it.heldPad || 0), inkX: it.prefs ? 0 : it.inkX }));
+  let x = pre.length ? P.i + (pre[0].L - pre[0].slot) / 2 : P.i;
+  pre.forEach(p => {
+    const inkLeft = x + (p.slot - p.inkW) / 2;
+    const c = { it: p.it, ink: { x: inkLeft, w: p.inkW }, contentX: inkLeft - p.inkX, box: { x: x + p.slot / 2 - p.L / 2, L: p.L }, splitAtInk: true };
+    c.hl = { x: c.box.x, L: p.L, r: P.r }; addThumbs(c, P); cells.push(c); x += p.slot + P.gap;
+  });
+  const last = cells[cells.length - 1];
+  return { len: last ? last.hl.x + last.hl.L + P.i : 2 * P.i, cells };
+}
+function layout(specs, algo, P) {
+  const lay = ALGOS[algo].layout(specs.map(makeItem), P);
+  if (!lay.fixedHits) lay.cells.forEach((c, k, cs) => {
+    const edge = o => o.splitAtInk ? { a: o.ink.x, b: o.ink.x + o.ink.w } : { a: o.hl.x, b: o.hl.x + o.hl.L };
+    const left = k === 0 ? 0 : (edge(cs[k - 1]).b + edge(c).a) / 2;
+    const right = k === cs.length - 1 ? lay.len : (edge(c).b + edge(cs[k + 1]).a) / 2;
+    c.hit = { x: left, L: right - left };
+  });
+  return lay;
+}
+function metrics(lays) {
+  const glyph = [], ends = [], hl = [], clear = []; let centred = true;
+  lays.forEach(lay => {
+    const cs = lay.cells.filter(c => !c.it.ghost);
+    if (!cs.length) return;
+    ends.push(cs[0].ink.x, lay.len - (cs[cs.length - 1].ink.x + cs[cs.length - 1].ink.w));
+    for (let k = 1; k < cs.length; k++) {
+      glyph.push(cs[k].ink.x - (cs[k - 1].ink.x + cs[k - 1].ink.w));
+      hl.push(cs[k].hl.x - (cs[k - 1].hl.x + cs[k - 1].hl.L));
+      clear.push(cs[k].ink.x - (cs[k - 1].hl.x + cs[k - 1].hl.L), cs[k].hl.x - (cs[k - 1].ink.x + cs[k - 1].ink.w));
+    }
+    [cs[0], cs[cs.length - 1]].forEach(c => {
+      if (c.it.kind !== "compound" && Math.abs(c.hl.x + c.hl.L / 2 - (c.ink.x + c.ink.w / 2)) > 1) centred = false;
+    });
+  });
+  const range = a => a.length ? [Math.min(...a), Math.max(...a)] : [0, 0];
+  return { glyph: range(glyph), ends: range(ends), hl: range(hl), clear: range(clear), centred };
+}
+const fmt = v => (Math.round(v * 2) / 2).toString();
+const fmtRange = r => fmt(r[0]) === fmt(r[1]) ? fmt(r[0]) : fmt(r[0]) + "–" + fmt(r[1]);
+const px = v => v + "px";
+function el(tag, cls, style, parent) {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (style) Object.assign(e.style, style);
+  if (parent) parent.appendChild(e);
+  return e;
+}
+function chip(host, label, value, good) {
+  const c = el("span", "chip" + (good === true ? " good" : good === false ? " bad" : ""), null, host);
+  c.innerHTML = "<b>" + label + "</b>" + value;
+}
+const lightClock = { n: 10 };
+
+// Draws one island into `parent`. opt: { Z, bg, xray, all, interactive, states, part, recent }
+function renderZone(parent, specs, algo, P, opt) {
+  const Z = opt.Z, lay = layout(specs, algo, P);
+  const wrap = el("div", "zone-wrap" + (opt.xray ? " xray" : ""), null, parent);
+  const island = el("div", "island" + (opt.bg ? " bg" : ""), { width: px(lay.len * Z), height: px(P.B * Z), borderRadius: px(P.R * Z) }, wrap);
+  const refs = [];
+  lay.cells.forEach(c => {
+    const it = c.it;
+    const hl = el("div", "hl", { left: px(c.hl.x * Z), top: px(P.i * Z), width: px(c.hl.L * Z), height: px(P.T * Z), borderRadius: px(c.hl.r * Z) }, island);
+    const thumbs = (c.thumbs || []).map(t => el("div", "thumb", { left: px(t.x * Z), top: px((P.B - t.side) / 2 * Z), width: px(t.side * Z), height: px(t.side * Z), borderRadius: px(t.r * Z) }, island));
+    let content = null;
+    if (it.ghost) hl.classList.add("drop", "on");
+    else if (it.prefs) {
+      const size = 12.5;
+      content = el("div", "prefs content", { left: px(c.ink.x * Z), top: px((P.B - size) / 2 * Z), width: px(size * Z), height: px(size * Z), gap: px(2.5 * Z) }, island);
+      for (let d = 0; d < 9; d++) el("i", null, { width: px(2.5 * Z), height: px(2.5 * Z) }, content);
+    } else if (it.label) {
+      const w = Math.min(it.inkW, algo === "today" ? Infinity : MAX_INK);
+      content = el("span", "lbl content" + (w < it.inkW ? " fade" : ""), { left: px(c.ink.x * Z), width: px(w * Z + 1), top: 0, height: px(P.B * Z), lineHeight: px(P.B * Z), fontSize: px(12 * Z) }, island);
+      content.textContent = it.text;
+    } else {
+      content = el("img", "content", { left: px(c.contentX * Z), top: px((P.B - it.h) / 2 * Z), width: px(it.w * Z), height: px(it.h * Z) }, island);
+      content.src = "w/" + it.id + ".png"; content.alt = "";
+    }
+    if (it.badge) {
+      const bh = 12, bw = Math.max(12, String(it.badge).length * 6 + 5);
+      const k45 = c.hl.r * (1 - Math.SQRT1_2);
+      const right = algo === "today" ? c.box.x + c.box.L + 2 : c.hl.x + c.hl.L - k45 + bw / 2;
+      const top = algo === "today" ? -2 : Math.max(1, P.i + k45 - bh / 2);
+      const b = el("div", "badge", { left: px((right - bw) * Z), top: px(top * Z), width: px(bw * Z), height: px(bh * Z), fontSize: px(8.5 * Z) }, island);
+      b.textContent = it.badge;
+    }
+    if (opt.xray && !it.ghost) {
+      el("div", "xbox", { left: px(c.box.x * Z), top: px(P.i * Z), width: px(c.box.L * Z), height: px(P.T * Z), borderRadius: px(Math.min(c.hl.r, 6) * Z) }, island);
+      el("div", "xink", { left: px(c.ink.x * Z), top: px((P.B / 2 - 7) * Z), width: px(c.ink.w * Z), height: px(14 * Z) }, island);
+    }
+    let hit = null;
+    if (opt.interactive && !it.ghost) {
+      hit = el("button", "hit", { left: px(c.hit.x * Z), width: px(c.hit.L * Z), height: px(P.B * Z) }, island);
+      hit.type = "button"; hit.setAttribute("aria-label", it.name);
+    }
+    refs.push({ c, hl, thumbs, content, hit, state: null, part: -1 });
+  });
+  if (opt.xray) {
+    const cs = lay.cells.filter(c => !c.it.ghost), y = P.B * Z + 7;
+    const label = (a, b, end) => {
+      if (b - a < 0.5) return;
+      el("div", "xline", { left: px(a * Z), width: px((b - a) * Z), top: px(y) }, wrap);
+      el("div", "xlab" + (end ? " end" : ""), { left: px((a + b) / 2 * Z), top: px(y + 4) }, wrap).textContent = fmt(b - a);
+    };
+    if (cs.length) {
+      label(0, cs[0].ink.x, true);
+      for (let k = 1; k < cs.length; k++) label(cs[k - 1].ink.x + cs[k - 1].ink.w, cs[k].ink.x, false);
+      label(cs[cs.length - 1].ink.x + cs[cs.length - 1].ink.w, lay.len, true);
+    }
+  }
+  const stateOf = (r, k) => (opt.states && opt.states[k]) || r.state;
+  if (opt.states) Object.keys(opt.states).forEach(k => { refs[k].litAt = Number(k) === opt.recent ? 2 : 1; });
+  function paint() {
+    // Overlapping lit highlights stay symmetric; the more recent one sits on
+    // top and the older one fades.
+    const lit = refs.map((r, k) => !r.c.it.ghost && !!stateOf(r, k));
+    refs.forEach((r, k) => {
+      if (r.c.it.ghost) return;
+      const st = stateOf(r, k);
+      let older = false;
+      if (lit[k]) [k - 1, k + 1].forEach(j => {
+        const o = refs[j];
+        if (!o || !lit[j] || (o.litAt || 0) <= (r.litAt || 0)) return;
+        if (Math.min(r.c.hl.x + r.c.hl.L, o.c.hl.x + o.c.hl.L) - Math.max(r.c.hl.x, o.c.hl.x) > 0) older = true;
+      });
+      r.hl.className = "hl";
+      if (st) {
+        r.hl.classList.add("on", r.thumbs.length && (st === "hover" || st === "pressed") ? "track" : st, older ? "older" : "newest");
+      } else if (opt.all) r.hl.classList.add("all");
+      const part = opt.part && opt.part[k] != null ? opt.part[k] : r.part;
+      r.thumbs.forEach((t, j) => t.classList.toggle("on", !!st && j === part));
+      if (r.content) r.content.classList.toggle("pressed", st === "pressed");
+    });
+  }
+  if (opt.interactive) refs.forEach(r => {
+    if (!r.hit) return;
+    const nearestPart = e => {
+      if (!r.thumbs.length) return -1;
+      const xx = (e.clientX - island.getBoundingClientRect().left) / Z;
+      let best = 0, bd = Infinity;
+      r.c.thumbs.forEach((t, j) => { const d = Math.abs(t.x + t.side / 2 - xx); if (d < bd) { bd = d; best = j; } });
+      return best;
+    };
+    const light = () => { r.litAt = ++lightClock.n; };
+    const base = () => (r.open ? "open" : null);
+    r.hit.addEventListener("pointerenter", e => { if (!r.state) light(); r.state = r.open ? "open" : "hover"; r.part = nearestPart(e); paint(); });
+    r.hit.addEventListener("pointermove", e => { const p = nearestPart(e); if (p !== r.part) { r.part = p; paint(); } });
+    r.hit.addEventListener("pointerleave", () => { r.state = base(); r.part = -1; paint(); });
+    r.hit.addEventListener("pointerdown", () => { r.state = "pressed"; paint(); });
+    r.hit.addEventListener("click", () => {
+      r.open = !r.open; if (r.open) light();
+      refs.forEach(o => { if (o !== r && o.open) { o.open = false; o.state = null; } });
+      r.state = r.open ? "open" : "hover"; paint();
+    });
+    r.hit.addEventListener("focus", () => { if (r.hit.matches(":focus-visible")) { light(); r.state = "focus"; if (r.thumbs.length) r.part = 0; paint(); } });
+    r.hit.addEventListener("blur", () => { r.state = base(); r.part = -1; paint(); });
+    r.hit.addEventListener("keydown", e => {
+      if (!r.thumbs.length) return;
+      if (e.key === "ArrowRight" || e.key === "l") { r.part = Math.min(r.thumbs.length - 1, r.part + 1); paint(); e.preventDefault(); }
+      if (e.key === "ArrowLeft" || e.key === "h") { r.part = Math.max(0, r.part - 1); paint(); e.preventDefault(); }
+    });
+  });
+  paint();
+  return { lay, wrap, island, refs, paint };
+}
+
+// ============================== Sections ==================================
+const state = { algo: DEFAULT_ALGO, size: LAB.bar && LAB.bar.large ? "large" : "standard", spacing: 0,
+  rounding: LAB.bar && typeof LAB.bar.rounding === "number" ? Math.min(20, LAB.bar.rounding) : 20, zoom: window.innerWidth < 700 ? 1 : 2, all: false, xray: false };
+const zoomFor = (wide, narrow) => window.innerWidth < 700 ? narrow : wide;
+
+function renderHero() {
+  const stage = document.getElementById("hero"); stage.innerHTML = "";
+  const P = params(state), zones = el("div", "zones", null, stage), lays = [];
+  ["left", "center", "right"].forEach(z => { if (ZONES[z].length) lays.push(renderZone(zones, ZONES[z], state.algo, P, { Z: state.zoom, bg: true, xray: state.xray, all: state.all, interactive: true }).lay); });
+  const m = metrics(lays), chips = document.getElementById("hero-chips"); chips.innerHTML = "";
+  chip(chips, "Air between glyphs", fmtRange(m.glyph) + " px", m.glyph[1] - m.glyph[0] <= 6);
+  chip(chips, "Air at island ends", fmtRange(m.ends) + " px");
+  chip(chips, "Highlight to the next glyph", "at least " + fmt(m.clear[0]) + " px", m.clear[0] >= 2);
+  chip(chips, "End highlights centred on their glyph", m.centred ? "yes" : "no", m.centred);
+  renderRule(P);
+}
+function renderRule(P) {
+  const f = document.getElementById("formulas"); f.innerHTML = "";
+  RULE_ROWS.forEach(([form, val, text]) => {
+    const r = el("div", "row", null, f);
+    el("span", "f", null, r).textContent = form;
+    el("span", "v", null, r).textContent = val(P);
+    el("p", null, null, r).textContent = text(P);
+  });
+  const demo = document.getElementById("rule-demo"); demo.innerHTML = "";
+  renderZone(demo, RULE_DEMO(), DEFAULT_ALGO, P, { Z: zoomFor(2.5, 1.6), bg: true, xray: true, all: true, interactive: true });
+}
+function renderCompare() {
+  const host = document.getElementById("compare-rows"); host.innerHTML = "";
+  const P = params({ size: state.size, rounding: state.rounding, spacing: 0 });
+  Object.entries(ALGOS).forEach(([algo, def]) => {
+    const row = el("div", "cmp-row", null, host), n = el("div", "name", null, row);
+    el("h3", null, null, n).textContent = def.label;
+    el("p", null, null, n).textContent = def.summary || "";
+    const right = el("div", null, null, row), stage = el("div", "stage tight", null, right);
+    const z = renderZone(stage, ZONES.right, algo, P, { Z: zoomFor(2, 1.6), bg: true, xray: true, all: true, interactive: true });
+    const m = metrics([z.lay]), chips = el("div", "chips", null, right);
+    chip(chips, "Glyph air", fmtRange(m.glyph) + " px", m.glyph[1] - m.glyph[0] <= 6);
+    chip(chips, "Highlight to the next glyph", "at least " + fmt(m.clear[0]) + " px", m.clear[0] >= 2);
+  });
+}
+function renderCases() {
+  const host = document.getElementById("cases"); host.innerHTML = "";
+  const P = params({ size: state.size, rounding: state.rounding, spacing: 0 });
+  CASES.forEach((cs, idx) => {
+    const card = el("article", "case", null, host);
+    el("h3", null, null, card).textContent = cs.title;
+    el("p", null, null, card).textContent = cs.text;
+    const pair = el("div", "pair", null, card);
+    (cs.only ? [DEFAULT_ALGO] : ["today", DEFAULT_ALGO]).forEach(algo => {
+      el("div", "lab", null, pair).textContent = algo === "today" ? "Today" : "Proposed";
+      const stage = el("div", "stage", { backgroundPosition: (15 + idx * 7) % 100 + "% 0" }, pair);
+      renderZone(el("div", "zones", { justifyContent: "flex-start" }, stage), cs.items, algo, P, { Z: zoomFor(2.2, 1.6), bg: true, all: !!cs.all, xray: !!cs.xray, interactive: true, states: cs.states, part: cs.part });
+    });
+  });
+}
+function renderStates() {
+  const host = document.getElementById("state-grid"); host.innerHTML = "";
+  const P = params({ size: state.size, rounding: state.rounding, spacing: 0 });
+  const sample = ZONES.right.filter(n => n !== "prefs").slice(0, 3);
+  STATES.forEach(([name, st, text]) => {
+    const card = el("div", "state", null, host), stage = el("div", "stage tight", null, card);
+    renderZone(stage, sample, DEFAULT_ALGO, P, { Z: zoomFor(2.2, 1.7), bg: true, states: st ? { 1: st } : {} });
+    el("h3", null, null, card).textContent = name;
+    el("p", null, null, card).innerHTML = text;
+  });
+}
+function wireControls() {
+  const algoSeg = document.getElementById("algo");
+  Object.entries(ALGOS).forEach(([v, def]) => { const b = el("button", null, null, algoSeg); b.dataset.v = v; b.textContent = def.label; });
+  const sync = () => {
+    ["algo", "size", "zoom"].forEach(k => document.querySelectorAll("#" + k + " button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.v === String(state[k])))));
+    ["spacing", "rounding"].forEach(k => { document.getElementById(k).value = state[k]; document.getElementById(k + "-o").value = state[k]; });
+    ["all", "xray"].forEach(k => document.getElementById(k).setAttribute("aria-pressed", String(state[k])));
+  };
+  ["algo", "size", "zoom"].forEach(k => document.querySelectorAll("#" + k + " button").forEach(b => b.addEventListener("click", () => {
+    state[k] = k === "zoom" ? Number(b.dataset.v) : b.dataset.v; sync(); renderHero(); if (k === "size") { renderCompare(); renderCases(); renderStates(); }
+  })));
+  ["spacing", "rounding"].forEach(k => document.getElementById(k).addEventListener("input", e => { state[k] = Number(e.target.value); sync(); renderHero(); }));
+  ["all", "xray"].forEach(k => document.getElementById(k).addEventListener("click", () => { state[k] = !state[k]; sync(); renderHero(); }));
+  sync();
+}
+function renderAll() { renderHero(); renderCompare(); renderCases(); renderStates(); }
+// Animations switch, mirroring Powerbar's own; starts off under reduced motion.
+const motionOn = () => !document.documentElement.classList.contains("no-motion");
+function applyMotion(on) {
+  document.documentElement.classList.toggle("no-motion", !on);
+  document.getElementById("motion").setAttribute("aria-pressed", String(on));
+}
+function wireMotion() {
+  applyMotion(!window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+  document.getElementById("motion").addEventListener("click", () => applyMotion(!motionOn()));
+}
+applyTheme();
+wireMotion();
+wireControls();
+const fontsReady = document.fonts && document.fonts.load ? Promise.race([document.fonts.load('12px "JetBrains Mono"'), new Promise(r => setTimeout(r, 1500))]) : Promise.resolve();
+fontsReady.then(renderAll, renderAll);
+</script>
