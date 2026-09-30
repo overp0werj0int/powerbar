@@ -233,7 +233,7 @@ td.mono { white-space: nowrap; }
 
 /* Drag lab */
 .drag-area { position: relative; }
-.drag-area .island img, .drag-area .island .ph { transition-property: left, width; transition-timing-function: cubic-bezier(0.37, 0, 0.63, 1); }
+.drag-area .island img, .drag-area .island .ph { transition-property: left, width, opacity; transition-timing-function: cubic-bezier(0.37, 0, 0.63, 1); }
 .drag-area .island { transition: width 150ms cubic-bezier(0.37, 0, 0.63, 1); }
 .ph { position: absolute; background: rgba(var(--bar-fg), 0.05); box-shadow: inset 0 0 0 1px rgba(var(--bar-fg), 0.5); pointer-events: none; }
 .ghost { position: absolute; z-index: 6; background: none; border: 0; padding: 0; cursor: grab; touch-action: none;
@@ -243,6 +243,14 @@ td.mono { white-space: nowrap; }
 .ghost img { position: absolute; }
 .ghost-dot { position: absolute; width: 7px; height: 7px; margin-left: -3.5px; border-radius: 50%; background: rgb(var(--bar-fg)); box-shadow: 0 0 0 2px rgba(0,0,0,.35); pointer-events: none; }
 .ghost:active { cursor: grabbing; }
+.ghost .carrier, .ghost .carrier::after { transition: opacity 180ms cubic-bezier(0.23, 1, 0.32, 1), box-shadow 180ms cubic-bezier(0.23, 1, 0.32, 1); }
+.ghost.settling { transition: left 180ms cubic-bezier(0.23, 1, 0.32, 1), top 180ms cubic-bezier(0.23, 1, 0.32, 1), transform 180ms cubic-bezier(0.23, 1, 0.32, 1); }
+.ghost.lifting { transition: top 120ms cubic-bezier(0.23, 1, 0.32, 1), transform 120ms cubic-bezier(0.23, 1, 0.32, 1); }
+.ghost.lifting .carrier, .ghost.lifting .carrier::after { transition-duration: 120ms; }
+.ghost.settled { transform: scale(1); }
+.ghost.settled .carrier { opacity: 0; box-shadow: none; }
+.ph { transition: opacity 120ms ease; }
+.ph.settled { opacity: 0; }
 .ghost img { pointer-events: none; }
 .ghost:focus-visible { outline: 2px solid var(--bar-accent); outline-offset: 2px; border-radius: 8px; }
 .tick { position: absolute; width: 1px; background: var(--bar-accent); opacity: .85; pointer-events: none; }
@@ -263,13 +271,13 @@ td.mono { white-space: nowrap; }
 <div class="page">
   <header class="top">
     <h1>One cell, one inset</h1>
-    <p class="lead">A spacing rule for Powerbar where every widget's <strong>layout box is also its highlight</strong>. Icons share one cell, text gets the same air an icon has, and every gap, island end and edge uses the same 3&nbsp;px inset, so highlights are concentric with the island. Hover or Tab through the bar: the widgets are your own cached captures, on your current wallpaper and theme.</p>
+    <p class="lead">Powerbar's spacing and highlight specification. Every widget's <strong>layout box is also its highlight</strong>: icons share one cell, text gets the same air an icon has, and every gap, island end and edge uses the same 3&nbsp;px inset, so highlights are concentric with the island. Two modes build on it, Equal slots and Equal gaps. Hover or Tab through the bar: the widgets are your own cached captures, on your current wallpaper and theme.</p>
   </header>
 
   <div class="controls" role="group" aria-label="Bar options">
     <div class="ctl"><span id="algo-l">Spacing</span>
       <div class="seg" id="algo" role="group" aria-labelledby="algo-l">
-        <button data-v="today">Today</button><button data-v="cells">Equal slots</button><button data-v="gaps">Equal gaps</button>
+        <button data-v="cells">Equal slots</button><button data-v="gaps">Equal gaps</button>
       </div>
     </div>
     <div class="ctl"><span id="size-l">Bar</span>
@@ -299,13 +307,13 @@ td.mono { white-space: nowrap; }
 
   <section id="decisions">
     <div class="section-head">
-      <span class="status">Decided 30 September 2026</span>
+      <span class="status">Final, 30 September 2026</span>
       <h2>Two spacing options, one highlight</h2>
       <p>Both options ship and become a choice in Preferences. They share the highlight: the cell's box, centred on the glyph. "One cell, one inset" stays the name of the design idea; users see plainer names.</p>
     </div>
     <div class="decided">
       <ul>
-        <li><strong>Equal slots</strong> is the one cell, one inset rule and the default.<p>Every glyph gets the same slot, and highlights sit one inset apart. With spacing 0 the standard bar keeps today's 27 px icon pitch.</p></li>
+        <li><strong>Equal slots</strong> is the one cell, one inset rule and the default.<p>Every glyph gets the same slot, and highlights sit one inset apart. At spacing 0 the icon pitch is 27 px on the standard bar and 35 px on the large bar.</p></li>
         <li><strong>Equal gaps</strong> puts the same air between every pair of glyphs.<p>Highlights stay symmetric and may overlap in the gaps. Where two overlap, the older one fades to 45%.</p></li>
         <li><strong>In Preferences</strong> it is a two-chip row called Spacing in the Style section, above the existing "Space between widgets" slider.<p>Config key <code>powerbarSpacingMode</code>: <code>"slots"</code> (default) or <code>"gaps"</code>. Each option's one-line description replaces the row's description when chosen, the way <code>PrefsChoice</code> already works.</p></li>
       </ul>
@@ -349,8 +357,8 @@ td.mono { white-space: nowrap; }
       <div class="formulas" id="formulas"></div>
       <div class="why">
         <div class="stage tight" id="rule-demo"></div>
-        <p><strong>Why the box and the highlight must be the same thing.</strong> Today a widget's width comes from the widget (27 px icon slots, 8.5 px text margins, a 38 px update slot), and the highlight is computed afterwards from its ink. The two disagree, so on the large bar two neighbouring icons put 32 px circles on a 27 px pitch and their highlights overlap by 5 px, and at the island ends the pill has to be stretched to look concentric.</p>
-        <p><strong>Cells or equal gaps.</strong> Both now share one highlight: the cell's box, centred on the glyph. Equal gaps puts the same air between every pair of glyphs and lets that box spill into the gaps. Cells put the boxes one inset apart, which gives a fixed pitch. Cells are simpler: highlights never overlap, hit targets are all the same size, and changing the icon font never reflows the island. Equal gaps looks calmer when glyph widths vary a lot. The section below checks that the spill never reaches a neighbour's glyph.</p>
+        <p><strong>Why the box and the highlight are the same thing.</strong> Layout comes from the glyph's measured ink, never from the slot a widget asks for, and the highlight is that layout box. Highlights therefore fit their pitch exactly, sit centred on what is painted, and meet the island's ends concentrically without any adjustment.</p>
+        <p><strong>Two modes, one highlight.</strong> Both modes draw the cell's box centred on the glyph. Equal slots puts the boxes one inset apart, which gives a fixed pitch: highlights never overlap, hit targets are all the same size, and changing the icon font never reflows the island. Equal gaps puts the same air between every pair of glyphs and lets the box spill into the gaps, which looks calmer when glyph widths vary a lot. A later section shows why the spill never reaches a neighbour's glyph.</p>
         <p><strong>Why one inset everywhere.</strong> Concentric corners need the gap between an inner shape and its container to equal the difference of their radii. Using the same 3 px for the gutter between cells, the island's ends and the bar's top and bottom makes every highlight nest inside the island with a parallel curve, and makes a row of highlights tile like a segmented control.</p>
       </div>
     </div>
@@ -358,16 +366,16 @@ td.mono { white-space: nowrap; }
 
   <section id="compare">
     <div class="section-head">
-      <h2>Three ways to space the same widgets</h2>
-      <p>Your right island on the large bar, every highlight shown at once, with the measured air between glyphs underneath. Uneven numbers or overlapping fills are what the eye reads as untidy. With every item lit, equal gaps shows where neighbouring cells overlap in the gaps; in use you almost always see one highlight at a time.</p>
+      <h2>The two modes side by side</h2>
+      <p>Your right island on the large bar, every highlight shown at once, with the measured air between glyphs underneath. With every item lit, Equal gaps shows where neighbouring cells overlap in the gaps; in use you almost always see one highlight at a time.</p>
     </div>
     <div class="compare" id="compare-rows"></div>
   </section>
 
   <section id="spill">
     <div class="section-head">
-      <h2>Can equal gaps borrow the cell's highlight?</h2>
-      <p>The idea: keep equal air between glyphs, but draw each highlight as the symmetric cell box from the rule above, even where it spills past the glyph into the gap. It works if the spill never reaches the next widget's pixels.</p>
+      <h2>Why equal-gap highlights can overflow</h2>
+      <p>Equal gaps keeps the same air between glyphs and draws each highlight as the symmetric cell box, even where it spills past the glyph into the gap. The gap is sized so the spill never reaches the next widget's pixels.</p>
     </div>
     <div class="rule">
       <div class="formulas">
@@ -400,31 +408,30 @@ td.mono { white-space: nowrap; }
   <section id="drag">
     <div class="section-head">
       <h2>Dragging widgets of any width</h2>
-      <p>Drag the lifted widget along the island, press ← and → on it, or play a sweep. Try the clock over icons and an icon over the Audio group: that mix of sizes is where drag and drop usually breaks.</p>
+      <p>Drag the lifted widget along the island and let go to see it settle. From the keyboard: Space picks it up or drops it, ← and → move it, Esc puts it back. Try the clock over icons and an icon over the Audio group: that mix of sizes is where drag and drop usually breaks.</p>
     </div>
     <div class="controls" role="group" aria-label="Drag options">
       <div class="ctl"><span id="dr-l">Dragging</span><div class="seg" id="dr-item" role="group" aria-labelledby="dr-l">
         <button data-v="monitor">Icon</button><button data-v="keyboard">EN</button><button data-v="power">Battery</button><button data-v="clock">Clock</button><button data-v="workspaces">Workspaces</button></div></div>
       <div class="ctl"><span id="dr-rl">Spacing</span><div class="seg" id="dr-rhythm" role="group" aria-labelledby="dr-rl">
         <button data-v="cells">Equal slots</button><button data-v="gaps">Equal gaps</button></div></div>
-      <div class="ctl"><span id="dr-tl">Timing</span><div class="seg" id="dr-timing" role="group" aria-labelledby="dr-tl">
-        <button data-v="scaled">Scaled by distance</button><button data-v="fixed">Fixed 150 ms (today)</button></div></div>
       <button class="tog" id="dr-ticks" aria-pressed="false">Landing boundaries</button>
-      <button class="btn" id="dr-play" type="button">Play a sweep</button>
+      <button class="btn" id="dr-play" type="button">Play a drag and drop</button>
     </div>
     <div class="stage" id="drag-stage"></div>
     <div class="chips" id="drag-chips" aria-live="polite"></div>
     <div class="rule" style="margin-top:26px">
       <ol class="drag-rules">
-        <li><strong>The gap is the dragged widget's own landing size.</strong><p>Equal slots: its cell plus one inset. Equal gaps: its glyph plus one gap. Today the gap is the captured image's width, so a widget's own margins leak in. Reordering inside an island never changes its length, because the source closes by exactly what the gap opens.</p></li>
+        <li><strong>The gap is the dragged widget's own landing size.</strong><p>Equal slots: its cell plus one inset. Equal gaps: its glyph plus one gap. A widget's own margins never leak in. Reordering inside an island never changes its length, because the source closes by exactly what the gap opens.</p></li>
         <li><strong>The placeholder is the widget's highlight, outlined.</strong><p>It has the dragged widget's length, thickness and radius, where it will land. In Equal gaps it spills into the gaps like any highlight, staying 8 px clear of text and at least 2 px clear of glyphs.</p></li>
         <li><strong>Land at the spot nearest the ghost's centre.</strong><p>Measured on the resting layout (as if the gap were not there), with a 3 px dead zone. The landing spot depends only on where the ghost is, so it cannot flicker even when the gap is wider than its neighbours. The ghost is never more than half a neighbour's cell from where it will land. Using the ghost's centre rather than the pointer means a wide widget grabbed at one end lands where it looks.</p></li>
-        <li><strong>Scale the timing with distance.</strong><p><code>150 ms × √(gap ÷ icon gap)</code>, capped at 260 ms, on today's ease-in-out sine. Icons keep 150 ms; the clock's 130 px gap takes 260 ms, and neighbours peak at 2.2× an icon's speed instead of 3.7×.</p></li>
-        <li><strong>Everything that moves shares that duration.</strong><p>Neighbours, the placeholder and the island's growing end all use the same timing, so the island's curve and its last cell stay concentric throughout. On release the ghost glides its glyph centre onto the cell centre in 180 ms.</p></li>
+        <li><strong>Scale the timing with distance.</strong><p><code>150 ms × √(gap ÷ icon gap)</code>, capped at 260 ms, on an ease-in-out sine. Icons take 150 ms; the clock's 130 px gap takes 260 ms, and its neighbours peak at 2.2× an icon's speed, where a fixed duration would reach 3.7×.</p></li>
+        <li><strong>Everything that moves shares that duration.</strong><p>Neighbours, the placeholder and the island's growing end all use the same timing, so the island's curve and its last cell stay concentric throughout.</p></li>
+        <li><strong>Settle on release.</strong><p>In one 180 ms strong ease-out, the ghost glides its glyph centre onto the landing cell's centre, drops its 2 px lift and 1.04 scale, and fades its surface and shadow, while the placeholder outline fades out. What remains is an ordinary widget in the island; nothing else moves. Picking it up again lifts it in 120 ms. Esc settles it back where it was lifted.</p></li>
       </ol>
       <div>
         <div class="tablewrap">
-          <table id="drag-table"><thead><tr><th>Dragged</th><th>Gap, slots</th><th>Gap, gaps</th><th>Peak at 150 ms</th><th>Scaled time</th><th>Peak, scaled</th></tr></thead><tbody></tbody></table>
+          <table id="drag-table"><thead><tr><th>Dragged</th><th>Gap, slots</th><th>Gap, gaps</th><th>Neighbours move in</th><th>Peak speed</th></tr></thead><tbody></tbody></table>
         </div>
         <p class="note">With "Landing boundaries" on, the ticks under the island are the points the ghost's centre (the dot) must cross to move the gap. They sit halfway between neighbouring landing spots, measured without the gap, so they never move while you drag. Peak speed of a neighbour on the ease-in-out sine is π × distance ÷ (2 × duration). Ratios compare with an icon's 35 px gap at 150 ms. I simulated there-and-back sweeps across this island for the icon and the clock in both spacing options: the landing spot changed exactly once per boundary in each direction (10 of 10), and the ghost was never more than 41 px from its landing spot.</p>
       </div>
@@ -434,10 +441,8 @@ td.mono { white-space: nowrap; }
   <section id="edges">
     <div class="section-head">
       <h2>Edge cases</h2>
-      <p>Most cases show today's behaviour above the proposal, on the large bar. Hover either one.</p>
+      <p>Each case shows Equal slots above Equal gaps, on the large bar. Hover either one.</p>
     </div>
-    <div class="controls" style="margin-top:0"><div class="ctl"><span id="cases-l">Proposal shown</span>
-      <div class="seg" id="cases-algo" role="group" aria-labelledby="cases-l"><button data-v="cells" aria-pressed="true">Equal slots</button><button data-v="gaps" aria-pressed="false">Equal gaps</button></div></div></div>
     <div class="cases" id="cases"></div>
   </section>
 
@@ -463,6 +468,9 @@ td.mono { white-space: nowrap; }
           <tr><td>Panel or drawer opens</td><td class="mono">fill to selected, 150 ms</td><td>Links the open surface to its source; the drawer itself animates 180–300 ms.</td></tr>
           <tr><td>Cell grows (value got wider)</td><td class="mono">width 150 ms, ease-in-out</td><td>Neighbours ease aside instead of jumping.</td></tr>
           <tr><td>Cell shrinks</td><td class="mono">after 8 s at the smaller size, 180 ms</td><td>Values that flicker between widths (9% and 10%) never make the bar breathe.</td></tr>
+          <tr><td>Drag: neighbours make way</td><td class="mono">150–260 ms by distance, ease-in-out sine</td><td>Longer moves get more time, so wide widgets don't whip their neighbours aside.</td></tr>
+          <tr><td>Drag: widget settles on release</td><td class="mono">180 ms, strong ease-out</td><td>Glide, land and lose the lift in one motion, so the drop reads as one event.</td></tr>
+          <tr><td>Drag: widget picked up</td><td class="mono">120 ms lift</td><td>Surface, shadow and a 2 px lift appear quickly; the widget is under the pointer.</td></tr>
           <tr><td>Activity peek</td><td class="mono">accent fill, 2.5 s, fade 300 ms</td><td>Shows which widget changed while the bar slides out.</td></tr>
           <tr><td>An older highlight is overlapped by a newer one</td><td class="mono">opacity to 45%, 90 ms</td><td>With equal gaps, neighbouring cells can overlap; the most recent one stays full so the eye goes to what just happened.</td></tr>
           <tr><td>Keyboard focus moves</td><td class="mono">instant</td><td>Keyboard actions are repeated many times a day and must feel immediate.</td></tr>
@@ -474,19 +482,20 @@ td.mono { white-space: nowrap; }
 
   <section id="implement">
     <div class="section-head">
-      <h2>How it maps onto Powerbar</h2>
+      <h2>Implementing the specification</h2>
       <p>A sequence, in the order it can land without breaking drag and drop or the drawers.</p>
     </div>
     <ol class="steps">
       <li><strong>Add <code>CellModel.js</code> with node tests.</strong><p><code>cellLength({ kind, inkWidth, thickness, inset, iconSlot, spacing, maxInk })</code> returns the box length; <code>layoutZone(cells, inset)</code> returns offsets. Kinds: glyph (has <code>glyphPaintedWidth</code>), text (has <code>labelWidth</code> or any other ink), compound (two or more registered click targets inside the slot).</p></li>
       <li><strong>Measure an ink rectangle, not a width.</strong><p>Extend <code>HighlightModel.inkWidth</code> to <code>inkRect</code> returning left and width, so off-centre content (the tray, widgets with trailing gaps like Workspaces' 1.5 px) centres on what is painted.</p></li>
       <li><strong>Size slots from the cell.</strong><p>In <code>Bar.qml</code> the slot's <code>naturalWidth</code> becomes the cell length and <code>presentation.x</code> shifts by <code>(L − ink) / 2 − inkLeft</code>. Row/Column <code>spacing</code> becomes the inset, <code>islandPadding</code> becomes the inset plus the drag lip. The drag gap is the dragged cell plus one inset, so the ghost's landing slot matches exactly.</p></li>
-      <li><strong>Make the highlight the slot box.</strong><p><code>highlightGeometry</code> reduces to the slot's rectangle at the inset thickness with radius <code>clamp(islandRounding − inset, 0, T / 2)</code>. The end-stretch in the current working tree (the <code>snap</code> in <code>HighlightModel.pill</code>) is no longer needed, because the ends are concentric by construction.</p></li>
+      <li><strong>Make the highlight the slot box.</strong><p><code>highlightGeometry</code> reduces to the slot's rectangle at the inset thickness with radius <code>clamp(islandRounding − inset, 0, T / 2)</code>. Highlights need no end adjustment: the ends are concentric by construction.</p></li>
       <li><strong>Keep hit areas generous.</strong><p>Each slot's pointer area covers its cell plus half of each gutter and the full bar thickness; the first and last cells extend to the island ends (to the screen edge on a flat bar). Clip each slot to that area so oversized widgets cannot steal clicks from neighbours.</p></li>
       <li><strong>Give compounds thumbs.</strong><p>For compounds, hovering draws a faint track over the whole cell and a thumb over the hovered click target: side <code>min(T, pitch − 1)</code>, radius <code>r − (T − side) / 2</code>. Workspaces and Indicators already register their buttons as click targets.</p></li>
       <li><strong>Hold widths.</strong><p>A cell grows at once (150 ms) and shrinks only after 8 s at the smaller size. Cap free text at 160 px of ink with a fade.</p></li>
-      <li><strong>Offer both rhythms.</strong><p><code>layoutZone(cells, { rhythm })</code> with <code>"cells"</code> (cells one inset apart) or <code>"gaps"</code> (glyphs <code>C / 2 + 2</code> apart, island ends at <code>i + spill</code>). Both use the same highlight box. In gaps mode highlights may overlap. Each <code>HoverHighlight</code> records when it lit; where two overlap, the newer gets the higher <code>z</code> and the older drops to 45% opacity. This could be a Preferences choice, "Even cells" or "Even gaps".</p></li>
-      <li><strong>Redefine the Spacing setting.</strong><p>Extra spacing widens cells, not gutters, so highlights stay tiled and concentric and hit targets grow with the space. With spacing 0 the standard bar keeps today's 27 px icon pitch; the large bar moves from 27 px to 35 px, which is what stops its highlights overlapping.</p></li>
+      <li><strong>Both modes.</strong><p><code>layoutZone(cells, { mode })</code> with <code>"slots"</code> (cells one inset apart) or <code>"gaps"</code> (glyphs <code>C / 2 + 2</code> apart, island ends at <code>i + spill</code>), read from <code>powerbarSpacingMode</code>. Both use the same highlight box. In gaps mode highlights may overlap: each <code>HoverHighlight</code> records when it lit, and where two overlap the newer gets the higher <code>z</code> and the older drops to 45% opacity. Preferences shows the choice as a <code>PrefsChoice</code> row, Spacing: Equal slots or Equal gaps.</p></li>
+      <li><strong>Drag with landing-size gaps.</strong><p>The drag gap is the dragged widget's landing size, the placeholder is its highlight outlined, the landing spot is the one nearest the ghost's centre on the resting layout (3 px dead zone), and <code>dragMotionDuration</code> becomes <code>clamp(150 × √(gap ÷ icon gap), 150, 260)</code>. On release the ghost settles onto the cell in 180 ms before the layout commits.</p></li>
+      <li><strong>Redefine the Spacing setting.</strong><p>Extra spacing widens cells, not gutters, so highlights stay tiled and concentric and hit targets grow with the space. At spacing 0 the icon pitch is 27 px on the standard bar and 35 px on the large bar.</p></li>
       <li><strong>Verify on the desktop.</strong><p>Tests for <code>cellLength</code> at both bar sizes, glyph, short text, long text and compound kinds; <code>layoutZone</code> ends at the inset; <code>inkRect</code> for off-centre children. Then screenshot all three bar styles, both sizes and a vertical bar with autohide off.</p></li>
     </ol>
   </section>
@@ -558,8 +567,6 @@ function params(o) {
     B, i, T, R, s, cell,
     air: (cell - TYPICAL_GLYPH) / 2,
     r: Math.max(0, Math.min(T / 2, R - i)),
-    todayPad: Math.max(o.size === "large" ? 8 : 4, i + 4),
-    todayR: Math.max(0, Math.min(T / 2, Math.max(4, o.rounding - 3))),
     // Equal gaps: half a cell plus 2 px, so even a zero-width glyph's highlight
     // stops 2 px short of its neighbour's ink.
     gap: (Math.max(T, ICON_SLOT - i) + s) / 2 + 2,
@@ -588,32 +595,7 @@ function layout(specs, algo, P) {
   const items = specs.map(makeItem);
   const cells = [];
   let x, len;
-  if (algo === "today") {
-    x = P.todayPad;
-    items.forEach((it, k) => {
-      const w = it.prefs ? P.B : it.w;
-      const inkX = it.prefs ? (P.B - PREFS_INK) / 2 : it.inkX;
-      cells.push({ it, box: { x, L: w }, ink: { x: x + inkX, w: it.inkW }, contentX: x, hit: { x, L: w } });
-      x += w + (k < items.length - 1 ? P.s : 0);
-    });
-    len = x + P.todayPad;
-    const ls = P.i, le = len - P.i;
-    cells.forEach(c => {
-      const along = c.box.L;
-      let ink = c.it.kind === "compound" ? along : c.it.inkW;
-      if (!(ink > 0) || ink > along) ink = along;
-      let L = ink <= P.T ? P.T : ink + 8;
-      let start = c.box.x + along / 2 - L / 2;
-      if (L > le - ls) { L = le - ls; start = ls; }
-      else {
-        start = Math.max(ls, Math.min(le - L, start));
-        const snap = P.T / 2;
-        if (start - ls <= snap) { L += start - ls; start = ls; }
-        if (le - (start + L) <= snap) L = le - start;
-      }
-      c.hl = { x: start, L, r: P.todayR };
-    });
-  } else if (algo === "gaps") {
+  if (algo === "gaps") {
     // Constant air between glyphs; each highlight is the cell rule's box,
     // centred on its glyph and free to spill into the gaps. The island ends
     // are measured from the end highlights, so they stay concentric.
@@ -651,7 +633,6 @@ function layout(specs, algo, P) {
   }
   // Hit areas: no dead pixels between items; the ends reach the island's edges.
   cells.forEach((c, k) => {
-    if (algo === "today") return;
     const edgeOf = o => algo === "gaps" ? { a: o.ink.x, b: o.ink.x + o.ink.w } : { a: o.hl.x, b: o.hl.x + o.hl.L };
     const left = k === 0 ? 0 : (edgeOf(cells[k - 1]).b + edgeOf(c).a) / 2;
     const right = k === cells.length - 1 ? len : (edgeOf(c).b + edgeOf(cells[k + 1]).a) / 2;
@@ -720,7 +701,7 @@ function renderZone(parent, specs, algo, P, opt) {
       content = el("div", "prefs content", { left: px(c.ink.x * Z), top: px((P.B - size) / 2 * Z), width: px(size * Z), height: px(size * Z), gap: px(gap * Z) }, island);
       for (let d = 0; d < 9; d++) el("i", null, { width: px(dot * Z), height: px(dot * Z) }, content);
     } else if (it.label) {
-      const w = Math.min(it.inkW, algo === "today" ? Infinity : MAX_INK);
+      const w = Math.min(it.inkW, MAX_INK);
       content = el("span", "lbl content" + (w < it.inkW ? " fade" : ""), {
         left: px(c.ink.x * Z), width: px(w * Z + 1), top: 0, height: px(P.B * Z), lineHeight: px(P.B * Z), fontSize: px(12 * Z),
       }, island);
@@ -732,13 +713,10 @@ function renderZone(parent, specs, algo, P, opt) {
     }
     if (it.badge) {
       const bh = 12, bw = Math.max(12, String(it.badge).length * 6 + 5);
-      let right, top;
-      if (algo === "today") { right = c.box.x + c.box.L + 2; top = -2; }
-      else {
-        const k45 = c.hl.r * (1 - Math.SQRT1_2);
-        right = c.hl.x + c.hl.L - k45 + bw / 2;
-        top = Math.max(1, P.i + k45 - bh / 2);
-      }
+      // The badge rides the highlight's top-right corner at 45°.
+      const k45 = c.hl.r * (1 - Math.SQRT1_2);
+      const right = c.hl.x + c.hl.L - k45 + bw / 2;
+      const top = Math.max(1, P.i + k45 - bh / 2);
       const b = el("div", "badge", { left: px((right - bw) * Z), top: px(top * Z), width: px(bw * Z), height: px(bh * Z), fontSize: px(8.5 * Z) }, island);
       b.textContent = it.badge;
     }
@@ -844,6 +822,7 @@ const state = { algo: "cells", size: "large", style: "islands", spacing: 0, roun
 try {
   const saved = JSON.parse(localStorage.getItem("powerbar-spacing-lab") || "null");
   if (saved) Object.assign(state, saved);
+  if (state.algo !== "cells" && state.algo !== "gaps") state.algo = "cells";
 } catch (e) {}
 if (window.innerWidth < 700 && state.zoom > 1.5) state.zoom = 1.5;
 function save() { try { localStorage.setItem("powerbar-spacing-lab", JSON.stringify(state)); } catch (e) {} }
@@ -938,9 +917,8 @@ function renderCompare() {
   const P = params({ size: "large", rounding: 20, spacing: 0 });
   const Z = window.innerWidth < 700 ? 1.6 : 2;
   const rows = [
-    ["today", "Today", "Widget-owned widths, highlight computed from ink."],
-    ["gaps", "Equal gaps", "Constant air between glyphs; each highlight is the cell's box, spilling into the gaps."],
     ["cells", "Equal slots", "One cell, one inset: shared cells, glyphs centred on their ink, 3 px everywhere."],
+    ["gaps", "Equal gaps", "Constant air between glyphs; each highlight is the cell's box, spilling into the gaps."],
   ];
   rows.forEach(([algo, name, text]) => {
     const row = el("div", "cmp-row", null, host);
@@ -966,7 +944,7 @@ function renderCompare() {
 
 // ---------- Edge cases ----------
 const CASES = [
-  { title: "Icon at an island end", text: "Today the last icon's highlight is stretched to meet the island's end, so the glyph sits off-centre inside it. When the island ends one inset after the last cell, the ordinary circle is already concentric.",
+  { title: "Icon at an island end", text: "The island ends one inset after the last highlight, so an icon's circle at either end runs parallel to the island's curve. No stretching or adjustment is needed.",
     items: ["monitor", "bluetooth", "network"], states: { 2: "hover" } },
   { title: "Text at an island end", text: "The clock's pill ends at the inset like any other cell. Its side air matches the air an icon has, so EN and the clock read as one family.",
     items: ["keyboard", "clock"], states: { 1: "hover" } },
@@ -974,17 +952,17 @@ const CASES = [
     items: ["workspaces", "scratchpeek"], states: { 0: "hover" }, part: { 0: 2 } },
   { title: "Short text reads as an icon", text: "EN and the AI group face are narrower than an icon cell, so they get exactly an icon's cell. Longer text grows from there.",
     items: ["keyboard", { id: "group-ai" }, "monitor", "power"], all: true },
-  { title: "Narrow and wide glyphs", text: "Bluetooth paints 7 px, Easy capture 14.5 px. Fixed 27 px slots give them 10 px and 6 px of air on each side; centring each glyph on its ink inside a shared cell narrows the spread.",
+  { title: "Narrow and wide glyphs", text: "Bluetooth paints 7 px, Easy capture 14.5 px. Equal slots centres each glyph on its ink inside a shared cell; Equal gaps keeps the air between glyphs identical.",
     items: ["bluetooth", "capture", "notify", "audio"], all: true, xray: true },
-  { title: "Content that is off-centre", text: "The tray capture paints its chevron 14 px right of its slot's centre. Today's highlight centres on the slot; a cell centres on the ink, so the fill lands on what you point at.",
+  { title: "Content that is off-centre", text: "The tray capture paints its chevron 14 px right of its widget's centre. Layout and highlight centre on the ink, so the fill lands on what you point at.",
     items: ["tray", "network"], states: { 0: "hover" } },
-  { title: "Oversized slots", text: "System update asks for a 38 px slot around a 9 px glyph, a hole in the rhythm. Normalising every glyph to one cell removes it without touching the widget.",
+  { title: "Oversized slots", text: "System update asks for a 38 px slot around a 9 px glyph. Layout follows the glyph's ink, so it keeps the rhythm whatever slot a widget asks for.",
     items: ["monitor", "update", "network"], xray: true, all: true },
-  { title: "Badges", text: "Today the badge hangs from the slot's corner, 2 px above the bar. Pinned to the highlight's corner at 45°, it stays inside the island and follows the same curve at any bar size.",
+  { title: "Badges", text: "The badge rides the highlight's top-right corner at 45°, so it stays inside the island and follows the same curve at any bar size.",
     items: [{ id: "group-ai", badge: 3 }, "monitor"], states: { 0: "hover" } },
   { title: "Long widgets", text: "Window titles, media and other free text get at most 160 px of ink and a fade, then the usual air. The cell never pushes the centre island into its neighbours.",
     items: [{ text: "Bar.qml (~/Projects/powerbar) - nvim" }, "network"], states: { 0: "hover" } },
-  { title: "Values that change width", text: "Battery goes from 9% to 100%. Today neighbours jump with every change. A cell grows at once and shrinks only after 8 s at the smaller size, so flickering values never make the bar breathe.",
+  { title: "Values that change width", text: "Battery goes from 9% to 100%. A cell grows at once and shrinks only after 8 s at the smaller size, so flickering values never make the bar breathe.",
     items: [{ text: "9%", dyn: true }, "network", "prefs"], dynamic: true },
   { title: "A lone widget", text: "An island with one icon becomes a circle one inset larger than the highlight; with the clock it becomes a capsule. Both come from the same rule.",
     items: ["network"], second: ["clock"], all: true },
@@ -992,7 +970,6 @@ const CASES = [
     items: ["monitor", { id: "ghost" }, "bluetooth", "network"], only: true },
 ];
 
-let casesAlgo = "cells";
 function renderCases() {
   const host = document.getElementById("cases");
   host.innerHTML = "";
@@ -1005,13 +982,13 @@ function renderCases() {
     const pair = el("div", "pair", null, card);
     const draw = () => {
       pair.innerHTML = "";
-      const algos = cs.only ? [casesAlgo] : ["today", casesAlgo];
+      const algos = ["cells", "gaps"];
       algos.forEach(algo => {
-        el("div", "lab", null, pair).textContent = algo === "today" ? "Today" : algo === "gaps" ? "Proposed, equal gaps" : "Proposed, equal slots";
+        el("div", "lab", null, pair).textContent = algo === "gaps" ? "Equal gaps" : "Equal slots";
         const stage = el("div", "stage", { backgroundPosition: (15 + idx * 7) % 100 + "% 0" }, pair);
         const inner = el("div", "zones", { justifyContent: "flex-start", gap: "16px" }, stage);
         let items = cs.items;
-        if (cs.dynamic) items = [{ text: dyn.value, dyn: true, held: algo !== "today" ? dyn.held : null }, "network", "prefs"];
+        if (cs.dynamic) items = [{ text: dyn.value, dyn: true, held: dyn.held }, "network", "prefs"];
         const z = renderZone(inner, items, algo, P, { Z, bg: true, all: !!cs.all, xray: !!cs.xray, interactive: true, states: cs.states, part: cs.part });
         if (cs.second) renderZone(inner, cs.second, algo, P, { Z, bg: true, all: !!cs.all, interactive: true });
       });
@@ -1034,7 +1011,7 @@ function renderCases() {
   el("p", null, null, text).innerHTML = "The same rule along the other axis. A 28 px bar gives a 22 px thickness and 24 px icon cells; the clock stacks as <code>HH — mm</code> in a taller cell with the same 6 px air above and below. Gutters and ends stay at 3 px, so the capsule ends of the bar stay concentric with the first and last cells.";
   el("p", null, null, text).innerHTML = "Cells grow along the bar and never across it, so a vertical bar never widens to fit a label.";
 }
-// The dynamic value case: the proposal holds the widest recent width for 8 s.
+// The changing-value case: a cell holds the widest recent width for 8 s.
 const dyn = {
   values: ["9%", "58%", "100%", "7%", "64%"], k: 0, value: "9%", held: "9%", timer: 0, redraw: null,
   step() {
@@ -1045,7 +1022,7 @@ const dyn = {
     this.timer = setTimeout(() => { this.held = this.value; if (this.redraw) this.redraw(); }, 8000);
   },
 };
-// Label items in the proposal size themselves from the held value.
+// Label items size themselves from the held value.
 const baseMakeItem = makeItem;
 makeItem = function(spec) {
   const it = baseMakeItem(spec);
@@ -1147,12 +1124,11 @@ document.getElementById("prefs-mock").addEventListener("keydown", e => {
 });
 
 // ---------- Drag lab ----------
-const DRAG = { item: "clock", rhythm: "cells", timing: "scaled", ticks: false };
+const DRAG = { item: "clock", rhythm: "cells", ticks: false };
 const DRAG_ISLAND = ["keystroke", "bluetooth", "group-audio", "network", "power"];
 const DRAG_ITEMS = [["monitor", "Icon"], ["keyboard", "EN"], ["power", "Battery"], ["clock", "Clock"], ["workspaces", "Workspaces"]];
 function gapFor(d, P, rhythm) { return rhythm === "gaps" ? d.inkW + P.gap : cellLength(d, P) + P.i; }
-function dragDuration(g, P, timing) {
-  if (timing === "fixed") return 150;
+function dragDuration(g, P) {
   return Math.round(Math.max(150, Math.min(260, 150 * Math.sqrt(g / (P.cell + P.i)))));
 }
 const peakSpeed = (d, t) => Math.PI * d / (2 * t / 1000);
@@ -1180,7 +1156,7 @@ function renderDragLab() {
       spots.push({ start: at, centre: at + Ld / 2 });
     }
   }
-  const dur = dragDuration(g, P, DRAG.timing);
+  const dur = dragDuration(g, P);
   const area = el("div", "drag-area", { width: px((lay.len + g + 2 * Ld) * Z), height: px((P.B + 14) * Z), paddingLeft: px(Ld * 0.5 * Z) }, stage);
   const holder = el("div", null, { position: "relative", marginLeft: px(0) }, area);
   const island = el("div", "island bg", { width: px((lay.len + g) * Z), height: px(P.B * Z), borderRadius: px(P.R * Z), transitionDuration: dur + "ms" }, holder);
@@ -1201,7 +1177,7 @@ function renderDragLab() {
   const lift = 2;
   const ghost = el("button", "ghost", { width: px(Ld * Z), height: px(P.T * Z), top: px((P.i - lift) * Z) }, holder);
   ghost.type = "button";
-  ghost.setAttribute("aria-label", "Dragged widget: " + d.name + ". Use the left and right arrow keys to move it.");
+  ghost.setAttribute("aria-label", d.name + ". Space picks it up or drops it, arrow keys move it, Escape puts it back.");
   el("div", "carrier", { borderRadius: px(P.r * Z) }, ghost);
   const inkCentre = d.inkX + d.inkW / 2;
   const gimg = el("img", null, { left: px((Ld / 2 - inkCentre) * Z), top: px((P.T - CAPTURE_H) / 2 * Z), width: px(d.w * Z), height: px(CAPTURE_H * Z) }, ghost);
@@ -1229,9 +1205,34 @@ function renderDragLab() {
   }
   place(false);
   moveGhost(c);
+  // Held: lifted 2 px on its own surface, scaled 1.04, placeholder showing.
+  // Settled: an ordinary widget in the island. .lifting and .settling give
+  // the change its timing.
+  let held = true, liftedAt = k;
+  function settle() {
+    cancelAnimationFrame(dragSweep);
+    held = false;
+    c = spots[k].centre;
+    ghost.classList.remove("lifting");
+    ghost.classList.add("settling", "settled");
+    ghost.style.left = px((c - Ld / 2) * Z);
+    ghost.style.top = px(P.i * Z);
+    if (dot) dot.style.left = px(c * Z);
+    ph.classList.add("settled");
+    setTimeout(() => ghost.classList.remove("settling"), 200);
+  }
+  function pickUp() {
+    held = true; liftedAt = k;
+    ghost.classList.remove("settling", "settled");
+    ghost.classList.add("lifting");
+    ghost.style.top = px((P.i - lift) * Z);
+    ph.classList.remove("settled");
+    setTimeout(() => ghost.classList.remove("lifting"), 140);
+  }
   let grab = null;
   ghost.addEventListener("pointerdown", e => {
     cancelAnimationFrame(dragSweep);
+    if (!held) pickUp();
     ghost.setPointerCapture(e.pointerId);
     const box = holder.getBoundingClientRect();
     grab = (e.clientX - box.left) / Z - c;
@@ -1244,34 +1245,36 @@ function renderDragLab() {
   const release = () => {
     if (grab === null) return;
     grab = null;
-    // Settle: the ghost's glyph centre glides onto the landing cell's centre.
-    ghost.style.transition = "left 180ms cubic-bezier(0.23, 1, 0.32, 1)";
-    moveGhost(spots[k].centre);
-    setTimeout(() => { ghost.style.transition = ""; }, 200);
+    settle();
   };
   ghost.addEventListener("pointerup", release);
   ghost.addEventListener("pointercancel", release);
   ghost.addEventListener("keydown", e => {
-    if (e.key === "ArrowRight" || e.key === "l") { k = Math.min(n, k + 1); }
-    else if (e.key === "ArrowLeft" || e.key === "h") { k = Math.max(0, k - 1); }
+    if (e.key === " " || e.key === "Enter") { e.preventDefault(); held ? settle() : pickUp(); return; }
+    if (e.key === "Escape" && held) { e.preventDefault(); k = liftedAt; place(true); settle(); return; }
+    if (e.key === "ArrowRight" || e.key === "l") { if (!held) pickUp(); k = Math.min(n, k + 1); }
+    else if (e.key === "ArrowLeft" || e.key === "h") { if (!held) pickUp(); k = Math.max(0, k - 1); }
     else return;
     e.preventDefault();
     c = spots[k].centre; ghost.style.left = px((c - Ld / 2) * Z); if (dot) dot.style.left = px(c * Z); place(true);
   });
-  window.__dragLab = { move: moveGhost, spots, get index() { return k; } };
-  const hash = /^#ghost-(-?\d+)$/.exec(location.hash);
-  if (hash) moveGhost(Number(hash[1]));
+  window.__dragLab = { move: moveGhost, settle, pickUp, spots, get index() { return k; } };
+  const hash = /^#ghost-(-?\d+)(-settled)?$/.exec(location.hash);
+  if (hash) { moveGhost(Number(hash[1])); if (hash[2]) settle(); }
   document.getElementById("dr-play").onclick = () => {
     cancelAnimationFrame(dragSweep);
+    if (!held) pickUp();
+    // Out to the far end and back, then drop in the middle.
     const from = spots[0].centre - 12, to = spots[n].centre + 12, T0 = performance.now(), total = 5200;
+    const mid = spots[Math.floor(n / 2)].centre;
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (reduce) { moveGhost(to); return; }
+    if (reduce) { moveGhost(mid); settle(); return; }
     const step = now => {
       const t = Math.min(1, (now - T0) / total);
       const phase = t < 0.5 ? t * 2 : 2 - t * 2;
       const e2 = (1 - Math.cos(Math.PI * phase)) / 2;
-      moveGhost(from + (to - from) * e2);
-      if (t < 1) dragSweep = requestAnimationFrame(step);
+      if (t < 1) { moveGhost(from + (to - from) * e2); dragSweep = requestAnimationFrame(step); }
+      else { moveGhost(mid); settle(); }
     };
     dragSweep = requestAnimationFrame(step);
   };
@@ -1293,17 +1296,15 @@ function renderDragLab() {
   DRAG_ITEMS.forEach(([id, name]) => {
     const it = makeItem(id);
     const gs = gapFor(it, P, "cells"), gg = gapFor(it, P, "gaps");
-    const ts = dragDuration(gs, P, "scaled");
+    const ts = dragDuration(gs, P);
     const tr = el("tr", null, null, tb);
-    [name, fmt(gs) + " px", fmt(gg) + " px",
-     (peakSpeed(gs, 150) / iconPeak).toFixed(1) + "× icon",
-     ts + " ms", (peakSpeed(gs, ts) / iconPeak).toFixed(1) + "× icon"].forEach((v, j) => {
+    [name, fmt(gs) + " px", fmt(gg) + " px", ts + " ms", (peakSpeed(gs, ts) / iconPeak).toFixed(1) + "× an icon"].forEach((v, j) => {
       const td = el("td", j ? "mono" : null, null, tr); td.textContent = v;
     });
   });
 }
 function wireDrag() {
-  [["dr-item", "item"], ["dr-rhythm", "rhythm"], ["dr-timing", "timing"]].forEach(([id, key]) => {
+  [["dr-item", "item"], ["dr-rhythm", "rhythm"]].forEach(([id, key]) => {
     const sync = () => document.querySelectorAll("#" + id + " button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.v === DRAG[key])));
     document.querySelectorAll("#" + id + " button").forEach(b => b.addEventListener("click", () => { DRAG[key] = b.dataset.v; sync(); renderDragLab(); }));
     sync();
@@ -1325,11 +1326,6 @@ function renderAll() {
 }
 wireControls();
 wireDrag();
-document.querySelectorAll("#cases-algo button").forEach(b => b.addEventListener("click", () => {
-  casesAlgo = b.dataset.v;
-  document.querySelectorAll("#cases-algo button").forEach(o => o.setAttribute("aria-pressed", String(o === b)));
-  renderCases();
-}));
 const fontsReady = document.fonts && document.fonts.load ? Promise.race([document.fonts.load('12px "JetBrains Mono"'), new Promise(r => setTimeout(r, 1500))]) : Promise.resolve();
 fontsReady.then(renderAll, renderAll);
 </script>
