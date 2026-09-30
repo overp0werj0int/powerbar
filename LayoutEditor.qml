@@ -17,6 +17,16 @@ Item {
   required property var preferences
   readonly property var bar: preferences.bar
   readonly property var entries: preferences.layoutEntries
+  readonly property var cellEntries: {
+    var cells = ({})
+    for (var section of Model.sections) for (var mode of Model.modes)
+      cells[section + ":" + mode] = Model.cell(entries, section, mode, "")
+    return cells
+  }
+  function members(section, mode, exclude) {
+    var items = cellEntries && cellEntries[section + ":" + mode] || []
+    return exclude ? items.filter(function(r) { return r.instanceKey !== exclude }) : items
+  }
   readonly property var snapshots: preferences.snapshots
   readonly property var sections: Model.sections
   readonly property var modes: Model.modes
@@ -39,7 +49,7 @@ Item {
   property string hoverKey: ""
 
   readonly property string liftedKey: lifted ? lifted.instanceKey : ""
-  readonly property var cursorItems: Model.cell(entries, cursorCell.section, cursorCell.mode, liftedKey)
+  readonly property var cursorItems: members(cursorCell.section, cursorCell.mode, liftedKey)
   readonly property var cursorRecord: lifted || cursorItems[cursorCell.pos] || null
   readonly property bool gridFocused: grid.activeFocus
   readonly property var hints: lifted ? [
@@ -55,22 +65,22 @@ Item {
   ]
 
   function focusFirst() { grid.forceActiveFocus(Qt.TabFocusReason) }
-  function count(section, mode) { return Model.cell(entries, section, mode, liftedKey).length }
+  function count(section, mode) { return members(section, mode, liftedKey).length }
   function cellList(section, mode) {
-    var list = Model.cell(entries, section, mode, liftedKey).map(function(record) { return { record: record, placeholder: false } })
+    var list = members(section, mode, liftedKey).map(function(record) { return { record: record, placeholder: false } })
     if (lifted && liftTarget && liftTarget.section === section && liftTarget.mode === mode)
       list.splice(Math.min(liftTarget.pos, list.length), 0, { record: lifted, placeholder: true })
     return list
   }
   function place(cell) {
     cursorCell = cell
-    var record = Model.cell(entries, cell.section, cell.mode, "")[cell.pos]
+    var record = members(cell.section, cell.mode, "")[cell.pos]
     cursorKey = record ? record.instanceKey : ""
   }
   function syncCursor() {
     if (lifted) return
     for (var s = 0; s < sections.length; s++) for (var m = 0; m < modes.length; m++) {
-      var list = Model.cell(entries, sections[s], modes[m], "")
+      var list = members(sections[s], modes[m], "")
       for (var i = 0; i < list.length; i++) if (list[i].instanceKey === cursorKey) {
         cursorCell = { section: sections[s], mode: modes[m], pos: i }
         return
@@ -79,7 +89,9 @@ Item {
     var n = count(cursorCell.section, cursorCell.mode)
     place({ section: cursorCell.section, mode: cursorCell.mode, pos: Math.max(0, Math.min(cursorCell.pos, n - 1)) })
   }
-  onEntriesChanged: syncCursor()
+  // Deferred: entries can be re-evaluated lazily while cursorItems is being
+  // computed, and moving the cursor there would change cursorItems' own input.
+  onEntriesChanged: Qt.callLater(syncCursor)
 
   function moveCursor(dx, dy) {
     if (lifted) liftTarget = Model.stepLift(count, liftTarget, dx, dy)
@@ -100,7 +112,7 @@ Item {
     if (!lifted) return
     var record = lifted, target = liftTarget, origin = liftOrigin
     var unchanged = target.section === origin.section && target.mode === origin.mode && target.pos === origin.pos
-    var before = Model.dropBefore(Model.cell(entries, target.section, target.mode, record.instanceKey), target.pos)
+    var before = Model.dropBefore(members(target.section, target.mode, record.instanceKey), target.pos)
     lifted = null
     pointerLift = false
     cursorKey = record.instanceKey
@@ -160,7 +172,10 @@ Item {
     pointer = point
     if (!pointerLift) return
     var cell = cellAt(point)
-    if (cell) liftTarget = { section: cell.section, mode: cell.mode, pos: gapAt(cell, point) }
+    if (cell) {
+      var next = { section: cell.section, mode: cell.mode, pos: gapAt(cell, point) }
+      if (!liftTarget || next.section !== liftTarget.section || next.mode !== liftTarget.mode || next.pos !== liftTarget.pos) liftTarget = next
+    }
   }
 
   RowLayout {
@@ -282,9 +297,10 @@ Item {
                 // The bar sits on a stand-in for the desktop so its own surface,
                 // islands and borders read against the panel.
                 BarBackdrop {
+                  motionEnabled: !editor.bar || editor.bar.animationsEnabled
                   anchors.fill: parent
                   visible: rowItem.modelData.mode === "shown"
-                  source: editor.preferences.wallpaper
+                  source: rowItem.modelData.mode === "shown" ? editor.preferences.wallpaper : ""
                   position: editor.bar.position
                   // Flat and floating bars are one strip behind all three
                   // zones: flat meets the edges, floating keeps the gap.
@@ -460,19 +476,25 @@ Item {
       scale: cell.fit
       transformOrigin: Item.TopLeft
       spacing: cell.barRow ? Math.max(Style.space(2), editor.bar.widgetSpacing) : Style.space(6)
-      Repeater {
-        id: tileRepeater
-        model: cell.list
-        Tile {
-          required property var modelData
-          required property int index
-          record: modelData.record
-          placeholder: modelData.placeholder
-          section: cell.section
-          mode: cell.mode
-          pos: index
+      RetainedList {
+        id: tileList
+        recordProperty: "retainedRecord"
+        records: cell.list.map(function(value, index) {
+          return { key: value.placeholder ? "insertion-gap" : value.record.instanceKey || cell.section + ":" + cell.mode + ":" + index,
+            entry: value.record, placeholder: value.placeholder, index: index }
+        })
+        factory: Component {
+          Tile {
+            required property var retainedRecord
+            record: retainedRecord.entry
+            placeholder: retainedRecord.placeholder
+            section: cell.section
+            mode: cell.mode
+            pos: retainedRecord.index
+          }
         }
       }
+      Repeater { id: tileRepeater; model: tileList.model }
     }
   }
 
@@ -519,7 +541,7 @@ Item {
         : tile.isCursor && editor.gridFocused ? Border.controlSpec("focus", Color.popups.text, Color.accent)
         : tile.isCursor ? Border.flat(Qt.alpha(Color.popups.text, 0.35), 1)
         : Border.none()
-      Behavior on color { ColorAnimation { duration: 90 } }
+      Behavior on color { enabled: editor.bar.animationsEnabled; ColorAnimation { duration: 90 } }
     }
 
     Row {
@@ -603,6 +625,7 @@ Item {
         Layout.fillWidth: true
         spacing: Style.space(10)
         BarBackdrop {
+          motionEnabled: !editor.bar || editor.bar.animationsEnabled
           Layout.preferredWidth: Math.max(Style.space(52), Math.max(preview.width, inspectorIcon.width) + Style.space(28))
           Layout.preferredHeight: Style.space(56)
           source: editor.preferences.wallpaper

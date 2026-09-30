@@ -8,7 +8,7 @@ Item {
   property bool enabledForActivity: true
   property bool armed: false
   property string previousSnapshot: ""
-  readonly property string snapshot: Model.snapshot(target)
+  readonly property string snapshot: enabledForActivity ? Model.snapshot(target) : ""
   signal activity()
   function establishBaseline() {
     armed = false

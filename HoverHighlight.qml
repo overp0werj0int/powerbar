@@ -11,10 +11,15 @@ Rectangle {
   property color hoverColor: "transparent"
   property color selectedColor: "transparent"
   property real rounding: 6
+  // Where two lit highlights overlap (Equal gaps), the older one fades so the
+  // eye goes to what just happened; the newer one draws on top.
+  property bool older: false
+  property real litAt: 0
   readonly property bool shown: hovered || selected
   radius: Math.max(0, Math.min(rounding, Math.min(width, height) / 2))
   color: selected ? selectedColor : hoverColor
-  opacity: shown ? 1 : 0
+  opacity: shown ? (older ? 0.45 : 1) : 0
+  z: shown && !older ? 1 : 0
   visible: opacity > 0
   Accessible.ignored: true
   Behavior on opacity { enabled: mark.motionEnabled; NumberAnimation { duration: 90; easing.type: Easing.OutCubic } }

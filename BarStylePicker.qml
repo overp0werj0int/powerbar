@@ -59,6 +59,8 @@ RowLayout {
         HoverHandler { id: hover }
 
         BarBackdrop {
+
+          motionEnabled: !picker.bar || picker.bar.animationsEnabled
           id: screen
           anchors.fill: parent
           anchors.margins: Style.space(4)

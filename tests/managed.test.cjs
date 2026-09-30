@@ -69,9 +69,34 @@ test('opening a keyboard drawer does not select its first member until navigatio
   assert.equal(m.cursorVisible(false, true, 3), false);
   assert.equal(m.cursorVisible(true, true, 0), false);
 });
-test('combined menu labels sit close to the icon while name-only rows retain an inset', () => {
-  assert.equal(m.menuLabelStart(true, 26, 8, 2), 28);
-  assert.equal(m.menuLabelStart(false, 26, 8, 2), 8);
+test('menu names start after the icon cell, or at the icon edge in rows without an icon', () => {
+  assert.equal(m.menuLabelStart(true, 32, 10), 32);
+  assert.equal(m.menuLabelStart(false, 32, 10), 10);
+});
+test('menu width fits its content, at least four cells and at most 320 px', () => {
+  assert.equal(m.menuWidth(60, 3, 32), 128);
+  assert.equal(m.menuWidth(200, 3, 32), 206);
+  assert.equal(m.menuWidth(600, 3, 32), 320);
+});
+const strip = o => m.placeStrip({ screen: 1512, edge: 4, snap: 16, zone: 'left', ...o }).start;
+test('strips centre on the group icon, stay a bar gap from the screen, and snap to the island end', () => {
+  assert.equal(strip({ length: 100, source: { start: 300, end: 332 }, island: { start: 4, end: 700 } }), 266);
+  // Near the screen's start: clamped to the bar gap, which here is the island's start.
+  assert.equal(strip({ length: 100, source: { start: 10, end: 42 }, island: { start: 4, end: 300 } }), 4);
+  // Within half a highlight of the island's end: the ends meet.
+  assert.equal(strip({ length: 100, source: { start: 230, end: 262 }, island: { start: 4, end: 300 } }), 200);
+  // The managed drawer has no source icon: it lines up with the island's outer end.
+  assert.equal(strip({ length: 100, source: null, zone: 'right', island: { start: 1200, end: 1508 } }), 1408);
+  assert.equal(strip({ length: 100, source: null, zone: 'left', island: { start: 4, end: 400 } }), 4);
+});
+const menu = o => m.placeMenu({ screen: 1512, edge: 4, snap: 16, zone: 'left', inset: 3, row: 32, ...o });
+test('menus start where the group icon starts, flip near the screen end, and sit level beside a vertical bar', () => {
+  assert.deepEqual({ ...menu({ length: 150, source: { start: 300, end: 332 } }) }, { start: 297, flipped: false });
+  assert.deepEqual({ ...menu({ length: 150, source: { start: 1450, end: 1482 } }) }, { start: 1335, flipped: true });
+  // Vertical: the first row's centre is level with the source's centre.
+  assert.deepEqual({ ...menu({ vertical: true, length: 110, source: { start: 200, end: 234 } }) }, { start: 198, flipped: false });
+  // Near the bottom: the last row is level with it.
+  assert.deepEqual({ ...menu({ vertical: true, screen: 300, length: 110, source: { start: 250, end: 284 } }) }, { start: 176, flipped: true });
 });
 test('clock-driven widgets never count as activity for an autohidden bar', () => {
   assert.equal(m.quietActivity('omarchy.clock'), true);

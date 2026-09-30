@@ -20,6 +20,15 @@ function endGap(state, surface) {
 function afterPointer(pointer, origin, contentOffset, contentExtent) {
   return pointer > origin + contentOffset + contentExtent / 2
 }
+// Whether a drag lands after a cell whose centre is `centre`. The previous
+// decision holds until the probe crosses the centre by more than `deadZone`,
+// so the landing spot cannot flicker at the boundary.
+function afterCentre(probe, centre, previous, deadZone) {
+  var dz = Math.max(0, deadZone || 0)
+  if (previous === true) return probe >= centre - dz
+  if (previous === false) return probe > centre + dz
+  return probe > centre
+}
 // Where a released icon settles once the layout has committed: its own drawer
 // cell, else its own main-bar slot, else the group icon now containing it.
 // Without a visible home it fades where it was released.
@@ -38,5 +47,5 @@ function settleFrame(from, to, progress, fade) {
   return { x: from.x + (end.x - from.x) * p, y: from.y + (end.y - from.y) * p,
     opacity: vanish ? 1 - p : 1, scale: vanish ? 1 - 0.4 * p : 1 }
 }
-if (typeof module !== "undefined") module.exports = { slot: slot, endGap: endGap, afterPointer: afterPointer,
+if (typeof module !== "undefined") module.exports = { slot: slot, endGap: endGap, afterPointer: afterPointer, afterCentre: afterCentre,
   settleTarget: settleTarget, settleFrame: settleFrame }

@@ -245,6 +245,7 @@ Item {
           Layout.fillWidth: true
           spacing: Style.space(14)
           BarBackdrop {
+            motionEnabled: !bar || bar.animationsEnabled
             Layout.preferredWidth: Style.space(64)
             Layout.preferredHeight: Style.space(56)
             source: pane.preferences.wallpaper
@@ -527,6 +528,7 @@ Item {
     onItemsChanged: cursor = Math.max(0, Math.min(cursor, items.length - 1))
     onActiveFocusChanged: if (!activeFocus && lifted) lifted = null
 
+    function recordKey(record) { return record ? record.instanceKey || record.section + ":" + record.index : "" }
     function liftCurrent() {
       if (!reorderable || !items[cursor]) return
       lifted = items[cursor]
@@ -631,19 +633,23 @@ Item {
         Column {
           width: parent.width
           spacing: Style.space(3)
-          Repeater {
-            id: rowRepeater
-            model: list.display
+          RetainedList {
+            id: rowList
+            recordProperty: "retainedRecord"
+            records: list.display.map(function(value, index) {
+              return { key: value.placeholder ? "insertion-gap" : value.record.instanceKey || "row:" + index,
+                entry: value.record, placeholder: value.placeholder }
+            })
+            factory: Component {
             BorderSurface {
               id: row
-              required property var modelData
-              required property int index
-              readonly property var record: modelData.record
-              readonly property bool placeholder: modelData.placeholder
-              readonly property bool isCursor: !list.lifted && list.activeFocus && list.items[list.cursor] === record
+              required property var retainedRecord
+              readonly property var record: retainedRecord.entry
+              readonly property bool placeholder: retainedRecord.placeholder
+              readonly property bool isCursor: !list.lifted && list.activeFocus && list.recordKey(list.items[list.cursor]) === list.recordKey(record)
               width: parent.width
               height: Style.spacing.controlHeight + Style.space(2)
-              scale: !placeholder && listPointer.pressed && !ghost.record && listPointer.pressedRecord === record ? 0.98 : 1
+              scale: !placeholder && listPointer.pressed && !ghost.record && list.recordKey(listPointer.pressedRecord) === list.recordKey(record) ? 0.98 : 1
               Behavior on scale { enabled: pane.bar.animationsEnabled; NumberAnimation { duration: 120; easing.type: Easing.OutCubic } }
               radius: Math.max(0, Style.cornerRadius - Style.space(2))
               color: placeholder ? Qt.alpha(Color.accent, 0.16)
@@ -693,7 +699,9 @@ Item {
                 }
               }
             }
+            }
           }
+          Repeater { id: rowRepeater; model: rowList.model }
         }
       }
       Text {
@@ -723,7 +731,7 @@ Item {
           list.forceActiveFocus(Qt.MouseFocusReason)
           pressedRecord = row ? row.record : null
           origin = point
-          if (row) list.cursor = list.items.indexOf(row.record)
+          if (row) list.cursor = list.items.findIndex(function(item) { return list.recordKey(item) === list.recordKey(row.record) })
         }
         onPositionChanged: function(mouse) {
           var point = mapToItem(pane, mouse.x, mouse.y)

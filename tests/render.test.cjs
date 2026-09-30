@@ -1,0 +1,44 @@
+const { test } = require('node:test');
+const assert = require('node:assert/strict');
+const model = require('../RenderModel.js');
+const tray = require('../widgets/TrayModel.js');
+const entry = (key, extra = {}) => ({ id: 'duplicate', powerbarInstance: key, ...extra });
+const config = () => ({ transparent: false, layout: { left: [entry('a'), entry('b')], center: [], right: [] } });
+test('retention keys distinguish duplicate IDs and anchor only the first matching instance', () => {
+  const layout = { left: [entry('a')], center: [entry('b'), entry('c')], right: [] };
+  const records = model.records(layout);
+  assert.deepEqual(records.map(r => r.key), ['a', 'b', 'c']);
+  assert.deepEqual(model.split(records, 'duplicate'), { left: ['a'], right: [], center: [], before: [], anchor: ['b'], after: ['c'] });
+  assert.deepEqual(model.split(records, ''), { left: ['a'], right: [], center: ['b', 'c'], before: [], anchor: [], after: [] });
+});
+test('capture invalidation distinguishes identical reloads, surface alpha, settings, moves and unknown changes', () => {
+  const original = config(), next = config();
+  assert.deepEqual(model.captureDelta(original, next), []);
+  next.powerbarBackgroundOpacity = 80;
+  assert.deepEqual(model.captureDelta(original, next), []);
+  next.layout.left[1].format = 'HH:mm';
+  assert.deepEqual(model.captureDelta(original, next), ['b']);
+  next.layout.left.reverse();
+  assert.deepEqual(model.captureDelta(original, next), ['b', 'a']);
+  next.theme = 'new';
+  assert.equal(model.captureDelta(original, next), null);
+});
+test('group index preserves group identity and member routing', () => {
+  const group = { id: 'g', items: ['a', 'b'] };
+  const index = model.groupIndex([group]);
+  assert.equal(index.owner.a, group); assert.equal(index.byId.g, group);
+  assert.equal(index.owner.absent, undefined);
+});
+test('tray ownership retains saved semantics and excludes unrelated items', () => {
+  assert.equal(tray.ownedByOmarchy({ id: 'localsend' }, {}), true);
+  assert.equal(tray.ownedByOmarchy({ title: 'Dropbox' }, { left: [{ id: 'omarchy.dropbox' }] }), true);
+  assert.equal(tray.ownedByOmarchy({ title: 'Dropbox' }, {}), false);
+});
+
+test('raw layout indexes tolerate invalid entries without disturbing unrelated zones', () => {
+  assert.deepEqual(model.records({left: [null, 42, 'clock', entry('a')]}).map(r => r.key), ['clock:left:2', 'a']);
+  const original = config(), next = config();
+  original.layout.center = [entry('center')]; next.layout.center = [entry('center')];
+  next.layout.left.push(entry('new'));
+  assert.deepEqual(model.captureDelta(original, next), ['new']);
+});

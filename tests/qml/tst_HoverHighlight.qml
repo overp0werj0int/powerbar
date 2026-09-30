@@ -19,6 +19,7 @@ TestCase {
   function init() {
     mark.hovered = false
     mark.selected = false
+    mark.older = false
   }
 
   function test_hidden_at_rest() {
@@ -45,5 +46,16 @@ TestCase {
     mark.rounding = 4
     compare(mark.radius, 4)
     mark.rounding = 16
+  }
+
+  function test_older_overlapped_highlight_fades_and_sits_below() {
+    mark.selected = true
+    compare(mark.opacity, 1)
+    compare(mark.z, 1)
+    mark.older = true
+    compare(mark.opacity, 0.45)
+    compare(mark.z, 0)
+    mark.selected = false
+    compare(mark.opacity, 0)
   }
 }

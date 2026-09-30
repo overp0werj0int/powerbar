@@ -9,6 +9,7 @@ import "PreferencesModel.js" as Model
 import "BarModel.js" as BarModel
 import "AppearanceModel.js" as AppearanceModel
 import "GroupsModel.js" as Groups
+import "RenderModel.js" as RenderModel
 
 // Powerbar preferences. Everything is reachable from the keyboard: 1-4 switch
 // pages, Tab and j/k walk controls, h/l adjust them, Esc closes. The footer
@@ -23,6 +24,10 @@ Item {
   property string status: ""
   property var snapshots: ({})
   property int openSerial: 0
+  property int captureEpoch: 0
+  property var snapshotBatch: ({})
+  property var pendingCaptureKeys: []
+  property var previousCaptureConfig: ({})
   readonly property string wallpaper: bar ? "file://" + bar.stateHome + "/omarchy/current/background?v=" + openSerial : ""
   readonly property var config: bar ? bar.barConfig : ({})
   readonly property var entries: Model.records(config.layout, function(id) { return bar.barWidgetRegistry.metadataFor(id) })
@@ -49,7 +54,11 @@ Item {
     bar.closeManagedDrawer()
     bar.clearTooltip()
     bar.requestPopout(prefs)
+    captureEpoch++
+    snapshotBatch = ({})
     snapshots = ({})
+    previousCaptureConfig = JSON.parse(JSON.stringify(config))
+    pendingCaptureKeys = []
     openSerial++
     cacheListing.running = true
     opened = true
@@ -58,6 +67,9 @@ Item {
   }
   function close() {
     opened = false
+    captureEpoch++
+    snapshotBatch = ({})
+    snapshotDelay.stop()
     if (bar) bar.releasePopout(prefs)
   }
   function show(screen) { targetScreen = screen; open("{}") }
@@ -69,14 +81,21 @@ Item {
     Qt.callLater(focusPage)
   }
   function focusPage() { if (pageItems[page]) pageItems[page].focusFirst() }
-  function refreshSnapshots() {
-    if (!opened || !bar || !targetScreen) return
-    bar.captureWidgetImages(targetScreen, function(key, image) {
-      var next = Object.assign({}, prefs.snapshots)
-      next[key] = image
-      prefs.snapshots = next
-    })
+  function publishSnapshots() {
+    if (!opened || !Object.keys(snapshotBatch).length) return
+    snapshots = Object.assign({}, snapshots, snapshotBatch)
+    snapshotBatch = ({})
   }
+  function refreshSnapshots(keys) {
+    if (!opened || !bar || !targetScreen) return
+    var epoch = captureEpoch, screen = targetScreen
+    bar.captureWidgetImages(screen, function(key, image) {
+      if (!prefs.opened || epoch !== prefs.captureEpoch || screen !== prefs.targetScreen) return
+      prefs.snapshotBatch[key] = image
+      Qt.callLater(prefs.publishSnapshots)
+    }, keys, function() { return prefs.opened && epoch === prefs.captureEpoch && screen === prefs.targetScreen })
+  }
+  onTargetScreenChanged: if (opened) { captureEpoch++; snapshotBatch = ({}); refreshSnapshots() }
   function title(record) {
     if (record.groupId) return record.label
     if (record.label) return record.label
@@ -130,11 +149,39 @@ Item {
       : changed ? "" : "The layout changed elsewhere. Try again."
   }
 
-  // Widget images go stale whenever the bar re-renders.
-  Timer { id: snapshotDelay; interval: 260; onTriggered: prefs.refreshSnapshots() }
+  Timer {
+    id: snapshotDelay
+    interval: 260
+    onTriggered: {
+      var keys = prefs.pendingCaptureKeys
+      prefs.pendingCaptureKeys = []
+      prefs.refreshSnapshots(keys)
+    }
+  }
   Connections {
     target: prefs.bar
-    function onBarConfigChanged() { if (prefs.opened) snapshotDelay.restart() }
+    function onBarConfigChanged() {
+      var next = JSON.parse(JSON.stringify(prefs.config))
+      var keys = RenderModel.captureDelta(prefs.previousCaptureConfig, next)
+      prefs.previousCaptureConfig = next
+      if (!prefs.opened || (keys && !keys.length)) return
+      if (keys === null || prefs.pendingCaptureKeys === null) prefs.pendingCaptureKeys = null
+      else prefs.pendingCaptureKeys = Array.from(new Set(prefs.pendingCaptureKeys.concat(keys)))
+      snapshotDelay.restart()
+    }
+    function onFontFamilyChanged() { if (prefs.opened) { prefs.pendingCaptureKeys = null; snapshotDelay.restart() } }
+    function onBarSizeChanged() { if (prefs.opened) { prefs.pendingCaptureKeys = null; snapshotDelay.restart() } }
+    function onBarWidgetRegistryChanged() { if (prefs.opened) { prefs.pendingCaptureKeys = null; snapshotDelay.restart() } }
+    function onBarForegroundChanged() { if (prefs.opened) { prefs.pendingCaptureKeys = null; snapshotDelay.restart() } }
+    function onBackgroundChanged() { if (prefs.opened) { prefs.pendingCaptureKeys = null; snapshotDelay.restart() } }
+    function onUrgentChanged() { if (prefs.opened) { prefs.pendingCaptureKeys = null; snapshotDelay.restart() } }
+    function onForegroundChanged() { if (prefs.opened) { prefs.pendingCaptureKeys = null; snapshotDelay.restart() } }
+  }
+
+  Connections {
+    target: prefs.bar ? prefs.bar.barWidgetRegistry : null
+    ignoreUnknownSignals: true
+    function onRevisionChanged() { if (prefs.opened) { prefs.pendingCaptureKeys = null; snapshotDelay.restart() } }
   }
 
   PanelWindow {
@@ -235,7 +282,11 @@ Item {
             height = target.height + pad * 2
           }
           Timer { id: glideEnd; interval: 170; onTriggered: focusRing.gliding = false }
-          FrameAnimation { running: focusRing.shown; onTriggered: focusRing.follow() }
+          GeometryObserver {
+            target: focusRing.shown ? focusRing.target : null
+            host: card
+            onChanged: focusRing.follow()
+          }
           Behavior on x { enabled: focusRing.gliding && prefs.bar.animationsEnabled; NumberAnimation { duration: 140; easing.type: Easing.OutCubic } }
           Behavior on y { enabled: focusRing.gliding && prefs.bar.animationsEnabled; NumberAnimation { duration: 140; easing.type: Easing.OutCubic } }
           Behavior on width { enabled: focusRing.gliding && prefs.bar.animationsEnabled; NumberAnimation { duration: 140; easing.type: Easing.OutCubic } }
@@ -430,6 +481,15 @@ Item {
                 wallpaper: prefs.wallpaper
                 onChosen: function(value) { prefs.setBarStyle(value) }
               }
+              PrefsChoice {
+                label: "Spacing"
+                description: value === "gaps"
+                  ? "The same air between every pair of icons; highlights stay symmetric"
+                  : "Every icon gets the same square slot; highlights sit one inset apart"
+                options: [{ value: "slots", label: "Equal slots" }, { value: "gaps", label: "Equal gaps" }]
+                value: prefs.bar ? prefs.bar.spacingMode : "slots"
+                onChosen: function(value) { prefs.setOption("powerbarSpacingMode", value) }
+              }
               PrefsSlider {
                 label: "Space between widgets"
                 minimum: 0; maximum: 24
@@ -580,6 +640,7 @@ Item {
   // A miniature of the bar with its current surface, drawn over a neutral
   // backdrop so transparency, borders and shadows read at a glance.
   component BarPreview: BarBackdrop {
+    motionEnabled: !prefs.bar || prefs.bar.animationsEnabled
     id: preview
     readonly property var effects: prefs.bar ? prefs.bar.surfaceEffects : ({})
     // The preview is the strip of screen along the bar's edge: a flat bar

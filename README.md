@@ -293,16 +293,22 @@ widgets; drawer contents use the same scale. All numeric preferences use sliders
 ## Validation
 
 ```sh
-node tests/preferences.test.cjs
-node tests/managed.test.cjs
-QT_QPA_PLATFORM=offscreen QT_QPA_PLATFORMTHEME= QT_QUICK_CONTROLS_STYLE=Basic QT_QUICK_BACKEND=software /usr/lib/qt6/bin/qmltestrunner -input tests/qml -o -,txt
+node --test tests/*.test.cjs
+QT_QPA_PLATFORM=offscreen QT_QPA_PLATFORMTHEME= QT_QUICK_CONTROLS_STYLE=Basic QT_QUICK_BACKEND=software /usr/lib/qt6/bin/qmltestrunner -import tests/qml/imports -input tests/qml -o -,txt
+
+# Exercise the actual badge and editor startup bindings with fictional data.
+node tests/startup-probe.cjs /tmp/powerbar-startup-probe
+QT_QPA_PLATFORM=offscreen QT_QPA_PLATFORMTHEME= QT_QUICK_CONTROLS_STYLE=Basic QT_QUICK_BACKEND=software /usr/lib/qt6/bin/qmltestrunner -input /tmp/powerbar-startup-probe -o -,txt
 omarchy plugin validate "$PWD"
 /usr/lib/qt6/bin/qmlformat --normalize Preferences.qml >/dev/null
 ```
 
 The model tests cover movement among all nine cells, preserving settings and
 unrelated config, duplicate instances, reordering, stale drags, and visibility
-changes that must rebuild live slots. Live checks additionally cover loading,
+transitions that retain or remove the affected live owners. The QML suite covers
+retention, scoped API updates, idle geometry, shared indicators and capture
+lifecycle using controlled fixtures. See [rendering implementation evidence](docs/rendering-performance-implementation.md).
+Live checks additionally cover loading,
 opening from the nine-dot button, keyboard movement, drag-and-drop, persistence,
 and Escape dismissal. Multi-monitor behavior still needs a multi-monitor session.
 

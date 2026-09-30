@@ -1,56 +1,20 @@
 import QtQuick
 import Quickshell
-import Quickshell.Io
 import qs.Ui
+import ".."
 
 BarIndicator {
   id: root
 
-  property int reminderCount: 0
-  property string tooltip: ""
-
+  SharedIndicatorState { id: shared; bar: root.bar; kind: "Reminder"; settings: root.settings }
+  readonly property int reminderCount: shared.producer ? shared.producer.reminderCount : 0
+  readonly property string tooltip: shared.producer ? shared.producer.tooltip : ""
   active: reminderCount > 0
   activeText: "󰢌"
   inactiveText: "󰢌"
   activeTooltipText: tooltip
   inactiveTooltipText: tooltip
-
-  function refresh() {
-    if (!jsonProc.running) jsonProc.running = true
-  }
-
-  function openReminderFlow() {
-    Quickshell.execDetached(["omarchy-reminder", "-i"])
-  }
-
-  function update(raw) {
-    var data = extractData(raw)
-    reminderCount = Number(data.count || 0)
-    tooltip = String(data.tooltip || "")
-  }
-
-  Component.onCompleted: refresh()
-
-  Connections {
-    target: root.indicatorHost
-    ignoreUnknownSignals: true
-    function onRefreshRequested() { root.refresh() }
-  }
-
-  Process {
-    id: jsonProc
-    command: ["omarchy-reminder", "show", "--json"]
-    stdout: StdioCollector {
-      waitForEnd: true
-      onStreamFinished: root.update(text)
-    }
-    onExited: function(exitCode) {
-      if (exitCode !== 0) {
-        root.reminderCount = 0
-        root.tooltip = ""
-      }
-    }
-  }
+  function openReminderFlow() { Quickshell.execDetached(["omarchy-reminder", "-i"]) }
 
   onPressed: function() {
     if (root.reminderCount > 0) Quickshell.execDetached(["omarchy-reminder", "show"])

@@ -79,3 +79,22 @@ test('the settle frame glides from the release point without jumping', () => {
   assert.ok(fading.scale < 1 && fading.scale > 0);
   assert.deepEqual(drag.settleFrame(from, null, 0.5, false), { x: 100, y: 40, opacity: 0.5, scale: 0.8 });
 });
+
+test('landing after a cell holds within a 3 px dead zone, so the gap cannot flicker', () => {
+  assert.equal(drag.afterCentre(101, 100), true);
+  assert.equal(drag.afterCentre(99, 100), false);
+  // Once after, it stays after until the probe is more than 3 px before the centre.
+  assert.equal(drag.afterCentre(98, 100, true, 3), true);
+  assert.equal(drag.afterCentre(96.9, 100, true, 3), false);
+  // Once before, it stays before until more than 3 px past the centre.
+  assert.equal(drag.afterCentre(102, 100, false, 3), false);
+  assert.equal(drag.afterCentre(103.1, 100, false, 3), true);
+  // A sweep across the boundary and back changes the decision exactly twice.
+  let after, changes = 0;
+  for (const p of [90, 95, 99, 101, 102, 104, 106, 104, 101, 99, 98, 96, 94]) {
+    const next = drag.afterCentre(p, 100, after, 3);
+    if (after !== undefined && next !== after) changes++;
+    after = next;
+  }
+  assert.equal(changes, 2);
+});

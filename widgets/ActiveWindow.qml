@@ -18,6 +18,7 @@ BarWidget {
   implicitHeight: barSize
 
   Behavior on implicitWidth {
+    enabled: !root.bar || root.bar.animationsEnabled !== false
     NumberAnimation { duration: 180; easing.type: Easing.OutCubic }
   }
 

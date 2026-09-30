@@ -23,8 +23,62 @@ function drawerVertical(group, barVertical) {
   return groupMenu(group) || !!barVertical
 }
 function drawerSurface(group) { return groupMenu(group) ? "menu" : "island" }
-function menuLabelStart(showNative, naturalWidth, inset, iconGap) {
-  return showNative ? naturalWidth + iconGap : inset
+// Where a menu row's name starts: after the icon's cell when the row shows an
+// icon, else at the icon edge (the text air), so every row's content shares
+// one left edge.
+function menuLabelStart(showIcon, cell, air) {
+  return showIcon ? cell : air
+}
+// Menu width: the widest row's content plus the padding, at least four icon
+// cells and at most 320 px (longer names elide).
+function menuWidth(content, inset, cell) {
+  return Math.min(320, Math.max(4 * cell, content + 2 * inset))
+}
+function clamp(start, length, screen, edge) {
+  return Math.max(edge, Math.min(screen - edge - length, start))
+}
+// Along-axis placement of an icon strip.
+//   o.length   strip length        o.screen  screen length    o.edge  bar gap
+//   o.source   { start, end } of the group icon's cell, or null (managed drawer)
+//   o.island   { start, end } of the zone's island, or null
+//   o.zone     "left" | "center" | "right"   o.snap  half a highlight
+// Centred on the source, kept a bar gap from the screen's edges, then an end
+// within `snap` of the island's end snaps onto it.
+function placeStrip(o) {
+  var start
+  if (o.source) {
+    start = clamp((o.source.start + o.source.end) / 2 - o.length / 2, o.length, o.screen, o.edge)
+    if (o.island) {
+      if (Math.abs(start - o.island.start) <= o.snap) start = o.island.start
+      else if (Math.abs(start + o.length - o.island.end) <= o.snap) start = o.island.end - o.length
+    }
+    return { start: start, aligned: "source" }
+  }
+  return { start: clamp(outerEnd(o), o.length, o.screen, o.edge), aligned: "island" }
+}
+function outerEnd(o) {
+  var island = o.island || { start: o.edge, end: o.screen - o.edge }
+  if (o.zone === "left") return island.start
+  if (o.zone === "right") return island.end - o.length
+  return (island.start + island.end) / 2 - o.length / 2
+}
+// Along-axis placement of a menu. Below a horizontal bar the first row starts
+// where the source cell starts (rows end where it ends near the screen's
+// end); beside a vertical bar the first row's centre is level with the
+// source's centre (the last row's near the bottom).
+//   o.inset, o.row (row thickness T), o.vertical, plus placeStrip's fields
+function placeMenu(o) {
+  if (!o.source) return { start: clamp(outerEnd(o), o.length, o.screen, o.edge), flipped: false }
+  var start, flipped = false
+  if (!o.vertical) {
+    start = o.source.start - o.inset
+    if (start + o.length > o.screen - o.edge) { start = o.source.end + o.inset - o.length; flipped = true }
+  } else {
+    var centre = (o.source.start + o.source.end) / 2
+    start = centre - o.row / 2 - o.inset
+    if (start + o.length > o.screen - o.edge) { start = centre + o.row / 2 + o.inset - o.length; flipped = true }
+  }
+  return { start: clamp(start, o.length, o.screen, o.edge), flipped: flipped }
 }
 function cursorVisible(keyboardMode, cursorActive, count) {
   return !!keyboardMode && !!cursorActive && count > 0

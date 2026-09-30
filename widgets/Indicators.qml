@@ -1,6 +1,8 @@
 import QtQuick
+import QtQml.Models as Models
+import ".."
+import "../RenderModel.js" as RenderModel
 import Quickshell
-import Quickshell.Io
 import qs.Commons
 import qs.Ui
 
@@ -15,11 +17,12 @@ BarWidget {
   property bool indicatorAreaHovered: false
   property bool indicatorItemHovered: false
   readonly property bool alwaysShowIndicators: setting("alwaysShow", false) === true
+  // Revealing the inactive indicators is this widget's own expansion, not a
+  // value that flickers, so Powerbar's width hold must not keep it open.
+  readonly property bool powerbarWidthHold: false
   readonly property bool revealInactiveIndicators: alwaysShowIndicators || indicatorAreaHovered || indicatorItemHovered || (bar && bar.centerSectionRevealHeld === true && bar.centerHoverRevealSuppressed !== true)
 
   signal refreshRequested()
-
-  ListModel { id: activeIndicatorModel }
 
   function entryId(entry) {
     if (typeof entry === "string") return entry
@@ -91,13 +94,6 @@ BarWidget {
     return { id: id }
   }
 
-  function activeModelIndex(id) {
-    for (var i = 0; i < activeIndicatorModel.count; i++) {
-      if (activeIndicatorModel.get(i).activeId === id) return i
-    }
-    return -1
-  }
-
   function copyActiveStates() {
     var states = {}
     for (var id in indicatorActiveStates) {
@@ -117,24 +113,11 @@ BarWidget {
     return ids
   }
 
-  function syncActiveIndicatorModel() {
-    for (var i = activeIndicatorModel.count - 1; i >= 0; i--) {
-      if (activeIndicatorIds.indexOf(activeIndicatorModel.get(i).activeId) === -1)
-        activeIndicatorModel.remove(i)
-    }
-
-    for (var j = 0; j < activeIndicatorIds.length; j++) {
-      var id = activeIndicatorIds[j]
-      var index = activeModelIndex(id)
-      if (index === -1) activeIndicatorModel.insert(j, { activeId: id })
-      else if (index !== j) activeIndicatorModel.move(index, j, 1)
-    }
-  }
-
   function setIndicatorActive(entry, active) {
     var id = entryId(entry)
     if (id === "") return
 
+    if ((indicatorActiveStates[id] === true) === active) return
     var states = copyActiveStates()
     if (active) states[id] = true
     else delete states[id]
@@ -146,24 +129,22 @@ BarWidget {
     // side of it. Appending would shove everything already showing sideways.
     if (active && ids.indexOf(id) === -1 && hasIndicatorId(id)) ids.unshift(id)
     activeIndicatorIds = ids
-    syncActiveIndicatorModel()
   }
 
   function syncActiveIndicatorOrder() {
     activeIndicatorIds = orderedActiveIds(indicatorActiveStates, activeIndicatorIds)
-    syncActiveIndicatorModel()
   }
 
-  function refresh() { root.refreshRequested() }
+  function refresh() {
+    root.refreshRequested()
+    if (bar && bar.refreshIndicatorStates) bar.refreshIndicatorStates()
+  }
 
-  onIndicatorEntriesChanged: syncActiveIndicatorOrder()
+  onIndicatorEntriesChanged: { syncActiveIndicatorOrder(); Qt.callLater(reconcileIndicators) }
+  onActiveIndicatorIdsChanged: Qt.callLater(reconcileIndicators)
 
-  implicitWidth: root.vertical
-    ? Math.max(activeVerticalBlock.implicitWidth, inactiveVerticalArea.implicitWidth)
-    : activeHorizontalBlock.implicitWidth + inactiveHorizontalArea.implicitWidth
-  implicitHeight: root.vertical
-    ? activeVerticalBlock.implicitHeight + inactiveVerticalArea.implicitHeight
-    : Math.max(activeHorizontalBlock.implicitHeight, inactiveHorizontalArea.implicitHeight)
+  implicitWidth: root.vertical ? Math.max(activeBlock.width, inactiveArea.width) : activeBlock.width + inactiveArea.width
+  implicitHeight: root.vertical ? activeBlock.height + inactiveArea.height : Math.max(activeBlock.height, inactiveArea.height)
 
   IpcHandler {
     target: "omarchy.indicators"
@@ -182,220 +163,64 @@ BarWidget {
     }
   }
 
-  Component.onCompleted: root.refreshRequested()
+  Component.onCompleted: { reconcileIndicators(); refresh() }
 
-  Row {
-    id: horizontalIndicators
-
-    visible: !root.vertical
-    spacing: 0
-
-    HoverHandler {
-      onHoveredChanged: root.setIndicatorAreaHovered(hovered)
-    }
-
-    Item {
-      id: inactiveHorizontalArea
-
-      implicitWidth: root.revealInactiveIndicators ? inactiveHorizontalBlock.implicitWidth : 0
-      implicitHeight: Math.max(inactiveHorizontalBlock.implicitHeight, root.barSize)
-      width: implicitWidth
-      height: implicitHeight
-      clip: true
-
-      IndicatorBlock {
-        id: inactiveHorizontalBlock
-        anchors.verticalCenter: parent.verticalCenter
+  Models.ObjectModel { id: inactiveObjects }
+  Models.ObjectModel { id: activeObjects }
+  RetainedStore {
+    id: indicatorStore
+    recordProperty: "retainedRecord"
+    factory: Component {
+      IndicatorLoader {
+        required property var retainedRecord
+        entry: retainedRecord.entry
         indicatorsModule: root
-        indicatorEntries: root.indicatorEntries
-        indicatorBlock: "inactive"
-        horizontal: true
-        reportActiveState: !root.vertical
+        indicatorBlock: root.activeIndicatorIds.indexOf(indicatorId) >= 0 ? "active" : "inactive"
+        reportActiveState: true
       }
-
-      HoverHandler {
-        onHoveredChanged: root.setIndicatorAreaHovered(hovered)
-      }
-    }
-
-    ActiveIndicatorBlock {
-      id: activeHorizontalBlock
-      indicatorsModule: root
-      indicatorModel: activeIndicatorModel
-      horizontal: true
-      reportActiveState: !root.vertical
     }
   }
+  function reconcileIndicators() {
+    var counts = ({})
+    var records = indicatorEntries.map(function(entry) {
+      var id = entryId(entry), occurrence = counts[id] || 0
+      counts[id] = occurrence + 1
+      return { key: id + ":" + occurrence, entry: entry }
+    })
+    indicatorStore.reconcile(records)
+    var inactive = records.filter(function(r) { return activeIndicatorIds.indexOf(entryId(r.entry)) < 0 })
+      .map(function(r) { return indicatorStore.get(r.key) })
+    var active = activeIndicatorIds.map(function(id) { return indicatorStore.get(id + ":0") }).filter(function(item) { return !!item })
+    RenderModel.reconcileLists([inactiveObjects, activeObjects], [inactive, active], indicatorStore)
+    indicatorStore.sweep()
+  }
 
-  Column {
-    id: verticalIndicators
-
-    visible: root.vertical
+  Item {
+    id: inactiveArea
+    width: root.vertical ? Math.max(inactiveBlock.width, root.barSize) : root.revealInactiveIndicators ? inactiveBlock.width : 0
+    height: root.vertical ? root.revealInactiveIndicators ? inactiveBlock.height : 0 : Math.max(inactiveBlock.height, root.barSize)
+    clip: true
+    Grid {
+      id: inactiveBlock
+      // x/y rather than centre anchors switched by orientation, which would
+      // leave the other axis where the previous orientation put it.
+      x: root.vertical ? (parent.width - width) / 2 : 0
+      y: root.vertical ? 0 : (parent.height - height) / 2
+      columns: root.vertical ? 1 : 100000
+      spacing: 0
+      Repeater { model: inactiveObjects }
+    }
+    HoverHandler { onHoveredChanged: root.setIndicatorAreaHovered(hovered) }
+  }
+  Grid {
+    id: activeBlock
+    x: root.vertical ? 0 : inactiveArea.width
+    y: root.vertical ? inactiveArea.height : 0
+    columns: root.vertical ? 1 : 100000
     spacing: 0
-
-    HoverHandler {
-      onHoveredChanged: root.setIndicatorAreaHovered(hovered)
-    }
-
-    Item {
-      id: inactiveVerticalArea
-
-      implicitWidth: Math.max(inactiveVerticalBlock.implicitWidth, root.barSize)
-      implicitHeight: root.revealInactiveIndicators ? inactiveVerticalBlock.implicitHeight : 0
-      width: implicitWidth
-      height: implicitHeight
-      clip: true
-
-      IndicatorBlock {
-        id: inactiveVerticalBlock
-        anchors.horizontalCenter: parent.horizontalCenter
-        indicatorsModule: root
-        indicatorEntries: root.indicatorEntries
-        indicatorBlock: "inactive"
-        horizontal: false
-        reportActiveState: root.vertical
-      }
-
-      HoverHandler {
-        onHoveredChanged: root.setIndicatorAreaHovered(hovered)
-      }
-    }
-
-    ActiveIndicatorBlock {
-      id: activeVerticalBlock
-      indicatorsModule: root
-      indicatorModel: activeIndicatorModel
-      horizontal: false
-      reportActiveState: root.vertical
-    }
+    Repeater { model: activeObjects }
   }
-
-  HoverHandler {
-    onHoveredChanged: root.setIndicatorAreaHovered(hovered)
-  }
-
-  component ActiveIndicatorBlock: Item {
-    id: activeIndicatorBlockRoot
-
-    property var indicatorModel: null
-    property var indicatorsModule: null
-    property bool horizontal: true
-    property bool reportActiveState: false
-
-    implicitWidth: blockLoader.item ? blockLoader.item.implicitWidth : 0
-    implicitHeight: blockLoader.item ? blockLoader.item.implicitHeight : 0
-    width: implicitWidth
-    height: implicitHeight
-
-    Loader {
-      id: blockLoader
-
-      anchors.centerIn: parent
-      sourceComponent: activeIndicatorBlockRoot.horizontal ? horizontalActiveIndicatorBlock : verticalActiveIndicatorBlock
-    }
-
-    Component {
-      id: horizontalActiveIndicatorBlock
-
-      Row {
-        spacing: 0
-
-        Repeater {
-          model: activeIndicatorBlockRoot.indicatorModel
-
-          IndicatorLoader {
-            required property string activeId
-            indicatorsModule: activeIndicatorBlockRoot.indicatorsModule
-            entry: activeIndicatorBlockRoot.indicatorsModule.entryForId(activeId)
-            indicatorBlock: "active"
-            reportActiveState: activeIndicatorBlockRoot.reportActiveState
-          }
-        }
-      }
-    }
-
-    Component {
-      id: verticalActiveIndicatorBlock
-
-      Column {
-        spacing: 0
-
-        Repeater {
-          model: activeIndicatorBlockRoot.indicatorModel
-
-          IndicatorLoader {
-            required property string activeId
-            indicatorsModule: activeIndicatorBlockRoot.indicatorsModule
-            entry: activeIndicatorBlockRoot.indicatorsModule.entryForId(activeId)
-            indicatorBlock: "active"
-            reportActiveState: activeIndicatorBlockRoot.reportActiveState
-          }
-        }
-      }
-    }
-  }
-
-  component IndicatorBlock: Item {
-    id: indicatorBlockRoot
-
-    property var indicatorEntries: []
-    property var indicatorsModule: null
-    property string indicatorBlock: "active"
-    property bool horizontal: true
-    property bool reportActiveState: false
-
-    implicitWidth: blockLoader.item ? blockLoader.item.implicitWidth : 0
-    implicitHeight: blockLoader.item ? blockLoader.item.implicitHeight : 0
-    width: implicitWidth
-    height: implicitHeight
-
-    Loader {
-      id: blockLoader
-
-      anchors.centerIn: parent
-      sourceComponent: indicatorBlockRoot.horizontal ? horizontalIndicatorBlock : verticalIndicatorBlock
-    }
-
-    Component {
-      id: horizontalIndicatorBlock
-
-      Row {
-        spacing: 0
-
-        Repeater {
-          model: indicatorBlockRoot.indicatorEntries
-
-          IndicatorLoader {
-            required property var modelData
-            indicatorsModule: indicatorBlockRoot.indicatorsModule
-            entry: modelData
-            indicatorBlock: indicatorBlockRoot.indicatorBlock
-            reportActiveState: indicatorBlockRoot.reportActiveState
-          }
-        }
-      }
-    }
-
-    Component {
-      id: verticalIndicatorBlock
-
-      Column {
-        spacing: 0
-
-        Repeater {
-          model: indicatorBlockRoot.indicatorEntries
-
-          IndicatorLoader {
-            required property var modelData
-            indicatorsModule: indicatorBlockRoot.indicatorsModule
-            entry: modelData
-            indicatorBlock: indicatorBlockRoot.indicatorBlock
-            reportActiveState: indicatorBlockRoot.reportActiveState
-          }
-        }
-      }
-    }
-  }
+  HoverHandler { onHoveredChanged: root.setIndicatorAreaHovered(hovered) }
 
   component IndicatorLoader: Item {
     id: indicatorSlot
@@ -404,7 +229,6 @@ BarWidget {
     property var indicatorsModule: null
     required property string indicatorBlock
     property bool reportActiveState: false
-    property bool activeStateObserved: false
     readonly property string indicatorId: root.entryId(entry)
     readonly property var indicatorSettings: root.entrySettings(entry)
     readonly property var barRef: root.bar
@@ -414,7 +238,6 @@ BarWidget {
     width: implicitWidth
     height: implicitHeight
     onEntryChanged: {
-      activeStateObserved = false
       injectProps()
       syncActiveState()
     }
@@ -453,18 +276,13 @@ BarWidget {
       if ("settings" in target) target.settings = indicatorSettings
       if ("indicatorBlock" in target) target.indicatorBlock = indicatorBlock
       if ("indicatorHost" in target) target.indicatorHost = root
-      if ("activeOverride" in target) target.activeOverride = indicatorBlock === "active" ? true : null
+      if ("activeOverride" in target) target.activeOverride = null
     }
 
     function syncActiveState() {
       if (!reportActiveState || !indicatorsModule || !indicatorsModule.setIndicatorActive) return
 
       var active = !!indicatorSource.item && indicatorSource.item.active === true
-      if (indicatorBlock === "active") {
-        if (active) activeStateObserved = true
-        else if (!activeStateObserved) return
-      }
-
       indicatorsModule.setIndicatorActive(entry, active)
     }
   }

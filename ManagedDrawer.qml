@@ -5,6 +5,7 @@ import qs.Commons
 import qs.Ui
 import "ManagedModel.js" as Model
 import "DragModel.js" as DragModel
+import "CellModel.js" as CellModel
 
 // Lives in the bar's window: widgets keep the same QsWindow and popup anchors.
 Item {
@@ -30,12 +31,15 @@ Item {
     }
   }
   opacity: Math.max(0, Math.min(1, reveal))
+  // Grows out of the icon that opened it (the source cell's centre on the
+  // drawer's near edge) from 94%; nothing appears from nothing.
+  readonly property real originAlong: sourceCell ? (sourceCell.start + sourceCell.end) / 2 - axisPosition
+    : zone === "left" ? 0 : zone === "right" ? paintedLength : paintedLength / 2
   transform: Scale {
-    origin.x: bar.vertical ? (bar.position === "left" ? 0 : drawer.width) : drawer.zone === "left" ? 0 : drawer.zone === "right" ? drawer.width : drawer.width / 2
-    origin.y: !bar.vertical ? (bar.position === "top" ? 0 : drawer.height) : drawer.zone === "left" ? 0 : drawer.zone === "right" ? drawer.height : drawer.height / 2
-    // Grows out of its edge from nearly full size; nothing appears from nothing.
-    xScale: (bar.vertical ? 0.94 : 0.98) + (bar.vertical ? 0.06 : 0.02) * Math.max(0, drawer.reveal)
-    yScale: (bar.vertical ? 0.98 : 0.94) + (bar.vertical ? 0.02 : 0.06) * Math.max(0, drawer.reveal)
+    origin.x: bar.vertical ? (bar.position === "left" ? 0 : drawer.width) : drawer.originAlong
+    origin.y: !bar.vertical ? (bar.position === "top" ? 0 : drawer.height) : drawer.originAlong
+    xScale: 0.94 + 0.06 * Math.max(0, drawer.reveal)
+    yScale: 0.94 + 0.06 * Math.max(0, drawer.reveal)
   }
   property bool grabReady: false
   onOpenedChanged: {
@@ -49,7 +53,10 @@ Item {
   readonly property var groupConfig: bar.groups.find(function(g) { return g.id === groupId }) || null
   readonly property string surfaceRole: Model.drawerSurface(groupConfig)
   readonly property bool namedMenu: surfaceRole === "menu"
-  readonly property real surfaceRadius: namedMenu ? Style.cornerRadius : bar.islandRounding
+  // Drawers are islands: the bar's cell tokens, the island radius, always
+  // floating one bar gap from the bar (docs/spacing-lab, "Extended islands").
+  readonly property var tokens: bar.cellTokens
+  readonly property real surfaceRadius: Math.min(bar.islandRounding, bar.barSize / 2)
   readonly property bool stripVertical: Model.drawerVertical(groupConfig, bar.vertical)
   readonly property string memberDisplay: groupConfig ? groupConfig.memberDisplay : "native"
   function memberTitle(slot) {
@@ -62,14 +69,24 @@ Item {
     font.family: Style.font.menuFamily
     font.pixelSize: Style.font.bodySmall
   }
+  // Menus: rows are highlight cells. An icon keeps its cell at the row's
+  // start and its name starts after it; a row without an icon starts its name
+  // at the icon edge; anything that is text on the bar (the clock, the
+  // battery) is a value, right-aligned one air from the row's end.
+  readonly property bool menuIcons: namedMenu && memberDisplay === "both"
+  function menuInk(slot) { return bar.vertical && slot.crossInk ? slot.crossInk : slot.ink }
+  function menuGlyph(slot) { var ink = menuInk(slot); return CellModel.isGlyph(ink.length, ink.glyph) }
+  function menuValueWidth(slot) { return menuIcons && !menuGlyph(slot) ? Math.min(menuInk(slot).length, CellModel.MAX_INK) : 0 }
+  function menuLabelStart(slot) { return Model.menuLabelStart(menuIcons && menuGlyph(slot), tokens.cell, tokens.air) }
   readonly property real menuRowWidth: {
     if (!namedMenu) return 0
-    var width = Style.space(72)
+    var content = 0
     for (var slot of slots) {
-      var labelStart = Model.menuLabelStart(memberDisplay === "both", slot.naturalWidth, Style.space(8), Style.space(2))
-      width = Math.max(width, labelStart + menuMetrics.advanceWidth(memberTitle(slot)) + Style.space(8))
+      var value = menuValueWidth(slot)
+      content = Math.max(content, menuLabelStart(slot) + menuMetrics.advanceWidth(memberTitle(slot))
+        + (value > 0 ? tokens.air + value : 0) + tokens.air)
     }
-    return Math.min(width, Style.space(320))
+    return Model.menuWidth(content, tokens.inset, tokens.cell) - 2 * tokens.inset
   }
   property var anchorSlot: null
   property real anchorCenter: -1
@@ -83,28 +100,48 @@ Item {
   readonly property bool containsMouse: hover.hovered
   readonly property var slots: presenting ? (groupId ? bar.groupSlots(groupId, hostWindow) : bar.managedSlots(zone, hostWindow)) : []
   readonly property bool interactionHeld: keyboardMode || bar.dragMotionActive || slots.some(function(slot) { return slot.panelOpen })
-  readonly property real padding: Style.space(6)
-  readonly property real gap: Style.space(6)
+  // Menu padding, and the pitch a drag opens between rows.
+  readonly property real padding: tokens.inset
+  readonly property real rowPitch: tokens.thickness + tokens.inset
+  // One bar gap from the bar: a floating bar's extent already includes it; a
+  // flat bar has none, so its drawers add it.
+  readonly property real gap: bar.flat ? bar.edgeGap : 0
   readonly property real thickness: bar.renderedBarSize
   readonly property real extent: opened ? thickness + gap : 0
   readonly property real axisExtent: bar.vertical ? hostWindow.height : hostWindow.width
-  readonly property real desiredLength: (bar.vertical ? grid.height : grid.width) * bar.barScale + padding * 2
-  readonly property real desiredCross: (bar.vertical ? grid.width : grid.height) * bar.barScale + padding * 2
-  readonly property bool wideCross: namedMenu
-  readonly property real crossLength: wideCross
-    ? Math.min(Math.max(thickness, desiredCross), hostWindow.drawerExtent - gap - Style.space(8)) : thickness
-  readonly property real length: opened ? Math.min(Math.max(thickness, desiredLength), Math.max(thickness, axisExtent - Style.space(16))) : closingLength
+  // Strip ends: the island rule, so the end cells sit one inset from the ends.
+  readonly property real leadPad: namedMenu ? padding : bar.cellEndPad(bar.edgeSpill(contents, false))
+  readonly property real trailPad: namedMenu ? padding : bar.cellEndPad(bar.edgeSpill(contents, true))
+  readonly property real desiredLength: (bar.vertical ? grid.height : grid.width) * bar.barScale
+    + (namedMenu ? 2 * padding : leadPad + trailPad)
+  readonly property real desiredCross: (bar.vertical ? grid.width : grid.height) * bar.barScale + 2 * padding
+  readonly property real crossLength: namedMenu
+    ? Math.min(Math.max(thickness, desiredCross), hostWindow.drawerExtent - gap - bar.edgeGap) : thickness
+  readonly property real length: opened ? Math.min(Math.max(thickness, desiredLength), Math.max(thickness, axisExtent - 2 * bar.edgeGap)) : closingLength
   readonly property real paintedLength: bar.vertical ? height : width
-  readonly property real axisPosition: {
-    var desired = zone === "left" ? Style.space(8) : zone === "right" ? axisExtent - paintedLength - Style.space(8) : (axisExtent - paintedLength) / 2
-    if (anchorCenter >= 0) desired = anchorCenter - paintedLength / 2
-    else if (anchorSlot) {
-      var geometry = anchorSlot.x + anchorSlot.y + anchorSlot.width + anchorSlot.height
-      var point = anchorSlot.mapToItem(hostWindow.contentItem, anchorSlot.width / 2, anchorSlot.height / 2)
-      desired = (bar.vertical ? point.y : point.x) - paintedLength / 2
-    }
-    return Math.max(Style.space(8), Math.min(desired, axisExtent - paintedLength - Style.space(8)))
+  // The group icon's cell along the bar, in the window's coordinates.
+  readonly property var sourceCell: {
+    if (anchorCenter >= 0) return { start: anchorCenter - tokens.cell / 2, end: anchorCenter + tokens.cell / 2 }
+    if (!anchorSlot) return null
+    var geometry = anchorSlot.x + anchorSlot.y + anchorSlot.width + anchorSlot.height + anchorSlot.cellLength
+    var p = anchorSlot.mapToItem(hostWindow.contentItem, 0, 0)
+    var along = bar.vertical ? anchorSlot.height : anchorSlot.width
+    var start = (bar.vertical ? p.y : p.x) + (along - anchorSlot.cellLength) / 2
+    return { start: start, end: start + anchorSlot.cellLength }
   }
+  readonly property var zoneIsland: {
+    var island = hostWindow.zoneIslands ? hostWindow.zoneIslands[zone] : null
+    if (!island || !island.visible || !bar.islands) return null
+    var geometry = island.x + island.y + island.width + island.height
+    var p = island.mapToItem(hostWindow.contentItem, 0, 0)
+    return bar.vertical ? { start: p.y, end: p.y + island.height } : { start: p.x, end: p.x + island.width }
+  }
+  readonly property var placement: {
+    var o = { length: paintedLength, screen: axisExtent, edge: bar.edgeGap, source: sourceCell, island: zoneIsland,
+      zone: zone, snap: tokens.thickness / 2, inset: tokens.inset, row: tokens.thickness, vertical: bar.vertical }
+    return namedMenu ? Model.placeMenu(o) : Model.placeStrip(o)
+  }
+  readonly property real axisPosition: placement.start
   width: bar.vertical ? crossLength : length
   height: bar.vertical ? length : crossLength
   x: bar.vertical ? (bar.position === "left" ? bar.barExtent + gap : hostWindow.drawerExtent - gap - width) : axisPosition
@@ -268,11 +305,12 @@ Item {
   Flickable {
     id: viewport
     anchors.fill: parent
-    // Match the main bar's cross-axis size; pad only the ends of the row.
-    anchors.leftMargin: drawer.namedMenu || !bar.vertical ? drawer.padding : 0
-    anchors.rightMargin: drawer.namedMenu || !bar.vertical ? drawer.padding : 0
-    anchors.topMargin: drawer.namedMenu || bar.vertical ? drawer.padding : 0
-    anchors.bottomMargin: drawer.namedMenu || bar.vertical ? drawer.padding : 0
+    // Menus pad every side by one inset; strips pad only their ends, by the
+    // island rule, and keep the bar's thickness across.
+    anchors.leftMargin: drawer.namedMenu ? drawer.padding : bar.vertical ? 0 : drawer.leadPad
+    anchors.rightMargin: drawer.namedMenu ? drawer.padding : bar.vertical ? 0 : drawer.trailPad
+    anchors.topMargin: drawer.namedMenu ? drawer.padding : bar.vertical ? drawer.leadPad : 0
+    anchors.bottomMargin: drawer.namedMenu ? drawer.padding : bar.vertical ? drawer.trailPad : 0
     clip: true
     boundsBehavior: Flickable.StopAtBounds
     contentWidth: grid.width * bar.barScale
@@ -286,10 +324,14 @@ Item {
       implicitHeight: drawer.stripVertical ? contents.height + endGap.height : Math.max(contents.height, drawer.thickness)
       scale: bar.barScale
       transformOrigin: Item.TopLeft
+      // Strip highlights live beneath the cells, so an Equal gaps cell can
+      // spill past its slot like on the bar.
+      Item { id: stripHighlights; anchors.fill: parent }
       Grid {
         id: contents
         columns: drawer.stripVertical ? 1 : Math.max(1, drawer.slots.length)
-        spacing: Style.space(4) / bar.barScale
+        // Slots carry their gutters; menu rows sit one inset apart.
+        spacing: drawer.namedMenu ? drawer.padding : 0
         Repeater {
           id: widgets
           model: drawer.slots
@@ -298,23 +340,38 @@ Item {
             required property var modelData
             required property int index
             readonly property string title: modelData ? (bar.barWidgetRegistry.metadataFor(bar.canonicalWidgetId(modelData.moduleName)) || {}).displayName || modelData.moduleName.split(".").pop() : ""
-            readonly property bool labelled: drawer.memberDisplay !== "native" && drawer.groupId !== ""
+            readonly property bool labelled: drawer.namedMenu
             readonly property bool showNative: drawer.memberDisplay !== "name"
+            readonly property var place: modelData ? modelData.cellPlace : null
+            // Strip slots report their spill so the strip's ends follow the island rule.
+            readonly property real cellSpill: drawer.namedMenu || !place ? 0 : place.spill
+            readonly property var rowInk: modelData ? drawer.menuInk(modelData) : null
+            readonly property bool rowIcon: drawer.menuIcons && !!modelData && drawer.menuGlyph(modelData)
+            readonly property real valueWidth: modelData ? drawer.menuValueWidth(modelData) : 0
+            readonly property real labelStart: modelData ? drawer.menuLabelStart(modelData) : 0
+            readonly property real dragGap: drawer.namedMenu ? drawer.rowPitch : drawer.stripVertical ? bar.dragGapHeight : bar.dragGapWidth
             readonly property var preview: modelData
               ? DragModel.slot(bar.dragPreview, modelData.instanceKey, bar.dragSurfaceForDrawer(drawer))
               : ({ hidden: false, before: false, after: false })
             readonly property real baseWidth: !modelData ? 0 : drawer.namedMenu ? drawer.menuRowWidth
-              : labelled ? (showNative ? modelData.naturalWidth + Style.space(6) : 0)
-                + label.implicitWidth + Style.space(12) : modelData.naturalWidth
-            readonly property real baseHeight: modelData ? Math.max(modelData.naturalHeight, drawer.thickness) : 0
-            readonly property real contentOffsetX: animatedInsetX
-            readonly property real contentOffsetY: animatedInsetY
+              : bar.vertical ? drawer.thickness : place.extent
+            readonly property real baseHeight: !modelData ? 0 : drawer.namedMenu ? drawer.tokens.thickness
+              : bar.vertical ? place.extent : Math.max(modelData.naturalHeight, drawer.thickness)
+            // Where the widget's own box sits: its ink centred in its cell (strips),
+            // its glyph centred in the icon cell or its value right-aligned (menus).
+            readonly property real contentOffsetX: animatedInsetX + (!modelData ? 0
+              : drawer.namedMenu ? (rowIcon ? drawer.tokens.cell / 2 - (rowInk.start + rowInk.length / 2)
+                : valueWidth > 0 ? drawer.menuRowWidth - drawer.tokens.air - (rowInk.start + rowInk.length) : 0)
+              : bar.vertical ? modelData.crossShift : modelData.inkShift)
+            readonly property real contentOffsetY: animatedInsetY + (!modelData ? 0
+              : drawer.namedMenu ? (drawer.tokens.thickness - modelData.naturalHeight) / 2
+              : bar.vertical ? modelData.inkShift : (baseHeight - modelData.naturalHeight) / 2)
             targetWidth: preview.hidden && !preview.holdSpace && !drawer.stripVertical ? 0
-              : baseWidth + (!drawer.stripVertical && (preview.before || preview.after) ? bar.dragGapWidth : 0)
+              : baseWidth + (!drawer.stripVertical && (preview.before || preview.after) ? dragGap : 0)
             targetHeight: preview.hidden && !preview.holdSpace && drawer.stripVertical ? 0
-              : baseHeight + (drawer.stripVertical && (preview.before || preview.after) ? bar.dragGapHeight : 0)
-            targetInsetX: !drawer.stripVertical && preview.before ? bar.dragGapWidth : 0
-            targetInsetY: drawer.stripVertical && preview.before ? bar.dragGapHeight : 0
+              : baseHeight + (drawer.stripVertical && (preview.before || preview.after) ? dragGap : 0)
+            targetInsetX: !drawer.stripVertical && preview.before ? dragGap : 0
+            targetInsetY: drawer.stripVertical && preview.before ? dragGap : 0
             motionEnabled: bar.animationsEnabled && drawer.opened && !drawer.replaying
             motionDuration: bar.dragMotionActive ? bar.dragMotionDuration : 120
             motionEasing: bar.dragMotionActive ? bar.dragMotionEasing : Easing.OutCubic
@@ -326,35 +383,54 @@ Item {
               id: memberHover
               enabled: drawer.opened && !bar.barDragSource
             }
+            // The member's highlight: the whole row in a menu; its cell in a strip,
+            // centred on the slot, like on the bar.
             HoverHighlight {
-              x: mount.contentOffsetX + bar.highlightInset(mount.baseHeight) * (drawer.namedMenu || mount.labelled ? 1 : 0)
-              y: mount.contentOffsetY + bar.highlightInset(mount.baseHeight)
-              width: mount.baseWidth - bar.highlightInset(mount.baseHeight) * (drawer.namedMenu || mount.labelled ? 2 : 0)
-              height: mount.baseHeight - bar.highlightInset(mount.baseHeight) * 2
+              id: memberHighlight
+              readonly property real cell: drawer.namedMenu ? mount.baseWidth : mount.place ? mount.place.cell : 0
+              readonly property real thick: drawer.tokens.thickness
+              parent: drawer.namedMenu ? mount : stripHighlights
+              x: drawer.namedMenu ? mount.animatedInsetX
+                : bar.vertical ? mount.x + (mount.width - thick) / 2 : mount.x + mount.animatedInsetX + (mount.baseWidth - cell) / 2
+              y: drawer.namedMenu ? mount.animatedInsetY
+                : bar.vertical ? mount.y + mount.animatedInsetY + (mount.baseHeight - cell) / 2 : mount.y + (mount.height - thick) / 2
+              width: drawer.namedMenu || !bar.vertical ? cell : thick
+              height: drawer.namedMenu || !bar.vertical ? thick : cell
               z: -1
-              hovered: memberHover.hovered && drawer.opened && !bar.barDragSource && !preview.hidden
+              hovered: ((memberHover.hovered && !bar.barDragSource) || cursorRing.visible) && drawer.opened && !preview.hidden
+              selected: modelData ? modelData.panelOpen : false
               motionEnabled: bar.animationsEnabled
               hoverColor: bar.highlightHoverColor
               selectedColor: bar.highlightSelectedColor
-              rounding: bar.highlightRounding
+              rounding: bar.highlightRadius
+            }
+            // The keyboard cursor: the bar's focus ring inside the cell; it never animates.
+            Rectangle {
+              id: cursorRing
+              parent: memberHighlight.parent
+              x: memberHighlight.x; y: memberHighlight.y
+              width: memberHighlight.width; height: memberHighlight.height
+              radius: Math.min(memberHighlight.radius, Math.min(width, height) / 2)
+              z: 2
+              visible: drawer.selectionVisible && drawer.cursor === mount.index
+              color: "transparent"
+              border.width: 1.5
+              border.color: Color.accent
             }
             Text {
               id: label
               visible: mount.labelled
               textFormat: Text.PlainText
               text: mount.title
-              color: drawer.namedMenu
-                ? (drawer.selectionVisible && drawer.cursor === mount.index ? Color.menu.selectedText : Color.menu.text)
-                : Color.popups.text
+              color: drawer.namedMenu ? Color.menu.text : Color.popups.text
               font.family: drawer.namedMenu ? Style.font.menuFamily : Style.font.family
               font.pixelSize: Style.font.bodySmall
-              readonly property real baseX: drawer.namedMenu
-                ? Model.menuLabelStart(mount.showNative, modelData.naturalWidth, Style.space(8), Style.space(2))
-                : mount.showNative ? modelData.naturalWidth + Style.space(6) : Style.space(6)
-              x: baseX + mount.contentOffsetX
-              y: (mount.baseHeight - height) / 2 + mount.contentOffsetY
-              width: drawer.namedMenu ? Math.max(0, drawer.menuRowWidth - baseX - Style.space(8)) : implicitWidth
-              elide: drawer.namedMenu ? Text.ElideRight : Text.ElideNone
+              // Names end one air before the row's end, or before a trailing value.
+              x: mount.labelStart + mount.animatedInsetX
+              y: (mount.baseHeight - height) / 2 + mount.animatedInsetY
+              width: Math.max(0, drawer.menuRowWidth - mount.labelStart - drawer.tokens.air
+                - (mount.valueWidth > 0 ? mount.valueWidth + drawer.tokens.air : 0))
+              elide: Text.ElideRight
               DragHandler {
                 target: null
                 enabled: mount.labelled
@@ -392,16 +468,6 @@ Item {
                 }
               }
             }
-            BorderSurface {
-              anchors.fill: parent
-              z: drawer.namedMenu ? -1 : 100
-              visible: drawer.selectionVisible && drawer.cursor === mount.index
-              color: drawer.namedMenu ? Color.menu.selectedBackground : "transparent"
-              borderSpec: drawer.namedMenu
-                ? Border.surfaceSpec("menu", "selected-border", Color.menu.selectedBorder, 0)
-                : Border.flat(Color.accent, 1 / bar.barScale)
-              radius: Style.cornerRadius
-            }
           }
         }
       }
@@ -411,7 +477,7 @@ Item {
         x: drawer.stripVertical ? 0 : contents.width
         y: drawer.stripVertical ? contents.height : 0
         targetWidth: drawer.stripVertical ? drawer.thickness : gap ? bar.dragGapWidth : 0
-        targetHeight: drawer.stripVertical ? (gap ? bar.dragGapHeight : 0) : drawer.thickness
+        targetHeight: drawer.stripVertical ? (gap ? (drawer.namedMenu ? drawer.rowPitch : bar.dragGapHeight) : 0) : drawer.thickness
         motionEnabled: bar.animationsEnabled && drawer.opened && !drawer.replaying
         motionDuration: bar.dragMotionDuration
         motionEasing: bar.dragMotionEasing

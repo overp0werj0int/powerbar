@@ -61,7 +61,7 @@ Item {
     visible: icon.cacheUsable
     source: icon.cachedUrl
     asynchronous: true
-    cache: false
+    cache: true
     fillMode: Image.PreserveAspectFit
     smooth: true
     mipmap: true

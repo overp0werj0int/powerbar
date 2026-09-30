@@ -56,6 +56,82 @@ function inkWidth(item, depth) {
   }
   return depth > 0 ? Math.max(0, item.width) : 0
 }
+// A plain fill behind a widget's content (its own tint or pill), spanning
+// nearly its whole box, is background, not ink: counting it would make the cell
+// jump whenever the widget shows or hides it.
+function isBackground(child, item, vertical) {
+  if (!("color" in child) || !("radius" in child) || "labelWidth" in child || "glyphPaintedWidth" in child) return false
+  if (child.children && child.children.length > 0) return false
+  var size = vertical ? item.height : item.width
+  var at = vertical ? child.y : child.x, length = vertical ? child.height : child.width
+  return at <= 4 && at + length >= size - 4
+}
+// A child's ink, cut to the child's own box when it clips its painting (the
+// tray hides its closed drawer by sliding the icons out of a clipped strip).
+function clippedInk(child, vertical, depth) {
+  var part = inkRect(child, vertical, depth)
+  if (!child.clip) return part
+  var size = vertical ? child.height : child.width
+  var lo = Math.max(0, part.start), hi = Math.min(size, part.start + part.length)
+  return hi > lo ? { start: lo, length: hi - lo, glyph: part.glyph } : { start: 0, length: 0, glyph: false }
+}
+// Where an item visibly paints along one axis, relative to the item:
+// { start, length, glyph }. Kit widgets centre their glyph or label in their
+// box, so hints give a centred span; otherwise the span of painted children.
+// `glyph` marks what reads as an icon (the kit's glyph hint, or at most 16 px
+// of ink across). Falls back to the whole item when nothing can be measured.
+function inkRect(item, vertical, depth) {
+  depth = depth || 0
+  var size = item ? (vertical ? item.height : item.width) : 0
+  if (!item || depth > 4) return { start: 0, length: Math.max(0, size), glyph: false }
+  var centred = function(length, glyph) {
+    length = Math.min(Math.max(0, length), Math.max(0, size))
+    return { start: (size - length) / 2, length: length, glyph: glyph }
+  }
+  var across = inkWidth(item, 0)
+  if ("glyphPaintedWidth" in item) {
+    // The kit's icon button can carry a whole string ("100% 󰁹"); only a
+    // painted width no wider than a large glyph reads as an icon.
+    var painted = across > 0 ? across : Math.min(size, positive(item, "opticalSize") || size)
+    if (!vertical) return centred(painted, painted <= 16)
+    return centred(Math.min(size, positive(item, "opticalSize") || size), painted <= 16)
+  }
+  if (!vertical) {
+    var hint = positive(item, "hoverUnderlineWidth")
+    if (hint > 0) return centred(hint, hint <= 16)
+    if ("labelWidth" in item && !rotatedLabel(item) && positive(item, "labelWidth") > 0)
+      return centred(positive(item, "labelWidth"), false)
+    if ("paintedWidth" in item && positive(item, "paintedWidth") > 0)
+      return centred(positive(item, "paintedWidth"), positive(item, "paintedWidth") <= 16)
+  } else if ("labelWidth" in item && "scaledVerticalPadding" in item && positive(item, "labelWidth") > 0) {
+    return centred(size - 2 * positive(item, "scaledVerticalPadding"), across > 0 && across <= 16)
+  }
+  var children = paintedChildren(item)
+  if (children.length === 1) {
+    var inner = clippedInk(children[0], vertical, depth + 1)
+    var offset = vertical ? children[0].y : children[0].x
+    if (inner.length > 0) return { start: offset + inner.start, length: inner.length, glyph: inner.glyph }
+  }
+  if (children.length > 1) {
+    // The span of what each child paints (a workspace button's digit, not its
+    // 20 px box).
+    var content = children.filter(function(c) { return !isBackground(c, item, vertical) })
+    if (content.length > 0) children = content
+    var lo = Infinity, hi = -Infinity
+    for (var i = 0; i < children.length; i++) {
+      var c = children[i]
+      var part = clippedInk(c, vertical, depth + 1)
+      if (!(part.length > 0)) continue
+      var at = (vertical ? c.y : c.x) + part.start
+      lo = Math.min(lo, at)
+      hi = Math.max(hi, at + part.length)
+    }
+    if (hi > lo) return { start: lo, length: hi - lo, glyph: false }
+    return { start: 0, length: Math.max(0, size), glyph: false }
+  }
+  if (depth > 0) return { start: 0, length: Math.max(0, size), glyph: size > 0 && size <= 16 }
+  return { start: 0, length: Math.max(0, size), glyph: false }
+}
 // One highlight along the bar.
 //   center     content centre along the bar
 //   ink        visible content length along the bar
@@ -84,4 +160,4 @@ function pill(o) {
   return { start: start, length: length, radius: Math.max(0, Math.min(thickness / 2, o.rounding)) }
 }
 
-if (typeof module !== "undefined") module.exports = { inkWidth: inkWidth, pill: pill }
+if (typeof module !== "undefined") module.exports = { inkWidth: inkWidth, inkRect: inkRect, pill: pill }
