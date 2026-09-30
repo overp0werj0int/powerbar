@@ -237,9 +237,13 @@ td.mono { white-space: nowrap; }
 .drag-area .island { transition: width 150ms cubic-bezier(0.37, 0, 0.63, 1); }
 .ph { position: absolute; background: rgba(var(--bar-fg), 0.05); box-shadow: inset 0 0 0 1px rgba(var(--bar-fg), 0.5); pointer-events: none; }
 .ghost { position: absolute; z-index: 6; background: none; border: 0; padding: 0; cursor: grab; touch-action: none;
-  filter: drop-shadow(0 4px 10px rgba(0,0,0,.5)); transform: scale(1.04); transform-origin: center; }
+  transform: scale(1.04); transform-origin: center; }
+.ghost .carrier { position: absolute; inset: 0; background: rgba(41, 35, 35, 0.94); box-shadow: 0 6px 16px rgba(0,0,0,.45), inset 0 0 0 0.5px rgba(var(--bar-fg), .22); }
+.ghost .carrier::after { content: ""; position: absolute; inset: 0; border-radius: inherit; background: rgba(var(--bar-fg), 0.13); }
+.ghost img { position: absolute; }
+.ghost-dot { position: absolute; width: 7px; height: 7px; margin-left: -3.5px; border-radius: 50%; background: rgb(var(--bar-fg)); box-shadow: 0 0 0 2px rgba(0,0,0,.35); pointer-events: none; }
 .ghost:active { cursor: grabbing; }
-.ghost img { display: block; width: 100%; height: 100%; pointer-events: none; }
+.ghost img { pointer-events: none; }
 .ghost:focus-visible { outline: 2px solid var(--bar-accent); outline-offset: 2px; border-radius: 8px; }
 .tick { position: absolute; width: 1px; background: var(--bar-accent); opacity: .85; pointer-events: none; }
 .drag-rules { display: grid; gap: 12px; padding-left: 22px; margin: 0; }
@@ -422,7 +426,7 @@ td.mono { white-space: nowrap; }
         <div class="tablewrap">
           <table id="drag-table"><thead><tr><th>Dragged</th><th>Gap, slots</th><th>Gap, gaps</th><th>Peak at 150 ms</th><th>Scaled time</th><th>Peak, scaled</th></tr></thead><tbody></tbody></table>
         </div>
-        <p class="note">Peak speed of a neighbour on the ease-in-out sine is π × distance ÷ (2 × duration). Ratios compare with an icon's 35 px gap at 150 ms. I simulated there-and-back sweeps across this island for the icon and the clock in both spacing options: the landing spot changed exactly once per boundary in each direction (10 of 10), and the ghost was never more than 41 px from its landing spot.</p>
+        <p class="note">With "Landing boundaries" on, the ticks under the island are the points the ghost's centre (the dot) must cross to move the gap. They sit halfway between neighbouring landing spots, measured without the gap, so they never move while you drag. Peak speed of a neighbour on the ease-in-out sine is π × distance ÷ (2 × duration). Ratios compare with an icon's 35 px gap at 150 ms. I simulated there-and-back sweeps across this island for the icon and the clock in both spacing options: the landing spot changed exactly once per boundary in each direction (10 of 10), and the ghost was never more than 41 px from its landing spot.</p>
       </div>
     </div>
   </section>
@@ -1192,12 +1196,20 @@ function renderDragLab() {
       el("div", "tick", { left: px(x * Z), top: px((P.B + 2) * Z), height: px(8 * Z) }, holder);
     }
   }
-  const ghost = el("button", "ghost", { width: px(d.w * Z), height: px(CAPTURE_H * Z), top: px((P.B - CAPTURE_H) / 2 * Z - 5) }, holder);
+  // The ghost is the dragged widget picked up: its own cell, on its own
+  // surface with a shadow, lifted 2 px, the capture centred on its ink.
+  const lift = 2;
+  const ghost = el("button", "ghost", { width: px(Ld * Z), height: px(P.T * Z), top: px((P.i - lift) * Z) }, holder);
   ghost.type = "button";
   ghost.setAttribute("aria-label", "Dragged widget: " + d.name + ". Use the left and right arrow keys to move it.");
-  const gimg = el("img", null, null, ghost); gimg.src = "w/" + d.id + ".png"; gimg.alt = "";
+  el("div", "carrier", { borderRadius: px(P.r * Z) }, ghost);
   const inkCentre = d.inkX + d.inkW / 2;
-  let k = 2, c = spots[2].centre + Math.min(18, (spots[3].centre - spots[2].centre) / 2 - P.i);
+  const gimg = el("img", null, { left: px((Ld / 2 - inkCentre) * Z), top: px((P.T - CAPTURE_H) / 2 * Z), width: px(d.w * Z), height: px(CAPTURE_H * Z) }, ghost);
+  gimg.src = "w/" + d.id + ".png"; gimg.alt = "";
+  // With boundaries on, a dot marks the ghost's centre on the tick row: the
+  // gap moves when the dot crosses a tick.
+  const dot = DRAG.ticks ? el("div", "ghost-dot", { top: px((P.B + 3.5) * Z) }, holder) : null;
+  let k = 2, c = spots[2].centre + 6;
   function place(animate) {
     lay.cells.forEach((cell, j) => {
       imgs[j].style.transitionDuration = animate ? dur + "ms" : "0ms";
@@ -1207,8 +1219,10 @@ function renderDragLab() {
     ph.style.left = px(spots[k].start * Z);
   }
   function moveGhost(x) {
-    c = Math.max(spots[0].centre - Ld, Math.min(spots[n].centre + Ld, x));
-    ghost.style.left = px((c - inkCentre) * Z);
+    // The ghost stays within reach of the first and last landing spots.
+    c = Math.max(spots[0].centre - 12, Math.min(spots[n].centre + 12, x));
+    ghost.style.left = px((c - Ld / 2) * Z);
+    if (dot) dot.style.left = px(c * Z);
     let best = k;
     spots.forEach((sp, j) => { if (Math.abs(sp.centre - c) + P.i < Math.abs(spots[best].centre - c)) best = j; });
     if (best !== k) { k = best; place(true); }
@@ -1242,8 +1256,11 @@ function renderDragLab() {
     else if (e.key === "ArrowLeft" || e.key === "h") { k = Math.max(0, k - 1); }
     else return;
     e.preventDefault();
-    c = spots[k].centre; ghost.style.left = px((c - inkCentre) * Z); place(true);
+    c = spots[k].centre; ghost.style.left = px((c - Ld / 2) * Z); if (dot) dot.style.left = px(c * Z); place(true);
   });
+  window.__dragLab = { move: moveGhost, spots, get index() { return k; } };
+  const hash = /^#ghost-(-?\d+)$/.exec(location.hash);
+  if (hash) moveGhost(Number(hash[1]));
   document.getElementById("dr-play").onclick = () => {
     cancelAnimationFrame(dragSweep);
     const from = spots[0].centre - 12, to = spots[n].centre + 12, T0 = performance.now(), total = 5200;
