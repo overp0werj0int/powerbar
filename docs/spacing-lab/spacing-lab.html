@@ -263,6 +263,20 @@ td.mono { white-space: nowrap; }
   .states { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .cmp-row { grid-template-columns: minmax(0, 1fr); gap: 6px; }
 }
+/* Extended islands */
+.ext-stage { padding: 0; position: relative; }
+.ext-abs { position: absolute; }
+.ext-row { position: absolute; background: none; border: 0; padding: 0; margin: 0; cursor: pointer; text-align: left; }
+.ext-row .hl { left: 0; top: 0; width: 100%; height: 100%; }
+.ext-row img { position: absolute; pointer-events: none; }
+.ext-row .lbl { position: absolute; top: 0; text-overflow: ellipsis; }
+.ext-row:focus-visible { outline: none; }
+.ext-bridge { position: absolute; border: 1px dashed var(--bar-accent); background: color-mix(in srgb, var(--bar-accent) 14%, transparent); pointer-events: none; }
+.ext-guide { position: absolute; width: 0; border-left: 1px dashed rgba(var(--bar-fg), .55); pointer-events: none; }
+.ext-status { justify-self: start; display: inline-block; font: 600 11px var(--sans); letter-spacing: 0.04em; color: var(--accent); border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--line)); border-radius: 999px; padding: 2px 9px; margin-bottom: 8px; }
+.ext-more { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 28px; padding-left: 20px; margin: 18px 0 0; }
+.ext-more li p { color: var(--muted); font-size: 13.5px; }
+@media (max-width: 860px) { .ext-more { grid-template-columns: minmax(0, 1fr); } }
 /* Animations off: every transition and animation on the page resolves at once. */
 html.no-motion .page *, html.no-motion .page *::before, html.no-motion .page *::after { transition-duration: 0s !important; transition-delay: 0s !important; animation: none !important; }
 @media (prefers-reduced-motion: reduce) {
@@ -450,6 +464,50 @@ html.no-motion .page *, html.no-motion .page *::before, html.no-motion .page *::
     <div class="cases" id="cases"></div>
   </section>
 
+  <section id="extended">
+    <div class="section-head">
+      <span class="ext-status">Draft for review</span>
+      <h2>Extended islands</h2>
+      <p>Group drawers and managed drawers are islands too. They are built from the same cells, sit one bar gap from the island that opened them, and line up with the icon that opened them. Icons only gives a strip that follows the bar; names only and icons and names give a menu.</p>
+    </div>
+    <div class="rule">
+      <div class="formulas" id="ext-formulas"></div>
+      <div class="why">
+        <p><strong>A drawer is a second row of the bar.</strong> The strip uses the main island's thickness, cells, gutters, ends and radius, and follows the chosen spacing mode. It sits one bar gap (the same 4 px as between the bar and the screen edge) from the island, so the two read as related surfaces rather than one merged shape.</p>
+        <p><strong>A menu is the same cells stacked.</strong> Rows are highlight cells, one inset apart, one inset from the menu's edge, so the menu's corners are concentric with its rows. Text keeps the bar's side air; an icon keeps its cell, so every glyph sits on one axis and every label starts in one column.</p>
+        <p><strong>It starts where you pointed.</strong> The first row starts where the group icon starts, so the eye drops straight down (or across, on a vertical bar) from the icon to its members. Near the screen edge the menu flips to end where the icon ends.</p>
+      </div>
+    </div>
+    <div class="controls" role="group" aria-label="Extended island options" style="margin-top:22px">
+      <div class="ctl"><span id="ex-gl">Group</span><div class="seg" id="ex-group" role="group" aria-labelledby="ex-gl">
+        <button data-v="audio">Audio</button><button data-v="ai">AI</button><button data-v="managed">Managed drawer</button></div></div>
+      <div class="ctl"><span id="ex-dl">Members shown as</span><div class="seg" id="ex-display" role="group" aria-labelledby="ex-dl">
+        <button data-v="icons">Icons</button><button data-v="names">Names</button><button data-v="both">Icons and names</button></div></div>
+      <div class="ctl"><span id="ex-el">Bar edge</span><div class="seg" id="ex-edge" role="group" aria-labelledby="ex-el">
+        <button data-v="top">Top</button><button data-v="left">Left</button></div></div>
+      <div class="ctl"><span id="ex-sl">Bar</span><div class="seg" id="ex-size" role="group" aria-labelledby="ex-sl">
+        <button data-v="standard">Standard 26</button><button data-v="large">Large 38</button></div></div>
+      <div class="ctl"><span id="ex-al">Spacing</span><div class="seg" id="ex-algo" role="group" aria-labelledby="ex-al">
+        <button data-v="cells">Equal slots</button><button data-v="gaps">Equal gaps</button></div></div>
+      <button class="tog" id="ex-xray" aria-pressed="false">Boxes and gaps</button>
+    </div>
+    <div id="ext-demo"></div>
+    <div class="chips" id="ext-chips" aria-live="polite"></div>
+    <p class="note">The group icon shows the open fill while its drawer is open. Hover or Tab through the members. Member captures keep their own colours; the Agent Orchestrator draws its own "1" badge. The managed drawer has no source icon, so it lines up with its island's outer end.</p>
+    <h3 style="margin-top:34px">Extended island edge cases</h3>
+    <div class="cases" id="ext-cases" style="margin-top:14px"></div>
+    <ul class="ext-more">
+      <li><strong>Many members.</strong><p>A strip longer than the screen, less a bar gap at each end, scrolls along its axis with an 8 px fade at the clipped end; a menu taller than the space below the bar scrolls vertically. The keyboard cursor scrolls its row into view.</p></li>
+      <li><strong>A member whose widget is gone.</strong><p>It is skipped and leaves no hole; the group keeps the reference so the widget returns to its place if reinstalled.</p></li>
+      <li><strong>Bottom bar.</strong><p>The drawer opens above the bar with the same gap and alignment. Menus keep reading top to bottom and anchor their bottom edge.</p></li>
+      <li><strong>Two members with one name.</strong><p>Later ones get a number ("Clock 2") so menu rows stay distinguishable.</p></li>
+      <li><strong>Getting there.</strong><p>The drawer's pointer area spans the gap to the bar (dashed in "Boxes and gaps"), so moving from the icon to the drawer never crosses dead space; the 450 ms leave grace still applies.</p></li>
+      <li><strong>Keyboard.</strong><p>Strips move with the bar's arrows (h/l or j/k on a vertical bar); menus with j/k. Enter activates, Esc closes and returns focus to the group icon. Opening from the keyboard leaves no row selected until you move.</p></li>
+      <li><strong>Opening and closing.</strong><p>160 ms in, 110 ms out, growing out of the source icon from 94% on the cross axis. With Animations off the drawer appears and disappears at once, with the same hover delays.</p></li>
+      <li><strong>Flat and floating bars.</strong><p>Drawers always float, so they always take the island radius and the bar gap, whatever the bar style.</p></li>
+    </ul>
+  </section>
+
   <section id="states">
     <div class="section-head">
       <h2>Highlight states</h2>
@@ -483,6 +541,7 @@ html.no-motion .page *, html.no-motion .page *::before, html.no-motion .page *::
           <tr><td>Drag: widget settles on release</td><td class="mono">180 ms, strong ease-out</td><td class="mono">lands at once, then commits</td><td>The ghost is at most half a neighbour's cell from its spot, so the step is short; the landed widget is under the pointer and shows its hover fill.</td></tr>
           <tr><td>Drag: widget picked up</td><td class="mono">120 ms lift</td><td class="mono">lift, surface and shadow at once</td><td>Surface and shadow are static cues that it is held.</td></tr>
           <tr><td>An older highlight is overlapped by a newer one</td><td class="mono">opacity to 45%, 90 ms</td><td class="mono">45% at once</td><td>It is a state, so it stays.</td></tr>
+          <tr><td>Extended island opens or closes</td><td class="mono">160 ms in, 110 ms out, from the source icon</td><td class="mono">appears and disappears at once</td><td>The group icon's open fill and the drawer's position next to it show where it came from.</td></tr>
           <tr><td>Activity peek</td><td class="mono">bar slides out, accent fill 2.5 s, fade 300 ms</td><td class="mono">bar appears in place, accent fill 2.5 s</td><td>The accent fill still names the widget that changed, for the same time.</td></tr>
           <tr><td>Autohide reveal and hide</td><td class="mono">slide, ease-out</td><td class="mono">appears and hides in place</td><td>The edge trigger and timings are unchanged.</td></tr>
           <tr><td>Theme or urgent colour change</td><td class="mono">crossfade</td><td class="mono">at once</td><td>The new colour is the information.</td></tr>
@@ -508,6 +567,7 @@ html.no-motion .page *, html.no-motion .page *::before, html.no-motion .page *::
       <li><strong>Both modes.</strong><p><code>layoutZone(cells, { mode })</code> with <code>"slots"</code> (cells one inset apart) or <code>"gaps"</code> (glyphs <code>C / 2 + 2</code> apart, island ends at <code>i + spill</code>), read from <code>powerbarSpacingMode</code>. Both use the same highlight box. In gaps mode highlights may overlap: each <code>HoverHighlight</code> records when it lit, and where two overlap the newer gets the higher <code>z</code> and the older drops to 45% opacity. Preferences shows the choice as a <code>PrefsChoice</code> row, Spacing: Equal slots or Equal gaps.</p></li>
       <li><strong>Drag with landing-size gaps.</strong><p>The drag gap is the dragged widget's landing size, the placeholder is its highlight outlined, the landing spot is the one nearest the ghost's centre on the resting layout (3 px dead zone), and <code>dragMotionDuration</code> becomes <code>clamp(150 × √(gap ÷ icon gap), 150, 260)</code>. On release the ghost settles onto the cell in 180 ms before the layout commits.</p></li>
       <li><strong>Redefine the Spacing setting.</strong><p>Extra spacing widens cells, not gutters, so highlights stay tiled and concentric and hit targets grow with the space. At spacing 0 the icon pitch is 27 px on the standard bar and 35 px on the large bar.</p></li>
+      <li><strong>Build extended islands from the same model.</strong><p>In <code>ManagedDrawer.qml</code>, lay strips out with <code>layoutZone</code> in the current spacing mode at the bar's thickness, radius <code>islandRounding</code> and one-inset ends; place them one bar gap (<code>edgeGap</code>) from the bar with a pointer area spanning the gap. Menus stack <code>T</code>-tall rows one inset apart with one-inset padding, corner radius <code>min(islandRounding, r + inset)</code>, text at <code>inset + air</code>, and in icons-and-names an icon column of <code>clamp(widest ink + 2 × air, C, 2C)</code>. Align the first row with the source cell (flip at the screen edge), snap strip ends to island ends within <code>T / 2</code>, scale from the source cell's centre, and use the bar's focus ring for the keyboard cursor.</p></li>
       <li><strong>Put every animation behind the one switch.</strong><p>Give every <code>Behavior</code> and <code>ColorAnimation</code> <code>enabled: animationsEnabled</code>, including the bar's colour crossfade, the move-candidate edge, <code>BarBackdrop</code>'s fade, Active window's width, the Tray reveal and the Layout editor's tile colour. Run the highlights' <code>FrameAnimation</code> only while their slot is moving and animations are on; otherwise re-place on geometry changes. Add a QML test that turns the flag off and checks each change reaches its end state in the same frame.</p></li>
       <li><strong>Verify on the desktop.</strong><p>Tests for <code>cellLength</code> at both bar sizes, glyph, short text, long text and compound kinds; <code>layoutZone</code> ends at the inset; <code>inkRect</code> for off-centre children. Then screenshot all three bar styles, both sizes and a vertical bar with autohide off, once with Animations on and once off, and check the shell stays idle (no per-frame work) with a highlight showing and Animations off.</p></li>
     </ol>
@@ -519,6 +579,11 @@ html.no-motion .page *, html.no-motion .page *::before, html.no-motion .page *::
       <p>The references this rule borrows from, and the part each one contributed.</p>
     </div>
     <ul class="sources">
+      <li><a href="https://m3.material.io/components/menus/specs">Material 3 menus</a><span>Menus as stacked rows with container padding, a leading icon column and a fixed icon-to-label gap; labels align in one column.</span></li>
+      <li><a href="https://developer.apple.com/wwdc20/10104">Apple, Adopt the new look of macOS (WWDC20)</a><span>Rounded menus with inset, rounded selections: the row highlight sits inside the menu's padding.</span></li>
+      <li><a href="https://github.com/jordanbaird/Ice">Ice, the Ice Bar</a><span>Hidden menu bar items shown as a second bar under the first: an overflow strip reads as more bar, not as a menu.</span></li>
+      <li><a href="https://www.smashingmagazine.com/2023/08/better-context-menus-safe-triangles/">Smashing, safe triangles</a> and <a href="https://bjk5.com/post/44698559168/breaking-down-amazons-mega-dropdown">Amazon's dropdown</a><span>The path from trigger to menu must be forgiving; no dead space between them.</span></li>
+      <li><a href="https://floating-ui.com/docs/offset">Floating UI, offset</a><span>The distance between an anchor and its floating surface is one gap along the main axis, with separate alignment on the cross axis.</span></li>
       <li><a href="https://developer.apple.com/videos/play/wwdc2025/356/">Apple, Get to know the new design system (WWDC25)</a><span>Concentricity: nested shapes share a centre, capsules nest in capsules, grouped toolbar items share one glass surface.</span></li>
       <li><a href="https://www.30secondsofcode.org/css/s/nested-border-radius/">Perfect nested border radius</a> and <a href="https://uxplanet.org/corner-radius-of-nested-elements-in-ui-design-4c27bb24a854">UX Planet on nested corners</a><span>Inner radius equals outer radius minus the gap; equal radii make the gap look uneven.</span></li>
       <li><a href="https://github.com/x7c1/sutto/pull/82">GNOME Shell panel buttons</a><span><code>-natural-hpadding: 12px</code>, <code>-minimum-hpadding: 6px</code>: highlight padding that shrinks when the panel is crowded, so panel buttons are wider than tall.</span></li>
@@ -536,9 +601,11 @@ html.no-motion .page *, html.no-motion .page *::before, html.no-motion .page *::
 // w: the widget's implicit width; ink: [left, width, top, height] of what it paints;
 // parts: painted runs along the bar (sub-items of compounds).
 const W = {"keystroke":{"w":27.0,"ink":[8.0,12.0],"parts":[[8.0,12.0]]},"everything":{"w":27.0,"ink":[8.0,10.5],"parts":[[8.0,10.5]]},"workspaces":{"w":105.5,"ink":[7.0,89.0],"parts":[[7.0,5.5],[28.0,5.5],[48.0,9.0],[70.0,5.0],[91.0,5.0]]},"scratchpeek":{"w":103.5,"ink":[9.0,85.25],"parts":[[9.0,7.5],[24.5,5.5],[40.5,2.0],[53.25,41.0]]},"indicators":{"w":126.0,"ink":[8.0,112.5],"parts":[[8.0,6.0],[27.5,8.5],[49.0,7.5],[69.5,8.0],[90.5,8.5],[111.5,9.0]]},"clock":{"w":125.5,"ink":[9.0,107.25],"parts":[[9.0,64.0],[82.0,12.75],[98.25,18.0]]},"keyboard":{"w":24.0,"ink":[7.0,10.0],"parts":[[7.0,10.0]]},"update":{"w":38.0,"ink":[15.5,9.0],"parts":[[15.5,9.0]]},"monitor":{"w":27.0,"ink":[8.0,12.0],"parts":[[8.0,12.0]]},"audio":{"w":27.0,"ink":[7.0,13.5],"parts":[[7.0,13.5]]},"bluetooth":{"w":27.0,"ink":[10.5,7.0],"parts":[[10.5,7.0]]},"power":{"w":54.0,"ink":[6.0,41.5],"parts":[[6.0,22.0],[36.0,11.5]]},"network":{"w":27.0,"ink":[7.5,12.5],"parts":[[7.5,12.5]]},"tray":{"w":54.0,"ink":[38.5,6.0],"parts":[[38.5,6.0]]},"crashdesk":{"w":39.0,"ink":[8.0,20.75],"parts":[[8.0,11.25],[23.25,5.5]]},"notify":{"w":27.0,"ink":[9.0,10.0],"parts":[[9.0,10.0]]},"capture":{"w":27.0,"ink":[6.75,14.5],"parts":[[6.75,14.5]]},"group-ai":{"w":31.5,"ink":[9.0,12.75],"parts":[[9.0,12.75]]},"group-audio":{"w":74.5,"ink":[8.5,56.5],"parts":[[8.5,14.0],[30.5,34.5]]}};
+Object.assign(W, {"omaproton-vpn":{"w":27.0,"h":38.0,"ink":[8.5,11.0],"parts":[[8.5,11.0]]},"omafile":{"w":27.0,"h":38.0,"ink":[8.0,12.0],"parts":[[8.0,12.0]]},"agent-orchestr":{"w":27.0,"h":27.0,"ink":[8.75,16.25],"parts":[[8.75,16.25]]},"sessions":{"w":21.0,"h":38.0,"ink":[6.0,9.5],"parts":[[6.0,9.5]]},"ai-usage-dashboard":{"w":27.0,"h":38.0,"ink":[8.0,12.0],"parts":[[8.0,12.0]]},"microphone":{"w":27.0,"h":38.0,"ink":[9.0,9.5],"parts":[[9.0,9.5]]},"group-audio-glyph":{"w":24.25,"h":38.0,"ink":[8.5,14.0],"parts":[[8.5,14.0]]}});
 const KIND = { keystroke: "glyph", everything: "glyph", "group-ai": "text", workspaces: "compound", scratchpeek: "text",
   clock: "text", keyboard: "text", update: "glyph", indicators: "compound", monitor: "glyph", "group-audio": "text",
   bluetooth: "glyph", power: "text", network: "glyph", tray: "glyph", capture: "glyph", notify: "glyph", crashdesk: "text" };
+const NAMES_EXTRA = { "omaproton-vpn": "Proton VPN", omafile: "Omafile", "agent-orchestr": "Agent Orchestrator", sessions: "Session Browser", "ai-usage-dashboard": "AI Usage Dashboard", microphone: "Microphone", "group-audio-glyph": "Audio group" };
 const NAMES = { keystroke: "Keystroke", everything: "Everything", "group-ai": "AI group", workspaces: "Workspaces",
   scratchpeek: "Scratchpeek", clock: "Clock", keyboard: "Keyboard layout", update: "System update", indicators: "Indicators",
   monitor: "Monitor", "group-audio": "Audio group", bluetooth: "Bluetooth", power: "Battery", network: "Network",
@@ -566,7 +633,7 @@ function makeItem(spec) {
   }
   if (s.id === "ghost") return Object.assign(s, { ghost: true, kind: "glyph", inkW: 0, w: ICON_SLOT, inkX: 0, name: "Drop here" });
   const d = W[s.id];
-  return Object.assign(s, { kind: s.kind || KIND[s.id], name: NAMES[s.id], w: d.w, inkX: d.ink[0], inkW: d.ink[1], parts: d.parts });
+  return Object.assign(s, { kind: s.kind || KIND[s.id] || (d.ink[1] <= 16 ? "glyph" : "text"), name: NAMES[s.id] || NAMES_EXTRA[s.id] || s.id, w: d.w, h: d.h || CAPTURE_H, inkX: d.ink[0], inkW: d.ink[1], parts: d.parts });
 }
 
 function params(o) {
@@ -720,7 +787,7 @@ function renderZone(parent, specs, algo, P, opt) {
       }, island);
       content.textContent = it.text;
     } else {
-      content = el("img", "content", { left: px(c.contentX * Z), top: px((P.B - CAPTURE_H) / 2 * Z), width: px(it.w * Z), height: px(CAPTURE_H * Z) }, island);
+      content = el("img", "content", { left: px(c.contentX * Z), top: px((P.B - it.h) / 2 * Z), width: px(it.w * Z), height: px(it.h * Z) }, island);
       content.src = "w/" + it.id + ".png";
       content.alt = "";
     }
@@ -1353,6 +1420,257 @@ function wireDrag() {
   });
 }
 
+// ---------- Extended islands ----------
+function chip(host, label, value, good) {
+  const c = el("span", "chip" + (good === true ? " good" : good === false ? " bad" : ""), null, host);
+  c.innerHTML = "<b>" + label + "</b>" + value;
+}
+const EXT = { group: "audio", display: "both", edge: "top", size: "large", algo: "cells", xray: false };
+const EXT_GROUPS = {
+  audio: { zone: "right", island: ["monitor", "group-audio", "bluetooth", "power", "network", "tray", "prefs"], source: 1,
+    vertical: ["monitor", "group-audio-glyph", "bluetooth", "network", "prefs"], vsource: 1,
+    members: [["microphone", "Microphone"], ["audio", "Audio"]] },
+  ai: { zone: "left", island: ["keystroke", "everything", { id: "group-ai", badge: 3 }, "workspaces", "scratchpeek"], source: 2,
+    vertical: ["keystroke", "everything", { id: "group-ai", badge: 3 }, "monitor", "network"], vsource: 2,
+    members: [["agent-orchestr", "Agent Orchestrator"], ["sessions", "Session Browser"], ["ai-usage-dashboard", "AI Usage Dashboard"]] },
+  managed: { zone: "right", island: ["monitor", "bluetooth", "power", "network", "prefs"], source: -1,
+    vertical: ["monitor", "bluetooth", "network", "prefs"], vsource: -1,
+    members: [["omafile", "Omafile"], ["omaproton-vpn", "Proton VPN"]] },
+};
+const EDGE_GAP = 4;
+function menuTextWidth(text) {
+  if (!ctx2d) ctx2d = document.createElement("canvas").getContext("2d");
+  ctx2d.font = '11px "JetBrains Mono", ui-monospace, monospace';
+  return ctx2d.measureText(text).width;
+}
+// Menu geometry, from the same tokens as the bar.
+function menuModel(members, display, P) {
+  const both = display === "both";
+  const items = members.map(([id, name, extra]) => Object.assign({ id, name, d: W[id] }, extra || {}));
+  const widest = Math.max(...items.map(it => it.d.ink[1]));
+  const K = both ? Math.min(2 * P.cell, Math.max(P.cell, widest + 2 * P.air)) : 0;
+  const bw = 12;
+  items.forEach(it => {
+    const own = it.d.ink[1] + 2 * P.air;
+    it.pushed = both && own > K;
+    it.labelStart = both ? P.i + (it.pushed ? own : K) : P.i + P.air;
+    it.labelW = menuTextWidth(it.name);
+  });
+  const content = Math.max(...items.map(it => it.labelStart + it.labelW + P.air + (it.badge ? bw + 6 : 0)));
+  const Wm = Math.min(320, Math.max(4 * P.cell, content));
+  return { items, K, both, W: Wm, H: items.length * P.T + (items.length + 1) * P.i, R: Math.min(P.R, P.r + P.i), bw };
+}
+function drawMenu(parent, m, x, y, P, Z) {
+  const menu = el("div", "island bg ext-abs", { left: px(x * Z), top: px(y * Z), width: px(m.W * Z), height: px(m.H * Z), borderRadius: px(m.R * Z) }, parent);
+  m.items.forEach((it, k) => {
+    const ry = P.i + k * (P.T + P.i);
+    const row = el("button", "ext-row", { left: px(P.i * Z), top: px(ry * Z), width: px((m.W - 2 * P.i) * Z), height: px(P.T * Z) }, menu);
+    row.type = "button"; row.setAttribute("aria-label", it.name);
+    const hl = el("div", "hl", { borderRadius: px(P.r * Z) }, row);
+    if (m.both) {
+      const d = it.d, h = d.h || CAPTURE_H;
+      const centre = it.pushed ? P.air + d.ink[1] / 2 : m.K / 2;
+      const img = el("img", null, { left: px((centre - (d.ink[0] + d.ink[1] / 2)) * Z), top: px((P.T - h) / 2 * Z), width: px(d.w * Z), height: px(h * Z) }, row);
+      img.src = "w/" + it.id + ".png"; img.alt = "";
+    }
+    const avail = m.W - it.labelStart - P.air - (it.badge ? m.bw + 6 : 0);
+    const lbl = el("span", "lbl", { left: px((it.labelStart - P.i) * Z), width: px(avail * Z), height: px(P.T * Z), lineHeight: px(P.T * Z), fontSize: px(11 * Z) }, row);
+    lbl.textContent = it.name;
+    if (it.labelW > avail) row.title = it.name;
+    if (it.badge) {
+      const b = el("div", "badge", { left: px((m.W - 2 * P.i - P.air - m.bw) * Z), top: px((P.T - 12) / 2 * Z), width: px(m.bw * Z), height: px(12 * Z), fontSize: px(8.5 * Z) }, row);
+      b.textContent = it.badge;
+    }
+    row.addEventListener("pointerenter", () => { hl.className = "hl on hover"; });
+    row.addEventListener("pointerleave", () => { hl.className = "hl"; });
+    row.addEventListener("focus", () => { if (row.matches(":focus-visible")) hl.className = "hl on focus"; });
+    row.addEventListener("blur", () => { hl.className = "hl"; });
+  });
+  return menu;
+}
+// A vertical island: cells stacked along y, the same rule turned on its side.
+function drawVerticalIsland(parent, specs, x, y, P, Z, opt) {
+  const items = specs.map(makeItem);
+  const lens = items.map(it => cellLength(it, P));
+  const len = lens.reduce((a, b) => a + b, 0) + P.i * (items.length + 1);
+  const island = el("div", "island bg ext-abs", { left: px(x * Z), top: px(y * Z), width: px(P.B * Z), height: px(len * Z), borderRadius: px(P.R * Z) }, parent);
+  const cells = []; let cy = P.i;
+  items.forEach((it, k) => {
+    const L = lens[k];
+    const hl = el("div", "hl", { left: px(P.i * Z), top: px(cy * Z), width: px(P.T * Z), height: px(L * Z), borderRadius: px(P.r * Z) }, island);
+    if (opt && opt.states && opt.states[k]) hl.classList.add("on", opt.states[k]);
+    if (it.prefs) {
+      const size = 12.5, g = el("div", "prefs", { left: px((P.B - size) / 2 * Z), top: px((cy + (L - size) / 2) * Z), width: px(size * Z), height: px(size * Z), gap: px(2.5 * Z) }, island);
+      for (let d = 0; d < 9; d++) el("i", null, { width: px(2.5 * Z), height: px(2.5 * Z) }, g);
+    } else {
+      const img = el("img", null, { position: "absolute", left: px((P.B / 2 - (it.inkX + it.inkW / 2)) * Z), top: px((cy + L / 2 - it.h / 2) * Z), width: px(it.w * Z), height: px(it.h * Z) }, island);
+      img.src = "w/" + it.id + ".png"; img.alt = "";
+    }
+    if (it.badge) {
+      const k45 = P.r * (1 - Math.SQRT1_2);
+      const b = el("div", "badge", { left: px((P.i + P.T - k45 - 6) * Z), top: px((cy + k45 - 6) * Z), width: px(12 * Z), height: px(12 * Z), fontSize: px(8.5 * Z) }, island);
+      b.textContent = it.badge;
+    }
+    cells.push({ y: y + cy, L });
+    cy += L + P.i;
+  });
+  return { len, cells };
+}
+// Draws a slice of the screen: the source island, and its extended island.
+// cfg: { group, display, edge, size, algo, xray, members, islandSpecs, source, screenW, Z }
+function drawExtended(host, cfg) {
+  const P = params({ size: cfg.size, rounding: state.rounding, spacing: 0 });
+  const Z = cfg.Z || (window.innerWidth < 700 ? 1.3 : 1.8);
+  const g = EXT_GROUPS[cfg.group];
+  const members = cfg.members || g.members;
+  const E = EDGE_GAP, d = EDGE_GAP;
+  const stage = el("div", "stage ext-stage", null, host);
+  const Ws = cfg.screenW || Math.max(320, Math.floor(stage.clientWidth / Z));
+  const area = el("div", null, { position: "relative", width: px(Ws * Z) }, stage);
+  const out = { P };
+  const menu = cfg.display !== "icons";
+  if (cfg.edge === "top") {
+    const specs = cfg.islandSpecs || g.island, src = cfg.source != null ? cfg.source : g.source;
+    const lay = layout(specs, cfg.algo, P);
+    const ix = g.zone === "left" ? E : Ws - E - lay.len;
+    const holder = el("div", "ext-abs", { left: px(ix * Z), top: px(E * Z) }, area);
+    renderZone(holder, specs, cfg.algo, P, { Z, bg: true, interactive: true, states: src >= 0 ? { [src]: "open" } : {} });
+    const iStart = ix, iEnd = ix + lay.len;
+    const sc = src >= 0 ? lay.cells[src].hl : null;
+    const sx = sc ? ix + sc.x : null, sL = sc ? sc.L : 0;
+    const dy = E + P.B + d;
+    let dx, dW, dH;
+    if (!menu) {
+      const sl = layout(members.map(m => m[0]), cfg.algo, P);
+      dW = sl.len; dH = P.B;
+      if (sc) {
+        dx = sx + sL / 2 - dW / 2;
+        if (Math.abs(dx - iStart) <= P.T / 2) dx = iStart;
+        if (Math.abs(dx + dW - iEnd) <= P.T / 2) dx = iEnd - dW;
+      } else dx = g.zone === "left" ? iStart : iEnd - dW;
+      dx = Math.max(E, Math.min(Ws - E - dW, dx));
+      const sh = el("div", "ext-abs", { left: px(dx * Z), top: px(dy * Z) }, area);
+      renderZone(sh, members.map(m => m[0]), cfg.algo, P, { Z, bg: true, interactive: true });
+      out.aligned = sc ? (Math.abs(dx - iStart) < 0.5 || Math.abs(dx + dW - iEnd) < 0.5 ? "ends meet the island's" : Math.abs(dx + dW / 2 - (sx + sL / 2)) < 0.5 ? "centred on the group icon" : "kept on screen") : "lined up with the island's end";
+    } else {
+      const m = menuModel(members, cfg.display, P);
+      dW = m.W; dH = m.H;
+      if (sc) {
+        dx = sx - P.i; out.aligned = "rows start where the group icon starts";
+        if (dx + dW > Ws - E) { dx = sx + sL + P.i - dW; out.aligned = "rows end where the group icon ends (screen edge)"; }
+      } else { dx = g.zone === "left" ? iStart : iEnd - dW; out.aligned = "lined up with the island's end"; }
+      dx = Math.max(E, Math.min(Ws - E - dW, dx));
+      drawMenu(area, m, dx, dy, P, Z);
+      out.menu = m;
+      if (cfg.xray) {
+        const lx = dx + (m.both ? P.i + m.K : P.i + P.air);
+        el("div", "ext-guide", { left: px(lx * Z), top: px((dy + P.i) * Z), height: px((m.H - 2 * P.i) * Z) }, area);
+      }
+    }
+    if (cfg.xray && sc) {
+      const a = Math.max(sx, dx), b = Math.min(sx + sL, dx + dW);
+      if (b > a) el("div", "ext-bridge", { left: px(a * Z), top: px((E + P.B) * Z), width: px((b - a) * Z), height: px(d * Z) }, area);
+      el("div", "xlab", { left: px(((a + b) / 2) * Z), top: px((E + P.B + d / 2) * Z - 5) }, area).textContent = d + " px";
+    }
+    area.style.height = px((dy + dH + E + 6) * Z);
+  } else {
+    const specs = cfg.islandSpecs || g.vertical, src = cfg.source != null ? cfg.source : g.vsource;
+    const vi = drawVerticalIsland(area, specs, E, E, P, Z, { states: src >= 0 ? { [src]: "open" } : {} });
+    const dxv = E + P.B + d;
+    const sc = src >= 0 ? vi.cells[src] : null;
+    let dyv, dH, dW;
+    if (!menu) {
+      const vs = drawVerticalIsland(document.createElement("div"), members.map(m => m[0]), 0, 0, P, Z);
+      dH = vs.len; dW = P.B;
+      dyv = sc ? sc.y + sc.L / 2 - dH / 2 : E;
+      if (Math.abs(dyv - E) <= P.T / 2) dyv = E;
+      dyv = Math.max(E, dyv);
+      drawVerticalIsland(area, members.map(m => m[0]), dxv, dyv, P, Z);
+      out.aligned = sc ? (dyv === E ? "top meets the island's top" : "centred on the group icon") : "lined up with the island's end";
+    } else {
+      const m = menuModel(members, cfg.display, P);
+      dH = m.H; dW = m.W;
+      dyv = sc ? sc.y - P.i : E;
+      drawMenu(area, m, dxv, dyv, P, Z);
+      out.menu = m; out.aligned = sc ? "first row level with the group icon" : "lined up with the island's end";
+    }
+    if (cfg.xray && sc) {
+      el("div", "ext-bridge", { left: px((E + P.B) * Z), top: px(Math.max(sc.y, dyv) * Z), width: px(d * Z), height: px(Math.min(sc.L, dH) * Z) }, area);
+    }
+    area.style.height = px((Math.max(E + vi.len, dyv + dH) + E + 6) * Z);
+    area.style.width = px(Math.min(Ws, dxv + dW + 40) * Z);
+  }
+  return out;
+}
+function renderExtRule(P) {
+  const f = document.getElementById("ext-formulas"); f.innerHTML = "";
+  const rows = [
+    ["gap to the bar  d = edge gap", fmt(EDGE_GAP) + " px", "The same distance as between the bar and the screen edge. The drawer's pointer area spans it."],
+    ["strip = an island", fmt(P.B) + " px thick", "Same cells, gutters, one-inset ends, radius and spacing mode as the main islands; horizontal on a horizontal bar, vertical on a vertical one."],
+    ["menu rows  T tall, pitch T + i", fmt(P.T) + " / " + fmt(P.T + P.i) + " px", "Each row is a highlight cell; rows sit one inset apart, one inset from the menu's edge."],
+    ["menu radius  min(R, r + i)", fmt(Math.min(P.R, P.r + P.i)) + " px", "Concentric with the first and last rows, and never rounder than the islands."],
+    ["label  i + a  (names)", fmt(P.i + P.air) + " px", "Text keeps the bar's side air from the row's edge, and the same air on its right."],
+    ["icon column  clamp(ink + 2a, C, 2C)", fmt(P.cell) + "–" + fmt(2 * P.cell) + " px", "Icons and names: every glyph centres in one column, every label starts after it. A wider native keeps its own width on its row only."],
+    ["menu width  clamp(content, 4C, 320)", fmt(4 * P.cell) + "–320 px", "Long names end in an ellipsis and show the full name as a tooltip."],
+  ];
+  rows.forEach(([form, val, text]) => {
+    const r = el("div", "row", null, f);
+    el("span", "f", null, r).textContent = form;
+    el("span", "v", null, r).textContent = val;
+    el("p", null, null, r).textContent = text;
+  });
+}
+function renderExtended() {
+  const host = document.getElementById("ext-demo"); host.innerHTML = "";
+  const out = drawExtended(host, EXT);
+  renderExtRule(out.P);
+  const chips = document.getElementById("ext-chips"); chips.innerHTML = "";
+  chip(chips, "Gap to the bar", EDGE_GAP + " px");
+  chip(chips, "Placement", out.aligned);
+  if (out.menu) {
+    const m = out.menu;
+    chip(chips, "Menu", fmt(m.W) + " × " + fmt(m.H) + " px, rows every " + fmt(out.P.T + out.P.i) + " px");
+    chip(chips, "Corners concentric with rows", fmt(m.R) + " px", Math.abs(m.R - (out.P.r + out.P.i)) < 0.5 || m.R === out.P.R);
+    if (m.both) chip(chips, "Labels in one column", m.items.some(it => it.pushed) ? "no, a wide native pushes its label" : "yes", !m.items.some(it => it.pushed));
+  } else chip(chips, "Strip", "same rule as the main islands", true);
+}
+const EXT_CASES = [
+  { title: "Near the screen edge", text: "A menu that would run past the screen edge flips: its rows end where the group icon ends, and it keeps a bar gap from the edge.",
+    cfg: { group: "audio", display: "names", edge: "top", islandSpecs: ["monitor", "bluetooth", "group-audio"], source: 2 } },
+  { title: "Strip ends meet the island's", text: "A strip centred on its icon whose end lands within half a cell of the island's end snaps to it, so the two islands share an edge.",
+    cfg: { group: "ai", display: "icons", edge: "top", islandSpecs: [{ id: "group-ai", badge: 3 }, "workspaces"], source: 0 } },
+  { title: "Long names", text: "Menus stop at 320 px. A longer name ends in an ellipsis and shows in full as a tooltip; the row keeps its right air.",
+    cfg: { group: "ai", display: "names", edge: "top", members: [["agent-orchestr", "Agent Orchestrator"], ["ai-usage-dashboard", "AI Usage Dashboard for every provider and model you use"]] } },
+  { title: "A wide native in icons and names", text: "The icon column stops at two cells. A wider native, such as the clock, keeps its full width on its own row and pushes only that row's label.",
+    cfg: { group: "audio", display: "both", edge: "top", members: [["microphone", "Microphone"], ["clock", "Clock"], ["audio", "Audio"]] } },
+  { title: "One member", text: "A strip with one member is a lone island, a circle one inset larger than its highlight; a menu with one row is a capsule.",
+    cfg: { group: "audio", display: "icons", edge: "top", members: [["microphone", "Microphone"]] } },
+  { title: "Badges in menus", text: "A member's count sits at the row's trailing edge, one air from it. Widgets that draw their own badge, like the Agent Orchestrator, keep it on the glyph.",
+    cfg: { group: "ai", display: "both", edge: "top", members: [["agent-orchestr", "Agent Orchestrator", { badge: 1 }], ["sessions", "Session Browser"], ["ai-usage-dashboard", "AI Usage Dashboard", { badge: 2 }]] } },
+  { title: "Vertical bar, icons and names", text: "Beside a vertical bar the menu's first row sits level with the group icon, one bar gap away.",
+    cfg: { group: "audio", display: "both", edge: "left" } },
+  { title: "Managed drawer", text: "A zone's managed drawer has no source icon; it lines up with its island's outer end and uses the same strip rule.",
+    cfg: { group: "managed", display: "icons", edge: "top" } },
+];
+function renderExtCases() {
+  const host = document.getElementById("ext-cases"); host.innerHTML = "";
+  EXT_CASES.forEach(cs => {
+    const card = el("article", "case", null, host);
+    el("h3", null, null, card).textContent = cs.title;
+    el("p", null, null, card).textContent = cs.text;
+    const holder = el("div", null, null, card);
+    drawExtended(holder, Object.assign({ size: "large", algo: "cells", xray: false, Z: window.innerWidth < 700 ? 1.1 : 1.3 }, cs.cfg));
+  });
+}
+function wireExtended() {
+  [["ex-group", "group"], ["ex-display", "display"], ["ex-edge", "edge"], ["ex-size", "size"], ["ex-algo", "algo"]].forEach(([id, key]) => {
+    const sync = () => document.querySelectorAll("#" + id + " button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.v === EXT[key])));
+    document.querySelectorAll("#" + id + " button").forEach(b => b.addEventListener("click", () => { EXT[key] = b.dataset.v; sync(); renderExtended(); }));
+    sync();
+  });
+  document.getElementById("ex-xray").addEventListener("click", e => { EXT.xray = !EXT.xray; e.currentTarget.setAttribute("aria-pressed", String(EXT.xray)); renderExtended(); });
+}
+
 function renderAll() {
   syncControls();
   renderHero();
@@ -1362,10 +1680,13 @@ function renderAll() {
   renderCases();
   renderStates();
   renderDragLab();
+  renderExtended();
+  renderExtCases();
 }
 wireMotion();
 wireControls();
 wireDrag();
+wireExtended();
 const fontsReady = document.fonts && document.fonts.load ? Promise.race([document.fonts.load('12px "JetBrains Mono"'), new Promise(r => setTimeout(r, 1500))]) : Promise.resolve();
 fontsReady.then(renderAll, renderAll);
 </script>
