@@ -263,6 +263,8 @@ td.mono { white-space: nowrap; }
   .states { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .cmp-row { grid-template-columns: minmax(0, 1fr); gap: 6px; }
 }
+/* Animations off: every transition and animation on the page resolves at once. */
+html.no-motion .page *, html.no-motion .page *::before, html.no-motion .page *::after { transition-duration: 0s !important; transition-delay: 0s !important; animation: none !important; }
 @media (prefers-reduced-motion: reduce) {
   .hl, .thumb, .island .content { transition: none; }
 }
@@ -299,11 +301,12 @@ td.mono { white-space: nowrap; }
     </div>
     <button class="tog" id="all" aria-pressed="false">Every highlight at once</button>
     <button class="tog" id="xray" aria-pressed="false">Boxes and gaps</button>
+    <button class="tog" id="motion" aria-pressed="true">Animations</button>
   </div>
 
   <div class="stage" id="hero" aria-label="Powerbar preview"></div>
   <div class="chips" id="hero-chips" aria-live="polite"></div>
-  <p class="note">Click an item to hold it open (the selected fill a panel or drawer gets). With equal gaps, open one and hover its neighbour to see the older highlight fade. Tab focuses items and draws the keyboard ring. Rendered from <code>~/.cache/powerbar/widgets</code> captures at 4× and your wallpaper; group faces are drawn in JetBrains Mono Nerd Font, as Powerbar draws them.</p>
+  <p class="note">Click an item to hold it open (the selected fill a panel or drawer gets). With equal gaps, open one and hover its neighbour to see the older highlight fade. Switch Animations off to see every demo on this page the way Powerbar behaves with its Animations setting off. Tab focuses items and draws the keyboard ring. Rendered from <code>~/.cache/powerbar/widgets</code> captures at 4× and your wallpaper; group faces are drawn in JetBrains Mono Nerd Font, as Powerbar draws them.</p>
 
   <section id="decisions">
     <div class="section-head">
@@ -315,6 +318,7 @@ td.mono { white-space: nowrap; }
       <ul>
         <li><strong>Equal slots</strong> is the one cell, one inset rule and the default.<p>Every glyph gets the same slot, and highlights sit one inset apart. At spacing 0 the icon pitch is 27 px on the standard bar and 35 px on the large bar.</p></li>
         <li><strong>Equal gaps</strong> puts the same air between every pair of glyphs.<p>Highlights stay symmetric and may overlap in the gaps. Where two overlap, the older one fades to 45%.</p></li>
+        <li><strong>Every animation follows one switch.</strong><p>Preferences → Behavior → Animations (<code>powerbarAnimations</code>). With it off, everything still works and still reads clearly: each change lands in its final state at once, and the bar does no per-frame work.</p></li>
         <li><strong>In Preferences</strong> it is a two-chip row called Spacing in the Style section, above the existing "Space between widgets" slider.<p>Config key <code>powerbarSpacingMode</code>: <code>"slots"</code> (default) or <code>"gaps"</code>. Each option's one-line description replaces the row's description when chosen, the way <code>PrefsChoice</code> already works.</p></li>
       </ul>
       <div>
@@ -431,7 +435,7 @@ td.mono { white-space: nowrap; }
       </ol>
       <div>
         <div class="tablewrap">
-          <table id="drag-table"><thead><tr><th>Dragged</th><th>Gap, slots</th><th>Gap, gaps</th><th>Neighbours move in</th><th>Peak speed</th></tr></thead><tbody></tbody></table>
+          <table id="drag-table"><thead><tr><th>Dragged</th><th>Gap, slots</th><th>Gap, gaps</th><th>Neighbours move in, animations on</th><th>Peak speed</th></tr></thead><tbody></tbody></table>
         </div>
         <p class="note">With "Landing boundaries" on, the ticks under the island are the points the ghost's centre (the dot) must cross to move the gap. They sit halfway between neighbouring landing spots, measured without the gap, so they never move while you drag. Peak speed of a neighbour on the ease-in-out sine is π × distance ÷ (2 × duration). Ratios compare with an icon's 35 px gap at 150 ms. I simulated there-and-back sweeps across this island for the icon and the clock in both spacing options: the landing spot changed exactly once per boundary in each direction (10 of 10), and the ghost was never more than 41 px from its landing spot.</p>
       </div>
@@ -457,24 +461,32 @@ td.mono { white-space: nowrap; }
   <section id="motion">
     <div class="section-head">
       <h2>Motion</h2>
-      <p>Hover happens tens of times a day, so it barely moves. Things that open or rearrange get just enough motion to explain where they went.</p>
+      <p>Hover happens tens of times a day, so it barely moves. Things that open or rearrange get just enough motion to explain where they went. All of it is optional: Omarchy has to work well on modest hardware, so with Animations off the bar keeps every function and every cue, and does no per-frame work.</p>
     </div>
+    <ol class="steps" style="margin-bottom:22px">
+      <li><strong>One switch.</strong><p><code>powerbarAnimations</code>, shown as Preferences → Behavior → Animations and read as <code>animationsEnabled</code>. Every <code>Behavior</code> has <code>enabled: animationsEnabled</code>; every explicit animation checks it before starting and, when off, applies its end state directly. There is no second, per-feature switch.</p></li>
+      <li><strong>Motion never carries information alone.</strong><p>Each animated change ends in a static state that says the same thing: a fill, an outline, a placeholder, a position. Turning motion off removes the travel, never the meaning.</p></li>
+      <li><strong>Logic does not depend on motion.</strong><p>The 8 s width hold, the drag landing rule, highlight recency and the 2.5 s activity peek run the same with Animations off.</p></li>
+      <li><strong>Sequences short-circuit.</strong><p>Anything that waits for an animation, such as a drop that glides before it commits, commits in the same event when Animations is off.</p></li>
+      <li><strong>Off means idle.</strong><p>No <code>FrameAnimation</code>, animation timers or per-frame geometry run with Animations off; highlights re-place when geometry changes. With Animations on, per-frame work runs only while something is actually moving.</p></li>
+    </ol>
     <div class="tablewrap">
       <table>
-        <thead><tr><th>Change</th><th>Motion</th><th>Why</th></tr></thead>
+        <thead><tr><th>Change</th><th>Animations on</th><th>Animations off</th><th>Why it still reads</th></tr></thead>
         <tbody>
-          <tr><td>Hover fill in or out</td><td class="mono">opacity 90 ms, ease</td><td>Feedback only; the fill never slides between items, which would drag the eye along the bar.</td></tr>
-          <tr><td>Press</td><td class="mono">content scale 0.97, 120 ms</td><td>The glyph dips, the cell stays still so neighbours do not shimmer.</td></tr>
-          <tr><td>Panel or drawer opens</td><td class="mono">fill to selected, 150 ms</td><td>Links the open surface to its source; the drawer itself animates 180–300 ms.</td></tr>
-          <tr><td>Cell grows (value got wider)</td><td class="mono">width 150 ms, ease-in-out</td><td>Neighbours ease aside instead of jumping.</td></tr>
-          <tr><td>Cell shrinks</td><td class="mono">after 8 s at the smaller size, 180 ms</td><td>Values that flicker between widths (9% and 10%) never make the bar breathe.</td></tr>
-          <tr><td>Drag: neighbours make way</td><td class="mono">150–260 ms by distance, ease-in-out sine</td><td>Longer moves get more time, so wide widgets don't whip their neighbours aside.</td></tr>
-          <tr><td>Drag: widget settles on release</td><td class="mono">180 ms, strong ease-out</td><td>Glide, land and lose the lift in one motion, so the drop reads as one event.</td></tr>
-          <tr><td>Drag: widget picked up</td><td class="mono">120 ms lift</td><td>Surface, shadow and a 2 px lift appear quickly; the widget is under the pointer.</td></tr>
-          <tr><td>Activity peek</td><td class="mono">accent fill, 2.5 s, fade 300 ms</td><td>Shows which widget changed while the bar slides out.</td></tr>
-          <tr><td>An older highlight is overlapped by a newer one</td><td class="mono">opacity to 45%, 90 ms</td><td>With equal gaps, neighbouring cells can overlap; the most recent one stays full so the eye goes to what just happened.</td></tr>
-          <tr><td>Keyboard focus moves</td><td class="mono">instant</td><td>Keyboard actions are repeated many times a day and must feel immediate.</td></tr>
-          <tr><td>Reduced motion or animations off</td><td class="mono">fades only</td><td>Keep the short colour changes that carry meaning; drop movement.</td></tr>
+          <tr><td>Hover fill in or out</td><td class="mono">opacity 90 ms, ease</td><td class="mono">at once</td><td>The fill is the feedback; it never slides between items either way.</td></tr>
+          <tr><td>Press</td><td class="mono">glyph scales to 0.97, 120 ms</td><td class="mono">fill steps to pressed</td><td>The pressed fill (19%) marks the press; the cell never moves.</td></tr>
+          <tr><td>Panel or drawer opens</td><td class="mono">fill to selected 150 ms, drawer 180–300 ms</td><td class="mono">both appear at once</td><td>The selected fill links the open surface to its source.</td></tr>
+          <tr><td>Cell grows (value got wider)</td><td class="mono">width 150 ms, ease-in-out</td><td class="mono">at once</td><td>Neighbours step aside once; the hold below stops repeats.</td></tr>
+          <tr><td>Cell shrinks</td><td class="mono">after 8 s at the smaller size, 180 ms</td><td class="mono">after 8 s, at once</td><td>The hold is logic, not motion, so flickering values stay calm.</td></tr>
+          <tr><td>Drag: neighbours make way</td><td class="mono">150–260 ms by distance, ease-in-out sine</td><td class="mono">gap opens at once</td><td>The outlined placeholder shows the landing spot, and the landing rule is unchanged, so nothing flickers.</td></tr>
+          <tr><td>Drag: widget settles on release</td><td class="mono">180 ms, strong ease-out</td><td class="mono">lands at once, then commits</td><td>The ghost is at most half a neighbour's cell from its spot, so the step is short; the landed widget is under the pointer and shows its hover fill.</td></tr>
+          <tr><td>Drag: widget picked up</td><td class="mono">120 ms lift</td><td class="mono">lift, surface and shadow at once</td><td>Surface and shadow are static cues that it is held.</td></tr>
+          <tr><td>An older highlight is overlapped by a newer one</td><td class="mono">opacity to 45%, 90 ms</td><td class="mono">45% at once</td><td>It is a state, so it stays.</td></tr>
+          <tr><td>Activity peek</td><td class="mono">bar slides out, accent fill 2.5 s, fade 300 ms</td><td class="mono">bar appears in place, accent fill 2.5 s</td><td>The accent fill still names the widget that changed, for the same time.</td></tr>
+          <tr><td>Autohide reveal and hide</td><td class="mono">slide, ease-out</td><td class="mono">appears and hides in place</td><td>The edge trigger and timings are unchanged.</td></tr>
+          <tr><td>Theme or urgent colour change</td><td class="mono">crossfade</td><td class="mono">at once</td><td>The new colour is the information.</td></tr>
+          <tr><td>Keyboard focus moves</td><td class="mono">instant</td><td class="mono">instant</td><td>Keyboard actions repeat many times a day and must feel immediate.</td></tr>
         </tbody>
       </table>
     </div>
@@ -496,7 +508,8 @@ td.mono { white-space: nowrap; }
       <li><strong>Both modes.</strong><p><code>layoutZone(cells, { mode })</code> with <code>"slots"</code> (cells one inset apart) or <code>"gaps"</code> (glyphs <code>C / 2 + 2</code> apart, island ends at <code>i + spill</code>), read from <code>powerbarSpacingMode</code>. Both use the same highlight box. In gaps mode highlights may overlap: each <code>HoverHighlight</code> records when it lit, and where two overlap the newer gets the higher <code>z</code> and the older drops to 45% opacity. Preferences shows the choice as a <code>PrefsChoice</code> row, Spacing: Equal slots or Equal gaps.</p></li>
       <li><strong>Drag with landing-size gaps.</strong><p>The drag gap is the dragged widget's landing size, the placeholder is its highlight outlined, the landing spot is the one nearest the ghost's centre on the resting layout (3 px dead zone), and <code>dragMotionDuration</code> becomes <code>clamp(150 × √(gap ÷ icon gap), 150, 260)</code>. On release the ghost settles onto the cell in 180 ms before the layout commits.</p></li>
       <li><strong>Redefine the Spacing setting.</strong><p>Extra spacing widens cells, not gutters, so highlights stay tiled and concentric and hit targets grow with the space. At spacing 0 the icon pitch is 27 px on the standard bar and 35 px on the large bar.</p></li>
-      <li><strong>Verify on the desktop.</strong><p>Tests for <code>cellLength</code> at both bar sizes, glyph, short text, long text and compound kinds; <code>layoutZone</code> ends at the inset; <code>inkRect</code> for off-centre children. Then screenshot all three bar styles, both sizes and a vertical bar with autohide off.</p></li>
+      <li><strong>Put every animation behind the one switch.</strong><p>Give every <code>Behavior</code> and <code>ColorAnimation</code> <code>enabled: animationsEnabled</code>, including the bar's colour crossfade, the move-candidate edge, <code>BarBackdrop</code>'s fade, Active window's width, the Tray reveal and the Layout editor's tile colour. Run the highlights' <code>FrameAnimation</code> only while their slot is moving and animations are on; otherwise re-place on geometry changes. Add a QML test that turns the flag off and checks each change reaches its end state in the same frame.</p></li>
+      <li><strong>Verify on the desktop.</strong><p>Tests for <code>cellLength</code> at both bar sizes, glyph, short text, long text and compound kinds; <code>layoutZone</code> ends at the inset; <code>inkRect</code> for off-centre children. Then screenshot all three bar styles, both sizes and a vertical bar with autohide off, once with Animations on and once off, and check the shell stays idle (no per-frame work) with a highlight showing and Animations off.</p></li>
     </ol>
   </section>
 
@@ -818,6 +831,14 @@ function renderZone(parent, specs, algo, P, opt) {
 }
 
 // ---------- Hero ----------
+// Animations switch, mirroring Powerbar's own. Starts off for viewers who
+// ask their system for reduced motion.
+const motionOn = () => !document.documentElement.classList.contains("no-motion");
+function applyMotion(on) {
+  document.documentElement.classList.toggle("no-motion", !on);
+  const b = document.getElementById("motion");
+  if (b) b.setAttribute("aria-pressed", String(on));
+}
 const state = { algo: "cells", size: "large", style: "islands", spacing: 0, rounding: 20, zoom: 2, all: false, xray: false };
 try {
   const saved = JSON.parse(localStorage.getItem("powerbar-spacing-lab") || "null");
@@ -898,6 +919,17 @@ function syncControls() {
   document.getElementById("rounding-o").value = state.rounding;
   document.getElementById("all").setAttribute("aria-pressed", String(state.all));
   document.getElementById("xray").setAttribute("aria-pressed", String(state.xray));
+}
+function wireMotion() {
+  let on = !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  try { const saved = localStorage.getItem("powerbar-spacing-motion"); if (saved !== null) on = saved === "1"; } catch (e) {}
+  applyMotion(on);
+  document.getElementById("motion").addEventListener("click", () => {
+    const next = !motionOn();
+    applyMotion(next);
+    try { localStorage.setItem("powerbar-spacing-motion", next ? "1" : "0"); } catch (e) {}
+    renderDragLab();
+  });
 }
 function wireControls() {
   ["algo", "size", "style", "zoom"].forEach(k => {
@@ -1268,7 +1300,10 @@ function renderDragLab() {
     const from = spots[0].centre - 12, to = spots[n].centre + 12, T0 = performance.now(), total = 5200;
     const mid = spots[Math.floor(n / 2)].centre;
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (reduce) { moveGhost(mid); settle(); return; }
+    if (reduce || !motionOn()) {
+      // Without animations the demo still shows the gesture's end: a drop.
+      moveGhost(mid); settle(); return;
+    }
     const step = now => {
       const t = Math.min(1, (now - T0) / total);
       const phase = t < 0.5 ? t * 2 : 2 - t * 2;
@@ -1285,9 +1320,13 @@ function renderDragLab() {
   const farthest = Math.max(...spots.slice(1).map((sp, j) => (sp.centre - spots[j].centre) / 2)) + P.i;
   const add = (label, value, good) => { const e = el("span", "chip" + (good === true ? " good" : good === false ? " bad" : ""), null, chips); e.innerHTML = "<b>" + label + "</b>" + value; };
   add("Gap", fmt(g) + " px");
-  add("Neighbours move in", dur + " ms", dur <= 300);
-  const ratio = peakSpeed(g, dur) / iconPeak;
-  add("Peak speed", Math.round(peakSpeed(g, dur)) + " px/s, " + ratio.toFixed(1) + "× an icon", ratio <= 2.3);
+  if (motionOn()) {
+    add("Neighbours move in", dur + " ms", dur <= 300);
+    const ratio = peakSpeed(g, dur) / iconPeak;
+    add("Peak speed", Math.round(peakSpeed(g, dur)) + " px/s, " + ratio.toFixed(1) + "× an icon", ratio <= 2.3);
+  } else {
+    add("Neighbours move", "at once (Animations off)");
+  }
   add("Ghost to landing spot", "at most " + fmt(farthest) + " px");
   add("Island grows by", fmt(g) + " px, 0 when reordering inside it");
   // Table
@@ -1324,6 +1363,7 @@ function renderAll() {
   renderStates();
   renderDragLab();
 }
+wireMotion();
 wireControls();
 wireDrag();
 const fontsReady = document.fonts && document.fonts.load ? Promise.race([document.fonts.load('12px "JetBrains Mono"'), new Promise(r => setTimeout(r, 1500))]) : Promise.resolve();
