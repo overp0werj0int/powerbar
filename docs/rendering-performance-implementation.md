@@ -4,6 +4,12 @@
 changes; the spacing, highlight, drawer, and drag work present before this task
 is preserved. No desktop configuration was edited and no plugin was deployed.
 
+> **1 October 2026:** the Indicators and Tray rows below described Powerbar's
+> copies in `widgets/` and `indicators/`. Those copies were never loaded,
+> because Omarchy reserves the `omarchy.*` widget ids for its built-ins, so
+> they have been removed with their indicator services, test and test stubs.
+> The other rows still apply.
+
 ## Changes
 
 | Plan area | Implementation |
@@ -56,7 +62,7 @@ sync. The historical baseline is retained in the audit document.
 node --test tests/*.test.cjs
 QT_QPA_PLATFORM=offscreen QT_QPA_PLATFORMTHEME= \
 QT_QUICK_CONTROLS_STYLE=Basic QT_QUICK_BACKEND=software \
-/usr/lib/qt6/bin/qmltestrunner -import tests/qml/imports -input tests/qml -o -,txt
+/usr/lib/qt6/bin/qmltestrunner -input tests/qml -o -,txt
 
 # Emission also works where Node child-process spawning is restricted.
 node docs/rendering-performance-probe.cjs --emit /tmp/powerbar-path-probe
@@ -68,10 +74,9 @@ python3 /home/p0werj0int/.agents/skills/omarchy-plugin-test/scripts/validate_plu
 omarchy plugin validate "$PWD"
 ```
 
-The QML suite uses narrow test imports for Quickshell process/IPC and host
-controls. Process stubs never execute commands. The BarIndicator fixture mirrors
-the installed host's block/override/opacity contract; button/style stubs support
-only these tests. This is portable regression evidence, not live host acceptance.
+The QML suite needs no host stubs now that the indicator test is gone (the
+stubs it used were removed with it). This is portable regression evidence, not
+live host acceptance.
 
 Final validation: nine JavaScript test files pass, 53 QML checks pass, and the
 extracted-path probe reports seven passed checks. Both plugin validators pass;

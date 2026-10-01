@@ -314,7 +314,7 @@ and Escape dismissal. Multi-monitor behavior still needs a multi-monitor session
 
 ## Bar architecture
 
-- `widgets/` holds simple first-party bar widgets with sibling manifests.
+- Omarchy's built-in bar widgets (`omarchy.*`, such as Workspaces, Tray and Indicators) come from Omarchy's own bar plugin; the `omarchy.*` id namespace is reserved for them, so this plugin carries no copies.
 - Feature plugins such as `../panels/audio/`, `../panels/network/`, `../panels/power/`, and `../agents/` provide richer popup bar plugins.
 - The bar receives its config from the host shell as a `barConfig` property; the host loads it from `~/.config/omarchy/shell.json` (or `config/omarchy/shell.json` when the user has no file).
 - `omarchy bar position` updates only the user shell.json file.
@@ -379,7 +379,7 @@ Example `shell.json` (bar subtree only shown):
 | `omarchy.bluetooth` | Bluetooth icon + popup with device list, connect/disconnect, battery | left = popup · right = toggle radio |
 | `omarchy.monitor` | Brightness and laptop display controls | left = popup |
 
-The `omarchy.indicators` widget loads individual bar indicators from `indicators/`. Omit `items` (or set it to an empty array) to show all indicators in the default order, or set `items` to a subset such as `["Dnd", "Reminder", "NightLight"]`. Set `alwaysShow` to `true` to keep inactive indicators visible instead of revealing them only on hover. Multiple `omarchy.indicators` instances are allowed, so different sections can show different subsets.
+The `omarchy.indicators` widget (Omarchy's built-in) loads its individual bar indicators from Omarchy's own bar plugin. Omit `items` (or set it to an empty array) to show all indicators in the default order, or set `items` to a subset such as `["Dnd", "Reminder", "NightLight"]`. Set `alwaysShow` to `true` to keep inactive indicators visible instead of revealing them only on hover. Multiple `omarchy.indicators` instances are allowed, so different sections can show different subsets.
 
 ## Orientation
 
@@ -474,7 +474,7 @@ Widgets receive `bar` (the shell root), `moduleName` (string), and `settings` (o
 - `bar.requestPopout(owner)` / `bar.releasePopout(owner)` — one-popup-at-a-time coordinator
 
 First-party bar widgets are manifest-backed just like third-party widgets.
-Simple widgets carry sibling manifests such as `widgets/Workspaces.manifest.json`;
+Omarchy's simple widgets carry sibling manifests such as `widgets/Workspaces.manifest.json` in its own bar plugin;
 richer popup plugins live in feature directories such as `../panels/audio/`,
 `../panels/network/`, and `../agents/`; and feature plugins such as
 `omarchy.menu` and `omarchy.media` declare their bar-widget entry points in their own

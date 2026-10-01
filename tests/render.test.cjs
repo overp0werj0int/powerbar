@@ -1,7 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const model = require('../RenderModel.js');
-const tray = require('../widgets/TrayModel.js');
 const entry = (key, extra = {}) => ({ id: 'duplicate', powerbarInstance: key, ...extra });
 const config = () => ({ transparent: false, layout: { left: [entry('a'), entry('b')], center: [], right: [] } });
 test('retention keys distinguish duplicate IDs and anchor only the first matching instance', () => {
@@ -28,11 +27,6 @@ test('group index preserves group identity and member routing', () => {
   const index = model.groupIndex([group]);
   assert.equal(index.owner.a, group); assert.equal(index.byId.g, group);
   assert.equal(index.owner.absent, undefined);
-});
-test('tray ownership retains saved semantics and excludes unrelated items', () => {
-  assert.equal(tray.ownedByOmarchy({ id: 'localsend' }, {}), true);
-  assert.equal(tray.ownedByOmarchy({ title: 'Dropbox' }, { left: [{ id: 'omarchy.dropbox' }] }), true);
-  assert.equal(tray.ownedByOmarchy({ title: 'Dropbox' }, {}), false);
 });
 
 test('raw layout indexes tolerate invalid entries without disturbing unrelated zones', () => {

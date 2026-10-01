@@ -158,10 +158,6 @@ Item {
     running: true
     onTriggered: if (Quickshell.screens.length) root.captureWidgetImages(Quickshell.screens[0], function() {})
   }
-  IndicatorServices { id: indicatorServices }
-  function acquireIndicatorState(kind, settings) { return indicatorServices.acquire(kind, settings) }
-  function releaseIndicatorState(producer) { if (indicatorServices) indicatorServices.release(producer) }
-  function refreshIndicatorStates() { indicatorServices.refresh() }
   property var activityDeadlines: Object.create(null)
   property var slotCopies: Object.create(null)
   // Drawer timing is fixed; Preferences no longer offers it. The shell.json
