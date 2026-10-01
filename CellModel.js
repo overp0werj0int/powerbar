@@ -44,10 +44,12 @@ function isGlyph(ink, glyphHint) {
   return !!glyphHint || (ink > 0 && ink <= GLYPH_INK)
 }
 
-// The cell's length along the bar.
-function cellLength(k, ink, glyph) {
+// The cell's length along the bar. Only free text (window titles, media) is
+// capped at MAX_INK; compounds and vertical stacks keep their full length.
+function cellLength(k, ink, glyph, cap) {
   if (glyph) return k.cell
-  return Math.max(k.cell, Math.min(Math.max(0, ink), MAX_INK) + 2 * k.air)
+  var shown = cap === false ? Math.max(0, ink) : Math.min(Math.max(0, ink), MAX_INK)
+  return Math.max(k.cell, shown + 2 * k.air)
 }
 
 // Where an item sits along the bar.
@@ -59,10 +61,10 @@ function cellLength(k, ink, glyph) {
 //   inkStart  where the painted content starts inside the slot
 //   shown     painted length after the free-text cap
 //   spill     how far the cell reaches past the ink on each side (Equal gaps)
-function place(k, ink, glyph) {
+function place(k, ink, glyph, cap) {
   ink = Math.max(0, ink)
-  var shown = glyph ? ink : Math.min(ink, MAX_INK)
-  var cell = cellLength(k, ink, glyph)
+  var shown = glyph || cap === false ? ink : Math.min(ink, MAX_INK)
+  var cell = cellLength(k, ink, glyph, cap)
   if (k.mode === "gaps") {
     return { extent: shown + k.gap, cell: cell, inkStart: k.gap / 2, shown: shown, spill: (cell - shown) / 2 }
   }

@@ -1340,6 +1340,29 @@ Item {
   // Island ends are the same during a drag: the outlined placeholder shows
   // where a widget lands, so islands no longer grow a landing lip.
   function islandEnd(zone, spill) { return cellEndPad(spill) }
+  // The kit button that paints a widget's glyph, if any (depth-limited): an
+  // icon button, or a text button showing a glyph (placeholders, group icons).
+  // Only when that button is the widget's whole content: the search follows a
+  // single painted child at each level (backgrounds aside), so compounds such
+  // as Workspaces keep their measured span.
+  function findKitGlyph(item, depth) {
+    if (!item || depth > 3 || !item.visible) return null
+    if ("glyphPaintedWidth" in item && "glyphFontSize" in item) return item
+    if ("labelWidth" in item && "fontSize" in item && "text" in item && String(item.text) !== "") return item
+    var kids = HighlightModel.paintedChildren(item).filter(function(c) { return !HighlightModel.isBackground(c, item, false) })
+    return kids.length === 1 ? findKitGlyph(kids[0], depth + 1) : null
+  }
+  // The Text item inside a kit button that paints `text`.
+  function findGlyphText(item, text, depth) {
+    if (!item || depth > 4) return null
+    if ("font" in item && "baselineOffset" in item && "contentWidth" in item && String(item.text) === text && item.visible) return item
+    var kids = item.children || []
+    for (var n = 0; n < kids.length; n++) {
+      var found = findGlyphText(kids[n], text, depth + 1)
+      if (found) return found
+    }
+    return null
+  }
   // The spill of the first (or last) visible slot in a Row or Column.
   function edgeSpill(container, last) {
     var kids = container ? container.children : []
@@ -2581,8 +2604,10 @@ Item {
             : (root.vertical ? preferencesButton.y : preferencesButton.x) - root.islandEnd("right", preferencesButton.cellSpill)
           x: root.vertical ? (parent.width - width) / 2 : start
           y: root.vertical ? start : (parent.height - height) / 2
-          width: root.vertical ? root.barSize : preferencesButton.x + preferencesButton.width + root.islandEnd("right", preferencesButton.cellSpill) - x
-          height: root.vertical ? preferencesButton.y + preferencesButton.height + root.islandEnd("right", preferencesButton.cellSpill) - y : root.barSize
+          // Measured from start, never from x or y: on a vertical bar x depends on
+          // width, so width depending on x would loop when the orientation flips.
+          width: root.vertical ? root.barSize : preferencesButton.x + preferencesButton.width + root.islandEnd("right", preferencesButton.cellSpill) - start
+          height: root.vertical ? preferencesButton.y + preferencesButton.height + root.islandEnd("right", preferencesButton.cellSpill) - start : root.barSize
         }
         CenterModules {
           anchors.fill: parent
@@ -3209,10 +3234,43 @@ Item {
     // The cell: what the widget visibly paints along the bar decides its slot
     // and its highlight, never the box it asks for.
     readonly property Item inkItem: needsPlaceholder ? placeholderButton : activeItem
-    readonly property var ink: naturalWidth > 0 && naturalHeight > 0 && inkItem
+    readonly property var measuredInk: naturalWidth > 0 && naturalHeight > 0 && inkItem
       ? HighlightModel.inkRect(inkItem, root.vertical) : ({ start: 0, length: 0, glyph: false })
-    readonly property var crossInk: root.vertical && naturalWidth > 0 && inkItem ? HighlightModel.inkRect(inkItem, false) : null
-    readonly property var cellPlace: CellModel.place(root.cellTokens, ink.length, CellModel.isGlyph(ink.length, ink.glyph))
+    // When one kit button is the widget's whole content, measure the text it
+    // actually paints: its exact font, its tight glyph bounds and where the
+    // text sits. Kit hints give only a width and assume a centred glyph, but
+    // icon-font glyphs often overhang their advance box (the speaker is 14 px of
+    // ink in a 7.2 px box, so a text button paints it 3.4 px right of centre).
+    readonly property Item kitGlyph: inkItem && naturalWidth > 0 ? root.findKitGlyph(inkItem, 0) : null
+    readonly property Item glyphText: kitGlyph ? root.findGlyphText(kitGlyph, String(kitGlyph.text), 0) : null
+    TextMetrics {
+      id: kitGlyphMetrics
+      font: slot.glyphText ? slot.glyphText.font : Qt.font({ family: Style.font.family })
+      text: slot.glyphText ? slot.glyphText.text : ""
+    }
+    readonly property var glyphInk: {
+      var t = glyphText
+      if (!t || !inkItem || t.text === "" || Math.abs(Number(t.rotation) % 180) === 90) return null
+      var r = kitGlyphMetrics.tightBoundingRect
+      if (!(r.width > 0) || !(r.height > 0)) return null
+      var geometry = t.x + t.y + t.width + t.height + inkItem.width + inkItem.height
+      // Qt aligns a line by its advance, while contentWidth also counts the
+      // overhang, so a centred icon-font glyph is drawn (width − advance) / 2 in.
+      var advance = kitGlyphMetrics.advanceWidth
+      var align = t.horizontalAlignment === Text.AlignHCenter ? (t.width - advance) / 2
+        : t.horizontalAlignment === Text.AlignRight ? t.width - advance : 0
+      var p = t.mapToItem(inkItem, align + r.x, t.baselineOffset + r.y)
+      return { x: p.x, y: p.y, width: r.width, height: r.height }
+    }
+    readonly property var ink: !glyphInk ? measuredInk : root.vertical
+      ? { start: glyphInk.y, length: glyphInk.height, glyph: measuredInk.glyph || glyphInk.width <= CellModel.GLYPH_INK }
+      : { start: glyphInk.x, length: glyphInk.width, glyph: glyphInk.width <= CellModel.GLYPH_INK }
+    readonly property var crossInk: !root.vertical || naturalWidth <= 0 || !inkItem ? null
+      : glyphInk ? { start: glyphInk.x, length: glyphInk.width, glyph: glyphInk.width <= CellModel.GLYPH_INK }
+      : HighlightModel.inkRect(inkItem, false)
+    // Only free text is capped: a compound (workspaces) or a vertical stack keeps its length.
+    readonly property var cellPlace: CellModel.place(root.cellTokens, ink.length, CellModel.isGlyph(ink.length, ink.glyph),
+      !root.vertical && compoundTargets.length < 2)
     readonly property real landingExtent: naturalWidth > 0 && naturalHeight > 0 ? cellPlace.extent : 0
     // A value that gets narrower keeps its width for a while, so flickering
     // values never make the bar breathe; it grows at once.

@@ -34,6 +34,12 @@ test('cell length: glyphs square, text gets the icon air, free text capped at 16
   assert.equal(cell.isGlyph(16.5, false), false);
   assert.equal(cell.isGlyph(40, true), true);
 });
+test('only free text is capped; compounds and vertical stacks keep their length', () => {
+  const k = cell.tokens({ bar: 40 });
+  assert.equal(cell.place(k, 196, false).shown, 160);
+  assert.equal(cell.place(k, 196, false, false).shown, 196);
+  assert.equal(cell.cellLength(k, 196, false, false), 196 + 2 * k.air);
+});
 test('equal slots: cells one gutter apart, ends one inset from the island', () => {
   const k = cell.tokens({ bar: 38 });
   const icon = cell.place(k, 12, true);

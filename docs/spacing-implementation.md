@@ -46,6 +46,21 @@ Implemented and committed, together with the rendering performance work
   by anchors switched by orientation, which removed their size bindings when
   the bar moved edge.
 - **Drag lip:** removed; the outlined placeholder shows where a widget lands.
+- **Vertical spacing:** an icon's ink along a vertical bar is its glyph's
+  painted height (TextMetrics on the kit button's text), not its 16–28 px
+  canvas. The 160 px cap applies only to free text, so the vertical
+  workspace column is no longer clipped. Omarchy's built-in Workspaces and
+  clock still use a full slot per item on vertical bars; that is upstream.
+- **Glyph ink:** when one kit button is a widget's whole content, its ink
+  comes from the text it paints: its exact font, its tight glyph bounds, and
+  where the text sits. Kit hints give only a width and assume a centred glyph.
+  A centre-aligned label is placed by the glyph's advance, while
+  `contentWidth` counts the overhang. A text button therefore drew the group's
+  speaker icon 3.5 px off centre, across a vertical bar and along a
+  horizontal one.
+- **Widget copies:** the copies of Omarchy's widgets in `widgets/` and
+  `indicators/` were never loaded, because the `omarchy.*` id namespace is
+  reserved for Omarchy's built-ins. They have been removed.
 
 **Checked only in code and tests:**
 - **Needs a pointer or keyboard:** compound thumbs, the Equal gaps overlap
