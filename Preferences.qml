@@ -143,7 +143,12 @@ Item {
         var anchor = (config.bar.layout[section] || [])[Math.ceil(before)]
         changed = Groups.edit(config, record.groupId, { section: section, visibility: mode,
           before: anchor && anchor.powerbarInstance || "" })
-      } else changed = Model.move(config, record, section, mode, Math.ceil(before))
+      } else {
+        // A group anchored on the moving widget stays where it is.
+        var next = Groups.nextAnchor(config, record.section, record.instanceKey)
+        changed = Model.move(config, record, section, mode, Math.ceil(before))
+        if (changed) Groups.reanchor(config, record.section, record.instanceKey, next)
+      }
     })
     status = accepted === false ? "Could not save the layout. Check that shell.json is writable."
       : changed ? "" : "The layout changed elsewhere. Try again."
@@ -465,6 +470,21 @@ Item {
                 opacity: enabled ? 1 : 0.45
                 checked: prefs.config.powerbarAutoHideActivity !== false
                 onToggled: function(checked) { prefs.setOption("powerbarAutoHideActivity", checked) }
+              }
+              PrefsChoice {
+                label: "On-demand widgets"
+                description: value === "inline"
+                  ? "They wait behind dots in their zone and expand in the bar when you hover the dots"
+                  : "Hovering a zone opens them in a drawer next to the bar"
+                options: [{ value: "drawer", label: "In a drawer" }, { value: "inline", label: "In the bar" }]
+                value: prefs.config.powerbarOnDemand === "inline" ? "inline" : "drawer"
+                onChosen: function(value) { prefs.setOption("powerbarOnDemand", value) }
+              }
+              PrefsToggle {
+                label: "Count on the dots"
+                description: "A badge on a zone's dots shows how many widgets are out of view"
+                checked: prefs.config.powerbarDotsBadge !== false
+                onToggled: function(checked) { prefs.setOption("powerbarDotsBadge", checked) }
               }
               PrefsToggle {
                 label: "Animations"

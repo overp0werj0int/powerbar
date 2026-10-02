@@ -21,10 +21,19 @@ part of them works from the keyboard.
     the widget would: it presses the widget's own button even while the widget
     hides itself (the Omarchy update widget runs `omarchy-update`), or calls its
     `toggle()` or `open()`; only a widget with no action opens preferences.
-  - **In the drawer** (Managed) is hidden at rest. Events and icon/value changes
+  - **On demand** (Managed) is hidden at rest. Events and icon/value changes
     reveal the widget for 2.5 seconds, the same time an autohidden bar peeks
-    out for activity, so the widget and its island leave together. Hover its zone to open a
-    drawer of these widgets.
+    out for activity, so the widget and its island leave together. General >
+    On-demand widgets picks how you reach the rest:
+    - **In a drawer** (the default): hover the zone to open a drawer of these
+      widgets beside the bar.
+    - **In the bar**: they wait behind the zone's dots (⋯ with a count, shared
+      with widgets folded for lack of room). Hover the dots and the zone
+      expands in place while the neighbouring zone makes room, as for an
+      activity reveal. The zone collapses after the exit grace once the pointer
+      leaves it. If the expansion can't fit, the zone's drawer opens instead.
+      The keyboard (`powerbar managed <zone>` over IPC, or Enter on the dots) always uses
+      the drawer.
   - **Hidden** removes the widget from the bar without deleting its settings or
     disabling its plugin elsewhere in the shell.
 
@@ -41,7 +50,7 @@ part of them works from the keyboard.
 - **Groups** lists your groups beside an editor for the selected one: name, a
   stock Omarchy icon, placement, what the bar shows, badge, how members appear
   in the drawer, and the member list.
-- **General** covers screen edge, center anchor, autohide, animations, bar style,
+- **General** covers screen edge, center anchor, autohide, on-demand widgets, the count badge on a zone's dots, animations, bar style,
   and widget spacing. Size, fonts, and colors follow Omarchy.
 - **Appearance** covers bar size, borders, rounding, blur, background opacity,
   and shadow, with a live preview of the bar over your wallpaper.

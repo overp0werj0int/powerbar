@@ -9,6 +9,7 @@ A widget's placement along the bar: Left, Center, or Right. On a vertical bar th
 
 **Visibility mode**:
 The rule governing a widget's presence: Always shown, Managed, or Always hidden. It is independent of its zone.
+Preferences call Managed "On demand".
 _Avoid_: Section when referring to a visibility rule.
 
 **Main island**:
@@ -17,6 +18,16 @@ The themed surface containing a zone's visible widgets in the main bar.
 **Managed drawer**:
 A temporary island beside a zone that exposes that zone's managed widgets for interaction.
 _Avoid_: Main island when referring to this temporary surface.
+
+**On-demand display**:
+How a zone's Managed widgets are reached: in the Managed drawer when the zone
+is hovered ("drawer", the default), or by an inline expansion ("inline").
+
+**Inline expansion**:
+In the inline display, a zone's Managed widgets wait behind its dots (shared
+with widgets folded for lack of room) and expand in the main island while the
+dots, then the zone, are hovered. It is a zone-fit moment: neighbours yield,
+nothing slides, and it falls back to the Managed drawer when it can't fit.
 
 **Activity reveal**:
 A temporary appearance of a managed widget in the main bar after a qualifying activity event or state change.
@@ -96,6 +107,9 @@ anchor opens its gap in the neighboring list so the anchored icon stays centered
 | Managed drawer | Group icon | Add group membership |
 | Group icon | Main island or another group icon | Move or reorder the group header |
 | Group icon | Open managed drawer or Managed target | Set group visibility to Managed |
+| Any icon | A zone's dots | Move the instance to that end of the zone, set Managed (On demand) |
+| Any icon | Resting 400 ms on a zone's dots | Open the zone: inline expansion or its drawer, by the on-demand display |
+| Any icon | Beside a widget an inline expansion shows | Move the instance there, set Managed |
 | Any icon | Outside valid surfaces | Cancel without a config write |
 
 Only one extended drawer can be open at a time. Group icons and temporary

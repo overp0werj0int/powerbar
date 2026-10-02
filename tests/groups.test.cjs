@@ -89,3 +89,39 @@ test('group display options preserve membership and reject unknown values', () =
   assert.equal(m.groups(c.bar)[0].face, 'both');
   assert.equal(m.groups(c.bar)[0].orientation, 'vertical');
 });
+
+test('a group keeps its place when its anchor widget moves away', () => {
+  const c = fixture();
+  m.create(c, 'a', 'A');
+  m.edit(c, 'a', { section: 'left', before: 'two' });
+  const at = () => m.render(c.bar.layout, m.groups(c.bar)).left.map(e => e.powerbarInstance);
+  assert.deepEqual(at(), ['one', 'group:a', 'two', 'three']);
+  // 'two' moves to the zone's start (as a drop on the zone's dots does).
+  const next = m.nextAnchor(c, 'left', 'two');
+  const moved = c.bar.layout.left.splice(1, 1)[0];
+  c.bar.layout.left.unshift(moved);
+  assert.equal(m.reanchor(c, 'left', 'two', next), true);
+  assert.deepEqual(at(), ['two', 'one', 'group:a', 'three']);
+});
+
+test('a group anchored on the last widget keeps the zone end when it leaves', () => {
+  const c = fixture();
+  m.create(c, 'a', 'A');
+  m.edit(c, 'a', { section: 'left', before: 'three' });
+  const next = m.nextAnchor(c, 'left', 'three');
+  assert.equal(next, '');
+  const moved = c.bar.layout.left.pop();
+  c.bar.layout.right.push(moved);
+  assert.equal(m.reanchor(c, 'left', 'three', next), true);
+  assert.deepEqual(m.render(c.bar.layout, m.groups(c.bar)).left.map(e => e.powerbarInstance), ['one', 'two', 'group:a']);
+});
+
+test('a visibility change in place leaves the group anchored', () => {
+  const c = fixture();
+  m.create(c, 'a', 'A');
+  m.edit(c, 'a', { section: 'left', before: 'two' });
+  const next = m.nextAnchor(c, 'left', 'two');
+  c.bar.layout.left[1].powerbarVisibility = 'managed';
+  assert.equal(m.reanchor(c, 'left', 'two', next), false);
+  assert.equal(m.groups(c.bar)[0].before, 'two');
+});
