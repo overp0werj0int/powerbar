@@ -10,6 +10,8 @@ Item {
   property real targetInsetY: 0
   property bool motionEnabled: true
   property int motionDuration: 120
+  // Wait this long before moving (0: start at once).
+  property int motionDelay: 0
   property int motionEasing: Easing.OutCubic
   property real motionOvershoot: 0
   property bool ready: false
@@ -25,18 +27,30 @@ Item {
   Component.onCompleted: Qt.callLater(function() { slot.ready = true })
   Behavior on animatedWidth {
     enabled: slot.motionEnabled && slot.ready
-    NumberAnimation { duration: slot.motionDuration; easing.type: slot.motionEasing; easing.overshoot: slot.motionOvershoot }
+    SequentialAnimation {
+      PauseAnimation { duration: slot.motionDelay }
+      NumberAnimation { duration: slot.motionDuration; easing.type: slot.motionEasing; easing.overshoot: slot.motionOvershoot }
+    }
   }
   Behavior on animatedHeight {
     enabled: slot.motionEnabled && slot.ready
-    NumberAnimation { duration: slot.motionDuration; easing.type: slot.motionEasing; easing.overshoot: slot.motionOvershoot }
+    SequentialAnimation {
+      PauseAnimation { duration: slot.motionDelay }
+      NumberAnimation { duration: slot.motionDuration; easing.type: slot.motionEasing; easing.overshoot: slot.motionOvershoot }
+    }
   }
   Behavior on animatedInsetX {
     enabled: slot.motionEnabled && slot.ready
-    NumberAnimation { duration: slot.motionDuration; easing.type: slot.motionEasing; easing.overshoot: slot.motionOvershoot }
+    SequentialAnimation {
+      PauseAnimation { duration: slot.motionDelay }
+      NumberAnimation { duration: slot.motionDuration; easing.type: slot.motionEasing; easing.overshoot: slot.motionOvershoot }
+    }
   }
   Behavior on animatedInsetY {
     enabled: slot.motionEnabled && slot.ready
-    NumberAnimation { duration: slot.motionDuration; easing.type: slot.motionEasing; easing.overshoot: slot.motionOvershoot }
+    SequentialAnimation {
+      PauseAnimation { duration: slot.motionDelay }
+      NumberAnimation { duration: slot.motionDuration; easing.type: slot.motionEasing; easing.overshoot: slot.motionOvershoot }
+    }
   }
 }

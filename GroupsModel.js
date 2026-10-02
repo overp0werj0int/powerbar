@@ -92,6 +92,29 @@ function moveHeader(config, id, section, beforeKey, relativeGroupId, after, visi
   config.bar.powerbarGroups = list
   return true
 }
+// A group sits before its anchor entry. When that entry moves away, the group
+// keeps its place: it re-anchors on the entry that followed (or the zone's end).
+// Call nextAnchor before the move and reanchor after it.
+function nextAnchor(config, section, key) {
+  var entries = (config && config.bar && config.bar.layout && config.bar.layout[section]) || []
+  var at = entries.findIndex(function(entry) { return entry && entry.powerbarInstance === key })
+  var next = at >= 0 ? entries[at + 1] : null
+  return next && next.powerbarInstance || ""
+}
+function reanchor(config, section, key, next) {
+  if (!config || !config.bar || !key) return false
+  // Still right before the same entry (a visibility change in place): the
+  // group is already where it was.
+  if (nextAnchor(config, section, key) === next && ((config.bar.layout || {})[section] || []).some(function(entry) {
+    return entry && entry.powerbarInstance === key
+  })) return false
+  var list = groups(config.bar), changed = false
+  list.forEach(function(g) {
+    if (g.section === section && g.before === key && next !== key) { g.before = next; changed = true }
+  })
+  if (changed) config.bar.powerbarGroups = list
+  return changed
+}
 function remove(config, id) {
   var list = groups(config.bar), next = list.filter(function(g) { return g.id !== id })
   if (next.length === list.length) return false

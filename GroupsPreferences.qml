@@ -304,7 +304,7 @@ Item {
           }
           PrefsChoice {
             label: "Visibility"
-            options: [{ value: "shown", label: "On the bar" }, { value: "managed", label: "In the drawer" }, { value: "hidden", label: "Hidden" }]
+            options: [{ value: "shown", label: "On the bar" }, { value: "managed", label: "On demand" }, { value: "hidden", label: "Hidden" }]
             value: pane.selectedGroup ? pane.selectedGroup.visibility : ""
             onChosen: function(value) { pane.edit({ visibility: value }) }
           }

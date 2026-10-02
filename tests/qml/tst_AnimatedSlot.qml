@@ -11,6 +11,7 @@ TestCase {
     AnimatedSlot { id: middle; targetWidth: 0; targetHeight: 24 }
     AnimatedSlot { id: neighbour; targetWidth: 20; targetHeight: 24 }
   }
+  AnimatedSlot { id: delayed; targetWidth: 0; targetHeight: 10; motionDuration: 100; motionDelay: 80 }
   Rectangle { id: chrome; width: row.width; height: row.height; visible: false }
   function test_middleInsertionAndRemoval() {
     wait(120)
@@ -32,5 +33,23 @@ TestCase {
     middle.targetWidth = 24
     row.forceLayout()
     compare(neighbour.x, 44)
+  }
+  function test_motionDelay() {
+    wait(120)
+    delayed.targetWidth = 40
+    wait(40)
+    compare(delayed.width, 0)
+    wait(200)
+    compare(delayed.width, 40)
+    delayed.motionDelay = 0
+    delayed.targetWidth = 0
+    wait(30)
+    verify(delayed.width > 0 && delayed.width < 40, "No delay: must already be moving: " + delayed.width)
+    wait(150)
+    compare(delayed.width, 0)
+    delayed.motionEnabled = false
+    delayed.motionDelay = 80
+    delayed.targetWidth = 40
+    compare(delayed.width, 40)
   }
 }

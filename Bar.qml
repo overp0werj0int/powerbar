@@ -16,6 +16,8 @@ import "AppearanceModel.js" as AppearanceModel
 import "DragModel.js" as DragModel
 import "HighlightModel.js" as HighlightModel
 import "CellModel.js" as CellModel
+import "ZoneFitModel.js" as ZoneFitModel
+import "InlineQueue.js" as InlineQueue
 import "RenderModel.js" as RenderModel
 
 Item {
@@ -168,6 +170,14 @@ Item {
   readonly property real managedEntrySeconds: ManagedModel.seconds(barConfig.powerbarManagedEntryGraceSeconds, 1, 15)
   readonly property real managedExitSeconds: ManagedModel.seconds(barConfig.powerbarManagedExitGraceSeconds, 1, 15)
 
+  // On-demand widgets either open in a drawer island when their zone is
+  // hovered ("drawer"), or wait behind the zone's dots and expand in the bar
+  // when the dots are hovered ("inline"; docs/zone-fit-implementation.md).
+  readonly property bool onDemandInline: barConfig.powerbarOnDemand === "inline"
+  // The count badge on a zone's dots (drawer handle and yield marker).
+  readonly property bool dotsBadge: barConfig.powerbarDotsBadge !== false
+  onOnDemandInlineChanged: closeManagedDrawer()
+
   function closeManagedDrawer() { if (managedOwner) managedOwner.close("immediate") }
   onBarHiddenChanged: if (barHidden) closeManagedDrawer()
   // How long an autohidden bar, or one island, stays out after a widget changes.
@@ -233,9 +243,11 @@ Item {
   }
   onShellChanged: Qt.callLater(ensureInstanceIds)
   function managedSlots(zone, window) {
-    return (window && window.moduleItems || []).filter(function(slot) {
-      return slot && slot.moduleName && slot.region === zone && slot.managed && !slot.memberGroup
+    var slots = (window && window.moduleItems || []).filter(function(slot) {
+      return slot && slot.moduleName && slot.region === zone && (slot.managed || slot.fitFolded) && !slot.memberGroup
     })
+    // Widgets folded off the bar come first, then the zone's managed ones.
+    return slots.filter(function(slot) { return slot.fitFolded }).concat(slots.filter(function(slot) { return !slot.fitFolded }))
   }
   function targetsForSlot(slot) { return slot ? slot.slotTargets : [] }
   property var targetSlots: []
@@ -1041,6 +1053,27 @@ Item {
       ? p.y >= -margin && p.y <= drawer.height + margin && p.x >= -reach && p.x <= drawer.width + reach
       : p.x >= -margin && p.x <= drawer.width + margin && p.y >= -reach && p.y <= drawer.height + reach
   }
+  // A drag resting on a zone's dots opens the zone the way the dots do: in
+  // the bar (inline mode), or its drawer. Dropping on the dots themselves
+  // makes the widget On demand there.
+  property string springHandleZone: ""
+  Timer {
+    id: springHandle
+    interval: 400
+    onTriggered: {
+      var zone = root.springHandleZone
+      var window = root.barDragWindow
+      if (!root.barDragSource || !zone || !window) return
+      if (root.onDemandInline) {
+        window.inlineEnter(zone, true)
+        // A zone that can't expand opens its drawer; it closes like a group's.
+        if (window.managedDrawer && window.managedDrawer.opened && window.managedDrawer.zone === zone) root.springOpenedDrawer = window.managedDrawer
+      } else if (window.managedDrawer) {
+        window.managedDrawer.openZone(zone, false)
+        root.springOpenedDrawer = window.managedDrawer
+      }
+    }
+  }
   function updateSpringGroup(drop, source, overGroup, scenePoint) {
     var canSpring = source && !source.groupHeader && !source.drawerHost
     var target = canSpring && overGroup ? overGroup : null
@@ -1049,9 +1082,15 @@ Item {
       if (target) springOpen.restart()
       else springOpen.stop()
     }
+    var handleZone = source && !source.drawerHost && drop && drop.handle ? drop.managedZone : ""
+    if (handleZone !== springHandleZone) {
+      springHandleZone = handleZone
+      if (handleZone) springHandle.restart()
+      else springHandle.stop()
+    }
     var drawer = springOpenedDrawer
     if (!drawer) return
-    var keep = !!target || onSpringPath(drawer, scenePoint)
+    var keep = !!target || !!handleZone || onSpringPath(drawer, scenePoint)
       || (drop && (drop.drawer === drawer || (drop.slot && drop.slot.drawerHost)))
     if (keep) springClose.stop()
     else if (!springClose.running) springClose.start()
@@ -1074,7 +1113,7 @@ Item {
     root.updateSpringGroup(drop, slot, root.groupSlotAt(scenePoint, slot), scenePoint)
     var old = root.barDragDrop
     if (old && drop && old.source === drop.source && old.slot === drop.slot && old.after === drop.after &&
-        old.drawer === drop.drawer && old.zone === drop.zone && old.managedZone === drop.managedZone && old.into === drop.into) return
+        old.drawer === drop.drawer && old.zone === drop.zone && old.managedZone === drop.managedZone && old.handle === drop.handle && old.into === drop.into) return
     root.barDragDrop = drop
   }
 
@@ -1337,6 +1376,19 @@ Item {
   // Padding past the first or last slot so the end cell sits one inset from
   // the island's end and its curve runs parallel to the island's.
   function cellEndPad(spill) { return CellModel.endPad(cellTokens, spill) }
+  // The preferences button's glyph: nine dots, three by three.
+  readonly property real preferencesGlyphSize: Style.space(2) * 3 + Style.spaceReal(2.5) * 2
+  // Zones keep one icon cell plus the spacing between them (docs/zone-fit-lab).
+  readonly property real zoneGap: cellTokens.cell + widgetSpacing
+  // Folded widget counts per screen, for Preferences' note: { screen: { left, center, right } }.
+  property var zoneFitReports: ({})
+  function reportZoneFit(screenName, folded) {
+    var next = Object.assign({}, zoneFitReports)
+    var counts = folded ? { left: folded.left.length, center: folded.center.length, right: folded.right.length } : null
+    if (counts && counts.left + counts.center + counts.right > 0) next[screenName] = counts
+    else delete next[screenName]
+    if (!RenderModel.equal(next, zoneFitReports)) zoneFitReports = next
+  }
   // Island ends are the same during a drag: the outlined placeholder shows
   // where a widget lands, so islands no longer grow a landing lip.
   function islandEnd(zone, spill) { return cellEndPad(spill) }
@@ -1368,7 +1420,7 @@ Item {
     var kids = container ? container.children : []
     for (var n = 0; n < kids.length; n++) {
       var c = kids[last ? kids.length - 1 - n : n]
-      if (c && c.cellSpill !== undefined && c.visible && (vertical ? c.height : c.width) > 0) return c.cellSpill
+      if (c && c.cellSpill !== undefined && c.visible && !c.fitYielded && (vertical ? c.height : c.width) > 0) return c.cellSpill
     }
     return 0
   }
@@ -1722,7 +1774,10 @@ Item {
       if (!Array.isArray(from) || !Array.isArray(to) ||
           !from.some(function(entry) { return entry && entry.powerbarInstance === source.instanceKey }) ||
           (beforeKey && !to.some(function(entry) { return entry && entry.powerbarInstance === beforeKey }))) return
+      // A group anchored on the moving widget stays where it is.
+      var next = GroupsModel.nextAnchor(config, source.region, source.instanceKey)
       changed = BarModel.moveInstanceInConfig(config, source.region, source.instanceKey, toRegion, beforeKey, visibility)
+      if (changed) GroupsModel.reanchor(config, source.region, source.instanceKey, next)
       if (source.memberGroup) changed = GroupsModel.assign(config, source.instanceKey, "") || changed
     })
     return changed
@@ -1738,8 +1793,10 @@ Item {
       var to = group && config.bar.layout && config.bar.layout[group.section]
       if (!group || !Array.isArray(to)) return
       var anchor = to.some(function(entry) { return entry && entry.powerbarInstance === group.before }) ? group.before : ""
+      var next = GroupsModel.nextAnchor(config, source.region, source.instanceKey)
       if (!BarModel.moveInstanceInConfig(config, source.region, source.instanceKey, group.section, anchor, "shown")
           && !(source.region === group.section)) return
+      GroupsModel.reanchor(config, source.region, source.instanceKey, next)
       if (source.memberGroup) GroupsModel.assign(config, source.instanceKey, "")
       changed = GroupsModel.edit(config, groupId, { before: source.instanceKey }) || true
     })
@@ -1776,6 +1833,7 @@ Item {
       if (inStrip) zone = root.barZoneAt(barPoint, sourceWindow)
       if (inStrip && typeof sourceWindow.managedDropZoneAt === "function")
         managedZone = sourceWindow.managedDropZoneAt(barPoint)
+      var handle = inStrip && !managedZone && typeof sourceWindow.foldHandleAt === "function" ? sourceWindow.foldHandleAt(barPoint) : null
     }
 
     // Landing follows the dragged widget's painted centre, not the pointer, so
@@ -1832,6 +1890,8 @@ Item {
         scenePoint.y >= sourceRect.y && scenePoint.y <= sourceRect.y + sourceRect.height)
       return { source: true }
     if (managedZone) return { managedZone: managedZone }
+    // The dots: the widget joins the zone's on-demand widgets on their side.
+    if (handle) return { managedZone: handle.zone, handle: true, managedBefore: root.handleDropBefore(handle, sourceSlot) }
     if (hit && hit.slot.groupHeader && !hit.slot.drawerHost && sourceSlot.drawerHost && !sourceSlot.groupHeader)
       return { slot: hit.slot, into: true }
     if (hit) {
@@ -1846,6 +1906,17 @@ Item {
     })
     var nearest = BarModel.nearestDropTarget(nearby, probe, alongColumn)
     return nearest || (inDrawer ? { drawer: drawer } : { zone: zone })
+  }
+
+  // Dots at a zone's start take the widget at the start of the zone's list.
+  function handleDropBefore(handle, sourceSlot) {
+    if (handle.side !== "start") return ""
+    var entries = layoutEntries(handle.zone)
+    for (var i = 0; i < entries.length; i++) {
+      var key = entries[i].powerbarInstance
+      if (key && (!sourceSlot || key !== sourceSlot.instanceKey)) return key
+    }
+    return ""
   }
 
   function visibleModuleSlot(region, key, sourceSlot, inDrawer) {
@@ -1887,7 +1958,7 @@ Item {
     if (sourceSlot.groupHeader) {
       var id = sourceSlot.entry.powerbarGroupId
       if (drop.managedZone) return root.editGroups(function(config) {
-        GroupsModel.moveHeader(config, id, drop.managedZone, "", "", false, "managed")
+        GroupsModel.moveHeader(config, id, drop.managedZone, drop.managedBefore || "", "", false, "managed")
       })
       if (drop.drawer) {
         if (drop.drawer.groupId) return false
@@ -1905,7 +1976,7 @@ Item {
           afterTarget, targetSlot && targetSlot.drawerHost ? "managed" : "shown")
       })
     }
-    if (drop.managedZone) return root.dropBarModule(sourceSlot, drop.managedZone, "", "managed")
+    if (drop.managedZone) return root.dropBarModule(sourceSlot, drop.managedZone, drop.managedBefore || "", "managed")
     if (drop.drawer) {
       if (drop.drawer.groupId) return root.assignGroup(sourceSlot.instanceKey, drop.drawer.groupId)
       return root.dropBarModule(sourceSlot, drop.drawer.zone, "", "managed")
@@ -1914,15 +1985,16 @@ Item {
     if (drop.into) return root.assignGroup(sourceSlot.instanceKey, targetSlot.entry.powerbarGroupId)
     if (targetSlot.groupHeader && !targetSlot.drawerHost && afterTarget)
       return root.dropAfterGroup(sourceSlot, targetSlot.entry.powerbarGroupId)
+    // Beside a widget an inline expansion is showing, the widget joins it On demand.
     if (targetSlot.groupHeader && !targetSlot.drawerHost)
-      return dropBarModule(sourceSlot, targetSlot.region, targetSlot.instanceKey, "shown")
+      return dropBarModule(sourceSlot, targetSlot.region, targetSlot.instanceKey, targetSlot.inlineShown ? "managed" : "shown")
     if (targetSlot.drawerHost && targetSlot.memberGroup) {
       var group = targetSlot.memberGroup
       var index = group.items.indexOf(targetSlot.instanceKey) + (afterTarget ? 1 : 0)
       return root.assignGroup(sourceSlot.instanceKey, group.id, group.items[index] || "")
     }
     var beforeKey = afterTarget ? nextVisibleModuleKey(targetSlot.region, targetSlot.instanceKey, sourceSlot, !!targetSlot.drawerHost) : targetSlot.instanceKey
-    return dropBarModule(sourceSlot, targetSlot.region, beforeKey, targetSlot.drawerHost ? "managed" : "shown")
+    return dropBarModule(sourceSlot, targetSlot.region, beforeKey, targetSlot.drawerHost || targetSlot.inlineShown ? "managed" : "shown")
   }
 
   function moduleTargetClickable(target) {
@@ -2189,7 +2261,24 @@ Item {
 
   component BarPanel: PanelWindow {
     id: barWindow
+    Component.onDestruction: root.reportZoneFit(barWindow.screen ? barWindow.screen.name : "", null)
     property alias managedDrawer: drawer
+    // The zone dots in this window, for drops (FoldHandle registers itself).
+    property var foldHandles: []
+    function registerFoldHandle(handle, present) {
+      var list = foldHandles.filter(function(h) { return h !== handle })
+      if (present) list.push(handle)
+      foldHandles = list
+    }
+    function foldHandleAt(point) {
+      for (var i = 0; i < foldHandles.length; i++) {
+        var h = foldHandles[i]
+        if (!h || !h.shown || h.fitYielded || !h.visible) continue
+        var a = h.mapToItem(barWindow.contentItem, 0, 0), b = h.mapToItem(barWindow.contentItem, h.width, h.height)
+        if (point.x >= Math.min(a.x, b.x) && point.x <= Math.max(a.x, b.x) && point.y >= Math.min(a.y, b.y) && point.y <= Math.max(a.y, b.y)) return h
+      }
+      return null
+    }
     function managedDropZoneAt(point) {
       if (!root.dragPreview.ready) return ""
       for (var i = 0; i < 3; i++) {
@@ -2205,6 +2294,281 @@ Item {
     property var widgetModels: ({ left: leftModel, right: rightModel, center: centerModel,
       before: beforeModel, anchor: anchorModel, after: afterModel })
     property var moduleItems: []
+    // The zone fit for this window (docs/zone-fit-implementation.md): the one
+    // place that decides which widgets fold into their zone's drawer, which
+    // yield to a moment, and whether a zone is expanded inline. Its inputs are
+    // bindings; refit() turns them into one result and publishes it at once.
+    property var zoneFit: null
+    property var zoneFitFolded: ({})
+    property var zoneFitYielded: ({})
+    // The last fit without a moment: moments freeze it.
+    property var zoneFitLasting: null
+    // Everything growing right now, highest priority first: a drag gap, the
+    // indicators' hover reveal, activity reveals (one per zone), and last the
+    // inline expansion, the one that can always give way to the drawer.
+    readonly property var zoneFitMoments: {
+      var out = []
+      var preview = root.dragPreview
+      if (preview.ready && preview.targetSurface.indexOf("bar:") === 0)
+        out.push({ zone: preview.targetSurface.slice(4), sourceKey: preview.sourceKey })
+      var items = moduleItems
+      if (root.centerSectionRevealHeld) {
+        var indicators = items.find(function(s) {
+          return s && s.region === "center" && root.canonicalWidgetId(s.moduleName) === "omarchy.indicators"
+        })
+        out.push({ zone: "center", sourceKey: indicators ? indicators.instanceKey : null })
+      }
+      var seen = {}
+      for (var i = 0; i < items.length; i++) {
+        var s = items[i]
+        if (s && s.managed && !s.drawerHost && !s.inlineShown && !seen[s.region] && (s.activityVisible || s.panelOpen || s.hovered)) {
+          seen[s.region] = true
+          out.push({ zone: s.region, sourceKey: s.instanceKey })
+        }
+      }
+      if (inlineZone) out.push({ zone: inlineZone, sourceKey: null, unfold: inlineZone })
+      return out
+    }
+    // A moment that lasts longer than ten seconds counts as lasting content;
+    // a held inline expansion never does.
+    property var zoneFitBorn: ({})
+    property var zoneFitAged: ({})
+    function zoneFitMomentId(m) { return m.zone + "|" + m.sourceKey + "|" + !!m.unfold }
+    function ageMoments() {
+      var now = Date.now(), born = {}, aged = {}, next = 0
+      for (var m of zoneFitMoments) {
+        var id = zoneFitMomentId(m)
+        born[id] = zoneFitBorn[id] || now
+        if (m.unfold) continue
+        var left = born[id] + 10000 - now
+        if (left <= 0) aged[id] = true
+        else next = next ? Math.min(next, left) : left
+      }
+      zoneFitBorn = born
+      if (!RenderModel.equal(aged, zoneFitAged)) zoneFitAged = aged
+      if (next) { zoneFitAge.interval = Math.max(1, next); zoneFitAge.restart() }
+      else zoneFitAge.stop()
+    }
+    onZoneFitMomentsChanged: ageMoments()
+    Timer { id: zoneFitAge; onTriggered: barWindow.ageMoments() }
+    // A zone's widgets as the fit sees them. With expand, that zone's hidden
+    // on-demand widgets count as shown, at their measured size: what the zone
+    // would be if it expanded inline.
+    function zoneFitList(model, expand) {
+      var out = []
+      for (var i = 0; model && i < model.count; i++) {
+        var s = model.get(i)
+        if (s && s.fitExtent > 0) out.push({ key: s.instanceKey, extent: s.fitExtent, spill: s.cellSpill })
+        else if (s && expand && s.region === expand && s.inlineCandidate && s.cellExtent > 0)
+          out.push({ key: s.instanceKey, extent: s.cellExtent, spill: s.cellSpill })
+      }
+      return out
+    }
+    // Everything the fit reads; any change schedules one refit.
+    readonly property var zoneFitInputs: {
+      var anchors = zoneFitList(anchorModel)
+      var prefs = CellModel.place(root.cellTokens, root.preferencesGlyphSize, true)
+      var right = zoneFitList(rightModel)
+      right.push({ key: "prefs", extent: prefs.extent, spill: prefs.spill })
+      var hidden = inlineHidden
+      var aged = zoneFitAged
+      return {
+        length: (root.vertical ? mainStrip.height : mainStrip.width) / root.barScale,
+        inset: root.islandScreenInset,
+        gap: root.zoneGap,
+        momentGap: root.edgeGap,
+        gutter: root.cellTokens.gutter,
+        left: zoneFitList(leftModel), right: right,
+        before: zoneFitList(beforeModel), anchor: anchors.length ? anchors[0] : null, after: zoneFitList(afterModel),
+        center: zoneFitList(centerModel),
+        dots: { left: hidden.left > 0, center: hidden.center > 0 ? hidden.centerSide : false, right: hidden.right > 0 },
+        moments: zoneFitMoments.filter(function(m) { return !aged[barWindow.zoneFitMomentId(m)] })
+      }
+    }
+    onZoneFitInputsChanged: Qt.callLater(barWindow.refit)
+    function zoneFitInput(i, transient) {
+      var handle = CellModel.place(root.cellTokens, CellModel.TYPICAL_GLYPH, true)
+      return {
+        length: i.length, inset: i.inset, gap: i.gap, gutter: i.gutter, momentGap: i.momentGap,
+        pad: function(spill) { return root.cellEndPad(spill) },
+        handle: { extent: handle.extent, spill: handle.spill },
+        zones: { left: i.left, right: i.right, before: i.before, anchor: i.anchor, after: i.after, center: i.center },
+        dots: i.dots,
+        previous: zoneFitLasting,
+        transient: transient && transient.length ? transient : null
+      }
+    }
+    // The inputs of the last fit: unchanged inputs give the same fit, so the
+    // model only runs when something it reads has changed.
+    property var zoneFitSeen: null
+    function refit(force) {
+      var i = zoneFitInputs
+      if (!(i.length > 0)) return
+      if (force !== true && RenderModel.equal(i, zoneFitSeen)) return
+      zoneFitSeen = i
+      var result = ZoneFitModel.fit(zoneFitInput(i, i.moments))
+      // An inline expansion that can't be served (a higher moment needs the
+      // room, or a widget measured differently once shown) gives way to the
+      // drawer at once, and the bar is fitted again without it.
+      if (inlineZone && (result.fallbacks || []).some(function(f) { return f.zone === barWindow.inlineZone })) {
+        var zone = inlineZone, pointed = inlineHovered
+        inlineRequest = ""
+        inlineApply("")
+        if (pointed) drawer.openZone(zone, false)
+        return
+      }
+      if (!i.moments.length) {
+        zoneFitLasting = result
+        root.reportZoneFit(barWindow.screen ? barWindow.screen.name : "", result.folded)
+      }
+      if (RenderModel.equal(result, zoneFit)) return
+      var folded = {}, yielded = {}
+      result.folded.left.concat(result.folded.center, result.folded.right).forEach(function(key) { folded[key] = true })
+      result.yielded.forEach(function(key) { yielded[key] = true })
+      zoneFit = result
+      if (!RenderModel.equal(folded, zoneFitFolded)) zoneFitFolded = folded
+      if (!RenderModel.equal(yielded, zoneFitYielded)) zoneFitYielded = yielded
+    }
+
+    // Inline mode: hovering a zone's dots expands its hidden widgets in the
+    // bar as a moment (neighbours yield, nothing slides). Requests go through
+    // one queue: the pointer has to rest on the dots briefly (a swipe across
+    // them expands nothing), and a switch collapses the open zone first and
+    // expands the next only once that collapse has settled, so two zones never
+    // move at once. An expansion holds while the pointer is on its zone, a
+    // panel is open from it, a drag runs or a group drawer is open, then
+    // collapses after the exit grace. A zone that can't fit opens its drawer.
+    property string inlineRequest: ""
+    property string inlineZone: ""
+    // The dots under the pointer, if any.
+    property string inlineHandleZone: ""
+    readonly property int inlineIntentMs: 90
+    // Long enough for a collapse (slots 120 ms) to finish before the next opens.
+    readonly property int inlineSettleMs: root.animationsEnabled ? 170 : 0
+    // No expansion before this time: a collapse is still settling.
+    property real inlineReadyAt: 0
+    // Each zone's on-demand widgets waiting behind its dots (folded ones apart),
+    // and which side of the centre's anchor most of the centre's are on.
+    readonly property var inlineHidden: {
+      var out = { left: 0, center: 0, right: 0, centerSide: "end" }
+      if (!root.onDemandInline) return out
+      for (var s of moduleItems)
+        if (s && s.inlineCandidate && out[s.region] !== undefined) out[s.region]++
+      var half = Math.floor(centerModel.count / 2)
+      var lead = anchorModel.count ? inlineCount(beforeModel, 0, beforeModel.count) : inlineCount(centerModel, 0, half)
+      var trail = anchorModel.count ? inlineCount(afterModel, 0, afterModel.count) : inlineCount(centerModel, half, centerModel.count)
+      out.centerSide = lead > trail ? "start" : "end"
+      return out
+    }
+    function inlineCount(model, from, to) {
+      var n = 0
+      for (var i = from; i < to; i++) { var c = model.get(i); if (c && c.inlineCandidate) n++ }
+      return n
+    }
+    readonly property bool inlineHovered: inlineZone !== "" && (inlineHandleZone === inlineZone
+      || moduleItems.some(function(s) { return s && s.region === inlineZone && s.hovered && !s.drawerHost }))
+    readonly property bool inlineInteraction: inlineZone !== "" && (!!root.barDragSource
+      || (drawer.presenting && !!drawer.groupId)
+      || moduleItems.some(function(s) { return s && s.region === inlineZone && s.panelOpen }))
+    onInlineHoveredChanged: inlineSchedule()
+    onInlineInteractionChanged: inlineSchedule()
+    function inlineSchedule() {
+      inlineCollapse.stop()
+      if (!inlineZone || inlineHovered || inlineInteraction) return
+      inlineCollapse.interval = Math.max(1, Math.round(root.managedExitSeconds * 1000))
+      inlineCollapse.start()
+    }
+    Timer { id: inlineCollapse; onTriggered: barWindow.inlineAsk("") }
+    Timer { id: inlineStep; onTriggered: barWindow.inlineAdvance(true) }
+    // Show a zone's expansion (or none) and fit the bar in the same step, so
+    // its widgets and their neighbours' yields land in the same frame.
+    function inlineApply(zone) {
+      if (inlineZone === zone) return
+      if (inlineZone) inlineReadyAt = Date.now() + inlineSettleMs
+      inlineZone = zone
+      // The dots give way to the widgets; from here the zone's slots hold it.
+      if (zone) inlineHandleZone = ""
+      refit(true)
+      inlineSchedule()
+    }
+    function inlineAsk(zone) {
+      if (inlineRequest !== zone) { inlineRequest = zone; inlineStep.stop() }
+      inlineAdvance(false)
+    }
+    // One step of the queue towards the request (InlineQueue.js decides);
+    // due when the queue's timer fires.
+    function inlineAdvance(due) {
+      var now = Date.now()
+      var step = InlineQueue.advance({ request: inlineRequest, zone: inlineZone, readyAt: inlineReadyAt }, {
+        now: now, due: due === true, enabled: root.onDemandInline && !root.barHidden,
+        intentMs: inlineIntentMs, settleMs: inlineSettleMs, timerRunning: inlineStep.running,
+        holdHeld: root.centerSectionRevealHeld && !root.centerSectionHovered
+      })
+      if (step.collapse) inlineApply("")
+      if (step.releaseHold) root.centerSectionRevealHeld = false
+      inlineReadyAt = step.readyAt
+      if (step.stop) inlineStep.stop()
+      if (step.wait > 0) { inlineStep.interval = step.wait; inlineStep.restart() }
+      if (step.hold) inlineSchedule()
+      if (!step.expand) return
+      // Measured now, beside every moment running now.
+      if (!inlineFits(step.expand)) {
+        inlineRequest = ""
+        if (inlineHandleZone === step.expand) drawer.sourceEnter(step.expand)
+        return
+      }
+      if (root.managedOwner) root.managedOwner.close("immediate")
+      inlineApply(step.expand)
+    }
+    // Would the zone fit with its hidden widgets shown, beside every other
+    // moment running now?
+    function inlineFits(zone) {
+      var i = Object.assign({}, zoneFitInputs)
+      var models = zone === "left" ? { left: leftModel } : zone === "right" ? { right: rightModel }
+        : { before: beforeModel, after: afterModel, center: centerModel }
+      for (var name in models) i[name] = zoneFitList(models[name], zone)
+      if (zone === "right") {
+        var prefs = CellModel.place(root.cellTokens, root.preferencesGlyphSize, true)
+        i.right.push({ key: "prefs", extent: prefs.extent, spill: prefs.spill })
+      }
+      i.dots = Object.assign({}, i.dots)
+      i.dots[zone] = false
+      if (!(i.length > 0)) return false
+      var moments = i.moments.filter(function(m) { return !m.unfold }).concat([{ zone: zone, sourceKey: null, unfold: zone }])
+      var result = ZoneFitModel.fit(zoneFitInput(i, moments))
+      return !(result.fallbacks || []).some(function(f) { return f.zone === zone })
+    }
+    // The dots: hovering asks for the zone, clicking skips the hover intent.
+    function inlineEnter(zone, clicked) {
+      inlineHandleZone = zone
+      inlineAsk(zone)
+      if (clicked && inlineRequest === zone && inlineZone !== zone) { inlineStep.stop(); inlineAdvance(true) }
+    }
+    function inlineLeave(zone) {
+      if (inlineHandleZone === zone) inlineHandleZone = ""
+      // Left before it opened: a swipe, not a request.
+      if (inlineRequest === zone && inlineZone !== zone) inlineAsk("")
+      if (drawer.opened && drawer.zone === zone && !drawer.groupId) drawer.sourceLeave(zone)
+      inlineSchedule()
+    }
+    function inlineCollapseNow() {
+      inlineHandleZone = ""
+      inlineRequest = ""
+      inlineStep.stop()
+      inlineCollapse.stop()
+      inlineApply("")
+    }
+    Connections {
+      target: root
+      function onOnDemandInlineChanged() { barWindow.inlineCollapseNow() }
+      function onBarHiddenChanged() { if (root.barHidden) barWindow.inlineCollapseNow() }
+    }
+    // A zone drawer (keyboard, IPC or the fallback) takes the zone's widgets.
+    Connections {
+      target: drawer
+      function onPresentingChanged() { if (drawer.presenting && !drawer.groupId) barWindow.inlineCollapseNow() }
+      function onZoneChanged() { if (drawer.presenting && !drawer.groupId) barWindow.inlineCollapseNow() }
+    }
     Models.ObjectModel { id: leftModel }
     Models.ObjectModel { id: rightModel }
     Models.ObjectModel { id: centerModel }
@@ -2313,6 +2677,12 @@ Item {
     property real leftShift: zoneTucked("left") ? autoHideDistance : 0
     property real centerShift: zoneTucked("center") ? autoHideDistance : 0
     property real rightShift: zoneTucked("right") ? autoHideDistance : 0
+    // The centre's offset from the middle so zones keep their gap (docs/zone-fit-lab).
+    property real fitShift: zoneFit ? zoneFit.centerShift : 0
+    Behavior on fitShift {
+      enabled: root.animationsEnabled
+      NumberAnimation { duration: 200; easing.type: Easing.BezierSpline; easing.bezierCurve: [0.77, 0, 0.175, 1, 1, 1] }
+    }
     Behavior on leftShift { enabled: root.animationsEnabled; NumberAnimation { duration: barWindow.autoHideMotionMs; easing.type: Easing.OutCubic } }
     Behavior on centerShift { enabled: root.animationsEnabled; NumberAnimation { duration: barWindow.autoHideMotionMs; easing.type: Easing.OutCubic } }
     Behavior on rightShift { enabled: root.animationsEnabled; NumberAnimation { duration: barWindow.autoHideMotionMs; easing.type: Easing.OutCubic } }
@@ -2451,7 +2821,7 @@ Item {
         Rectangle {
           required property string modelData
           required property int index
-          readonly property bool selected: root.barDragDrop && root.barDragDrop.managedZone === modelData
+          readonly property bool selected: !!root.barDragDrop && root.barDragDrop.managedZone === modelData && !root.barDragDrop.handle
           width: Style.space(14); height: width
           x: root.vertical ? (root.position === "left" ? parent.width - width : 0)
             : (index + 0.5) * parent.width / 3 - width / 2
@@ -2490,7 +2860,7 @@ Item {
             bar: root
             text: "󰇘"
             tooltipText: ({ left: "Left", center: "Center", right: "Right" })[zoneTarget.modelData] + " drawer"
-            visible: zoneTarget.members.length > 0 && !root.moduleSlots.some(function(slot) {
+            visible: !root.onDemandInline && zoneTarget.members.length > 0 && !root.moduleSlots.some(function(slot) {
               return slot.region === zoneTarget.modelData && root.sameWindow(root.targetWindow(slot), barWindow) && slot.mainVisible && slot.width > 0
             })
             anchors.centerIn: parent
@@ -2590,17 +2960,17 @@ Item {
         IslandSurface {
           id: leftIsland
           transform: Translate { x: barWindow.shiftX(barWindow.leftShift); y: barWindow.shiftY(barWindow.leftShift) }
-          x: root.vertical ? (parent.width - width) / 2 : leftModules.x - root.islandEnd("left", leftModules.leadSpill)
-          y: root.vertical ? leftModules.y - root.islandEnd("left", leftModules.leadSpill) : (parent.height - height) / 2
-          width: root.vertical ? root.barSize : leftModules.width + root.islandEnd("left", leftModules.leadSpill) + root.islandEnd("left", leftModules.trailSpill)
-          height: root.vertical ? leftModules.height + root.islandEnd("left", leftModules.leadSpill) + root.islandEnd("left", leftModules.trailSpill) : root.barSize
-          visible: root.islands && (root.vertical ? leftModules.height : leftModules.width) > 0
+          x: root.vertical ? (parent.width - width) / 2 : leftModules.x + leftModules.shownLead - root.islandEnd("left", leftModules.leadSpill)
+          y: root.vertical ? leftModules.y + leftModules.shownLead - root.islandEnd("left", leftModules.leadSpill) : (parent.height - height) / 2
+          width: root.vertical ? root.barSize : leftModules.width - leftModules.shownLead - leftModules.shownTrail + root.islandEnd("left", leftModules.leadSpill) + root.islandEnd("left", leftModules.trailSpill)
+          height: root.vertical ? leftModules.height - leftModules.shownLead - leftModules.shownTrail + root.islandEnd("left", leftModules.leadSpill) + root.islandEnd("left", leftModules.trailSpill) : root.barSize
+          visible: root.islands && leftModules.shownLength > 0
         }
         IslandSurface {
           id: rightIsland
           transform: Translate { x: barWindow.shiftX(barWindow.rightShift); y: barWindow.shiftY(barWindow.rightShift) }
-          readonly property real start: (root.vertical ? rightModules.height : rightModules.width) > 0
-            ? (root.vertical ? rightModules.y : rightModules.x) - root.islandEnd("right", rightModules.leadSpill)
+          readonly property real start: rightModules.shownLength > 0
+            ? (root.vertical ? rightModules.y : rightModules.x) + rightModules.shownLead - root.islandEnd("right", rightModules.leadSpill)
             : (root.vertical ? preferencesButton.y : preferencesButton.x) - root.islandEnd("right", preferencesButton.cellSpill)
           x: root.vertical ? (parent.width - width) / 2 : start
           y: root.vertical ? start : (parent.height - height) / 2
@@ -2612,7 +2982,10 @@ Item {
         CenterModules {
           anchors.fill: parent
           homeWindow: barWindow
-          transform: Translate { x: barWindow.shiftX(barWindow.centerShift); y: barWindow.shiftY(barWindow.centerShift) }
+          transform: Translate {
+            x: barWindow.shiftX(barWindow.centerShift) + (root.vertical ? 0 : barWindow.fitShift)
+            y: barWindow.shiftY(barWindow.centerShift) + (root.vertical ? barWindow.fitShift : 0)
+          }
         }
         HighlightLayer { zone: "left"; island: leftIsland; transform: Translate { x: barWindow.shiftX(barWindow.leftShift); y: barWindow.shiftY(barWindow.leftShift) } }
         HighlightLayer { zone: "right"; island: rightIsland; transform: Translate { x: barWindow.shiftX(barWindow.rightShift); y: barWindow.shiftY(barWindow.rightShift) } }
@@ -2650,12 +3023,17 @@ Item {
   component DropOutline: Rectangle {
     property real gapStart: 0
     property real gapLength: 0
-    readonly property real along: root.barDragSource ? root.barDragSource.cellLength : root.cellTokens.cell
+    // The dragged widget's cell, kept inside the gap: in Equal gaps a cell can
+    // be longer than the slot it lands in (it spills into the gutters), and the
+    // gap's slot clips, which cut off the border on that side. One pixel clear
+    // of each end, on whole pixels, so all four borders draw.
+    readonly property real cellAlong: root.barDragSource ? root.barDragSource.cellLength : root.cellTokens.cell
+    readonly property real along: Math.max(0, Math.min(cellAlong, gapLength - 2))
     readonly property real cross: root.vertical ? (parent ? parent.width : root.barSize) : (parent ? parent.height : root.barSize)
     visible: !!root.barDragSource && gapLength > 1
     opacity: Math.min(1, gapLength / Math.max(1, root.vertical ? root.dragGapHeight : root.dragGapWidth))
-    x: root.vertical ? (cross - root.cellTokens.thickness) / 2 : gapStart + (gapLength - along) / 2
-    y: root.vertical ? gapStart + (gapLength - along) / 2 : (cross - root.cellTokens.thickness) / 2
+    x: Math.round(root.vertical ? (cross - root.cellTokens.thickness) / 2 : gapStart + (gapLength - along) / 2)
+    y: Math.round(root.vertical ? gapStart + (gapLength - along) / 2 : (cross - root.cellTokens.thickness) / 2)
     width: root.vertical ? root.cellTokens.thickness : along
     height: root.vertical ? along : root.cellTokens.thickness
     radius: root.highlightRadius
@@ -2699,7 +3077,7 @@ Item {
     id: preferencesButton
     // A glyph cell like any icon widget: square highlight, one gutter (or one
     // equal gap) around its nine dots.
-    readonly property real glyphSize: Style.space(2) * 3 + Style.spaceReal(2.5) * 2
+    readonly property real glyphSize: root.preferencesGlyphSize
     readonly property var cellPlace: CellModel.place(root.cellTokens, glyphSize, true)
     readonly property real cellSpill: cellPlace.spill
     implicitWidth: root.vertical ? root.barSize : cellPlace.extent
@@ -2915,16 +3293,16 @@ Item {
     IslandSurface {
       id: centerIsland
       readonly property real start: centerRoot.hasAnchor
-        ? ((root.vertical ? beforeModules.height : beforeModules.width) > 0 ? (root.vertical ? beforeModules.y : beforeModules.x) : (root.vertical ? centerAnchorModule.y : centerAnchorModule.x))
-        : (root.vertical ? groupModules.y : groupModules.x)
+        ? (beforeModules.shownLength > 0 ? (root.vertical ? beforeModules.y : beforeModules.x) + beforeModules.shownLead : (root.vertical ? centerAnchorModule.y : centerAnchorModule.x))
+        : (root.vertical ? groupModules.y : groupModules.x) + groupModules.shownLead
       readonly property real end: centerRoot.hasAnchor
-        ? ((root.vertical ? afterModules.height : afterModules.width) > 0 ? (root.vertical ? afterModules.y + afterModules.height : afterModules.x + afterModules.width)
+        ? (afterModules.shownLength > 0 ? (root.vertical ? afterModules.y + afterModules.height : afterModules.x + afterModules.width) - afterModules.shownTrail
           : (root.vertical ? centerAnchorModule.y + centerAnchorModule.height : centerAnchorModule.x + centerAnchorModule.width))
-        : (root.vertical ? groupModules.y + groupModules.height : groupModules.x + groupModules.width)
+        : (root.vertical ? groupModules.y + groupModules.height : groupModules.x + groupModules.width) - groupModules.shownTrail
       readonly property real leadSpill: centerRoot.hasAnchor
-        ? ((root.vertical ? beforeModules.height : beforeModules.width) > 0 ? beforeModules.leadSpill : centerAnchorModule.cellSpill) : groupModules.leadSpill
+        ? (beforeModules.shownLength > 0 ? beforeModules.leadSpill : centerAnchorModule.cellSpill) : groupModules.leadSpill
       readonly property real trailSpill: centerRoot.hasAnchor
-        ? ((root.vertical ? afterModules.height : afterModules.width) > 0 ? afterModules.trailSpill : centerAnchorModule.cellSpill) : groupModules.trailSpill
+        ? (afterModules.shownLength > 0 ? afterModules.trailSpill : centerAnchorModule.cellSpill) : groupModules.trailSpill
       x: root.vertical ? (parent.width - width) / 2 : start - root.islandEnd("center", leadSpill)
       y: root.vertical ? start - root.islandEnd("center", leadSpill) : (parent.height - height) / 2
       width: root.vertical ? root.barSize : end - start + root.islandEnd("center", leadSpill) + root.islandEnd("center", trailSpill)
@@ -3066,6 +3444,171 @@ Item {
     }
   }
 
+  // The drawer handle a zone shows when widgets were folded off the bar
+  // (docs/zone-fit-lab): a glyph cell with a count; it opens the zone's drawer.
+  component FoldHandle: Item {
+    id: foldHandle
+    readonly property bool isFoldHandle: true
+    property var homeWindow: null
+    property string zone: ""
+    // Which end of its list: "start" or "end".
+    property string side: "end"
+    property bool active: false
+    onHomeWindowChanged: if (homeWindow && homeWindow.registerFoldHandle) homeWindow.registerFoldHandle(foldHandle, true)
+    Component.onDestruction: if (homeWindow && homeWindow.registerFoldHandle) homeWindow.registerFoldHandle(foldHandle, false)
+    // A drag over the dots: dropping makes the widget On demand here.
+    readonly property bool dropTarget: !!root.barDragDrop && root.barDragDrop.handle === true
+      && root.barDragDrop.managedZone === zone && !!homeWindow && root.sameWindow(root.barDragWindow, homeWindow)
+    // Folded widgets, plus (inline mode) the zone's hidden on-demand widgets.
+    readonly property int count: !active || !homeWindow || !homeWindow.zoneFit ? 0
+      : homeWindow.zoneFit.folded[zone].length + (root.onDemandInline ? homeWindow.inlineHidden[zone] : 0)
+    readonly property bool shown: count > 0
+    // An inline expansion replaces the dots under the pointer.
+    onShownChanged: if (!shown) root.hideTooltip(foldHandle)
+    readonly property var cellPlace: CellModel.place(root.cellTokens, CellModel.TYPICAL_GLYPH, true)
+    readonly property real cellSpill: cellPlace.spill
+    readonly property bool fitYielded: !!(homeWindow && homeWindow.zoneFitYielded["handle:" + zone])
+    readonly property var drawerRef: homeWindow ? homeWindow.managedDrawer : null
+    readonly property bool drawerOpen: !!drawerRef && drawerRef.opened && drawerRef.zone === zone && !drawerRef.groupId
+    // The last count stays on the badge while the handle fades out.
+    property int shownCount: 0
+    onCountChanged: if (count > 0) shownCount = count
+    readonly property string label: shownCount === 1 ? "1 more widget" : shownCount + " more widgets"
+    // Along the bar the handle eases in and out with the slots around it, so
+    // the island's end never jumps when the widgets it stands for take over.
+    width: root.vertical ? (shown || opacity > 0 ? root.barSize : 0) : shown ? cellPlace.extent : 0
+    height: !root.vertical ? (shown || opacity > 0 ? root.barSize : 0) : shown ? cellPlace.extent : 0
+    Behavior on width { enabled: root.animationsEnabled && !root.vertical; NumberAnimation { duration: 120; easing.type: Easing.OutCubic } }
+    Behavior on height { enabled: root.animationsEnabled && root.vertical; NumberAnimation { duration: 120; easing.type: Easing.OutCubic } }
+    visible: shown || opacity > 0
+    opacity: !shown || fitYielded ? 0 : 1
+    scale: shown ? 1 : 0.96
+    transformOrigin: Item.Center
+    Behavior on opacity { enabled: root.animationsEnabled; NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
+    Behavior on scale { enabled: root.animationsEnabled; NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
+    enabled: shown && !fitYielded
+    activeFocusOnTab: enabled
+    Accessible.role: Accessible.Button
+    Accessible.name: label
+    Keys.onReturnPressed: if (drawerRef) drawerRef.openZone(zone, true)
+    Keys.onSpacePressed: if (drawerRef) drawerRef.openZone(zone, true)
+    HoverHighlight {
+      id: handleHighlight
+      hovered: (handleMouse.containsMouse || foldHandle.activeFocus) && !root.barDragSource && !root.barHidden
+      selected: foldHandle.drawerOpen || foldHandle.dropTarget
+      motionEnabled: root.animationsEnabled
+      hoverColor: root.highlightHoverColor
+      selectedColor: root.highlightSelectedColor
+      width: root.vertical ? root.cellTokens.thickness : foldHandle.cellPlace.cell
+      height: root.vertical ? foldHandle.cellPlace.cell : root.cellTokens.thickness
+      x: (foldHandle.width - width) / 2
+      y: (foldHandle.height - height) / 2
+      rounding: root.highlightRadius
+    }
+    Text {
+      anchors.centerIn: parent
+      textFormat: Text.PlainText
+      text: root.vertical ? "󰇙" : "󰇘"
+      color: root.barForeground
+      font.family: root.fontFamily
+      font.pixelSize: Style.font.body
+    }
+    Rectangle {
+      id: handleBadge
+      readonly property var spot: CellModel.badge(
+        { x: handleHighlight.x, y: handleHighlight.y, width: handleHighlight.width, height: handleHighlight.height, radius: root.highlightRadius },
+        { width: foldHandle.width, height: foldHandle.height }, { width: width, height: height })
+      visible: root.dotsBadge && foldHandle.shownCount > 0
+      width: Math.max(Style.space(12), handleBadgeLabel.implicitWidth + Style.space(5))
+      height: Style.space(12)
+      radius: height / 2
+      x: spot.x
+      y: spot.y
+      z: 2
+      color: Color.accent
+      Accessible.ignored: true
+      Text {
+        id: handleBadgeLabel
+        anchors.centerIn: parent
+        textFormat: Text.PlainText
+        text: foldHandle.shownCount > 99 ? "99+" : String(foldHandle.shownCount)
+        color: Color.background
+        font.family: Style.font.family
+        font.pixelSize: Style.font.caption
+      }
+    }
+    MouseArea {
+      id: handleMouse
+      anchors.fill: parent
+      hoverEnabled: true
+      cursorShape: Qt.PointingHandCursor
+      // Inline mode expands the zone in the bar; drawer mode opens its drawer.
+      onEntered: {
+        if (root.onDemandInline && foldHandle.homeWindow) foldHandle.homeWindow.inlineEnter(foldHandle.zone)
+        else if (foldHandle.drawerRef) foldHandle.drawerRef.sourceEnter(foldHandle.zone)
+        root.showTooltip(foldHandle, foldHandle.label)
+      }
+      onExited: {
+        if (root.onDemandInline && foldHandle.homeWindow) foldHandle.homeWindow.inlineLeave(foldHandle.zone)
+        else if (foldHandle.drawerRef) foldHandle.drawerRef.sourceLeave(foldHandle.zone)
+        root.hideTooltip(foldHandle)
+      }
+      onClicked: {
+        if (root.onDemandInline && foldHandle.homeWindow) foldHandle.homeWindow.inlineEnter(foldHandle.zone, true)
+        else if (foldHandle.drawerRef) foldHandle.drawerRef.openZone(foldHandle.zone, false)
+      }
+    }
+  }
+
+  // Where widgets yield to a moment: the same dots as the drawer handle, quiet
+  // and not interactive, with the count of widgets out of view (docs/zone-fit-lab).
+  component YieldMarker: Item {
+    id: yieldMarker
+    property int count: 0
+    readonly property bool shown: count > 0
+    readonly property var cellPlace: CellModel.place(root.cellTokens, CellModel.TYPICAL_GLYPH, true)
+    width: root.vertical ? root.barSize : cellPlace.extent
+    height: root.vertical ? cellPlace.extent : root.barSize
+    opacity: shown ? 1 : 0
+    visible: opacity > 0
+    Accessible.ignored: true
+    Behavior on opacity { enabled: root.animationsEnabled; NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
+    Text {
+      anchors.centerIn: parent
+      textFormat: Text.PlainText
+      text: root.vertical ? "󰇙" : "󰇘"
+      color: root.barForeground
+      opacity: 0.45
+      font.family: root.fontFamily
+      font.pixelSize: Style.font.body
+    }
+    Rectangle {
+      readonly property real thick: root.cellTokens.thickness
+      readonly property var spot: CellModel.badge(
+        { x: (yieldMarker.width - (root.vertical ? thick : yieldMarker.cellPlace.cell)) / 2,
+          y: (yieldMarker.height - (root.vertical ? yieldMarker.cellPlace.cell : thick)) / 2,
+          width: root.vertical ? thick : yieldMarker.cellPlace.cell, height: root.vertical ? yieldMarker.cellPlace.cell : thick,
+          radius: root.highlightRadius },
+        { width: yieldMarker.width, height: yieldMarker.height }, { width: width, height: height })
+      visible: root.dotsBadge
+      width: Math.max(Style.space(12), yieldBadgeLabel.implicitWidth + Style.space(5))
+      height: Style.space(12)
+      radius: height / 2
+      x: spot.x
+      y: spot.y
+      color: Color.accent
+      Text {
+        id: yieldBadgeLabel
+        anchors.centerIn: parent
+        textFormat: Text.PlainText
+        text: yieldMarker.count > 99 ? "99+" : String(yieldMarker.count)
+        color: Color.background
+        font.family: Style.font.family
+        font.pixelSize: Style.font.caption
+      }
+    }
+  }
+
   component ModuleList: Item {
     id: moduleListRoot
     property var entries: []
@@ -3078,10 +3621,65 @@ Item {
     property bool previewAnchorEnd: false
     readonly property bool previewStartGap: previewAnchorStart
     readonly property bool previewEndGap: previewAnchorEnd || (previewEnd && DragModel.endGap(root.dragPreview, "bar:" + region))
-    width: root.vertical ? Math.max(root.barSize, contents.width) : startGap.width + contents.width + endGap.width
-    height: root.vertical ? startGap.height + contents.height + endGap.height : Math.max(root.barSize, contents.height)
-    readonly property real leadSpill: previewStartGap && root.barDragSource ? root.barDragSource.cellSpill : root.edgeSpill(contents, false)
-    readonly property real trailSpill: previewEndGap && root.barDragSource ? root.barDragSource.cellSpill : root.edgeSpill(contents, true)
+    // Where this list draws its zone's drawer handle, as the zone fit says.
+    readonly property var fitHandles: homeWindow && homeWindow.zoneFit ? homeWindow.zoneFit.handles : null
+    readonly property bool handleAtStart: !!fitHandles && ((listRole === "right" && fitHandles.right === "start")
+      || (listRole === "before" && fitHandles.center === "start") || (listRole === "center" && fitHandles.center === "start"))
+    readonly property bool handleAtEnd: !!fitHandles && ((listRole === "left" && fitHandles.left === "end")
+      || (listRole === "after" && fitHandles.center === "end") || (listRole === "center" && fitHandles.center === "end"))
+    width: root.vertical ? Math.max(root.barSize, contents.width) : startGap.width + startHandle.width + contents.width + endHandle.width + endGap.width
+    height: root.vertical ? startGap.height + startHandle.height + contents.height + endHandle.height + endGap.height : Math.max(root.barSize, contents.height)
+    readonly property real leadSpill: previewStartGap && root.barDragSource ? root.barDragSource.cellSpill
+      : leadRun > 0 ? markerPlace.spill
+      : startHandle.shown && !startHandle.fitYielded ? startHandle.cellSpill : root.edgeSpill(contents, false)
+    readonly property real trailSpill: previewEndGap && root.barDragSource ? root.barDragSource.cellSpill
+      : trailRun > 0 ? markerPlace.spill
+      : endHandle.shown && !endHandle.fitYielded ? endHandle.cellSpill : root.edgeSpill(contents, true)
+    // Yielded slots keep their space, but the island ends at the last one
+    // still showing: the length of yielded slots at each end of the list.
+    readonly property real yieldLead: yieldRun(false)
+    readonly property real yieldTrail: yieldRun(true)
+    function yieldRun(last) {
+      var kids = [startHandle].concat(Array.prototype.slice.call(contents.children), [endHandle]), total = 0
+      for (var n = 0; n < kids.length; n++) {
+        var c = kids[last ? kids.length - 1 - n : n]
+        var size = c ? (root.vertical ? c.height : c.width) : 0
+        if (!c || c.cellSpill === undefined || !(size > 0)) continue
+        if (!c.fitYielded) break
+        total += size
+      }
+      return total
+    }
+    function yieldCount(last) {
+      var kids = [startHandle].concat(Array.prototype.slice.call(contents.children), [endHandle]), count = 0
+      for (var n = 0; n < kids.length; n++) {
+        var c = kids[last ? kids.length - 1 - n : n]
+        var size = c ? (root.vertical ? c.height : c.width) : 0
+        if (!c || c.cellSpill === undefined || !(size > 0)) continue
+        if (!c.fitYielded) break
+        // A yielded drawer handle stands for the widgets folded behind it.
+        count += c.isFoldHandle === true ? c.count : 1
+      }
+      return count
+    }
+    // When the whole list yields, the run faces the moment from one side only:
+    // lists that end next to the moment (left, after) yield from their end.
+    readonly property real listLength: root.vertical ? height : width
+    readonly property bool yieldsFromEnd: listRole === "left" || listRole === "after"
+    readonly property bool allYielded: yieldLead > 0 && yieldLead >= listLength - 0.5
+    readonly property real leadRun: allYielded && yieldsFromEnd ? 0 : yieldLead
+    readonly property real trailRun: allYielded && !yieldsFromEnd ? 0 : yieldTrail
+    // The yielded widgets leave a marker (dots and their count) in the first
+    // freed cell, next to the widgets still showing; the island ends past it.
+    readonly property var markerPlace: CellModel.place(root.cellTokens, CellModel.TYPICAL_GLYPH, true)
+    readonly property real trimLead: leadRun > 0 ? leadRun - markerPlace.extent : 0
+    readonly property real trimTrail: trailRun > 0 ? trailRun - markerPlace.extent : 0
+    // The list's length without them, and the same eased for island ends.
+    readonly property real shownLength: listLength - trimLead - trimTrail
+    property real shownLead: trimLead
+    property real shownTrail: trimTrail
+    Behavior on shownLead { enabled: root.animationsEnabled; NumberAnimation { duration: 150; easing.type: Easing.OutCubic } }
+    Behavior on shownTrail { enabled: root.animationsEnabled; NumberAnimation { duration: 150; easing.type: Easing.OutCubic } }
     AnimatedSlot {
       id: startGap
       targetWidth: root.vertical ? root.barSize : moduleListRoot.previewStartGap ? root.dragGapWidth : 0
@@ -3090,10 +3688,39 @@ Item {
       motionEnabled: root.animationsEnabled
       motionDuration: root.dragMotionDuration; motionEasing: root.dragMotionEasing
     }
-    Grid {
-      id: contents
+    FoldHandle {
+      id: startHandle
+      homeWindow: moduleListRoot.homeWindow
+      zone: moduleListRoot.region
+      side: "start"
+      active: moduleListRoot.handleAtStart
       x: root.vertical ? 0 : startGap.width
       y: root.vertical ? startGap.height : 0
+    }
+    YieldMarker {
+      count: moduleListRoot.leadRun > 0 ? moduleListRoot.yieldCount(false) : 0
+      readonly property real along: moduleListRoot.leadRun - moduleListRoot.markerPlace.extent
+      x: root.vertical ? 0 : along
+      y: root.vertical ? along : 0
+    }
+    YieldMarker {
+      count: moduleListRoot.trailRun > 0 ? moduleListRoot.yieldCount(true) : 0
+      readonly property real along: moduleListRoot.listLength - moduleListRoot.trailRun
+      x: root.vertical ? 0 : along
+      y: root.vertical ? along : 0
+    }
+    FoldHandle {
+      id: endHandle
+      homeWindow: moduleListRoot.homeWindow
+      zone: moduleListRoot.region
+      active: moduleListRoot.handleAtEnd
+      x: root.vertical ? 0 : contents.x + contents.width
+      y: root.vertical ? contents.y + contents.height : 0
+    }
+    Grid {
+      id: contents
+      x: root.vertical ? 0 : startGap.width + startHandle.width
+      y: root.vertical ? startGap.height + startHandle.height : 0
       // Only columns follows orientation (rows stays automatic), so a switch
       // never passes through a 1 × 1 grid.
       columns: root.vertical ? 1 : 100000
@@ -3102,8 +3729,8 @@ Item {
     }
     AnimatedSlot {
       id: endGap
-      x: root.vertical ? 0 : contents.x + contents.width
-      y: root.vertical ? contents.y + contents.height : 0
+      x: root.vertical ? 0 : endHandle.x + endHandle.width
+      y: root.vertical ? endHandle.y + endHandle.height : 0
       targetWidth: root.vertical ? root.barSize : moduleListRoot.previewEndGap ? root.dragGapWidth : 0
       targetHeight: !root.vertical ? root.barSize : moduleListRoot.previewEndGap ? root.dragGapHeight : 0
       DropOutline { gapLength: root.vertical ? parent.height : parent.width }
@@ -3167,7 +3794,22 @@ Item {
     property alias highlightItem: barHighlight
     property bool activityVisible: false
     property real activityUntil: 0
-    readonly property bool mainVisible: !memberGroup && (alwaysShown || (managed && !drawerHost && (activityVisible || panelOpen || hovered)))
+    // Visible on the bar by its own rules, before the zone fit.
+    // Shown in the bar by an inline expansion of its zone.
+    readonly property bool inlineShown: managed && !!homeWindow && homeWindow.inlineZone !== "" && homeWindow.inlineZone === region
+    readonly property bool baseVisible: !memberGroup && (alwaysShown || (managed && !drawerHost && (activityVisible || panelOpen || hovered || inlineShown)))
+    // Waits behind its zone's dots in inline mode.
+    readonly property bool inlineCandidate: root.onDemandInline && managed && !memberGroup && !baseVisible
+    readonly property bool fitFolded: !!(homeWindow && homeWindow.zoneFitFolded[instanceKey])
+    readonly property bool fitYielded: !!(homeWindow && homeWindow.zoneFitYielded[instanceKey])
+    readonly property bool mainVisible: baseVisible && !fitFolded && !fitYielded
+    // Fades only for zone-fit changes: a yield or fold fades the widget out
+    // fast; a yielded widget comes back after the moment's zone has shrunk.
+    // The flag stays up while yielded or folded, so the return fades too.
+    property bool fitMotion: false
+    onFitYieldedChanged: { fitMotion = true; fitMotionEnd.restart() }
+    onFitFoldedChanged: { fitMotion = true; fitMotionEnd.restart() }
+    Timer { id: fitMotionEnd; interval: 400; onTriggered: if (!slot.fitYielded && !slot.fitFolded) slot.fitMotion = false }
     readonly property var activityTargets: {
       var result = root.targetsForSlot(slot).slice()
       if (activeItem && result.indexOf(activeItem) < 0) result.unshift(activeItem)
@@ -3250,7 +3892,9 @@ Item {
     }
     readonly property var glyphInk: {
       var t = glyphText
-      if (!t || !inkItem || t.text === "" || Math.abs(Number(t.rotation) % 180) === 90) return null
+      // TextMetrics measures one line; a stacked label (Scratchpeek's "◌" over
+      // its count on a vertical bar) is measured from what it paints instead.
+      if (!t || !inkItem || t.text === "" || String(t.text).indexOf("\n") >= 0 || Math.abs(Number(t.rotation) % 180) === 90) return null
       var r = kitGlyphMetrics.tightBoundingRect
       if (!(r.width > 0) || !(r.height > 0)) return null
       var geometry = t.x + t.y + t.width + t.height + inkItem.width + inkItem.height
@@ -3293,7 +3937,7 @@ Item {
       // A widget that animates its own width (the tray's reveal) opts out:
       // holding would leave its island wide after it closes.
       var holds = !(activeItem && activeItem.powerbarWidthHold === false)
-      if (!(target > 0) || !mainVisible || !holdArmed || relayout || !holds) { heldExtent = target; shrinkAt = 0; holdTimer.stop(); return }
+      if (!(target > 0) || !baseVisible || !holdArmed || relayout || !holds) { heldExtent = target; shrinkAt = 0; holdTimer.stop(); return }
       var now = Date.now()
       var h = CellModel.hold(heldExtent, target, now, root.widthHoldMs, shrinkAt, root.cellTokens.cell)
       heldExtent = h.value
@@ -3302,7 +3946,7 @@ Item {
     }
     // Deferred: a widget's size can change while its cell is being measured.
     onLandingExtentChanged: Qt.callLater(updateHold)
-    onMainVisibleChanged: Qt.callLater(updateHold)
+    onBaseVisibleChanged: Qt.callLater(updateHold)
     Timer { id: holdTimer; repeat: false; onTriggered: slot.updateHold() }
     readonly property real heldPad: Math.max(0, heldExtent - landingExtent)
     readonly property real cellExtent: landingExtent > 0 ? landingExtent + heldPad : 0
@@ -3322,19 +3966,26 @@ Item {
       ? Math.max(0, root.dragGapWidth - cellExtent) : 0
     readonly property real settleExtraHeight: settleHidden && !centerAnchorSlot
       ? Math.max(0, root.dragGapHeight - cellExtent) : 0
-    targetWidth: root.vertical ? naturalWidth : mainVisible && (!preview.hidden || preview.holdSpace)
-      ? cellExtent + settleExtraWidth + (!centerAnchorSlot && (preview.before || preview.after) ? root.dragGapWidth : 0) : 0
+    // The slot's length along the bar by its own rules: the zone fit's input,
+    // so it never depends on the fit's result. A folded slot takes no space;
+    // a yielded one keeps its space.
+    readonly property real fitExtent: baseVisible && (!preview.hidden || preview.holdSpace)
+      ? cellExtent + (root.vertical ? settleExtraHeight : settleExtraWidth)
+        + (!centerAnchorSlot && (preview.before || preview.after) ? (root.vertical ? root.dragGapHeight : root.dragGapWidth) : 0) : 0
+    readonly property real layoutExtent: fitFolded ? 0 : fitExtent
+    targetWidth: root.vertical ? naturalWidth : layoutExtent
     // Across a horizontal bar every slot is at least the bar's thickness and the
     // widget's box is centred in it, so a widget shorter than the bar (the Agent
     // Orchestrator reports 27 px on a 38 px bar) never sits at the top.
     readonly property real crossLength: naturalHeight > 0 ? Math.max(naturalHeight, root.barSize) : 0
     readonly property real crossCentre: (crossLength - naturalHeight) / 2
-    targetHeight: !root.vertical ? crossLength : mainVisible && (!preview.hidden || preview.holdSpace)
-      ? cellExtent + settleExtraHeight + (!centerAnchorSlot && (preview.before || preview.after) ? root.dragGapHeight : 0) : 0
+    targetHeight: !root.vertical ? crossLength : layoutExtent
     targetInsetX: !root.vertical && !centerAnchorSlot && preview.before ? root.dragGapWidth : 0
     targetInsetY: root.vertical && !centerAnchorSlot && preview.before ? root.dragGapHeight : 0
     motionEnabled: root.animationsEnabled && !drawerHost
     motionDuration: root.dragMotionActive ? root.dragMotionDuration : 120
+    // An activity reveal opens after its neighbours have yielded (80 ms).
+    motionDelay: root.animationsEnabled && managed && (activityVisible || inlineShown) && !hovered && !root.dragMotionActive ? 80 : 0
     motionEasing: root.dragMotionActive ? root.dragMotionEasing : Easing.OutCubic
     motionOvershoot: 0
     z: modulePointer.dragging ? 100 : 0
@@ -3347,6 +3998,12 @@ Item {
         var window = root.targetWindow(slot)
         if (!window || !window.managedDrawer) return
         if (hovered && slot.groupHeader) window.managedDrawer.sourceEnterGroup(slot.entry.powerbarGroupId, slot)
+        // Inline mode: only the dots expand a zone; moving on to another zone
+        // collapses the expanded one at once, as a drawer would switch.
+        else if (root.onDemandInline && !slot.groupHeader) {
+          var asked = window.inlineZone || window.inlineRequest
+          if (hovered && asked && asked !== slot.region) window.inlineAsk("")
+        }
         else if (hovered) window.managedDrawer.sourceEnter(slot.region)
         else window.managedDrawer.sourceLeave(slot.region)
       }
@@ -3375,6 +4032,13 @@ Item {
       width: slot.naturalWidth
       height: slot.naturalHeight
       opacity: slot.drawerHost ? (slot.drawerHost.showNative === false ? 0 : 1) : slot.mainVisible && !slot.preview.hidden && !slot.settleHidden ? 1 : 0
+      Behavior on opacity {
+        enabled: root.animationsEnabled && !slot.drawerHost && (slot.fitMotion || slot.fitYielded || slot.fitFolded)
+        SequentialAnimation {
+          PauseAnimation { duration: slot.fitYielded || slot.fitFolded ? 0 : 150 }
+          NumberAnimation { duration: slot.fitYielded ? 80 : slot.fitFolded ? 110 : 160; easing.type: Easing.OutCubic }
+        }
+      }
       enabled: !!slot.drawerHost || slot.mainVisible
     DragHandler {
       id: drawerDrag

@@ -5,6 +5,7 @@ import qs.Commons
 import qs.Ui
 import "PreferencesModel.js" as Model
 import "GroupsModel.js" as Groups
+import "ZoneFitNotice.js" as ZoneFitNotice
 
 // The bar, laid out as zones (columns) by visibility (rows). The top row is
 // drawn with the bar's own surface and live images of the widgets on it.
@@ -33,7 +34,9 @@ Item {
   readonly property var zoneNames: ({ left: "Left", center: "Center", right: "Right" })
   readonly property var rows: [
     { mode: "shown", title: "On the bar", hint: "Always visible" },
-    { mode: "managed", title: "In the drawer", hint: "Shown on activity, or when you hover the zone" },
+    { mode: "managed", title: "On demand", hint: editor.bar && editor.bar.onDemandInline
+        ? "Behind the zone's dots; shown on activity, or when you hover the dots"
+        : "Shown on activity, or when you hover the zone" },
     { mode: "hidden", title: "Hidden", hint: "Kept off the bar" }
   ]
 
@@ -178,225 +181,244 @@ Item {
     }
   }
 
-  RowLayout {
+  ColumnLayout {
     anchors.fill: parent
-    spacing: Style.space(20)
+    spacing: Style.space(10)
 
-    // ---------------------------------------------------------------- matrix
-    Controls.ScrollView {
-      id: matrixScroll
+    // Widgets that no longer fit sit in their zone's drawer; say so once.
+    Text {
+      readonly property var notes: editor.bar ? ZoneFitNotice.lines(editor.bar.zoneFitReports) : []
+      Layout.fillWidth: true
+      visible: notes.length > 0
+      text: notes.join(" ")
+      textFormat: Text.PlainText
+      wrapMode: Text.WordWrap
+      color: Qt.alpha(Color.popups.text, 0.6)
+      font.family: Style.font.family
+      font.pixelSize: Style.font.bodySmall
+    }
+
+    RowLayout {
       Layout.fillWidth: true
       Layout.fillHeight: true
-      contentWidth: availableWidth
-      clip: true
+      spacing: Style.space(20)
 
-      Item {
-        id: grid
-        readonly property bool ownsFocusRing: true
-        width: matrixScroll.availableWidth
-        implicitHeight: matrix.implicitHeight
-        activeFocusOnTab: true
-        Accessible.role: Accessible.Table
-        Accessible.name: "Bar layout"
-        Accessible.description: editor.cursorRecord ? editor.preferences.title(editor.cursorRecord) : "Empty"
-        Keys.onPressed: function(event) {
-          if (event.modifiers & (Qt.ControlModifier | Qt.AltModifier)) return
-          var key = event.key, t = event.text
-          if (key === Qt.Key_Left || t === "h") editor.moveCursor(-1, 0)
-          else if (key === Qt.Key_Right || t === "l") editor.moveCursor(1, 0)
-          else if (key === Qt.Key_Up || t === "k") editor.moveCursor(0, -1)
-          else if (key === Qt.Key_Down || t === "j") editor.moveCursor(0, 1)
-          else if (key === Qt.Key_Space) {
-            if (editor.lifted) editor.drop()
-            else editor.lift(editor.cursorRecord, editor.cursorCell)
-          } else if (key === Qt.Key_Return || key === Qt.Key_Enter) {
-            if (editor.lifted) editor.drop()
-            else if (editor.cursorRecord) inspector.focusFirst()
-          } else if (key === Qt.Key_Escape && editor.lifted) editor.cancel()
-          else if ((t === "x" || key === Qt.Key_Delete) && !editor.lifted && editor.cursorRecord) {
-            var r = editor.cursorRecord
-            editor.setPlacement(r, r.section, Model.toggledHidden(r.mode, editor.hiddenFrom[r.instanceKey]))
-          } else if (t === "g" && !editor.lifted && editor.cursorRecord && editor.cursorRecord.groupId)
-            editor.preferences.openGroup(editor.cursorRecord.groupId)
-          else return
-          event.accepted = true
-        }
-        onActiveFocusChanged: if (!activeFocus && editor.lifted && !editor.pointerLift) editor.cancel()
+      // ---------------------------------------------------------------- matrix
+      Controls.ScrollView {
+        id: matrixScroll
+        Layout.fillWidth: true
+        Layout.fillHeight: true
+        contentWidth: availableWidth
+        clip: true
 
-        ColumnLayout {
-          id: matrix
-          width: parent.width
-          spacing: Style.space(14)
-
-          // Zone headings aligned over the columns.
-          RowLayout {
-            Layout.fillWidth: true
-            spacing: Style.space(10)
-            Item { Layout.preferredWidth: rowHeaderWidth.width; Layout.minimumWidth: rowHeaderWidth.width }
-            Repeater {
-              model: editor.sections
-              Text {
-                required property string modelData
-                text: editor.zoneNames[modelData]
-                textFormat: Text.PlainText
-                color: editor.cursorCell.section === modelData ? Color.popups.text : Qt.alpha(Color.popups.text, 0.55)
-                font.family: Style.font.family
-                font.pixelSize: Style.font.bodySmall
-                font.bold: true
-                Layout.fillWidth: true
-                Layout.preferredWidth: 1
-                horizontalAlignment: Text.AlignHCenter
-              }
-            }
+        Item {
+          id: grid
+          readonly property bool ownsFocusRing: true
+          width: matrixScroll.availableWidth
+          implicitHeight: matrix.implicitHeight
+          activeFocusOnTab: true
+          Accessible.role: Accessible.Table
+          Accessible.name: "Bar layout"
+          Accessible.description: editor.cursorRecord ? editor.preferences.title(editor.cursorRecord) : "Empty"
+          Keys.onPressed: function(event) {
+            if (event.modifiers & (Qt.ControlModifier | Qt.AltModifier)) return
+            var key = event.key, t = event.text
+            if (key === Qt.Key_Left || t === "h") editor.moveCursor(-1, 0)
+            else if (key === Qt.Key_Right || t === "l") editor.moveCursor(1, 0)
+            else if (key === Qt.Key_Up || t === "k") editor.moveCursor(0, -1)
+            else if (key === Qt.Key_Down || t === "j") editor.moveCursor(0, 1)
+            else if (key === Qt.Key_Space) {
+              if (editor.lifted) editor.drop()
+              else editor.lift(editor.cursorRecord, editor.cursorCell)
+            } else if (key === Qt.Key_Return || key === Qt.Key_Enter) {
+              if (editor.lifted) editor.drop()
+              else if (editor.cursorRecord) inspector.focusFirst()
+            } else if (key === Qt.Key_Escape && editor.lifted) editor.cancel()
+            else if ((t === "x" || key === Qt.Key_Delete) && !editor.lifted && editor.cursorRecord) {
+              var r = editor.cursorRecord
+              editor.setPlacement(r, r.section, Model.toggledHidden(r.mode, editor.hiddenFrom[r.instanceKey]))
+            } else if (t === "g" && !editor.lifted && editor.cursorRecord && editor.cursorRecord.groupId)
+              editor.preferences.openGroup(editor.cursorRecord.groupId)
+            else return
+            event.accepted = true
           }
+          onActiveFocusChanged: if (!activeFocus && editor.lifted && !editor.pointerLift) editor.cancel()
 
-          Repeater {
-            model: editor.rows
+          ColumnLayout {
+            id: matrix
+            width: parent.width
+            spacing: Style.space(14)
+
+            // Zone headings aligned over the columns.
             RowLayout {
-              id: rowItem
-              required property var modelData
-              required property int index
               Layout.fillWidth: true
               spacing: Style.space(10)
-
-              ColumnLayout {
-                id: rowHeader
-                Layout.preferredWidth: rowHeaderWidth.width
-                Layout.minimumWidth: rowHeaderWidth.width
-                Layout.maximumWidth: rowHeaderWidth.width
-                Layout.alignment: Qt.AlignTop
-                Layout.topMargin: Style.space(8)
-                spacing: Style.space(2)
+              Item { Layout.preferredWidth: rowHeaderWidth.width; Layout.minimumWidth: rowHeaderWidth.width }
+              Repeater {
+                model: editor.sections
                 Text {
-                  text: rowItem.modelData.title
+                  required property string modelData
+                  text: editor.zoneNames[modelData]
                   textFormat: Text.PlainText
-                  color: editor.cursorCell.mode === rowItem.modelData.mode ? Color.popups.text : Qt.alpha(Color.popups.text, 0.75)
+                  color: editor.cursorCell.section === modelData ? Color.popups.text : Qt.alpha(Color.popups.text, 0.55)
                   font.family: Style.font.family
-                  font.pixelSize: Style.font.body
+                  font.pixelSize: Style.font.bodySmall
                   font.bold: true
                   Layout.fillWidth: true
-                  wrapMode: Text.WordWrap
-                }
-                Text {
-                  text: rowItem.modelData.hint
-                  textFormat: Text.PlainText
-                  color: Qt.alpha(Color.popups.text, 0.5)
-                  font.family: Style.font.family
-                  font.pixelSize: Style.font.caption
-                  Layout.fillWidth: true
-                  wrapMode: Text.WordWrap
+                  Layout.preferredWidth: 1
+                  horizontalAlignment: Text.AlignHCenter
                 }
               }
+            }
 
-              Item {
-                id: rowBody
-                readonly property real inset: rowItem.modelData.mode === "shown" ? Style.space(6) : 0
+            Repeater {
+              model: editor.rows
+              RowLayout {
+                id: rowItem
+                required property var modelData
+                required property int index
                 Layout.fillWidth: true
-                implicitHeight: cellsRow.implicitHeight + inset * 2
+                spacing: Style.space(10)
 
-                // The bar sits on a stand-in for the desktop so its own surface,
-                // islands and borders read against the panel.
-                BarBackdrop {
-                  motionEnabled: !editor.bar || editor.bar.animationsEnabled
-                  anchors.fill: parent
-                  visible: rowItem.modelData.mode === "shown"
-                  source: rowItem.modelData.mode === "shown" ? editor.preferences.wallpaper : ""
-                  position: editor.bar.position
-                  // Flat and floating bars are one strip behind all three
-                  // zones: flat meets the edges, floating keeps the gap.
-                  BorderSurface {
-                    visible: !editor.bar.islands
-                    x: editor.bar.flat ? 0 : rowBody.inset
-                    y: editor.bar.flat ? 0 : rowBody.inset
-                    width: parent.width - x * 2
-                    height: editor.bar.flat ? cellsRow.height + rowBody.inset : cellsRow.height
-                    color: editor.bar.mainSurfaceColor
-                    radius: editor.bar.flat ? 0 : editor.bar.islandRounding
-                    borderSpec: editor.bar.flat ? Border.none() : editor.bar.islandBorder
+                ColumnLayout {
+                  id: rowHeader
+                  Layout.preferredWidth: rowHeaderWidth.width
+                  Layout.minimumWidth: rowHeaderWidth.width
+                  Layout.maximumWidth: rowHeaderWidth.width
+                  Layout.alignment: Qt.AlignTop
+                  Layout.topMargin: Style.space(8)
+                  spacing: Style.space(2)
+                  Text {
+                    text: rowItem.modelData.title
+                    textFormat: Text.PlainText
+                    color: editor.cursorCell.mode === rowItem.modelData.mode ? Color.popups.text : Qt.alpha(Color.popups.text, 0.75)
+                    font.family: Style.font.family
+                    font.pixelSize: Style.font.body
+                    font.bold: true
+                    Layout.fillWidth: true
+                    wrapMode: Text.WordWrap
+                  }
+                  Text {
+                    text: rowItem.modelData.hint
+                    textFormat: Text.PlainText
+                    color: Qt.alpha(Color.popups.text, 0.5)
+                    font.family: Style.font.family
+                    font.pixelSize: Style.font.caption
+                    Layout.fillWidth: true
+                    wrapMode: Text.WordWrap
                   }
                 }
 
-                RowLayout {
-                  id: cellsRow
-                  x: rowBody.inset
-                  y: rowItem.modelData.mode === "shown" && editor.bar.flat ? rowBody.inset / 2 : rowBody.inset
-                  width: parent.width - rowBody.inset * 2
-                  spacing: rowItem.modelData.mode === "shown" && !editor.bar.islands ? 0 : Style.space(10)
-                  Repeater {
-                    model: editor.sections
-                    Cell {
-                      required property string modelData
-                      section: modelData
-                      mode: rowItem.modelData.mode
-                      Layout.fillWidth: true
-                      Layout.preferredWidth: 1
-                      Layout.alignment: Qt.AlignTop
-                      Component.onCompleted: cellRepeater.register(this)
-                      Component.onDestruction: cellRepeater.unregister(this)
+                Item {
+                  id: rowBody
+                  readonly property real inset: rowItem.modelData.mode === "shown" ? Style.space(6) : 0
+                  Layout.fillWidth: true
+                  implicitHeight: cellsRow.implicitHeight + inset * 2
+
+                  // The bar sits on a stand-in for the desktop so its own surface,
+                  // islands and borders read against the panel.
+                  BarBackdrop {
+                    motionEnabled: !editor.bar || editor.bar.animationsEnabled
+                    anchors.fill: parent
+                    visible: rowItem.modelData.mode === "shown"
+                    source: rowItem.modelData.mode === "shown" ? editor.preferences.wallpaper : ""
+                    position: editor.bar.position
+                    // Flat and floating bars are one strip behind all three
+                    // zones: flat meets the edges, floating keeps the gap.
+                    BorderSurface {
+                      visible: !editor.bar.islands
+                      x: editor.bar.flat ? 0 : rowBody.inset
+                      y: editor.bar.flat ? 0 : rowBody.inset
+                      width: parent.width - x * 2
+                      height: editor.bar.flat ? cellsRow.height + rowBody.inset : cellsRow.height
+                      color: editor.bar.mainSurfaceColor
+                      radius: editor.bar.flat ? 0 : editor.bar.islandRounding
+                      borderSpec: editor.bar.flat ? Border.none() : editor.bar.islandBorder
+                    }
+                  }
+
+                  RowLayout {
+                    id: cellsRow
+                    x: rowBody.inset
+                    y: rowItem.modelData.mode === "shown" && editor.bar.flat ? rowBody.inset / 2 : rowBody.inset
+                    width: parent.width - rowBody.inset * 2
+                    spacing: rowItem.modelData.mode === "shown" && !editor.bar.islands ? 0 : Style.space(10)
+                    Repeater {
+                      model: editor.sections
+                      Cell {
+                        required property string modelData
+                        section: modelData
+                        mode: rowItem.modelData.mode
+                        Layout.fillWidth: true
+                        Layout.preferredWidth: 1
+                        Layout.alignment: Qt.AlignTop
+                        Component.onCompleted: cellRepeater.register(this)
+                        Component.onDestruction: cellRepeater.unregister(this)
+                      }
                     }
                   }
                 }
               }
             }
           }
-        }
 
-        // Every pointer gesture over the grid lands here, above the tiles, so a
-        // drag survives the tiles being rebuilt as the preview moves.
-        MouseArea {
-          anchors.fill: parent
-          hoverEnabled: true
-          preventStealing: true
-          cursorShape: editor.pointerLift ? Qt.ClosedHandCursor : editor.hoverKey ? Qt.OpenHandCursor : Qt.ArrowCursor
-          onPositionChanged: function(mouse) {
-            var point = mapToItem(editor, mouse.x, mouse.y)
-            if (!editor.pointerLift) {
+          // Every pointer gesture over the grid lands here, above the tiles, so a
+          // drag survives the tiles being rebuilt as the preview moves.
+          MouseArea {
+            anchors.fill: parent
+            hoverEnabled: true
+            preventStealing: true
+            cursorShape: editor.pointerLift ? Qt.ClosedHandCursor : editor.hoverKey ? Qt.OpenHandCursor : Qt.ArrowCursor
+            onPositionChanged: function(mouse) {
+              var point = mapToItem(editor, mouse.x, mouse.y)
+              if (!editor.pointerLift) {
+                var tile = editor.tileAt(point)
+                editor.hoverKey = tile ? tile.record.instanceKey : ""
+              }
+              if (pressed && editor.pressed && !editor.pointerLift
+                  && Math.abs(point.x - editor.pressPoint.x) + Math.abs(point.y - editor.pressPoint.y) > Style.space(6)) {
+                editor.lift(editor.pressed.record, editor.pressed.cell)
+                editor.pointerLift = true
+              }
+              editor.pointerMoved(point)
+            }
+            onExited: editor.hoverKey = ""
+            onPressed: function(mouse) {
+              grid.forceActiveFocus(Qt.MouseFocusReason)
+              if (editor.lifted) editor.cancel()
+              var point = mapToItem(editor, mouse.x, mouse.y)
+              editor.pressPoint = point
               var tile = editor.tileAt(point)
-              editor.hoverKey = tile ? tile.record.instanceKey : ""
+              var cell = editor.cellAt(point)
+              if (tile) {
+                var at = { section: tile.section, mode: tile.mode, pos: tile.pos }
+                editor.place(at)
+                editor.pressed = { record: tile.record, cell: at }
+              } else {
+                editor.pressed = null
+                if (cell) editor.place({ section: cell.section, mode: cell.mode, pos: editor.gapAt(cell, point) })
+              }
             }
-            if (pressed && editor.pressed && !editor.pointerLift
-                && Math.abs(point.x - editor.pressPoint.x) + Math.abs(point.y - editor.pressPoint.y) > Style.space(6)) {
-              editor.lift(editor.pressed.record, editor.pressed.cell)
-              editor.pointerLift = true
-            }
-            editor.pointerMoved(point)
-          }
-          onExited: editor.hoverKey = ""
-          onPressed: function(mouse) {
-            grid.forceActiveFocus(Qt.MouseFocusReason)
-            if (editor.lifted) editor.cancel()
-            var point = mapToItem(editor, mouse.x, mouse.y)
-            editor.pressPoint = point
-            var tile = editor.tileAt(point)
-            var cell = editor.cellAt(point)
-            if (tile) {
-              var at = { section: tile.section, mode: tile.mode, pos: tile.pos }
-              editor.place(at)
-              editor.pressed = { record: tile.record, cell: at }
-            } else {
+            onReleased: {
               editor.pressed = null
-              if (cell) editor.place({ section: cell.section, mode: cell.mode, pos: editor.gapAt(cell, point) })
+              if (editor.pointerLift) editor.drop()
             }
+            onCanceled: {
+              editor.pressed = null
+              if (editor.pointerLift) editor.cancel()
+            }
+            onDoubleClicked: if (editor.cursorRecord) inspector.focusFirst()
           }
-          onReleased: {
-            editor.pressed = null
-            if (editor.pointerLift) editor.drop()
-          }
-          onCanceled: {
-            editor.pressed = null
-            if (editor.pointerLift) editor.cancel()
-          }
-          onDoubleClicked: if (editor.cursorRecord) inspector.focusFirst()
         }
       }
-    }
 
-    // ------------------------------------------------------------- inspector
-    Inspector {
-      id: inspector
-      Layout.preferredWidth: Style.space(300)
-      Layout.minimumWidth: Style.space(260)
-      Layout.fillHeight: true
+      // ------------------------------------------------------------- inspector
+      Inspector {
+        id: inspector
+        Layout.preferredWidth: Style.space(300)
+        Layout.minimumWidth: Style.space(260)
+        Layout.fillHeight: true
+      }
     }
   }
 
@@ -411,7 +433,7 @@ Item {
     z: 100
   }
 
-  TextMetrics { id: rowHeaderWidth; font.family: Style.font.family; font.pixelSize: Style.font.body; font.bold: true; text: "In the drawer___" }
+  TextMetrics { id: rowHeaderWidth; font.family: Style.font.family; font.pixelSize: Style.font.body; font.bold: true; text: "On the bar___" }
 
   QtObject {
     id: cellRepeater
@@ -691,7 +713,7 @@ Item {
         PrefsChoice {
           label: "Visibility"
           stacked: true
-          options: [{ value: "shown", label: "On the bar" }, { value: "managed", label: "In the drawer" }, { value: "hidden", label: "Hidden" }]
+          options: [{ value: "shown", label: "On the bar" }, { value: "managed", label: "On demand" }, { value: "hidden", label: "Hidden" }]
           value: panel.record ? panel.record.mode : ""
           onChosen: function(value) { editor.setPlacement(panel.record, panel.record.section, value) }
         }
