@@ -2,12 +2,16 @@
 // along one bar line. A lasting length slides the centre by the least distance
 // that keeps one zone gap, then folds widgets into drawers (longest zone first);
 // a moment (transient growth) slides nothing and makes neighbours yield.
-// In the inline on-demand mode a zone with hidden widgets keeps its handle
-// (input.dots; the centre's value says which side), and hovering it is a
-// moment that unfolds the zone (unfold). Several moments can run at once
+// A zone with hidden on-demand widgets keeps its handle at the end they wait
+// behind (input.dots): the left zone's end, the right zone's start, and each
+// side of the centre on its own ({ start, end }). Widgets folded for lack of
+// room wait behind the same dots on their side. Hovering the dots is a moment
+// that unfolds the zone (unfold; the centre one side at a time). Several moments can run at once
 // (input.transient is one or a list, highest priority first): neighbours yield
 // to every growing zone, and when two growing zones collide the lower one
-// falls back.
+// falls back. An inline expansion that would need a neighbour's anchor to
+// yield hides that whole neighbour instead (result.hidden), then the zone past
+// it if it still collides; it falls back only when it can't fit the bar line.
 // See docs/zone-fit-lab/zone-fit-lab.html for the specification.
 
 function zoneItems(input, name) {
@@ -24,22 +28,48 @@ function foldedKeys(input, name, st) {
 
 function hasDots(input, name) { return !!(input.dots && input.dots[name]) }
 
-// The centre's handle sits where its folds are, else where its hidden
-// widgets are (input.dots.center: "start" or "end"), so it marks the side
-// the zone grows on.
-function centerSide(input, folds, hc) {
-  if (folds) return hc || "end"
-  return input.dots && input.dots.center === "start" ? "start" : "end"
+// The centre's dots, side by side: { start, end }. true (or "end") is the end.
+function centerDots(input) {
+  var d = input.dots ? input.dots.center : false
+  if (d && typeof d === "object") return { start: !!d.start, end: !!d.end }
+  return { start: d === "start" || d === "both", end: d === true || d === "end" || d === "both" }
 }
 
-// The zone's slots in bar order: unfolded items plus the drawer handle slot.
+// The centre's folded widgets by the side they wait on. With an anchor that is
+// their side of it; without one, folds are taken from the ends, so those
+// before the first widget still showing wait at the start.
+function centerFoldSides(input, st) {
+  var z = input.zones, out = { start: [], end: [] }
+  if (z.anchor) {
+    z.before.forEach(function (it) { if (isFolded(st, it.key)) out.start.push(it.key) })
+    z.after.forEach(function (it) { if (isFolded(st, it.key)) out.end.push(it.key) })
+    return out
+  }
+  var seen = false
+  z.center.forEach(function (it) {
+    if (!isFolded(st, it.key)) seen = true
+    else out[seen ? "end" : "start"].push(it.key)
+  })
+  return out
+}
+
+// Which sides of the centre draw dots: folds or hidden widgets on that side.
+function centerHandles(input, st) {
+  var sides = centerFoldSides(input, st), dots = centerDots(input)
+  return { start: sides.start.length > 0 || dots.start, end: sides.end.length > 0 || dots.end }
+}
+
+// The zone's slots in bar order: unfolded items plus the drawer handle slots.
 function slotsOf(input, name, st) {
   var items = zoneItems(input, name).filter(function (it) { return !isFolded(st, it.key) })
+  var mk = function (key) { return { key: key, extent: input.handle.extent, spill: input.handle.spill } }
+  if (name === "center") {
+    var c = centerHandles(input, st)
+    return (c.start ? [mk("handle:center:start")] : []).concat(items, c.end ? [mk("handle:center:end")] : [])
+  }
   if (!foldedKeys(input, name, st).length && !hasDots(input, name)) return items
-  var h = { key: "handle:" + name, extent: input.handle.extent, spill: input.handle.spill }
-  if (name === "left") return items.concat([h])
-  if (name === "right") return [h].concat(items)
-  return centerSide(input, foldedKeys(input, name, st).length > 0, st.hc) === "start" ? [h].concat(items) : items.concat([h])
+  if (name === "left") return items.concat([mk("handle:left")])
+  return [mk("handle:right")].concat(items)
 }
 
 function sumExtent(slots, n) {
@@ -101,22 +131,18 @@ function foldOne(input, st, g) {
   if (!cand.length) return false
   var pick = cand[0]
   for (var i = 1; i < cand.length; i++) if (cand[i].len > pick.len) pick = cand[i]
-  var key, side = null
+  var key
   if (pick.name === "left") key = ul[ul.length - 1].key
   else if (pick.name === "right") key = ur[0].key
-  else if (anchor) {
-    if (before.length >= after.length) { key = before[0].key; side = "start" }
-    else { key = after[after.length - 1].key; side = "end" }
-  } else if (g.lenL >= g.lenR) { key = uc[0].key; side = "start" }
-  else { key = uc[uc.length - 1].key; side = "end" }
-  if (side && !st.hc) st.hc = side
+  else if (anchor) key = before.length >= after.length ? before[0].key : after[after.length - 1].key
+  else key = g.lenL >= g.lenR ? uc[0].key : uc[uc.length - 1].key
   st.folded[key] = true
   st.order.push(key)
   return true
 }
 
 function stateOf(input, previous) {
-  var st = { folded: {}, order: [], hc: null }
+  var st = { folded: {}, order: [] }
   if (!previous) return st
   var zoneOf = {}
   var names = ["left", "center", "right"]
@@ -137,19 +163,19 @@ function stateOf(input, previous) {
   previous.order.forEach(function (key) {
     if (keep[key]) { st.folded[key] = true; st.order.push(key) }
   })
-  if (foldedKeys(input, "center", st).length) st.hc = previous.handles.center || "end"
   return st
 }
 
 function clamp(v, lo, hi) { return Math.min(hi, Math.max(lo, v)) }
 
 // Where each zone draws its handle: at the end away from its anchor, when
-// widgets are folded or (inline mode) hidden on demand.
-function handlesOf(input, f, hc) {
+// widgets are folded or hidden on demand; the centre at either end or "both".
+function handlesOf(input, st) {
+  var c = centerHandles(input, st)
   return {
-    left: f.left.length || hasDots(input, "left") ? "end" : null,
-    center: f.center.length || hasDots(input, "center") ? centerSide(input, f.center.length > 0, hc) : null,
-    right: f.right.length || hasDots(input, "right") ? "start" : null
+    left: foldedKeys(input, "left", st).length || hasDots(input, "left") ? "end" : null,
+    center: c.start && c.end ? "both" : c.start ? "start" : c.end ? "end" : null,
+    right: foldedKeys(input, "right", st).length || hasDots(input, "right") ? "start" : null
   }
 }
 
@@ -167,7 +193,8 @@ function resultOf(input, st, g, fits) {
     centerShift: cs + g.off - input.length / 2,
     folded: f,
     order: st.order.slice(),
-    handles: handlesOf(input, f, st.hc),
+    handles: handlesOf(input, st),
+    centerFolded: centerFoldSides(input, st),
     yielded: [],
     fallback: null
   }
@@ -178,15 +205,12 @@ function fitLasting(input) {
   var g
   while (st.order.length) {
     var key = st.order[st.order.length - 1]
-    var oldHc = st.hc
     delete st.folded[key]
     st.order.pop()
-    if (!foldedKeys(input, "center", st).length) st.hc = null
     g = layout(input, st)
     if (g.lo + input.gutter <= g.hi) continue
     st.folded[key] = true
     st.order.push(key)
-    st.hc = oldHc
     break
   }
   g = layout(input, st)
@@ -250,25 +274,39 @@ function transientsOf(input) {
 function fitMoment(input) {
   var ts = transientsOf(input)
   var prev = input.previous || fitLasting(withTransient(input, null))
-  // An inline expansion brings its zone's folded widgets back for the moment.
+  // An inline expansion brings its zone's folded widgets back for the moment
+  // (the centre's from the side it expands on).
   var folded = { left: prev.folded.left, center: prev.folded.center, right: prev.folded.right }
-  ts.forEach(function (t) { if (t.unfold) folded[t.unfold] = [] })
+  var was = { folded: {} }
+  folded.center.forEach(function (key) { was.folded[key] = true })
+  var sides = centerFoldSides(input, was)
+  ts.forEach(function (t) {
+    if (!t.unfold) return
+    folded[t.unfold] = t.unfold === "center" && t.side ? sides[t.side === "start" ? "end" : "start"] : []
+  })
   var all = folded.left.concat(folded.center, folded.right)
-  var st = { folded: {}, order: prev.order.filter(function (key) { return all.indexOf(key) >= 0 }), hc: prev.handles.center }
+  var st = { folded: {}, order: prev.order.filter(function (key) { return all.indexOf(key) >= 0 }) }
   all.forEach(function (key) { st.folded[key] = true })
   var g = layout(input, st)
   // A moment keeps a smaller gap: the island edges are enough while it lasts.
   var length = input.length, inset = input.inset, gap = input.momentGap !== undefined ? input.momentGap : input.gap
-  var cs = length / 2 + prev.centerShift - g.off
+  var cs = length / 2 + prev.centerShift - g.off, restingStart = cs
+  // An inline expansion of the centre that would run off the bar slides back
+  // onto it by the least distance; the zones it then meets hide. Only a centre
+  // longer than the bar line falls back.
+  if (ts.some(function(t) { return t.unfold === "center" && t.zone === "center" }) && g.lenC <= length - 2 * inset + 1e-6)
+    cs = clamp(cs, inset, length - inset - g.lenC)
   var res = {
     fits: prev.fits,
     centerStart: cs,
     anchorOffset: g.off,
-    centerShift: prev.centerShift,
+    centerShift: cs === restingStart ? prev.centerShift : cs + g.off - length / 2,
     folded: folded,
     order: st.order.slice(),
-    handles: handlesOf(input, folded, prev.handles.center),
+    handles: handlesOf(input, st),
+    centerFolded: centerFoldSides(input, st),
     yielded: [],
+    hidden: { left: false, center: false, right: false },
     fallback: null,
     fallbacks: []
   }
@@ -310,14 +348,23 @@ function fitMoment(input) {
     return yieldSlots(input, g.center, cs, fromStart, function (s, rest) { return sources[s.key] || centerAnchor(s, rest) }, clear, centerRange)
   }
   // The yields for a set of growing zones, or the zone that can't be served.
+  // An inline expansion (unfold) that meets an anchor hides the whole zone in
+  // its way, and then makes the zone past it give way in turn.
   function attempt(active) {
-    var rank = {}
-    active.forEach(function (t, i) { if (rank[t.zone] === undefined) rank[t.zone] = i })
-    var pairs = g.center.length ? [["left", "center"], ["center", "right"]] : [["left", "right"]]
+    var rank = {}, unfolding = {}
+    active.forEach(function(t, i) {
+      if (rank[t.zone] === undefined) rank[t.zone] = i
+      if (t.unfold) unfolding[t.zone] = true
+    })
+    var names = g.center.length ? ["left", "center", "right"] : ["left", "right"]
     var centerRange = { first: 0, last: g.center.length - 1 }
-    var y = []
-    for (var p = 0; p < pairs.length; p++) {
-      var a = pairs[p][0], b = pairs[p][1]
+    var y = [], hidden = {}
+    function hide(zone) {
+      hidden[zone] = true
+      y = y.concat(g[zone].map(function(s) { return s.key }))
+    }
+    for (var p = 0; p + 1 < names.length; p++) {
+      var a = names[p], b = names[p + 1]
       var ga = rank[a] !== undefined, gb = rank[b] !== undefined
       if (!ga && !gb) continue
       if (ga && gb) {
@@ -330,11 +377,28 @@ function fitMoment(input) {
         y = y.concat(yb)
         continue
       }
-      var ys = ga ? yieldFrom(b, true, span[a][1] + gap, centerRange) : yieldFrom(a, false, span[b][0] - gap, centerRange)
-      if (!ys) return { fail: ga ? a : b, reason: "anchor" }
-      y = y.concat(ys)
+      var grower = ga ? a : b, other = ga ? b : a
+      if (hidden[other]) continue
+      var limit = ga ? span[a][1] + gap : span[b][0] - gap
+      var ys = yieldFrom(other, ga, limit, centerRange)
+      if (ys) { y = y.concat(ys); continue }
+      if (!unfolding[grower]) return { fail: grower, reason: "anchor" }
+      hide(other)
+      // Past the hidden zone, the next one gives way to the expansion too.
+      var beyond = names[ga ? p + 2 : p - 1]
+      if (!beyond || hidden[beyond]) continue
+      if (rank[beyond] !== undefined) {
+        var apart = ga ? span[a][1] + gap <= span[beyond][0] + 1e-6 : span[beyond][1] + gap <= span[b][0] + 1e-6
+        if (!apart) return { fail: rank[grower] < rank[beyond] ? beyond : grower, reason: "neighbour" }
+        continue
+      }
+      var yf = yieldFrom(beyond, ga, limit, null)
+      if (yf) y = y.concat(yf)
+      else hide(beyond)
     }
-    return { yielded: y }
+    var seen = {}
+    y = y.filter(function(key) { if (seen[key]) return false; seen[key] = true; return true })
+    return { yielded: y, hidden: hidden }
   }
   var out = attempt(active)
   while (out.fail) {
@@ -347,14 +411,15 @@ function fitMoment(input) {
     out = attempt(active)
   }
   res.yielded = out.yielded
+  for (var zone in out.hidden) res.hidden[zone] = true
   res.fallbacks = fallbacks
   res.fallback = fallbacks.length ? fallbacks[0] : null
   return res
 }
 
 // fit(input) -> { fits, centerStart, anchorOffset, centerShift, folded, order,
-//                 handles, yielded, fallback, fallbacks (moments) }. See the lab
-//                 for the input shape.
+//                 handles, centerFolded, yielded, fallback, fallbacks (moments) }.
+//                 See the lab for the input shape.
 function fit(input) {
   return input.transient ? fitMoment(input) : fitLasting(input)
 }

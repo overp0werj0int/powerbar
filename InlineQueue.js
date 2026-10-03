@@ -1,7 +1,8 @@
 // The inline expansion's queue: which zone to show, and when. Pure decisions;
 // Bar.qml carries them out (docs/zone-fit-implementation.md, "Inline").
 //
-// state: { request, zone, readyAt }   what the pointer asks for, what is shown,
+// state: { request, zone, readyAt }   what the pointer asks for, what is shown
+//                                     (a zone, or the centre by side: "center:start"),
 //                                     and the earliest time a zone may open
 // o:     { now, due, enabled, intentMs, settleMs, timerRunning, holdHeld }
 //        due: the queue's timer fired; holdHeld: the centre's hover reveal is
@@ -37,7 +38,7 @@ function advance(state, o) {
     if (!o.timerRunning || r.collapse) r.wait = Math.max(1, Math.max(o.now + o.intentMs, r.readyAt) - o.now)
     return r
   }
-  if (want !== "center" && o.holdHeld) {
+  if (want.split(":")[0] !== "center" && o.holdHeld) {
     r.releaseHold = true
     r.readyAt = Math.max(r.readyAt, o.now + o.settleMs)
   }

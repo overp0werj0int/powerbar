@@ -21,28 +21,36 @@ Item {
   }
   signal changed()
   visible: false
+  // The chain's parent signals are connected directly; a destroyed item has
+  // already dropped its connection.
+  function watch(item, on) {
+    try {
+      var signal = item.parentChanged
+      if (signal && typeof signal.connect === "function") {
+        if (on) signal.connect(observer.rebuild)
+        else signal.disconnect(observer.rebuild)
+      }
+    } catch (e) {
+    }
+  }
   function rebuild() {
     var next = []
     for (var item = target; item; item = item.parent) {
       next.push(item)
       if (item.powerbarSlotOwner) break
     }
+    var previous = chain
+    for (var old of previous) if (next.indexOf(old) < 0) watch(old, false)
+    for (var added of next) if (previous.indexOf(added) < 0) watch(added, true)
     chain = next
     Qt.callLater(notify)
   }
   function notify() { changed() }
   onTargetChanged: { bindLifetime(); rebuild() }
   Component.onCompleted: { if (!lifetime) bindLifetime(); rebuild() }
-  Component.onDestruction: if (lifetime) { lifetime.watcher = null; lifetime.destroy() }
-  Repeater {
-    model: observer.chain
-    Item {
-      required property var modelData
-      Connections {
-        target: modelData
-        ignoreUnknownSignals: true
-        function onParentChanged() { observer.rebuild() }
-      }
-    }
+  Component.onDestruction: {
+    for (var item of chain) watch(item, false)
+    chain = []
+    if (lifetime) { lifetime.watcher = null; lifetime.destroy() }
   }
 }

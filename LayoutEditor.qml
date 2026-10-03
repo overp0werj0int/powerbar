@@ -18,10 +18,19 @@ Item {
   required property var preferences
   readonly property var bar: preferences.bar
   readonly property var entries: preferences.layoutEntries
+  // With a centre anchor, the centre's On demand cell splits at it: the
+  // widgets before it wait behind the dots at the centre's start, those after
+  // it behind the dots at its end (Model.columns).
+  readonly property int anchorIndex: {
+    var anchor = editor.bar ? editor.bar.centerAnchor : ""
+    var record = anchor ? entries.find(function(e) { return e.section === "center" && !e.groupId && e.id === anchor }) : null
+    return record ? record.index : -1
+  }
+  function columnsFor(mode) { return Model.columns(mode, anchorIndex >= 0) }
   readonly property var cellEntries: {
     var cells = ({})
-    for (var section of Model.sections) for (var mode of Model.modes)
-      cells[section + ":" + mode] = Model.cell(entries, section, mode, "")
+    for (var mode of Model.modes) for (var column of columnsFor(mode))
+      cells[column + ":" + mode] = Model.cell(entries, column, mode, "", anchorIndex)
     return cells
   }
   function members(section, mode, exclude) {
@@ -31,7 +40,9 @@ Item {
   readonly property var snapshots: preferences.snapshots
   readonly property var sections: Model.sections
   readonly property var modes: Model.modes
-  readonly property var zoneNames: ({ left: "Left", center: "Center", right: "Right" })
+  readonly property var zoneNames: ({ left: "Left", center: "Center", right: "Right",
+    "center:start": editor.bar && editor.bar.vertical ? "Above center" : "Left of center",
+    "center:end": editor.bar && editor.bar.vertical ? "Below center" : "Right of center" })
   readonly property var rows: [
     { mode: "shown", title: "On the bar", hint: "Always visible" },
     { mode: "managed", title: "On demand", hint: editor.bar && editor.bar.onDemandInline
@@ -82,13 +93,16 @@ Item {
   }
   function syncCursor() {
     if (lifted) return
-    for (var s = 0; s < sections.length; s++) for (var m = 0; m < modes.length; m++) {
-      var list = members(sections[s], modes[m], "")
+    for (var m = 0; m < modes.length; m++) for (var column of columnsFor(modes[m])) {
+      var list = members(column, modes[m], "")
       for (var i = 0; i < list.length; i++) if (list[i].instanceKey === cursorKey) {
-        cursorCell = { section: sections[s], mode: modes[m], pos: i }
+        cursorCell = { section: column, mode: modes[m], pos: i }
         return
       }
     }
+    // The split appeared or went away under the cursor.
+    if (columnsFor(cursorCell.mode).indexOf(cursorCell.section) < 0) cursorCell = { section: Model.sectionOf(cursorCell.section), mode: cursorCell.mode, pos: 0 }
+    if (columnsFor(cursorCell.mode).indexOf(cursorCell.section) < 0) cursorCell = { section: cursorCell.section + ":start", mode: cursorCell.mode, pos: 0 }
     var n = count(cursorCell.section, cursorCell.mode)
     place({ section: cursorCell.section, mode: cursorCell.mode, pos: Math.max(0, Math.min(cursorCell.pos, n - 1)) })
   }
@@ -97,8 +111,8 @@ Item {
   onEntriesChanged: Qt.callLater(syncCursor)
 
   function moveCursor(dx, dy) {
-    if (lifted) liftTarget = Model.stepLift(count, liftTarget, dx, dy)
-    else place(Model.stepCursor(count, cursorCell, dx, dy))
+    if (lifted) liftTarget = Model.stepLift(count, liftTarget, dx, dy, columnsFor)
+    else place(Model.stepCursor(count, cursorCell, dx, dy, columnsFor))
   }
   function lift(record, cell) {
     if (!record) return
@@ -115,12 +129,12 @@ Item {
     if (!lifted) return
     var record = lifted, target = liftTarget, origin = liftOrigin
     var unchanged = target.section === origin.section && target.mode === origin.mode && target.pos === origin.pos
-    var before = Model.dropBefore(members(target.section, target.mode, record.instanceKey), target.pos)
+    var before = Model.dropBefore(members(target.section, target.mode, record.instanceKey), target.pos, target.section, anchorIndex)
     lifted = null
     pointerLift = false
     cursorKey = record.instanceKey
     cursorCell = target
-    if (!unchanged) preferences.move(record, target.section, target.mode, before)
+    if (!unchanged) preferences.move(record, Model.sectionOf(target.section), target.mode, before)
   }
   // Keep an item's place in its zone when only its visibility changes.
   // Rows widgets were hidden from this session, so showing one again restores it.
@@ -260,7 +274,7 @@ Item {
                   required property string modelData
                   text: editor.zoneNames[modelData]
                   textFormat: Text.PlainText
-                  color: editor.cursorCell.section === modelData ? Color.popups.text : Qt.alpha(Color.popups.text, 0.55)
+                  color: Model.sectionOf(editor.cursorCell.section) === modelData ? Color.popups.text : Qt.alpha(Color.popups.text, 0.55)
                   font.family: Style.font.family
                   font.pixelSize: Style.font.bodySmall
                   font.bold: true
@@ -345,15 +359,27 @@ Item {
                     spacing: rowItem.modelData.mode === "shown" && !editor.bar.islands ? 0 : Style.space(10)
                     Repeater {
                       model: editor.sections
-                      Cell {
+                      // One zone's column: its cell, or the split centre's two.
+                      RowLayout {
+                        id: zoneColumn
                         required property string modelData
-                        section: modelData
-                        mode: rowItem.modelData.mode
                         Layout.fillWidth: true
                         Layout.preferredWidth: 1
                         Layout.alignment: Qt.AlignTop
-                        Component.onCompleted: cellRepeater.register(this)
-                        Component.onDestruction: cellRepeater.unregister(this)
+                        spacing: Style.space(6)
+                        Repeater {
+                          model: editor.columnsFor(rowItem.modelData.mode).filter(function(column) { return Model.sectionOf(column) === zoneColumn.modelData })
+                          Cell {
+                            required property string modelData
+                            section: modelData
+                            mode: rowItem.modelData.mode
+                            Layout.fillWidth: true
+                            Layout.preferredWidth: 1
+                            Layout.alignment: Qt.AlignTop
+                            Component.onCompleted: cellRepeater.register(this)
+                            Component.onDestruction: cellRepeater.unregister(this)
+                          }
+                        }
                       }
                     }
                   }
@@ -473,11 +499,15 @@ Item {
     Text {
       anchors.centerIn: parent
       visible: cell.list.length === 0
-      text: cell.targeted ? "Drop here" : cell.cursorHere && editor.gridFocused ? "Empty" : ""
+      // A half of the split centre says which side it holds.
+      text: cell.targeted ? "Drop here" : cell.cursorHere && editor.gridFocused ? "Empty"
+        : cell.section.indexOf(":") > 0 ? editor.zoneNames[cell.section] : ""
       textFormat: Text.PlainText
       color: cell.targeted ? Color.accent : Qt.alpha(Color.popups.text, 0.45)
       font.family: Style.font.family
       font.pixelSize: Style.font.bodySmall
+      width: Math.min(implicitWidth, cell.width - Style.space(8))
+      elide: Text.ElideRight
     }
     BorderSurface {
       anchors.fill: parent
@@ -513,6 +543,7 @@ Item {
             section: cell.section
             mode: cell.mode
             pos: retainedRecord.index
+            maxWidth: cell.barRow ? Infinity : flow.width
           }
         }
       }
@@ -528,6 +559,8 @@ Item {
     property string section: ""
     property string mode: ""
     property int pos: 0
+    // A narrow cell (a half of the split centre) elides the name to fit.
+    property real maxWidth: Infinity
     readonly property var snapshot: mode === "shown" && record.instanceKey ? editor.snapshots[record.instanceKey] : null
     readonly property bool isCursor: !ghost && !editor.lifted && editor.cursorKey !== "" && record.instanceKey === editor.cursorKey
     readonly property bool hovered: !ghost && !editor.lifted && editor.hoverKey === record.instanceKey
@@ -596,10 +629,13 @@ Item {
         font.family: Style.font.family
         font.pixelSize: Style.font.bodySmall
         elide: Text.ElideRight
-        width: Math.min(implicitWidth, Style.space(150))
+        width: Math.max(Style.space(24), Math.min(implicitWidth, Style.space(150),
+          tile.maxWidth - Style.space(16) - (rowIcon.visible ? rowIcon.width + body.spacing : 0)
+            - (tile.memberCount > 0 ? memberLabel.implicitWidth + body.spacing : 0)))
         anchors.verticalCenter: parent.verticalCenter
       }
       Text {
+        id: memberLabel
         visible: tile.memberCount > 0 && !tile.pictured
         text: tile.memberCount
         textFormat: Text.PlainText
@@ -627,7 +663,9 @@ Item {
       anchors.margins: Style.space(18)
       visible: !panel.record
       text: "Nothing " + (editor.cursorCell.mode === "shown" ? "on the " + editor.zoneNames[editor.cursorCell.section].toLowerCase() + " of the bar"
-        : editor.cursorCell.mode === "managed" ? "in the " + editor.zoneNames[editor.cursorCell.section].toLowerCase() + " drawer"
+        : editor.cursorCell.mode === "managed" ? (editor.cursorCell.section.indexOf(":") > 0
+          ? "on demand " + editor.zoneNames[editor.cursorCell.section].toLowerCase()
+          : "in the " + editor.zoneNames[editor.cursorCell.section].toLowerCase() + " drawer")
         : "hidden on the " + editor.zoneNames[editor.cursorCell.section].toLowerCase()) + " yet.\n\nPick up a widget with Space, or drag one here."
       textFormat: Text.PlainText
       color: Qt.alpha(Color.popups.text, 0.6)

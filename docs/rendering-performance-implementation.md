@@ -119,6 +119,120 @@ QT_QUICK_CONTROLS_STYLE=Basic QT_QUICK_BACKEND=software \
 /usr/lib/qt6/bin/qmltestrunner -input /tmp/powerbar-startup-probe -o -,txt
 ```
 
+## Measured pass: 3 October 2026
+
+The gates below asked for measurements before further changes. This pass
+measured the whole bar instead of extracted functions. Every change keeps
+behaviour identical. Final geometry, drawer mounts and saved layouts match
+master exactly in all thirteen scenarios.
+
+### Harness
+
+`docs/rendering-bench/` runs the real `Bar.qml`, `Preferences.qml` and
+Omarchy's own `Commons` and `Ui` modules in an offscreen Quickshell.
+
+- **Copy.** It builds a copy of the plugin in which layer-shell windows become
+  plain windows. It loads the user's layout from `shell.json`, and stand-in
+  widgets (glyphs, text, a clock, compound workspaces) play the plugins.
+- **Isolation.** Nothing reaches the live shell: there is no Wayland or
+  Hyprland connection, the image cache is private, and shell commands are
+  stubbed.
+- **Scenarios.** It scripts startup, idle, drop commits, a pointer drag sweep,
+  a widget changing value and opacity, settings changes, drawer open and close,
+  activity reveals, highlight flashes, and three pointer drag-and-drops (across
+  zones, into a group drawer, out of it). Preferences runs as Layout-editor
+  drops.
+- **Output.** Each run logs timings, the process's CPU time per phase, and a
+  geometry and layout dump.
+- **Profiling.** `prof.sh` records a QML profiler trace of any scenario (`qs
+  --debug`), and `analyze.py` ranks self time per binding and function.
+
+```sh
+docs/rendering-bench/bench.py "$PWD" current 3          # medians of 3 runs
+docs/rendering-bench/prof.sh "$PWD" churn 1 /tmp/churn.qtd
+docs/rendering-bench/analyze.py /tmp/churn.qtd "$XDG_RUNTIME_DIR/powerbar-bench/prof-app.log" 30
+```
+
+### Findings and changes
+
+| Finding (profiler evidence) | Change |
+| --- | --- |
+| Every slot's `cursorShape` scanned all click targets with `mapToItem`, and re-ran whenever any target's visibility or opacity changed. It accounted for 90% of QML time while one widget updated, and 141 ms of startup. | Hit-test only while the pointer is over the slot or it is pressed (a `HoverHandler` beside it). Elsewhere the shape is never shown, and a disabled area shows no cursor at all. |
+| `GeometryObserver` and `TargetOwnerObserver` watched their ancestor chains through a Repeater of `Connections`. Any reparenting rebuilt every delegate: 290 ms of startup, and each highlight's observer was rebuilt on every hover. | Connect the chain's signals directly, connecting only the items that join it and disconnecting on destruction. Notifications are the same, and a destroyed item drops its own connections. |
+| A Repeater over QObjects makes Qt expose every property of every object as a role. That cost 12.7 ms against 0.04 ms for strings in an isolated test, and dominated drawer opening and activity-observer creation. | The drawer's mounts, each slot's activity observers and the compound thumb's observers use one identity token per object (`String(object)`). Each delegate reads its object once from a plain table that never notifies, so delegates rebuild exactly when they did and keep their object for life. |
+| `RenderModel.equal` serialised both sides even when they shared every member. | Same keys in the same order with identical values return early. Otherwise it serialises as before (key order still counts; covered in `tests/render.test.cjs`). |
+| Preferences diffed and deep-copied the config on every change while closed. | Return early while closed: opening already takes its own baseline. |
+
+Kept as they are:
+- **Layout copies.** `PluginApiSync` gives each plugin facade its own copy of
+  the layout (2–4 ms per drop), and that isolation is deliberate.
+- **The drawer's input region.** About 6 ms of an offscreen open, but required.
+- **Freezing Preferences' config while closed.** It saved 5 ms per settings
+  change, but read stale config against live groups and made the first open
+  slower.
+
+### Results
+
+Medians of three offscreen runs (Qt 6.11.2, software renderer, arm64) for the
+user's layout: 35 entries, 79 click targets, two groups. CPU is the
+Quickshell process's time during the scenario.
+
+| Scenario | Before | After |
+| --- | --- | --- |
+| Startup, bar created | 643 ms | 142 ms |
+| Startup CPU | 770 ms | 250 ms |
+| Drop commit, synchronous | 33 ms | 10–20 ms |
+| A widget changing value and opacity, 200 times | 2680 ms CPU | 490 ms CPU |
+| Group drawer open | 105 ms | 7 ms |
+| Drawer open and close, 40 times | 2330 ms CPU | 380 ms CPU |
+| Highlight flashes, 120 times | 540 ms CPU | 120 ms CPU |
+| Three pointer drag-and-drops, animated | 740 ms CPU | 400 ms CPU |
+| Pointer move during a drag | 0.30 ms | 0.33 ms (unchanged) |
+
+Run-to-run noise on a busy desktop is about ±30%, so the commit and
+Preferences timings are ranges. The model tests (111), QML tests (50), startup
+probe (5) and both plugin validators pass.
+
+### Drops on the live shell: config writes queue until the bar settles
+
+A live drop froze the bar for a visible moment. Timed in the running shell, and
+profiled by relaunching it with `quickshell --debug` and `qmlprofiler`,
+Powerbar's own work on a drop was 1–4 ms. Omarchy's `mutateShellConfig` was
+not: it re-registers every bar widget, and each registration runs
+`syncPluginApis`, which deep-copies the bar config for every plugin facade.
+With about 40 plugins that came to 42 syncs and 1,513 copies, about 370 ms. It
+happens twice per write, once for the write and again when Omarchy reloads the
+file it wrote. The bar stayed on its old layout for about 400 ms, then hitched
+again.
+
+Powerbar now shows every config edit at once and writes it once the bar has
+settled (`Bar.writeConfig`). Each edit is applied to the bar's own copy of its
+config, the way Omarchy applies a bar's edit (to a copy of the bar subtree),
+and queued. The queue is written as a single config change after 300 ms with
+no drag, settle glide or bar move.
+- **Plain values:** edits capture plain values when they are made. Slot state
+  has moved on by the time they run again on the host's config.
+- **Host updates:** a config arriving from the host while edits wait is shown
+  with the queued edits on top.
+- **Failure:** a failed write restores the host's config, and Preferences
+  reports it.
+- **Exception:** `ensureInstanceIds` still writes directly, because its edit
+  invents identifiers.
+
+Preferences also reads widget metadata from a cache refreshed once per
+registry burst. It used to rebuild its pages for each of the 40 registrations.
+
+The live shell, timing one drop and its restore:
+
+| | Before | After |
+| --- | --- | --- |
+| New layout on screen | about 400 ms, frozen on the old layout | 8 ms |
+| Shell blocked by the config sync | about 770 ms over two passes | one hitch of about 380 ms, 300 ms after the drop, on a bar already showing the result |
+
+The remaining hitch is Omarchy's per-registration `syncPluginApis`. Batching
+those registrations into one sync per config change, upstream, would remove most
+of it.
+
 ## Profiling gates still outstanding
 
 The running Omarchy shell was found with `qs list --all`. This sandbox denies

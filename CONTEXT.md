@@ -23,11 +23,23 @@ _Avoid_: Main island when referring to this temporary surface.
 How a zone's Managed widgets are reached: in the Managed drawer when the zone
 is hovered ("drawer", the default), or by an inline expansion ("inline").
 
+**On-demand run**:
+Wherever a zone's Managed widgets appear on the bar (an inline expansion, an
+activity reveal), they draw as one run at the zone's dots end, in their saved
+order: the left zone's end, the right zone's start, and in the centre on their
+side of the center anchor (left of it at the centre's start, right of it at its
+end). Always shown widgets never move to make room for them. The saved layout
+is not rewritten; Preferences splits the centre's On demand cell at the anchor.
+
 **Inline expansion**:
 In the inline display, a zone's Managed widgets wait behind its dots (shared
-with widgets folded for lack of room) and expand in the main island while the
-dots, then the zone, are hovered. It is a zone-fit moment: neighbours yield,
-nothing slides, and it falls back to the Managed drawer when it can't fit.
+with widgets folded for lack of room) and expand in the main island, as the
+zone's On-demand run, while the dots, then the zone, are hovered. Dots show
+only while something waits behind them. The centre has dots on each side of its
+anchor, and each side expands on its own. It is a zone-fit moment: neighbours yield.
+A neighbour whose anchor would have to yield hides whole, then the zone past it
+if needed; an expanding centre may slide back onto the bar. It falls back to
+the Managed drawer only when the expanded zone can't fit the bar line.
 
 **Activity reveal**:
 A temporary appearance of a managed widget in the main bar after a qualifying activity event or state change.
@@ -107,9 +119,10 @@ anchor opens its gap in the neighboring list so the anchored icon stays centered
 | Managed drawer | Group icon | Add group membership |
 | Group icon | Main island or another group icon | Move or reorder the group header |
 | Group icon | Open managed drawer or Managed target | Set group visibility to Managed |
-| Any icon | A zone's dots | Move the instance to that end of the zone, set Managed (On demand) |
+| Any icon | A zone's dots | Move the instance to the dots' end of its On-demand run (the centre: on that dots' side of the anchor), set Managed (On demand) |
 | Any icon | Resting 400 ms on a zone's dots | Open the zone: inline expansion or its drawer, by the on-demand display |
 | Any icon | Beside a widget an inline expansion shows | Move the instance there, set Managed |
+| Any icon | Any gap on the bar | Lands at the gap as drawn: it joins the run of its visibility on the gap's side, so the saved order follows the drawn order |
 | Any icon | Outside valid surfaces | Cancel without a config write |
 
 Only one extended drawer can be open at a time. Group icons and temporary

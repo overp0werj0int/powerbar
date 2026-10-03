@@ -43,11 +43,15 @@ bar** (`bar.powerbarOnDemand: "inline"`). The Managed visibility is labelled
 
 - **Dots.** A zone with hidden on-demand widgets keeps its handle at rest
   (`input.dots`), on the side the zone grows: the left zone's end, the right
-  zone's start, and for the centre the side of its anchor where most of its
-  hidden widgets are (`dots.center: "start" | "end"`; folds decide when the
-  centre has any). One handle per zone: its count is folded widgets plus hidden
-  on-demand ones. The solver reserves it in the lasting fit. Its length eases
-  (120 ms) and it fades, keeping its last count, so the island end never jumps.
+  zone's start, and the centre on each side of its anchor that has widgets
+  waiting (`dots.center: { start, end }`, `result.handles.center`: `"start"`,
+  `"end"` or `"both"`). A handle's count is the folded widgets plus the hidden
+  on-demand ones on its side (`result.centerFolded` splits the centre's folds
+  by side; without an anchor, folds taken from the start wait at the start).
+  The solver reserves it in the lasting fit. Its length eases (120 ms) and it
+  fades, keeping its last count, so the island end never jumps. (Until
+  3 October 2026 the centre had one handle, on the side with more hidden
+  widgets.)
 - **Concurrent moments.** `input.transient` is a list, highest priority first:
   drag gap, the indicators' held reveal, activity reveals (one per zone), and
   last the inline expansion. Nothing slides; every neighbour yields to every
@@ -97,6 +101,53 @@ bar** (`bar.powerbarOnDemand: "inline"`). The Managed visibility is labelled
   the gap, on whole pixels. In Equal gaps a cell can be longer than the slot it
   lands in, and the gap's clipping slot cut the border on that side.
 
+## On-demand widgets draw at their dots (3 October 2026)
+
+An on-demand widget used to appear at its saved place, often mid-zone, so the
+always-shown widgets past it moved aside while the dots sat at the zone's end.
+Now a zone's on-demand widgets draw as one run at the dots' end, in their saved
+order (`ZoneOrderModel.arrange`, applied in `reconcileWidgets`): the left zone
+and the centre after its anchor end with them, the right zone and the centre
+before its anchor start with them. An expansion, an activity reveal or a drop
+preview only ever adds widgets between the shown ones and the dots, so shown
+widgets never move. The same holds in drawer mode for activity reveals.
+
+- **Centre sides.** The centre keeps each on-demand widget on its side of the
+  anchor (its saved position), with dots on each side that has any. Each side
+  expands on its own: inline requests are tokens, `"left"`, `"right"`,
+  `"center:start"`, `"center:end"` (`slot.inlineToken`), and the moment carries
+  `side`, so only that side's widgets and folds return. An anchorless centre
+  draws its run at its end.
+- **The indicators' reveal stays closed for a centre side.** Hovering the
+  centre opens Omarchy's indicators reveal, held until the pointer leaves the
+  bar, and the indicators sit before the anchor: hovering the end's dots grew
+  both sides (seen live). While a centre side is asked for or expanded
+  (`barWindow.centerInlineBusy`, counted in `root.centerRevealBlocks`), the
+  centre hover doesn't open the reveal and a held one closes; the reveal opens
+  after the hover event, so entering the centre on its dots never flashes it.
+- **A click only reaches the clicked widget** (found live, present on master).
+  Hidden widgets keep their content at full size and opacity inside a
+  zero-width slot, and Qt's positioners don't move zero-size items, so that
+  content sits wherever the slot last was, often a list's start. The click
+  hit test scanned every target on the bar, so clicking Keystroke opened Agent
+  Activity (a hidden group member at x 5). `moduleClickTargetAt` now considers
+  only the clicked slot's own targets (and ones not yet tied to a slot). An
+  offscreen census over the user's layout found six such steals at rest on
+  master and none now.
+- **The saved layout is not rewritten.** Only the drawing differs, so a drop
+  is read in drawn order: `Bar.barDropBefore` builds the zone as drawn and
+  `ZoneOrderModel.dropBefore` returns the saved entry to insert before, so the
+  widget joins the run of its visibility at the gap (fuzzed in
+  `tests/zone-order.test.cjs`). Beside an expanded widget it lands On demand,
+  as before; past the last widget before the anchor it lands before the anchor.
+- **Preferences.** With a centre anchor, the centre's On demand cell splits
+  into "Left of center" and "Right of center" (`PreferencesModel.columns`); the
+  keyboard walks the row as four columns, and a drop into a half lands on that
+  side of the anchor.
+- **Checked offscreen** with the user's layout (`bench.py`'s inline scenario
+  logs the drawn order): expanding the right zone or the centre's start shows
+  the run beside the dots while every shown widget keeps its x.
+
 ## The rule in one paragraph
 
 Zones are laid out on one line per bar window, keeping the zone gap
@@ -110,10 +161,32 @@ Zones are laid out on one line per bar window, keeping the zone gap
   growing zone yield, which means they fade to 0 and keep their space.
 - **Anchors** never fold or yield: the centre anchor, the left zone's first
   widget, and the preferences button.
+- **Inline expansions hide whole zones** (3 October 2026). An inline expansion
+  (`unfold`) whose neighbour would need its anchor to yield hides that whole
+  neighbour instead (`result.hidden`): every slot yields, its handle too, and
+  its island fades out with no marker. The zone past it then gives way in turn
+  (yields, or hides whole). An expanding centre that would run off the bar
+  slides back onto it by the least distance. Other moments keep the anchor
+  rule. A hidden centre stops answering hover, so the pointer crossing the
+  expansion can't start the indicators' reveal.
+- **The pointer over an expansion** (3 October 2026, found live). Qt delivers
+  hover to disabled items, so dots and widgets that gave way still heard the
+  pointer: moving along an expanded centre reached the top zone's yielded dots,
+  which opened that zone and collapsed the centre. Now the expanding zone is
+  raised over the zones it hides or yields, yielded dots and a hidden
+  preferences button stop accepting hover, and widgets not shown on the bar
+  start no tooltips. The bar-move gesture area sits beneath every zone (no
+  longer inside the centre), so raising the centre covers no other widget.
+- **An open drawer follows its icon** (3 October 2026, found live). A drawer
+  placed itself from its group icon's own x and size, so when the zone moved
+  (it grew, slid or yielded) the drawer stayed where the icon had been. It now
+  follows the icon's and the island's whole ancestor chain (GeometryObserver).
 - **Drawer fallback.** A moment opens in its zone's drawer instead of the bar
   when any of these holds:
-  - it would need an anchor to yield;
-  - it doesn't fit on the screen;
+  - it would need an anchor to yield (not an inline expansion, which hides the
+    zone instead);
+  - it doesn't fit on the screen (for an inline expansion: the expanded zone is
+    longer than the bar line);
   - its widget is folded.
 
 ## What the current code does (b3383c2)
@@ -158,6 +231,7 @@ fit({
   folded: { left: [keys], center: [keys], right: [keys] },
   handles: { left: "end"|null, center: "start"|"end"|null, right: "start"|null },
   yielded: [keys],
+  hidden: { left, center, right },   // moments: zones an inline expansion hides whole
   fallback: null | { zone, reason: "anchor"|"screen"|"folded" }
 }
 ```

@@ -2,13 +2,39 @@ import QtQuick
 
 // Follow layout and scroll notifications, including changes in the ancestor
 // chain. One deferred notification covers all geometry signals in a layout pass.
+// The chain's signals are connected directly: a rebuild connects only the
+// items that joined the chain, instead of re-creating a watcher per ancestor.
 Item {
   id: observer
   property Item target: null
   property Item host: null
   property var chain: []
+  readonly property var geometrySignals: ["xChanged", "yChanged", "visibleChanged", "widthChanged", "heightChanged",
+    "scaleChanged", "xScaleChanged", "yScaleChanged", "angleChanged", "originChanged", "rotationChanged",
+    "contentXChanged", "contentYChanged"]
   signal changed()
   visible: false
+  function attach(item) {
+    try {
+      for (var name of geometrySignals) {
+        var signal = item[name]
+        if (signal && typeof signal.connect === "function") signal.connect(observer.schedule)
+      }
+      if (item.parentChanged && typeof item.parentChanged.connect === "function") item.parentChanged.connect(observer.rebuild)
+    } catch (e) {
+    }
+  }
+  // A destroyed item has already dropped its connections.
+  function detach(item) {
+    try {
+      for (var name of geometrySignals) {
+        var signal = item[name]
+        if (signal && typeof signal.disconnect === "function") signal.disconnect(observer.schedule)
+      }
+      if (item.parentChanged && typeof item.parentChanged.disconnect === "function") item.parentChanged.disconnect(observer.rebuild)
+    } catch (e) {
+    }
+  }
   function rebuild() {
     var next = []
     function ancestors(start) {
@@ -19,6 +45,9 @@ Item {
       }
     }
     if (target) { ancestors(target); ancestors(host) }
+    var previous = chain
+    for (var old of previous) if (next.indexOf(old) < 0) detach(old)
+    for (var item of next) if (previous.indexOf(item) < 0) attach(item)
     chain = next
     schedule()
   }
@@ -27,28 +56,8 @@ Item {
   onTargetChanged: rebuild()
   onHostChanged: rebuild()
   Component.onCompleted: rebuild()
-  Repeater {
-    model: observer.chain
-    Item {
-      required property var modelData
-      Connections {
-        target: modelData
-        ignoreUnknownSignals: true
-        function onXChanged() { observer.schedule() }
-        function onYChanged() { observer.schedule() }
-        function onVisibleChanged() { observer.schedule() }
-        function onWidthChanged() { observer.schedule() }
-        function onHeightChanged() { observer.schedule() }
-        function onScaleChanged() { observer.schedule() }
-        function onXScaleChanged() { observer.schedule() }
-        function onYScaleChanged() { observer.schedule() }
-        function onAngleChanged() { observer.schedule() }
-        function onOriginChanged() { observer.schedule() }
-        function onRotationChanged() { observer.schedule() }
-        function onContentXChanged() { observer.schedule() }
-        function onContentYChanged() { observer.schedule() }
-        function onParentChanged() { observer.rebuild() }
-      }
-    }
+  Component.onDestruction: {
+    for (var item of chain) detach(item)
+    chain = []
   }
 }

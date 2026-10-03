@@ -30,7 +30,21 @@ Item {
   property var previousCaptureConfig: ({})
   readonly property string wallpaper: bar ? "file://" + bar.stateHome + "/omarchy/current/background?v=" + openSerial : ""
   readonly property var config: bar ? bar.barConfig : ({})
-  readonly property var entries: Model.records(config.layout, function(id) { return bar.barWidgetRegistry.metadataFor(id) })
+  // Widget metadata, refreshed once after the registry changes. Omarchy
+  // re-registers every bar widget, one at a time, on each config write; read
+  // directly, every registration rebuilt every page's models.
+  property var registryMetadata: ({})
+  function refreshRegistryMetadata() {
+    var registry = bar ? bar.barWidgetRegistry : null
+    var widgets = registry && registry.widgets || {}
+    var next = {}
+    for (var id in widgets) next[id] = registry.metadataFor(id)
+    if (!RenderModel.equal(next, registryMetadata)) registryMetadata = next
+  }
+  function metadataFor(id) { return registryMetadata[String(id)] || null }
+  onBarChanged: refreshRegistryMetadata()
+  Component.onCompleted: refreshRegistryMetadata()
+  readonly property var entries: Model.records(config.layout, function(id) { return prefs.metadataFor(id) })
   readonly property var layoutEntries: {
     var result = entries.filter(function(e) { return !bar.groupFor(e.instanceKey) })
     bar.groups.forEach(function(g) {
@@ -99,7 +113,7 @@ Item {
   function title(record) {
     if (record.groupId) return record.label
     if (record.label) return record.label
-    var metadata = bar.barWidgetRegistry.metadataFor(record.id)
+    var metadata = metadataFor(record.id)
     return metadata && (metadata.displayName || metadata.name) || String(record.id).split('.').pop()
   }
   // Saved widget images on disk, listed once per opening.
@@ -119,9 +133,11 @@ Item {
   }
   function iconFont(record) { return Groups.iconFont(icon(record)) || Style.font.family }
   function icon(record) { return record.groupId ? record.icon : Model.icon(String(record.id || "")) }
+  // Edits show on the bar at once and are written once it settles
+  // (Bar.writeConfig); a write that fails later is reported here.
   function setOption(key, value) {
     if (!bar || !bar.shell) return
-    var result = bar.shell.mutateShellConfig(function(config) {
+    var result = bar.writeConfig(function(config) {
       if (!config.bar) config.bar = {}
       config.bar[key] = value
     })
@@ -129,16 +145,21 @@ Item {
   }
   function setBarStyle(value) {
     if (!bar || !bar.shell) return
-    var result = bar.shell.mutateShellConfig(function(config) { BarModel.setBarStyle(config, value) })
+    var result = bar.writeConfig(function(config) { BarModel.setBarStyle(config, value) })
     status = result === false ? "Could not save. Check that shell.json is writable." : ""
   }
   function resetOptions(operation) {
-    if (bar && bar.shell) bar.shell.mutateShellConfig(function(config) { if (config.bar) operation(config.bar) })
+    if (bar && bar.shell) bar.writeConfig(function(config) { if (config.bar) operation(config.bar) })
+  }
+  Connections {
+    target: prefs.bar
+    ignoreUnknownSignals: true
+    function onConfigWriteFailed() { prefs.status = "Could not save. Check that shell.json is writable." }
   }
   function move(record, section, mode, before) {
     if (!record || !bar || !bar.shell) return
     var changed = false
-    var accepted = bar.shell.mutateShellConfig(function(config) {
+    var accepted = bar.writeConfig(function(config) {
       if (record.groupId) {
         var anchor = (config.bar.layout[section] || [])[Math.ceil(before)]
         changed = Groups.edit(config, record.groupId, { section: section, visibility: mode,
@@ -166,10 +187,12 @@ Item {
   Connections {
     target: prefs.bar
     function onBarConfigChanged() {
+      // Opening takes its own baseline, so a closed window has nothing to track.
+      if (!prefs.opened) return
       var next = JSON.parse(JSON.stringify(prefs.config))
       var keys = RenderModel.captureDelta(prefs.previousCaptureConfig, next)
       prefs.previousCaptureConfig = next
-      if (!prefs.opened || (keys && !keys.length)) return
+      if (keys && !keys.length) return
       if (keys === null || prefs.pendingCaptureKeys === null) prefs.pendingCaptureKeys = null
       else prefs.pendingCaptureKeys = Array.from(new Set(prefs.pendingCaptureKeys.concat(keys)))
       snapshotDelay.restart()
@@ -184,9 +207,18 @@ Item {
   }
 
   Connections {
+    target: prefs.bar
+    ignoreUnknownSignals: true
+    function onBarWidgetRegistryChanged() { Qt.callLater(prefs.refreshRegistryMetadata) }
+  }
+  Connections {
     target: prefs.bar ? prefs.bar.barWidgetRegistry : null
     ignoreUnknownSignals: true
-    function onRevisionChanged() { if (prefs.opened) { prefs.pendingCaptureKeys = null; snapshotDelay.restart() } }
+    function onWidgetsChanged() { Qt.callLater(prefs.refreshRegistryMetadata) }
+    function onRevisionChanged() {
+      Qt.callLater(prefs.refreshRegistryMetadata)
+      if (prefs.opened) { prefs.pendingCaptureKeys = null; snapshotDelay.restart() }
+    }
   }
 
   PanelWindow {

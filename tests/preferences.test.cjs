@@ -138,3 +138,40 @@ test('showing a hidden widget again returns it to the row it left', () => {
   assert.equal(model.toggledHidden('hidden'), 'shown');
   assert.equal(model.toggledHidden('hidden', 'hidden'), 'shown');
 });
+test('the centre On demand cell splits at the anchor into two columns', () => {
+  const entries = [
+    { instanceKey: 'm1', section: 'center', mode: 'managed', index: 0 },
+    { instanceKey: 's1', section: 'center', mode: 'shown', index: 1 },
+    { instanceKey: 'g', groupId: 'g', section: 'center', mode: 'managed', index: 2 },
+    { instanceKey: 'clock', section: 'center', mode: 'shown', index: 2 },
+    { instanceKey: 'm2', section: 'center', mode: 'managed', index: 3 },
+    { instanceKey: 'l', section: 'left', mode: 'managed', index: 0 }
+  ];
+  const anchor = 2;
+  const keys = (column, mode) => model.cell(entries, column, mode, '', anchor).map(e => e.instanceKey);
+  assert.deepEqual([...model.columns('managed', true)], ['left', 'center:start', 'center:end', 'right']);
+  assert.deepEqual([...model.columns('shown', true)], ['left', 'center', 'right']);
+  assert.deepEqual([...model.columns('managed', false)], ['left', 'center', 'right']);
+  // A group anchored on the clock sits just before it.
+  assert.deepEqual(keys('center:start', 'managed'), ['m1', 'g']);
+  assert.deepEqual(keys('center:end', 'managed'), ['m2']);
+  assert.deepEqual(keys('center', 'shown'), ['s1', 'clock']);
+  // Past the last item before the anchor, a drop goes before the anchor.
+  assert.equal(model.dropBefore(model.cell(entries, 'center:start', 'managed', 'm1', anchor), 1, 'center:start', anchor), anchor);
+  assert.equal(model.dropBefore(model.cell(entries, 'center:end', 'managed', '', anchor), 1, 'center:end', anchor), -1);
+  assert.equal(model.sectionOf('center:end'), 'center');
+  // The cursor walks the split row as four columns and maps across rows.
+  const columnsFor = mode => model.columns(mode, true);
+  const count = (column, mode) => model.cell(entries, column, mode, '', anchor).length;
+  assert.deepEqual({ ...model.stepCursor(count, { section: 'left', mode: 'managed', pos: 0 }, 1, 0, columnsFor) }, { section: 'center:start', mode: 'managed', pos: 0 });
+  assert.deepEqual({ ...model.stepCursor(count, { section: 'center:start', mode: 'managed', pos: 1 }, 1, 0, columnsFor) }, { section: 'center:end', mode: 'managed', pos: 0 });
+  assert.deepEqual({ ...model.stepCursor(count, { section: 'center:end', mode: 'managed', pos: 0 }, 0, -1, columnsFor) }, { section: 'center', mode: 'shown', pos: 0 });
+  assert.deepEqual({ ...model.stepCursor(count, { section: 'center', mode: 'shown', pos: 0 }, 0, 1, columnsFor) }, { section: 'center:start', mode: 'managed', pos: 0 });
+  assert.deepEqual({ ...model.stepLift(count, { section: 'center:start', mode: 'managed', pos: 2 }, 1, 0, columnsFor) }, { section: 'center:end', mode: 'managed', pos: 0 });
+  // Moving into a half places the widget on that side of the anchor.
+  const config = { bar: { layout: { left: [], right: [], center: [
+    { id: 'm1', powerbarVisibility: 'managed' }, { id: 's1' }, { id: 'clock' }, { id: 'm2', powerbarVisibility: 'managed' }] } } };
+  const recs = model.records(config.bar.layout);
+  assert.equal(model.move(config, recs[3], 'center', 'managed', model.dropBefore([recs[0]], 1, 'center:start', 2)), true);
+  assert.deepEqual(config.bar.layout.center.map(model.id), ['m1', 's1', 'm2', 'clock']);
+});
