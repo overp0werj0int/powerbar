@@ -6,6 +6,7 @@ import qs.Ui
 import "ManagedModel.js" as Model
 import "DragModel.js" as DragModel
 import "CellModel.js" as CellModel
+import "RenderModel.js" as RenderModel
 
 // Lives in the bar's window: widgets keep the same QsWindow and popup anchors.
 Item {
@@ -18,7 +19,12 @@ Item {
   property real reveal: 0
   property int transitionEpoch: 0
   property real closingLength: thickness
-  readonly property bool presenting: opened || reveal > 0.001
+  // A drag that started on one of the drawer's rows is driven by a handler on
+  // that row. While it runs, the drawer keeps presenting and keeps its rows,
+  // whatever closes it or changes its members; destroying that row would
+  // leave the drag without its release (the bar stuck mid-drag).
+  property Item dragMount: null
+  readonly property bool presenting: opened || reveal > 0.001 || !!dragMount
   onPresentingChanged: if (!presenting && bar.managedOwner === drawer) bar.managedOwner = null
   Behavior on reveal {
     enabled: bar.animationsEnabled && !drawer.instantClose && !drawer.replaying
@@ -105,10 +111,40 @@ Item {
   // rebuilds exactly when the members change; each mount reads its member
   // from this plain table, which never notifies.
   readonly property var mounted: ({ list: [] })
-  readonly property var mountTokens: {
+  property var mountTokens: []
+  function refreshMounts() {
+    if (dragMount) return
     var list = slots
     mounted.list = list
-    return list.map(function(slot) { return String(slot) })
+    var tokens = list.map(function(slot) { return String(slot) })
+    if (!RenderModel.equal(tokens, mountTokens)) mountTokens = tokens
+  }
+  onDragMountChanged: refreshMounts()
+  function releaseDrag(mount) { if (dragMount === mount) dragMount = null }
+  // Where a released widget's image lands in an open gap here, as the bar
+  // predicts its own: the centre of the widget's look in the cell or row that
+  // will take the gap. mount: the member whose gap it is, or null for the end
+  // gap. Returns { item, local } for the settle glide.
+  function landingPoint(source, mount) {
+    var item = mount || endGap
+    var along = drawer.stripVertical
+    var start = !mount ? (namedMenu ? padding : 0)
+      : mount.preview.before ? 0 : (along ? mount.baseHeight : mount.baseWidth) + (namedMenu ? padding : 0)
+    if (namedMenu) {
+      if (bar.barDragImageLabelled || memberDisplay === "name")
+        return { item: item, local: { x: menuRowWidth / 2, y: start + tokens.thickness / 2 } }
+      var ink = menuInk(source), value = menuValueWidth(source)
+      var ox = menuIcons && menuGlyph(source) ? tokens.cell / 2 - (ink.start + ink.length / 2)
+        : value > 0 ? menuRowWidth - tokens.air - (ink.start + ink.length) : 0
+      return { item: item, local: { x: ox + source.naturalWidth / 2, y: start + (tokens.thickness - source.naturalHeight) / 2 + source.naturalHeight / 2 } }
+    }
+    // A strip cell: the image is the widget (from the bar) or its whole cell
+    // (from a drawer), centred on the cell either way.
+    var extent = source.landingExtent > 0 ? source.landingExtent : (along ? bar.dragGapHeight : bar.dragGapWidth)
+    var centre = bar.barDragImageFromCell ? start + extent / 2
+      : start + source.inkShift + (along ? source.naturalHeight : source.naturalWidth) / 2
+    var cross = (along ? item.width : item.height) / 2
+    return { item: item, local: along ? { x: cross, y: centre } : { x: centre, y: cross } }
   }
   readonly property bool interactionHeld: keyboardMode || bar.dragMotionActive || slots.some(function(slot) { return slot.panelOpen })
   // Menu padding, and the pitch a drag opens between rows.
@@ -284,7 +320,11 @@ Item {
     scheduleDismissal()
   }
   onInteractionHeldChanged: scheduleDismissal()
-  onSlotsChanged: if (opened && slots.length === 0) close()
+  onSlotsChanged: {
+    refreshMounts()
+    if (opened && slots.length === 0) close()
+  }
+  Component.onCompleted: refreshMounts()
   Component.onDestruction: if (bar.managedOwner === drawer) bar.managedOwner = null
   Timer { id: dismissal; repeat: false; onTriggered: drawer.close("timeout") }
 
@@ -398,13 +438,41 @@ Item {
               : baseHeight + (drawer.stripVertical && (preview.before || preview.after) ? dragGap : 0)
             targetInsetX: !drawer.stripVertical && preview.before ? dragGap : 0
             targetInsetY: drawer.stripVertical && preview.before ? dragGap : 0
-            motionEnabled: bar.animationsEnabled && drawer.opened && !drawer.replaying
+            // The commit swaps a gap for the row that takes it in one frame, as on the bar.
+            motionEnabled: bar.animationsEnabled && drawer.opened && !drawer.replaying && !bar.dragHandover
             motionDuration: bar.dragMotionActive ? bar.dragMotionDuration : 120
             motionEasing: bar.dragMotionActive ? bar.dragMotionEasing : Easing.OutCubic
             motionOvershoot: 0
             opacity: preview.hidden || (modelData && modelData.settleHidden) ? 0 : 1
+            readonly property var hostDrawer: drawer
+            // The landing spot in this member's gap, outlined as on the bar: a
+            // cell in a strip, a row in a menu.
+            DropOutline {
+              readonly property real lengthAlong: drawer.stripVertical ? mount.height : mount.width
+              readonly property real insetAlong: drawer.stripVertical ? mount.animatedInsetY : mount.animatedInsetX
+              readonly property real base: drawer.stripVertical ? mount.baseHeight : mount.baseWidth
+              readonly property bool open: drawer.opened && !mount.preview.hidden && (mount.preview.before || mount.preview.after)
+              bar: drawer.bar
+              vertical: drawer.stripVertical
+              gapStart: mount.preview.before ? 0 : base
+              gapLength: !open ? 0 : mount.preview.before ? insetAlong : Math.max(0, lengthAlong - base)
+              fullGap: mount.dragGap
+              landingOffset: drawer.namedMenu ? (mount.preview.before ? 0 : drawer.padding) : -1
+              cellAlong: drawer.namedMenu ? drawer.tokens.thickness : (drawer.bar.barDragSource ? drawer.bar.barDragSource.cellLength : drawer.tokens.cell)
+              cellAcross: drawer.namedMenu ? drawer.menuRowWidth : drawer.tokens.thickness
+              ink: drawer.namedMenu ? Color.menu.text : drawer.bar.barForeground
+              z: 3
+            }
             Component.onCompleted: if (modelData) modelData.drawerHost = mount
-            Component.onDestruction: if (modelData && modelData.drawerHost === mount) modelData.drawerHost = null
+            Component.onDestruction: {
+              if (modelData && modelData.drawerHost === mount) modelData.drawerHost = null
+              // The row driving a drag can't report its release any more: end
+              // the drag rather than leave the bar stuck in it.
+              if (drawer.dragMount === mount) {
+                drawer.dragMount = null
+                if (modelData && bar.barDragSource === modelData) bar.clearBarDrag()
+              }
+            }
             HoverHandler {
               id: memberHover
               enabled: drawer.opened && !bar.barDragSource
@@ -457,6 +525,16 @@ Item {
               width: Math.max(0, drawer.menuRowWidth - mount.labelStart - drawer.tokens.air
                 - (mount.valueWidth > 0 ? mount.valueWidth + drawer.tokens.air : 0))
               elide: Text.ElideRight
+            }
+            // A menu row takes the pointer whole: a drag anywhere on it moves
+            // the member and a click activates it. Above the widget, whose own
+            // area took presses for itself, so a value widget (the battery)
+            // could only be dragged by its name.
+            Item {
+              id: rowPointer
+              anchors.fill: parent
+              visible: mount.labelled
+              z: 10
               DragHandler {
                 target: null
                 enabled: mount.labelled
@@ -466,11 +544,15 @@ Item {
                 onActiveChanged: {
                   if (active) {
                     lastScene = centroid.scenePosition
-                    bar.beginIconDrag(modelData, hostWindow, lastScene,
-                      (label.x + centroid.position.x) * bar.barScale,
-                      (label.y + centroid.position.y) * bar.barScale)
-                  } else if (bar.barDragSource === modelData) {
-                    bar.finishIconDrag(lastScene, modelData)
+                    // Hold first: starting a drag can commit the previous
+                    // drop, which may close this drawer.
+                    drawer.dragMount = mount
+                    if (!bar.beginIconDrag(modelData, hostWindow, lastScene,
+                        centroid.position.x * bar.barScale,
+                        centroid.position.y * bar.barScale)) drawer.releaseDrag(mount)
+                  } else {
+                    if (bar.barDragSource === modelData) bar.finishIconDrag(lastScene, modelData)
+                    drawer.releaseDrag(mount)
                   }
                 }
               }
@@ -504,7 +586,17 @@ Item {
         y: drawer.stripVertical ? contents.height : 0
         targetWidth: drawer.stripVertical ? drawer.thickness : gap ? bar.dragGapWidth : 0
         targetHeight: drawer.stripVertical ? (gap ? (drawer.namedMenu ? drawer.rowPitch : bar.dragGapHeight) : 0) : drawer.thickness
-        motionEnabled: bar.animationsEnabled && drawer.opened && !drawer.replaying
+        motionEnabled: bar.animationsEnabled && drawer.opened && !drawer.replaying && !bar.dragHandover
+        DropOutline {
+          bar: drawer.bar
+          vertical: drawer.stripVertical
+          gapLength: drawer.stripVertical ? parent.height : parent.width
+          fullGap: drawer.namedMenu ? drawer.rowPitch : drawer.stripVertical ? drawer.bar.dragGapHeight : drawer.bar.dragGapWidth
+          landingOffset: drawer.namedMenu ? drawer.padding : -1
+          cellAlong: drawer.namedMenu ? drawer.tokens.thickness : (drawer.bar.barDragSource ? drawer.bar.barDragSource.cellLength : drawer.tokens.cell)
+          cellAcross: drawer.namedMenu ? drawer.menuRowWidth : drawer.tokens.thickness
+          ink: drawer.namedMenu ? Color.menu.text : drawer.bar.barForeground
+        }
         motionDuration: bar.dragMotionDuration
         motionEasing: bar.dragMotionEasing
         motionOvershoot: 0

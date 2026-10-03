@@ -72,3 +72,31 @@ test('fuzz: 5000 drops land where the gap opened', () => {
     assert.deepEqual(peers(now.slice(0, at)), peers(rest.slice(0, gap)), label);
   }
 });
+
+test('a gap lands On demand only inside the expansion run', () => {
+  const item = (key, list, expanded) => ({ key, list, managed: expanded, expanded });
+  // Left zone, expanded: [K W A | e* s*] dots at the end.
+  const left = [item('K', 'left'), item('W', 'left'), item('A', 'left'), item('e', 'left', true), item('s', 'left', true)];
+  assert.equal(order.landsOnDemand(left, 2), false, 'between shown widgets');
+  assert.equal(order.landsOnDemand(left, 3), false, 'where the shown run meets the expansion');
+  assert.equal(order.landsOnDemand(left, 4), true, 'between expanded widgets');
+  assert.equal(order.landsOnDemand(left, 5), true, 'between the last expanded widget and the dots');
+  assert.equal(order.landsOnDemand(left, 0), false, 'at the zone start');
+  // Right zone: [dots | m1* m2* | S1 S2].
+  const right = [item('m1', 'right', true), item('m2', 'right', true), item('S1', 'right'), item('S2', 'right')];
+  assert.equal(order.landsOnDemand(right, 0), true, 'between the dots and the first expanded widget');
+  assert.equal(order.landsOnDemand(right, 2), false, 'where the expansion meets the shown run');
+  assert.equal(order.landsOnDemand(right, 4), false, 'at the zone end');
+  // Centre, start side expanded: [m* | B | anchor | F].
+  const centre = [item('m', 'before', true), item('B', 'before'), item('A', 'anchor'), item('F', 'after')];
+  assert.equal(order.landsOnDemand(centre, 0), true, 'before the first expanded widget, at the start dots');
+  assert.equal(order.landsOnDemand(centre, 1), false, 'where the expansion meets the shown run');
+  assert.equal(order.landsOnDemand(centre, 4), false, 'at the end with nothing expanded');
+  // Hidden widgets (group members waiting in the run) are not neighbours.
+  const withHidden = [item('K', 'left'), item('A', 'left'), item('e', 'left', true), { key: 'h1', list: 'left', managed: true, hidden: true }, { key: 'h2', list: 'left', managed: true, hidden: true }];
+  assert.equal(order.landsOnDemand(withHidden, 3), true, 'after the last expanded widget, past hidden members');
+  assert.equal(order.landsOnDemand(withHidden, 5), true, 'at the dots end past hidden members');
+  assert.equal(order.landsOnDemand(withHidden, 2), false, 'where the shown run meets the expansion');
+  // Nothing expanded: never On demand.
+  assert.equal(order.landsOnDemand([item('K', 'left'), item('W', 'left')], 2), false);
+});

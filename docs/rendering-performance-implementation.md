@@ -233,6 +233,42 @@ The remaining hitch is Omarchy's per-registration `syncPluginApis`. Batching
 those registrations into one sync per config change, upstream, would remove most
 of it.
 
+### A drop no longer makes the island swell (3 October 2026, found live)
+
+After a drop the bar wobbled: the island grew by a few pixels and shrank back.
+The commit clears the drag source before the released icon has settled, and the
+drop gap's width came from the source (`dragLandingExtent`), so it fell back to
+the generic gap (the image plus a gutter, 41 px for a 25 px glyph). The settling
+slot keeps the gap's width (`settleExtraWidth`), so it grew towards 41 px, then
+eased back to 25 px once the settle ended. The settle now keeps the landing size
+(`barDragSettleLanding`). Recorded per frame offscreen (an emulated Omarchy
+write and reload included): within a zone, across zones and into the centre,
+every island keeps its exact geometry from release to settle, and the old gap
+and the new slot hand over on the same curve, so no icon moves.
+
+### The dropped icon lands in its gap, in one frame (3 October 2026, found live)
+
+After a drop the icon sometimes slid in from the right once more. Two causes:
+
+- **The release recomputed the drop.** The preview shows the drop computed at
+  the last pointer move, but `finishIconDrag` hit-tested again at release,
+  against a layout the open gap had already shifted. The icon glided into the
+  gap it saw, was committed beside it, and slid there (seen offscreen: the gap
+  opened after the AI group, the commit put Workspaces after Scratchpeek, and
+  the group was not re-anchored). The release now commits the shown drop
+  (`barDragDrop`) and computes one only if none is shown.
+- **A gap that trails an icon** (after a group icon, say) is the end of that
+  icon's slot. Easing it out while the new slot eased in moved the new slot's
+  left edge, so the icon slid while its slot grew. The gap and the slot are the
+  same length at the same spot, so the commit now swaps them in one frame
+  (`dragHandover` turns slot and end-gap motion off for that frame). A
+  cancelled drag still eases its source back.
+
+Recorded per frame offscreen for drops within a zone, across zones, after a
+group icon and beside the centre anchor: every island and every visible icon
+keeps its place from release to settle; the saved layouts of the drag
+scenario are unchanged.
+
 ## Profiling gates still outstanding
 
 The running Omarchy shell was found with `qs list --all`. This sandbox denies
@@ -259,3 +295,78 @@ The following plan choices require the live measurements specified in stage 0:
 
 The plan makes these changes conditional on equivalent visuals and a measured
 benefit. They remain gated instead of claiming an unverified maximum speedup.
+
+### A drag from a drawer can't get stuck (3 October 2026, found live)
+
+The bar froze mid-drag: the dragged image stayed on screen and every drag
+target stayed up. A drag that starts on a drawer row is driven by a handler on
+that row, and the row was destroyed mid-drag, so the release never arrived.
+Three things closed or rebuilt the drawer under the drag: a zone's inline
+expansion opening (it closes the open drawer), a group edit (`editGroups`
+closed the drawer first), and starting a drag while the previous drop was still
+settling (that commits the previous drop, which can be a group edit). The
+drawer's rows are a plain array model, so any member change rebuilds them all.
+
+Now the drawer holds the row a drag started on (`ManagedDrawer.dragMount`): it
+keeps presenting and keeps its rows until the drag ends, whatever closes it or
+changes its members, and an inline expansion leaves it open. If that row is
+destroyed anyway, the drag is cancelled rather than left running. A drop into
+an open group drawer no longer closes it (`editGroups(..., keepDrawer)`), so
+the group stays under the pointer.
+
+The small Managed targets (round dots under each zone during a drag) are gone:
+the zones' dots are the drop target for On demand.
+
+### Dragging in and out of groups (3 October 2026, found live)
+
+Checked with live logs of a real session (presses, drag starts, the drawer's
+state and the input grab), then offscreen:
+
+- **Drops into a menu landed a row late.** The landing point follows the dragged
+  widget's ink centre, which is measured along the bar; in a menu below a
+  horizontal bar it was added to the vertical position, about a row's worth.
+  The ink now applies only to a surface along the bar.
+- **A value widget couldn't be dragged out of a menu.** A menu row's drag and
+  click lived on its name; the rest of the row is the widget itself (the
+  battery's "100%"), whose own area took the press. The whole row now takes
+  the drag and the click, above the widget.
+- **The next click didn't focus anything.** A group opened by a click holds
+  the keyboard and dismisses on an outside click, which that click spends.
+  Kept open after a drop, it swallowed the click meant for another window. A
+  pointer drag now ends the drawer's keyboard mode: it closes on hover like
+  any other.
+- **The dragged name showed twice.** From a menu the drag image was the whole
+  row, name included, and the ghost adds the name. A row that shows the
+  widget now gives just the widget, and it lands on the widget's spot.
+- **A widget made On demand couldn't easily come back.** With a zone expanded,
+  the gap where the shown widgets meet the expansion looked the same either
+  way, but its result depended on the nearer neighbour: beside the expanded
+  widget it landed On demand. Now that gap lands shown; a drop lands On demand
+  only inside the expansion's run, or at the dots (`ZoneOrderModel.landsOnDemand`,
+  hidden widgets skipped as neighbours). A gap right after a group icon of the
+  same run takes the group's place, so the widget lands after the group as
+  drawn, not before it.
+
+### One drag behaviour on every surface (3 October 2026)
+
+The bar, zone drawers (extended islands), icon-strip groups and menu groups
+shared the drop resolution (`moduleDropAtScene`, `DragModel`, the dead zone)
+but each drew and committed drops its own way. Audited side by side:
+
+| | Bar | Drawers before | Now |
+| --- | --- | --- | --- |
+| Landing outline in the gap | yes, zone ends too | none | `DropOutline.qml` everywhere: a cell in strips, a row in menus, the drawer's end gap too |
+| Release | glide into the gap, then commit | commit, then glide to the new row | glide, then commit (`ManagedDrawer.landingPoint`) |
+| Gap to row handover | one frame | gap and row eased separately | one frame (`dragHandover`) |
+| After the drop | — | zone drawers closed (structural edit); groups stayed | every drawer stays under the pointer (`keepDrawerThroughEdit`), leaving on the exit grace |
+| Drag image | the widget | menus: name box with a 2 px accent border | name box bordered like the outline (1 px, 45 % of the text colour, highlight radius) |
+
+Recorded per frame offscreen: drops into the Audio menu, the AI strip and a
+zone drawer show the outline while dragging, glide, swap the gap for the new
+row in one frame without moving any row, and leave the drawer open. The drag
+scenario's saved layouts are unchanged.
+- **A group icon has no place in a group drawer.** Groups don't nest, and the
+  drop was already refused on release, but the drawer still opened a gap,
+  outlined it and moved its rows. Now a dragged group icon finds no drop surface
+  in any group drawer, and its own drawer closes when the drag starts (it hangs
+  off the icon being moved).

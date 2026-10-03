@@ -123,6 +123,11 @@ Other rules:
     Names start at C after an icon and at a in rows without one. Non-glyph
     members show their native look right-aligned at a from the row's end;
     counts use the shared badge there. Width = `clamp(content, 4C, 320)`.
+    Open question (3 October 2026): in a menu, a value member (the battery's
+    "100%") reads as name and icon swapped next to icon rows. Alternatives
+    weighed: value first (names lose their column), values in a widened icon
+    column (icon rows get a gap), or keep the rule and set values apart (dimmed).
+    Left undecided; the rule above stands until then.
   - Alignment: below a horizontal bar the first row starts at the source
     highlight's start, flipping near the screen edge. Beside a vertical bar the
     first row's centre is level with the source's centre, flipping near the

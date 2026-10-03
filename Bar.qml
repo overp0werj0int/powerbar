@@ -90,10 +90,14 @@ Item {
       }
     })
   }
-  function editGroups(operation) {
-    closeManagedDrawer()
+  // keepDrawer: a drop into an open drawer leaves it open, under the pointer.
+  function editGroups(operation, keepDrawer) {
+    if (!keepDrawer && !keepDrawerThroughEdit) closeManagedDrawer()
     return writeConfig(function(config) { operation(config) })
   }
+  // Set while a drop into a drawer commits: the drawer (a group's or a zone's)
+  // stays open under the pointer through the edit, and leaves on the exit grace.
+  property bool keepDrawerThroughEdit: false
   // Config edits show at once and reach shell.json once the bar has settled.
   // Omarchy handles a config write by re-registering every bar widget, once
   // for the write and again when it reloads the file, which can block the
@@ -144,8 +148,8 @@ Item {
     interval: 300
     onTriggered: if (root.configWriteSettled) root.flushConfigWrites(); else restart()
   }
-  function assignGroup(key, id, before) {
-    return editGroups(function(config) { GroupsModel.assign(config, key, id, before || "") })
+  function assignGroup(key, id, before, keepDrawer) {
+    return editGroups(function(config) { GroupsModel.assign(config, key, id, before || "") }, keepDrawer)
   }
   function showGroups(screen, id) { preferencesPane.showGroup(screen, id || "") }
   // Live images of one screen's widgets, keyed by instance, so Preferences can
@@ -596,7 +600,12 @@ Item {
   }
   // The gap a drag opens is the dragged widget's own landing size: its cell
   // plus a gutter (Equal slots) or its glyph plus a gap (Equal gaps).
-  readonly property real dragLandingExtent: barDragSource && barDragSource.landingExtent > 0 ? barDragSource.landingExtent : 0
+  // The commit clears the source before the released icon has settled, so the
+  // settle keeps its landing size: the gap and the slot that replaces it stay
+  // the same length, and the island never swells and shrinks back.
+  property real barDragSettleLanding: 0
+  readonly property real dragLandingExtent: barDragSource && barDragSource.landingExtent > 0 ? barDragSource.landingExtent
+    : barDragSettling && barDragSettleLanding > 0 ? barDragSettleLanding : 0
   readonly property real dragGapWidth: !vertical && dragLandingExtent > 0 ? dragLandingExtent
     : Math.max(barSize, barDragImageWidth / Math.max(0.01, barScale)) + cellTokens.gutter
   readonly property real dragGapHeight: vertical && dragLandingExtent > 0 ? dragLandingExtent
@@ -938,6 +947,8 @@ Item {
     barDragScreen = null
     barDragImageUrl = ""
     barDragImageReady = false
+    barDragImageLabelled = false
+    barDragImageFromCell = false
     barDragImageWidth = 0
     barDragImageHeight = 0
     barDragDrop = null
@@ -955,6 +966,7 @@ Item {
     barDragSettleFade = false
     barDragSettleProgress = 0
     barDragSettleDuration = dragSettleDuration
+    barDragSettleLanding = 0
   }
 
   function windowScreenPoint(scenePoint, window) {
@@ -1031,10 +1043,23 @@ Item {
     }
   }
 
+  // The image is the widget's own look. A menu row also holds the name, which
+  // the ghost adds itself where a menu wants it, so a row that shows the
+  // widget gives just the widget (the grab offset moves with it).
+  property bool barDragImageLabelled: false
+  // The image is a drawer member's whole cell, not just the widget.
+  property bool barDragImageFromCell: false
   function captureBarDragGhost(slot) {
-    var item = slot ? (slot.drawerHost || slot.presentationItem) : null
+    var host = slot ? slot.drawerHost : null
+    var item = !slot ? null : host && !(host.labelled && host.showNative) ? host : slot.presentationItem
     barDragImageUrl = ""
     barDragImageReady = false
+    barDragImageLabelled = !!host && item === host && host.labelled === true
+    barDragImageFromCell = !!host && item === host
+    if (host && item === slot.presentationItem) {
+      barDragOffsetX -= item.x * barScale
+      barDragOffsetY -= item.y * barScale
+    }
     if (!item || typeof item.grabToImage !== "function") return
 
     var grabWidth = Math.max(1, Math.ceil(item.width || item.implicitWidth || slot.width || 1))
@@ -1070,6 +1095,13 @@ Item {
     root.barDragOffsetX = offsetX
     root.barDragOffsetY = offsetY
     root.barDragSource = slot
+    // A pointer drag ends keyboard use of an open drawer: it stops holding the
+    // keyboard (and the outside-click grab), and closes on hover like any
+    // other. Kept open after a drop, it no longer swallows the next click.
+    var owner = root.managedOwner
+    if (owner && owner.keyboardMode) { owner.keyboardMode = false; owner.cursorActive = false }
+    // A group's own drawer hangs off the icon being moved: it closes.
+    if (owner && slot.groupHeader && owner.groupId && owner.groupId === slot.entry.powerbarGroupId) owner.close("immediate")
     root.captureBarDragGhost(slot)
     root.hideTooltip(slot.activeItem)
     root.updateIconDrag(scenePoint, slot)
@@ -1178,7 +1210,10 @@ Item {
 
   function finishIconDrag(scenePoint, slot) {
     if (root.barDragSource !== slot) return false
-    var drop = root.moduleDropAtScene(scenePoint, slot)
+    // The drop the preview shows: recomputing at release read a layout the open
+    // gap had already shifted, so the icon could land beside the gap it glided
+    // into and then slide to where it was committed.
+    var drop = root.barDragDrop || root.moduleDropAtScene(scenePoint, slot)
     var predicted = drop && !drop.source && root.canSettleDrag() ? root.predictDropSettle(slot, drop) : null
     if (predicted) {
       // Glide into the open preview gap first and commit once the image has
@@ -1192,8 +1227,17 @@ Item {
       dragSettleAnimation.restart()
       return true
     }
+    // A drop into an open gap on the bar swaps the gap for the slot in one
+    // frame, as a glided drop does; a cancelled drag still eases back.
+    var handover = !!drop && !drop.source && !drop.into && ((!!drop.slot && !drop.slot.drawerHost) || !!drop.zone)
+    if (handover) root.dragHandover = true
     root.beginDragSettle(slot, scenePoint, false)
-    var changed = drop ? root.dropBarModuleAtTarget(slot, drop) : false
+    var changed = false
+    try {
+      changed = drop ? root.dropBarModuleAtTarget(slot, drop) : false
+    } finally {
+      if (handover) Qt.callLater(function() { root.dragHandover = false })
+    }
     if (!root.barDragSettling) return changed
     // The commit rebuilds the Repeaters synchronously; the settle target is
     // looked up once the new delegates exist and the drawer has closed.
@@ -1225,6 +1269,7 @@ Item {
     root.barDragSettleFade = false
     root.barDragSettleProgress = 0
     root.barDragSettleDuration = root.dragSettleDuration
+    root.barDragSettleLanding = root.dragLandingExtent
     root.barDragSettling = true
     if (keepPreview) return
     root.barDragSource = null
@@ -1237,6 +1282,13 @@ Item {
   function predictDropSettle(sourceSlot, drop) {
     var target = drop.slot
     if (drop.into && target) return { item: target.presentationItem, local: null, fade: true }
+    // A drawer's gaps glide and commit the same way (ManagedDrawer.landingPoint).
+    var host = target ? target.drawerHost : null
+    var drawerTarget = host && host.hostDrawer ? host.hostDrawer : !target && drop.drawer ? drop.drawer : null
+    if (drawerTarget && drawerTarget.opened) {
+      var p = drawerTarget.landingPoint(sourceSlot, host || null)
+      return { item: p.item, local: p.local, fade: false }
+    }
     if (!target || target.drawerHost || target.centerAnchorSlot) return null
     var start = drop.after === true ? target.cellExtent : 0
     var centre = start + sourceSlot.inkShift + (root.vertical ? sourceSlot.naturalHeight : sourceSlot.naturalWidth) / 2
@@ -1246,16 +1298,23 @@ Item {
     return { item: target, local: local, fade: false }
   }
 
+  // The open gap and the slot that takes its place are the same length at the
+  // same spot, so the commit swaps them in one frame. Easing the gap out while
+  // the slot eased in slid the icon when the gap trailed the icon before it.
+  property bool dragHandover: false
   function commitPendingDrop() {
     var pending = barDragPendingDrop
     if (!pending) return false
     barDragPendingDrop = null
-    barDragSource = null
-    barDragDrop = null
+    dragHandover = true
     try {
+      barDragSource = null
+      barDragDrop = null
       return dropBarModuleAtTarget(pending.slot, pending.drop)
     } catch (e) {
       return false
+    } finally {
+      Qt.callLater(function() { root.dragHandover = false })
     }
   }
 
@@ -1290,7 +1349,9 @@ Item {
         shown: !candidate.drawerHost && candidate.mainVisible }
     }), root.barDragSettleKey, owner ? "group:" + owner.id : "")
     var target = slots[choice.index] || null
-    root.barDragSettleItem = target ? (target.drawerHost || target.presentationItem) : null
+    // Into a menu row that shows the widget, the image lands on the widget.
+    var row = target && target.drawerHost
+    root.barDragSettleItem = !target ? null : row && !(row.labelled && row.showNative) ? row : target.presentationItem
     root.barDragSettleLocal = null
     root.barDragSettleFade = choice.fade
     if (correction) {
@@ -1563,7 +1624,7 @@ Item {
     if (RenderModel.equal(layoutConfig, next)) return
     var structural = BarModel.inlineSettingsDelta(layoutConfig, next) === null
     if (structural) {
-      closeManagedDrawer()
+      if (!keepDrawerThroughEdit) closeManagedDrawer()
       barConfigSerial++
     }
     // A retained widget can update presentation synchronously during injection.
@@ -1892,7 +1953,7 @@ Item {
 
   function moduleDropAtScene(scenePoint, sourceSlot) {
     var sourceWindow = root.slotWindow(sourceSlot) || root.barDragWindow
-    var zone = "", managedZone = ""
+    var zone = ""
     if (sourceWindow && sourceWindow.contentItem) {
       var barPoint = sourceWindow.contentItem.mapFromItem(null, scenePoint.x, scenePoint.y)
       if (barPoint.x < 0 || barPoint.x > sourceWindow.contentItem.width ||
@@ -1901,7 +1962,9 @@ Item {
       var stripX = root.position === "right" ? sourceWindow.width - root.barExtent : 0
       var stripY = root.position === "bottom" ? sourceWindow.height - root.barExtent : 0
       var drawer = sourceWindow.managedDrawer
-      var inDrawer = drawer && drawer.opened && barPoint.x >= drawer.x && barPoint.x <= drawer.x + drawer.width && barPoint.y >= drawer.y && barPoint.y <= drawer.y + drawer.height
+      // Groups don't nest: a group icon has no drop surface in any group drawer.
+      var inDrawer = drawer && drawer.opened && !(sourceSlot && sourceSlot.groupHeader && drawer.groupId)
+        && barPoint.x >= drawer.x && barPoint.x <= drawer.x + drawer.width && barPoint.y >= drawer.y && barPoint.y <= drawer.y + drawer.height
       // A release that drifts a little off the bar's inner edge still lands on
       // the bar, unless it is over an open drawer.
       var slack = inDrawer ? 0 : root.barSize * 0.6
@@ -1912,17 +1975,17 @@ Item {
         : cross >= stripStart - slack && cross <= stripStart + root.barExtent
       if (!inStrip && !inDrawer) return null
       if (inStrip) zone = root.barZoneAt(barPoint, sourceWindow)
-      if (inStrip && typeof sourceWindow.managedDropZoneAt === "function")
-        managedZone = sourceWindow.managedDropZoneAt(barPoint)
-      var handle = inStrip && !managedZone && typeof sourceWindow.foldHandleAt === "function" ? sourceWindow.foldHandleAt(barPoint) : null
+      var handle = inStrip && typeof sourceWindow.foldHandleAt === "function" ? sourceWindow.foldHandleAt(barPoint) : null
     }
 
     // Landing follows the dragged widget's painted centre, not the pointer, so
     // a wide widget grabbed at one end lands where it looks.
     var probe = { x: scenePoint.x, y: scenePoint.y }
-    if (sourceSlot && sourceSlot.ink && sourceSlot.ink.length > 0) {
+    // The ink is measured along the bar, so it only applies to a surface along
+    // the bar: in a menu below a horizontal bar it pushed the landing a row on.
+    var alongDrawer = inDrawer ? drawer.stripVertical : root.vertical
+    if (sourceSlot && sourceSlot.ink && sourceSlot.ink.length > 0 && alongDrawer === root.vertical) {
       var inkCentre = (sourceSlot.ink.start + sourceSlot.ink.length / 2) * root.barScale
-      var alongDrawer = inDrawer ? drawer.stripVertical : root.vertical
       if (alongDrawer) probe.y = scenePoint.y - root.barDragOffsetY + inkCentre
       else probe.x = scenePoint.x - root.barDragOffsetX + inkCentre
     }
@@ -1970,7 +2033,6 @@ Item {
     if (!hit && sourceRect && scenePoint.x >= sourceRect.x && scenePoint.x <= sourceRect.x + sourceRect.width &&
         scenePoint.y >= sourceRect.y && scenePoint.y <= sourceRect.y + sourceRect.height)
       return { source: true }
-    if (managedZone) return { managedZone: managedZone }
     // The dots: the widget joins the zone's on-demand widgets on their side.
     if (handle) return { managedZone: handle.zone, handle: true, handleToken: handle.inlineToken, managedBefore: root.handleDropBefore(handle, sourceSlot) }
     if (hit && hit.slot.groupHeader && !hit.slot.drawerHost && sourceSlot.drawerHost && !sourceSlot.groupHeader)
@@ -2034,9 +2096,10 @@ Item {
   // Where a drop beside a widget on the bar lands in the saved layout. The bar
   // draws a zone's on-demand widgets as one run at its dots, so the drop is
   // read in drawn order: the widget lands at the gap (ZoneOrderModel).
-  function barDropBefore(targetSlot, after, sourceSlot, managed) {
+  // The gap beside a bar widget, in the zone's drawn order (without the source).
+  function barGap(targetSlot, after, sourceSlot) {
     var window = targetSlot.homeWindow
-    if (!window) return ""
+    if (!window) return null
     var models = window.widgetModels, region = targetSlot.region
     var lists = region !== "center" ? [region] : models.anchor.count ? ["before", "anchor", "after"] : ["center"]
     var sequence = [], anchorKey = ""
@@ -2045,23 +2108,46 @@ Item {
         var s = models[name].get(i)
         if (!s) continue
         if (name === "anchor") anchorKey = s.instanceKey
-        sequence.push({ key: s.instanceKey, list: name, managed: s.managed, group: s.groupHeader })
+        sequence.push({ key: s.instanceKey, list: name, managed: s.managed, group: s.groupHeader,
+          expanded: s.inlineShown && s.mainVisible, hidden: !s.mainVisible })
       }
     }
     var rest = sequence.filter(function(item) { return item.key !== sourceSlot.instanceKey })
     var at = rest.findIndex(function(item) { return item.key === targetSlot.instanceKey })
-    if (at < 0) return ""
-    var layout = layoutEntries(region).filter(function(entry) { return entry && !entry.powerbarGroupId && entry.powerbarInstance })
+    if (at < 0) return null
+    return { sequence: sequence, rest: rest, gap: at + (after ? 1 : 0), anchorKey: anchorKey, region: region }
+  }
+  // A gap inside an expansion's run lands On demand; where the shown widgets
+  // meet the expansion it lands shown (ZoneOrderModel.landsOnDemand).
+  function barGapOnDemand(targetSlot, after, sourceSlot) {
+    var g = barGap(targetSlot, after, sourceSlot)
+    return !!g && ZoneOrderModel.landsOnDemand(g.rest, g.gap)
+  }
+  function barDropBefore(targetSlot, after, sourceSlot, managed) {
+    var g = barGap(targetSlot, after, sourceSlot)
+    if (!g) return ""
+    var layout = layoutEntries(g.region).filter(function(entry) { return entry && !entry.powerbarGroupId && entry.powerbarInstance })
       .map(function(entry) { return entry.powerbarInstance })
-    return ZoneOrderModel.dropBefore({ sequence: sequence, gap: at + (after ? 1 : 0), managed: managed,
-      layout: layout, source: sourceSlot.instanceKey, anchorKey: anchorKey })
+    return ZoneOrderModel.dropBefore({ sequence: g.sequence, gap: g.gap, managed: managed,
+      layout: layout, source: sourceSlot.instanceKey, anchorKey: g.anchorKey })
   }
 
   function dropBarModuleAtTarget(sourceSlot, drop) {
     if (!sourceSlot || !drop) return false
     if (drop.source) return false
+    // Into an open drawer (a zone's or a group's): it stays open under the
+    // pointer, as the bar does, and leaves on the exit grace.
+    var intoDrawer = !!drop.drawer || (!!drop.slot && !!drop.slot.drawerHost)
+    if (intoDrawer && root.managedOwner) {
+      root.managedOwner.entered = true
+      root.keepDrawerThroughEdit = true
+      try { return root.dropAt(sourceSlot, drop) } finally { root.keepDrawerThroughEdit = false }
+    }
+    return root.dropAt(sourceSlot, drop)
+  }
+  // Where the dragged widget or group icon lands, by the drop's target.
+  function dropAt(sourceSlot, drop) {
     var targetSlot = drop.slot, afterTarget = drop.after
-
     if (sourceSlot.groupHeader) {
       var id = sourceSlot.entry.powerbarGroupId
       if (drop.managedZone) return root.editGroups(function(config) {
@@ -2075,7 +2161,7 @@ Item {
         })
       }
       if (targetSlot && targetSlot.drawerHost && targetSlot.memberGroup) return false
-      var headerMode = targetSlot && (targetSlot.drawerHost || targetSlot.inlineShown) ? "managed" : "shown"
+      var headerMode = targetSlot && (targetSlot.drawerHost || root.barGapOnDemand(targetSlot, afterTarget, sourceSlot)) ? "managed" : "shown"
       var before = !targetSlot ? ""
         : !targetSlot.drawerHost ? root.barDropBefore(targetSlot, afterTarget, sourceSlot, headerMode === "managed")
         : !afterTarget ? targetSlot.instanceKey : nextVisibleModuleKey(targetSlot.region, targetSlot.instanceKey, sourceSlot, true)
@@ -2087,19 +2173,29 @@ Item {
     }
     if (drop.managedZone) return root.dropBarModule(sourceSlot, drop.managedZone, drop.managedBefore || "", "managed")
     if (drop.drawer) {
-      if (drop.drawer.groupId) return root.assignGroup(sourceSlot.instanceKey, drop.drawer.groupId)
+      if (drop.drawer.groupId) return root.assignGroup(sourceSlot.instanceKey, drop.drawer.groupId, "", true)
       return root.dropBarModule(sourceSlot, drop.drawer.zone, "", "managed")
     }
     if (drop.zone) return root.dropBarModule(sourceSlot, drop.zone, "", "shown")
     if (drop.into) return root.assignGroup(sourceSlot.instanceKey, targetSlot.entry.powerbarGroupId)
-    // Beside a widget an inline expansion is showing, the widget joins it On demand.
-    var visibility = targetSlot.drawerHost || targetSlot.inlineShown ? "managed" : "shown"
-    if (targetSlot.groupHeader && !targetSlot.drawerHost && afterTarget)
-      return root.dropAfterGroup(sourceSlot, targetSlot.entry.powerbarGroupId, visibility)
+    // Inside an inline expansion's run the widget joins it On demand; where the
+    // shown widgets meet the expansion it lands shown.
+    var visibility = targetSlot.drawerHost || root.barGapOnDemand(targetSlot, afterTarget, sourceSlot) ? "managed" : "shown"
+    // Right after a group icon of the same run (dropped on it, or before the
+    // widget that follows it): a group is not a layout entry, so the widget
+    // takes the group's place and the group re-anchors in front of it.
+    if (!targetSlot.drawerHost) {
+      var g = root.barGap(targetSlot, afterTarget, sourceSlot)
+      var near = g ? ZoneOrderModel.neighbours(g.rest, g.gap) : null
+      var prev = near ? near.prev : null
+      var header = prev && prev.group ? root.moduleSlots.find(function(x) { return x && x.instanceKey === prev.key }) : null
+      if (header && !!prev.managed === (visibility === "managed") && (!near.next || near.next.list === prev.list))
+        return root.dropAfterGroup(sourceSlot, header.entry.powerbarGroupId, visibility)
+    }
     if (targetSlot.drawerHost && targetSlot.memberGroup) {
       var group = targetSlot.memberGroup
       var index = group.items.indexOf(targetSlot.instanceKey) + (afterTarget ? 1 : 0)
-      return root.assignGroup(sourceSlot.instanceKey, group.id, group.items[index] || "")
+      return root.assignGroup(sourceSlot.instanceKey, group.id, group.items[index] || "", true)
     }
     var beforeKey = !targetSlot.drawerHost ? root.barDropBefore(targetSlot, afterTarget, sourceSlot, visibility === "managed")
       : afterTarget ? nextVisibleModuleKey(targetSlot.region, targetSlot.instanceKey, sourceSlot, true) : targetSlot.instanceKey
@@ -2401,17 +2497,6 @@ Item {
       }
       return null
     }
-    function managedDropZoneAt(point) {
-      if (!root.dragPreview.ready) return ""
-      for (var i = 0; i < 3; i++) {
-        var target = managedDropTargets.itemAt(i)
-        if (!target || !target.visible) continue
-        var origin = target.mapToItem(barWindow.contentItem, 0, 0)
-        if (point.x >= origin.x && point.x <= origin.x + target.width &&
-            point.y >= origin.y && point.y <= origin.y + target.height) return target.modelData
-      }
-      return ""
-    }
     property alias widgetStore: widgetStore
     property var widgetModels: ({ left: leftModel, right: rightModel, center: centerModel,
       before: beforeModel, anchor: anchorModel, after: afterModel })
@@ -2642,7 +2727,8 @@ Item {
         if (inlineHandleZone === step.expand) drawer.sourceEnter(step.expand.split(":")[0])
         return
       }
-      if (root.managedOwner) root.managedOwner.close("immediate")
+      // Not the drawer a drag is coming from: its row drives the drag.
+      if (root.managedOwner && !root.managedOwner.dragMount) root.managedOwner.close("immediate")
       inlineApply(step.expand)
     }
     // Would the zone fit with its hidden widgets shown, beside every other
@@ -2943,40 +3029,6 @@ Item {
       HoverHandler { id: windowHover }
     }
 
-    // A small destination remains available while another extended island is
-    // open, so a member can move directly into any zone's Managed collection.
-    Item {
-      x: mainStrip.x; y: mainStrip.y
-      width: mainStrip.width; height: mainStrip.height
-      visible: root.dragPreview.ready && !root.barHidden
-      z: 20
-      Repeater {
-        id: managedDropTargets
-        model: ["left", "center", "right"]
-        Rectangle {
-          required property string modelData
-          required property int index
-          readonly property bool selected: !!root.barDragDrop && root.barDragDrop.managedZone === modelData && !root.barDragDrop.handle
-          width: Style.space(14); height: width
-          x: root.vertical ? (root.position === "left" ? parent.width - width : 0)
-            : (index + 0.5) * parent.width / 3 - width / 2
-          y: root.vertical ? (index + 0.5) * parent.height / 3 - height / 2
-            : (root.position === "top" ? parent.height - height : 0)
-          radius: width / 2
-          color: selected ? Color.accent : Qt.alpha(Color.accent, 0.68)
-          border.width: selected ? Style.space(2) : 0
-          border.color: root.barForeground
-          Text {
-            anchors.centerIn: parent
-            text: "󰇘"
-            color: Color.background
-            font.family: Style.font.family
-            font.pixelSize: Style.font.caption
-          }
-        }
-      }
-    }
-
     Item {
       x: mainStrip.x; y: mainStrip.y
       width: mainStrip.width; height: mainStrip.height
@@ -3173,29 +3225,6 @@ Item {
 
   // The landing placeholder in an open drag gap: the dragged widget's own
   // highlight, outlined, centred in the gap.
-  component DropOutline: Rectangle {
-    property real gapStart: 0
-    property real gapLength: 0
-    // The dragged widget's cell, kept inside the gap: in Equal gaps a cell can
-    // be longer than the slot it lands in (it spills into the gutters), and the
-    // gap's slot clips, which cut off the border on that side. One pixel clear
-    // of each end, on whole pixels, so all four borders draw.
-    readonly property real cellAlong: root.barDragSource ? root.barDragSource.cellLength : root.cellTokens.cell
-    readonly property real along: Math.max(0, Math.min(cellAlong, gapLength - 2))
-    readonly property real cross: root.vertical ? (parent ? parent.width : root.barSize) : (parent ? parent.height : root.barSize)
-    visible: !!root.barDragSource && gapLength > 1
-    opacity: Math.min(1, gapLength / Math.max(1, root.vertical ? root.dragGapHeight : root.dragGapWidth))
-    x: Math.round(root.vertical ? (cross - root.cellTokens.thickness) / 2 : gapStart + (gapLength - along) / 2)
-    y: Math.round(root.vertical ? gapStart + (gapLength - along) / 2 : (cross - root.cellTokens.thickness) / 2)
-    width: root.vertical ? root.cellTokens.thickness : along
-    height: root.vertical ? along : root.cellTokens.thickness
-    radius: root.highlightRadius
-    color: "transparent"
-    border.width: 1
-    border.color: Qt.rgba(root.barForeground.r, root.barForeground.g, root.barForeground.b, 0.45)
-    Accessible.ignored: true
-  }
-
   component HighlightLayer: Item {
     id: layer
     property string zone: ""
@@ -3343,9 +3372,10 @@ Item {
       y: Math.round(root.barDragScreenY - root.barDragOffsetY)
       width: labelRow.implicitWidth + Style.space(20)
       height: Math.max(root.barDragImageHeight, labelText.implicitHeight + Style.space(12))
-      radius: Style.cornerRadius
+      // A menu row's shape, bordered like the drop outline it lands in.
+      radius: root.highlightRadius
       color: Qt.alpha(root.background, Math.max(0.85, root.surfaceEffects.backgroundOpacity))
-      borderSpec: Border.flat(Color.accent, Math.max(1, Style.space(2)))
+      borderSpec: Border.flat(Qt.rgba(Color.menu.text.r, Color.menu.text.g, Color.menu.text.b, 0.45), 1)
       Row {
         id: labelRow
         anchors.verticalCenter: parent.verticalCenter
@@ -3361,6 +3391,8 @@ Item {
         }
         Text {
           id: labelText
+          // A captured menu row already shows the name.
+          visible: !(root.barDragImageLabelled && ghostWindow.display === "both")
           text: ghostWindow.sourceTitle
           textFormat: Text.PlainText
           color: root.barForeground
@@ -3873,8 +3905,8 @@ Item {
       id: startGap
       targetWidth: root.vertical ? root.barSize : moduleListRoot.previewStartGap ? root.dragGapWidth : 0
       targetHeight: !root.vertical ? root.barSize : moduleListRoot.previewStartGap ? root.dragGapHeight : 0
-      DropOutline { gapLength: root.vertical ? parent.height : parent.width }
-      motionEnabled: root.animationsEnabled
+      DropOutline { bar: root; gapLength: root.vertical ? parent.height : parent.width }
+      motionEnabled: root.animationsEnabled && !root.dragHandover
       motionDuration: root.dragMotionDuration; motionEasing: root.dragMotionEasing
     }
     FoldHandle {
@@ -3922,8 +3954,8 @@ Item {
       y: root.vertical ? endHandle.y + endHandle.height : 0
       targetWidth: root.vertical ? root.barSize : moduleListRoot.previewEndGap ? root.dragGapWidth : 0
       targetHeight: !root.vertical ? root.barSize : moduleListRoot.previewEndGap ? root.dragGapHeight : 0
-      DropOutline { gapLength: root.vertical ? parent.height : parent.width }
-      motionEnabled: root.animationsEnabled
+      DropOutline { bar: root; gapLength: root.vertical ? parent.height : parent.width }
+      motionEnabled: root.animationsEnabled && !root.dragHandover
       motionDuration: root.dragMotionDuration; motionEasing: root.dragMotionEasing
     }
   }
@@ -4189,7 +4221,7 @@ Item {
     targetHeight: !root.vertical ? crossLength : layoutExtent
     targetInsetX: !root.vertical && !centerAnchorSlot && preview.before ? root.dragGapWidth : 0
     targetInsetY: root.vertical && !centerAnchorSlot && preview.before ? root.dragGapHeight : 0
-    motionEnabled: root.animationsEnabled && !drawerHost
+    motionEnabled: root.animationsEnabled && !drawerHost && !root.dragHandover
     motionDuration: root.dragMotionActive ? root.dragMotionDuration : 120
     // An activity reveal opens after its neighbours have yielded (80 ms).
     motionDelay: root.animationsEnabled && managed && (activityVisible || inlineShown) && !hovered && !root.dragMotionActive ? 80 : 0
@@ -4223,6 +4255,7 @@ Item {
     }
 
     DropOutline {
+      bar: root
       readonly property real slotLength: root.vertical ? slot.height : slot.width
       readonly property real insetLength: root.vertical ? slot.animatedInsetY : slot.animatedInsetX
       readonly property bool open: !slot.drawerHost && slot.mainVisible && (slot.preview.before || slot.preview.after)
@@ -4253,16 +4286,26 @@ Item {
       enabled: !!slot.drawerHost && slot.drawerHost.showNative !== false
       acceptedButtons: Qt.LeftButton
       property point lastScene
+      // The drawer row hosting this widget, held for the drag (ManagedDrawer.dragMount).
+      property Item heldMount: null
       onCentroidChanged: if (active) { lastScene = centroid.scenePosition; root.updateIconDrag(lastScene, slot) }
       onActiveChanged: {
         if (active) {
           lastScene = centroid.scenePosition
-          root.beginIconDrag(slot, root.targetWindow(slot), lastScene,
-            (presentation.x + centroid.position.x) * root.barScale,
-            (presentation.y + centroid.position.y) * root.barScale)
-        } else if (root.barDragSource === slot) {
-          root.finishIconDrag(lastScene, slot)
+          heldMount = slot.drawerHost
+          if (heldMount && heldMount.hostDrawer) heldMount.hostDrawer.dragMount = heldMount
+          if (!root.beginIconDrag(slot, root.targetWindow(slot), lastScene,
+              (presentation.x + centroid.position.x) * root.barScale,
+              (presentation.y + centroid.position.y) * root.barScale)) releaseMount()
+        } else {
+          if (root.barDragSource === slot) root.finishIconDrag(lastScene, slot)
+          releaseMount()
         }
+      }
+      function releaseMount() {
+        var mount = heldMount
+        heldMount = null
+        if (mount && mount.hostDrawer) mount.hostDrawer.releaseDrag(mount)
       }
     }
     HoverHandler { id: moduleHover }
