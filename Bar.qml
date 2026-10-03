@@ -19,6 +19,7 @@ import "CellModel.js" as CellModel
 import "ZoneFitModel.js" as ZoneFitModel
 import "InlineQueue.js" as InlineQueue
 import "RenderModel.js" as RenderModel
+import "ZoneOrderModel.js" as ZoneOrderModel
 
 Item {
   id: root
@@ -60,8 +61,7 @@ Item {
   function quietActivityId(id) { return ManagedModel.quietActivity(id) }
   // Per-widget opt-out from sliding an autohidden bar out on activity.
   function setActivityPeek(key, enabled) {
-    if (!shell || typeof shell.mutateShellConfig !== "function") return false
-    return shell.mutateShellConfig(function(config) {
+    return writeConfig(function(config) {
       for (var section of ["left", "center", "right"]) {
         for (var entry of (config.bar.layout[section] || [])) {
           if (entry && entry.powerbarInstance === key) {
@@ -92,7 +92,57 @@ Item {
   }
   function editGroups(operation) {
     closeManagedDrawer()
-    return shell && shell.mutateShellConfig(function(config) { operation(config) })
+    return writeConfig(function(config) { operation(config) })
+  }
+  // Config edits show at once and reach shell.json once the bar has settled.
+  // Omarchy handles a config write by re-registering every bar widget, once
+  // for the write and again when it reloads the file, which can block the
+  // whole shell for hundreds of milliseconds. Writing first held the bar
+  // frozen on its old layout through that. Instead each edit is applied at
+  // once to the bar's own copy of its config, exactly as the host applies a
+  // bar's edit (to a copy of the bar subtree), and queued. A quiet moment with
+  // no drag, glide or bar move then writes the queue as one config change.
+  // Edits run again on the host's config, so they must capture plain values,
+  // never live slot state, and must not invent values (ensureInstanceIds
+  // writes directly for that reason).
+  property var queuedConfigEdits: []
+  // The host's config under the queued edits: a failed write restores it.
+  property var hostBarConfig: null
+  property bool applyingQueuedEdits: false
+  readonly property bool configWriteSettled: !barDragSource && !barDragSettling && !barMoveActive
+  signal configWriteFailed()
+  function canWriteConfig() { return !!shell && typeof shell.mutateShellConfig === "function" }
+  function writeConfig(mutator) {
+    if (!canWriteConfig() || typeof mutator !== "function") return false
+    if (!queuedConfigEdits.length) hostBarConfig = barConfig
+    queuedConfigEdits = queuedConfigEdits.concat([mutator])
+    showQueuedEdits(hostBarConfig)
+    configWriteDelay.restart()
+    return true
+  }
+  // The host's config with every queued edit applied, shown as the bar's config.
+  function showQueuedEdits(base) {
+    var scoped = { bar: JSON.parse(JSON.stringify(Util.isPlainObject(base) ? base : {})) }
+    for (var edit of queuedConfigEdits) edit(scoped)
+    if (!Util.isPlainObject(scoped.bar)) return
+    applyingQueuedEdits = true
+    try { barConfig = scoped.bar } finally { applyingQueuedEdits = false }
+  }
+  function flushConfigWrites() {
+    configWriteDelay.stop()
+    var edits = queuedConfigEdits, restore = hostBarConfig
+    if (!edits.length) return
+    queuedConfigEdits = []
+    hostBarConfig = null
+    if (!canWriteConfig() || shell.mutateShellConfig(function(config) { for (var edit of edits) edit(config) }) === false) {
+      barConfig = restore
+      configWriteFailed()
+    }
+  }
+  Timer {
+    id: configWriteDelay
+    interval: 300
+    onTriggered: if (root.configWriteSettled) root.flushConfigWrites(); else restart()
   }
   function assignGroup(key, id, before) {
     return editGroups(function(config) { GroupsModel.assign(config, key, id, before || "") })
@@ -437,6 +487,14 @@ Item {
   property int centerHoverCount: 0
   readonly property bool centerSectionHovered: centerHoverCount > 0
   property bool centerSectionRevealHeld: false
+  // A centre side expanding inline, or asked for on its dots, keeps the
+  // indicators' hover reveal closed: the dots expand only their own side, and
+  // the indicators would grow the side before the anchor. Counted per bar window.
+  property int centerRevealBlocks: 0
+  onCenterRevealBlocksChanged: if (centerRevealBlocks > 0) {
+    centerSectionRevealTimer.stop()
+    centerSectionRevealHeld = false
+  }
   // One bar surface exists per monitor and each reports into this count, so a
   // pointer crossing between monitors stays counted however events interleave.
   property int barHoverCount: 0
@@ -747,6 +805,7 @@ Item {
   onModuleSlotsChanged: Qt.callLater(prunePluginBarApis)
 
   Component.onDestruction: {
+    flushConfigWrites()
     for (var id in pluginBarApis) {
       root.releasePluginObjects(id)
       if (pluginBarApis[id] && typeof pluginBarApis[id].destroy === "function")
@@ -962,8 +1021,8 @@ Item {
 
   function setBarPosition(value) {
     var next = normalizePosition(value)
-    if (root.shell && typeof root.shell.mutateShellConfig === "function") {
-      root.shell.mutateShellConfig(function(config) {
+    if (root.canWriteConfig()) {
+      root.writeConfig(function(config) {
         if (!Util.isPlainObject(config.bar)) config.bar = {}
         config.bar.position = next
       })
@@ -1061,11 +1120,11 @@ Item {
     id: springHandle
     interval: 400
     onTriggered: {
-      var zone = root.springHandleZone
+      var token = root.springHandleZone, zone = token.split(":")[0]
       var window = root.barDragWindow
       if (!root.barDragSource || !zone || !window) return
       if (root.onDemandInline) {
-        window.inlineEnter(zone, true)
+        window.inlineEnter(token, true)
         // A zone that can't expand opens its drawer; it closes like a group's.
         if (window.managedDrawer && window.managedDrawer.opened && window.managedDrawer.zone === zone) root.springOpenedDrawer = window.managedDrawer
       } else if (window.managedDrawer) {
@@ -1082,7 +1141,7 @@ Item {
       if (target) springOpen.restart()
       else springOpen.stop()
     }
-    var handleZone = source && !source.drawerHost && drop && drop.handle ? drop.managedZone : ""
+    var handleZone = source && !source.drawerHost && drop && drop.handle ? drop.handleToken : ""
     if (handleZone !== springHandleZone) {
       springHandleZone = handleZone
       if (handleZone) springHandle.restart()
@@ -1113,7 +1172,7 @@ Item {
     root.updateSpringGroup(drop, slot, root.groupSlotAt(scenePoint, slot), scenePoint)
     var old = root.barDragDrop
     if (old && drop && old.source === drop.source && old.slot === drop.slot && old.after === drop.after &&
-        old.drawer === drop.drawer && old.zone === drop.zone && old.managedZone === drop.managedZone && old.handle === drop.handle && old.into === drop.into) return
+        old.drawer === drop.drawer && old.zone === drop.zone && old.managedZone === drop.managedZone && old.handle === drop.handle && old.handleToken === drop.handleToken && old.into === drop.into) return
     root.barDragDrop = drop
   }
 
@@ -1514,7 +1573,17 @@ Item {
     try { layoutConfig = next } finally { reconcilingStructure = false }
   }
 
-  onBarConfigChanged: { applyBarConfig(); Qt.callLater(ensureInstanceIds) }
+  onBarConfigChanged: {
+    // A config from the host while edits wait to be written: show the edits
+    // on top of it rather than the host's config without them.
+    if (!applyingQueuedEdits && queuedConfigEdits.length) {
+      hostBarConfig = barConfig
+      showQueuedEdits(barConfig)
+      return
+    }
+    applyBarConfig()
+    Qt.callLater(ensureInstanceIds)
+  }
 
   function layoutEntries(region) {
     var serial = barConfigSerial
@@ -1716,10 +1785,15 @@ Item {
     centerHoverCount = Math.max(0, centerHoverCount + (hovered ? 1 : -1))
     if (hovered) {
       centerSectionRevealTimer.stop()
-      centerSectionRevealHeld = true
+      // After the event: entering the centre on its dots asks for a side first.
+      Qt.callLater(root.openCenterReveal)
     } else {
       centerSectionRevealTimer.restart()
     }
+  }
+
+  function openCenterReveal() {
+    if (centerSectionHovered && centerRevealBlocks === 0) centerSectionRevealHeld = true
   }
 
   function setCenterHoverRevealSuppressed(value) {
@@ -1747,8 +1821,8 @@ Item {
 
   function toggleTransparency() {
     var nextTransparent = !(root.requestedTransparent === true)
-    if (root.shell && typeof root.shell.mutateShellConfig === "function") {
-      root.shell.mutateShellConfig(function(config) {
+    if (root.canWriteConfig()) {
+      root.writeConfig(function(config) {
         if (!Util.isPlainObject(config.bar)) config.bar = {}
         config.bar.transparent = nextTransparent
       })
@@ -1759,46 +1833,53 @@ Item {
 
   function dropBarModule(source, toRegion, beforeKey, visibility) {
     if (!source || !source.region || !source.instanceKey || !toRegion) return false
-    if (!root.shell || typeof root.shell.mutateShellConfig !== "function") return false
+    if (!root.canWriteConfig()) return false
 
+    // Plain values: the edit runs again later, after the slot has moved.
+    var region = source.region, key = source.instanceKey, grouped = !!source.memberGroup
     var changed = false
-    root.shell.mutateShellConfig(function(config) {
+    root.writeConfig(function(config) {
       var layout = config.bar && config.bar.layout
-      var from = layout && layout[source.region], to = layout && layout[toRegion]
+      var from = layout && layout[region], to = layout && layout[toRegion]
       // A group icon is not a layout entry: it sits before its anchor entry, so
       // "before the group" means before that anchor (or the zone's end).
-      if (beforeKey && beforeKey.indexOf("group:") === 0) {
-        var group = GroupsModel.groups(config.bar).find(function(g) { return "group:" + g.id === beforeKey })
-        beforeKey = group && Array.isArray(to) && to.some(function(entry) { return entry && entry.powerbarInstance === group.before }) ? group.before : ""
+      var before = beforeKey
+      if (before && before.indexOf("group:") === 0) {
+        var group = GroupsModel.groups(config.bar).find(function(g) { return "group:" + g.id === before })
+        before = group && Array.isArray(to) && to.some(function(entry) { return entry && entry.powerbarInstance === group.before }) ? group.before : ""
       }
+      changed = false
       if (!Array.isArray(from) || !Array.isArray(to) ||
-          !from.some(function(entry) { return entry && entry.powerbarInstance === source.instanceKey }) ||
-          (beforeKey && !to.some(function(entry) { return entry && entry.powerbarInstance === beforeKey }))) return
+          !from.some(function(entry) { return entry && entry.powerbarInstance === key }) ||
+          (before && !to.some(function(entry) { return entry && entry.powerbarInstance === before }))) return
       // A group anchored on the moving widget stays where it is.
-      var next = GroupsModel.nextAnchor(config, source.region, source.instanceKey)
-      changed = BarModel.moveInstanceInConfig(config, source.region, source.instanceKey, toRegion, beforeKey, visibility)
-      if (changed) GroupsModel.reanchor(config, source.region, source.instanceKey, next)
-      if (source.memberGroup) changed = GroupsModel.assign(config, source.instanceKey, "") || changed
+      var next = GroupsModel.nextAnchor(config, region, key)
+      changed = BarModel.moveInstanceInConfig(config, region, key, toRegion, before, visibility)
+      if (changed) GroupsModel.reanchor(config, region, key, next)
+      if (grouped) changed = GroupsModel.assign(config, key, "") || changed
     })
     return changed
   }
 
   // After a group icon: the widget takes the group's place before its anchor,
   // and the group re-anchors on the widget so it stays in front of it.
-  function dropAfterGroup(source, groupId) {
-    if (!source || !root.shell) return false
+  function dropAfterGroup(source, groupId, visibility) {
+    if (!source || !root.canWriteConfig()) return false
+    // Plain values: the edit runs again later, after the slot has moved.
+    var region = source.region, key = source.instanceKey, grouped = !!source.memberGroup
     var changed = false
-    root.shell.mutateShellConfig(function(config) {
+    root.writeConfig(function(config) {
+      changed = false
       var group = GroupsModel.groups(config.bar).find(function(g) { return g.id === groupId })
       var to = group && config.bar.layout && config.bar.layout[group.section]
       if (!group || !Array.isArray(to)) return
       var anchor = to.some(function(entry) { return entry && entry.powerbarInstance === group.before }) ? group.before : ""
-      var next = GroupsModel.nextAnchor(config, source.region, source.instanceKey)
-      if (!BarModel.moveInstanceInConfig(config, source.region, source.instanceKey, group.section, anchor, "shown")
-          && !(source.region === group.section)) return
-      GroupsModel.reanchor(config, source.region, source.instanceKey, next)
-      if (source.memberGroup) GroupsModel.assign(config, source.instanceKey, "")
-      changed = GroupsModel.edit(config, groupId, { before: source.instanceKey }) || true
+      var next = GroupsModel.nextAnchor(config, region, key)
+      if (!BarModel.moveInstanceInConfig(config, region, key, group.section, anchor, visibility || "shown")
+          && !(region === group.section)) return
+      GroupsModel.reanchor(config, region, key, next)
+      if (grouped) GroupsModel.assign(config, key, "")
+      changed = GroupsModel.edit(config, groupId, { before: key }) || true
     })
     return changed
   }
@@ -1891,7 +1972,7 @@ Item {
       return { source: true }
     if (managedZone) return { managedZone: managedZone }
     // The dots: the widget joins the zone's on-demand widgets on their side.
-    if (handle) return { managedZone: handle.zone, handle: true, managedBefore: root.handleDropBefore(handle, sourceSlot) }
+    if (handle) return { managedZone: handle.zone, handle: true, handleToken: handle.inlineToken, managedBefore: root.handleDropBefore(handle, sourceSlot) }
     if (hit && hit.slot.groupHeader && !hit.slot.drawerHost && sourceSlot.drawerHost && !sourceSlot.groupHeader)
       return { slot: hit.slot, into: true }
     if (hit) {
@@ -1950,6 +2031,32 @@ Item {
     return ""
   }
 
+  // Where a drop beside a widget on the bar lands in the saved layout. The bar
+  // draws a zone's on-demand widgets as one run at its dots, so the drop is
+  // read in drawn order: the widget lands at the gap (ZoneOrderModel).
+  function barDropBefore(targetSlot, after, sourceSlot, managed) {
+    var window = targetSlot.homeWindow
+    if (!window) return ""
+    var models = window.widgetModels, region = targetSlot.region
+    var lists = region !== "center" ? [region] : models.anchor.count ? ["before", "anchor", "after"] : ["center"]
+    var sequence = [], anchorKey = ""
+    for (var name of lists) {
+      for (var i = 0; i < models[name].count; i++) {
+        var s = models[name].get(i)
+        if (!s) continue
+        if (name === "anchor") anchorKey = s.instanceKey
+        sequence.push({ key: s.instanceKey, list: name, managed: s.managed, group: s.groupHeader })
+      }
+    }
+    var rest = sequence.filter(function(item) { return item.key !== sourceSlot.instanceKey })
+    var at = rest.findIndex(function(item) { return item.key === targetSlot.instanceKey })
+    if (at < 0) return ""
+    var layout = layoutEntries(region).filter(function(entry) { return entry && !entry.powerbarGroupId && entry.powerbarInstance })
+      .map(function(entry) { return entry.powerbarInstance })
+    return ZoneOrderModel.dropBefore({ sequence: sequence, gap: at + (after ? 1 : 0), managed: managed,
+      layout: layout, source: sourceSlot.instanceKey, anchorKey: anchorKey })
+  }
+
   function dropBarModuleAtTarget(sourceSlot, drop) {
     if (!sourceSlot || !drop) return false
     if (drop.source) return false
@@ -1962,18 +2069,20 @@ Item {
       })
       if (drop.drawer) {
         if (drop.drawer.groupId) return false
+        var drawerZone = drop.drawer.zone
         return root.editGroups(function(config) {
-          GroupsModel.moveHeader(config, id, drop.drawer.zone, "", "", false, "managed")
+          GroupsModel.moveHeader(config, id, drawerZone, "", "", false, "managed")
         })
       }
       if (targetSlot && targetSlot.drawerHost && targetSlot.memberGroup) return false
-      var before = targetSlot && !afterTarget
-        ? targetSlot.instanceKey : targetSlot ? nextVisibleModuleKey(targetSlot.region, targetSlot.instanceKey, sourceSlot, !!targetSlot.drawerHost) : ""
+      var headerMode = targetSlot && (targetSlot.drawerHost || targetSlot.inlineShown) ? "managed" : "shown"
+      var before = !targetSlot ? ""
+        : !targetSlot.drawerHost ? root.barDropBefore(targetSlot, afterTarget, sourceSlot, headerMode === "managed")
+        : !afterTarget ? targetSlot.instanceKey : nextVisibleModuleKey(targetSlot.region, targetSlot.instanceKey, sourceSlot, true)
       var section = targetSlot ? targetSlot.region : drop.zone
+      var besideGroup = targetSlot && targetSlot.groupHeader ? targetSlot.entry.powerbarGroupId : ""
       return root.editGroups(function(config) {
-        GroupsModel.moveHeader(config, id, section, before,
-          targetSlot && targetSlot.groupHeader ? targetSlot.entry.powerbarGroupId : "",
-          afterTarget, targetSlot && targetSlot.drawerHost ? "managed" : "shown")
+        GroupsModel.moveHeader(config, id, section, before, besideGroup, afterTarget, headerMode)
       })
     }
     if (drop.managedZone) return root.dropBarModule(sourceSlot, drop.managedZone, drop.managedBefore || "", "managed")
@@ -1983,18 +2092,18 @@ Item {
     }
     if (drop.zone) return root.dropBarModule(sourceSlot, drop.zone, "", "shown")
     if (drop.into) return root.assignGroup(sourceSlot.instanceKey, targetSlot.entry.powerbarGroupId)
-    if (targetSlot.groupHeader && !targetSlot.drawerHost && afterTarget)
-      return root.dropAfterGroup(sourceSlot, targetSlot.entry.powerbarGroupId)
     // Beside a widget an inline expansion is showing, the widget joins it On demand.
-    if (targetSlot.groupHeader && !targetSlot.drawerHost)
-      return dropBarModule(sourceSlot, targetSlot.region, targetSlot.instanceKey, targetSlot.inlineShown ? "managed" : "shown")
+    var visibility = targetSlot.drawerHost || targetSlot.inlineShown ? "managed" : "shown"
+    if (targetSlot.groupHeader && !targetSlot.drawerHost && afterTarget)
+      return root.dropAfterGroup(sourceSlot, targetSlot.entry.powerbarGroupId, visibility)
     if (targetSlot.drawerHost && targetSlot.memberGroup) {
       var group = targetSlot.memberGroup
       var index = group.items.indexOf(targetSlot.instanceKey) + (afterTarget ? 1 : 0)
       return root.assignGroup(sourceSlot.instanceKey, group.id, group.items[index] || "")
     }
-    var beforeKey = afterTarget ? nextVisibleModuleKey(targetSlot.region, targetSlot.instanceKey, sourceSlot, !!targetSlot.drawerHost) : targetSlot.instanceKey
-    return dropBarModule(sourceSlot, targetSlot.region, beforeKey, targetSlot.drawerHost || targetSlot.inlineShown ? "managed" : "shown")
+    var beforeKey = !targetSlot.drawerHost ? root.barDropBefore(targetSlot, afterTarget, sourceSlot, visibility === "managed")
+      : afterTarget ? nextVisibleModuleKey(targetSlot.region, targetSlot.instanceKey, sourceSlot, true) : targetSlot.instanceKey
+    return dropBarModule(sourceSlot, targetSlot.region, beforeKey, visibility)
   }
 
   function moduleTargetClickable(target) {
@@ -2007,9 +2116,15 @@ Item {
       && typeof target.triggerPress === "function"
   }
 
+  // Only the clicked widget's own targets (and targets not yet tied to a
+  // widget) can take its click. A hidden widget's content keeps its size and
+  // opacity inside a zero-width slot that positioners leave where it was, so a
+  // scan of every target let invisible widgets steal clicks from visible ones.
   function moduleClickTargetAt(slot, localX, localY) {
+    var own = slot.slotTargets
     for (var i = clickTargets.length - 1; i >= 0; i--) {
       var target = clickTargets[i]
+      if (own.indexOf(target) < 0 && pendingTargets.indexOf(target) < 0) continue
       if (!moduleTargetClickable(target)) continue
 
       var targetPoint = { x: localX, y: localY }
@@ -2142,7 +2257,11 @@ Item {
   function showTooltip(target, text) {
     clearTooltip()
 
-    if (!targetTooltipHovered(target) || !text) {
+    // A widget yielded, hidden or folded off the bar is still hovered by Qt
+    // (it hovers disabled items); it shows no tooltip.
+    var owner = resolveTargetSlot(target)
+    var unseen = !!owner && !owner.drawerHost && !owner.mainVisible
+    if (unseen || !targetTooltipHovered(target) || !text) {
       tooltipRequest += 1
       return
     }
@@ -2261,7 +2380,10 @@ Item {
 
   component BarPanel: PanelWindow {
     id: barWindow
-    Component.onDestruction: root.reportZoneFit(barWindow.screen ? barWindow.screen.name : "", null)
+    Component.onDestruction: {
+      root.reportZoneFit(barWindow.screen ? barWindow.screen.name : "", null)
+      if (centerInlineBusy) root.centerRevealBlocks = Math.max(0, root.centerRevealBlocks - 1)
+    }
     property alias managedDrawer: drawer
     // The zone dots in this window, for drops (FoldHandle registers itself).
     property var foldHandles: []
@@ -2303,6 +2425,8 @@ Item {
     property var zoneFitYielded: ({})
     // The last fit without a moment: moments freeze it.
     property var zoneFitLasting: null
+    // A zone an inline expansion hides whole, island and all, while it lasts.
+    function zoneHidden(zone) { return !!(zoneFit && zoneFit.hidden && zoneFit.hidden[zone]) }
     // Everything growing right now, highest priority first: a drag gap, the
     // indicators' hover reveal, activity reveals (one per zone), and last the
     // inline expansion, the one that can always give way to the drawer.
@@ -2326,14 +2450,14 @@ Item {
           out.push({ zone: s.region, sourceKey: s.instanceKey })
         }
       }
-      if (inlineZone) out.push({ zone: inlineZone, sourceKey: null, unfold: inlineZone })
+      if (inlineZone) out.push({ zone: inlineZoneName, sourceKey: null, unfold: inlineZoneName, side: inlineZone.split(":")[1] || "" })
       return out
     }
     // A moment that lasts longer than ten seconds counts as lasting content;
     // a held inline expansion never does.
     property var zoneFitBorn: ({})
     property var zoneFitAged: ({})
-    function zoneFitMomentId(m) { return m.zone + "|" + m.sourceKey + "|" + !!m.unfold }
+    function zoneFitMomentId(m) { return m.zone + "|" + m.sourceKey + "|" + !!m.unfold + "|" + (m.side || "") }
     function ageMoments() {
       var now = Date.now(), born = {}, aged = {}, next = 0
       for (var m of zoneFitMoments) {
@@ -2351,15 +2475,15 @@ Item {
     }
     onZoneFitMomentsChanged: ageMoments()
     Timer { id: zoneFitAge; onTriggered: barWindow.ageMoments() }
-    // A zone's widgets as the fit sees them. With expand, that zone's hidden
-    // on-demand widgets count as shown, at their measured size: what the zone
-    // would be if it expanded inline.
+    // A zone's widgets as the fit sees them. With expand (an inline token), the
+    // hidden on-demand widgets it shows count as shown, at their measured size:
+    // what the zone would be if it expanded inline.
     function zoneFitList(model, expand) {
       var out = []
       for (var i = 0; model && i < model.count; i++) {
         var s = model.get(i)
         if (s && s.fitExtent > 0) out.push({ key: s.instanceKey, extent: s.fitExtent, spill: s.cellSpill })
-        else if (s && expand && s.region === expand && s.inlineCandidate && s.cellExtent > 0)
+        else if (s && expand && s.inlineToken === expand && s.inlineCandidate && s.cellExtent > 0)
           out.push({ key: s.instanceKey, extent: s.cellExtent, spill: s.cellSpill })
       }
       return out
@@ -2381,7 +2505,7 @@ Item {
         left: zoneFitList(leftModel), right: right,
         before: zoneFitList(beforeModel), anchor: anchors.length ? anchors[0] : null, after: zoneFitList(afterModel),
         center: zoneFitList(centerModel),
-        dots: { left: hidden.left > 0, center: hidden.center > 0 ? hidden.centerSide : false, right: hidden.right > 0 },
+        dots: { left: hidden.left > 0, center: { start: hidden.centerStart > 0, end: hidden.centerEnd > 0 }, right: hidden.right > 0 },
         moments: zoneFitMoments.filter(function(m) { return !aged[barWindow.zoneFitMomentId(m)] })
       }
     }
@@ -2410,8 +2534,8 @@ Item {
       // An inline expansion that can't be served (a higher moment needs the
       // room, or a widget measured differently once shown) gives way to the
       // drawer at once, and the bar is fitted again without it.
-      if (inlineZone && (result.fallbacks || []).some(function(f) { return f.zone === barWindow.inlineZone })) {
-        var zone = inlineZone, pointed = inlineHovered
+      if (inlineZone && (result.fallbacks || []).some(function(f) { return f.zone === barWindow.inlineZoneName })) {
+        var zone = inlineZoneName, pointed = inlineHovered
         inlineRequest = ""
         inlineApply("")
         if (pointed) drawer.openZone(zone, false)
@@ -2438,8 +2562,14 @@ Item {
     // move at once. An expansion holds while the pointer is on its zone, a
     // panel is open from it, a drag runs or a group drawer is open, then
     // collapses after the exit grace. A zone that can't fit opens its drawer.
+    // Requests and the shown expansion are tokens: a zone, or the centre by
+    // side ("center:start", "center:end"), whose dots expand independently.
     property string inlineRequest: ""
     property string inlineZone: ""
+    readonly property string inlineZoneName: inlineZone.split(":")[0]
+    // A centre side asked for or shown holds the indicators' reveal closed.
+    readonly property bool centerInlineBusy: inlineZoneName === "center" || inlineRequest.split(":")[0] === "center"
+    onCenterInlineBusyChanged: root.centerRevealBlocks = Math.max(0, root.centerRevealBlocks + (centerInlineBusy ? 1 : -1))
     // The dots under the pointer, if any.
     property string inlineHandleZone: ""
     readonly property int inlineIntentMs: 90
@@ -2448,28 +2578,23 @@ Item {
     // No expansion before this time: a collapse is still settling.
     property real inlineReadyAt: 0
     // Each zone's on-demand widgets waiting behind its dots (folded ones apart),
-    // and which side of the centre's anchor most of the centre's are on.
+    // the centre's also by the side of its anchor they wait on.
     readonly property var inlineHidden: {
-      var out = { left: 0, center: 0, right: 0, centerSide: "end" }
+      var out = { left: 0, center: 0, right: 0, centerStart: 0, centerEnd: 0 }
       if (!root.onDemandInline) return out
-      for (var s of moduleItems)
-        if (s && s.inlineCandidate && out[s.region] !== undefined) out[s.region]++
-      var half = Math.floor(centerModel.count / 2)
-      var lead = anchorModel.count ? inlineCount(beforeModel, 0, beforeModel.count) : inlineCount(centerModel, 0, half)
-      var trail = anchorModel.count ? inlineCount(afterModel, 0, afterModel.count) : inlineCount(centerModel, half, centerModel.count)
-      out.centerSide = lead > trail ? "start" : "end"
+      for (var s of moduleItems) {
+        if (!s || !s.inlineCandidate || out[s.region] === undefined) continue
+        out[s.region]++
+        if (s.region === "center") out[s.centerSide === "start" ? "centerStart" : "centerEnd"]++
+      }
       return out
     }
-    function inlineCount(model, from, to) {
-      var n = 0
-      for (var i = from; i < to; i++) { var c = model.get(i); if (c && c.inlineCandidate) n++ }
-      return n
-    }
+    // An expansion holds while the pointer is anywhere on its zone.
     readonly property bool inlineHovered: inlineZone !== "" && (inlineHandleZone === inlineZone
-      || moduleItems.some(function(s) { return s && s.region === inlineZone && s.hovered && !s.drawerHost }))
+      || moduleItems.some(function(s) { return s && s.region === barWindow.inlineZoneName && s.hovered && !s.drawerHost }))
     readonly property bool inlineInteraction: inlineZone !== "" && (!!root.barDragSource
       || (drawer.presenting && !!drawer.groupId)
-      || moduleItems.some(function(s) { return s && s.region === inlineZone && s.panelOpen }))
+      || moduleItems.some(function(s) { return s && s.region === barWindow.inlineZoneName && s.panelOpen }))
     onInlineHoveredChanged: inlineSchedule()
     onInlineInteractionChanged: inlineSchedule()
     function inlineSchedule() {
@@ -2514,7 +2639,7 @@ Item {
       // Measured now, beside every moment running now.
       if (!inlineFits(step.expand)) {
         inlineRequest = ""
-        if (inlineHandleZone === step.expand) drawer.sourceEnter(step.expand)
+        if (inlineHandleZone === step.expand) drawer.sourceEnter(step.expand.split(":")[0])
         return
       }
       if (root.managedOwner) root.managedOwner.close("immediate")
@@ -2522,19 +2647,23 @@ Item {
     }
     // Would the zone fit with its hidden widgets shown, beside every other
     // moment running now?
-    function inlineFits(zone) {
+    function inlineFits(token) {
       var i = Object.assign({}, zoneFitInputs)
+      var zone = token.split(":")[0], side = token.split(":")[1] || ""
       var models = zone === "left" ? { left: leftModel } : zone === "right" ? { right: rightModel }
         : { before: beforeModel, after: afterModel, center: centerModel }
-      for (var name in models) i[name] = zoneFitList(models[name], zone)
+      for (var name in models) i[name] = zoneFitList(models[name], token)
       if (zone === "right") {
         var prefs = CellModel.place(root.cellTokens, root.preferencesGlyphSize, true)
         i.right.push({ key: "prefs", extent: prefs.extent, spill: prefs.spill })
       }
       i.dots = Object.assign({}, i.dots)
-      i.dots[zone] = false
+      if (zone === "center") {
+        i.dots.center = Object.assign({}, i.dots.center)
+        i.dots.center[side] = false
+      } else i.dots[zone] = false
       if (!(i.length > 0)) return false
-      var moments = i.moments.filter(function(m) { return !m.unfold }).concat([{ zone: zone, sourceKey: null, unfold: zone }])
+      var moments = i.moments.filter(function(m) { return !m.unfold }).concat([{ zone: zone, sourceKey: null, unfold: zone, side: side }])
       var result = ZoneFitModel.fit(zoneFitInput(i, moments))
       return !(result.fallbacks || []).some(function(f) { return f.zone === zone })
     }
@@ -2548,7 +2677,8 @@ Item {
       if (inlineHandleZone === zone) inlineHandleZone = ""
       // Left before it opened: a swipe, not a request.
       if (inlineRequest === zone && inlineZone !== zone) inlineAsk("")
-      if (drawer.opened && drawer.zone === zone && !drawer.groupId) drawer.sourceLeave(zone)
+      var name = zone.split(":")[0]
+      if (drawer.opened && drawer.zone === name && !drawer.groupId) drawer.sourceLeave(name)
       inlineSchedule()
     }
     function inlineCollapseNow() {
@@ -2589,12 +2719,17 @@ Item {
       var partition = RenderModel.split(records, root.centerAnchor)
       var names = ["left", "right", "center", "before", "anchor", "after"]
       var models = [], lists = []
+      // On-demand widgets draw as one run at their dots (ZoneOrderModel).
+      var managed = function(item) { return item.managed }
       for (var name of names) {
         models.push(widgetModels[name])
-        lists.push(partition[name].map(function(key) { return widgetStore.get(key) }).filter(function(item) { return !!item }))
+        lists.push(ZoneOrderModel.arrange(partition[name].map(function(key) { return widgetStore.get(key) }).filter(function(item) { return !!item }), managed, name))
       }
       var items = records.map(function(record) { return widgetStore.get(record.key) }).filter(function(item) { return !!item })
-      for (var item of items) item.centerAnchorSlot = partition.anchor.indexOf(item.instanceKey) >= 0
+      for (var item of items) {
+        item.centerAnchorSlot = partition.anchor.indexOf(item.instanceKey) >= 0
+        item.centerSide = partition.before.indexOf(item.instanceKey) >= 0 ? "start" : "end"
+      }
       RenderModel.reconcileLists(models, lists, widgetStore)
       if (!RenderModel.sameItems(moduleItems, items)) moduleItems = items
       widgetStore.sweep()
@@ -2957,17 +3092,29 @@ Item {
       id: barContents
       Item {
         anchors.fill: parent
+        // Beneath every zone: it takes presses on the bar's empty space only.
+        // Kept out of the centre's own item so the centre can be raised over
+        // the other zones while it expands without covering their widgets.
+        CenterGestureArea {
+          anchors.fill: parent
+          transform: Translate {
+            x: barWindow.shiftX(barWindow.centerShift) + (root.vertical ? 0 : barWindow.fitShift)
+            y: barWindow.shiftY(barWindow.centerShift) + (root.vertical ? barWindow.fitShift : 0)
+          }
+        }
         IslandSurface {
           id: leftIsland
+          zoneHidden: barWindow.zoneHidden("left")
           transform: Translate { x: barWindow.shiftX(barWindow.leftShift); y: barWindow.shiftY(barWindow.leftShift) }
           x: root.vertical ? (parent.width - width) / 2 : leftModules.x + leftModules.shownLead - root.islandEnd("left", leftModules.leadSpill)
           y: root.vertical ? leftModules.y + leftModules.shownLead - root.islandEnd("left", leftModules.leadSpill) : (parent.height - height) / 2
           width: root.vertical ? root.barSize : leftModules.width - leftModules.shownLead - leftModules.shownTrail + root.islandEnd("left", leftModules.leadSpill) + root.islandEnd("left", leftModules.trailSpill)
           height: root.vertical ? leftModules.height - leftModules.shownLead - leftModules.shownTrail + root.islandEnd("left", leftModules.leadSpill) + root.islandEnd("left", leftModules.trailSpill) : root.barSize
-          visible: root.islands && leftModules.shownLength > 0
+          visible: root.islands && leftModules.shownLength > 0 && opacity > 0
         }
         IslandSurface {
           id: rightIsland
+          zoneHidden: barWindow.zoneHidden("right")
           transform: Translate { x: barWindow.shiftX(barWindow.rightShift); y: barWindow.shiftY(barWindow.rightShift) }
           readonly property real start: rightModules.shownLength > 0
             ? (root.vertical ? rightModules.y : rightModules.x) + rightModules.shownLead - root.islandEnd("right", rightModules.leadSpill)
@@ -2982,6 +3129,9 @@ Item {
         CenterModules {
           anchors.fill: parent
           homeWindow: barWindow
+          // An expanding zone lies over the zones it hides or yields, so the
+          // pointer reaches its widgets first (Qt still hovers disabled items).
+          z: barWindow.inlineZoneName === "center" ? 1 : 0
           transform: Translate {
             x: barWindow.shiftX(barWindow.centerShift) + (root.vertical ? 0 : barWindow.fitShift)
             y: barWindow.shiftY(barWindow.centerShift) + (root.vertical ? barWindow.fitShift : 0)
@@ -2992,6 +3142,7 @@ Item {
         LeftModules {
           id: leftModules
           homeWindow: barWindow
+          z: barWindow.inlineZoneName === "left" ? 1 : 0
           transform: Translate { x: barWindow.shiftX(barWindow.leftShift); y: barWindow.shiftY(barWindow.leftShift) }
           // Positioned with x/y, never with anchors switched by orientation: a
           // switch passes through a state anchored both ways, and Qt then writes
@@ -3001,6 +3152,7 @@ Item {
         }
         PreferencesButton {
           id: preferencesButton
+          zoneHidden: barWindow.zoneHidden("right")
           transform: Translate { x: barWindow.shiftX(barWindow.rightShift); y: barWindow.shiftY(barWindow.rightShift) }
           x: root.vertical ? (parent.width - width) / 2 : parent.width - root.islandScreenInset - root.cellEndPad(cellSpill) - width
           y: root.vertical ? parent.height - root.islandScreenInset - root.cellEndPad(cellSpill) - height : (parent.height - height) / 2
@@ -3008,6 +3160,7 @@ Item {
         RightModules {
           id: rightModules
           homeWindow: barWindow
+          z: barWindow.inlineZoneName === "right" ? 1 : 0
           transform: Translate { x: barWindow.shiftX(barWindow.rightShift); y: barWindow.shiftY(barWindow.rightShift) }
           x: root.vertical ? (parent.width - width) / 2 : preferencesButton.x - width
           y: root.vertical ? preferencesButton.y - height : (parent.height - height) / 2
@@ -3063,7 +3216,18 @@ Item {
 
   // Shared theme chrome; dimensions follow the rendered zone, including drawers.
   component IslandSurface: EffectSurface {
-    visible: root.islands
+    // Hidden whole by an inline expansion: fades with its widgets, out fast,
+    // back once the expansion has shrunk (the yield timings).
+    property bool zoneHidden: false
+    opacity: zoneHidden ? 0 : 1
+    Behavior on opacity {
+      enabled: root.animationsEnabled
+      SequentialAnimation {
+        PauseAnimation { duration: zoneHidden ? 0 : 150 }
+        NumberAnimation { duration: zoneHidden ? 80 : 160; easing.type: Easing.OutCubic }
+      }
+    }
+    visible: root.islands && opacity > 0
     color: root.mainSurfaceColor
     shadowEnabled: root.mainEffects.shadow
     shadowSize: root.mainEffects.shadowSize
@@ -3075,6 +3239,17 @@ Item {
 
   component PreferencesButton: Item {
     id: preferencesButton
+    // Part of the right zone: hidden with it by an inline expansion.
+    property bool zoneHidden: false
+    opacity: zoneHidden ? 0 : 1
+    enabled: !zoneHidden
+    Behavior on opacity {
+      enabled: root.animationsEnabled
+      SequentialAnimation {
+        PauseAnimation { duration: preferencesButton.zoneHidden ? 0 : 150 }
+        NumberAnimation { duration: preferencesButton.zoneHidden ? 80 : 160; easing.type: Easing.OutCubic }
+      }
+    }
     // A glyph cell like any icon widget: square highlight, one gutter (or one
     // equal gap) around its nine dots.
     readonly property real glyphSize: root.preferencesGlyphSize
@@ -3111,7 +3286,7 @@ Item {
     MouseArea {
       id: buttonMouse
       anchors.fill: parent
-      hoverEnabled: true
+      hoverEnabled: !preferencesButton.zoneHidden
       cursorShape: Qt.PointingHandCursor
       onClicked: preferencesPane.show(root.targetWindow(preferencesButton).screen)
       onEntered: root.showTooltip(preferencesButton, "Powerbar preferences")
@@ -3292,6 +3467,7 @@ Item {
       ? DragModel.slot(root.dragPreview, anchorEntry.powerbarInstance, "bar:center") : ({ before: false, after: false })
     IslandSurface {
       id: centerIsland
+      zoneHidden: !!centerRoot.homeWindow && centerRoot.homeWindow.zoneHidden("center")
       readonly property real start: centerRoot.hasAnchor
         ? (beforeModules.shownLength > 0 ? (root.vertical ? beforeModules.y : beforeModules.x) + beforeModules.shownLead : (root.vertical ? centerAnchorModule.y : centerAnchorModule.x))
         : (root.vertical ? groupModules.y : groupModules.x) + groupModules.shownLead
@@ -3307,9 +3483,8 @@ Item {
       y: root.vertical ? start - root.islandEnd("center", leadSpill) : (parent.height - height) / 2
       width: root.vertical ? root.barSize : end - start + root.islandEnd("center", leadSpill) + root.islandEnd("center", trailSpill)
       height: root.vertical ? end - start + root.islandEnd("center", leadSpill) + root.islandEnd("center", trailSpill) : root.barSize
-      visible: root.islands && end > start
+      visible: root.islands && end > start && opacity > 0
     }
-    CenterGestureArea { anchors.fill: parent }
     HighlightLayer { zone: "center"; island: centerIsland }
     Item {
       x: root.vertical ? 0 : centerIsland.x
@@ -3317,6 +3492,8 @@ Item {
       width: root.vertical ? parent.width : Math.max(0, centerIsland.width)
       height: root.vertical ? Math.max(0, centerIsland.height) : parent.height
       HoverHandler {
+        // A hidden centre doesn't answer the pointer passing over the expansion.
+        enabled: !centerIsland.zoneHidden
         onHoveredChanged: root.setCenterSectionHovered(hovered)
         Component.onDestruction: if (hovered) root.setCenterSectionHovered(false)
       }
@@ -3451,23 +3628,27 @@ Item {
     readonly property bool isFoldHandle: true
     property var homeWindow: null
     property string zone: ""
-    // Which end of its list: "start" or "end".
+    // Which end of its list: "start" or "end". The centre has dots on each
+    // side of its anchor, each for the widgets waiting on that side.
     property string side: "end"
+    readonly property string inlineToken: zone === "center" ? "center:" + side : zone
     property bool active: false
     onHomeWindowChanged: if (homeWindow && homeWindow.registerFoldHandle) homeWindow.registerFoldHandle(foldHandle, true)
     Component.onDestruction: if (homeWindow && homeWindow.registerFoldHandle) homeWindow.registerFoldHandle(foldHandle, false)
     // A drag over the dots: dropping makes the widget On demand here.
     readonly property bool dropTarget: !!root.barDragDrop && root.barDragDrop.handle === true
-      && root.barDragDrop.managedZone === zone && !!homeWindow && root.sameWindow(root.barDragWindow, homeWindow)
+      && root.barDragDrop.handleToken === inlineToken && !!homeWindow && root.sameWindow(root.barDragWindow, homeWindow)
     // Folded widgets, plus (inline mode) the zone's hidden on-demand widgets.
     readonly property int count: !active || !homeWindow || !homeWindow.zoneFit ? 0
+      : zone === "center" ? (homeWindow.zoneFit.centerFolded || { start: [], end: [] })[side].length
+        + (root.onDemandInline ? homeWindow.inlineHidden[side === "start" ? "centerStart" : "centerEnd"] : 0)
       : homeWindow.zoneFit.folded[zone].length + (root.onDemandInline ? homeWindow.inlineHidden[zone] : 0)
     readonly property bool shown: count > 0
     // An inline expansion replaces the dots under the pointer.
     onShownChanged: if (!shown) root.hideTooltip(foldHandle)
     readonly property var cellPlace: CellModel.place(root.cellTokens, CellModel.TYPICAL_GLYPH, true)
     readonly property real cellSpill: cellPlace.spill
-    readonly property bool fitYielded: !!(homeWindow && homeWindow.zoneFitYielded["handle:" + zone])
+    readonly property bool fitYielded: !!(homeWindow && homeWindow.zoneFitYielded["handle:" + (zone === "center" ? "center:" + side : zone)])
     readonly property var drawerRef: homeWindow ? homeWindow.managedDrawer : null
     readonly property bool drawerOpen: !!drawerRef && drawerRef.opened && drawerRef.zone === zone && !drawerRef.groupId
     // The last count stays on the badge while the handle fades out.
@@ -3540,21 +3721,25 @@ Item {
     MouseArea {
       id: handleMouse
       anchors.fill: parent
-      hoverEnabled: true
+      // Qt hovers disabled items too: dots that gave way must not answer the
+      // pointer passing over the widgets that took their place.
+      hoverEnabled: foldHandle.enabled
       cursorShape: Qt.PointingHandCursor
       // Inline mode expands the zone in the bar; drawer mode opens its drawer.
       onEntered: {
-        if (root.onDemandInline && foldHandle.homeWindow) foldHandle.homeWindow.inlineEnter(foldHandle.zone)
+        if (!foldHandle.enabled) return
+        if (root.onDemandInline && foldHandle.homeWindow) foldHandle.homeWindow.inlineEnter(foldHandle.inlineToken)
         else if (foldHandle.drawerRef) foldHandle.drawerRef.sourceEnter(foldHandle.zone)
         root.showTooltip(foldHandle, foldHandle.label)
       }
       onExited: {
-        if (root.onDemandInline && foldHandle.homeWindow) foldHandle.homeWindow.inlineLeave(foldHandle.zone)
+        if (root.onDemandInline && foldHandle.homeWindow) foldHandle.homeWindow.inlineLeave(foldHandle.inlineToken)
         else if (foldHandle.drawerRef) foldHandle.drawerRef.sourceLeave(foldHandle.zone)
         root.hideTooltip(foldHandle)
       }
       onClicked: {
-        if (root.onDemandInline && foldHandle.homeWindow) foldHandle.homeWindow.inlineEnter(foldHandle.zone, true)
+        if (!foldHandle.enabled) return
+        if (root.onDemandInline && foldHandle.homeWindow) foldHandle.homeWindow.inlineEnter(foldHandle.inlineToken, true)
         else if (foldHandle.drawerRef) foldHandle.drawerRef.openZone(foldHandle.zone, false)
       }
     }
@@ -3623,10 +3808,12 @@ Item {
     readonly property bool previewEndGap: previewAnchorEnd || (previewEnd && DragModel.endGap(root.dragPreview, "bar:" + region))
     // Where this list draws its zone's drawer handle, as the zone fit says.
     readonly property var fitHandles: homeWindow && homeWindow.zoneFit ? homeWindow.zoneFit.handles : null
+    readonly property bool centerStartDots: !!fitHandles && (fitHandles.center === "start" || fitHandles.center === "both")
+    readonly property bool centerEndDots: !!fitHandles && (fitHandles.center === "end" || fitHandles.center === "both")
     readonly property bool handleAtStart: !!fitHandles && ((listRole === "right" && fitHandles.right === "start")
-      || (listRole === "before" && fitHandles.center === "start") || (listRole === "center" && fitHandles.center === "start"))
+      || ((listRole === "before" || listRole === "center") && centerStartDots))
     readonly property bool handleAtEnd: !!fitHandles && ((listRole === "left" && fitHandles.left === "end")
-      || (listRole === "after" && fitHandles.center === "end") || (listRole === "center" && fitHandles.center === "end"))
+      || ((listRole === "after" || listRole === "center") && centerEndDots))
     width: root.vertical ? Math.max(root.barSize, contents.width) : startGap.width + startHandle.width + contents.width + endHandle.width + endGap.width
     height: root.vertical ? startGap.height + startHandle.height + contents.height + endHandle.height + endGap.height : Math.max(root.barSize, contents.height)
     readonly property real leadSpill: previewStartGap && root.barDragSource ? root.barDragSource.cellSpill
@@ -3672,8 +3859,10 @@ Item {
     // The yielded widgets leave a marker (dots and their count) in the first
     // freed cell, next to the widgets still showing; the island ends past it.
     readonly property var markerPlace: CellModel.place(root.cellTokens, CellModel.TYPICAL_GLYPH, true)
-    readonly property real trimLead: leadRun > 0 ? leadRun - markerPlace.extent : 0
-    readonly property real trimTrail: trailRun > 0 ? trailRun - markerPlace.extent : 0
+    // A zone hidden whole leaves no marker; its island fades where it stands.
+    readonly property bool zoneHidden: !!homeWindow && homeWindow.zoneHidden(region)
+    readonly property real trimLead: leadRun > 0 && !zoneHidden ? leadRun - markerPlace.extent : 0
+    readonly property real trimTrail: trailRun > 0 && !zoneHidden ? trailRun - markerPlace.extent : 0
     // The list's length without them, and the same eased for island ends.
     readonly property real shownLength: listLength - trimLead - trimTrail
     property real shownLead: trimLead
@@ -3698,13 +3887,13 @@ Item {
       y: root.vertical ? startGap.height : 0
     }
     YieldMarker {
-      count: moduleListRoot.leadRun > 0 ? moduleListRoot.yieldCount(false) : 0
+      count: moduleListRoot.leadRun > 0 && !moduleListRoot.zoneHidden ? moduleListRoot.yieldCount(false) : 0
       readonly property real along: moduleListRoot.leadRun - moduleListRoot.markerPlace.extent
       x: root.vertical ? 0 : along
       y: root.vertical ? along : 0
     }
     YieldMarker {
-      count: moduleListRoot.trailRun > 0 ? moduleListRoot.yieldCount(true) : 0
+      count: moduleListRoot.trailRun > 0 && !moduleListRoot.zoneHidden ? moduleListRoot.yieldCount(true) : 0
       readonly property real along: moduleListRoot.listLength - moduleListRoot.trailRun
       x: root.vertical ? 0 : along
       y: root.vertical ? along : 0
@@ -3748,6 +3937,10 @@ Item {
     property var homeWindow: null
     readonly property string region: record.region
     property bool centerAnchorSlot: false
+    // The side of the centre's anchor it sits on, and so the dots it waits behind.
+    property string centerSide: "end"
+    // The expansion that shows it in inline mode: its zone, the centre by side.
+    readonly property string inlineToken: region === "center" ? "center:" + centerSide : region
     readonly property string moduleName: root.entryId(entry)
     readonly property var moduleSettings: root.entrySettings(entry)
     readonly property bool groupHeader: !!(entry && entry.powerbarGroupId)
@@ -3796,7 +3989,7 @@ Item {
     property real activityUntil: 0
     // Visible on the bar by its own rules, before the zone fit.
     // Shown in the bar by an inline expansion of its zone.
-    readonly property bool inlineShown: managed && !!homeWindow && homeWindow.inlineZone !== "" && homeWindow.inlineZone === region
+    readonly property bool inlineShown: managed && !!homeWindow && homeWindow.inlineZone !== "" && homeWindow.inlineZone === inlineToken
     readonly property bool baseVisible: !memberGroup && (alwaysShown || (managed && !drawerHost && (activityVisible || panelOpen || hovered || inlineShown)))
     // Waits behind its zone's dots in inline mode.
     readonly property bool inlineCandidate: root.onDemandInline && managed && !memberGroup && !baseVisible
@@ -3822,17 +4015,31 @@ Item {
       if (activityVisible) { activityExpiry.interval = Math.max(1, remaining); activityExpiry.start() }
     }
     onActivityUntilChanged: syncActivity()
-    onManagedChanged: syncActivity()
+    // The run it draws in depends on its visibility, too.
+    onManagedChanged: {
+      syncActivity()
+      if (homeWindow) Qt.callLater(homeWindow.reconcileWidgets)
+    }
     Timer { id: activityExpiry; repeat: false; onTriggered: slot.activityVisible = false }
     // Highlighted like a hover while an autohidden bar shows it for activity.
     property bool activityFlash: false
     function flashActivity() { activityFlash = true; flashEnd.restart() }
     Timer { id: flashEnd; interval: root.autoHidePeekMs; onTriggered: slot.activityFlash = false }
+    // One identity token per target rather than the targets themselves: a
+    // Repeater over QObjects exposes all their properties as roles. It still
+    // rebuilds exactly when the targets change; each observer reads its target
+    // once from the plain table.
+    readonly property var activityMounted: ({ list: [] })
+    readonly property var activityTokens: {
+      var list = activityTargets
+      activityMounted.list = list
+      return list.map(function(target) { return String(target) })
+    }
     Repeater {
-      model: slot.activityTargets
+      model: slot.activityTokens
       ActivityObserver {
-        required property var modelData
-        target: modelData
+        required property int index
+        target: slot.activityMounted.list[index]
         readonly property bool reveals: slot.managed || !!(slot.memberGroup && slot.memberGroup.visibility === "managed")
         enabledForActivity: reveals || (root.autoHide && root.autoHideActivity && root.activityPeeksFor(slot.instanceKey, slot.moduleName))
         onActivity: {
@@ -4001,7 +4208,7 @@ Item {
         // Inline mode: only the dots expand a zone; moving on to another zone
         // collapses the expanded one at once, as a drawer would switch.
         else if (root.onDemandInline && !slot.groupHeader) {
-          var asked = window.inlineZone || window.inlineRequest
+          var asked = (window.inlineZone || window.inlineRequest).split(":")[0]
           if (hovered && asked && asked !== slot.region) window.inlineAsk("")
         }
         else if (hovered) window.managedDrawer.sourceEnter(slot.region)
@@ -4194,11 +4401,18 @@ Item {
       onVisibleChanged: place()
       onIndexChanged: place()
       onCentresChanged: Qt.callLater(place)
+      // Identity tokens, as for the activity observers above.
+      readonly property var mounted: ({ list: [] })
+      readonly property var targetTokens: {
+        var list = targets
+        mounted.list = list
+        return list.map(function(target) { return String(target) })
+      }
       Repeater {
-        model: barHighlight.hovered && !barHighlight.selected && !slot.activityFlash ? compoundThumb.targets : []
+        model: barHighlight.hovered && !barHighlight.selected && !slot.activityFlash ? compoundThumb.targetTokens : []
         GeometryObserver {
-          required property var modelData
-          target: modelData
+          required property int index
+          target: compoundThumb.mounted.list[index]
           host: slot
           onChanged: Qt.callLater(compoundThumb.refreshCentres)
         }
@@ -4296,8 +4510,12 @@ Item {
       acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
       enabled: root.barDragSource === slot || (slot.mainVisible && slot.visible && slot.width > 0 && slot.height > 0)
       propagateComposedEvents: true
+      // Hit-testing scans every click target, so it runs only while the
+      // pointer is over the slot: elsewhere the shape is never shown.
       cursorShape: dragging ? Qt.ClosedHandCursor
+        : !cursorHover.hovered && !pressed ? Qt.ArrowCursor
         : root.moduleClickTargetAt(slot, mouseX, mouseY) ? Qt.PointingHandCursor : Qt.ArrowCursor
+      HoverHandler { id: cursorHover }
       // Do not assign drag.target here: ModuleSlot is owned by Row/Column
       // positioners, and mutating slot.x/slot.y can leave stale offsets that
       // make neighboring modules overlap after a small aborted drag.

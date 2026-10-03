@@ -36,7 +36,6 @@ const withIn = (input, over) => Object.assign({}, input, over);
 
 // Independent geometry: visible islands of each zone from a result.
 function islands(input, r) {
-  const hs = { left: 'handle:left', center: 'handle:center', right: 'handle:right' };
   const fold = new Set([].concat(r.folded.left, r.folded.center, r.folded.right));
   const yielded = new Set(r.yielded);
   const zl = n => input.zones[n];
@@ -45,11 +44,12 @@ function islands(input, r) {
   const out = {};
   for (const n of ['left', 'center', 'right']) {
     let slots = items[n].filter(s => !fold.has(s.key));
-    if (r.handles[n]) {
-      const h = { key: hs[n], extent: input.handle.extent, spill: input.handle.spill };
-      if (n === 'left') slots = slots.concat([h]);
-      else if (n === 'right') slots = [h].concat(slots);
-      else slots = r.handles.center === 'start' ? [h].concat(slots) : slots.concat([h]);
+    const h = key => ({ key, extent: input.handle.extent, spill: input.handle.spill });
+    if (r.handles[n] && n === 'left') slots = slots.concat([h('handle:left')]);
+    else if (r.handles[n] && n === 'right') slots = [h('handle:right')].concat(slots);
+    else if (n === 'center') {
+      if (['start', 'both'].includes(r.handles.center)) slots = [h('handle:center:start')].concat(slots);
+      if (['end', 'both'].includes(r.handles.center)) slots = slots.concat([h('handle:center:end')]);
     }
     const len = slots.length ? input.pad(slots[0].spill) + slots.reduce((a, s) => a + s.extent, 0) + input.pad(slots[slots.length - 1].spill) : 0;
     const start = n === 'left' ? input.inset : n === 'right' ? input.length - input.inset - len : r.centerStart;
@@ -75,6 +75,24 @@ function assertClear(input, r, tol = 1e-6) {
     const gap = i[vis[a + 1]][0] - i[vis[a]][1];
     assert.ok(gap >= input.gap - tol, `${vis[a]}-${vis[a + 1]} gap ${gap} >= ${input.gap}`);
   }
+}
+// Anchors yield only with their whole zone, and a hidden zone yields every slot.
+function assertHiddenWhole(input, r, label) {
+  const yielded = new Set(r.yielded);
+  const keysOf = n => {
+    const centre = input.zones.anchor ? input.zones.before.concat([input.zones.anchor], input.zones.after) : input.zones.center;
+    const items = n === 'center' ? centre : input.zones[n];
+    const folded = new Set(r.folded[n]);
+    const handles = n !== 'center' ? (r.handles[n] ? ['handle:' + n] : [])
+      : ['start', 'end'].filter(side => [side, 'both'].includes(r.handles.center)).map(side => 'handle:center:' + side);
+    return items.filter(s => !folded.has(s.key)).map(s => s.key).concat(handles);
+  };
+  for (const n of ['left', 'center', 'right']) {
+    const keys = keysOf(n);
+    if (r.hidden[n]) assert.ok(keys.every(k => yielded.has(k)), `${label}: hidden ${n} yields everything`);
+  }
+  const anchors = { left: input.zones.left[0] && input.zones.left[0].key, right: input.zones.right.length && input.zones.right[input.zones.right.length - 1].key, center: input.zones.anchor && input.zones.anchor.key };
+  for (const n in anchors) if (anchors[n] && yielded.has(anchors[n])) assert.ok(r.hidden[n], `${label}: ${n} anchor yields only with its zone`);
 }
 const lens = (input, r) => { const i = islands(input, r); return { L: i.left ? i.left[1] - i.left[0] : 0, C: i.center ? i.center[1] - i.center[0] : 0, R: i.right ? i.right[1] - i.right[0] : 0 }; };
 const allFolded = r => [].concat(r.folded.left, r.folded.center, r.folded.right);
@@ -134,7 +152,11 @@ test('fold order: longest zone first, from the far end', () => {
   input = make({ length: 600, zones: { left: [12, 12], right: [12, 12], before: [100, 100, 100], anchor: 100, after: [100, 100] } });
   r = zf.fit(input);
   assert.deepEqual(r.order.slice(0, 1), ['B0']);
-  assert.equal(r.handles.center, 'start');
+  // Each side's folds wait behind the dots on that side.
+  assert.ok(['start', 'both'].includes(r.handles.center));
+  assert.deepEqual(r.centerFolded.start, r.folded.center.filter(k => k[0] === 'B'));
+  assert.deepEqual(r.centerFolded.end, r.folded.center.filter(k => k[0] === 'F'));
+  assert.equal(r.handles.center, r.centerFolded.end.length ? 'both' : 'start');
   // more after than before: folds from the end of after.
   input = make({ length: 600, zones: { left: [12, 12], right: [12, 12], before: [100], anchor: 100, after: [100, 100, 100] } });
   r = zf.fit(input);
@@ -387,11 +409,13 @@ test('fuzz: 2000 inline expansions stay clear or fall back', () => {
     const base = make(o);
     if (zone === 'right') for (let k = extra.length; k < grownList.length; k++) grownList[k].key = base.zones[list][k - extra.length].key;
     const r = zf.fit(input);
-    if (r.fallback) continue;
+    // Alone, an expansion gives way only to the bar line itself.
+    if (r.fallback) { assert.equal(r.fallback.reason, 'screen', `case ${n}`); continue; }
     expanded++;
     assert.deepEqual(r.folded[zone], [], `case ${n}`);
     assert.equal(r.handles[zone], null, `case ${n}`);
-    assert.ok(!r.yielded.includes('L0') && !r.yielded.includes('A0') && !r.yielded.includes(`R${o.zones.right.length - 1}`), `case ${n}`);
+    assert.equal(r.hidden[zone], false, `case ${n}`);
+    assertHiddenWhole(input, r, `case ${n}`);
     assertClear(withIn(input, { gap: 4 }), r);
   }
   assert.ok(expanded > 500, `expanded ${expanded}`);
@@ -535,4 +559,109 @@ test('fuzz: 3000 concurrent moments never overlap once fallbacks are withdrawn',
     assertClear(withIn(input, { gap: 4 }), r);
   }
   assert.ok(served > 800, `served ${served}`);
+});
+
+test('an inline expansion hides the neighbour whose anchor is in its way', () => {
+  // A long bar on one screen side: the bottom zone expands up past the centre's
+  // free widgets to its anchor (the clock), so the whole centre hides; the top
+  // zone is far enough and stays.
+  const zones = { left: [12, 12, 12, 12, 12, 12], right: [12, 12, 12, 12, 12, 12], before: [12, 12, 12], anchor: 60, after: [12, 12, 12] };
+  const m = moment(zones, 945);
+  assert.deepEqual(allFolded(m.prev), []);
+  const { input, r } = m.run({ right: Array.from({ length: 20 }, () => 12) }, { zone: 'right', sourceKey: null, unfold: 'right' });
+  assert.deepEqual(r.fallbacks, []);
+  assert.deepEqual(r.hidden, { left: false, center: true, right: false });
+  assert.ok(r.yielded.includes('A0'));
+  assert.ok(!r.yielded.some(k => k[0] === 'L'), String(r.yielded));
+  assertHiddenWhole(input, r, 'bottom');
+  assertClear(withIn(input, { gap: 4 }), r);
+  // Other moments keep the anchor rule and fall back instead.
+  const reveal = m.run({ right: Array.from({ length: 20 }, () => 12) }, { zone: 'right', sourceKey: null });
+  assert.deepEqual(reveal.r.fallback, { zone: 'right', reason: 'anchor' });
+  assert.deepEqual(reveal.r.hidden, { left: false, center: false, right: false });
+});
+
+test('an inline expansion hides both other zones when it needs the whole bar', () => {
+  const zones = { left: [12, 12, 12, 12], right: [12, 12], before: [12, 12], anchor: 60, after: [12, 12] };
+  const m = moment(zones, 600);
+  const grow = { right: Array.from({ length: 24 }, () => 12) };
+  const { input, r } = m.run(grow, { zone: 'right', sourceKey: null, unfold: 'right' });
+  assert.deepEqual(r.fallbacks, []);
+  assert.deepEqual(r.hidden, { left: true, center: true, right: false });
+  assertHiddenWhole(input, r, 'both');
+  assertClear(withIn(input, { gap: 4 }), r);
+  // Longer than the bar line: the drawer, not the bar.
+  const huge = m.run({ right: Array.from({ length: 30 }, () => 12) }, { zone: 'right', sourceKey: null, unfold: 'right' });
+  assert.deepEqual(huge.r.fallback, { zone: 'right', reason: 'screen' });
+});
+
+test('a centre expansion hides a side zone it runs into, and keeps the other', () => {
+  const zones = { left: [12, 12, 12, 12, 12], right: [12], before: [12], anchor: 60, after: [12] };
+  const m = moment(zones, 520);
+  const { input, r } = m.run({ before: Array.from({ length: 8 }, () => 12) }, { zone: 'center', sourceKey: null, unfold: 'center' });
+  assert.deepEqual(r.fallbacks, []);
+  assert.equal(r.hidden.left, true);
+  assert.equal(r.hidden.center, false);
+  assert.equal(r.hidden.right, false);
+  assertHiddenWhole(input, r, 'centre');
+  assertClear(withIn(input, { gap: 4 }), r);
+});
+
+test('a centre expansion that would run off the bar slides back onto it', () => {
+  const zones = { left: [12, 12, 12], right: [12, 12, 12], before: [12], anchor: 60, after: [12] };
+  const m = moment(zones, 520);
+  const grown = { before: Array.from({ length: 13 }, () => 12) };
+  const { input, r } = m.run(grown, { zone: 'center', sourceKey: null, unfold: 'center' });
+  assert.deepEqual(r.fallbacks, []);
+  assert.ok(r.centerShift > m.prev.centerShift, `slid ${r.centerShift}`);
+  assert.ok(Math.abs(r.centerStart - input.inset) < 1e-6, 'by the least distance: flush with the bar start');
+  assert.equal(r.hidden.left, true);
+  assertHiddenWhole(input, r, 'slide');
+  assertClear(withIn(input, { gap: 4 }), r);
+  // Other moments never slide the centre.
+  const reveal = m.run(grown, { zone: 'center', sourceKey: null });
+  assert.equal(reveal.r.centerShift, m.prev.centerShift);
+  assert.deepEqual(reveal.r.fallback, { zone: 'center', reason: 'screen' });
+});
+
+test('centre dots on both sides: each side reserves its own handle', () => {
+  const zones = { left: [12], right: [12], before: [12], anchor: 60, after: [12] };
+  const input = withIn(make({ length: 1200, zones }), { dots: { center: { start: true, end: true } } });
+  const r = zf.fit(input);
+  assert.equal(r.handles.center, 'both');
+  // Equal handles at both ends keep the anchor centred.
+  assert.equal(r.centerShift, 0);
+  assertClear(input, r);
+  const lone = zf.fit(withIn(make({ length: 1200, zones }), { dots: { center: { start: true, end: false } } }));
+  assert.equal(lone.handles.center, 'start');
+});
+
+test('a centre side expands alone: only that side unfolds, the other end stays put', () => {
+  const zones = { left: [12, 60, 60], right: [12, 60, 60], before: [12, 40, 40], anchor: 60, after: [40, 40, 12] };
+  let L = 400;
+  let prev = zf.fit(make({ length: L, zones }));
+  while (!(prev.centerFolded.start.length && prev.centerFolded.end.length) && L > 200) prev = zf.fit(make({ length: --L, zones }));
+  assert.ok(prev.centerFolded.start.length && prev.centerFolded.end.length, 'folds on both sides');
+  assert.equal(prev.handles.center, 'both');
+  const input = withIn(make({ length: L, zones }), { previous: prev, momentGap: 4, transient: { zone: 'center', sourceKey: null, unfold: 'center', side: 'start' } });
+  const r = zf.fit(input);
+  assert.equal(r.fallback, null);
+  assert.deepEqual(r.centerFolded.start, []);
+  assert.deepEqual(r.centerFolded.end, prev.centerFolded.end);
+  assert.equal(r.handles.center, 'end');
+  // The end of the centre is where it was at rest (unless the expansion had to slide back onto the bar).
+  const restEnd = islands(make({ length: L, zones }), prev).center[1];
+  if (r.centerShift === prev.centerShift) assert.ok(Math.abs(islands(input, r).center[1] - restEnd) < 1e-6);
+  assertHiddenWhole(input, r, 'side');
+});
+
+test('without an anchor, centre folds wait on the side they were taken from', () => {
+  const zones = { left: [12, 60], right: [12, 60, 60, 60], before: [], anchor: null, after: [], center: [40, 40, 40, 40, 40, 40] };
+  let L = 600, r = zf.fit(make({ length: L, zones }));
+  while (!r.folded.center.length && L > 200) r = zf.fit(make({ length: --L, zones }));
+  assert.ok(r.folded.center.length);
+  const keys = make({ length: L, zones }).zones.center.map(s => s.key);
+  const shown = keys.filter(k => !r.folded.center.includes(k));
+  r.centerFolded.start.forEach(k => assert.ok(keys.indexOf(k) < keys.indexOf(shown[0])));
+  r.centerFolded.end.forEach(k => assert.ok(keys.indexOf(k) > keys.indexOf(shown[shown.length - 1])));
 });

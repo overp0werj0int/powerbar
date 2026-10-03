@@ -1,5 +1,14 @@
 // Shared reconciliation keeps visual lifetimes independent of JS-array replacement.
-function equal(a, b) { return a === b || JSON.stringify(a) === JSON.stringify(b) }
+// Same keys in the same order holding the same values serialise identically,
+// so the JSON comparison is only needed when something differs.
+function shallowSame(a, b) {
+  if (!a || !b || typeof a !== "object" || typeof b !== "object" || Array.isArray(a) !== Array.isArray(b)) return false
+  var ka = Object.keys(a), kb = Object.keys(b)
+  if (ka.length !== kb.length) return false
+  for (var i = 0; i < ka.length; i++) if (ka[i] !== kb[i] || a[ka[i]] !== b[ka[i]]) return false
+  return true
+}
+function equal(a, b) { return a === b || shallowSame(a, b) || JSON.stringify(a) === JSON.stringify(b) }
 function sameItems(a, b) {
   if (a === b) return true
   if (!a || !b || a.length !== b.length) return false

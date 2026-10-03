@@ -99,6 +99,17 @@ Item {
   readonly property bool selectionVisible: Model.cursorVisible(keyboardMode, cursorActive, slots.length)
   readonly property bool containsMouse: hover.hovered
   readonly property var slots: presenting ? (groupId ? bar.groupSlots(groupId, hostWindow) : bar.managedSlots(zone, hostWindow)) : []
+  // The mounts' model is one identity token per member, not the members: a
+  // Repeater over QObjects exposes every property of every member as a role,
+  // which cost milliseconds per member on each open. The Repeater still
+  // rebuilds exactly when the members change; each mount reads its member
+  // from this plain table, which never notifies.
+  readonly property var mounted: ({ list: [] })
+  readonly property var mountTokens: {
+    var list = slots
+    mounted.list = list
+    return list.map(function(slot) { return String(slot) })
+  }
   readonly property bool interactionHeld: keyboardMode || bar.dragMotionActive || slots.some(function(slot) { return slot.panelOpen })
   // Menu padding, and the pitch a drag opens between rows.
   readonly property real padding: tokens.inset
@@ -119,11 +130,25 @@ Item {
     ? Math.min(Math.max(thickness, desiredCross), hostWindow.drawerExtent - gap - bar.edgeGap) : thickness
   readonly property real length: opened ? Math.min(Math.max(thickness, desiredLength), Math.max(thickness, axisExtent - 2 * bar.edgeGap)) : closingLength
   readonly property real paintedLength: bar.vertical ? height : width
-  // The group icon's cell along the bar, in the window's coordinates.
+  // The group icon's cell along the bar, in the window's coordinates. The icon
+  // moves with its zone too (a zone grows, slides or yields), which its own x
+  // never shows, so the observers below follow the whole ancestor chain.
+  property int anchorRevision: 0
+  property int islandRevision: 0
+  GeometryObserver {
+    target: drawer.presenting ? drawer.anchorSlot : null
+    host: drawer.hostWindow.contentItem
+    onChanged: drawer.anchorRevision++
+  }
+  GeometryObserver {
+    target: drawer.presenting && drawer.hostWindow.zoneIslands ? drawer.hostWindow.zoneIslands[drawer.zone] || null : null
+    host: drawer.hostWindow.contentItem
+    onChanged: drawer.islandRevision++
+  }
   readonly property var sourceCell: {
     if (anchorCenter >= 0) return { start: anchorCenter - tokens.cell / 2, end: anchorCenter + tokens.cell / 2 }
     if (!anchorSlot) return null
-    var geometry = anchorSlot.x + anchorSlot.y + anchorSlot.width + anchorSlot.height + anchorSlot.cellLength
+    var geometry = anchorRevision + anchorSlot.x + anchorSlot.y + anchorSlot.width + anchorSlot.height + anchorSlot.cellLength
     var p = anchorSlot.mapToItem(hostWindow.contentItem, 0, 0)
     var along = bar.vertical ? anchorSlot.height : anchorSlot.width
     var start = (bar.vertical ? p.y : p.x) + (along - anchorSlot.cellLength) / 2
@@ -132,7 +157,7 @@ Item {
   readonly property var zoneIsland: {
     var island = hostWindow.zoneIslands ? hostWindow.zoneIslands[zone] : null
     if (!island || !island.visible || !bar.islands) return null
-    var geometry = island.x + island.y + island.width + island.height
+    var geometry = islandRevision + island.x + island.y + island.width + island.height
     var p = island.mapToItem(hostWindow.contentItem, 0, 0)
     return bar.vertical ? { start: p.y, end: p.y + island.height } : { start: p.x, end: p.x + island.width }
   }
@@ -334,11 +359,12 @@ Item {
         spacing: drawer.namedMenu ? drawer.padding : 0
         Repeater {
           id: widgets
-          model: drawer.slots
+          model: drawer.mountTokens
           AnimatedSlot {
             id: mount
-            required property var modelData
             required property int index
+            // Read once: a mount keeps its member for its whole life.
+            readonly property var modelData: drawer.mounted.list[index]
             readonly property string title: modelData ? (bar.barWidgetRegistry.metadataFor(bar.canonicalWidgetId(modelData.moduleName)) || {}).displayName || modelData.moduleName.split(".").pop() : ""
             readonly property bool labelled: drawer.namedMenu
             readonly property bool showNative: drawer.memberDisplay !== "name"

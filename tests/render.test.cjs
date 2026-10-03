@@ -36,3 +36,16 @@ test('raw layout indexes tolerate invalid entries without disturbing unrelated z
   next.layout.left.push(entry('new'));
   assert.deepEqual(model.captureDelta(original, next), ['new']);
 });
+test('equality matches serialised equality, with or without shared members', () => {
+  const shared = { id: 'x', settings: { a: 1 } };
+  assert.equal(model.equal({ key: 'a', entry: shared }, { key: 'a', entry: shared }), true);
+  assert.equal(model.equal({ key: 'a', entry: shared }, { key: 'a', entry: { id: 'x', settings: { a: 1 } } }), true);
+  assert.equal(model.equal({ key: 'a', entry: shared }, { key: 'a', entry: { id: 'x', settings: { a: 2 } } }), false);
+  // Key order counts, as it does in JSON.
+  assert.equal(model.equal({ a: 1, b: 2 }, { b: 2, a: 1 }), false);
+  assert.equal(model.equal([shared, 1], [shared, 1]), true);
+  assert.equal(model.equal([shared], { 0: shared }), false);
+  assert.equal(model.equal({ a: undefined }, {}), true);
+  assert.equal(model.equal({ n: NaN }, { n: null }), true);
+  assert.equal(model.equal(null, {}), false);
+});

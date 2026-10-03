@@ -39,53 +39,86 @@ function icon(idValue) {
   return icons[name] || "󰕰"
 }
 
-// Layout editor geometry. A cell is one zone × visibility pair; positions are
-// indexes into its items ordered as the bar shows them.
-function cell(entries, section, visibility, excludeKey) {
+// Layout editor geometry. A cell is one column × visibility pair; positions
+// are indexes into its items ordered as the bar shows them. A column is a
+// zone, except that with a centre anchor the centre's On demand cell splits
+// in two: "center:start" and "center:end", the widgets that wait behind the
+// dots before and after the anchor.
+function columns(mode, split) {
+  return split && mode === "managed" ? ["left", "center:start", "center:end", "right"] : sections
+}
+function sectionOf(column) { return String(column).split(":")[0] }
+// A group icon anchored on the centre anchor sits just before it.
+function centerSide(entry, anchorIndex) {
+  return entry.index < anchorIndex || (entry.index === anchorIndex && !!entry.groupId) ? "start" : "end"
+}
+function cell(entries, column, visibility, excludeKey, anchorIndex) {
+  var section = sectionOf(column), side = String(column).split(":")[1] || ""
+  var anchor = anchorIndex === undefined ? -1 : anchorIndex
   return (entries || []).filter(function(e) {
     return e.section === section && e.mode === visibility && (!excludeKey || e.instanceKey !== excludeKey)
+      && (!side || centerSide(e, anchor) === side)
   }).sort(function(a, b) { return a.index - b.index })
 }
 function clamp(value, low, high) { return Math.max(low, Math.min(high, value)) }
+function zonesOnly() { return sections }
+// The same column in another row: a split centre column meets the whole
+// centre, and the whole centre enters a split row at the side with items.
+function across(list, column, count, mode) {
+  if (list.indexOf(column) >= 0) return column
+  var section = sectionOf(column)
+  if (list.indexOf(section) >= 0) return section
+  var start = section + ":start", end = section + ":end"
+  return count(start, mode) === 0 && count(end, mode) > 0 ? end : start
+}
 // Cursor over existing items. Walking past a cell's edge continues into the
-// neighbouring zone on the same row; empty cells are valid resting places.
-function stepCursor(count, cursor, dx, dy) {
-  var s = sections.indexOf(cursor.section), m = modes.indexOf(cursor.mode), pos = cursor.pos
+// neighbouring column on the same row; empty cells are valid resting places.
+// columnsFor(mode) lists a row's columns (zones by default).
+function stepCursor(count, cursor, dx, dy, columnsFor) {
+  columnsFor = columnsFor || zonesOnly
+  var m = modes.indexOf(cursor.mode), column = cursor.section, pos = cursor.pos
   if (dy) {
     m = clamp(m + dy, 0, modes.length - 1)
-    pos = clamp(pos, 0, Math.max(0, count(sections[s], modes[m]) - 1))
+    column = across(columnsFor(modes[m]), column, count, modes[m])
+    pos = clamp(pos, 0, Math.max(0, count(column, modes[m]) - 1))
   }
+  var cols = columnsFor(modes[m]), s = Math.max(0, cols.indexOf(column))
   if (dx) {
     pos += dx
     if (pos < 0) {
-      if (s > 0) { s--; pos = Math.max(0, count(sections[s], modes[m]) - 1) } else pos = 0
-    } else if (pos > Math.max(0, count(sections[s], modes[m]) - 1)) {
-      if (s < sections.length - 1) { s++; pos = 0 } else pos = Math.max(0, count(sections[s], modes[m]) - 1)
+      if (s > 0) { s--; pos = Math.max(0, count(cols[s], modes[m]) - 1) } else pos = 0
+    } else if (pos > Math.max(0, count(cols[s], modes[m]) - 1)) {
+      if (s < cols.length - 1) { s++; pos = 0 } else pos = Math.max(0, count(cols[s], modes[m]) - 1)
     }
   }
-  return { section: sections[s], mode: modes[m], pos: pos }
+  return { section: cols[s], mode: modes[m], pos: pos }
 }
 // Insertion point for a lifted item; count excludes the lifted item, so every
-// cell offers count + 1 slots and the far edge of a zone hands over to the next.
-function stepLift(count, target, dx, dy) {
-  var s = sections.indexOf(target.section), m = modes.indexOf(target.mode), pos = target.pos
+// cell offers count + 1 slots and the far edge of a cell hands over to the next.
+function stepLift(count, target, dx, dy, columnsFor) {
+  columnsFor = columnsFor || zonesOnly
+  var m = modes.indexOf(target.mode), column = target.section, pos = target.pos
   if (dy) {
     m = clamp(m + dy, 0, modes.length - 1)
-    pos = clamp(pos, 0, count(sections[s], modes[m]))
+    column = across(columnsFor(modes[m]), column, count, modes[m])
+    pos = clamp(pos, 0, count(column, modes[m]))
   }
+  var cols = columnsFor(modes[m]), s = Math.max(0, cols.indexOf(column))
   if (dx) {
     pos += dx
     if (pos < 0) {
-      if (s > 0) { s--; pos = count(sections[s], modes[m]) } else pos = 0
-    } else if (pos > count(sections[s], modes[m])) {
-      if (s < sections.length - 1) { s++; pos = 0 } else pos = count(sections[s], modes[m])
+      if (s > 0) { s--; pos = count(cols[s], modes[m]) } else pos = 0
+    } else if (pos > count(cols[s], modes[m])) {
+      if (s < cols.length - 1) { s++; pos = 0 } else pos = count(cols[s], modes[m])
     }
   }
-  return { section: sections[s], mode: modes[m], pos: pos }
+  return { section: cols[s], mode: modes[m], pos: pos }
 }
-// The layout index to insert before, or -1 for the end of the zone.
-function dropBefore(items, pos) {
-  return pos >= 0 && pos < items.length ? items[pos].index : -1
+// The layout index to insert before, or -1 for the end of the zone. Past the
+// last item before the centre anchor, that is the anchor.
+function dropBefore(items, pos, column, anchorIndex) {
+  if (pos >= 0 && pos < items.length) return items[pos].index
+  return column === "center:start" && anchorIndex >= 0 ? anchorIndex : -1
 }
 
 // Hiding with x and showing again returns a widget to the row it left.
