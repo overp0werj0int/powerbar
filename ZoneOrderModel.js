@@ -41,10 +41,37 @@ function dropBefore(o) {
   return list === "before" && o.anchorKey && o.anchorKey !== o.source ? o.anchorKey : ""
 }
 
+// Whether a drop into a gap lands On demand. Only inside the expansion's run:
+// the gap's neighbours are both widgets the expansion shows, or one of them is
+// and the other side is the zone's dots end. The gap where the shown widgets
+// meet the expansion is the end of the shown run, so it lands shown.
+// Neighbours are the nearest widgets on screen: hidden ones (group members,
+// widgets waiting behind other dots) are skipped.
+//   sequence: the zone as drawn, without the moving widget
+//             [{ key, list, managed, expanded, hidden }] (expanded: shown by an expansion)
+//   gap:      index into the sequence
+function neighbours(sequence, gap) {
+  var prev = null, next = null
+  for (var i = gap - 1; i >= 0 && !prev; i--) if (!sequence[i].hidden) prev = sequence[i]
+  for (var j = gap; j < sequence.length && !next; j++) if (!sequence[j].hidden) next = sequence[j]
+  return { prev: prev, next: next }
+}
+function landsOnDemand(sequence, gap) {
+  var n = neighbours(sequence, gap), prev = n.prev, next = n.next
+  var list = (prev || next || {}).list
+  function side(item, dotsHere) {
+    if (item) return item.expanded ? "demand" : "shown"
+    return dotsHere ? "demand" : "edge"
+  }
+  var before = side(prev, dotsAtStart(list)), after = side(next, !dotsAtStart(list) && list !== "anchor")
+  if (before === "shown" || after === "shown") return false
+  return before === "demand" || after === "demand"
+}
+
 function successor(layout, key, source) {
   var keys = layout.filter(function (k) { return k !== source })
   var at = keys.indexOf(key)
   return at >= 0 && at + 1 < keys.length ? keys[at + 1] : ""
 }
 
-if (typeof module !== "undefined") module.exports = { arrange, dropBefore, dotsAtStart }
+if (typeof module !== "undefined") module.exports = { arrange, dropBefore, dotsAtStart, landsOnDemand, neighbours }

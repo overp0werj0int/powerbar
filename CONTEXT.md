@@ -111,23 +111,24 @@ anchor opens its gap in the neighboring list so the anchored icon stays centered
 | Main island | Main island or empty zone | Move the instance, set Always shown |
 | Main island | Beside a group icon | Move the instance next to the group |
 | Main island | Group drawer (opens after resting on its icon) | Add or reorder group membership |
-| Main island | Open managed drawer or Managed target | Move the instance, set Managed |
+| Main island | Open managed drawer | Move the instance, set Managed |
 | Group drawer | Main island | Remove membership, set Always shown |
 | Group drawer | Other group icon | Transfer membership |
-| Group drawer | Managed target on the bar | Remove membership, set Managed |
+| Group drawer | A zone's dots | Remove membership, set Managed |
 | Managed drawer | Main island | Set Always shown |
 | Managed drawer | Group icon | Add group membership |
 | Group icon | Main island or another group icon | Move or reorder the group header |
-| Group icon | Open managed drawer or Managed target | Set group visibility to Managed |
+| Group icon | Open managed drawer or a zone's dots | Set group visibility to Managed |
 | Any icon | A zone's dots | Move the instance to the dots' end of its On-demand run (the centre: on that dots' side of the anchor), set Managed (On demand) |
 | Any icon | Resting 400 ms on a zone's dots | Open the zone: inline expansion or its drawer, by the on-demand display |
-| Any icon | Beside a widget an inline expansion shows | Move the instance there, set Managed |
+| Any icon | Inside an inline expansion's run (between two widgets it shows, or between one and the dots) | Move the instance there, set Managed; where the shown widgets meet the expansion it lands Always shown |
 | Any icon | Any gap on the bar | Lands at the gap as drawn: it joins the run of its visibility on the gap's side, so the saved order follows the drawn order |
 | Any icon | Outside valid surfaces | Cancel without a config write |
 
-Only one extended drawer can be open at a time. Group icons and temporary
-Managed targets on the main bar allow direct transfers without opening two
-drawers. Group nesting remains excluded. Portable tests cover
+Only one extended drawer can be open at a time. Group icons and the zones'
+dots on the main bar allow direct transfers without opening two drawers. A
+drawer a drag starts from keeps its rows until the drag ends, and a drop into
+an open group drawer leaves it open. Group nesting remains excluded. Portable tests cover
 preview decisions, model changes, a QtQuick layout transition, and capturing
 the icon before hiding its source; the
 live Hyprland socket was unavailable, so pointer feel and actual frame time

@@ -264,9 +264,9 @@ During a drag, the icon itself follows the pointer. The source space stays put
 until the icon leaves it; then nearby icons make room with a short animation,
 and the receiving island grows with the gap, plus a small lip at both ends so the space past its last icon is an obvious place to drop. A release that drifts a little off the bar's inner edge still lands on the bar. Dropping a group icon beside another group reorders the groups; dropping
 it into a managed drawer makes the whole group Managed. Groups cannot be nested.
-Small Managed targets appear on the bar during a drag, so an icon from one
-extended island can move directly into another zone's Managed collection even
-while its source drawer is open.
+A zone's dots are a drop target too, so an icon from one extended island can
+move directly into another zone's On demand widgets even while its source
+drawer is open.
 They reserve no additional workspace space. Their transparent area is click-through
 when closed, and the bar surface keeps a stable size to avoid resize flicker.
 Clicking a main-bar widget closes the drawer before activating the widget.
