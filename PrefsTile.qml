@@ -22,14 +22,23 @@ BorderSurface {
   property bool animate: true
   // A short muted line at the header's end: what the tile holds or a notice.
   property string caption: ""
+  // A destructive action in the header (Dissolve on Groups), asked twice like
+  // Reset: by click, or with actionKey twice within 3 s.
+  property string actionText: ""
+  property string actionKey: ""
+  property bool actionConfirming: false
+  // A control at the header's end (a filter, a choice): parent it here.
+  readonly property alias headerSlot: headerSlot
   default property alias content: body.data
   signal switched(bool checked)
   signal reset()
+  signal action()
 
   property bool confirming: false
   readonly property bool canReset: resettable && changed
   // Footer keys added while focus is inside this tile.
-  readonly property var tileHints: canReset ? [{ keys: "r", label: confirming ? "Again to reset" : "Reset tile" }] : []
+  readonly property var tileHints: (canReset ? [{ keys: "r", label: confirming ? "Again to reset" : "Reset tile" }] : [])
+    .concat(actionText && actionKey ? [{ keys: actionKey, label: actionConfirming ? "Again to " + actionText.toLowerCase() : actionText }] : [])
   readonly property real inset: Math.round(Style.spacing.rowPaddingX / 2)
 
   function askReset() {
@@ -51,6 +60,7 @@ BorderSurface {
   Keys.onPressed: function(event) {
     if (event.modifiers & (Qt.ControlModifier | Qt.AltModifier)) return
     if (event.text.toLowerCase() === "r" && tile.canReset) { tile.askReset(); event.accepted = true }
+    else if (tile.actionKey && event.text === tile.actionKey && tile.actionText) { tile.action(); event.accepted = true }
   }
   Timer { id: confirmTimer; interval: 3000; onTriggered: tile.confirming = false }
 
@@ -89,6 +99,13 @@ BorderSurface {
         horizontalAlignment: Text.AlignRight
         Layout.maximumWidth: Math.max(Style.space(120), tile.width * 0.6)
       }
+      Item {
+        id: headerSlot
+        visible: children.length > 0
+        implicitWidth: childrenRect.width
+        implicitHeight: childrenRect.height
+        Layout.alignment: Qt.AlignVCenter
+      }
       // Pointer only; keyboard users press r inside the tile.
       Button {
         visible: tile.canReset
@@ -100,6 +117,16 @@ BorderSurface {
         verticalPadding: Style.space(2)
         horizontalPadding: Style.space(8)
         onClicked: tile.askReset()
+      }
+      Button {
+        visible: tile.actionText !== ""
+        text: tile.actionConfirming ? "Again to " + tile.actionText.toLowerCase() : tile.actionText
+        bordered: true
+        foreground: tile.actionConfirming ? Color.urgent : Color.popups.text
+        fontSize: Style.font.caption
+        verticalPadding: Style.space(2)
+        horizontalPadding: Style.space(8)
+        onClicked: tile.action()
       }
       // The tile's own switch: one Tab stop, Space or Enter flips it.
       Item {

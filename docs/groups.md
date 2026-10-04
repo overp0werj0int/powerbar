@@ -20,17 +20,27 @@ motion for strips and menus follow the spacing specification
 Keyboard opening leaves rows unselected until
 the user navigates; reopening never carries a cursor highlight forward.
 
-Groups preferences provide creation, deletion, labels, icons, positions, widget
-assignment, transfer, and ordering. Deleting a group restores its widgets' prior
+Groups preferences (`GroupsPreferences.qml`, [prefs-groups-lab](prefs-groups-lab/prefs-groups-lab.html))
+are a bento page: a shelf of the groups drawn as the bar draws them, the selected
+group's settings in a three-column grid whose rows line up, then its drawer drawn
+exactly as it opens beside the widgets not in a group. They provide creation,
+deletion, labels, icons, positions, widget assignment, transfer, and ordering.
+The icon picker (`IconPicker.qml`, `IconSearch.js`) searches the glyphs your
+widgets draw, Omarchy's own font, the Nerd Font glyphs Omarchy uses
+(`OmarchyIcons.js`, written by `tools/omarchy-icons.py`; run it again after an
+Omarchy update) and Omarchy's emoji, or takes your own SVG or PNG by drop, paste
+or path. A chosen glyph keeps its font (`iconFont`); your own image is copied to
+`~/.local/share/powerbar/icons/` (`iconImage`) and drawn in the text colour unless
+`iconTint` is `"own"`. Faces that mix fonts or show an image draw as runs
+(`GroupFace.qml`). Deleting a group restores its widgets' prior
 visibility and placement. Explicitly hidden widgets remain hidden.
 
 Layout (`LayoutEditor.qml`) and Groups (`GroupsPreferences.qml`) share one
 interaction model: a keyboard cursor, Space to pick an item up, movement to
 preview where it lands, Space or release to drop, Esc to put it back. Layout uses
 zones and visibility rows; Groups uses ordered member and available lists. Group
-headers appear in Layout with their saved name and stock icon. Their visibility is independent of their members;
-member activity reveals a managed group header. The stock icon grid (`IconGrid.qml`)
-preserves the Omarchy menu glyph's custom font.
+headers appear in Layout with their saved face. Their visibility is independent of their members;
+member activity reveals a managed group header.
 
 The unified Appearance page applies the same border, rounding, shadow, blur, and
 opacity to every bar surface. Legacy main-bar effects are the fallback; extended

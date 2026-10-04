@@ -55,9 +55,12 @@ part of them works from the keyboard.
   visibility (the way to move it without dragging), Show on activity, whether
   it is kept at the exact screen center, and its group. A setting that does
   not apply stays in place, dimmed, with the reason under it.
-- **Groups** lists your groups beside an editor for the selected one: name, a
-  stock Omarchy icon, placement, what the bar shows, badge, how members appear
-  in the drawer, and the member list.
+- **Groups** is tiles too: a shelf of your groups drawn as the bar draws them,
+  the selected group's settings (icon and name, what the bar shows, zone,
+  visibility, badge) in columns whose rows line up, then its drawer drawn as it
+  opens beside the widgets not in a group. The icon opens a picker that
+  searches the glyphs your widgets draw, Omarchy's own icons and its emoji, or
+  takes your own SVG or PNG.
 - **Bar** is everything about how the bar looks and behaves, in tiles; changes
   show on the bar itself. The tiles are Style and position (a picture of your
   screen with the bar in its style on its edge, the style and edge choices, and
@@ -79,11 +82,12 @@ follows keyboard focus.
 | Bar page | Tab / Shift+Tab jump to the next or previous tile; `r` twice resets the focused tile to the theme |
 | Sliders | Home / End for the ends, Backspace for the default, Enter applies now, Esc undoes a value not yet applied |
 | Layout shelves | `h` `j` `k` `l` move; Space picks up the widget, then `h` / `l` move it along and across zones and `j` / `k` or Tab change its shelf; Space or Enter drops it, Esc puts it back; `x` hides or restores; Enter goes to its settings (Esc comes back); Tab jumps to the next tile; `g` edits a group |
-| Group list | `j` / `k` choose, `n` makes a group, `x` twice dissolves it, Enter edits |
-| Member lists | `j` / `k` choose, Space picks up to reorder, `x` removes, Enter adds from Available, `/` filters |
+| Groups shelf | `h` / `l` choose, `n` makes a group, `x` twice dissolves it, Enter goes to its icon |
+| Drawer and list | `j` / `k` choose; in the drawer Space picks up to reorder and `x` removes; in the list Enter adds and typing filters |
+| Icon picker | Type to search, arrows move, Enter chooses, Tab changes the source, Ctrl+V pastes an image or a glyph, Esc clears then closes |
 
-With the pointer, drag any widget in Layout or between the member lists; the
-landing place is previewed before you let go.
+With the pointer, drag any widget in Layout or between the drawer and the list;
+the landing place is previewed before you let go.
 
 Changes apply immediately and persist through the host in `~/.config/omarchy/shell.json`.
 **Bar style** (Bar → Style and position) is one of three, shown on a small
@@ -147,7 +151,11 @@ on the focused monitor; `omarchy-shell powerbar closePreferences` closes them.
 ## Groups
 
 Open **Preferences → Groups** to create named drawers. Choose a group to rename
-it, select a stock Omarchy glyph, set its zone, and edit its members. Right-click a group icon on the bar to open that group in
+it, pick its icon, set its zone, and edit its members. The icon picker searches
+the glyphs your widgets draw, Omarchy's own font, the glyphs Omarchy itself uses
+and Omarchy's emoji; drop, paste or type the path of an SVG or PNG to use your
+own, drawn in the bar's text colour or in its own colours. Widgets you uninstall
+leave their groups by themselves. Right-click a group icon on the bar to open that group in
 preferences. Groups also appear with their names and icons in Layout.
 
 Each group independently chooses what the bar shows (**icon**, **name**, or **both**),
@@ -166,8 +174,8 @@ an urgent boolean or a positive `downCount` / `alertCount`. Select a member in
 Groups to enter a custom badge or urgent property name. `none` explicitly
 excludes a member from badge aggregation.
 
-Drag widgets between the Available and member lists, or reorder them within the
-group. On the bar, group icons make way for a dragged icon like any other,
+Drag widgets between the drawer and the list beside it, or reorder them within
+the drawer. On the bar, group icons make way for a dragged icon like any other,
 so dropping beside a group places the icon next to it. Rest the drag on a group
 icon for a moment and its drawer opens: drop among the members to add the icon,
 which takes the group's member style (its own look, its name, or both) as soon
