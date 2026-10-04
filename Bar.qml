@@ -532,7 +532,19 @@ Item {
   // transparent bar guesses a colour from the wallpaper; Powerbar draws a
   // surface in every style and cannot know what shows through it, so it never
   // guesses (AppearanceModel.foreground).
-  readonly property string foregroundChoice: AppearanceModel.foreground(barConfig)
+  readonly property string foregroundChoice: AppearanceModel.foreground(barConfig, themeName)
+  // The current Omarchy theme, which a Light or Dark choice belongs to. A theme
+  // switch replaces the file, so it is also read again when the colours change.
+  property string themeName: ""
+  FileView {
+    id: themeNameFile
+    path: root.stateHome + "/omarchy/current/theme.name"
+    watchChanges: true
+    printErrors: false
+    onLoaded: root.themeName = String(text() || "").trim()
+    onLoadFailed: root.themeName = ""
+    onFileChanged: reload()
+  }
   readonly property var foregroundPair: AppearanceModel.textPair(themeForeground, themeContrastForeground)
   property color barForeground: textOn(themeForeground)
   // The chosen colour, or `themeColor` (the theme's own for that place) when
@@ -2346,8 +2358,8 @@ Item {
 
   onRequestedTransparentChanged: scheduleTransparentForegroundRefresh()
   onPositionChanged: { closeManagedDrawer(); scheduleTransparentForegroundRefresh() }
-  onThemeForegroundChanged: scheduleTransparentForegroundRefresh()
-  onThemeContrastForegroundChanged: scheduleTransparentForegroundRefresh()
+  onThemeForegroundChanged: { themeNameFile.reload(); scheduleTransparentForegroundRefresh() }
+  onThemeContrastForegroundChanged: { themeNameFile.reload(); scheduleTransparentForegroundRefresh() }
 
   Timer {
     id: transparentForegroundTimer
