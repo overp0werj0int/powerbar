@@ -20,6 +20,7 @@ import "ZoneFitModel.js" as ZoneFitModel
 import "InlineQueue.js" as InlineQueue
 import "RenderModel.js" as RenderModel
 import "ZoneOrderModel.js" as ZoneOrderModel
+import "GlyphModel.js" as GlyphModel
 
 Item {
   id: root
@@ -212,7 +213,88 @@ Item {
   Timer {
     interval: 5000
     running: true
-    onTriggered: if (Quickshell.screens.length) root.captureWidgetImages(Quickshell.screens[0], function() {})
+    onTriggered: {
+      // Everything loaded so far is captured here; only later arrivals are new.
+      for (var slot of root.moduleSlots) if (slot && slot.instanceKey) root.lookKnownKeys[slot.instanceKey] = true
+      root.pendingLookKeys = []
+      root.widgetLooksSeeded = true
+      root.readWidgetGlyphs()
+      if (Quickshell.screens.length) root.captureWidgetImages(Quickshell.screens[0], function() {})
+    }
+  }
+  // Each widget's own glyph, read from the button it draws (GlyphModel), for
+  // Preferences to show where it has no image of the widget: a vertical bar is
+  // never captured, and a widget added since the last capture has none. The
+  // glyph is the same either way the bar faces, so it is read at both, and kept
+  // on disk so a widget that is later hidden, and never loaded, keeps its own.
+  readonly property string widgetGlyphFile: widgetImageDir.slice(0, widgetImageDir.lastIndexOf("/")) + "/glyphs.json"
+  property var widgetGlyphs: ({})
+  property bool widgetGlyphsLoaded: false
+  property bool widgetLooksSeeded: false
+  FileView {
+    id: widgetGlyphStore
+    path: root.widgetGlyphFile
+    atomicWrites: true
+    printErrors: false
+    onLoaded: root.takeWidgetGlyphs(text())
+    onLoadFailed: root.takeWidgetGlyphs("")
+  }
+  function takeWidgetGlyphs(text) {
+    if (widgetGlyphsLoaded) return
+    widgetGlyphs = GlyphModel.parse(text)
+    widgetGlyphsLoaded = true
+    glyphReadDelay.restart()
+  }
+  // Omarchy's WidgetButton (and BarIconButton, which extends it), by shape.
+  function glyphButtons(item) {
+    var out = [], stack = [item], seen = 0
+    while (stack.length && seen < 400) {
+      var node = stack.pop()
+      seen++
+      if (!node) continue
+      if (typeof node.text === "string" && node.labelWidth !== undefined && node.textRotation !== undefined)
+        out.push({ text: node.text, font: String(node.fontFamily || ""), visible: node.visible !== false && node.opacity !== 0 })
+      var kids = node.children
+      if (kids) for (var i = kids.length - 1; i >= 0; i--) stack.push(kids[i])
+    }
+    return out
+  }
+  function readWidgetGlyphs() {
+    if (!widgetGlyphsLoaded) return
+    var store = widgetGlyphs
+    for (var slot of moduleSlots) {
+      if (!slot || slot.groupHeader || !slot.instanceKey || !slot.activeItem) continue
+      var found = GlyphModel.pick(glyphButtons(slot.activeItem))
+      if (found) store = GlyphModel.merge(store, slot.instanceKey, found)
+    }
+    var keys = []
+    for (var zone of ["left", "center", "right"])
+      for (var entry of ((barConfig.layout || {})[zone] || [])) if (entry && entry.powerbarInstance) keys.push(entry.powerbarInstance)
+    if (keys.length) store = GlyphModel.prune(store, keys)
+    if (store === widgetGlyphs) return
+    widgetGlyphs = store
+    widgetGlyphStore.setText(JSON.stringify(store) + "\n")
+  }
+  // A widget that (re)loads is read again once it has filled its button. One
+  // that is new to this session also gets its image saved, on a horizontal
+  // bar; a rebuild of known widgets (every config write) captures nothing.
+  property var pendingLookKeys: []
+  property var lookKnownKeys: Object.create(null)
+  function widgetLoaded(key) {
+    if (key && !lookKnownKeys[key] && pendingLookKeys.indexOf(key) < 0) pendingLookKeys = pendingLookKeys.concat([key])
+    glyphReadDelay.restart()
+  }
+  Timer {
+    id: glyphReadDelay
+    interval: 2000
+    onTriggered: {
+      root.readWidgetGlyphs()
+      if (!root.widgetLooksSeeded) return
+      var keys = root.pendingLookKeys
+      root.pendingLookKeys = []
+      for (var key of keys) root.lookKnownKeys[key] = true
+      if (keys.length && Quickshell.screens.length) root.captureWidgetImages(Quickshell.screens[0], function() {}, keys)
+    }
   }
   property var activityDeadlines: Object.create(null)
   property var slotCopies: Object.create(null)
@@ -4709,7 +4791,10 @@ Item {
     }
 
     onPluginApiIdChanged: Qt.callLater(root.prunePluginBarApis)
-    onActiveItemChanged: Qt.callLater(injectProps)
+    onActiveItemChanged: {
+      Qt.callLater(injectProps)
+      if (!groupHeader && activeItem) root.widgetLoaded(instanceKey)
+    }
     onModuleSettingsChanged: injectProps()
 
     function injectProps() {
