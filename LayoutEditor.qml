@@ -759,7 +759,7 @@ Item {
     BarFace {
       visible: tile.onBar && !tile.placeholder && !!tile.barFace
       x: tile.faceOffset
-      face: visible ? tile.barFace : null
+      face: tile.onBar && !tile.placeholder ? tile.barFace : null
       barThickness: editor.barThickness
       ink: editor.barInk
       fontFamily: editor.barFont

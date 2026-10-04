@@ -61,7 +61,7 @@ Row {
         sourceSize: Qt.size(root.imageSize * Screen.devicePixelRatio * 2, root.imageSize * Screen.devicePixelRatio * 2)
         fillMode: Image.PreserveAspectFit
         asynchronous: true
-        tint: visible && run.modelData.tint === true
+        tint: run.image && run.modelData.tint === true
         color: root.color
       }
     }
