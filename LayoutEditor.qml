@@ -133,7 +133,8 @@ Item {
   // run, the ink from the first run's to the last run's.
   function groupFace(group, mode) {
     var x = 0, start = null, end = 0
-    Groups.faceRuns(group, mode).forEach(function(run) {
+    var runs = Groups.faceRuns(group, mode)
+    runs.forEach(function(run, index) {
       if (run.kind === "image") {
         if (start === null) start = x
         end = x + 16
@@ -145,7 +146,8 @@ Item {
         if (start === null) start = x + ink.start
         end = x + ink.start + ink.length
       }
-      x += ink.advance
+      // An icon before the name ends at its ink (GroupFace).
+      x += index === 0 && runs.length > 1 ? Math.max(0, ink.start + ink.length) : ink.advance
     })
     var face = mode || group.face
     return { kind: "group", group: group, mode: mode, inkStart: start || 0, inkLength: Math.max(0, end - (start || 0)),

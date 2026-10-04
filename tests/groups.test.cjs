@@ -149,7 +149,8 @@ test('icons keep their font, your own image and its colour; old groups save unch
   g = groupsModel.groups(config.bar)[0];
   assert.equal(g.iconImage, undefined);
   assert.equal(g.iconFont, undefined);
-  assert.equal(groupsModel.needsRuns(g, 'both'), false);
+  assert.equal(groupsModel.needsRuns(g, 'glyph'), false);
+  assert.equal(groupsModel.needsRuns(g, 'both'), true);
   // A group saved before icons kept their font: the logo still finds its font.
   assert.equal(groupsModel.groupIconFont({ icon: '' }), 'omarchy');
   assert.equal(groupsModel.needsRuns({ icon: '', face: 'both', label: 'AI' }), true);

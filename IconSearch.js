@@ -35,12 +35,17 @@ function index(sources) {
     var w = words(e.k)
     out.push({ glyph: e.e, font: "", name: w.slice(0, 3).join(" "), source: EMOJI, logo: false, words: w })
   })
-  // The same glyph in the same font from two sources keeps the first.
+  // The same glyph in the same font from two sources keeps the first, and
+  // the words of both: the Omarchy logo drawn by a widget on your bar is
+  // still found as "omarchy logo".
   var seen = {}
   return out.filter(function(i) {
-    var key = i.font + "|" + i.glyph
-    if (seen[key]) return false
-    seen[key] = true
+    var key = i.font + "|" + i.glyph, first = seen[key]
+    if (first) {
+      i.words.forEach(function(w) { if (first.words.indexOf(w) < 0) first.words.push(w) })
+      return false
+    }
+    seen[key] = i
     return true
   })
 }

@@ -29,7 +29,10 @@ function groupIconFont(group) {
   return group ? group.iconFont || iconFont(group.icon) : ""
 }
 // What a group's face draws, as runs: its icon (a glyph in its font, or your
-// own image), then for "both" two spaces and its name in the bar's font.
+// own image), then for "both" a space after the icon's ink and its name in
+// the bar's font. The gap starts at the ink, not the glyph's box: icon glyphs
+// overhang their boxes by different amounts (the speaker by 6.6 px, the
+// Omarchy logo not at all), so a gap of spaces in one string varies.
 // face: "glyph" | "text" | "both" (defaults to the group's own).
 function faceRuns(group, face) {
   if (!group) return []
@@ -38,15 +41,14 @@ function faceRuns(group, face) {
     : { kind: "text", text: group.icon, font: groupIconFont(group) }
   if (f === "text") return [{ kind: "text", text: group.label, font: "" }]
   if (f === "glyph") return [icon]
-  return [icon, { kind: "gap", text: "  ", font: "" }, { kind: "text", text: group.label, font: "" }]
+  return [icon, { kind: "gap", text: " ", font: "" }, { kind: "text", text: group.label, font: "" }]
 }
-// The bar's text button draws a face as one string in one font. A face that
-// shows your own image, or an icon in another font next to the name, is
-// drawn as runs instead.
+// The bar's text button draws a face as one string in one font. An icon with
+// the name, or your own image, is drawn as runs instead.
 function needsRuns(group, face) {
   var f = face || (group && group.face)
   if (!group || f === "text") return false
-  return !!group.iconImage || (f === "both" && groupIconFont(group) !== "")
+  return f === "both" || !!group.iconImage
 }
 
 // The instance keys in the layout, or null when there is no layout to check

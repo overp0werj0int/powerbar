@@ -26,6 +26,12 @@ test('index keeps each glyph once per font, your bar first, and skips labels', (
   assert.equal(list.filter(i => i.glyph === '').length, 2);
   assert.equal(list.find(i => i.glyph === '' && i.source === model.BAR).font, 'omarchy');
 });
+test('a glyph from two sources is found by the words of both', () => {
+  const hit = model.search(list, 'omarchy logo')[0];
+  assert.equal(hit.glyph, '\ue900');
+  assert.equal(hit.font, 'omarchy');
+  assert.equal(hit.name, 'Keystroke');
+});
 test('every query word must start a word; exact and short names first', () => {
   assert.deepEqual(names(model.search(list, 'robot')), ['robot', 'robot excited', 'robot face bot']);
   assert.deepEqual(names(model.search(list, 'mic off')), ['microphone off']);

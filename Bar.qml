@@ -4915,7 +4915,7 @@ Item {
           id: labelMetrics
           font.family: Style.font.family
           font.pixelSize: groupButton.fontSize
-          text: groupButton.preferredFace === "both" && group ? group.icon + "  " + group.label : group ? group.label : ""
+          text: groupButton.preferredFace === "both" && group ? group.icon + " " + group.label : group ? group.label : ""
         }
         tooltipText: group && (group.tooltip === undefined ? face === "glyph" : group.tooltip)
           ? group.label : ""
