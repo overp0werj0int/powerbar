@@ -52,7 +52,7 @@ Item {
       var list = result.filter(function(e) { return e.section === g.section })
       var anchor = list.find(function(e) { return e.instanceKey === g.before })
       result.push({ id: "powerbar.group." + g.id, groupId: g.id, instanceKey: "group:" + g.id,
-        label: g.label, icon: g.icon, mode: g.visibility, section: g.section,
+        label: g.label, icon: g.icon, iconFont: g.iconFont, iconImage: g.iconImage, iconTint: g.iconTint, mode: g.visibility, section: g.section,
         index: anchor ? anchor.index : (config.layout && config.layout[g.section] || []).length,
         fingerprint: JSON.stringify(g) })
     })
@@ -139,6 +139,7 @@ Item {
   function readGlyph(record) { return !record.groupId && bar && bar.widgetGlyphs ? bar.widgetGlyphs[record.instanceKey] || null : null }
   function iconFont(record) {
     var read = readGlyph(record)
+    if (record.groupId) return Groups.groupIconFont(record) || Style.font.family
     return read && read.font || Groups.iconFont(icon(record)) || Style.font.family
   }
   function icon(record) {
@@ -488,7 +489,7 @@ Item {
           currentIndex: prefs.page
 
           LayoutEditor { id: layoutPage; preferences: prefs; columns: BentoModel.columnsFor(card.width / Style.spacing.scale) }
-          GroupsPreferences { id: groupsPage; preferences: prefs }
+          GroupsPreferences { id: groupsPage; preferences: prefs; layout: layoutPage; columns: BentoModel.columnsFor(card.width / Style.spacing.scale) }
 
           // General and Appearance as one page of tiles. Changes show on
           // the bar itself, so the page draws no preview of its own.

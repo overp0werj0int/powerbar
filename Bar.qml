@@ -1833,6 +1833,17 @@ Item {
     }
     applyBarConfig()
     Qt.callLater(ensureInstanceIds)
+    Qt.callLater(pruneGroupMembers)
+  }
+  // Widgets uninstalled since they were grouped have already left every group
+  // as read (GroupsModel.groups); their keys leave shell.json too, in one
+  // write, so nobody has to remove them by hand.
+  function pruneGroupMembers() {
+    if (!canWriteConfig() || queuedConfigEdits.length || !Util.isPlainObject(barConfig)) return
+    if (!GroupsModel.danglingMembers(barConfig)) return
+    writeConfig(function(config) {
+      if (config.bar && GroupsModel.danglingMembers(config.bar)) config.bar.powerbarGroups = GroupsModel.groups(config.bar)
+    })
   }
 
   function layoutEntries(region) {
@@ -4879,9 +4890,27 @@ Item {
         readonly property string face: root.vertical && preferredFace !== "glyph"
           && labelMetrics.width > root.cellTokens.thickness ? "glyph" : preferredFace
         readonly property var badge: group ? root.groupBadge(group.id, root.targetWindow(slot)) : ({ count: 0, urgent: false })
-        text: !group ? "󰉋" : face === "text" ? group.label
+        // Your own image, or an icon in another font beside the name, is
+        // drawn as runs (GroupFace); everything else is the kit's one string.
+        readonly property bool runs: !!group && GroupsModel.needsRuns(group, face)
+        text: runs ? "" : !group ? "󰉋" : face === "text" ? group.label
           : face === "both" ? group.icon + "  " + group.label : group.icon
-        fontFamily: face === "glyph" ? (GroupsModel.iconFont(text) || Style.font.family) : Style.font.family
+        fontFamily: face === "glyph" ? (GroupsModel.groupIconFont(group) || Style.font.family) : Style.font.family
+        hasVisualContent: runs || text !== ""
+        fixedWidth: runs && !root.vertical ? faceRuns.implicitWidth + scaledHorizontalMargin * 2 : -1
+        fixedHeight: runs && root.vertical ? faceRuns.implicitHeight + scaledVerticalPadding * 2 : -1
+        // What the runs paint along the bar, for the slot's ink (HighlightModel).
+        readonly property real paintedWidth: runs ? faceRuns.paintedWidth : 0
+        GroupFace {
+          id: faceRuns
+          visible: groupButton.runs
+          anchors.centerIn: parent
+          group: groupButton.runs ? groupButton.group : null
+          faceMode: groupButton.face
+          color: groupButton.foreground
+          fontFamily: Style.font.family
+          fontSize: groupButton.fontSize
+        }
         TextMetrics {
           id: labelMetrics
           font.family: Style.font.family

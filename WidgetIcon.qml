@@ -40,8 +40,10 @@ Item {
   readonly property real trimX: 0
   readonly property real trimY: bar && imageHeight >= horizontalBarSize ? lip : 0
   readonly property real aspect: Math.max(1, imageWidth - trimX * 2) / Math.max(1, imageHeight - trimY * 2)
-  implicitHeight: hasImage ? size : glyph.implicitHeight
-  implicitWidth: hasImage ? Math.min(size * maxAspect, size * aspect) : glyph.implicitWidth
+  // A group shows its icon: a glyph in its own font, or your own image.
+  readonly property bool isGroup: !!(record && record.groupId)
+  implicitHeight: hasImage ? size : isGroup ? groupFace.implicitHeight : glyph.implicitHeight
+  implicitWidth: hasImage ? Math.min(size * maxAspect, size * aspect) : isGroup ? groupFace.implicitWidth : glyph.implicitWidth
   clip: hasImage && (trimX > 0 || trimY > 0)
   Accessible.ignored: true
 
@@ -70,10 +72,20 @@ Item {
     smooth: true
     mipmap: true
   }
+  GroupFace {
+    id: groupFace
+    anchors.centerIn: parent
+    visible: !icon.hasImage && icon.isGroup
+    group: icon.isGroup ? icon.record : null
+    faceMode: "glyph"
+    color: Color.accent
+    fontSize: Math.round(icon.size * 0.72)
+    imageSize: Math.round(icon.size * 0.72)
+  }
   Text {
     id: glyph
     anchors.centerIn: parent
-    visible: !icon.hasImage
+    visible: !icon.hasImage && !icon.isGroup
     text: icon.key ? icon.preferences.icon(icon.record) : ""
     textFormat: Text.PlainText
     color: icon.record && icon.record.groupId ? Color.accent : icon.color

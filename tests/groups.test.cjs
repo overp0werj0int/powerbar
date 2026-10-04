@@ -125,3 +125,51 @@ test('a visibility change in place leaves the group anchored', () => {
   assert.equal(m.reanchor(c, 'left', 'two', next), false);
   assert.equal(m.groups(c.bar)[0].before, 'two');
 });
+
+test('icons keep their font, your own image and its colour; old groups save unchanged', () => {
+  const groupsModel = vm.createContext({});
+  vm.runInContext(fs.readFileSync(`${__dirname}/../GroupsModel.js`, 'utf8'), groupsModel);
+  const config = { bar: { layout: { left: [], center: [], right: [] },
+    powerbarGroups: [{ id: 'g', label: 'AI', icon: '\u{f024b}', section: 'left', items: [] }] } };
+  groupsModel.edit(config, 'g', { label: 'AI' });
+  assert.deepEqual(Object.keys(JSON.parse(JSON.stringify(config.bar.powerbarGroups[0]))).filter(k => k.startsWith('iconF') || k === 'iconImage' || k === 'iconTint'), []);
+  groupsModel.edit(config, 'g', { icon: '', iconFont: 'omarchy' });
+  let g = groupsModel.groups(config.bar)[0];
+  assert.equal(g.iconFont, 'omarchy');
+  assert.equal(groupsModel.groupIconFont(g), 'omarchy');
+  groupsModel.edit(config, 'g', { iconImage: '/home/u/.local/share/powerbar/icons/a.svg', iconTint: 'own' });
+  g = groupsModel.groups(config.bar)[0];
+  assert.equal(g.iconImage, '/home/u/.local/share/powerbar/icons/a.svg');
+  assert.equal(g.iconTint, 'own');
+  assert.equal(groupsModel.needsRuns(g, 'glyph'), true);
+  assert.equal(groupsModel.faceRuns(g, 'glyph')[0].kind, 'image');
+  assert.equal(groupsModel.faceRuns(g, 'glyph')[0].tint, false);
+  // Choosing a glyph again drops the image and the old font.
+  groupsModel.edit(config, 'g', { icon: '\u{f06a9}' });
+  g = groupsModel.groups(config.bar)[0];
+  assert.equal(g.iconImage, undefined);
+  assert.equal(g.iconFont, undefined);
+  assert.equal(groupsModel.needsRuns(g, 'both'), false);
+  // A group saved before icons kept their font: the logo still finds its font.
+  assert.equal(groupsModel.groupIconFont({ icon: '' }), 'omarchy');
+  assert.equal(groupsModel.needsRuns({ icon: '', face: 'both', label: 'AI' }), true);
+  assert.deepEqual(JSON.parse(JSON.stringify(groupsModel.faceRuns({ icon: '', face: 'both', label: 'AI' }).map(r => r.font))), ['omarchy', '', '']);
+});
+
+test('members whose widget was uninstalled leave the group; nothing is pruned without a layout', () => {
+  const groupsModel = vm.createContext({});
+  vm.runInContext(fs.readFileSync(`${__dirname}/../GroupsModel.js`, 'utf8'), groupsModel);
+  const bar = { layout: { left: [{ id: 'a', powerbarInstance: 'pw-a' }], center: [], right: [{ id: 'b', powerbarInstance: 'pw-b' }] },
+    powerbarGroups: [{ id: 'g', label: 'AI', items: ['pw-a', 'pw-gone', 'pw-b', 'pw-also-gone'] }, { id: 'h', label: 'H', items: ['pw-gone2'] }] };
+  assert.equal(groupsModel.danglingMembers(bar), 3);
+  assert.deepEqual(JSON.parse(JSON.stringify(groupsModel.groups(bar).map(g => g.items))), [['pw-a', 'pw-b'], []]);
+  // The group itself stays, even when every member is gone.
+  assert.equal(groupsModel.groups(bar).length, 2);
+  // Written back once: nothing left to prune.
+  bar.powerbarGroups = groupsModel.groups(bar);
+  assert.equal(groupsModel.danglingMembers(bar), 0);
+  // No layout keys to check against (a config still loading): keep every member.
+  const bare = { layout: { left: [], center: [], right: [] }, powerbarGroups: [{ id: 'g', label: 'AI', items: ['pw-x'] }] };
+  assert.equal(groupsModel.danglingMembers(bare), 0);
+  assert.deepEqual(JSON.parse(JSON.stringify(groupsModel.groups(bare)[0].items)), ['pw-x']);
+});

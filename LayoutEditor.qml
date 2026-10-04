@@ -1,6 +1,5 @@
 import QtQuick
 import QtQuick.Window
-import QtQuick.Effects
 import QtQuick.Layouts
 import qs.Commons
 import qs.Ui
@@ -91,7 +90,7 @@ Item {
       fontMetrics[fontKey] = metrics
     }
     var r = metrics.tightBoundingRect(text)
-    known = { start: r.x, length: r.width }
+    known = { start: r.x, length: r.width, advance: metrics.advanceWidth(text) }
     inkCache[key] = known
     return known
   }
@@ -122,16 +121,35 @@ Item {
     var url = saved ? preferences.cachedImageUrl(key) : ""
     if (url && saved.inkLength !== undefined && saved.ink === barInkHex) return imageFace(url, saved)
     var group = record.groupId && bar ? bar.groups.find(function(g) { return g.id === record.groupId }) || null : null
-    if (group) {
-      var text = group.face === "text" ? group.label : group.face === "both" ? group.icon + "  " + group.label : group.icon
-      return textFace(text, group.face === "glyph" ? (Groups.iconFont(text) || barFont) : barFont, Style.font.body, group.face === "glyph")
-    }
+    if (group) return groupFace(group, "")
     var read = preferences.readGlyph(record)
     if (read && !(read.parts > 1 && url)) return textFace(read.glyph, read.font || barFont, read.size || Style.font.body, true)
     if (url) return imageFace(url, saved)
     if (live) return imageFace(live.url, { w: live.width, h: live.height })
     var stock = Model.icon(String(record.id || ""))
     return textFace(stock, Groups.iconFont(stock) || barFont, Style.font.body, true)
+  }
+  // A group's face as the bar draws it (GroupFace): its runs, measured run by
+  // run, the ink from the first run's to the last run's.
+  function groupFace(group, mode) {
+    var x = 0, start = null, end = 0
+    Groups.faceRuns(group, mode).forEach(function(run) {
+      if (run.kind === "image") {
+        if (start === null) start = x
+        end = x + 16
+        x += 16
+        return
+      }
+      var ink = textInk(run.text, run.font || barFont, Style.font.body)
+      if (run.kind !== "gap") {
+        if (start === null) start = x + ink.start
+        end = x + ink.start + ink.length
+      }
+      x += ink.advance
+    })
+    var face = mode || group.face
+    return { kind: "group", group: group, mode: mode, inkStart: start || 0, inkLength: Math.max(0, end - (start || 0)),
+      glyph: face === "glyph", cap: true }
   }
   // Sizes of saved images from before faces.json, learnt as they load.
   property var imageSizes: ({})
@@ -736,35 +754,13 @@ Item {
         : Border.none()
       Behavior on color { enabled: editor.bar.animationsEnabled; ColorAnimation { duration: 90 } }
     }
-    Image {
-      visible: tile.onBar && !tile.placeholder && !!tile.barFace && tile.barFace.kind === "image"
+    BarFace {
+      visible: tile.onBar && !tile.placeholder && !!tile.barFace
       x: tile.faceOffset
-      y: tile.barFace ? (editor.barThickness - tile.barFace.h) / 2 : 0
-      width: tile.barFace && tile.barFace.kind === "image" ? tile.barFace.w : 0
-      height: tile.barFace && tile.barFace.kind === "image" ? tile.barFace.h : 0
-      source: visible ? tile.barFace.url : ""
-      smooth: true
-      mipmap: true
-      // An image in another theme's text colour, redrawn in the bar's own:
-      // brightened to white, then coloured, keeping its shape.
-      layer.enabled: visible && !!tile.barFace.recolour
-      layer.effect: MultiEffect {
-        brightness: 1
-        colorization: 1
-        colorizationColor: editor.barInk
-      }
-    }
-    Text {
-      visible: tile.onBar && !tile.placeholder && !!tile.barFace && tile.barFace.kind === "text"
-      x: tile.faceOffset
-      height: editor.barThickness
-      verticalAlignment: Text.AlignVCenter
-      text: visible ? tile.barFace.text : ""
-      textFormat: Text.PlainText
-      color: editor.barInk
-      font.family: tile.barFace && tile.barFace.family || Style.font.family
-      font.pixelSize: tile.barFace && tile.barFace.size || Style.font.body
-      renderType: Text.NativeRendering
+      face: visible ? tile.barFace : null
+      barThickness: editor.barThickness
+      ink: editor.barInk
+      fontFamily: editor.barFont
     }
 
     // Elsewhere: a chip with the widget's icon and name.
