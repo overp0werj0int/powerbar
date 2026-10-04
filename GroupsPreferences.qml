@@ -905,7 +905,7 @@ Item {
               : value ? member.width - pane.tokens.air - member.face.inkStart - drawer.valueWidth(member.face)
               : pane.tokens.cell / 2 - (member.face.inkStart + member.face.inkLength / 2)
             y: (member.height - pane.barThickness) / 2
-            face: visible ? member.face : null
+            face: !member.modelData.gap && (!drawer.menu || drawer.icons) ? member.face : null
             barThickness: pane.barThickness
             ink: pane.barInk
             fontFamily: pane.barFont

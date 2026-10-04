@@ -201,7 +201,10 @@ Item {
         },
         accept: function(result) {
           var face = root.faceOf(slot, onBar, width, height)
-          done(key, { url: result.url, width: width, height: height, face: face })
+          // The result is kept with the snapshot: an itemgrabber url is only
+          // valid while its result lives, and an image that loads it later
+          // (a page shown again, a rebuilt tile) would otherwise draw nothing.
+          done(key, { url: result.url, result: result, width: width, height: height, face: face })
           if (key.indexOf("group:") === 0) return
           result.saveToFile(root.widgetImageFile(key))
           root.recordFace(key, face)

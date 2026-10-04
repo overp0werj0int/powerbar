@@ -20,19 +20,21 @@ Item {
   // own: its shape filled with the text colour.
   TintedImage {
     visible: root.kind === "image"
-    y: visible ? (root.barThickness - root.face.h) / 2 : 0
-    width: visible ? root.face.w : 0
-    height: visible ? root.face.h : 0
-    source: visible ? root.face.url : ""
-    tint: visible && !!root.face.recolour
+    // Bound to the face, never to `visible`: that turns false whenever the
+    // page is hidden, and an image unloaded then may not load again.
+    y: root.kind === "image" ? (root.barThickness - root.face.h) / 2 : 0
+    width: root.kind === "image" ? root.face.w : 0
+    height: root.kind === "image" ? root.face.h : 0
+    source: root.kind === "image" ? root.face.url : ""
+    tint: root.kind === "image" && !!root.face.recolour
     color: root.ink
   }
   GroupFace {
     id: groupFace
     visible: root.kind === "group"
     y: (root.barThickness - height) / 2
-    group: visible ? root.face.group : null
-    faceMode: visible ? root.face.mode : ""
+    group: root.kind === "group" ? root.face.group : null
+    faceMode: root.kind === "group" ? root.face.mode : ""
     color: root.ink
     fontFamily: root.fontFamily
     fontSize: Style.font.body
@@ -42,7 +44,7 @@ Item {
     visible: root.kind === "text"
     height: root.barThickness
     verticalAlignment: Text.AlignVCenter
-    text: visible ? root.face.text : ""
+    text: root.kind === "text" ? root.face.text : ""
     textFormat: Text.PlainText
     color: root.ink
     font.family: root.face && root.face.family || Style.font.family
