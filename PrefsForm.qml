@@ -10,11 +10,21 @@ Controls.ScrollView {
   id: page
   default property alias content: column.data
   property real maxContentWidth: Style.space(760)
-  readonly property var hints: [
-    { keys: "j k", label: "Move" }, { keys: "h l", label: "Adjust" },
-    { keys: "space", label: "Toggle" }, { keys: "1-4", label: "Pages" }, { keys: "esc", label: "Close" }
-  ]
   readonly property Item focusedItem: Window.activeFocusItem
+  // The footer's keys follow focus: a control with its own keys (a slider)
+  // lists them between moving and switching pages.
+  readonly property var focusedHints: focusedItem && focusedItem.keyHints && contains(focusedItem) ? focusedItem.keyHints : null
+  // A bento tile adds its own keys (Reset), and Tab jumps between tiles.
+  readonly property Item focusedTile: {
+    for (var p = focusedItem; p && p !== column; p = p.parent) if (p.tileHints !== undefined) return p
+    return null
+  }
+  readonly property var tileHints: focusedTile && contains(focusedTile) ? focusedTile.tileHints : []
+  readonly property var hints: [{ keys: "j k", label: "Move" }]
+    .concat(focusedTile && !focusedHints ? [{ keys: "tab", label: "Next tile" }] : [])
+    .concat(focusedHints || [{ keys: "h l", label: "Adjust" }, { keys: "space", label: "Toggle" }])
+    .concat(tileHints, [{ keys: "1-3", label: "Pages" }],
+      focusedHints && focusedHints.some(function(h) { return h.keys === "esc" }) ? [] : [{ keys: "esc", label: "Close" }])
   contentWidth: availableWidth
   clip: true
   onFocusedItemChanged: if (contains(focusedItem)) reveal(focusedItem)
@@ -28,8 +38,9 @@ Controls.ScrollView {
     if (!view || !item) return
     var top = item.mapToItem(column, 0, 0).y - Style.space(24)
     var bottom = top + item.height + Style.space(48)
+    var end = Math.max(0, view.contentHeight - view.height)
     if (top < view.contentY) view.contentY = Math.max(0, top)
-    else if (bottom > view.contentY + view.height) view.contentY = bottom - view.height
+    else if (bottom > view.contentY + view.height) view.contentY = Math.min(end, bottom - view.height)
   }
   function step(forward) {
     var from = page.focusedItem && page.contains(page.focusedItem) ? page.focusedItem : null

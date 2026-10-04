@@ -382,7 +382,8 @@ Item {
     function closePreferences(): void { preferencesPane.close() }
     function preferencesPage(page: int): void {
       if (!preferencesPane.opened) preferences()
-      preferencesPane.setPage(page - 1)
+      // General (3) and Appearance (4) are one Bar page now; both open it.
+      preferencesPane.setPage(Math.min(page, preferencesPane.pages.length) - 1)
     }
     function managed(zone: string): void { root.openManagedZone(zone) }
     function closeManaged(): void { root.closeManagedDrawer() }
@@ -517,7 +518,19 @@ Item {
   property color themeContrastForeground: Color.background
   property color transparentForeground: Color.bar.text
   property color foreground: themeForeground
-  property color barForeground: !islands && useTransparentForeground ? transparentForeground : themeForeground
+  // Text and icons on every Powerbar surface (Bar > Surface > Text and icons):
+  // the theme's colours unless a fixed light or dark one is chosen. Omarchy's
+  // transparent bar guesses a colour from the wallpaper; Powerbar draws a
+  // surface in every style and cannot know what shows through it, so it never
+  // guesses (AppearanceModel.foreground).
+  readonly property string foregroundChoice: AppearanceModel.foreground(barConfig)
+  readonly property var foregroundPair: AppearanceModel.textPair(themeForeground, themeContrastForeground)
+  property color barForeground: textOn(themeForeground)
+  // The chosen colour, or `themeColor` (the theme's own for that place) when
+  // the choice is the theme's.
+  function textOn(themeColor) {
+    return foregroundChoice === "light" ? foregroundPair.light : foregroundChoice === "dark" ? foregroundPair.dark : themeColor
+  }
   property bool foregroundAnimationEnabled: true
   property color background: Color.bar.background
   property color urgent: Color.bar.active
@@ -1455,7 +1468,10 @@ Item {
   // Drawers always lie over windows, and so does a bar that autohides; those
   // surfaces keep a readable minimum opacity (AppearanceModel.overlayOpacity).
   readonly property color overlaySurfaceColor: Qt.alpha(background, AppearanceModel.overlayOpacity(surfaceEffects))
-  readonly property color mainSurfaceColor: autoHide ? overlaySurfaceColor : Qt.alpha(background, surfaceEffects.backgroundOpacity)
+  readonly property color mainSurfaceColor: surfaceColorFor(surfaceEffects)
+  function surfaceColorFor(effects) {
+    return Qt.alpha(background, autoHide ? AppearanceModel.overlayOpacity(effects) : effects.backgroundOpacity)
+  }
   readonly property color extendedSurfaceColor: overlaySurfaceColor
 
   readonly property string barStyle: BarModel.barStyle(barConfig)
@@ -1521,7 +1537,8 @@ Item {
     if (!item || depth > 3 || !item.visible) return null
     if ("glyphPaintedWidth" in item && "glyphFontSize" in item) return item
     if ("labelWidth" in item && "fontSize" in item && "text" in item && String(item.text) !== "") return item
-    var kids = HighlightModel.paintedChildren(item).filter(function(c) { return !HighlightModel.isBackground(c, item, false) })
+    var kids = HighlightModel.withoutBadges(HighlightModel.paintedChildren(item)
+      .filter(function(c) { return !HighlightModel.isBackground(c, item, false) }))
     return kids.length === 1 ? findKitGlyph(kids[0], depth + 1) : null
   }
   // The Text item inside a kit button that paints `text`.
@@ -1570,19 +1587,30 @@ Item {
   }
   function highlightInset(extent) { return Math.min(Style.space(3), Math.max(0, (extent - Style.space(16)) / 2)) }
   readonly property int barExtent: Math.ceil(renderedBarSize + (flat ? 0 : edgeGap * 2))
-  readonly property real widgetSpacing: Style.space(Math.max(0, Math.min(24, Number(barConfig.powerbarSpacing) || 0)))
+  readonly property real widgetSpacing: Style.space(AppearanceModel.clampTo(AppearanceModel.ranges.spacing, barConfig.powerbarSpacing))
   readonly property var themeIslandBorder: Border.surfaceSpec("popups", "border", Color.popups.border, 1)
-  readonly property real islandRounding: typeof barConfig.powerbarIslandRounding === "number"
-    ? Style.space(Math.max(0, Math.min(32, barConfig.powerbarIslandRounding))) : Style.cornerRadius
-  readonly property var islandBorder: {
-    if (barConfig.powerbarIslandBorders === false) return Border.none()
+  readonly property real islandRounding: roundingFor(barConfig)
+  readonly property var islandBorder: borderFor(barConfig)
+  // Surface geometry for a bar config.
+  // Rounding stops at a full pill: past half the bar's thickness corners look
+  // the same, and nested highlights would round past their cells.
+  function roundingFor(config) {
+    var v = config && config.powerbarIslandRounding
+    var r = typeof v === "number" ? Style.space(AppearanceModel.clampTo(AppearanceModel.ranges.rounding, v)) : Style.cornerRadius
+    return Math.min(r, barSize / 2)
+  }
+  function borderFor(config) {
+    var c = config || {}
+    if (c.powerbarIslandBorders === false) return Border.none()
     var spec = JSON.parse(JSON.stringify(themeIslandBorder))
-    var custom = typeof barConfig.powerbarIslandBorderWidth === "number"
+    var custom = typeof c.powerbarIslandBorderWidth === "number"
     for (var side in spec.widths) {
-      spec.widths[side] = (custom ? Style.spaceReal(Math.max(0, Math.min(4, barConfig.powerbarIslandBorderWidth))) : spec.widths[side]) / barScale
+      spec.widths[side] = (custom ? Style.spaceReal(AppearanceModel.clampTo(AppearanceModel.ranges.borderWidth, c.powerbarIslandBorderWidth)) : spec.widths[side]) / barScale
     }
     return spec
   }
+  // Rounding that reads as a full pill, in stored units (the slider's top).
+  readonly property int roundingMax: AppearanceModel.roundingMax(barSize, Style.spacing.scale)
 
   function normalizePosition(value) {
     return BarModel.normalizePosition(value)
@@ -2838,7 +2866,25 @@ Item {
     // reveal has to rebuild them — new surface, re-shaped glyphs, re-uploaded
     // textures — which measures ~150ms against ~20ms to tear down. Parking
     // keeps the surface alive, so showing is only a margin change.
-    visible: !remapGuard.remapping && !blurRemap.running
+    visible: !remapping
+    // Hidden for a moment to remap (a blur change, a screen move). Widgets read
+    // as invisible meanwhile, so the window freezes its slots' measurements
+    // first and thaws them once the widgets have reported their sizes again.
+    readonly property bool remapping: remapGuard.remapping || blurRemap.running
+    property bool layoutFrozen: false
+    function freezeLayout() { layoutFrozen = true; layoutThaw.stop(); layoutThawFallback.restart() }
+    onRemappingChanged: if (!remapping && layoutFrozen) layoutThaw.restart()
+    Timer { id: layoutThaw; interval: 250; onTriggered: if (!barWindow.remapping) barWindow.layoutFrozen = false }
+    // A screen move that settles without a remap still thaws.
+    Timer { id: layoutThawFallback; interval: 2000; onTriggered: if (!barWindow.remapping) barWindow.layoutFrozen = false }
+    // Omarchy's remap guard waits 200 ms after the screen moves before it
+    // hides the window; freeze on the move itself.
+    Connections {
+      target: barWindow.screen
+      ignoreUnknownSignals: true
+      function onXChanged() { barWindow.freezeLayout() }
+      function onYChanged() { barWindow.freezeLayout() }
+    }
     exclusionMode: root.barHidden ? ExclusionMode.Ignore : ExclusionMode.Normal
     exclusiveZone: root.barHidden || root.autoHide ? 0 : root.barExtent
 
@@ -2921,7 +2967,7 @@ Item {
     }
     readonly property bool blurEnabled: root.surfaceEffects.blur
     onBlurEnabledChanged: {
-      if (visible) blurRemap.restart()
+      if (visible) { freezeLayout(); blurRemap.restart() }
     }
     // The layer-shell namespace is fixed at map time. Remap only for an
     // explicit blur preference change, never for drawer transitions.
@@ -3374,7 +3420,8 @@ Item {
       height: Math.max(root.barDragImageHeight, labelText.implicitHeight + Style.space(12))
       // A menu row's shape, bordered like the drop outline it lands in.
       radius: root.highlightRadius
-      color: Qt.alpha(root.background, Math.max(0.85, root.surfaceEffects.backgroundOpacity))
+      // Over windows, like a drawer.
+      color: root.overlaySurfaceColor
       borderSpec: Border.flat(Qt.rgba(Color.menu.text.r, Color.menu.text.g, Color.menu.text.b, 0.45), 1)
       Row {
         id: labelRow
@@ -3460,10 +3507,11 @@ Item {
         y: modelData === "bottom" ? parent.height - edgeSize : 0
         width: edgeVertical ? edgeSize : parent.width
         height: edgeVertical ? parent.height : edgeSize
-        color: root.transparent ? "transparent" : root.background
+        // The bar's own surface, faded: where it would land.
+        color: root.mainSurfaceColor
         borderSpec: Border.flat(root.barForeground, 1)
         visible: opacity > 0
-        opacity: root.barMoveCandidate === modelData ? (root.transparent ? 0.45 : 0.7) : 0
+        opacity: root.barMoveCandidate === modelData ? 0.7 : 0
 
         Behavior on opacity {
           enabled: root.animationsEnabled
@@ -4110,19 +4158,32 @@ Item {
     }
     readonly property bool needsPlaceholder: (alwaysShown || managed) && (!activeItem || !activeItem.visible || activeItem.opacity === 0 || activeItem.implicitWidth <= 0 || activeItem.implicitHeight <= 0)
     // The widget's own box; drawers and drag images use it as is.
-    readonly property real naturalWidth: needsPlaceholder ? root.barSize : activeItem && activeItem.visible ? (root.vertical ? root.barSize : activeItem.implicitWidth) : 0
-    readonly property real naturalHeight: needsPlaceholder ? root.barSize : activeItem && activeItem.visible ? activeItem.implicitHeight : 0
+    readonly property real liveNaturalWidth: needsPlaceholder ? root.barSize : activeItem && activeItem.visible ? (root.vertical ? root.barSize : activeItem.implicitWidth) : 0
+    readonly property real liveNaturalHeight: needsPlaceholder ? root.barSize : activeItem && activeItem.visible ? activeItem.implicitHeight : 0
+    // While the bar window is hidden to remap (a blur change, a screen move),
+    // every widget reads as invisible and would measure as an empty
+    // placeholder. The window freezes its slots just before it hides: they
+    // keep the last real measurements until the widgets are back, so nothing
+    // resizes or animates around the remap.
+    readonly property bool measureFrozen: !!homeWindow && homeWindow.layoutFrozen === true
+    property var frozenMeasure: null
+    onMeasureFrozenChanged: {
+      frozenMeasure = measureFrozen ? { width: liveNaturalWidth, height: liveNaturalHeight, ink: liveInk, crossInk: liveCrossInk } : null
+      if (!measureFrozen) Qt.callLater(updateHold)
+    }
+    readonly property real naturalWidth: frozenMeasure ? frozenMeasure.width : liveNaturalWidth
+    readonly property real naturalHeight: frozenMeasure ? frozenMeasure.height : liveNaturalHeight
     // The cell: what the widget visibly paints along the bar decides its slot
     // and its highlight, never the box it asks for.
     readonly property Item inkItem: needsPlaceholder ? placeholderButton : activeItem
-    readonly property var measuredInk: naturalWidth > 0 && naturalHeight > 0 && inkItem
+    readonly property var measuredInk: liveNaturalWidth > 0 && liveNaturalHeight > 0 && inkItem
       ? HighlightModel.inkRect(inkItem, root.vertical) : ({ start: 0, length: 0, glyph: false })
     // When one kit button is the widget's whole content, measure the text it
     // actually paints: its exact font, its tight glyph bounds and where the
     // text sits. Kit hints give only a width and assume a centred glyph, but
     // icon-font glyphs often overhang their advance box (the speaker is 14 px of
     // ink in a 7.2 px box, so a text button paints it 3.4 px right of centre).
-    readonly property Item kitGlyph: inkItem && naturalWidth > 0 ? root.findKitGlyph(inkItem, 0) : null
+    readonly property Item kitGlyph: inkItem && liveNaturalWidth > 0 ? root.findKitGlyph(inkItem, 0) : null
     readonly property Item glyphText: kitGlyph ? root.findGlyphText(kitGlyph, String(kitGlyph.text), 0) : null
     TextMetrics {
       id: kitGlyphMetrics
@@ -4145,12 +4206,14 @@ Item {
       var p = t.mapToItem(inkItem, align + r.x, t.baselineOffset + r.y)
       return { x: p.x, y: p.y, width: r.width, height: r.height }
     }
-    readonly property var ink: !glyphInk ? measuredInk : root.vertical
+    readonly property var liveInk: !glyphInk ? measuredInk : root.vertical
       ? { start: glyphInk.y, length: glyphInk.height, glyph: measuredInk.glyph || glyphInk.width <= CellModel.GLYPH_INK }
       : { start: glyphInk.x, length: glyphInk.width, glyph: glyphInk.width <= CellModel.GLYPH_INK }
-    readonly property var crossInk: !root.vertical || naturalWidth <= 0 || !inkItem ? null
+    readonly property var liveCrossInk: !root.vertical || liveNaturalWidth <= 0 || !inkItem ? null
       : glyphInk ? { start: glyphInk.x, length: glyphInk.width, glyph: glyphInk.width <= CellModel.GLYPH_INK }
       : HighlightModel.inkRect(inkItem, false)
+    readonly property var ink: frozenMeasure ? frozenMeasure.ink : liveInk
+    readonly property var crossInk: frozenMeasure ? frozenMeasure.crossInk : liveCrossInk
     // Only free text is capped: a compound (workspaces) or a vertical stack keeps its length.
     readonly property var cellPlace: CellModel.place(root.cellTokens, ink.length, CellModel.isGlyph(ink.length, ink.glyph),
       !root.vertical && compoundTargets.length < 2)
@@ -4168,8 +4231,9 @@ Item {
     readonly property string holdLayout: root.vertical + "|" + root.barSize + "|" + root.spacingMode + "|" + root.widgetSpacing
     property string heldLayout: ""
     onHoldLayoutChanged: Qt.callLater(updateHold)
+    // The hold also waits out a remap freeze (measureFrozen).
     function updateHold() {
-      if (!root) return
+      if (!root || measureFrozen) return
       var target = landingExtent
       var relayout = heldLayout !== holdLayout
       heldLayout = holdLayout
