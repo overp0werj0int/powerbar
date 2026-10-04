@@ -487,7 +487,7 @@ Item {
           Layout.bottomMargin: Style.space(14)
           currentIndex: prefs.page
 
-          LayoutEditor { id: layoutPage; preferences: prefs }
+          LayoutEditor { id: layoutPage; preferences: prefs; columns: BentoModel.columnsFor(card.width / Style.spacing.scale) }
           GroupsPreferences { id: groupsPage; preferences: prefs }
 
           // General and Appearance as one page of tiles. Changes show on

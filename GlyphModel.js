@@ -36,16 +36,19 @@ function characters(text) {
   return out
 }
 
-// buttons: [{ text, font, visible }] in the widget's tree order. The first
+// buttons: [{ text, font, size, visible }] in the widget's tree order. The first
 // visible button with a glyph wins; a hidden one only when none is visible.
+// `parts` counts the visible buttons with something drawn: more than one is a
+// compound (workspaces, indicators), which one glyph does not picture.
 function pick(buttons) {
   var list = buttons || []
+  var parts = list.filter(function(b) { return b && b.visible !== false && String(b.text || "").trim() !== "" }).length
   for (var pass = 0; pass < 2; pass++) {
     for (var i = 0; i < list.length; i++) {
       var b = list[i]
       if (!b || (pass === 0 && b.visible === false)) continue
       var glyph = glyphFrom(b.text)
-      if (glyph) return { glyph: glyph, font: String(b.font || "") }
+      if (glyph) return { glyph: glyph, font: String(b.font || ""), size: Number(b.size) > 0 ? Number(b.size) : 0, parts: parts }
     }
   }
   return null
@@ -56,10 +59,22 @@ function pick(buttons) {
 // nothing changed, so callers can skip writes.
 function merge(store, key, entry) {
   var current = store && store[key]
-  if (!key || !entry || (current && current.glyph === entry.glyph && current.font === entry.font)) return store
+  var size = Number(entry && entry.size) > 0 ? Number(entry.size) : 0
+  var parts = Number(entry && entry.parts) > 0 ? Number(entry.parts) : 1
+  if (!key || !entry || (current && current.glyph === entry.glyph && current.font === entry.font
+      && (current.size || 0) === size && (current.parts || 1) === parts)) return store
   var next = {}
   for (var k in store) next[k] = store[k]
-  next[key] = { glyph: entry.glyph, font: entry.font }
+  next[key] = { glyph: entry.glyph, font: entry.font, size: size, parts: parts }
+  return next
+}
+
+// Drops the entry of a loaded widget that no longer draws a glyph (a widget
+// that shows only numbers), so an old one does not outlive it.
+function forget(store, key) {
+  if (!store || !(key in store)) return store
+  var next = {}
+  for (var k in store) if (k !== key) next[k] = store[k]
   return next
 }
 
@@ -79,10 +94,12 @@ function parse(text) {
     var out = {}
     for (var k in data) {
       var e = data[k]
-      if (e && typeof e.glyph === "string" && e.glyph) out[k] = { glyph: e.glyph, font: typeof e.font === "string" ? e.font : "" }
+      if (e && typeof e.glyph === "string" && e.glyph)
+        out[k] = { glyph: e.glyph, font: typeof e.font === "string" ? e.font : "", size: Number(e.size) > 0 ? Number(e.size) : 0,
+          parts: Number(e.parts) > 0 ? Number(e.parts) : 1 }
     }
     return out
   } catch (e) { return {} }
 }
 
-if (typeof module !== "undefined") module.exports = { privateUse, characters, glyphFrom, pick, merge, prune, parse }
+if (typeof module !== "undefined") module.exports = { privateUse, characters, glyphFrom, pick, merge, forget, prune, parse }

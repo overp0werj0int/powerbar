@@ -20,6 +20,8 @@ BorderSurface {
   property bool changed: false
   property bool resettable: false
   property bool animate: true
+  // A short muted line at the header's end: what the tile holds or a notice.
+  property string caption: ""
   default property alias content: body.data
   signal switched(bool checked)
   signal reset()
@@ -75,6 +77,17 @@ BorderSurface {
         Layout.fillWidth: true
         elide: Text.ElideRight
         Accessible.name: tile.title
+      }
+      Text {
+        visible: tile.caption !== ""
+        text: tile.caption
+        textFormat: Text.PlainText
+        color: Qt.alpha(Color.popups.text, 0.55)
+        font.family: Style.font.family
+        font.pixelSize: Style.font.caption
+        elide: Text.ElideRight
+        horizontalAlignment: Text.AlignRight
+        Layout.maximumWidth: Math.max(Style.space(120), tile.width * 0.6)
       }
       // Pointer only; keyboard users press r inside the tile.
       Button {

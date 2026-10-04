@@ -1,31 +1,41 @@
 import QtQuick
+import QtQuick.Window
+import QtQuick.Effects
 import QtQuick.Layouts
-import QtQuick.Controls as Controls
 import qs.Commons
 import qs.Ui
 import "PreferencesModel.js" as Model
 import "GroupsModel.js" as Groups
 import "ZoneFitNotice.js" as ZoneFitNotice
+import "AppearanceModel.js" as AppearanceModel
+import "CellModel.js" as CellModel
+import "ShelfModel.js" as ShelfModel
 
-// The bar, laid out as zones (columns) by visibility (rows). The top row is
-// drawn with the bar's own surface and live images of the widgets on it.
+// The bar's layout as tiles (docs/prefs-layout-lab): one shelf per visibility
+// (On the bar, On demand, Hidden), each holding the three zones in columns that
+// line up from shelf to shelf, then a tile with the selected widget's settings.
+// Preferences draws the bar horizontally whatever edge it is on; the zones are
+// named by where they are on screen.
 //
 // Keyboard and pointer share one state machine: a cursor rests on an item or
 // an empty cell, Space (or a drag) lifts the item, moving it previews where it
-// will land, and Space (or release) drops it. Esc puts it back.
+// will land, and Space (or release) drops it. Esc puts it back. Each shelf is
+// a Tab stop sharing that cursor.
 Item {
   id: editor
   required property var preferences
+  // Bento columns for the window (12, 6 or 1), set by Preferences.
+  property int columns: 12
   readonly property var bar: preferences.bar
   readonly property var entries: preferences.layoutEntries
   // With a centre anchor, the centre's On demand cell splits at it: the
   // widgets before it wait behind the dots at the centre's start, those after
   // it behind the dots at its end (Model.columns).
-  readonly property int anchorIndex: {
+  readonly property var anchorRecord: {
     var anchor = editor.bar ? editor.bar.centerAnchor : ""
-    var record = anchor ? entries.find(function(e) { return e.section === "center" && !e.groupId && e.id === anchor }) : null
-    return record ? record.index : -1
+    return anchor ? entries.find(function(e) { return e.section === "center" && !e.groupId && e.id === anchor }) || null : null
   }
+  readonly property int anchorIndex: anchorRecord ? anchorRecord.index : -1
   function columnsFor(mode) { return Model.columns(mode, anchorIndex >= 0) }
   readonly property var cellEntries: {
     var cells = ({})
@@ -40,16 +50,118 @@ Item {
   readonly property var snapshots: preferences.snapshots
   readonly property var sections: Model.sections
   readonly property var modes: Model.modes
-  readonly property var zoneNames: ({ left: "Left", center: "Center", right: "Right",
-    "center:start": editor.bar && editor.bar.vertical ? "Above center" : "Left of center",
-    "center:end": editor.bar && editor.bar.vertical ? "Below center" : "Right of center" })
-  readonly property var rows: [
-    { mode: "shown", title: "On the bar", hint: "Always visible" },
-    { mode: "managed", title: "On demand", hint: editor.bar && editor.bar.onDemandInline
-        ? "Behind the zone's dots; shown on activity, or when you hover the dots"
-        : "Shown on activity, or when you hover the zone" },
-    { mode: "hidden", title: "Hidden", hint: "Kept off the bar" }
-  ]
+  readonly property bool sideBar: !!bar && bar.vertical
+  readonly property string anchorTitle: anchorRecord ? preferences.title(anchorRecord) : "center"
+  readonly property var zoneNames: ({ left: sideBar ? "Top" : "Left", center: "Center", right: sideBar ? "Bottom" : "Right",
+    "center:start": (sideBar ? "Above " : "Left of ") + anchorTitle,
+    "center:end": (sideBar ? "Below " : "Right of ") + anchorTitle })
+  // Preferences draws a horizontal bar, at the size it has on a top edge.
+  readonly property real barThickness: bar ? bar.barSizeFor(false) : Style.bar.sizeHorizontal
+  readonly property real iconSize: Style.bar.sizeHorizontal
+  // Widget images are drawn in the bar's text colour. When that barely shows
+  // on the Preferences background (Light text in a light theme), they sit on
+  // a backing in the Preferences text colour instead.
+  readonly property bool inkBacked: {
+    if (!bar || !bar.barForeground) return false
+    var a = AppearanceModel.luminance(bar.barForeground), b = AppearanceModel.luminance(Color.popups.background)
+    return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05) < 3
+  }
+  // The bar shelf draws the bar as it is: its cell geometry at the size it
+  // has on a top edge, its text colour and font, its surface (opaque: the
+  // wallpaper behind it is not drawn), rounding and border.
+  readonly property var barTokens: CellModel.tokens({ bar: barThickness, spacing: bar ? bar.widgetSpacing : 0, mode: bar ? bar.spacingMode : "slots" })
+  readonly property color barInk: bar ? bar.barForeground : Color.popups.text
+  readonly property string barInkHex: bar ? bar.colorHex(bar.barForeground) : ""
+  readonly property color barSurface: bar ? Qt.rgba(bar.mainSurfaceColor.r, bar.mainSurfaceColor.g, bar.mainSurfaceColor.b, 1) : Color.popups.background
+  readonly property string barFont: bar ? bar.fontFamily : Style.font.family
+  // Ink of a line of text, measured once per text, font and size. Each font
+  // gets its own FontMetrics, made once, so measuring never changes a
+  // property a binding reads.
+  property var inkCache: ({})
+  property var fontMetrics: ({})
+  function textInk(text, family, size) {
+    var key = family + "|" + size + "|" + text
+    var known = inkCache[key]
+    if (known) return known
+    var fontKey = family + "|" + size
+    var metrics = fontMetrics[fontKey]
+    if (!metrics) {
+      metrics = Qt.createQmlObject("import QtQuick; FontMetrics {}", editor)
+      metrics.font = Qt.font({ family: family, pixelSize: size })
+      fontMetrics[fontKey] = metrics
+    }
+    var r = metrics.tightBoundingRect(text)
+    known = { start: r.x, length: r.width }
+    inkCache[key] = known
+    return known
+  }
+  function textFace(text, family, size, glyph) {
+    var ink = textInk(text, family, size)
+    return { kind: "text", text: text, family: family, size: size, inkStart: ink.start, inkLength: ink.length, glyph: glyph, cap: true }
+  }
+  function imageFace(url, f) {
+    // An image from before Powerbar recorded ink is placed as the bar places
+    // a glyph of its width.
+    var known = f.inkLength !== undefined
+    // Drawn in another text colour (another theme, or before Powerbar noted
+    // it): shown in the bar's current colour until the bar recaptures it.
+    return { kind: "image", url: url, w: f.w, h: f.h, inkStart: known ? f.inkStart : 0, inkLength: known ? f.inkLength : f.w,
+      glyph: known ? f.glyph : f.w <= barTokens.cell, cap: known ? f.cap !== false : true, recolour: f.ink !== barInkHex }
+  }
+  // How the bar draws a widget, the truest way known: a live image; a saved
+  // one drawn in the bar's current text colour; a group's face; the glyph the
+  // widget draws itself, in the bar's font, size and colour (unless it draws
+  // several, like workspaces); a saved image from another theme, recoloured;
+  // Powerbar's stock glyph.
+  function barFace(record) {
+    if (!record || !record.instanceKey) return null
+    var key = record.instanceKey
+    var live = snapshots[key]
+    if (live && live.face && live.face.inkLength !== undefined) return imageFace(live.url, live.face)
+    var saved = !record.groupId && bar && bar.widgetFaces ? bar.widgetFaces[key] || imageSizes[key] || null : null
+    var url = saved ? preferences.cachedImageUrl(key) : ""
+    if (url && saved.inkLength !== undefined && saved.ink === barInkHex) return imageFace(url, saved)
+    var group = record.groupId && bar ? bar.groups.find(function(g) { return g.id === record.groupId }) || null : null
+    if (group) {
+      var text = group.face === "text" ? group.label : group.face === "both" ? group.icon + "  " + group.label : group.icon
+      return textFace(text, group.face === "glyph" ? (Groups.iconFont(text) || barFont) : barFont, Style.font.body, group.face === "glyph")
+    }
+    var read = preferences.readGlyph(record)
+    if (read && !(read.parts > 1 && url)) return textFace(read.glyph, read.font || barFont, read.size || Style.font.body, true)
+    if (url) return imageFace(url, saved)
+    if (live) return imageFace(live.url, { w: live.width, h: live.height })
+    var stock = Model.icon(String(record.id || ""))
+    return textFace(stock, Groups.iconFont(stock) || barFont, Style.font.body, true)
+  }
+  // Sizes of saved images from before faces.json, learnt as they load.
+  property var imageSizes: ({})
+  readonly property var unsizedImages: entries.filter(function(e) {
+    return e.mode === "shown" && !e.groupId && !(editor.bar && editor.bar.widgetFaces[e.instanceKey]) && !editor.imageSizes[e.instanceKey]
+      && editor.preferences.cachedImageUrl(e.instanceKey) !== ""
+  }).map(function(e) { return e.instanceKey })
+  Repeater {
+    model: editor.unsizedImages
+    Image {
+      required property string modelData
+      visible: false
+      asynchronous: true
+      source: editor.preferences.cachedImageUrl(modelData)
+      onStatusChanged: if (status === Image.Ready) {
+        var scale = 2 * Math.max(1, Screen.devicePixelRatio)
+        var next = Object.assign({}, editor.imageSizes)
+        next[modelData] = { w: sourceSize.width / scale, h: sourceSize.height / scale }
+        editor.imageSizes = next
+      }
+    }
+  }
+  readonly property var fitNotes: editor.bar ? ZoneFitNotice.lines(editor.bar.zoneFitReports) : []
+  readonly property var shelfInfo: ({
+    shown: { title: "On the bar", caption: fitNotes.length ? fitNotes.join(" ") : "Always visible" },
+    managed: { title: "On demand", caption: editor.bar && editor.bar.onDemandInline
+      ? "Behind the zone's dots; shown on activity, or when you hover the dots"
+      : "In the zone's drawer when you hover it, or briefly on activity" },
+    hidden: { title: "Hidden", caption: "Kept off the bar" }
+  })
 
   property var cursorCell: ({ section: "left", mode: "shown", pos: 0 })
   property string cursorKey: ""
@@ -61,24 +173,54 @@ Item {
   property var pressed: null
   property point pressPoint: Qt.point(0, 0)
   property string hoverKey: ""
+  // Set while the editor moves focus itself, so a shelf gaining focus only
+  // moves the cursor when Tab brought it there.
+  property bool focusMoving: false
 
   readonly property string liftedKey: lifted ? lifted.instanceKey : ""
   readonly property var cursorItems: members(cursorCell.section, cursorCell.mode, liftedKey)
   readonly property var cursorRecord: lifted || cursorItems[cursorCell.pos] || null
-  readonly property bool gridFocused: grid.activeFocus
+  readonly property bool gridFocused: shelfShown.focusItem.activeFocus || shelfManaged.focusItem.activeFocus || shelfHidden.focusItem.activeFocus
   readonly property var hints: lifted ? [
-    { keys: "h l", label: "Reorder" }, { keys: "j k", label: "Visibility" },
+    { keys: "h l", label: "Reorder" }, { keys: "j k", label: "Shelf" },
     { keys: "space", label: "Drop" }, { keys: "esc", label: "Cancel" }
   ] : gridFocused ? [
     { keys: "h j k l", label: "Move" }, { keys: "space", label: "Pick up" },
-    { keys: "x", label: "Hide" }, { keys: "enter", label: "Details" },
-    { keys: "tab", label: "Inspector" }, { keys: "esc", label: "Close" }
-  ] : [
-    { keys: "j k", label: "Move" }, { keys: "h l", label: "Choose" },
-    { keys: "tab", label: "Next" }, { keys: "esc", label: "Close" }
-  ]
+    { keys: "x", label: "Hide" }, { keys: "enter", label: "Settings" },
+    { keys: "tab", label: "Next tile" }, { keys: "1-3", label: "Pages" }, { keys: "esc", label: "Close" }
+  ] : form.hints
 
-  function focusFirst() { grid.forceActiveFocus(Qt.TabFocusReason) }
+  function shelfFor(mode) { return mode === "shown" ? shelfShown : mode === "managed" ? shelfManaged : shelfHidden }
+  function focusShelf(mode, reason) {
+    focusMoving = true
+    shelfFor(mode).focusItem.forceActiveFocus(reason === undefined ? Qt.OtherFocusReason : reason)
+    focusMoving = false
+  }
+  function focusFirst() { focusShelf(cursorCell.mode, Qt.TabFocusReason) }
+  // Focus follows the cursor from shelf to shelf.
+  function followCursor() {
+    var mode = lifted && liftTarget ? liftTarget.mode : cursorCell.mode
+    if (gridFocused && !shelfFor(mode).focusItem.activeFocus) focusShelf(mode)
+  }
+  // The column a zone has on another shelf: the split centre meets the whole one.
+  function columnOn(mode, section) {
+    var cols = columnsFor(mode)
+    if (cols.indexOf(section) >= 0) return section
+    var zone = Model.sectionOf(section)
+    return cols.indexOf(zone) >= 0 ? zone : zone + ":start"
+  }
+  function shelfFocusChanged(mode, focused) {
+    if (focused) {
+      if (focusMoving) return
+      // Tab or Shift+Tab: the cursor (or the lifted widget) moves to this shelf.
+      if (lifted) {
+        if (liftTarget && liftTarget.mode !== mode) liftTarget = { section: columnOn(mode, liftTarget.section), mode: mode, pos: 0 }
+      } else if (cursorCell.mode !== mode) place({ section: columnOn(mode, cursorCell.section), mode: mode, pos: 0 })
+      return
+    }
+    Qt.callLater(function() { if (!editor.gridFocused && editor.lifted && !editor.pointerLift) editor.cancel() })
+  }
+
   function count(section, mode) { return members(section, mode, liftedKey).length }
   function cellList(section, mode) {
     var list = members(section, mode, liftedKey).map(function(record) { return { record: record, placeholder: false } })
@@ -113,6 +255,7 @@ Item {
   function moveCursor(dx, dy) {
     if (lifted) liftTarget = Model.stepLift(count, liftTarget, dx, dy, columnsFor)
     else place(Model.stepCursor(count, cursorCell, dx, dy, columnsFor))
+    followCursor()
   }
   function lift(record, cell) {
     if (!record) return
@@ -124,6 +267,7 @@ Item {
     lifted = null
     pointerLift = false
     if (liftOrigin) place(liftOrigin)
+    followCursor()
   }
   function drop() {
     if (!lifted) return
@@ -150,12 +294,34 @@ Item {
     cursorKey = record.instanceKey
     preferences.move(record, section, mode, before)
   }
+  function keyPressed(event) {
+    if (event.modifiers & (Qt.ControlModifier | Qt.AltModifier)) return
+    var key = event.key, t = event.text
+    if (key === Qt.Key_Left || t === "h") moveCursor(-1, 0)
+    else if (key === Qt.Key_Right || t === "l") moveCursor(1, 0)
+    else if (key === Qt.Key_Up || t === "k") moveCursor(0, -1)
+    else if (key === Qt.Key_Down || t === "j") moveCursor(0, 1)
+    else if (key === Qt.Key_Space) {
+      if (lifted) drop()
+      else lift(cursorRecord, cursorCell)
+    } else if (key === Qt.Key_Return || key === Qt.Key_Enter) {
+      if (lifted) drop()
+      else if (cursorRecord) settingsTile.focusFirst()
+    } else if (key === Qt.Key_Escape && lifted) cancel()
+    else if ((t === "x" || key === Qt.Key_Delete) && !lifted && cursorRecord) {
+      var r = cursorRecord
+      setPlacement(r, r.section, Model.toggledHidden(r.mode, hiddenFrom[r.instanceKey]))
+    } else if (t === "g" && !lifted && cursorRecord && cursorRecord.groupId)
+      preferences.openGroup(cursorRecord.groupId)
+    else return
+    event.accepted = true
+  }
 
   // Pointer hit testing in editor coordinates.
   function cellAt(point) {
     for (var i = 0; i < cellRepeater.count; i++) {
       var cell = cellRepeater.itemAt(i)
-      if (!cell) continue
+      if (!cell || !cell.visible) continue
       var p = cell.mapFromItem(editor, point.x, point.y)
       if (p.x >= 0 && p.y >= 0 && p.x < cell.width && p.y < cell.height) return cell
     }
@@ -163,7 +329,7 @@ Item {
   }
   function tileAt(point) {
     var cell = cellAt(point)
-    if (!cell) return null
+    if (!cell || !cell.tiles) return null
     for (var i = 0; i < cell.tiles.count; i++) {
       var tile = cell.tiles.itemAt(i)
       if (!tile || tile.placeholder) continue
@@ -176,7 +342,7 @@ Item {
   // passed, reading the wrapped rows top to bottom.
   function gapAt(cell, point) {
     var pos = 0
-    for (var i = 0; i < cell.tiles.count; i++) {
+    for (var i = 0; cell.tiles && i < cell.tiles.count; i++) {
       var tile = cell.tiles.itemAt(i)
       if (!tile || tile.placeholder) continue
       var p = tile.mapFromItem(editor, point.x, point.y)
@@ -195,256 +361,21 @@ Item {
     }
   }
 
-  ColumnLayout {
+  PrefsForm {
+    id: form
     anchors.fill: parent
-    spacing: Style.space(10)
+    maxContentWidth: Infinity
 
-    // Widgets that no longer fit sit in their zone's drawer; say so once.
-    Text {
-      readonly property var notes: editor.bar ? ZoneFitNotice.lines(editor.bar.zoneFitReports) : []
+    PrefsBento {
+      id: bento
       Layout.fillWidth: true
-      visible: notes.length > 0
-      text: notes.join(" ")
-      textFormat: Text.PlainText
-      wrapMode: Text.WordWrap
-      color: Qt.alpha(Color.popups.text, 0.6)
-      font.family: Style.font.family
-      font.pixelSize: Style.font.bodySmall
-    }
+      columns: editor.columns
+      gap: editor.preferences.tileGap
 
-    RowLayout {
-      Layout.fillWidth: true
-      Layout.fillHeight: true
-      spacing: Style.space(20)
-
-      // ---------------------------------------------------------------- matrix
-      Controls.ScrollView {
-        id: matrixScroll
-        Layout.fillWidth: true
-        Layout.fillHeight: true
-        contentWidth: availableWidth
-        clip: true
-
-        Item {
-          id: grid
-          readonly property bool ownsFocusRing: true
-          width: matrixScroll.availableWidth
-          implicitHeight: matrix.implicitHeight
-          activeFocusOnTab: true
-          Accessible.role: Accessible.Table
-          Accessible.name: "Bar layout"
-          Accessible.description: editor.cursorRecord ? editor.preferences.title(editor.cursorRecord) : "Empty"
-          Keys.onPressed: function(event) {
-            if (event.modifiers & (Qt.ControlModifier | Qt.AltModifier)) return
-            var key = event.key, t = event.text
-            if (key === Qt.Key_Left || t === "h") editor.moveCursor(-1, 0)
-            else if (key === Qt.Key_Right || t === "l") editor.moveCursor(1, 0)
-            else if (key === Qt.Key_Up || t === "k") editor.moveCursor(0, -1)
-            else if (key === Qt.Key_Down || t === "j") editor.moveCursor(0, 1)
-            else if (key === Qt.Key_Space) {
-              if (editor.lifted) editor.drop()
-              else editor.lift(editor.cursorRecord, editor.cursorCell)
-            } else if (key === Qt.Key_Return || key === Qt.Key_Enter) {
-              if (editor.lifted) editor.drop()
-              else if (editor.cursorRecord) inspector.focusFirst()
-            } else if (key === Qt.Key_Escape && editor.lifted) editor.cancel()
-            else if ((t === "x" || key === Qt.Key_Delete) && !editor.lifted && editor.cursorRecord) {
-              var r = editor.cursorRecord
-              editor.setPlacement(r, r.section, Model.toggledHidden(r.mode, editor.hiddenFrom[r.instanceKey]))
-            } else if (t === "g" && !editor.lifted && editor.cursorRecord && editor.cursorRecord.groupId)
-              editor.preferences.openGroup(editor.cursorRecord.groupId)
-            else return
-            event.accepted = true
-          }
-          onActiveFocusChanged: if (!activeFocus && editor.lifted && !editor.pointerLift) editor.cancel()
-
-          ColumnLayout {
-            id: matrix
-            width: parent.width
-            spacing: Style.space(14)
-
-            // Zone headings aligned over the columns.
-            RowLayout {
-              Layout.fillWidth: true
-              spacing: Style.space(10)
-              Item { Layout.preferredWidth: rowHeaderWidth.width; Layout.minimumWidth: rowHeaderWidth.width }
-              Repeater {
-                model: editor.sections
-                Text {
-                  required property string modelData
-                  text: editor.zoneNames[modelData]
-                  textFormat: Text.PlainText
-                  color: Model.sectionOf(editor.cursorCell.section) === modelData ? Color.popups.text : Qt.alpha(Color.popups.text, 0.55)
-                  font.family: Style.font.family
-                  font.pixelSize: Style.font.bodySmall
-                  font.bold: true
-                  Layout.fillWidth: true
-                  Layout.preferredWidth: 1
-                  horizontalAlignment: Text.AlignHCenter
-                }
-              }
-            }
-
-            Repeater {
-              model: editor.rows
-              RowLayout {
-                id: rowItem
-                required property var modelData
-                required property int index
-                Layout.fillWidth: true
-                spacing: Style.space(10)
-
-                ColumnLayout {
-                  id: rowHeader
-                  Layout.preferredWidth: rowHeaderWidth.width
-                  Layout.minimumWidth: rowHeaderWidth.width
-                  Layout.maximumWidth: rowHeaderWidth.width
-                  Layout.alignment: Qt.AlignTop
-                  Layout.topMargin: Style.space(8)
-                  spacing: Style.space(2)
-                  Text {
-                    text: rowItem.modelData.title
-                    textFormat: Text.PlainText
-                    color: editor.cursorCell.mode === rowItem.modelData.mode ? Color.popups.text : Qt.alpha(Color.popups.text, 0.75)
-                    font.family: Style.font.family
-                    font.pixelSize: Style.font.body
-                    font.bold: true
-                    Layout.fillWidth: true
-                    wrapMode: Text.WordWrap
-                  }
-                  Text {
-                    text: rowItem.modelData.hint
-                    textFormat: Text.PlainText
-                    color: Qt.alpha(Color.popups.text, 0.5)
-                    font.family: Style.font.family
-                    font.pixelSize: Style.font.caption
-                    Layout.fillWidth: true
-                    wrapMode: Text.WordWrap
-                  }
-                }
-
-                Item {
-                  id: rowBody
-                  readonly property real inset: rowItem.modelData.mode === "shown" ? Style.space(6) : 0
-                  Layout.fillWidth: true
-                  implicitHeight: cellsRow.implicitHeight + inset * 2
-
-                  // The bar sits on a stand-in for the desktop so its own surface,
-                  // islands and borders read against the panel.
-                  BarBackdrop {
-                    motionEnabled: !editor.bar || editor.bar.animationsEnabled
-                    anchors.fill: parent
-                    visible: rowItem.modelData.mode === "shown"
-                    source: rowItem.modelData.mode === "shown" ? editor.preferences.wallpaper : ""
-                    position: editor.bar.position
-                    // Flat and floating bars are one strip behind all three
-                    // zones: flat meets the edges, floating keeps the gap.
-                    BorderSurface {
-                      visible: !editor.bar.islands
-                      x: editor.bar.flat ? 0 : rowBody.inset
-                      y: editor.bar.flat ? 0 : rowBody.inset
-                      width: parent.width - x * 2
-                      height: editor.bar.flat ? cellsRow.height + rowBody.inset : cellsRow.height
-                      color: editor.bar.mainSurfaceColor
-                      radius: editor.bar.flat ? 0 : editor.bar.islandRounding
-                      borderSpec: editor.bar.flat ? Border.none() : editor.bar.islandBorder
-                    }
-                  }
-
-                  RowLayout {
-                    id: cellsRow
-                    x: rowBody.inset
-                    y: rowItem.modelData.mode === "shown" && editor.bar.flat ? rowBody.inset / 2 : rowBody.inset
-                    width: parent.width - rowBody.inset * 2
-                    spacing: rowItem.modelData.mode === "shown" && !editor.bar.islands ? 0 : Style.space(10)
-                    Repeater {
-                      model: editor.sections
-                      // One zone's column: its cell, or the split centre's two.
-                      RowLayout {
-                        id: zoneColumn
-                        required property string modelData
-                        Layout.fillWidth: true
-                        Layout.preferredWidth: 1
-                        Layout.alignment: Qt.AlignTop
-                        spacing: Style.space(6)
-                        Repeater {
-                          model: editor.columnsFor(rowItem.modelData.mode).filter(function(column) { return Model.sectionOf(column) === zoneColumn.modelData })
-                          Cell {
-                            required property string modelData
-                            section: modelData
-                            mode: rowItem.modelData.mode
-                            Layout.fillWidth: true
-                            Layout.preferredWidth: 1
-                            Layout.alignment: Qt.AlignTop
-                            Component.onCompleted: cellRepeater.register(this)
-                            Component.onDestruction: cellRepeater.unregister(this)
-                          }
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          }
-
-          // Every pointer gesture over the grid lands here, above the tiles, so a
-          // drag survives the tiles being rebuilt as the preview moves.
-          MouseArea {
-            anchors.fill: parent
-            hoverEnabled: true
-            preventStealing: true
-            cursorShape: editor.pointerLift ? Qt.ClosedHandCursor : editor.hoverKey ? Qt.OpenHandCursor : Qt.ArrowCursor
-            onPositionChanged: function(mouse) {
-              var point = mapToItem(editor, mouse.x, mouse.y)
-              if (!editor.pointerLift) {
-                var tile = editor.tileAt(point)
-                editor.hoverKey = tile ? tile.record.instanceKey : ""
-              }
-              if (pressed && editor.pressed && !editor.pointerLift
-                  && Math.abs(point.x - editor.pressPoint.x) + Math.abs(point.y - editor.pressPoint.y) > Style.space(6)) {
-                editor.lift(editor.pressed.record, editor.pressed.cell)
-                editor.pointerLift = true
-              }
-              editor.pointerMoved(point)
-            }
-            onExited: editor.hoverKey = ""
-            onPressed: function(mouse) {
-              grid.forceActiveFocus(Qt.MouseFocusReason)
-              if (editor.lifted) editor.cancel()
-              var point = mapToItem(editor, mouse.x, mouse.y)
-              editor.pressPoint = point
-              var tile = editor.tileAt(point)
-              var cell = editor.cellAt(point)
-              if (tile) {
-                var at = { section: tile.section, mode: tile.mode, pos: tile.pos }
-                editor.place(at)
-                editor.pressed = { record: tile.record, cell: at }
-              } else {
-                editor.pressed = null
-                if (cell) editor.place({ section: cell.section, mode: cell.mode, pos: editor.gapAt(cell, point) })
-              }
-            }
-            onReleased: {
-              editor.pressed = null
-              if (editor.pointerLift) editor.drop()
-            }
-            onCanceled: {
-              editor.pressed = null
-              if (editor.pointerLift) editor.cancel()
-            }
-            onDoubleClicked: if (editor.cursorRecord) inspector.focusFirst()
-          }
-        }
-      }
-
-      // ------------------------------------------------------------- inspector
-      Inspector {
-        id: inspector
-        Layout.preferredWidth: Style.space(300)
-        Layout.minimumWidth: Style.space(260)
-        Layout.fillHeight: true
-      }
+      Shelf { id: shelfShown; mode: "shown" }
+      Shelf { id: shelfManaged; mode: "managed" }
+      Shelf { id: shelfHidden; mode: "hidden" }
+      Settings { id: settingsTile }
     }
   }
 
@@ -459,8 +390,6 @@ Item {
     z: 100
   }
 
-  TextMetrics { id: rowHeaderWidth; font.family: Style.font.family; font.pixelSize: Style.font.body; font.bold: true; text: "On the bar___" }
-
   QtObject {
     id: cellRepeater
     property var cells: []
@@ -471,83 +400,287 @@ Item {
   }
 
   // -------------------------------------------------------------- components
-  component Cell: BorderSurface {
+  // One visibility: the three zones side by side (one under another in a
+  // narrow window). The shelf is a Tab stop; the cursor lives in its cells.
+  component Shelf: PrefsTile {
+    id: shelf
+    property string mode: "shown"
+    property alias focusItem: shelfFocus
+    readonly property bool stacked: shelfFocus.width < Style.space(560)
+    title: editor.shelfInfo[mode].title
+    caption: editor.shelfInfo[mode].caption
+    span12: 12
+    span6: 6
+    animate: editor.bar ? editor.bar.animationsEnabled : true
+    borderSpec: Border.flat(Qt.alpha(Color.popups.text, shelfFocus.activeFocus ? 0.28 : 0.1), 1)
+
+    Item {
+      id: shelfFocus
+      readonly property bool ownsFocusRing: true
+      Layout.fillWidth: true
+      Layout.leftMargin: Math.round(Style.spacing.rowPaddingX / 2)
+      Layout.rightMargin: Math.round(Style.spacing.rowPaddingX / 2)
+      Layout.bottomMargin: Math.round(Style.spacing.rowPaddingX / 2)
+      implicitHeight: shelfBody.implicitHeight
+      activeFocusOnTab: true
+      Accessible.role: Accessible.Table
+      Accessible.name: shelf.title
+      Accessible.description: editor.cursorRecord ? editor.preferences.title(editor.cursorRecord) : "Empty"
+      Keys.onPressed: function(event) { editor.keyPressed(event) }
+      onActiveFocusChanged: editor.shelfFocusChanged(shelf.mode, activeFocus)
+
+      ColumnLayout {
+        id: shelfBody
+        width: parent.width
+        spacing: Style.space(4)
+
+        // The zones, named once, over the bar shelf.
+        RowLayout {
+          visible: shelf.mode === "shown" && !shelf.stacked
+          Layout.fillWidth: true
+          spacing: bento.gap
+          Repeater {
+            model: editor.sections
+            Text {
+              required property string modelData
+              text: editor.zoneNames[modelData]
+              textFormat: Text.PlainText
+              color: Model.sectionOf(editor.cursorCell.section) === modelData ? Color.popups.text : Qt.alpha(Color.popups.text, 0.6)
+              font.family: Style.font.family
+              font.pixelSize: Style.font.caption
+              font.bold: Model.sectionOf(editor.cursorCell.section) === modelData
+              Layout.fillWidth: true
+              Layout.preferredWidth: 1
+              horizontalAlignment: modelData === "left" ? Text.AlignLeft : modelData === "right" ? Text.AlignRight : Text.AlignHCenter
+            }
+          }
+        }
+
+        GridLayout {
+          Layout.fillWidth: true
+          columns: shelf.stacked ? 1 : 3
+          columnSpacing: bento.gap
+          rowSpacing: Style.space(6)
+          Repeater {
+            model: editor.sections
+            // One zone's column: its cell, or the split centre's two, stacked.
+            ColumnLayout {
+              id: zoneColumn
+              required property string modelData
+              readonly property var cells: editor.columnsFor(shelf.mode).filter(function(column) { return Model.sectionOf(column) === zoneColumn.modelData })
+              Layout.fillWidth: true
+              Layout.preferredWidth: 1
+              Layout.alignment: Qt.AlignTop
+              spacing: Style.space(4)
+              Repeater {
+                model: zoneColumn.cells
+                Cell {
+                  required property string modelData
+                  section: modelData
+                  mode: shelf.mode
+                  caption: zoneColumn.cells.length > 1 || shelf.stacked ? editor.zoneNames[modelData] : ""
+                  Layout.fillWidth: true
+                  Layout.preferredWidth: 1
+                  Component.onCompleted: cellRepeater.register(this)
+                  Component.onDestruction: cellRepeater.unregister(this)
+                }
+              }
+            }
+          }
+        }
+      }
+
+      // Every pointer gesture over the shelf lands here, above the tiles, so a
+      // drag survives the tiles being rebuilt as the preview moves. The press
+      // keeps it across the other shelves.
+      MouseArea {
+        anchors.fill: parent
+        hoverEnabled: true
+        preventStealing: true
+        cursorShape: editor.pointerLift ? Qt.ClosedHandCursor : editor.hoverKey ? Qt.OpenHandCursor : Qt.ArrowCursor
+        onPositionChanged: function(mouse) {
+          var point = mapToItem(editor, mouse.x, mouse.y)
+          if (!editor.pointerLift) {
+            var tile = editor.tileAt(point)
+            editor.hoverKey = tile ? tile.record.instanceKey : ""
+          }
+          if (pressed && editor.pressed && !editor.pointerLift
+              && Math.abs(point.x - editor.pressPoint.x) + Math.abs(point.y - editor.pressPoint.y) > Style.space(6)) {
+            editor.lift(editor.pressed.record, editor.pressed.cell)
+            editor.pointerLift = true
+          }
+          editor.pointerMoved(point)
+        }
+        onExited: if (!editor.pointerLift) editor.hoverKey = ""
+        onPressed: function(mouse) {
+          if (editor.lifted) editor.cancel()
+          var point = mapToItem(editor, mouse.x, mouse.y)
+          editor.pressPoint = point
+          var tile = editor.tileAt(point)
+          var cell = editor.cellAt(point)
+          if (tile) {
+            var at = { section: tile.section, mode: tile.mode, pos: tile.pos }
+            editor.place(at)
+            editor.pressed = { record: tile.record, cell: at }
+          } else {
+            editor.pressed = null
+            if (cell) editor.place({ section: cell.section, mode: cell.mode, pos: editor.gapAt(cell, point) })
+          }
+          editor.focusShelf(editor.cursorCell.mode, Qt.MouseFocusReason)
+        }
+        onReleased: {
+          editor.pressed = null
+          if (editor.pointerLift) editor.drop()
+          editor.followCursor()
+        }
+        onCanceled: {
+          editor.pressed = null
+          if (editor.pointerLift) editor.cancel()
+        }
+        onDoubleClicked: if (editor.cursorRecord) settingsTile.focusFirst()
+      }
+    }
+  }
+
+  // One zone on one shelf: a well of widgets. On the bar shelf the zone is
+  // drawn the way the bar draws it (ShelfModel): an island in the bar's own
+  // surface, rounding and border, each widget in the slot the bar gives it, at
+  // its own size. A zone longer than the well wraps onto another island rather
+  // than shrinking. The other shelves list icon and name.
+  component Cell: Item {
     id: cell
     property string section: ""
     property string mode: ""
-    property alias tiles: tileRepeater
+    property string caption: ""
+    readonly property var tiles: content.item ? content.item.repeater : null
     readonly property var list: editor.cellList(section, mode)
     readonly property bool barRow: mode === "shown"
     readonly property bool targeted: !!editor.lifted && !!editor.liftTarget
       && editor.liftTarget.section === section && editor.liftTarget.mode === mode
     readonly property bool cursorHere: !editor.lifted && editor.cursorCell.section === section && editor.cursorCell.mode === mode
-    // The bar row is as thick as the bar itself, so it follows the bar size.
-    implicitHeight: barRow ? editor.bar.barSize : Math.max(Style.space(58), flow.implicitHeight + Style.space(16))
-    // The bar row never wraps: like the bar, a zone keeps one line and
-    // shrinks to fit, aligned the way the zone aligns on screen.
-    readonly property real contentWidth: flow.childrenRect.width
-    readonly property real fit: barRow ? Math.min(1, (width - Style.space(16)) / Math.max(1, contentWidth)) : 1
-    radius: barRow ? editor.bar.islandRounding : Math.max(Style.cornerRadius, Style.space(6))
-    color: barRow ? (editor.bar.islands ? editor.bar.mainSurfaceColor : "transparent")
-      : mode === "managed" ? Qt.alpha(Color.popups.text, 0.05) : Qt.alpha(Color.popups.text, 0.018)
-    borderSpec: targeted ? Border.flat(Qt.alpha(Color.accent, 0.8), 1)
-      : barRow ? (editor.bar.islands ? editor.bar.islandBorder : Border.none())
-      : Border.flat(Qt.alpha(Color.popups.text, mode === "managed" ? 0.14 : 0.08), 1)
-
-    Behavior on implicitHeight { enabled: editor.bar.animationsEnabled; NumberAnimation { duration: 140; easing.type: Easing.OutCubic } }
+    readonly property real pad: Style.space(4)
+    readonly property real radius: Math.max(0, Style.cornerRadius - Math.round(Style.spacing.rowPaddingX / 2))
+    readonly property string zone: Model.sectionOf(section)
+    // The bar shelf: every widget's face, and where the bar would put it.
+    readonly property var faces: barRow ? list.map(function(value) { return editor.barFace(value.record) }) : []
+    readonly property var layout: barRow ? ShelfModel.zone(CellModel, editor.barTokens, faces, Math.max(1, well.width - pad * 2)) : ({ lines: [], width: 0 })
+    readonly property real lineGap: Style.space(4)
+    function lineX(n) {
+      var w = layout.lines[n] ? layout.lines[n].width : 0
+      return zone === "left" ? pad : zone === "right" ? well.width - pad - w : (well.width - w) / 2
+    }
+    function lineY(n) { return pad + n * (editor.barThickness + lineGap) }
+    function slotRect(index) {
+      var at = ShelfModel.slotOf(layout, index)
+      return at ? { x: lineX(at.line) + at.slot.x, y: lineY(at.line) } : { x: 0, y: 0 }
+    }
+    implicitHeight: (captionText.visible ? captionText.implicitHeight + Style.space(3) : 0) + well.height
 
     Text {
-      anchors.centerIn: parent
-      visible: cell.list.length === 0
-      // A half of the split centre says which side it holds.
-      text: cell.targeted ? "Drop here" : cell.cursorHere && editor.gridFocused ? "Empty"
-        : cell.section.indexOf(":") > 0 ? editor.zoneNames[cell.section] : ""
+      id: captionText
+      visible: cell.caption !== ""
+      width: parent.width
+      text: cell.caption
       textFormat: Text.PlainText
-      color: cell.targeted ? Color.accent : Qt.alpha(Color.popups.text, 0.45)
+      color: Qt.alpha(Color.popups.text, 0.6)
       font.family: Style.font.family
-      font.pixelSize: Style.font.bodySmall
-      width: Math.min(implicitWidth, cell.width - Style.space(8))
+      font.pixelSize: Style.font.caption
       elide: Text.ElideRight
     }
     BorderSurface {
-      anchors.fill: parent
-      anchors.margins: Style.space(3)
-      visible: cell.list.length === 0 && cell.cursorHere && editor.gridFocused
-      color: "transparent"
-      radius: Math.max(0, cell.radius - Style.space(3))
-      borderSpec: Border.controlSpec("focus", Color.popups.text, Color.accent)
+      id: well
+      y: captionText.visible ? captionText.implicitHeight + Style.space(3) : 0
+      width: parent.width
+      height: cell.barRow
+        ? Math.max(1, cell.layout.lines.length) * (editor.barThickness + cell.lineGap) - cell.lineGap + cell.pad * 2
+        : Math.max(Style.space(42), (content.item ? content.item.height : 0) + cell.pad * 2)
+      radius: cell.radius
+      color: Qt.alpha(Color.popups.text, 0.04)
+      // An empty well waiting for a drop is outlined the way the bar outlines
+      // a landing place.
+      borderSpec: cell.targeted && cell.list.length === 1 ? Border.flat(Qt.alpha(Color.popups.text, 0.45), 1) : Border.none()
+      Behavior on height { enabled: editor.bar.animationsEnabled; NumberAnimation { duration: 140; easing.type: Easing.OutCubic } }
+
+      Text {
+        anchors.centerIn: parent
+        visible: cell.list.length === 0 && cell.cursorHere && editor.gridFocused
+        text: "Empty"
+        textFormat: Text.PlainText
+        color: Qt.alpha(Color.popups.text, 0.45)
+        font.family: Style.font.family
+        font.pixelSize: Style.font.bodySmall
+      }
+      BorderSurface {
+        anchors.fill: parent
+        anchors.margins: Style.space(3)
+        visible: cell.list.length === 0 && cell.cursorHere && editor.gridFocused
+        color: "transparent"
+        radius: Math.max(0, cell.radius - Style.space(3))
+        borderSpec: Border.controlSpec("focus", Color.popups.text, Color.accent)
+      }
+
+      Loader {
+        id: content
+        sourceComponent: cell.barRow ? barStrip : chipFlow
+      }
     }
 
-    Flow {
-      id: flow
-      x: !cell.barRow || cell.section === "left" ? Style.space(8)
-        : cell.section === "right" ? cell.width - Style.space(8) - cell.contentWidth * cell.fit
-        : (cell.width - cell.contentWidth * cell.fit) / 2
-      y: cell.barRow ? (cell.height - childrenRect.height * cell.fit) / 2 : Style.space(8)
-      width: cell.barRow ? 100000 : parent.width - Style.space(16)
-      scale: cell.fit
-      transformOrigin: Item.TopLeft
-      spacing: cell.barRow ? Math.max(Style.space(2), editor.bar.widgetSpacing) : Style.space(6)
-      RetainedList {
-        id: tileList
-        recordProperty: "retainedRecord"
-        records: cell.list.map(function(value, index) {
-          return { key: value.placeholder ? "insertion-gap" : value.record.instanceKey || cell.section + ":" + cell.mode + ":" + index,
-            entry: value.record, placeholder: value.placeholder, index: index }
-        })
-        factory: Component {
-          Tile {
-            required property var retainedRecord
-            record: retainedRecord.entry
-            placeholder: retainedRecord.placeholder
-            section: cell.section
-            mode: cell.mode
-            pos: retainedRecord.index
-            maxWidth: cell.barRow ? Infinity : flow.width
-          }
+    RetainedList {
+      id: tileList
+      recordProperty: "retainedRecord"
+      records: cell.list.map(function(value, index) {
+        return { key: value.placeholder ? "insertion-gap" : value.record.instanceKey || cell.section + ":" + cell.mode + ":" + index,
+          entry: value.record, placeholder: value.placeholder, index: index }
+      })
+      factory: Component {
+        Tile {
+          required property var retainedRecord
+          record: retainedRecord.entry
+          placeholder: retainedRecord.placeholder
+          section: cell.section
+          mode: cell.mode
+          pos: retainedRecord.index
+          face: cell.barRow ? cell.faces[retainedRecord.index] || null : null
+          maxWidth: Math.max(1, well.width - cell.pad * 2)
+          x: cell.barRow ? cell.slotRect(retainedRecord.index).x : 0
+          y: cell.barRow ? cell.slotRect(retainedRecord.index).y : 0
         }
       }
-      Repeater { id: tileRepeater; model: tileList.model }
+    }
+
+    Component {
+      id: barStrip
+      Item {
+        property alias repeater: barTiles
+        width: well.width
+        height: well.height
+        Repeater {
+          model: cell.layout.lines
+          BorderSurface {
+            required property var modelData
+            required property int index
+            x: cell.lineX(index)
+            y: cell.lineY(index)
+            width: modelData.width
+            height: editor.barThickness
+            color: editor.barSurface
+            radius: Math.min(editor.bar.islandRounding, editor.barThickness / 2)
+            borderSpec: editor.bar.islands ? editor.bar.islandBorder : Border.none()
+          }
+        }
+        Repeater { id: barTiles; model: tileList.model }
+      }
+    }
+    Component {
+      id: chipFlow
+      Flow {
+        property alias repeater: chipTiles
+        x: cell.pad
+        y: cell.pad
+        width: Math.max(1, well.width - cell.pad * 2)
+        spacing: Style.space(4)
+        Repeater { id: chipTiles; model: tileList.model }
+      }
     }
   }
 
@@ -559,99 +692,139 @@ Item {
     property string section: ""
     property string mode: ""
     property int pos: 0
-    // A narrow cell (a half of the split centre) elides the name to fit.
+    // On the bar shelf: how the bar draws this widget (editor.barFace).
+    property var face: null
+    // A narrow well elides the name to fit.
     property real maxWidth: Infinity
-    readonly property var snapshot: mode === "shown" && record.instanceKey ? editor.snapshots[record.instanceKey] : null
     readonly property bool isCursor: !ghost && !editor.lifted && editor.cursorKey !== "" && record.instanceKey === editor.cursorKey
     readonly property bool hovered: !ghost && !editor.lifted && editor.hoverKey === record.instanceKey
     readonly property var group: record.groupId ? editor.bar.groups.find(function(g) { return g.id === record.groupId }) || null : null
     readonly property int memberCount: group ? group.items.length : 0
-    // On the bar row a tile is a bar slot: as thick as the bar, with its
-    // highlight inset the way the bar insets its own.
-    readonly property bool onBar: mode === "shown" && !ghost
+    readonly property bool onBar: mode === "shown"
+    readonly property var barFace: onBar ? face || editor.barFace(record) : null
+    // The slot the bar gives this widget, and its highlight (CellModel).
+    readonly property var placed: barFace ? CellModel.place(editor.barTokens, barFace.inkLength, barFace.glyph, barFace.cap) : null
+    readonly property real faceOffset: placed ? placed.inkStart - barFace.inkStart : 0
     // Press feedback: the tile dips while the pointer holds it, before a drag.
     readonly property bool pressedDown: !ghost && !placeholder && !!editor.pressed && !editor.pointerLift
       && editor.pressed.record.instanceKey === record.instanceKey
     scale: pressedDown ? 0.97 : 1
     Behavior on scale { enabled: editor.bar.animationsEnabled; NumberAnimation { duration: 120; easing.type: Easing.OutCubic } }
-    // On the bar row a widget is drawn as it looks: live on a horizontal bar,
-    // otherwise its saved horizontal look, otherwise its glyph alone, as the
-    // bar shows it; a group shows the face it is set to (glyph, name or both).
-    // Names are for the rows below, which the bar does not show.
-    readonly property bool pictured: !!snapshot || (onBar && rowIcon.hasImage)
-    readonly property bool groupFace: onBar && !!group && !snapshot
-    implicitWidth: body.implicitWidth + Style.space(pictured || onBar ? 8 : 16)
-    implicitHeight: onBar ? editor.bar.barSize
-      : Math.max(snapshot ? snapshot.height + Style.space(6) : Style.spacing.controlHeight, body.implicitHeight + Style.space(8))
+    implicitWidth: onBar ? (placed ? placed.extent : 0) : chip.implicitWidth + Style.space(16)
+    implicitHeight: onBar ? editor.barThickness : Math.max(Style.spacing.controlHeight, chip.implicitHeight + Style.space(8))
+    width: implicitWidth
+    height: implicitHeight
     opacity: mode === "hidden" && !placeholder && !ghost ? 0.62 : ghost ? 0.9 : 1
 
+    // On the bar: the bar's own highlight, the cell centred on the slot and
+    // inset from the island; a landing place is outlined as on the bar.
     BorderSurface {
+      visible: tile.onBar
+      x: tile.placed ? (tile.placed.extent - tile.placed.cell) / 2 : 0
+      y: editor.barTokens.inset
+      width: tile.placed ? tile.placed.cell : 0
+      height: editor.barTokens.thickness
+      radius: CellModel.radius(editor.barTokens, editor.bar.islandRounding)
+      color: tile.placeholder ? "transparent"
+        : tile.ghost ? editor.barSurface
+        : tile.isCursor && editor.gridFocused ? Style.focusFillFor(editor.barInk, Color.accent)
+        : tile.isCursor ? Style.selectedFillFor(editor.barInk, Color.accent)
+        : tile.hovered ? Style.hoverFillFor(editor.barInk, Color.accent)
+        : "transparent"
+      borderSpec: tile.placeholder || tile.ghost ? Border.flat(Qt.alpha(editor.barInk, 0.45), 1)
+        : tile.isCursor && editor.gridFocused ? Border.controlSpec("focus", editor.barInk, Color.accent)
+        : Border.none()
+      Behavior on color { enabled: editor.bar.animationsEnabled; ColorAnimation { duration: 90 } }
+    }
+    Image {
+      visible: tile.onBar && !tile.placeholder && !!tile.barFace && tile.barFace.kind === "image"
+      x: tile.faceOffset
+      y: tile.barFace ? (editor.barThickness - tile.barFace.h) / 2 : 0
+      width: tile.barFace && tile.barFace.kind === "image" ? tile.barFace.w : 0
+      height: tile.barFace && tile.barFace.kind === "image" ? tile.barFace.h : 0
+      source: visible ? tile.barFace.url : ""
+      smooth: true
+      mipmap: true
+      // An image in another theme's text colour, redrawn in the bar's own:
+      // brightened to white, then coloured, keeping its shape.
+      layer.enabled: visible && !!tile.barFace.recolour
+      layer.effect: MultiEffect {
+        brightness: 1
+        colorization: 1
+        colorizationColor: editor.barInk
+      }
+    }
+    Text {
+      visible: tile.onBar && !tile.placeholder && !!tile.barFace && tile.barFace.kind === "text"
+      x: tile.faceOffset
+      height: editor.barThickness
+      verticalAlignment: Text.AlignVCenter
+      text: visible ? tile.barFace.text : ""
+      textFormat: Text.PlainText
+      color: editor.barInk
+      font.family: tile.barFace && tile.barFace.family || Style.font.family
+      font.pixelSize: tile.barFace && tile.barFace.size || Style.font.body
+      renderType: Text.NativeRendering
+    }
+
+    // Elsewhere: a chip with the widget's icon and name.
+    BorderSurface {
+      visible: !tile.onBar
       anchors.fill: parent
-      anchors.margins: tile.onBar ? editor.bar.highlightInset(tile.height) : 0
-      radius: tile.onBar ? editor.bar.highlightRounding : Math.max(Style.cornerRadius - Style.space(2), Style.space(4))
-      color: tile.placeholder ? Qt.alpha(Color.accent, 0.16)
+      radius: Math.max(0, Style.cornerRadius - Math.round(Style.spacing.rowPaddingX / 2))
+      color: tile.placeholder ? "transparent"
         : tile.ghost ? Color.popups.background
         : tile.isCursor && editor.gridFocused ? Style.focusFillFor(Color.popups.text, Color.accent)
         : tile.isCursor ? Style.selectedFillFor(Color.popups.text, Color.accent)
         : tile.hovered ? Style.hoverFillFor(Color.popups.text, Color.accent)
-        : tile.pictured || tile.onBar ? "transparent" : Qt.alpha(Color.popups.text, 0.06)
-      borderSpec: tile.placeholder || tile.ghost ? Border.flat(Color.accent, Math.max(1, Style.space(2)))
+        : Qt.alpha(Color.popups.text, 0.06)
+      borderSpec: tile.placeholder || tile.ghost ? Border.flat(Qt.alpha(Color.popups.text, 0.45), 1)
         : tile.isCursor && editor.gridFocused ? Border.controlSpec("focus", Color.popups.text, Color.accent)
         : tile.isCursor ? Border.flat(Qt.alpha(Color.popups.text, 0.35), 1)
         : Border.none()
       Behavior on color { enabled: editor.bar.animationsEnabled; ColorAnimation { duration: 90 } }
     }
-
     Row {
-      id: body
+      id: chip
+      visible: !tile.onBar
       anchors.centerIn: parent
       spacing: Style.space(6)
-      Image {
-        visible: !!tile.snapshot
-        source: tile.snapshot ? tile.snapshot.url : ""
-        width: tile.snapshot ? tile.snapshot.width : 0
-        height: tile.snapshot ? tile.snapshot.height : 0
-        sourceSize: tile.snapshot ? Qt.size(tile.snapshot.width * 2, tile.snapshot.height * 2) : undefined
-        smooth: true
+      opacity: tile.placeholder ? 0 : 1
+      Item {
+        width: rowIcon.width + (tile.backed ? Style.space(4) : 0)
+        height: rowIcon.height + (tile.backed ? Style.space(2) : 0)
         anchors.verticalCenter: parent.verticalCenter
-      }
-      WidgetIcon {
-        id: rowIcon
-        visible: !tile.snapshot && !tile.groupFace
-        preferences: editor.preferences
-        record: tile.record
-        size: Math.round(tile.onBar ? editor.bar.themeBarSize : editor.bar.themeBarSize * 0.85)
-        maxAspect: tile.onBar ? 40 : 3.2
-        anchors.verticalCenter: parent.verticalCenter
-      }
-      // A group's face, drawn the way the bar draws its button.
-      Text {
-        readonly property string face: tile.group ? tile.group.face : "glyph"
-        visible: tile.groupFace
-        text: !tile.group ? "" : face === "text" ? tile.group.label
-          : face === "both" ? tile.group.icon + "  " + tile.group.label : tile.group.icon
-        textFormat: Text.PlainText
-        color: Color.popups.text
-        font.family: face === "glyph" ? (Groups.iconFont(text) || Style.font.family) : Style.font.family
-        font.pixelSize: Style.font.body
-        anchors.verticalCenter: parent.verticalCenter
+        Rectangle {
+          anchors.fill: parent
+          visible: tile.backed
+          radius: Style.space(3)
+          color: Color.popups.text
+        }
+        WidgetIcon {
+          id: rowIcon
+          anchors.centerIn: parent
+          preferences: editor.preferences
+          record: tile.record
+          size: Math.round(editor.iconSize * 0.85)
+          maxAspect: 3.2
+        }
       }
       Text {
-        visible: !tile.pictured && !tile.onBar
+        id: nameLabel
         text: tile.record.instanceKey ? editor.preferences.title(tile.record) : ""
         textFormat: Text.PlainText
         color: Color.popups.text
         font.family: Style.font.family
         font.pixelSize: Style.font.bodySmall
         elide: Text.ElideRight
-        width: Math.max(Style.space(24), Math.min(implicitWidth, Style.space(150),
-          tile.maxWidth - Style.space(16) - (rowIcon.visible ? rowIcon.width + body.spacing : 0)
-            - (tile.memberCount > 0 ? memberLabel.implicitWidth + body.spacing : 0)))
+        width: Math.max(Style.space(24), Math.min(implicitWidth, Style.space(190),
+          tile.maxWidth - Style.space(16) - rowIcon.width - chip.spacing
+            - (tile.memberCount > 0 ? memberLabel.implicitWidth + chip.spacing : 0)))
         anchors.verticalCenter: parent.verticalCenter
       }
       Text {
         id: memberLabel
-        visible: tile.memberCount > 0 && !tile.pictured && !tile.onBar
+        visible: tile.memberCount > 0
         text: tile.memberCount
         textFormat: Text.PlainText
         color: Qt.alpha(Color.popups.text, 0.55)
@@ -660,179 +833,191 @@ Item {
         anchors.verticalCenter: parent.verticalCenter
       }
     }
+    // Widget images in the bar's text colour that barely show on the
+    // Preferences background get a backing (editor.inkBacked).
+    readonly property bool backed: editor.inkBacked && rowIcon.hasImage
   }
 
-  component Inspector: BorderSurface {
+  // The selected widget's settings, titled with its name. Zone and Visibility
+  // move it without dragging; a setting that does not apply dims with its
+  // reason rather than disappearing, so nothing jumps as the cursor moves.
+  component Settings: PrefsTile {
     id: panel
-    readonly property var record: editor.cursorRecord
+    readonly property var record: editor.lifted ? null : editor.cursorRecord
     readonly property bool isGroup: !!record && !!record.groupId
     readonly property var group: isGroup ? editor.bar.groups.find(function(g) { return g.id === record.groupId }) || null : null
-    readonly property var snapshot: record ? editor.snapshots[record.instanceKey] : null
-    function focusFirst() { form.focusFirst() }
-    color: Qt.alpha(Color.popups.text, 0.035)
-    radius: Math.max(Style.cornerRadius, Style.space(6))
-    borderSpec: Border.flat(Qt.alpha(Color.popups.text, 0.1), 1)
+    function focusFirst() {
+      var next = bento.firstControl(panel)
+      if (next) next.forceActiveFocus(Qt.TabFocusReason)
+    }
+    title: record ? editor.preferences.title(record) : "Nothing selected"
+    caption: isGroup ? (group ? group.items.length + (group.items.length === 1 ? " widget" : " widgets") + " in this group" : "")
+      : record ? record.id : ""
+    span12: 12
+    span6: 6
+    animate: editor.bar ? editor.bar.animationsEnabled : true
 
     Text {
-      anchors.fill: parent
-      anchors.margins: Style.space(18)
       visible: !panel.record
-      text: "Nothing " + (editor.cursorCell.mode === "shown" ? "on the " + editor.zoneNames[editor.cursorCell.section].toLowerCase() + " of the bar"
-        : editor.cursorCell.mode === "managed" ? (editor.cursorCell.section.indexOf(":") > 0
-          ? "on demand " + editor.zoneNames[editor.cursorCell.section].toLowerCase()
-          : "in the " + editor.zoneNames[editor.cursorCell.section].toLowerCase() + " drawer")
-        : "hidden on the " + editor.zoneNames[editor.cursorCell.section].toLowerCase()) + " yet.\n\nPick up a widget with Space, or drag one here."
+      Layout.fillWidth: true
+      Layout.leftMargin: Style.spacing.rowPaddingX
+      Layout.rightMargin: Style.spacing.rowPaddingX
+      Layout.bottomMargin: Style.space(6)
+      text: editor.lifted ? "Moving " + editor.preferences.title(editor.lifted) + ". Space drops it, Esc puts it back."
+        : "Nothing " + (editor.cursorCell.mode === "shown" ? "on the bar in " : editor.cursorCell.mode === "managed" ? "on demand in " : "hidden in ")
+          + editor.zoneNames[editor.cursorCell.section] + " yet. Pick up a widget with Space, or drag one here."
       textFormat: Text.PlainText
-      color: Qt.alpha(Color.popups.text, 0.6)
+      color: Qt.alpha(Color.popups.text, 0.65)
       font.family: Style.font.family
       font.pixelSize: Style.font.bodySmall
       wrapMode: Text.WordWrap
     }
 
-    PrefsForm {
-      id: form
+    GridLayout {
       visible: !!panel.record
-      anchors.fill: parent
-      anchors.margins: Style.space(16)
-      maxContentWidth: width
-
-      ColumnLayout {
-        Layout.fillWidth: true
-        spacing: Style.space(10)
-        BarBackdrop {
-          motionEnabled: !editor.bar || editor.bar.animationsEnabled
-          Layout.preferredWidth: Math.max(Style.space(52), Math.max(preview.width, inspectorIcon.width) + Style.space(28))
-          Layout.preferredHeight: Style.space(56)
-          source: editor.preferences.wallpaper
-          position: editor.bar.position
-          BorderSurface {
-            anchors.centerIn: parent
-            width: parent.width - Style.space(12)
-            height: editor.bar.barSize
-            radius: editor.bar.islandRounding
-            color: editor.bar.mainSurfaceColor
-            borderSpec: editor.bar.islandBorder
-          }
-          Image {
-            id: preview
-            anchors.centerIn: parent
-            visible: !!panel.snapshot
-            source: panel.snapshot ? panel.snapshot.url : ""
-            width: panel.snapshot ? Math.min(panel.snapshot.width, Style.space(230)) : 0
-            height: panel.snapshot ? panel.snapshot.height * width / Math.max(1, panel.snapshot.width) : 0
-            fillMode: Image.PreserveAspectFit
-          }
-          WidgetIcon {
-            id: inspectorIcon
-            anchors.centerIn: parent
-            visible: !panel.snapshot
-            preferences: editor.preferences
-            record: panel.record || ({})
-            size: editor.bar.themeBarSize
-          }
-        }
-        Text {
-          text: panel.record ? editor.preferences.title(panel.record) : ""
-          textFormat: Text.PlainText
-          color: Color.popups.text
-          font.family: Style.font.family
-          font.pixelSize: Style.font.heading
-          font.bold: true
-          Layout.fillWidth: true
-          wrapMode: Text.WordWrap
-        }
-        Text {
-          text: panel.isGroup ? (panel.group ? panel.group.items.length + (panel.group.items.length === 1 ? " widget" : " widgets") + " in this group" : "Group")
-            : panel.record ? panel.record.id : ""
-          textFormat: Text.PlainText
-          color: Qt.alpha(Color.popups.text, 0.55)
-          font.family: Style.font.family
-          font.pixelSize: Style.font.caption
-          Layout.fillWidth: true
-          elide: Text.ElideMiddle
-        }
+      Layout.fillWidth: true
+      Layout.leftMargin: Style.spacing.rowPaddingX
+      Layout.rightMargin: Style.spacing.rowPaddingX
+      Layout.bottomMargin: Style.space(4)
+      id: settingsGrid
+      columns: editor.columns === 12 ? 3 : editor.columns === 6 ? 2 : 1
+      // Zone and Visibility sit beside their label when the column has room.
+      readonly property bool roomy: (width - columnSpacing * (columns - 1)) / columns >= Style.space(340)
+      columnSpacing: Style.space(20)
+      rowSpacing: Style.space(8)
+      // Esc returns to the shelf; an open dropdown takes it first.
+      Keys.onPressed: function(event) {
+        if (event.key !== Qt.Key_Escape) return
+        editor.focusShelf(editor.cursorCell.mode, Qt.OtherFocusReason)
+        event.accepted = true
       }
 
-      PrefsSection {
-        title: "Placement"
-        spacing: Style.space(10)
+      // Where it is: the way to move it without dragging.
+      ColumnLayout {
+        Layout.fillWidth: true
+        Layout.preferredWidth: 1
+        Layout.alignment: Qt.AlignTop
+        spacing: Style.space(2)
         PrefsChoice {
+          compact: true
+          stacked: !settingsGrid.roomy
+          Layout.leftMargin: 0
           label: "Zone"
-          stacked: true
-          options: [{ value: "left", label: "Left" }, { value: "center", label: "Center" }, { value: "right", label: "Right" }]
+          options: editor.sections.map(function(s) { return { value: s, label: editor.zoneNames[s] } })
           value: panel.record ? panel.record.section : ""
           onChosen: function(value) { editor.setPlacement(panel.record, value, panel.record.mode) }
         }
         PrefsChoice {
+          compact: true
+          stacked: !settingsGrid.roomy
+          Layout.leftMargin: 0
           label: "Visibility"
-          stacked: true
           options: [{ value: "shown", label: "On the bar" }, { value: "managed", label: "On demand" }, { value: "hidden", label: "Hidden" }]
           value: panel.record ? panel.record.mode : ""
           onChosen: function(value) { editor.setPlacement(panel.record, panel.record.section, value) }
         }
+      }
+
+      // How it behaves on the bar.
+      ColumnLayout {
+        visible: !panel.isGroup
+        Layout.fillWidth: true
+        Layout.preferredWidth: 1
+        Layout.alignment: Qt.AlignTop
+        spacing: 0
         PrefsToggle {
-          visible: !!panel.record && !panel.isGroup && panel.record.section === "center" && panel.record.mode === "shown"
-          label: "Keep at screen center"
-          description: "Other center widgets arrange around it"
-          checked: !!panel.record && editor.bar.centerAnchor === panel.record.id
-          onToggled: function(checked) { editor.preferences.setOption("centerAnchor", checked ? panel.record.id : "") }
-        }
-        PrefsToggle {
-          readonly property bool clockDriven: !!panel.record && editor.bar.quietActivityId(panel.record.id)
-          readonly property bool applies: editor.bar.autoHide && editor.bar.autoHideActivity && !clockDriven
-          visible: !!panel.record && !panel.isGroup
+          id: activityToggle
+          readonly property bool clockDriven: !!panel.record && !!editor.bar.quietActivityId(panel.record.id)
+          compact: true
           label: "Show on activity"
-          description: clockDriven ? "It changes on a clock, so it never brings the bar out"
-            : !editor.bar.autoHide ? "Applies while the bar autohides"
-            : !editor.bar.autoHideActivity ? "Turned off for every widget in General"
-            : "Slide the bar out briefly when this widget changes"
-          enabled: applies
+          enabled: editor.bar.autoHide && editor.bar.autoHideActivity && !clockDriven
           opacity: enabled ? 1 : 0.45
           checked: !!panel.record && !clockDriven && editor.bar.activityPeeksFor(panel.record.instanceKey, panel.record.id)
           onToggled: function(checked) { editor.bar.setActivityPeek(panel.record.instanceKey, checked) }
         }
+        Hint {
+          Layout.leftMargin: Style.spacing.rowPaddingX
+          dim: !activityToggle.enabled
+          text: activityToggle.clockDriven ? "It changes on a clock, so it never brings the bar out"
+            : !editor.bar.autoHide ? "Applies while the bar autohides"
+            : !editor.bar.autoHideActivity ? "Turned off for every widget on the Bar page"
+            : "Slide the bar out briefly when it changes"
+        }
+        PrefsToggle {
+          id: centerToggle
+          compact: true
+          label: "Keep at screen center"
+          enabled: !!panel.record && panel.record.section === "center" && panel.record.mode === "shown"
+          opacity: enabled ? 1 : 0.45
+          checked: !!panel.record && editor.bar.centerAnchor === panel.record.id
+          onToggled: function(checked) { editor.preferences.setOption("centerAnchor", checked ? panel.record.id : "") }
+        }
+        Hint {
+          Layout.leftMargin: Style.spacing.rowPaddingX
+          dim: !centerToggle.enabled
+          text: centerToggle.enabled ? "Other center widgets arrange around it" : "For a widget on the bar in the center"
+        }
       }
 
-      PrefsSection {
-        visible: !panel.isGroup
-        title: "Group"
-        description: "A grouped widget moves into its group's drawer."
-        Dropdown {
+      // A group's members, by their faces.
+      ColumnLayout {
+        visible: panel.isGroup
+        Layout.fillWidth: true
+        Layout.preferredWidth: 1
+        Layout.alignment: Qt.AlignTop
+        spacing: Style.space(4)
+        Text {
+          text: "Members"
+          textFormat: Text.PlainText
+          color: Color.popups.text
+          font.family: Style.font.family
+          font.pixelSize: Style.font.body
+          font.bold: true
+        }
+        Flow {
           Layout.fillWidth: true
+          spacing: Style.space(6)
+          Repeater {
+            model: panel.group ? panel.group.items : []
+            WidgetIcon {
+              required property string modelData
+              preferences: editor.preferences
+              record: editor.preferences.entries.find(function(e) { return e.instanceKey === modelData }) || ({})
+              size: Math.round(editor.iconSize * 0.85)
+            }
+          }
+        }
+      }
+
+      // Its group.
+      ColumnLayout {
+        Layout.fillWidth: true
+        Layout.preferredWidth: 1
+        Layout.alignment: Qt.AlignTop
+        spacing: Style.space(4)
+        Text {
+          text: "Group"
+          textFormat: Text.PlainText
+          color: Color.popups.text
+          font.family: Style.font.family
+          font.pixelSize: Style.font.body
+          font.bold: true
+        }
+        Dropdown {
+          visible: !panel.isGroup
+          Layout.fillWidth: true
+          label: "Group"
           showLabel: false
           options: [{ value: "", label: "Not grouped" }].concat(editor.bar.groups.map(function(g) { return { value: g.id, label: g.label } }))
           value: ""
           onChanged: function(value) { if (value && panel.record) editor.bar.assignGroup(panel.record.instanceKey, value, "") }
         }
-      }
-
-      PrefsSection {
-        visible: panel.isGroup
-        title: "Members"
-        Repeater {
-          model: panel.group ? panel.group.items : []
-          RowLayout {
-            required property string modelData
-            readonly property var member: editor.preferences.entries.find(function(e) { return e.instanceKey === modelData }) || null
-            Layout.fillWidth: true
-            spacing: Style.space(8)
-            WidgetIcon {
-              preferences: editor.preferences
-              record: parent.member || ({})
-              size: Math.round(editor.bar.themeBarSize * 0.8)
-            }
-            Text {
-              text: parent.member ? editor.preferences.title(parent.member) : "Unavailable widget"
-              textFormat: Text.PlainText
-              color: Qt.alpha(Color.popups.text, 0.85)
-              font.family: Style.font.family
-              font.pixelSize: Style.font.bodySmall
-              elide: Text.ElideRight
-              Layout.fillWidth: true
-            }
-          }
+        Hint {
+          dim: false
+          text: panel.isGroup ? "Its face, badge and members are set on the Groups page." : "A grouped widget moves into its group's drawer."
         }
         Button {
+          visible: panel.isGroup
           text: "Edit group"
           iconText: "󰏫"
           focusable: true
@@ -842,5 +1027,15 @@ Item {
         }
       }
     }
+  }
+
+  component Hint: Text {
+    property bool dim: false
+    Layout.fillWidth: true
+    textFormat: Text.PlainText
+    color: Qt.alpha(Color.popups.text, dim ? 0.35 : 0.6)
+    font.family: Style.font.family
+    font.pixelSize: Style.font.caption
+    wrapMode: Text.WordWrap
   }
 }
