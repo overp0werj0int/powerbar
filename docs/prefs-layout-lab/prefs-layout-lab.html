@@ -1,0 +1,1088 @@
+<title>Powerbar Layout Lab</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap">
+<style>
+/* Layout concept: a lab page around one operable Preferences window (the
+   Layout page), drawn at true size in the user's Omarchy theme, with the
+   evidence below it. Same visual language as the Preferences bento lab. */
+:root {
+  --ground: #f5f1f0; --panel: #fffdfc; --ink: #261f1f; --muted: #6e6264; --line: #e2d9d7;
+  --accent: #5f5889; --accent-soft: rgba(95, 88, 137, 0.12); --good: #3f7a5a; --warn: #9a5b3c; --code-bg: #efe9e8;
+  /* The Preferences world: the user's Omarchy theme, fixed in both page themes.
+     applyTheme() overwrites these from widgets.js. */
+  --fg: 255, 255, 255; --bg: 34, 34, 34; --acc: #686868;
+  --sans: "Instrument Sans", "Segoe UI", system-ui, sans-serif;
+  --mono: "JetBrains Mono", "JetBrainsMono Nerd Font", ui-monospace, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark; --ground: #1c1818; --panel: #241f1f; --ink: #ebe5e4; --muted: #a69b9d; --line: #3a3131;
+    --accent: #b8b2d6; --accent-soft: rgba(184, 178, 214, 0.14); --good: #8cc5a3; --warn: #e0a383; --code-bg: #2c2626;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark; --ground: #1c1818; --panel: #241f1f; --ink: #ebe5e4; --muted: #a69b9d; --line: #3a3131;
+  --accent: #b8b2d6; --accent-soft: rgba(184, 178, 214, 0.14); --good: #8cc5a3; --warn: #e0a383; --code-bg: #2c2626;
+}
+* { box-sizing: border-box; }
+body { background: var(--ground); color: var(--ink); font: 15px/1.55 var(--sans); padding-inline: 20px; padding-block: 0 64px; }
+.page { max-width: 1180px; margin: 0 auto; }
+.page img { max-width: none; max-height: none; }
+h1, h2, h3 { text-wrap: balance; line-height: 1.2; margin: 0; font-weight: 600; }
+h1 { font-size: clamp(30px, 4.4vw, 46px); letter-spacing: -0.02em; }
+h2 { font-size: 24px; letter-spacing: -0.01em; }
+h3 { font-size: 16px; }
+p { margin: 0; }
+code, .mono { font-family: var(--mono); font-size: 0.86em; }
+code { background: var(--code-bg); padding: 1px 5px; border-radius: 4px; }
+a { color: var(--accent); }
+section { margin-top: 64px; }
+.section-head { display: grid; gap: 6px; margin-bottom: 20px; max-width: 72ch; }
+.section-head p { color: var(--muted); }
+header.top { padding-block: 44px 20px; display: grid; gap: 14px; }
+header.top .lead { font-size: 17px; max-width: 72ch; color: var(--muted); }
+header.top .lead strong { color: var(--ink); font-weight: 600; }
+.note { font-size: 13px; color: var(--muted); margin-top: 10px; max-width: 82ch; }
+
+/* Page controls */
+.controls { display: flex; flex-wrap: wrap; gap: 14px 22px; align-items: center; margin: 18px 0 14px; }
+.ctl { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
+.seg { display: inline-flex; flex-wrap: wrap; background: var(--panel); border: 1px solid var(--line); border-radius: 999px; padding: 3px; gap: 2px; }
+.seg button { font: 500 13px var(--sans); color: var(--ink); background: transparent; border: 0; padding: 5px 12px; border-radius: 999px; cursor: pointer; }
+.seg button[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent); }
+.seg button:focus-visible, .tog:focus-visible, .btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.tog, .btn { display: inline-flex; align-items: center; gap: 7px; font: 500 13px var(--sans); color: var(--ink); background: var(--panel); border: 1px solid var(--line); border-radius: 999px; padding: 5px 12px; cursor: pointer; }
+.tog::before { content: ""; width: 8px; height: 8px; border-radius: 50%; border: 1.5px solid var(--muted); }
+.tog[aria-pressed="true"]::before { background: var(--accent); border-color: var(--accent); }
+
+/* Metric chips: good and bad are measured, never decorative */
+.chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.chip { font: 500 12px var(--mono); padding: 4px 10px; border-radius: 999px; background: var(--panel); border: 1px solid var(--line); color: var(--ink); }
+.chip b { font-weight: 500; color: var(--muted); margin-right: 6px; font-family: var(--sans); }
+.chip.good { border-color: color-mix(in srgb, var(--good) 45%, var(--line)); }
+.chip.good::after { content: " ✓"; color: var(--good); }
+.chip.bad { border-color: color-mix(in srgb, var(--warn) 45%, var(--line)); }
+.chip.bad::after { content: " ✗"; color: var(--warn); }
+
+/* The frame that scales a true-size Preferences window to the column */
+.frame { position: relative; width: 100%; overflow: hidden; border-radius: 14px; background: #3a2e2e url("wall.jpg") center / cover no-repeat; }
+.frame > .scaler { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
+
+/* ------------------------------------------------------------------
+   The Preferences window, drawn to Powerbar's components in the user's
+   theme: card, tabs with keycaps, tiles (PrefsTile), chips (ButtonGroup),
+   switches (ToggleSwitch), Dropdown, footer keycaps.
+   ------------------------------------------------------------------ */
+.pw { --r: 0px; --gap: 8px; --pad: 12px; --cr: max(0px, calc(var(--r) - var(--pad) / 2)); position: relative; background: rgb(var(--bg)); color: rgb(var(--fg)); border: 1px solid rgba(var(--fg), .16); border-radius: var(--r); font: 13px/1.4 var(--mono); display: grid; grid-template-rows: auto minmax(0, 1fr) auto; padding: 18px 28px 12px; user-select: none; }
+.pw * { font-family: var(--mono); }
+.pw .head { display: flex; align-items: center; gap: 28px; padding-bottom: 12px; border-bottom: 1px solid rgba(var(--fg), .1); }
+.pw .brand { font-weight: 700; font-size: 17px; }
+.pw .tabs { display: flex; gap: 4px; }
+.pw .tab { display: inline-flex; align-items: center; gap: 8px; padding: 8px 10px; border: 0; background: none; color: rgba(var(--fg), .55); font-size: 13px; position: relative; }
+.pw .tab[aria-selected="true"] { color: rgb(var(--fg)); font-weight: 700; }
+.pw .tab[aria-selected="true"]::after { content: ""; position: absolute; left: 6px; right: 6px; bottom: -13px; height: 2px; background: rgba(var(--fg), .55); border-radius: 1px; }
+.pw .close { margin-left: auto; display: inline-flex; gap: 8px; align-items: center; font-size: 12px; opacity: .65; }
+.kc { display: inline-flex; align-items: center; justify-content: center; min-width: 20px; height: 20px; padding: 0 5px; font: 700 11px var(--mono); color: rgb(var(--fg)); background: rgba(var(--fg), .07); border: 1px solid rgba(var(--fg), .22); border-radius: min(var(--r), 4px); }
+.pw .body { position: relative; min-height: 0; display: grid; grid-template-rows: minmax(0, 1fr); padding-top: 20px; padding-bottom: 14px; }
+.pw .scroll { min-height: 0; overflow-y: auto; overflow-x: hidden; scrollbar-width: thin; scrollbar-color: rgba(var(--fg), .25) transparent; }
+.pw .foot { display: flex; flex-wrap: wrap; gap: 6px 18px; align-items: center; padding-top: 10px; border-top: 1px solid rgba(var(--fg), .1); font-size: 11px; color: rgba(var(--fg), .6); }
+.pw .foot span { display: inline-flex; gap: 5px; align-items: center; }
+.pw .foot .k { display: inline-flex; gap: 3px; }
+
+/* Bento grid: Hyprland's gap between windows, tiles share their corners */
+.bento { display: grid; grid-template-columns: repeat(var(--cols, 12), minmax(0, 1fr)); gap: var(--gap); align-items: stretch; }
+.tile { background: rgba(var(--fg), .035); border: 1px solid rgba(var(--fg), .1); border-radius: var(--r); padding: calc(var(--pad) / 2); display: grid; align-content: start; gap: 4px; min-width: 0; outline: none; }
+.tile > .th { margin: 0; padding: 4px var(--pad) 0; font-size: 11px; font-weight: 700; letter-spacing: .06em; color: rgba(var(--fg), .72); display: flex; align-items: center; gap: 10px; min-height: 26px; }
+.tile > .th .cap { margin-left: auto; font-weight: 400; letter-spacing: 0; font-size: 11px; color: rgba(var(--fg), .55); text-align: right; }
+.tile > .tb { padding: 0 calc(var(--pad) / 2) calc(var(--pad) / 2); min-width: 0; }
+.tile.editing { border-color: rgba(var(--fg), .28); }
+/* Zone cells inside a shelf */
+.zgrid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--gap); }
+.zhead { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--gap); padding: 0 calc(var(--pad) / 2) 2px; font-size: 11px; color: rgba(var(--fg), .6); }
+.zhead span:nth-child(2) { text-align: center; }
+.zhead span:nth-child(3) { text-align: right; }
+.zhead span.on { color: rgb(var(--fg)); font-weight: 700; }
+.cell { position: relative; background: rgba(var(--fg), .04); border-radius: var(--cr); padding: 4px; min-height: 42px; min-width: 0; display: flex; flex-wrap: wrap; align-content: flex-start; gap: 4px; }
+.cell.bar { min-height: calc(var(--bar) + 8px); align-content: center; gap: 2px; }
+.cell.bar.z-center { justify-content: center; }
+.cell.bar.z-right { justify-content: flex-end; }
+.cell.target { box-shadow: inset 0 0 0 1px rgba(var(--fg), .45); }
+.cell .empty { font-size: 11px; color: rgba(var(--fg), .42); align-self: center; padding: 0 6px; }
+.cell .lbl { flex-basis: 100%; font-size: 10.5px; color: rgba(var(--fg), .55); padding: 0 4px; }
+.split { display: grid; gap: 4px; min-width: 0; }
+.stack .zgrid, .stack .zhead { grid-template-columns: minmax(0, 1fr); }
+.stack .zhead { display: none; }
+/* A widget: its face at true size on the bar shelf, face and name elsewhere */
+.wc { position: relative; display: inline-flex; align-items: center; gap: 6px; max-width: 100%; height: 34px; padding: 0 9px 0 5px; border-radius: var(--cr); background: rgba(var(--fg), .06); cursor: grab; }
+.wc.face-only { height: var(--bar); padding: 0; background: transparent; }
+.wc .nm { font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.wc .n2 { font-size: 10.5px; color: rgba(var(--fg), .55); }
+.wc.hidden-w > *:not(.ring) { opacity: .62; }
+.wc.cur { background: rgba(var(--fg), .2); }
+.focus .wc.cur { box-shadow: 0 0 0 2px var(--acc); }
+.wc.ph { background: transparent; box-shadow: inset 0 0 0 1px rgba(var(--fg), .45); cursor: default; }
+.wc.ph > * { visibility: hidden; }
+.wc.src { opacity: .4; }
+.wc.ghost { position: absolute; z-index: 10; pointer-events: none; background: rgb(var(--bg)); box-shadow: 0 0 0 1px rgba(var(--fg), .45), 0 6px 18px rgba(0,0,0,.18); opacity: .95; cursor: grabbing; }
+.wc .pin { position: absolute; left: 50%; top: -3px; bottom: -3px; width: 0; border-left: 1px dashed rgba(var(--fg), .5); pointer-events: none; }
+.face { display: block; flex: none; }
+.glyph { display: grid; place-items: center; flex: none; }
+.glyph i { width: 11px; height: 11px; display: grid; grid-template-columns: 1fr 1fr; gap: 1.5px; }
+.glyph i b { background: rgb(var(--fg)); border-radius: 1px; }
+.backed { background: rgb(var(--fgDark, var(--fg))); }
+/* The selected widget's tile */
+.selgrid { display: grid; grid-template-columns: minmax(140px, .8fr) repeat(3, minmax(0, 1fr)); gap: 6px 20px; padding: 2px calc(var(--pad) / 2) 4px; align-items: start; }
+.selgrid.c2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.selgrid.c1 { grid-template-columns: minmax(0, 1fr); }
+.who { display: grid; gap: 4px; justify-items: start; }
+.who .idl { font-size: 11px; color: rgba(var(--fg), .55); word-break: break-all; }
+.who .facebox { height: calc(var(--bar) + 4px); display: flex; align-items: center; padding: 0 6px; border-radius: var(--cr); background: rgba(var(--fg), .05); }
+.blank { font-size: 12px; color: rgba(var(--fg), .65); padding: 4px calc(var(--pad) / 2) 6px; max-width: 70ch; }
+.crow { display: grid; gap: 3px; min-width: 0; }
+.crow .l { font-weight: 700; font-size: 12.5px; }
+.crow .d { font-size: 11px; color: rgba(var(--fg), .6); }
+.srow { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 12px; align-items: center; }
+.srow .d { grid-column: 1 / -1; }
+.dim { opacity: .45; }
+.sw { width: 42px; height: 22px; border-radius: var(--cr); background: rgba(var(--fg), .1); border: 0; position: relative; cursor: pointer; padding: 0; }
+.sw::after { content: ""; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; background: rgba(var(--fg), .78); border-radius: max(0px, calc(var(--cr) - 3px)); transition: left 120ms ease; }
+.sw[aria-checked="true"] { background: rgba(var(--fg), .3); }
+.sw[aria-checked="true"]::after { left: 23px; background: rgb(var(--fg)); }
+.chipset { display: inline-flex; gap: 2px; flex-wrap: wrap; }
+.chipset button { font: 500 11.5px var(--mono); color: rgb(var(--fg)); background: transparent; border: 0; border-radius: var(--cr); padding: 4px 8px; cursor: pointer; }
+.chipset button[aria-pressed="true"] { background: rgba(var(--fg), .18); font-weight: 700; }
+.dd { font: 500 12px var(--mono); color: rgb(var(--fg)); background: rgba(var(--fg), .06); border: 1px solid rgba(var(--fg), .12); border-radius: var(--cr); padding: 5px 8px; min-width: 0; max-width: 100%; }
+.dd option { background: rgb(var(--bg)); }
+.kbtn { font: 500 11.5px var(--mono); color: rgb(var(--fg)); background: none; border: 1px solid rgba(var(--fg), .22); border-radius: var(--cr); padding: 4px 9px; cursor: pointer; justify-self: start; }
+.members { display: flex; flex-wrap: wrap; gap: 2px; align-items: center; }
+.pw button:focus-visible, .pw select:focus-visible { outline: 2px solid var(--acc); outline-offset: 2px; }
+
+/* Today: the matrix and its inspector, modelled from LayoutEditor.qml */
+.t-wrap { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 20px; min-height: 0; }
+.t-matrix { display: grid; grid-template-columns: 101px repeat(3, minmax(0, 1fr)); gap: 14px 10px; align-content: start; overflow: hidden; outline: none; }
+.t-zh { text-align: center; font-size: 12px; font-weight: 700; color: rgba(var(--fg), .55); }
+.t-zh.on { color: rgb(var(--fg)); }
+.t-rh { padding-top: 8px; display: grid; gap: 2px; align-content: start; }
+.t-rh b { font-size: 13px; }
+.t-rh span { font-size: 10.5px; color: rgba(var(--fg), .5); }
+.t-row { grid-column: 2 / -1; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; position: relative; }
+.t-row.bar { padding: 6px; background: #3a2e2e url("wall.jpg") center / cover; border-radius: 0; }
+.t-col { display: flex; gap: 6px; min-width: 0; align-items: flex-start; }
+.t-cell { position: relative; flex: 1 1 0; min-width: 0; min-height: 58px; padding: 8px; border-radius: max(var(--r), 6px); background: rgba(var(--fg), .05); border: 1px solid rgba(var(--fg), .14); display: flex; flex-wrap: wrap; gap: 6px; align-content: flex-start; }
+.t-cell.hid { background: rgba(var(--fg), .018); border-color: rgba(var(--fg), .08); }
+.t-cell.bar { height: var(--bar); min-height: 0; padding: 0; border: 0; border-radius: var(--isl); background: rgb(var(--bg)); overflow: hidden; flex-wrap: nowrap; display: block; }
+.t-cell.target { border-color: var(--acc); }
+.t-cell .empty { margin: auto; font-size: 11px; color: rgba(var(--fg), .45); }
+.t-strip { position: absolute; top: 50%; display: flex; gap: 2px; transform-origin: 0 50%; }
+.t-tile { display: inline-flex; align-items: center; gap: 6px; max-width: 100%; height: 32px; padding: 0 8px; border-radius: max(calc(var(--r) - 2px), 4px); background: rgba(var(--fg), .06); cursor: grab; }
+.t-tile .nm { font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; max-width: 150px; }
+.t-tile.cur { background: rgba(var(--fg), .2); }
+.focus .t-tile.cur { box-shadow: inset 0 0 0 2px var(--acc); }
+.t-tile.hidden-w { opacity: .62; }
+.t-tile.ph { background: color-mix(in srgb, var(--acc) 16%, transparent); box-shadow: inset 0 0 0 2px var(--acc); }
+.t-tile.ph > * { visibility: hidden; }
+.t-insp { background: rgba(var(--fg), .035); border: 1px solid rgba(var(--fg), .1); border-radius: max(var(--r), 6px); padding: 16px; display: grid; gap: 10px; align-content: start; overflow: hidden; }
+.t-insp .pv { height: 56px; display: grid; place-items: center; background: #3a2e2e url("wall.jpg") center / cover; justify-self: start; padding: 0 14px; min-width: 52px; }
+.t-insp .pv > div { background: rgb(var(--bg)); height: var(--bar); display: flex; align-items: center; padding: 0 6px; }
+.t-insp h5 { margin: 0; font-size: 17px; font-weight: 700; }
+.t-insp .idl { font-size: 11px; color: rgba(var(--fg), .55); margin-top: -6px; }
+.t-insp h6 { margin: 12px 0 0; font-size: 14px; font-weight: 700; }
+.t-insp .card { background: rgba(var(--fg), .05); padding: 10px 12px; display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; align-items: center; }
+
+/* Lab sections */
+.rule { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); gap: 28px; align-items: start; }
+.formulas { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 6px 0; }
+.formulas .r { display: grid; grid-template-columns: 1fr auto; gap: 4px 16px; padding: 12px 18px; border-top: 1px solid var(--line); }
+.formulas .r:first-child { border-top: 0; }
+.formulas .r .f { font-family: var(--mono); font-size: 13px; color: var(--accent); }
+.formulas .r .v { font-family: var(--mono); font-size: 13px; text-align: right; font-variant-numeric: tabular-nums; }
+.formulas .r p { grid-column: 1 / -1; color: var(--muted); font-size: 13.5px; }
+.why { display: grid; gap: 14px; }
+.why p { max-width: 62ch; }
+.compare { display: grid; gap: 18px; }
+.cmp-row { display: grid; grid-template-columns: 230px minmax(0, 1fr); gap: 20px; align-items: center; }
+.cmp-row .name p { color: var(--muted); font-size: 13px; margin-top: 4px; }
+.cases { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+.case { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 18px; display: grid; gap: 10px; align-content: start; min-width: 0; }
+.case p { color: var(--muted); font-size: 13.5px; }
+.tablewrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); }
+table { border-collapse: collapse; width: 100%; font-size: 13.5px; }
+th, td { text-align: left; padding: 10px 14px; border-top: 1px solid var(--line); vertical-align: top; }
+thead th { border-top: 0; font-weight: 600; color: var(--muted); font-size: 12.5px; }
+td.mono { white-space: nowrap; }
+td .k { display: inline-block; font: 500 12px var(--mono); background: var(--code-bg); border-radius: 4px; padding: 0 6px; margin: 1px 2px 1px 0; }
+.steps { display: grid; gap: 12px; padding-left: 22px; margin: 0; max-width: 80ch; }
+.steps li p { color: var(--muted); font-size: 14px; margin-top: 2px; }
+.sources { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 28px; padding: 0; list-style: none; margin: 0; }
+.sources li { font-size: 13.5px; }
+.sources li span { color: var(--muted); display: block; }
+.status { justify-self: start; display: inline-block; font: 600 11px var(--sans); letter-spacing: 0.04em; color: var(--accent); border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--line)); border-radius: 999px; padding: 2px 9px; }
+@media (max-width: 860px) {
+  .rule, .cases, .sources { grid-template-columns: minmax(0, 1fr); }
+  .cmp-row { grid-template-columns: minmax(0, 1fr); gap: 8px; }
+}
+html.no-motion .page *, html.no-motion .page *::before, html.no-motion .page *::after { transition-duration: 0s !important; transition-delay: 0s !important; animation: none !important; }
+@media (prefers-reduced-motion: reduce) { .sw::after { transition: none; } }
+</style>
+
+<div class="page">
+  <header class="top">
+    <span class="status">Locked, 4 October 2026: Shelves</span>
+    <h1>Layout as three shelves of your bar</h1>
+    <p class="lead">The Layout page is the last part of Preferences still in the old language: a matrix of zones by visibility, a wallpaper strip that redraws your bar at 60–72% of its size, and an inspector that keeps 300 px of the window for three settings. <strong>The proposal turns it into tiles like the Bar page: one shelf per state (On the bar, On demand, Hidden), each with your three zones side by side, widgets at their true size, and the selected widget's settings in a tile below.</strong> Every widget here is a capture from your own bar, in your layout and theme.</p>
+  </header>
+
+  <div class="controls" role="group" aria-label="Mock options">
+    <div class="ctl"><span id="opt-l">Option</span><div class="seg" id="opt" role="group" aria-labelledby="opt-l"></div></div>
+    <div class="ctl"><span id="w-l">Window</span><div class="seg" id="win" role="group" aria-labelledby="w-l">
+      <button data-v="1180">Your screen, 1180</button><button data-v="900">900</button><button data-v="600">600</button></div></div>
+    <div class="ctl"><span id="e-l">Bar edge</span><div class="seg" id="edge" role="group" aria-labelledby="e-l">
+      <button data-v="right">Right, yours</button><button data-v="top">Top</button></div></div>
+    <button class="tog" id="motion" aria-pressed="true">Animations</button>
+    <button class="btn" id="reset">Put the layout back</button>
+  </div>
+  <div class="frame" id="hero-frame"><div class="scaler" id="hero-scaler"></div></div>
+  <div class="chips" id="hero-chips" aria-live="polite"></div>
+  <p class="note" id="hero-note"></p>
+
+  <section id="decisions">
+    <div class="section-head"><span class="status">Locked, 4 October 2026</span><h2>Decisions</h2><p>Shelves ships. Today and Zone tiles stay on this page as the record of what was weighed.</p></div>
+    <div class="tablewrap"><table>
+      <thead><tr><th>Decision</th><th>What ships</th></tr></thead>
+      <tbody>
+        <tr><td>Page</td><td>Layout becomes a bento page: three shelf tiles (On the bar, On demand, Hidden), span 12 at every column count, then a settings tile for the selected widget. Gap 2 × <code>gaps_in</code>, the Bar page's corners and tile titles.</td></tr>
+        <tr><td>Shelves</td><td>Your three zones in columns that line up from shelf to shelf. On the bar draws icons only, as the bar does, at the bar's size, aligned the way each zone aligns, and wraps instead of shrinking. On demand and Hidden show icon and name. A group shows the face it is set to (glyph, name or both).</td></tr>
+        <tr><td>Zone names</td><td>Top, Center, Bottom on a side bar; Left, Center, Right on a top or bottom bar. The pinned widget names the center halves: "Above Clock" and "Below Clock" (or "Left of", "Right of"). The halves stack in the center column. <code>shell.json</code> keeps <code>left</code>, <code>center</code>, <code>right</code>.</td></tr>
+        <tr><td>Settings tile</td><td>Replaces the 300 px inspector. Titled with the widget's name: its icon and id, Zone and Visibility (the non-drag way to move), Show on activity and Keep at screen center (dimmed with their reason when they do not apply), Group. A group shows its members and Edit group.</td></tr>
+        <tr><td>Bar shelf, amended</td><td><strong>After the live check (4 October):</strong> the On the bar shelf draws each zone exactly as the bar does: an island in the bar's surface colour (opaque), rounding and border; every widget in the slot the bar gives it (<code>CellModel.place</code>, island end padding) at its own size; glyphs in the bar's font, size and text colour. Images saved in another theme's text colour are redrawn in the current one until the bar recaptures them. Each capture now records its ink and colour in <code>~/.cache/powerbar/faces.json</code>.</td></tr>
+        <tr><td>Bar copies</td><td>No wallpaper strip and no preview in the inspector. If the bar's text colour falls under 3:1 against the Preferences background, icons get a backing in the Preferences text colour.</td></tr>
+        <tr><td>Dragging</td><td>The landing place is outlined the way the bar outlines it (<code>DropOutline</code>'s look) instead of the accent placeholder.</td></tr>
+        <tr><td>Keys</td><td>Unchanged inside the shelves (h j k l, space, x, enter, g, esc). Tab moves between tiles; each shelf is a Tab stop sharing one cursor, and a lifted widget follows Tab to the next shelf. Esc in the settings tile returns to the shelf.</td></tr>
+        <tr><td>Icons</td><td>Implemented first (branch <code>widget-glyphs</code>): saved images count by height, not shape, and a widget without an image shows the glyph it draws, read at either orientation.</td></tr>
+      </tbody>
+    </table></div>
+  </section>
+
+  <section id="findings">
+    <div class="section-head"><h2>What the Layout page does today</h2><p>Read from <code>LayoutEditor.qml</code> and measured offscreen with your <code>shell.json</code> (<code>docs/rendering-bench</code>, 1180 × 790 card, 1124 × 654 page). Each line is what the code does.</p></div>
+    <div class="tablewrap"><table>
+      <thead><tr><th>What</th><th>Today</th><th>Proof</th><th>Proposed</th></tr></thead>
+      <tbody id="findings-rows"></tbody>
+    </table></div>
+  </section>
+
+  <section id="rule">
+    <div class="section-head"><h2>The rule</h2><p>The page reuses the Bar page's tiles and tokens. Two things are new: shelves that keep their zones in columns, and one widget drawing at one size wherever the bar draws it.</p></div>
+    <div class="rule">
+      <div class="formulas" id="formulas"></div>
+      <div class="why">
+        <p><strong>Why shelves.</strong> Ice and Bartender, the two tools people use to arrange a menu bar, both show one row per state (Visible, Hidden, Always hidden) and let you drag between them. A shelf reads like the bar it describes: the top zone on the left, the center in the middle, the bottom zone on the right, in the order the bar uses. Tab steps from shelf to shelf, the change people make most after reordering.</p>
+        <p><strong>Why true size.</strong> Today the On the bar row draws your bar inside a 223 px cell per zone, so your Top zone shrinks to 60% and its 38 px icons to 23 px. Without the inspector and the row titles, a zone column is 357 px and your widest zone needs 309 px, so every widget is drawn at the size it has on the bar.</p>
+        <p><strong>Why no wallpaper.</strong> The Bar page dropped its preview because the real bar already shows every change. The Layout page has the same two copies of the bar's look: the wallpaper strip with island surfaces behind the On the bar row, and a second one in the inspector. Widgets keep their real faces, which is how you recognise them, but not the bar's surface.</p>
+        <p><strong>Why a tile for the selection.</strong> The inspector is 300 px wide at all times, and two of its four settings (Zone, Visibility) repeat where the widget already sits. A full-width tile below the shelves holds the same settings in 143 px of height, and keeps Zone and Visibility as the way to move a widget without dragging: Atlassian's user testing found that a menu of move actions is more accessible than arrow-key dragging alone.</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="compare">
+    <div class="section-head"><h2>Three ways to lay it out</h2><p>The same layout and the same measurements for each, at your window size. Zone tiles is the other bento arrangement worth weighing: a tile per zone, with the three states stacked inside.</p></div>
+    <div class="compare" id="compare-rows"></div>
+  </section>
+
+  <section id="keys">
+    <div class="section-head"><h2>Keyboard</h2><p>One cursor runs across the three shelves, as it runs across today's matrix. The footer lists the keys for whatever has focus.</p></div>
+    <div class="tablewrap"><table>
+      <thead><tr><th>Keys</th><th>On the Layout page</th><th>Why</th></tr></thead>
+      <tbody>
+        <tr><td><span class="k">h</span><span class="k">l</span></td><td>Previous or next widget, crossing into the next zone at the ends</td><td>Unchanged. The order is the bar's order.</td></tr>
+        <tr><td><span class="k">j</span><span class="k">k</span></td><td>The same zone on the shelf below or above</td><td>Unchanged; today it moves between rows of the matrix.</td></tr>
+        <tr><td><span class="k">tab</span><span class="k">shift+tab</span></td><td>Next or previous tile: On the bar, On demand, Hidden, then the selected widget's settings</td><td>The Bar page's rule (Tab jumps tiles). Each shelf is a Tab stop sharing one cursor, so Tab is also the quick way down a shelf.</td></tr>
+        <tr><td><span class="k">space</span></td><td>Pick up the widget; h/l reorder, j/k or tab change its shelf, space drops, esc puts it back</td><td>Atlassian's pattern, as today. While lifted, the landing place is outlined the way the bar outlines it (<code>DropOutline</code>).</td></tr>
+        <tr><td><span class="k">x</span></td><td>Hide the widget, or put a hidden one back where it was</td><td>Unchanged (<code>Model.toggledHidden</code>).</td></tr>
+        <tr><td><span class="k">enter</span></td><td>Go to the selected widget's settings; esc comes back to the shelf</td><td>Today Enter focuses the inspector; the tile replaces it.</td></tr>
+        <tr><td><span class="k">g</span></td><td>Open the selected group on the Groups page</td><td>Unchanged.</td></tr>
+        <tr><td><span class="k">1</span>–<span class="k">3</span></td><td>Layout, Groups, Bar</td><td>Added to the footer, as on the Bar page.</td></tr>
+      </tbody>
+    </table></div>
+  </section>
+
+  <section id="edges">
+    <div class="section-head"><h2>Edge cases</h2><p>Each one rendered with the same code as the mock above, in the proposed layout, at a smaller scale.</p></div>
+    <div class="cases" id="cases"></div>
+  </section>
+
+  <section id="motion-sec">
+    <div class="section-head"><h2>Motion</h2><p>Layout is opened now and then, but a visit is a run of moves, so the motion stays short and nothing moves on its own.</p></div>
+    <ol class="steps" style="margin-bottom:18px">
+      <li><strong>One switch.</strong><p>Everything follows <code>powerbarAnimations</code> (Animations, on the Bar page), read as <code>bar.animationsEnabled</code>. Today's editor already honours it for every animation it has (cell height, tile press, tile fill, the wallpaper fade).</p></li>
+      <li><strong>Motion never carries information alone.</strong><p>The landing place is an outline and the selection is a fill; both are there with Animations off.</p></li>
+      <li><strong>Off means idle.</strong><p>Nothing on the page runs per frame. With no wallpaper strip, opening the page loads no image beyond the widget captures.</p></li>
+    </ol>
+    <div class="tablewrap"><table><thead><tr><th>Change</th><th>Animations on</th><th>Animations off</th><th>Why it still reads</th></tr></thead><tbody>
+      <tr><td>Moving the cursor</td><td class="mono">fill 90 ms, ease</td><td class="mono">at once</td><td>A keyboard action seen many times a visit; the fill and the accent ring sit on the widget.</td></tr>
+      <tr><td>Pressing a widget before a drag</td><td class="mono">scale 0.97, 120 ms, OutCubic</td><td class="mono">none</td><td>The widget lifts when the pointer moves 6 px; the ghost shows it.</td></tr>
+      <tr><td>The landing gap opening</td><td class="mono">150 ms, OutCubic</td><td class="mono">at once</td><td>The outlined gap is the landing place, as on the bar.</td></tr>
+      <tr><td>A shelf growing or shrinking after a drop</td><td class="mono">140 ms, OutCubic</td><td class="mono">at once</td><td>The widget is in its new place either way.</td></tr>
+      <tr><td>The settings tile changing widget</td><td class="mono">none</td><td class="mono">none</td><td>It follows the cursor; a crossfade would lag behind key repeat.</td></tr>
+    </tbody></table></div>
+  </section>
+
+  <section id="implement">
+    <div class="section-head"><h2>How it maps onto Powerbar</h2><p>In the order it can land. Each step leaves Preferences working.</p></div>
+    <ol class="steps">
+      <li><strong>Put the editor in a <code>PrefsForm</code> with a <code>PrefsBento</code>.</strong><p>Three <code>PrefsTile</code>s (On the bar, On demand, Hidden), span 12 at every column count, gap <code>prefs.tileGap</code>. The header caption comes from the tile's new <code>caption</code> property: Always visible; the on-demand rule from <code>bar.onDemandInline</code>; Kept off the bar. The zone-fit notice (<code>ZoneFitNotice.lines</code>) replaces the On the bar caption while it has something to say.</p></li>
+      <li><strong>Split <code>Cell</code> into a shelf cell.</strong><p>Inside each tile, a <code>GridLayout</code> of three columns (one under 600 px of tile, with each cell captioned). The center column of On demand stacks its two halves, captioned from <code>zoneNames</code>: "Above Clock" and "Below Clock" on a side bar, "Left of Clock" and "Right of Clock" on a top or bottom bar.</p></li>
+      <li><strong>Draw every widget at one size.</strong><p>On the bar: the snapshot at 1:1 in a slot as thick as the bar (<code>bar.barSize</code>), spaced <code>max(2, widgetSpacing)</code>, aligned the way the zone aligns; drop <code>fit</code> and the <code>Flow</code> scale. On demand and Hidden: the snapshot at 0.8 (or <code>WidgetIcon</code>) with <code>preferences.title</code>. Use cached captures for widgets that are not on the bar now (<code>cachedImageUrl</code>), so names are not the only cue. Hidden keeps its 0.62 opacity.</p></li>
+      <li><strong>Remove the wallpaper strip and the inspector preview.</strong><p>Delete the <code>BarBackdrop</code> and <code>BorderSurface</code> behind the bar row and the one in <code>Inspector</code>. If <code>powerbarForeground</code> makes the bar's ink fall under 3:1 against <code>Color.popups.background</code>, give faces a backing in the other colour of <code>AppearanceModel.textPair</code>.</p></li>
+      <li><strong>Turn <code>Inspector</code> into a tile.</strong><p>A <code>PrefsTile</code> titled with the widget's name, span 12; inside, a <code>GridLayout</code> of 4, 2 or 1 columns: the face with its id; Zone and Visibility (<code>PrefsChoice</code>, <code>compact</code>, <code>stacked</code>); Show on activity and Keep at screen center (<code>PrefsToggle</code>, <code>compact</code>; they dim with their reason instead of hiding); Group (<code>Dropdown</code>) or, for a group, its members and Edit group.</p></li>
+      <li><strong>Use the bar's drop outline.</strong><p>Replace the accent placeholder tile with <code>DropOutline</code>'s look (1 px of the foreground at 45%, the highlight radius). The held widget leaves its place as it does on the bar, so the page drags the way the bar and drawers do.</p></li>
+      <li><strong>Name zones by where they are.</strong><p>On a side bar, Left, Center and Right read Top, Center and Bottom everywhere on the page (shelf heads, the Zone chips, empty-cell text). <code>shell.json</code> keeps <code>left</code>, <code>center</code> and <code>right</code>.</p></li>
+      <li><strong>Keys and audit.</strong><p>Each shelf takes Tab focus and shares <code>cursorCell</code>; focusing a shelf by Tab moves the cursor to that shelf, same zone. Add the Layout page to the bench audit (<code>sliders</code> scenario): no scroll at 1180 × 790, every on-bar face at scale 1, no elided names.</p></li>
+      <li><strong>Check on the desktop.</strong><p><code>qs ipc -p /usr/share/omarchy/shell call powerbar preferencesPage 1</code>, then walk it with only the keyboard and then only the pointer, with your right-edge bar and once on the top edge.</p></li>
+    </ol>
+  </section>
+
+  <section id="research">
+    <div class="section-head"><h2>What the research says</h2><p>The references this proposal borrows from, and the part each one contributed.</p></div>
+    <ul class="sources">
+      <li><a href="https://github.com/jordanbaird/Ice">Ice, menu bar manager</a><span>Its Menu Bar Layout pane shows Visible, Hidden and Always-hidden as rows of the real icons, dragged between rows. The shelf model.</span></li>
+      <li><a href="https://www.podfeet.com/blog/2023/11/bartender-5/">Bartender 5, Menu Bar Items</a><span>The same three rows (shown, hidden, always hidden), drag up and down between them. Confirms rows per state as the familiar model.</span></li>
+      <li><a href="https://userbase.kde.org/Plasma/Panels">KDE UserBase, Plasma panels</a><span>Panel edit mode sorts widgets by dragging them on the panel itself; widgets align top on a vertical panel. Zones read in the bar's own order.</span></li>
+      <li><a href="https://atlassian.design/components/pragmatic-drag-and-drop/design-guidelines">Atlassian, Drag and drop design guidelines</a><span>Empty containers show a background change, not a line; drag previews stay small and simple. Powerbar's bar already follows its own drop outline, which the page adopts instead of Atlassian's line.</span></li>
+      <li><a href="https://atlassian.design/components/pragmatic-drag-and-drop/accessibility-guidelines">Atlassian, Drag and drop accessibility</a><span>Every drag needs a non-drag way to the same result; in their testing, action menus beat arrow-key moving. Why Zone and Visibility stay in the settings tile.</span></li>
+      <li><a href="https://cloudscape.design/patterns/general/actions/incontext-actions/">Cloudscape, In-context actions</a><span>Actions on one resource sit with that resource; a split panel is for detail you inspect. Three settings are actions, not detail, so they get a tile, not a side panel.</span></li>
+      <li><a href="https://www.makeuseof.com/system-tray-icons-windows-11/">Windows 11, Other system tray icons</a><span>Shows tray visibility as one switch per icon, with no picture of the tray. The counterexample: without the icons' faces, people match names to glyphs.</span></li>
+      <li><a href="https://wiki.hypr.land/Configuring/Variables/">Hyprland wiki, Variables</a><span><code>gaps_in</code> and <code>rounding</code>: the tile gap (2 × <code>gaps_in</code>) and corners the page shares with the Bar page.</span></li>
+    </ul>
+  </section>
+</div>
+
+<script src="widgets.js"></script>
+<script>
+// ============================ Data =============================
+const LAB = window.LAB || { widgets: {}, zones: { left: [], center: [], right: [] }, theme: { colors: {} }, bar: {} };
+const W = LAB.widgets;
+// Live tokens, read from Hyprland and Omarchy while this lab was made.
+const TOKENS = { gapsIn: 4, rounding: 0, rowPad: 12, bar: 38 };
+// Names from each plugin's manifest; Omarchy's own widgets by their id.
+const NAME = { keystroke: "Keystroke", everything: "Everything", workspaces: "Workspaces", scratchpeek: "ScratchPeek",
+  crashdesk: "Crash Desk", omapop: "Omapop", "config-sync": "Omarchy Config Sync", omaplug: "Plugin Manager", indicators: "Indicators",
+  clock: "Clock", postcard: "Postcard", "system-update": "System Update", "keyboard-layout": "Keyboard Layout", omasettings: "OmaSettings",
+  weather: "Weather", hymos: "Hymos", omawebapp: "Omawebapp", "omaproton-vpn": "OmaProton VPN", "notification-center": "Notification Center",
+  "easy-capture": "Easy Capture", omatop: "Omatop", "trackpad-pulse": "Trackpad Pulse", monitor: "Monitor", tray: "Tray", tailscale: "Tailscale",
+  "power-manager": "Omarchy Power Manager", network: "Network", bluetooth: "Bluetooth", power: "Power", "group-ai": "AI", "group-audio": "Audio",
+  "agent-orchestr": "Agent Orchestrator", "ai-usage-dashboard": "AI Usage Dashboard", sessions: "Sessions", "agent-activity": "Agent Activity",
+  audio: "Audio", microphone: "Microphone" };
+const IDS = { crashdesk: "cgranier.crashdesk", omawebapp: "p0werj0int.omawebapp", "trackpad-pulse": "nixfred.trackpad-pulse",
+  tray: "omarchy.tray", tailscale: "omarchy.tailscale", "group-ai": "Group, 6 widgets", "group-audio": "Group, 2 widgets" };
+const GROUPS = { "group-ai": ["agent-orchestr", "ai-usage-dashboard", "sessions", "agent-activity"], "group-audio": ["audio", "microphone"] };
+// Your layout as Preferences sees it (shell.json, 4 October 2026): grouped
+// widgets sit in their group; widgets without a visibility follow
+// PreferencesModel.mode (Omarchy's own on the bar, plugins on demand).
+const START = {
+  left: [["keystroke", "shown"], ["everything", "managed"], ["workspaces", "shown"], ["scratchpeek", "shown"], ["group-ai", "shown"]],
+  center: [["crashdesk", "managed"], ["omapop", "managed"], ["config-sync", "managed"], ["omaplug", "shown"], ["indicators", "shown"], ["clock", "shown"],
+    ["postcard", "shown"], ["system-update", "shown"], ["keyboard-layout", "shown"], ["omasettings", "managed"], ["weather", "managed"], ["hymos", "managed"]],
+  right: [["omawebapp", "managed"], ["omaproton-vpn", "managed"], ["notification-center", "managed"], ["easy-capture", "managed"], ["omatop", "managed"],
+    ["trackpad-pulse", "hidden"], ["monitor", "managed"], ["tray", "managed"], ["tailscale", "shown"], ["group-audio", "shown"], ["power-manager", "shown"],
+    ["network", "shown"], ["bluetooth", "shown"], ["power", "shown"]],
+};
+const MODES = ["shown", "managed", "hidden"];
+const ZONES = ["left", "center", "right"];
+function freshState(over) {
+  const s = { zones: {}, mode: {}, pinned: "clock", edge: "right", sel: { col: "left", mode: "shown", pos: 0 }, lifted: null, target: null,
+    peek: {}, light: false, hiddenFrom: {} };
+  ZONES.forEach(z => { s.zones[z] = START[z].map(([k]) => k); START[z].forEach(([k, m]) => { s.mode[k] = m; }); });
+  return Object.assign(s, over || {});
+}
+let ST = freshState();
+
+// ============================ Theme ============================
+function applyTheme() {
+  const c = LAB.theme.colors || {}, root = document.documentElement.style;
+  const rgb = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16)).join(", ");
+  if (c.foreground) root.setProperty("--fg", rgb(c.foreground));
+  if (c.background) root.setProperty("--bg", rgb(c.background));
+  if (c.accent) root.setProperty("--acc", c.accent);
+}
+function contrast(a, b) {
+  const lum = h => { const v = [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16) / 255).map(x => x <= 0.03928 ? x / 12.92 : Math.pow((x + 0.055) / 1.055, 2.4)); return 0.2126 * v[0] + 0.7152 * v[1] + 0.0722 * v[2]; };
+  const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p);
+  return (x + 0.05) / (y + 0.05);
+}
+
+// ============================ Helpers ==========================
+function el(tag, cls, parent, attrs) {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (attrs) for (const k in attrs) { if (k === "text") e.textContent = attrs[k]; else if (k === "style") Object.assign(e.style, attrs[k]); else e.setAttribute(k, attrs[k]); }
+  if (parent) parent.appendChild(e);
+  return e;
+}
+function chip(host, label, value, good) {
+  const c = el("span", "chip" + (good === true ? " good" : good === false ? " bad" : ""), host);
+  c.innerHTML = "<b>" + label + "</b>" + value;
+}
+const side = () => ST.edge === "left" || ST.edge === "right";
+const pinnedName = () => NAME[ST.pinned] || ST.pinned;
+function zoneName(z) {
+  const [zone, half] = z.split(":");
+  if (half) return side() ? (half === "start" ? "Above " : "Below ") + pinnedName() : (half === "start" ? "Left of " : "Right of ") + pinnedName();
+  return side() ? { left: "Top", center: "Center", right: "Bottom" }[zone] : { left: "Left", center: "Center", right: "Right" }[zone];
+}
+const pinActive = () => !!ST.pinned && ST.zones.center.includes(ST.pinned) && ST.mode[ST.pinned] === "shown";
+function colsFor(mode) { return mode === "managed" && pinActive() ? ["left", "center:start", "center:end", "right"] : ZONES; }
+function sideOf(k) { const l = ST.zones.center; return l.indexOf(k) < l.indexOf(ST.pinned) ? "start" : "end"; }
+function cellItems(col, mode, exclude) {
+  const [zone, half] = col.split(":");
+  return ST.zones[zone].filter(k => ST.mode[k] === mode && k !== exclude && (!half || sideOf(k) === half));
+}
+function selKey() { return ST.lifted || cellItems(ST.sel.col, ST.sel.mode)[ST.sel.pos] || null; }
+function cellList(col, mode) {
+  const list = cellItems(col, mode, ST.lifted).map(k => ({ k }));
+  if (ST.lifted && ST.target && ST.target.col === col && ST.target.mode === mode) list.splice(Math.min(ST.target.pos, list.length), 0, { k: ST.lifted, ph: true });
+  return list;
+}
+
+// ===================== State changes (one model) ===============
+function mapCol(col, cols) {
+  if (cols.includes(col)) return col;
+  if (col.startsWith("center")) return cols.includes("center") ? "center" : "center:start";
+  return col;
+}
+function step(dx, dy) {
+  const cur = ST.lifted ? ST.target : ST.sel;
+  let m = MODES.indexOf(cur.mode), col = cur.col, pos = cur.pos;
+  const extra = ST.lifted ? 0 : 1;
+  const last = (c, md) => Math.max(0, cellItems(c, md, ST.lifted).length - extra);
+  if (dy) { m = Math.max(0, Math.min(2, m + dy)); col = mapCol(col, colsFor(MODES[m])); pos = Math.min(pos, last(col, MODES[m])); }
+  if (dx) {
+    const cols = colsFor(MODES[m]); let s = Math.max(0, cols.indexOf(col));
+    pos += dx;
+    if (pos < 0) { if (s > 0) { s--; pos = last(cols[s], MODES[m]); } else pos = 0; }
+    else if (pos > last(cols[s], MODES[m])) { if (s < cols.length - 1) { s++; pos = 0; } else pos = last(cols[s], MODES[m]); }
+    col = cols[s];
+  }
+  const next = { col, mode: MODES[m], pos };
+  if (ST.lifted) ST.target = next; else ST.sel = next;
+}
+function lift() { const k = selKey(); if (!k) return; ST.lifted = k; ST.origin = Object.assign({}, ST.sel); ST.target = Object.assign({}, ST.sel); }
+function cancel() { ST.lifted = null; ST.target = null; if (ST.origin) ST.sel = ST.origin; }
+function place(k, col, mode, pos) {
+  const [zone, half] = col.split(":");
+  const cell = cellItems(col, mode, k);
+  ZONES.forEach(z => { ST.zones[z] = ST.zones[z].filter(x => x !== k); });
+  const list = ST.zones[zone];
+  let at;
+  if (pos < cell.length) at = list.indexOf(cell[pos]);
+  else if (cell.length) at = list.indexOf(cell[cell.length - 1]) + 1;
+  else if (half === "start") at = list.indexOf(ST.pinned);
+  else if (half === "end") at = list.indexOf(ST.pinned) + 1;
+  else at = list.length;
+  list.splice(at, 0, k);
+  ST.mode[k] = mode;
+}
+function drop() {
+  if (!ST.lifted) return;
+  const k = ST.lifted, t = ST.target;
+  ST.lifted = null; ST.target = null;
+  place(k, t.col, t.mode, t.pos);
+  reselect(k, t.mode);
+}
+function reselect(k, mode) {
+  const cols = colsFor(mode);
+  for (const c of cols) { const i = cellItems(c, mode).indexOf(k); if (i >= 0) { ST.sel = { col: c, mode, pos: i }; return; } }
+}
+function setZone(k, zone) {
+  if (!k || ST.zones[zone].includes(k)) return;
+  ZONES.forEach(z => { ST.zones[z] = ST.zones[z].filter(x => x !== k); });
+  ST.zones[zone].push(k);
+  reselect(k, ST.mode[k]);
+}
+function setMode(k, mode) {
+  if (!k) return;
+  if (mode === "hidden" && ST.mode[k] !== "hidden") ST.hiddenFrom[k] = ST.mode[k];
+  ST.mode[k] = mode;
+  reselect(k, mode);
+}
+
+// ======================= Widget faces ===========================
+// A capture at its size on the bar, or Powerbar's fallback glyph where the
+// widget has never been on the bar (no capture yet).
+function face(k, scale, parent) {
+  const d = W[k];
+  if (d) return el("img", "face", parent, { src: "w/" + k + ".png", alt: "", style: { width: d.w * scale + "px", height: d.h * scale + "px" } });
+  const g = el("span", "glyph", parent, { style: { width: 27 * scale + "px", height: TOKENS.bar * scale + "px" } });
+  const i = el("i", null, g); for (let n = 0; n < 4; n++) el("b", null, i);
+  return g;
+}
+const faceWidth = k => (W[k] ? W[k].w : 27);
+
+// ======================= The window =============================
+const OPTIONS = {
+  today: { label: "Today" },
+  zones: { label: "Zone tiles" },
+  shelves: { label: "Shelves", rec: true },
+};
+const view = { opt: "shelves", win: 1180 };
+function columnsFor(width) { return width >= 1100 ? 12 : width >= 820 ? 6 : 1; }
+function hints(opt) {
+  if (ST.lifted) return [["h l", "Reorder"], ["j k", opt === "today" ? "Visibility" : "Shelf"], ["space", "Drop"], ["esc", "Cancel"]];
+  if (opt === "today") return [["h j k l", "Move"], ["space", "Pick up"], ["x", "Hide"], ["enter", "Details"], ["tab", "Inspector"], ["esc", "Close"]];
+  return [["h j k l", "Move"], ["space", "Pick up"], ["x", "Hide"], ["enter", "Settings"], ["tab", "Tiles"], ["1-3", "Pages"], ["esc", "Close"]];
+}
+function drawWindow(host, opt, width, opts) {
+  opts = opts || {};
+  host.textContent = "";
+  const pw = el("div", "pw" + (opts.focus ? " focus" : ""), host, { style: { width: width + "px", height: (opts.height || 790) + "px" } });
+  pw.style.setProperty("--r", TOKENS.rounding + "px");
+  pw.style.setProperty("--gap", 2 * TOKENS.gapsIn + "px");
+  pw.style.setProperty("--pad", TOKENS.rowPad + "px");
+  pw.style.setProperty("--bar", TOKENS.bar + "px");
+  pw.style.setProperty("--isl", "0px");
+  if (ST.light) pw.classList.add("light-ink");
+  if (width < 820) pw.style.padding = "14px 16px 10px";
+  const head = el("div", "head", pw);
+  el("span", "brand", head, { text: "Powerbar" });
+  const tabs = el("div", "tabs", head, { role: "tablist" });
+  ["Layout", "Groups", "Bar"].forEach((t, i) => {
+    const b = el("span", "tab", tabs, { role: "tab", "aria-selected": String(i === 0) });
+    el("span", "kc", b, { text: String(i + 1) });
+    if (width >= 820 || i === 0) el("span", null, b, { text: t });
+  });
+  if (width >= 820) { const c = el("span", "close", head); el("span", "kc", c, { text: "esc" }); el("span", null, c, { text: "Close" }); }
+  const body = el("div", "body", pw);
+  const r = { pw, body, opt, minFit: 1, fits: [] };
+  if (opt === "today") drawToday(body, r);
+  else drawBento(body, opt, columnsFor(width), r, width);
+  const foot = el("div", "foot", pw);
+  hints(opt).forEach(([k, l]) => {
+    const s = el("span", null, foot); const ks = el("span", "k", s); k.split(" ").forEach(x => el("span", "kc", ks, { text: x })); el("span", null, s, { text: l });
+  });
+  return r;
+}
+
+// ---------- A widget on a shelf ----------
+function widget(parent, item, opts) {
+  const k = item.k, onBar = opts.onBar;
+  const c = el("span", "wc" + (onBar ? " face-only" : "") + (opts.mode === "hidden" ? " hidden-w" : ""), parent,
+    { "data-key": k, title: NAME[k] || k });
+  if (item.ph) c.classList.add("ph");
+  if (!item.ph && k === selKey() && !ST.lifted) c.classList.add("cur");
+  const wrap = ST.light ? el("span", "backed", c, { style: { display: "flex", alignItems: "center", height: "100%", padding: "0 2px", borderRadius: "inherit" } }) : c;
+  face(k, onBar ? 1 : 0.8, wrap);
+  if (ST.light) wrap.querySelector(".face, .glyph").style.filter = "invert(.9) sepia(.25)";
+  if (!onBar) {
+    el("span", "nm", c, { text: NAME[k] || k });
+    if (GROUPS[k]) el("span", "n2", c, { text: String(k === "group-ai" ? 6 : GROUPS[k].length) });
+  }
+  if (onBar && k === ST.pinned && pinActive()) el("span", "pin", c, { title: "Kept at screen center" });
+  return c;
+}
+function cell(parent, col, mode, opts) {
+  const zone = col.split(":")[0];
+  const c = el("div", "cell" + (opts.onBar ? " bar z-" + zone : ""), parent, { "data-col": col, "data-mode": mode });
+  if (opts.label) el("span", "lbl", c, { text: opts.label });
+  const list = cellList(col, mode);
+  if (ST.lifted && ST.target && ST.target.col === col && ST.target.mode === mode && !list.some(x => !x.ph)) c.classList.add("target");
+  list.forEach(item => widget(c, item, { onBar: opts.onBar, mode }));
+  if (!list.length) {
+    const here = !ST.lifted && ST.sel.col === col && ST.sel.mode === mode;
+    el("span", "empty", c, { text: here ? "Empty" : opts.onBar ? "" : "" });
+    if (here) c.classList.add("target");
+  }
+  return c;
+}
+
+// ---------- Proposed: shelves or zone tiles, plus the settings tile ----------
+const SHELVES = [
+  { mode: "shown", title: "On the bar", cap: () => "Always visible" },
+  { mode: "managed", title: "On demand", cap: () => "In the zone's drawer when you hover it, or briefly on activity" },
+  { mode: "hidden", title: "Hidden", cap: () => "Kept off the bar" },
+];
+function tile(grid, title, span, cap) {
+  const t = el("div", "tile", grid, { role: "group", "aria-label": title });
+  t.style.gridColumn = "span " + span;
+  const h = el("div", "th", t);
+  el("span", null, h, { text: title.toUpperCase() });
+  if (cap) el("span", "cap", h, { text: cap });
+  return t;
+}
+function editorKeys(t, mode, zone) {
+  t.tabIndex = 0;
+  t.setAttribute("data-editor", "1");
+  t.addEventListener("focus", () => {
+    if (ST.lifted || ST.sel.mode === mode && (!zone || ST.sel.col.split(":")[0] === zone)) return;
+    const col = zone || mapCol(ST.sel.col, colsFor(mode));
+    ST.sel = { col: mapCol(col, colsFor(mode)), mode, pos: 0 };
+    if (zone && mode == null) return;
+    rerenderHero(t);
+  });
+}
+function drawBento(body, opt, cols, r, width) {
+  const sc = el("div", "scroll", body);
+  r.scroll = sc;
+  const grid = el("div", "bento", sc);
+  grid.style.setProperty("--cols", cols);
+  const narrow = width < 820;
+  if (opt === "shelves") {
+    SHELVES.forEach(S => {
+      const t = tile(grid, S.title, cols, S.cap());
+      if (narrow) t.classList.add("stack");
+      t.dataset.mode = S.mode;
+      editorKeys(t, S.mode);
+      if (ST.sel.mode === S.mode || (ST.lifted && ST.target && ST.target.mode === S.mode)) t.classList.add("editing");
+      const tb = el("div", "tb", t);
+      if (S.mode === "shown") {
+        const zh = el("div", "zhead", tb);
+        ZONES.forEach(z => el("span", ST.sel.col.split(":")[0] === z ? "on" : null, zh, { text: zoneName(z) }));
+      }
+      const zg = el("div", "zgrid", tb);
+      ZONES.forEach(z => {
+        const cs = colsFor(S.mode).filter(c => c.split(":")[0] === z);
+        if (cs.length > 1) {
+          const sp = el("div", "split", zg);
+          cs.forEach(c => cell(sp, c, S.mode, { label: zoneName(c) }));
+        } else cell(zg, z, S.mode, { onBar: S.mode === "shown", label: narrow || S.mode !== "shown" && false ? zoneName(z) : null });
+      });
+    });
+  } else {
+    ZONES.forEach(z => {
+      const span = cols === 12 ? 4 : cols === 6 ? 2 : 1;
+      const t = tile(grid, zoneName(z), span, null);
+      t.style.gridRow = "span 4";
+      t.style.gridTemplateRows = "subgrid";
+      editorKeys(t, null, z);
+      t.addEventListener("focus", () => { if (!ST.lifted && ST.sel.col.split(":")[0] !== z) { ST.sel = { col: mapCol(z, colsFor(ST.sel.mode)), mode: ST.sel.mode, pos: 0 }; rerenderHero(t); } });
+      if (ST.sel.col.split(":")[0] === z) t.classList.add("editing");
+      SHELVES.forEach(S => {
+        const band = el("div", "tb", t, { style: { display: "grid", gap: "3px", alignContent: "start" } });
+        el("span", null, band, { text: S.title, style: { fontSize: "11px", color: "rgba(var(--fg), .6)", padding: "0 2px" } });
+        const cs = colsFor(S.mode).filter(c => c.split(":")[0] === z);
+        if (cs.length > 1) cs.forEach(c => cell(band, c, S.mode, { label: zoneName(c) }));
+        else cell(band, z, S.mode, { onBar: S.mode === "shown" });
+      });
+    });
+  }
+  drawSettings(grid, cols);
+}
+function drawSettings(grid, cols) {
+  const k = selKey();
+  const t = tile(grid, k ? NAME[k] || k : "Nothing selected", cols, null);
+  t.style.gridColumn = "1 / -1";
+  if (!k) {
+    const where = ST.sel.mode === "shown" ? "on the bar in " + zoneName(ST.sel.col).toLowerCase()
+      : ST.sel.mode === "managed" ? "on demand in " + zoneName(ST.sel.col).toLowerCase() : "hidden from " + zoneName(ST.sel.col).toLowerCase();
+    el("p", "blank", t, { text: "Nothing " + where + " yet. Pick up a widget with Space, or drag one here." });
+    return;
+  }
+  const g = el("div", "selgrid" + (cols === 6 ? " c2" : cols === 1 ? " c1" : ""), t);
+  const who = el("div", "who", g);
+  const fb = el("div", "facebox", who); face(k, 1, fb);
+  el("span", "idl", who, { text: IDS[k] || (W[k] && W[k].id) || k });
+  const col2 = el("div", "crow", g, { style: { gap: "6px" } });
+  const z = ZONES.find(x => ST.zones[x].includes(k));
+  choice(col2, "Zone", ZONES.map(x => [x, zoneName(x)]), z, v => setZone(k, v));
+  choice(col2, "Visibility", [["shown", "On the bar"], ["managed", "On demand"], ["hidden", "Hidden"]], ST.mode[k], v => setMode(k, v));
+  const col3 = el("div", "crow", g, { style: { gap: "8px" } });
+  if (GROUPS[k]) {
+    const m = el("div", "crow", col3); el("span", "l", m, { text: "Members" });
+    const ms = el("div", "members", m); GROUPS[k].forEach(x => face(x, 0.8, ms));
+    if (k === "group-ai") el("span", "d", ms, { text: "+2 without a capture", style: { marginLeft: "6px" } });
+    const col4 = el("div", "crow", g);
+    el("span", "l", col4, { text: "Group" });
+    el("span", "d", col4, { text: "Face, badge and members are set on the Groups page." });
+    el("button", "kbtn", col4, { text: "Edit group (g)" });
+  } else {
+    const clockDriven = k === "clock";
+    const a = el("div", "srow" + (clockDriven ? " dim" : ""), col3);
+    el("span", "l", a, { text: "Show on activity" });
+    const on = !clockDriven && ST.peek[k] !== false;
+    const s = el("button", "sw", a, { role: "switch", "aria-checked": String(on), "aria-label": "Show on activity" });
+    if (clockDriven) s.disabled = true; else s.addEventListener("click", () => { ST.peek[k] = !on; rerenderHero(); });
+    el("span", "d", a, { text: clockDriven ? "It changes on a clock, so it never brings the bar out" : "Slide the bar out briefly when it changes" });
+    const can = z === "center" && ST.mode[k] === "shown";
+    const p = el("div", "srow" + (can ? "" : " dim"), col3);
+    el("span", "l", p, { text: "Keep at screen center" });
+    const pin = can && ST.pinned === k;
+    const ps = el("button", "sw", p, { role: "switch", "aria-checked": String(pin), "aria-label": "Keep at screen center" });
+    if (!can) ps.disabled = true; else ps.addEventListener("click", () => { ST.pinned = pin ? "" : k; rerenderHero(); });
+    el("span", "d", p, { text: can ? "Other center widgets arrange around it" : "For a widget on the bar in the center" });
+    const col4 = el("div", "crow", g);
+    el("span", "l", col4, { text: "Group" });
+    const dd = el("select", "dd", col4, { "aria-label": "Group" });
+    ["Not grouped", "AI", "Audio"].forEach(o => el("option", null, dd, { text: o }));
+    el("span", "d", col4, { text: "A grouped widget moves into its group's drawer." });
+  }
+}
+function choice(parent, label, options, value, onChoose) {
+  const r = el("div", "crow", parent);
+  el("span", "l", r, { text: label });
+  const g = el("div", "chipset", r, { role: "group", "aria-label": label });
+  options.forEach(([v, t]) => {
+    const b = el("button", null, g, { "aria-pressed": String(v === value), text: t });
+    b.addEventListener("click", () => { onChoose(v); rerenderHero(); });
+  });
+}
+
+// ---------- Today: matrix and inspector (LayoutEditor.qml) ----------
+function drawToday(body, r) {
+  const wrap = el("div", "t-wrap", body);
+  const mx = el("div", "t-matrix", wrap, { tabindex: "0", "data-editor": "1" });
+  el("span", null, mx);
+  ZONES.forEach(z => el("span", "t-zh" + (ST.sel.col.split(":")[0] === z ? " on" : ""), mx, { text: { left: "Left", center: "Center", right: "Right" }[z] }));
+  [["shown", "On the bar", "Always visible"], ["managed", "On demand", "Shown on activity, or when you hover the zone"], ["hidden", "Hidden", "Kept off the bar"]].forEach(([mode, title, hint]) => {
+    const rh = el("div", "t-rh", mx); el("b", null, rh, { text: title, style: { opacity: ST.sel.mode === mode ? 1 : .75 } }); el("span", null, rh, { text: hint });
+    const row = el("div", "t-row" + (mode === "shown" ? " bar" : ""), mx);
+    if (mode === "shown") r.backdrops = (r.backdrops || 0) + 1;
+    ZONES.forEach(z => {
+      const colEl = el("div", "t-col", row);
+      colsFor(mode).filter(c => c.split(":")[0] === z).forEach(col => {
+        const c = el("div", "t-cell" + (mode === "shown" ? " bar" : mode === "hidden" ? " hid" : ""), colEl, { "data-col": col, "data-mode": mode });
+        const list = cellList(col, mode);
+        if (ST.lifted && ST.target && ST.target.col === col && ST.target.mode === mode) c.classList.add("target");
+        if (mode === "shown") {
+          // The bar row never wraps: like the bar, a zone keeps one line and
+          // shrinks to fit (fit = min(1, (width − 16) / content)).
+          const strip = el("div", "t-strip", c);
+          list.forEach(item => {
+            const t = el("span", "t-tile" + (item.ph ? " ph" : "") + (!item.ph && item.k === selKey() && !ST.lifted ? " cur" : ""), strip,
+              { "data-key": item.k, style: { height: TOKENS.bar + "px", padding: "0 4px", background: item.ph ? "" : "transparent" } });
+            if (!item.ph && item.k === selKey() && !ST.lifted) t.style.background = "rgba(var(--fg), .2)";
+            face(item.k, 1, t);
+          });
+          c._strip = strip; c._zone = z;
+        } else {
+          list.forEach(item => {
+            const t = el("span", "t-tile" + (item.ph ? " ph" : "") + (mode === "hidden" ? " hidden-w" : "") + (!item.ph && item.k === selKey() && !ST.lifted ? " cur" : ""), c, { "data-key": item.k });
+            const g = el("span", "glyph", t, { style: { width: "20px", height: "20px" } }); const i = el("i", null, g); for (let n = 0; n < 4; n++) el("b", null, i);
+            el("span", "nm", t, { text: NAME[item.k] || item.k });
+          });
+          if (!list.length) el("span", "empty", c, { text: ST.lifted && c.classList.contains("target") ? "Drop here" : col.includes(":") ? zoneName(col) : "" });
+        }
+      });
+    });
+  });
+  // Inspector
+  const k = selKey();
+  const ins = el("div", "t-insp", wrap);
+  if (k) {
+    const pv = el("div", "pv", ins); r.backdrops++;
+    const bar = el("div", null, pv); face(k, 1, bar);
+    el("h5", null, ins, { text: NAME[k] || k });
+    el("span", "idl", ins, { text: IDS[k] || (W[k] && W[k].id) || k });
+    el("h6", null, ins, { text: "Placement" });
+    const z = ZONES.find(x => ST.zones[x].includes(k));
+    choice(ins, "Zone", ZONES.map(x => [x, { left: "Left", center: "Center", right: "Right" }[x]]), z, v => setZone(k, v));
+    choice(ins, "Visibility", [["shown", "On the bar"], ["managed", "On demand"], ["hidden", "Hidden"]], ST.mode[k], v => setMode(k, v));
+    if (!GROUPS[k]) {
+      const c = el("div", "card", ins); el("span", "l", c, { text: "Show on activity", style: { fontWeight: 700, fontSize: "12.5px" } });
+      el("button", "sw", c, { role: "switch", "aria-checked": String(k !== "clock") });
+      el("span", null, c, { text: k === "clock" ? "It changes on a clock, so it never brings the bar out" : "Slide the bar out briefly when this widget changes", style: { fontSize: "11px", opacity: .6, gridColumn: "1 / -1" } });
+      el("h6", null, ins, { text: "Group" });
+      el("span", null, ins, { text: "A grouped widget moves into its group's drawer.", style: { fontSize: "11px", opacity: .7, marginTop: "-6px" } });
+      const dd = el("select", "dd", ins); el("option", null, dd, { text: "Not grouped" });
+    } else {
+      el("h6", null, ins, { text: "Members" });
+      GROUPS[k].forEach(x => { const m = el("div", null, ins, { style: { display: "flex", gap: "8px", alignItems: "center", fontSize: "12px" } }); face(x, 0.6, m); el("span", null, m, { text: NAME[x] }); });
+    }
+  } else el("p", null, ins, { text: "Nothing here yet.\n\nPick up a widget with Space, or drag one here.", style: { fontSize: "12px", opacity: .6, whiteSpace: "pre-line" } });
+}
+// Today's scale for the bar row, from the laid-out cells.
+function fitToday(r) {
+  r.pw.querySelectorAll(".t-cell.bar").forEach(c => {
+    const s = c._strip; if (!s) return;
+    const content = s.scrollWidth, avail = c.clientWidth - 16;
+    const k = Math.min(1, avail / Math.max(1, content));
+    const x = c._zone === "left" ? 8 : c._zone === "right" ? c.clientWidth - 8 - content * k : (c.clientWidth - content * k) / 2;
+    s.style.left = x + "px";
+    s.style.transform = "translateY(-50%) scale(" + k + ")";
+    r.fits.push({ zone: c._zone, k, content, cell: c.clientWidth });
+  });
+  r.minFit = r.fits.length ? Math.min(...r.fits.map(f => f.k)) : 1;
+}
+
+// ============================ Metrics ============================
+function metrics(r) {
+  if (r.opt === "today") fitToday(r);
+  const cut = [...r.pw.querySelectorAll(".nm")].filter(n => n.scrollWidth > n.clientWidth + 1).length;
+  const sc = r.scroll || r.pw.querySelector(".t-matrix");
+  const scrolls = sc ? sc.scrollHeight > sc.clientHeight + 1 : false;
+  const inner = r.scroll ? r.scroll.firstChild.offsetHeight : sc ? sc.scrollHeight : 0;
+  const editor = r.opt === "today" ? r.pw.querySelector(".t-row").offsetWidth : r.pw.querySelector(".zgrid, .bento").offsetWidth;
+  const share = editor / r.body.clientWidth;
+  const tiles = r.pw.querySelectorAll(".tile");
+  const settingsH = tiles.length ? tiles[tiles.length - 1].offsetHeight : 0;
+  return { settingsH, minFit: r.minFit, fits: r.fits, cut, scrolls, content: inner, view: sc ? sc.clientHeight : 0, backdrops: r.backdrops || 0, share };
+}
+function measure(opt, width, state) {
+  const keep = ST; if (state) ST = state;
+  const host = el("div", null, document.body, { style: { position: "absolute", left: "-99999px", top: "0" } });
+  const r = drawWindow(host, opt, width, {});
+  const m = metrics(r);
+  host.remove();
+  ST = keep;
+  return m;
+}
+const pct = x => Math.round(x * 100) + "%";
+
+// =========================== Hero, input ===========================
+let hero = null, heroFocus = false;
+function fit(frame, scaler, width, height) {
+  const k = Math.min(1, frame.clientWidth / width);
+  scaler.style.transform = "scale(" + k + ")";
+  frame.style.height = Math.ceil(height * k) + "px";
+  return k;
+}
+function rerenderHero(focusTile) {
+  const frame = document.getElementById("hero-frame"), scaler = document.getElementById("hero-scaler");
+  const active = document.activeElement;
+  const hadFocus = heroFocus || (active && scaler.contains(active) && active.dataset && active.dataset.editor);
+  const focusMode = focusTile && focusTile.dataset ? focusTile.dataset.mode : null;
+  hero = drawWindow(scaler, view.opt, view.win, { interactive: true, focus: hadFocus });
+  hero.k = fit(frame, scaler, view.win, 790);
+  const m = metrics(hero);
+  heroChips(m);
+  wireHero(hero);
+  if (hadFocus) {
+    // Keep keyboard focus on the shelf (or zone tile) that holds the cursor.
+    const mode = ST.lifted ? ST.target.mode : ST.sel.mode, zone = (ST.lifted ? ST.target : ST.sel).col.split(":")[0];
+    const eds = [...hero.pw.querySelectorAll("[data-editor]")];
+    const t = view.opt === "shelves" ? eds.find(e => e.dataset.mode === mode) : view.opt === "zones" ? eds[ZONES.indexOf(zone)] : eds[0];
+    heroFocus = true;
+    if (t) t.focus({ preventScroll: true });
+    heroFocus = false;
+  }
+  document.querySelectorAll("#opt button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.v === view.opt)));
+  document.querySelectorAll("#win button").forEach(b => b.setAttribute("aria-pressed", String(Number(b.dataset.v) === view.win)));
+  document.querySelectorAll("#edge button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.v === ST.edge)));
+}
+function wireHero(r) {
+  r.pw.querySelectorAll("[data-editor]").forEach(ed => {
+    ed.addEventListener("keydown", onKey);
+    ed.addEventListener("focus", () => r.pw.classList.add("focus"));
+    ed.addEventListener("blur", () => setTimeout(() => { if (hero && !hero.pw.contains(document.activeElement)) hero.pw.classList.remove("focus"); }, 0));
+  });
+  r.pw.addEventListener("pointerdown", onDown);
+}
+function onKey(e) {
+  if (e.ctrlKey || e.altKey || e.metaKey) return;
+  const k = e.key;
+  if (k === "h" || k === "ArrowLeft") step(-1, 0);
+  else if (k === "l" || k === "ArrowRight") step(1, 0);
+  else if (k === "k" || k === "ArrowUp") step(0, -1);
+  else if (k === "j" || k === "ArrowDown") step(0, 1);
+  else if (k === "Tab" && ST.lifted) step(0, e.shiftKey ? -1 : 1);
+  else if (k === " ") { if (ST.lifted) drop(); else lift(); }
+  else if (k === "Enter" && ST.lifted) drop();
+  else if (k === "Escape" && ST.lifted) cancel();
+  else if ((k === "x" || k === "Delete") && !ST.lifted && selKey()) {
+    const w = selKey(); setMode(w, ST.mode[w] === "hidden" ? (ST.hiddenFrom[w] || "managed") : "hidden");
+  } else return;
+  e.preventDefault();
+  heroFocus = true;
+  rerenderHero();
+  heroFocus = false;
+}
+// Pointer: press selects, a move past 6 px lifts, the cell under the pointer
+// and the first widget not yet passed (rows top to bottom) give the landing.
+let press = null;
+function hitCell(x, y) {
+  for (const e of document.elementsFromPoint(x, y)) { const c = e.closest && e.closest("[data-col]"); if (c && hero.pw.contains(c)) return c; }
+  return null;
+}
+function gapIn(c, x, y) {
+  let pos = 0;
+  for (const w of c.querySelectorAll("[data-key]")) {
+    if (w.classList.contains("ph")) continue;
+    const b = w.getBoundingClientRect();
+    if (y < b.top || (y < b.bottom && x < b.left + b.width / 2)) return pos;
+    pos++;
+  }
+  return pos;
+}
+function onDown(e) {
+  const w = e.target.closest("[data-key]"), c = e.target.closest("[data-col]");
+  if (!c) return;
+  const col = c.dataset.col, mode = c.dataset.mode;
+  if (w) {
+    const pos = cellItems(col, mode).indexOf(w.dataset.key);
+    ST.sel = { col, mode, pos: Math.max(0, pos) };
+    press = { x: e.clientX, y: e.clientY, key: w.dataset.key };
+  } else { ST.sel = { col, mode, pos: gapIn(c, e.clientX, e.clientY) }; press = null; }
+  e.preventDefault();
+  heroFocus = true; rerenderHero(); heroFocus = false;
+  window.addEventListener("pointermove", onMove);
+  window.addEventListener("pointerup", onUp, { once: true });
+}
+let ghost = null;
+function onMove(e) {
+  if (!press) return;
+  if (!ST.lifted && Math.abs(e.clientX - press.x) + Math.abs(e.clientY - press.y) > 6) { lift(); }
+  if (!ST.lifted) return;
+  const c = hitCell(e.clientX, e.clientY);
+  if (c) {
+    const t = { col: c.dataset.col, mode: c.dataset.mode, pos: gapIn(c, e.clientX, e.clientY) };
+    if (!ST.target || t.col !== ST.target.col || t.mode !== ST.target.mode || t.pos !== ST.target.pos) { ST.target = t; rerenderHero(); }
+  }
+  if (!ghost || !hero.pw.contains(ghost)) {
+    ghost = el("span", "wc ghost", hero.pw);
+    face(ST.lifted, ST.target && ST.target.mode === "shown" ? 1 : 0.8, ghost);
+    if (!(ST.target && ST.target.mode === "shown")) el("span", "nm", ghost, { text: NAME[ST.lifted] });
+  }
+  const b = hero.pw.getBoundingClientRect();
+  ghost.style.left = (e.clientX - b.left) / hero.k - ghost.offsetWidth / 2 + "px";
+  ghost.style.top = (e.clientY - b.top) / hero.k - ghost.offsetHeight / 2 + "px";
+}
+function onUp() {
+  window.removeEventListener("pointermove", onMove);
+  if (ST.lifted && press) drop();
+  press = null; ghost = null;
+  heroFocus = true; rerenderHero(); heroFocus = false;
+}
+function heroChips(m) {
+  const host = document.getElementById("hero-chips"); host.textContent = "";
+  chip(host, "Widgets on the bar at true size", m.minFit >= 0.95 ? "all" : "down to " + pct(m.minFit), m.minFit >= 0.95);
+  chip(host, "Names cut off", String(m.cut), m.cut === 0);
+  chip(host, "Width for the zones", pct(m.share), m.share >= 0.9);
+  chip(host, "Copies of the bar's look", String(m.backdrops), m.backdrops === 0);
+  chip(host, "Scrolls at " + view.win + " × 790", m.scrolls ? "yes, " + m.content + " px in " + m.view : "no", !m.scrolls);
+  document.getElementById("hero-note").innerHTML = (view.opt === "today"
+    ? "Today, modelled from <code>LayoutEditor.qml</code> with your captures; the bar row's scale per zone is " + m.fits.map(f => zoneName(f.zone) + " " + pct(f.k)).join(", ") + ". An offscreen render of the real page is in the findings table. "
+    : "Operable mock in your theme at true size. ") +
+    "Click a widget to select it, drag it to move it, or click into the window and use h j k l, space, x and esc. Names come from each plugin's manifest; five widgets have no capture yet and show Powerbar's fallback glyph.";
+}
+
+// ============================ Findings ==========================
+function renderFindings() {
+  const today = measure("today", 1180, freshState());
+  const shelves = measure("shelves", 1180, freshState());
+  const f = today.fits.map(x => zoneName(x.zone) + " " + pct(x.k)).join(", ");
+  const rows = [
+    ["Your widgets on the bar", "Drawn on a wallpaper strip in 223 px per zone, scaled to fit one line", "Bench cell widths 223, 222, 223 px; your zones need " + today.fits.map(x => Math.round(x.content)).join(", ") + " px, so " + f, "True size on the On the bar shelf: " + (shelves.minFit >= 0.95 ? "every widget at 100%" : pct(shelves.minFit))],
+    ["Copies of the bar's look", "Two: the wallpaper strip with island surfaces behind the bar row, and a second strip in the inspector", "<code>BarBackdrop</code> at LayoutEditor.qml:334 and :687", "None. Faces keep their captures; the real bar shows the look"],
+    ["The inspector", "300 px wide at all times (minimum 260), 27% of the page", "<code>Layout.preferredWidth: Style.space(300)</code>, :444", "A full-width tile under the shelves, " + shelves.settingsH + " px tall"],
+    ["Zone and Visibility", "Chips in the inspector repeat where the widget already sits", "Inspector, Placement, :741", "Kept as the non-drag way to move, in the settings tile"],
+    ["The split center", "Two 110 px cells side by side; names elide", "Bench: center:start and center:end cells at 110 px; " + today.cut + " names cut off in the mock", "The two halves stack in the center column, each captioned with the pinned widget: " + shelves.cut + " names cut off"],
+    ["Zone names on a side bar", "Left, Center, Right, although your right-edge bar shows the Left zone at the top", "<code>zoneNames</code>, :43; only the center halves change", "Top, Center, Bottom on a side bar"],
+    ["Dragging", "Its own placeholder (accent fill and 2 px accent border) and ghost", "<code>Tile.placeholder</code>, :589; no <code>DropOutline</code> in the file", "The bar's drop outline, like the bar and drawers"],
+    ["Section headings", "Bold body text, 10–20 px gaps of its own, corners max(radius, 6)", ":278, :200, :490", "Tiles with PanelSectionHeader titles, 2 × gaps_in apart, your corners"],
+    ["Footer keys", "Tab goes to the inspector; page keys not listed", "<code>hints</code>, :69", "Tab jumps tiles; 1–3 Pages listed, as on the Bar page"],
+  ];
+  const tb = document.getElementById("findings-rows");
+  rows.forEach(r => { const tr = el("tr", null, tb); r.forEach(c => { const td = el("td", null, tr); td.innerHTML = c; }); });
+  const tr = el("tr", null, tb);
+  const td = el("td", null, tr, { colspan: "4" });
+  td.innerHTML = "Offscreen render of today's page with your <code>shell.json</code>. Plugin widgets cannot run offscreen, so the bar row shows their names instead of their faces; the layout is real.";
+  const img = el("img", null, td, { src: "today-layout-bench.png", alt: "Today's Layout page, rendered offscreen", style: { display: "block", width: "100%", maxWidth: "100%", marginTop: "10px", borderRadius: "8px" } });
+}
+
+// ============================= Rule ==============================
+function renderRule() {
+  const m = measure("shelves", 1180, freshState());
+  const host = document.getElementById("formulas");
+  const inner = 1124 - TOKENS.rowPad - 2 * TOKENS.rowPad;
+  const zone = Math.floor((inner - 4 * TOKENS.gapsIn) / 3);
+  [["shelves = On the bar, On demand, Hidden; span = all columns", "3 tiles", "One tile per state, in the order of the bar's visibility. Each holds your three zones in columns that line up from shelf to shelf."],
+   ["zone column = (page − tile padding − 2 × gap) / 3", zone + " px", "1124 px of page at your window. Your widest zone on the bar needs 309 px, so faces never shrink."],
+   ["face on the bar = capture at 1:1, slot = bar size", TOKENS.bar + " px", "Spaced max(2, widget spacing) and aligned the way the zone aligns (start, center, end), wrapping instead of scaling."],
+   ["face elsewhere = capture × 0.8 + name", Math.round(TOKENS.bar * 0.8) + " px", "Widgets you do not see on the bar keep their face, so you recognise them, and add their manifest name."],
+   ["gap = 2 × gaps_in, tile radius = rounding", 2 * TOKENS.gapsIn + " px, " + TOKENS.rounding + " px", "The Bar page's tokens: tiles sit like your tiled windows."],
+   ["cell radius = max(0, tile radius − padding / 2)", "0 px", "Cells and chips nest inside the tile's corner."],
+   ["settings tile = name, Zone, Visibility, Show on activity, Keep at screen center, Group", m.settingsH + " px", "Full width under the shelves. A setting that does not apply dims with its reason instead of disappearing, so nothing jumps as the cursor moves."],
+   ["fits without scrolling", m.scrolls ? "no" : m.content + " px in " + m.view, "Measured from the mock with your layout at 1180 × 790."],
+  ].forEach(([f, v, p]) => {
+    const r = el("div", "r", host);
+    el("span", "f", r, { text: f });
+    el("span", "v", r, { text: v });
+    el("p", null, r, { text: p });
+  });
+}
+
+// =========================== Comparison ==========================
+function renderCompare() {
+  const host = document.getElementById("compare-rows"); host.textContent = "";
+  [["today", "Today", "A matrix of zones by visibility beside a 300 px inspector; the bar row is a scaled copy of the bar on your wallpaper."],
+   ["zones", "Zone tiles", "A tile per zone (Top, Center, Bottom), each stacking its three states; the bands line up across tiles. Reads one zone at a time."],
+   ["shelves", "Shelves", "A tile per state, your three zones in columns, like Ice and Bartender's rows. Reads like the bar. Recommended."]].forEach(([opt, name, text]) => {
+    const row = el("div", "cmp-row", host);
+    const n = el("div", "name", row); el("h3", null, n, { text: name }); el("p", null, n, { text: text });
+    const right = el("div", null, row);
+    const fr = el("div", "frame", right); const sc = el("div", "scaler", fr);
+    const keep = ST; ST = freshState({ edge: ST.edge });
+    const r = drawWindow(sc, opt, 1180, {});
+    r.pw.inert = true;
+    const m = metrics(r);
+    ST = keep;
+    requestAnimationFrame(() => fit(fr, sc, 1180, 790));
+    const chips = el("div", "chips", right);
+    chip(chips, "On the bar at true size", m.minFit >= 0.95 ? "all" : "down to " + pct(m.minFit), m.minFit >= 0.95);
+    chip(chips, "Names cut off", String(m.cut), m.cut === 0);
+    chip(chips, "Width for the zones", pct(m.share), m.share >= 0.9);
+    chip(chips, "Copies of the bar's look", String(m.backdrops), m.backdrops === 0);
+    chip(chips, "Scrolls", m.scrolls ? "yes" : "no", !m.scrolls);
+  });
+}
+
+// ============================ Edge cases ==========================
+function lifted(s, key, target) { s.lifted = key; s.origin = Object.assign({}, s.sel); s.target = target; return s; }
+const CASES = [
+  { title: "Your right-edge bar", text: "The Left zone of shell.json is at the top of your screen. Today the page still says Left; the proposal says Top, Center and Bottom, and the center halves read Above Clock and Below Clock.", state: () => freshState() },
+  { title: "A bar on the top edge", text: "The same layout on a horizontal bar reads Left, Center, Right, and the halves read Left of Clock and Right of Clock. The halves still stack, so long names keep room.", state: () => freshState({ edge: "top" }) },
+  { title: "A widget being dragged", text: "Notification Center held over the On the bar shelf, between Network and Bluetooth: the landing place is outlined the way the bar outlines it, and On demand closes up behind it, as the bar does.", state: () => lifted(freshState({ sel: { col: "right", mode: "managed", pos: 2 } }), "notification-center", { col: "right", mode: "shown", pos: 4 }) },
+  { title: "A group selected", text: "The settings tile shows the group's members by their faces and sends you to Groups for the rest (g). Show on activity and Keep at screen center are per widget, so the tile leaves them out for a group.", state: () => freshState({ sel: { col: "left", mode: "shown", pos: 3 } }) },
+  { title: "A medium window, 900 px", text: "Six columns: zone columns shrink to 264 px. Your Top zone needs 309 px, so it wraps onto a second line at true size rather than shrinking. Today the same zone would shrink further.", state: () => freshState(), width: 900 },
+  { title: "A narrow window, 600 px", text: "One column: each shelf lists its zones one under the other, each captioned, and the page scrolls. The settings tile stacks its settings.", state: () => freshState(), width: 600 },
+  { title: "Light text and icons in a light theme", text: "", state: () => freshState({ light: true }) },
+  { title: "An empty place selected", text: "Clicking an empty cell selects the place, as today. The settings tile says what is missing and how to fill it, instead of an empty inspector.", state: () => freshState({ sel: { col: "left", mode: "hidden", pos: 0 } }) },
+];
+function renderCases() {
+  const c = LAB.theme.colors || {};
+  const ratio = c.foreground && c.background ? contrast(c.background, c.background) : 1;
+  const darkOnBg = c.foreground && c.background ? contrast(c.foreground, c.background) : 0;
+  CASES[6].text = "Text and icons: Light makes the bar's ink your theme's light colour, the Preferences background itself (" + ratio.toFixed(1) + ":1). Faces would vanish, so under 3:1 each face gets a backing in the pair's dark colour (" + darkOnBg.toFixed(1) + ":1). Simulated here with a filter on your captures.";
+  const host = document.getElementById("cases");
+  CASES.forEach(cs => {
+    const card = el("div", "case", host);
+    el("h3", null, card, { text: cs.title });
+    el("p", null, card, { text: cs.text });
+    const fr = el("div", "frame", card); const sc = el("div", "scaler", fr);
+    const keep = ST; ST = cs.state();
+    const r = drawWindow(sc, "shelves", cs.width || 1180, { focus: true });
+    if (ST.light) r.pw.style.setProperty("--fgDark", getComputedStyle(document.documentElement).getPropertyValue("--fg"));
+    r.pw.inert = true;
+    if (ST.lifted) {
+      const g = el("span", "wc ghost", r.pw); face(ST.lifted, 1, g);
+      requestAnimationFrame(() => {
+        const ph = r.pw.querySelector(".wc.ph"), b = r.pw.getBoundingClientRect(), p = ph.getBoundingClientRect(), k = b.width / r.pw.offsetWidth;
+        g.style.left = (p.left - b.left) / k + 10 + "px"; g.style.top = (p.top - b.top) / k + 30 + "px";
+      });
+      ST.lifted = null;
+    }
+    ST = keep;
+    requestAnimationFrame(() => fit(fr, sc, cs.width || 1180, 790));
+  });
+}
+
+// ============================== Boot ==============================
+const motionOn = () => !document.documentElement.classList.contains("no-motion");
+function applyMotion(on) {
+  document.documentElement.classList.toggle("no-motion", !on);
+  document.getElementById("motion").setAttribute("aria-pressed", String(on));
+}
+applyTheme();
+(function boot() {
+  const seg = document.getElementById("opt");
+  Object.keys(OPTIONS).forEach(k => { const b = el("button", null, seg, { "data-v": k, text: OPTIONS[k].label + (OPTIONS[k].rec ? ", proposed" : "") }); b.addEventListener("click", () => { view.opt = k; ST.lifted = null; rerenderHero(); }); });
+  document.querySelectorAll("#win button").forEach(b => b.addEventListener("click", () => { view.win = Number(b.dataset.v); rerenderHero(); }));
+  document.querySelectorAll("#edge button").forEach(b => b.addEventListener("click", () => { ST.edge = b.dataset.v; rerenderHero(); }));
+  document.getElementById("reset").addEventListener("click", () => { ST = freshState({ edge: ST.edge }); rerenderHero(); });
+  applyMotion(!window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+  document.getElementById("motion").addEventListener("click", () => applyMotion(!motionOn()));
+  const h = location.hash.slice(1);
+  if (OPTIONS[h]) view.opt = h;
+  rerenderHero(); renderFindings(); renderRule(); renderCompare(); renderCases();
+  window.addEventListener("resize", () => rerenderHero());
+})();
+</script>

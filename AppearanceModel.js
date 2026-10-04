@@ -54,10 +54,32 @@ function effects(config) {
 // a window or a busy wallpaper can sit behind a see-through bar at any time.
 // Light and dark are the theme's own pair (bar text and background), sorted
 // by luminance, so the choice keeps the theme's hues.
+//
+// A choice belongs to the theme it was made in: powerbarForeground maps theme
+// names to "light" or "dark", and every other theme uses its own colours. A
+// choice made for a light theme would otherwise follow you into a dark one,
+// where its dark colour is the bar's own background.
 var foregrounds = ["theme", "light", "dark"]
-function foreground(config) {
+function isMap(v) { return !!v && typeof v === "object" && !Array.isArray(v) }
+function foreground(config, theme) {
   var v = config && config.powerbarForeground
-  return foregrounds.indexOf(v) >= 0 ? v : "theme"
+  // A bare string predates per-theme choices and names no theme: it no longer
+  // applies anywhere.
+  var picked = isMap(v) && theme ? v[theme] : undefined
+  return picked === "light" || picked === "dark" ? picked : "theme"
+}
+// Records the choice for one theme; "theme" clears it. Drops the key when no
+// theme keeps a choice.
+function setForeground(bar, theme, value) {
+  if (!bar) return
+  var map = {}
+  if (isMap(bar.powerbarForeground)) for (var k in bar.powerbarForeground) map[k] = bar.powerbarForeground[k]
+  if (theme) {
+    if (value === "light" || value === "dark") map[theme] = value
+    else delete map[theme]
+  }
+  if (Object.keys(map).length) bar.powerbarForeground = map
+  else delete bar.powerbarForeground
 }
 function luminance(c) {
   function lin(v) { return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4) }
@@ -88,14 +110,22 @@ var tileKeys = {
   surface: legacyKeys(["Blur", "BackgroundOpacity", "ReadableOverlay"]).concat(["powerbarForeground"]),
   shadow: legacyKeys(["Shadow", "ShadowSize", "ShadowOpacity"])
 }
-// Whether a tile differs from the theme: one of its keys is set.
-function customized(config, tile) {
+// Whether a tile differs from the theme: one of its keys is set. Text and
+// icons count only when the current theme `theme` has a choice.
+function customized(config, tile, theme) {
   var c = config || {}
-  return (tileKeys[tile] || []).some(function(key) { return c[key] !== undefined })
+  return (tileKeys[tile] || []).some(function(key) {
+    return key === "powerbarForeground" ? foreground(c, theme) !== "theme" : c[key] !== undefined
+  })
 }
-// Resets one tile, or every tile when none is named.
-function reset(config, tile) {
+// Resets one tile, or every tile when none is named. Text and icons go back
+// to the theme's colours in the current theme `theme` only; without a theme,
+// every theme's choice goes.
+function reset(config, tile, theme) {
   (tile ? [tile] : Object.keys(tileKeys)).forEach(function(name) {
-    (tileKeys[name] || []).forEach(function(key) { delete config[key] })
+    (tileKeys[name] || []).forEach(function(key) {
+      if (key === "powerbarForeground" && theme) setForeground(config, theme, "theme")
+      else delete config[key]
+    })
   })
 }

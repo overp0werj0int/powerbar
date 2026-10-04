@@ -34,6 +34,20 @@ test('cell length: glyphs square, text gets the icon air, free text capped at 16
   assert.equal(cell.isGlyph(16.5, false), false);
   assert.equal(cell.isGlyph(40, true), true);
 });
+test('a glyph longer than its cell gets room for all of its ink', () => {
+  // ScratchPeek on a side bar: "●" over its count, 32 px of ink along the bar,
+  // read as a glyph across it.
+  for (const mode of ['slots', 'gaps']) {
+    const k = cell.tokens({ bar: 28, mode });
+    const p = cell.place(k, 32, true, false);
+    assert.ok(p.cell >= 32, mode + ': the highlight covers the ink');
+    assert.equal(p.cell, 32 + 2 * k.air);
+    assert.ok(p.spill >= 0, mode + ': the cell reaches past the ink on both sides');
+    assert.ok(p.inkStart >= 0 && p.inkStart + 32 <= p.extent, mode + ': the ink sits inside the slot');
+    // A glyph that fits keeps its square cell.
+    assert.equal(cell.place(k, 11, true).cell, k.cell);
+  }
+});
 test('only free text is capped; compounds and vertical stacks keep their length', () => {
   const k = cell.tokens({ bar: 40 });
   assert.equal(cell.place(k, 196, false).shown, 160);

@@ -14,8 +14,10 @@ Click the nine-dot button at the far right of a horizontal bar (at the bottom
 of a vertical bar). Preferences open in the center of that monitor, and every
 part of them works from the keyboard.
 
-- **Layout** shows your bar as it looks, on your wallpaper, with live images of
-  its widgets. Columns are the zones (Left, Center, Right); rows are visibility:
+- **Layout** shows your bar as tiles, one shelf per visibility, each with your
+  three zones side by side (Top, Center and Bottom on a side bar). Widgets on
+  the bar show as icons, as the bar draws them; the other shelves add names.
+  The shelves are:
   - **On the bar** keeps a widget slot visible. If the widget has no visible
     content, Powerbar displays a fallback icon. Clicking it does what clicking
     the widget would: it presses the widget's own button even while the widget
@@ -49,8 +51,10 @@ part of them works from the keyboard.
   shows its icon. Only a widget that draws no font glyph (a picture, or a
   value such as the clock) falls back to a stock one.
 
-  The inspector beside the grid shows the selected widget or group: its zone,
-  visibility, group, and whether it is pinned to the exact screen center.
+  A tile under the shelves holds the selected widget's settings: its zone and
+  visibility (the way to move it without dragging), Show on activity, whether
+  it is kept at the exact screen center, and its group. A setting that does
+  not apply stays in place, dimmed, with the reason under it.
 - **Groups** lists your groups beside an editor for the selected one: name, a
   stock Omarchy icon, placement, what the bar shows, badge, how members appear
   in the drawer, and the member list.
@@ -74,7 +78,7 @@ follows keyboard focus.
 | Forms | `j` / `k` or Up / Down move between controls, `h` / `l` or Left / Right adjust (Shift for larger steps), Space / Enter toggle or choose |
 | Bar page | Tab / Shift+Tab jump to the next or previous tile; `r` twice resets the focused tile to the theme |
 | Sliders | Home / End for the ends, Backspace for the default, Enter applies now, Esc undoes a value not yet applied |
-| Layout grid | `h` `j` `k` `l` move; Space picks up the widget, then `h` / `l` move it along and across zones and `j` / `k` change its row; Space or Enter drops it, Esc puts it back; `x` hides or restores; Enter or Tab opens the inspector; `g` edits a group |
+| Layout shelves | `h` `j` `k` `l` move; Space picks up the widget, then `h` / `l` move it along and across zones and `j` / `k` or Tab change its shelf; Space or Enter drops it, Esc puts it back; `x` hides or restores; Enter goes to its settings (Esc comes back); Tab jumps to the next tile; `g` edits a group |
 | Group list | `j` / `k` choose, `n` makes a group, `x` twice dissolves it, Enter edits |
 | Member lists | `j` / `k` choose, Space picks up to reorder, `x` removes, Enter adds from Available, `/` filters |
 
@@ -105,7 +109,7 @@ with every bar style and on every edge.
 
 While the bar is hidden, widget activity still shows (turn this off with
 **Show on widget activity** under Bar → Behavior, or for single widgets
-with **Show on activity** in the Layout inspector; the keys are
+with **Show on activity** in the Layout page's settings tile; the keys are
 `powerbarAutoHideActivity` and a widget's `powerbarActivityPeek: false`): when a widget's icon or
 value changes, its island slides out (the whole bar for flat and floating
 styles), the widget is highlighted as if hovered, and after 2.5 seconds it slides
@@ -221,7 +225,7 @@ nested inside the island's, and the highlight never leaves its island.
 plus a 6 px lip above and below each widget) and doubles the islands' end padding.
 Text and icons keep their size; widgets gain room around them and their
 highlights grow with the bar. Drawers and the Layout
-page's bar row follow the same thickness.
+page's On the bar shelf follow the same thickness.
 
 The **Shape**, **Surface** and **Shadow** tiles apply one set of controls to the
 full bar, main islands, and extended islands, including group drawers: borders

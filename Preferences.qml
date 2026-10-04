@@ -158,6 +158,16 @@ Item {
     })
     status = result === false ? "Could not save. Check that shell.json is writable." : ""
   }
+  readonly property string themeName: bar ? bar.themeName : ""
+  function setForeground(value) {
+    if (!bar || !bar.shell) return
+    var theme = themeName
+    var result = bar.writeConfig(function(config) {
+      if (!config.bar) config.bar = {}
+      AppearanceModel.setForeground(config.bar, theme, value)
+    })
+    status = result === false ? "Could not save. Check that shell.json is writable." : ""
+  }
   function setBarStyle(value) {
     if (!bar || !bar.shell) return
     var result = bar.writeConfig(function(config) { BarModel.setBarStyle(config, value) })
@@ -477,7 +487,7 @@ Item {
           Layout.bottomMargin: Style.space(14)
           currentIndex: prefs.page
 
-          LayoutEditor { id: layoutPage; preferences: prefs }
+          LayoutEditor { id: layoutPage; preferences: prefs; columns: BentoModel.columnsFor(card.width / Style.spacing.scale) }
           GroupsPreferences { id: groupsPage; preferences: prefs }
 
           // General and Appearance as one page of tiles. Changes show on
@@ -592,9 +602,9 @@ Item {
                 title: "Shape"
                 span12: 4; span6: 3
                 resettable: true
-                changed: AppearanceModel.customized(prefs.config, "shape")
+                changed: AppearanceModel.customized(prefs.config, "shape", prefs.themeName)
                 animate: prefs.motion
-                onReset: prefs.resetOptions(function(bar) { AppearanceModel.reset(bar, "shape") })
+                onReset: prefs.resetOptions(function(bar) { AppearanceModel.reset(bar, "shape", prefs.themeName) })
                 PrefsSlider {
                   readonly property real themeRounding: Style.cornerRadius / Style.spacing.scale
                   compact: true
@@ -629,9 +639,9 @@ Item {
                 title: "Surface"
                 span12: 4; span6: 3
                 resettable: true
-                changed: AppearanceModel.customized(prefs.config, "surface")
+                changed: AppearanceModel.customized(prefs.config, "surface", prefs.themeName)
                 animate: prefs.motion
-                onReset: prefs.resetOptions(function(bar) { AppearanceModel.reset(bar, "surface") })
+                onReset: prefs.resetOptions(function(bar) { AppearanceModel.reset(bar, "surface", prefs.themeName) })
                 PrefsSlider {
                   compact: true
                   label: "Background opacity"
@@ -655,7 +665,8 @@ Item {
                   label: "Text and icons"
                   options: [{ value: "theme", label: "Theme" }, { value: "light", label: "Light" }, { value: "dark", label: "Dark" }]
                   value: prefs.bar ? prefs.bar.foregroundChoice : "theme"
-                  onChosen: function(value) { prefs.setOption("powerbarForeground", value === "theme" ? undefined : value) }
+                  // Kept for the current theme only (AppearanceModel.setForeground).
+                  onChosen: function(value) { prefs.setForeground(value) }
                 }
                 PrefsToggle {
                   compact: true
@@ -672,9 +683,9 @@ Item {
                 switchChecked: !!prefs.bar && prefs.bar.surfaceEffects.shadow
                 onSwitched: function(checked) { prefs.setOption("powerbarShadow", checked) }
                 resettable: true
-                changed: AppearanceModel.customized(prefs.config, "shadow")
+                changed: AppearanceModel.customized(prefs.config, "shadow", prefs.themeName)
                 animate: prefs.motion
-                onReset: prefs.resetOptions(function(bar) { AppearanceModel.reset(bar, "shadow") })
+                onReset: prefs.resetOptions(function(bar) { AppearanceModel.reset(bar, "shadow", prefs.themeName) })
                 PrefsSlider {
                   compact: true
                   label: "Softness"

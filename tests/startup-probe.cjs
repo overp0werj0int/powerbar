@@ -19,8 +19,6 @@ function block(source, marker) {
 const badge = block(bar, 'Rectangle {\n      id: cellBadge').replaceAll('Style.', 'fixtureStyle.').replaceAll('Color.', 'fixturePalette.');
 const cells = block(editor, 'readonly property var cellEntries:');
 const members = block(editor, 'function members(');
-const inspector = editor.slice(editor.indexOf('component Inspector:'));
-const wallpaper = inspector.match(/source: (.*)/)[1];
 const dir = path.resolve(process.argv[2] || '/tmp/powerbar-startup-probe');
 fs.mkdirSync(dir, { recursive: true });
 fs.writeFileSync(path.join(dir, 'tst_Startup.qml'), `import QtQuick
@@ -65,10 +63,11 @@ TestCase {
       // During QML construction consumers can run before the cache binding.
       property var initialItems: members("left", "shown", "")
       property var entries: [{section: "left", mode: "shown", index: 0, instanceKey: "first"}]
-      property var preferences: ({wallpaper: "fixture-wallpaper"})
+      property var preferences: ({})
+      property int anchorIndex: -1
+      function columnsFor(mode) { return Model.columns(mode, anchorIndex >= 0) }
       ${cells}
       ${members}
-      property string inspectorWallpaper: ${wallpaper}
     }
   }
   Component {
@@ -99,7 +98,6 @@ TestCase {
     verify(editor)
     compare(editor.initialItems.length, 1)
     compare(editor.initialItems[0].instanceKey, "first")
-    compare(editor.inspectorWallpaper, "fixture-wallpaper")
     editor.entries = []
     compare(editor.initialItems.length, 0)
   }

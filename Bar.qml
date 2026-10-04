@@ -200,8 +200,11 @@ Item {
             && (!prepared || (onBar ? slot.mainVisible && !slot.drawerHost && slot.presentationItem === item : slot.activeItem === item))
         },
         accept: function(result) {
-          done(key, { url: result.url, width: width, height: height })
-          if (key.indexOf("group:") !== 0) result.saveToFile(root.widgetImageFile(key))
+          var face = root.faceOf(slot, onBar, width, height)
+          done(key, { url: result.url, width: width, height: height, face: face })
+          if (key.indexOf("group:") === 0) return
+          result.saveToFile(root.widgetImageFile(key))
+          root.recordFace(key, face)
         }
       })
     })
@@ -220,6 +223,61 @@ Item {
       root.widgetLooksSeeded = true
       root.readWidgetGlyphs()
       if (Quickshell.screens.length) root.captureWidgetImages(Quickshell.screens[0], function() {})
+    }
+  }
+  // How a captured image sits on the bar, so Preferences can lay it out the
+  // way the bar does (ShelfModel): its size, where its ink starts and how long
+  // it is, whether it reads as a glyph, and the text colour it was drawn in
+  // (an image from another theme no longer matches the bar). Ink is only
+  // known for a widget captured on the bar itself.
+  function faceOf(slot, onBar, width, height) {
+    var face = { w: width, h: height, ink: colorHex(barForeground) }
+    if (onBar && slot.ink && slot.ink.length > 0) {
+      face.inkStart = slot.ink.start
+      face.inkLength = slot.ink.length
+      face.glyph = CellModel.isGlyph(slot.ink.length, slot.ink.glyph)
+      face.cap = slot.compoundTargets.length < 2
+    }
+    return face
+  }
+  readonly property string widgetFaceFile: widgetImageDir.slice(0, widgetImageDir.lastIndexOf("/")) + "/faces.json"
+  property var widgetFaces: ({})
+  property bool widgetFacesLoaded: false
+  FileView {
+    id: widgetFaceStore
+    path: root.widgetFaceFile
+    atomicWrites: true
+    printErrors: false
+    onLoaded: if (!root.widgetFacesLoaded) { root.widgetFaces = root.parseFaces(text()); root.widgetFacesLoaded = true }
+    onLoadFailed: root.widgetFacesLoaded = true
+  }
+  function parseFaces(text) {
+    try {
+      var data = JSON.parse(String(text || "{}"))
+      return data && typeof data === "object" && !Array.isArray(data) ? data : {}
+    } catch (e) { return {} }
+  }
+  function recordFace(key, face) {
+    if (!key || !face) return
+    var next = Object.assign({}, widgetFaces)
+    // A drawer capture knows no ink; it keeps what the bar measured before.
+    var before = next[key]
+    if (face.inkLength === undefined && before && before.inkLength !== undefined && before.w === face.w && before.h === face.h)
+      face = Object.assign({}, before, { ink: face.ink })
+    next[key] = face
+    widgetFaces = next
+    faceWriteDelay.restart()
+  }
+  Timer {
+    id: faceWriteDelay
+    interval: 1000
+    onTriggered: {
+      var keys = {}
+      for (var zone of ["left", "center", "right"])
+        for (var entry of ((root.barConfig.layout || {})[zone] || [])) if (entry && entry.powerbarInstance) keys[entry.powerbarInstance] = true
+      var kept = {}
+      for (var key in root.widgetFaces) if (keys[key] || !Object.keys(keys).length) kept[key] = root.widgetFaces[key]
+      widgetFaceStore.setText(JSON.stringify(kept) + "\n")
     }
   }
   // Each widget's own glyph, read from the button it draws (GlyphModel), for
@@ -253,7 +311,8 @@ Item {
       seen++
       if (!node) continue
       if (typeof node.text === "string" && node.labelWidth !== undefined && node.textRotation !== undefined)
-        out.push({ text: node.text, font: String(node.fontFamily || ""), visible: node.visible !== false && node.opacity !== 0 })
+        out.push({ text: node.text, font: String(node.fontFamily || ""), visible: node.visible !== false && node.opacity !== 0,
+          size: node.glyphFontSize > 0 ? node.glyphFontSize : Number(node.fontSize) || 0 })
       var kids = node.children
       if (kids) for (var i = kids.length - 1; i >= 0; i--) stack.push(kids[i])
     }
@@ -265,7 +324,7 @@ Item {
     for (var slot of moduleSlots) {
       if (!slot || slot.groupHeader || !slot.instanceKey || !slot.activeItem) continue
       var found = GlyphModel.pick(glyphButtons(slot.activeItem))
-      if (found) store = GlyphModel.merge(store, slot.instanceKey, found)
+      store = found ? GlyphModel.merge(store, slot.instanceKey, found) : GlyphModel.forget(store, slot.instanceKey)
     }
     var keys = []
     for (var zone of ["left", "center", "right"])
@@ -605,7 +664,20 @@ Item {
   // transparent bar guesses a colour from the wallpaper; Powerbar draws a
   // surface in every style and cannot know what shows through it, so it never
   // guesses (AppearanceModel.foreground).
-  readonly property string foregroundChoice: AppearanceModel.foreground(barConfig)
+  readonly property string foregroundChoice: AppearanceModel.foreground(barConfig, themeName)
+  // The current Omarchy theme, which a Light or Dark choice belongs to. A theme
+  // switch replaces the file, so it is also read again when the colours change.
+  property string themeName: ""
+  FileView {
+    id: themeNameFile
+    path: root.stateHome + "/omarchy/current/theme.name"
+    watchChanges: true
+    printErrors: false
+    onLoaded: root.themeName = String(text() || "").trim()
+    onLoadFailed: root.themeName = ""
+    onFileChanged: reload()
+  }
+
   readonly property var foregroundPair: AppearanceModel.textPair(themeForeground, themeContrastForeground)
   property color barForeground: textOn(themeForeground)
   // The chosen colour, or `themeColor` (the theme's own for that place) when
@@ -2420,8 +2492,8 @@ Item {
 
   onRequestedTransparentChanged: scheduleTransparentForegroundRefresh()
   onPositionChanged: { closeManagedDrawer(); scheduleTransparentForegroundRefresh() }
-  onThemeForegroundChanged: scheduleTransparentForegroundRefresh()
-  onThemeContrastForegroundChanged: scheduleTransparentForegroundRefresh()
+  onThemeForegroundChanged: { themeNameFile.reload(); scheduleTransparentForegroundRefresh() }
+  onThemeContrastForegroundChanged: { themeNameFile.reload(); scheduleTransparentForegroundRefresh() }
 
   Timer {
     id: transparentForegroundTimer

@@ -2,6 +2,7 @@ const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const vm = require('node:vm');
 const fs = require('node:fs');
+const J = v => JSON.parse(JSON.stringify(v));
 const model = vm.createContext({});
 vm.runInContext(fs.readFileSync(`${__dirname}/../AppearanceModel.js`, 'utf8'), model);
 
@@ -79,16 +80,49 @@ test('each tile resets only its own settings, and knows when it differs from the
 });
 
 test('text and icons: the theme by default, or the theme\'s own light or dark colour', () => {
-  assert.equal(model.foreground({}), 'theme');
-  assert.equal(model.foreground({ powerbarForeground: 'dark' }), 'dark');
-  assert.equal(model.foreground({ powerbarForeground: 'purple' }), 'theme');
+  assert.equal(model.foreground({}, 'osaka-jade'), 'theme');
+  assert.equal(model.foreground({ powerbarForeground: { 'osaka-jade': 'dark' } }, 'osaka-jade'), 'dark');
+  assert.equal(model.foreground({ powerbarForeground: { 'osaka-jade': 'purple' } }, 'osaka-jade'), 'theme');
   const text = { r: 0.9, g: 0.9, b: 0.85 }, bg = { r: 0.1, g: 0.1, b: 0.12 };
   assert.deepEqual(JSON.parse(JSON.stringify(model.textPair(text, bg))), { light: text, dark: bg });
   // A light theme's pair sorts the other way round.
   assert.deepEqual(JSON.parse(JSON.stringify(model.textPair(bg, text))), { light: text, dark: bg });
   // Surface reset clears the choice.
-  const bar = { powerbarForeground: 'light' };
-  assert.equal(model.customized(bar, 'surface'), true);
-  model.reset(bar, 'surface');
+  const bar = { powerbarForeground: { light: 'light' } };
+  assert.equal(model.customized(bar, 'surface', 'light'), true);
+  model.reset(bar, 'surface', 'light');
   assert.equal(bar.powerbarForeground, undefined);
+});
+
+test('text and icons: a choice stays with the theme it was made in', () => {
+  const bar = {};
+  model.setForeground(bar, 'quattrocento-light', 'dark');
+  assert.deepEqual(J(bar.powerbarForeground), { 'quattrocento-light': 'dark' });
+  // Another theme keeps its own colours.
+  assert.equal(model.foreground(bar, 'osaka-jade'), 'theme');
+  assert.equal(model.foreground(bar, 'quattrocento-light'), 'dark');
+  assert.equal(model.customized(bar, 'surface', 'osaka-jade'), false);
+  assert.equal(model.customized(bar, 'surface', 'quattrocento-light'), true);
+  model.setForeground(bar, 'osaka-jade', 'light');
+  assert.deepEqual(J(bar.powerbarForeground), { 'quattrocento-light': 'dark', 'osaka-jade': 'light' });
+  // Resetting one theme's Surface leaves the other theme's choice alone.
+  model.reset(bar, 'surface', 'osaka-jade');
+  assert.deepEqual(J(bar.powerbarForeground), { 'quattrocento-light': 'dark' });
+  // Theme clears; the key goes when no theme keeps a choice.
+  model.setForeground(bar, 'quattrocento-light', 'theme');
+  assert.equal(bar.powerbarForeground, undefined);
+});
+
+test('text and icons: a choice from before per-theme choices applies nowhere', () => {
+  const legacy = { powerbarForeground: 'dark' };
+  assert.equal(model.foreground(legacy, 'osaka-jade'), 'theme');
+  assert.equal(model.foreground(legacy, ''), 'theme');
+  assert.equal(model.customized(legacy, 'surface', 'osaka-jade'), false);
+  // The next choice replaces it.
+  model.setForeground(legacy, 'osaka-jade', 'light');
+  assert.deepEqual(J(legacy.powerbarForeground), { 'osaka-jade': 'light' });
+  // An unknown theme cannot hold a choice.
+  const none = {};
+  model.setForeground(none, '', 'dark');
+  assert.equal(none.powerbarForeground, undefined);
 });
