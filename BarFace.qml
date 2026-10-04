@@ -1,5 +1,4 @@
 import QtQuick
-import QtQuick.Effects
 import qs.Commons
 
 // One widget drawn the way the bar draws it, from LayoutEditor.barFace: a
@@ -17,22 +16,16 @@ Item {
   width: kind === "image" ? face.w : kind === "group" ? groupFace.implicitWidth : kind === "text" ? text.implicitWidth : 0
   height: barThickness
 
-  Image {
+  // An image saved in another theme's text colour is redrawn in the bar's
+  // own: its shape filled with the text colour.
+  TintedImage {
     visible: root.kind === "image"
     y: visible ? (root.barThickness - root.face.h) / 2 : 0
     width: visible ? root.face.w : 0
     height: visible ? root.face.h : 0
     source: visible ? root.face.url : ""
-    smooth: true
-    mipmap: true
-    // An image in another theme's text colour, redrawn in the bar's own:
-    // brightened to white, then coloured, keeping its shape.
-    layer.enabled: visible && !!root.face.recolour
-    layer.effect: MultiEffect {
-      brightness: 1
-      colorization: 1
-      colorizationColor: root.ink
-    }
+    tint: visible && !!root.face.recolour
+    color: root.ink
   }
   GroupFace {
     id: groupFace
