@@ -460,7 +460,7 @@ Item {
               landingOffset: drawer.namedMenu ? (mount.preview.before ? 0 : drawer.padding) : -1
               cellAlong: drawer.namedMenu ? drawer.tokens.thickness : (drawer.bar.barDragSource ? drawer.bar.barDragSource.cellLength : drawer.tokens.cell)
               cellAcross: drawer.namedMenu ? drawer.menuRowWidth : drawer.tokens.thickness
-              ink: drawer.namedMenu ? Color.menu.text : drawer.bar.barForeground
+              ink: drawer.namedMenu ? drawer.bar.textOn(Color.menu.text) : drawer.bar.barForeground
               z: 3
             }
             Component.onCompleted: if (modelData) modelData.drawerHost = mount
@@ -516,7 +516,7 @@ Item {
               visible: mount.labelled
               textFormat: Text.PlainText
               text: mount.title
-              color: drawer.namedMenu ? Color.menu.text : Color.popups.text
+              color: drawer.bar.textOn(drawer.namedMenu ? Color.menu.text : Color.popups.text)
               font.family: drawer.namedMenu ? Style.font.menuFamily : Style.font.family
               font.pixelSize: Style.font.bodySmall
               // Names end one air before the row's end, or before a trailing value.
@@ -595,7 +595,7 @@ Item {
           landingOffset: drawer.namedMenu ? drawer.padding : -1
           cellAlong: drawer.namedMenu ? drawer.tokens.thickness : (drawer.bar.barDragSource ? drawer.bar.barDragSource.cellLength : drawer.tokens.cell)
           cellAcross: drawer.namedMenu ? drawer.menuRowWidth : drawer.tokens.thickness
-          ink: drawer.namedMenu ? Color.menu.text : drawer.bar.barForeground
+          ink: drawer.namedMenu ? drawer.bar.textOn(Color.menu.text) : drawer.bar.barForeground
         }
         motionDuration: bar.dragMotionDuration
         motionEasing: bar.dragMotionEasing

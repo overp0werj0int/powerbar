@@ -39,3 +39,20 @@ test('ink is read from glyph, label and painted hints, then from children', () =
   assert.equal(model.inkWidth({ children: [child(4, 10), child(20, 12)] }), 28);
   assert.equal(model.inkWidth({ children: [{ ...child(0, 30), paintedWidth: 22 }] }), 22);
 });
+test('a badge drawn inside its button is decoration: the button alone is measured', () => {
+  const node = (x, y, width, height, extra) => ({ x, y, width, height, visible: true, opacity: 1, children: [], ...extra });
+  // The notification bell: a 40 px kit button with an unread dot in its top-right corner.
+  const bell = node(0, 0, 40, 27, { glyphPaintedWidth: 14, glyphFontSize: 13 });
+  const dot = node(31, 5, 6, 6, { color: 'x', radius: 3 });
+  assert.deepEqual(Array.from(model.withoutBadges([bell, dot])), [bell]);
+  // Across a vertical bar, the ink centres on the bell, not on bell plus dot.
+  const widget = node(0, 0, 40, 27, { children: [bell, dot] });
+  const ink = model.inkRect(widget, false);
+  assert.equal(ink.start + ink.length / 2, 20);
+  // Something beside the button, outside its box, is still content.
+  const label = node(42, 4, 30, 18, { paintedWidth: 30 });
+  assert.equal(model.withoutBadges([bell, label]).length, 2);
+  // Two kit buttons (a compound widget) are both content.
+  const other = node(10, 2, 12, 12, { glyphPaintedWidth: 10, glyphFontSize: 13 });
+  assert.equal(model.withoutBadges([bell, other]).length, 2);
+});

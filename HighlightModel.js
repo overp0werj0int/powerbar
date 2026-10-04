@@ -24,6 +24,24 @@ function paintedChildren(item) {
   }
   return result
 }
+// A button from Omarchy's widget kit: an icon button or a labelled one.
+function isKitButton(item) {
+  return !!item && (("glyphPaintedWidth" in item && "glyphFontSize" in item)
+    || ("labelWidth" in item && "fontSize" in item && "text" in item))
+}
+// Badges a widget draws over its one kit button (an unread dot, a count) sit
+// inside the button's box. Omarchy's bar centres that box, so the glyph sits
+// centred and the badge rides on it: the badge is decoration, not content,
+// and measuring it would push the glyph off the bar's centre line.
+function withoutBadges(children) {
+  var hosts = children.filter(isKitButton)
+  if (hosts.length !== 1 || children.length < 2) return children
+  var h = hosts[0], slack = 0.5
+  return children.filter(function(c) {
+    return c === h || !(c.x >= h.x - slack && c.y >= h.y - slack
+      && c.x + c.width <= h.x + h.width + slack && c.y + c.height <= h.y + h.height + slack)
+  })
+}
 // The width of what an item visibly paints, from the hints Omarchy's widget
 // kit exposes (glyph width, label width, painted width), falling back to the
 // span of its painted children. 0 when nothing can be measured.
@@ -106,7 +124,7 @@ function inkRect(item, vertical, depth) {
   } else if ("labelWidth" in item && "scaledVerticalPadding" in item && positive(item, "labelWidth") > 0) {
     return centred(size - 2 * positive(item, "scaledVerticalPadding"), across > 0 && across <= 16)
   }
-  var children = paintedChildren(item)
+  var children = withoutBadges(paintedChildren(item))
   if (children.length === 1) {
     var inner = clippedInk(children[0], vertical, depth + 1)
     var offset = vertical ? children[0].y : children[0].x
@@ -160,4 +178,4 @@ function pill(o) {
   return { start: start, length: length, radius: Math.max(0, Math.min(thickness / 2, o.rounding)) }
 }
 
-if (typeof module !== "undefined") module.exports = { inkWidth: inkWidth, inkRect: inkRect, pill: pill }
+if (typeof module !== "undefined") module.exports = { inkWidth: inkWidth, inkRect: inkRect, pill: pill, withoutBadges: withoutBadges }

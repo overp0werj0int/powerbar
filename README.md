@@ -23,8 +23,8 @@ part of them works from the keyboard.
     `toggle()` or `open()`; only a widget with no action opens preferences.
   - **On demand** (Managed) is hidden at rest. Events and icon/value changes
     reveal the widget for 2.5 seconds, the same time an autohidden bar peeks
-    out for activity, so the widget and its island leave together. General >
-    On-demand widgets picks how you reach the rest:
+    out for activity, so the widget and its island leave together. Bar > On
+    demand picks how you reach the rest:
     - **In a drawer** (the default): hover the zone to open a drawer of these
       widgets beside the bar.
     - **In the bar**: they wait behind the zone's dots (⋯ with a count, shared
@@ -50,10 +50,14 @@ part of them works from the keyboard.
 - **Groups** lists your groups beside an editor for the selected one: name, a
   stock Omarchy icon, placement, what the bar shows, badge, how members appear
   in the drawer, and the member list.
-- **General** covers screen edge, center anchor, autohide, on-demand widgets, the count badge on a zone's dots, animations, bar style,
-  and widget spacing. Size, fonts, and colors follow Omarchy.
-- **Appearance** covers bar size, borders, rounding, blur, background opacity,
-  and shadow, with a live preview of the bar over your wallpaper.
+- **Bar** is everything about how the bar looks and behaves, in tiles; changes
+  show on the bar itself. The tiles are Style and position (a picture of your
+  screen with the bar in its style on its edge, the style and edge choices, and
+  the widget pinned to the screen center), Size (large bar and widget spacing), Shape (rounding and borders), Surface
+  (opacity, blur, readable over windows), Shadow, Behavior (autohide and
+  animations) and On demand. They are laid out like your tiled windows: twice
+  Hyprland's inner gap apart, with its corner rounding, in 12, 6 or 1 columns
+  as the window narrows. Fonts and colors follow Omarchy.
 
 ### Keys
 
@@ -62,8 +66,10 @@ follows keyboard focus.
 
 | Where | Keys |
 | --- | --- |
-| Anywhere | `1`–`4` or Ctrl+`1`–`4` switch pages, Ctrl+Tab cycles them, Tab / Shift+Tab move between controls, Esc closes |
+| Anywhere | `1`–`3` or Ctrl+`1`–`3` switch pages, Ctrl+Tab cycles them, Tab / Shift+Tab move between controls, Esc closes |
 | Forms | `j` / `k` or Up / Down move between controls, `h` / `l` or Left / Right adjust (Shift for larger steps), Space / Enter toggle or choose |
+| Bar page | Tab / Shift+Tab jump to the next or previous tile; `r` twice resets the focused tile to the theme |
+| Sliders | Home / End for the ends, Backspace for the default, Enter applies now, Esc undoes a value not yet applied |
 | Layout grid | `h` `j` `k` `l` move; Space picks up the widget, then `h` / `l` move it along and across zones and `j` / `k` change its row; Space or Enter drops it, Esc puts it back; `x` hides or restores; Enter or Tab opens the inspector; `g` edits a group |
 | Group list | `j` / `k` choose, `n` makes a group, `x` twice dissolves it, Enter edits |
 | Member lists | `j` / `k` choose, Space picks up to reorder, `x` removes, Enter adds from Available, `/` filters |
@@ -72,8 +78,8 @@ With the pointer, drag any widget in Layout or between the member lists; the
 landing place is previewed before you let go.
 
 Changes apply immediately and persist through the host in `~/.config/omarchy/shell.json`.
-**Bar style** (General → Style) is one of three, each shown as a small preview
-of your screen:
+**Bar style** (Bar → Style and position) is one of three, shown on a small
+picture of your screen; click another edge of the picture to move the bar there:
 
 - **Flat** runs edge to edge and meets the screen edges, square, like Omarchy's
   own bar.
@@ -86,7 +92,7 @@ Floating bars and islands keep the same distance from the edges, and all three
 use the shared surface appearance. The preferences button stays in the right
 zone (bottom zone on vertical bars).
 
-**Autohide** (General → Behavior) stops the bar from reserving screen space and
+**Autohide** (Bar → Behavior) stops the bar from reserving screen space and
 parks it past its edge. Moving the pointer to that edge slides it back over the
 windows, and it stays out while hovered, while a drawer, widget panel, drag or
 Preferences is open, then slides away 400 ms after the pointer leaves. A 2 px
@@ -94,7 +100,7 @@ strip along the edge remains clickable for the bar while it is hidden. It works
 with every bar style and on every edge.
 
 While the bar is hidden, widget activity still shows (turn this off with
-**Show on widget activity** under General → Behavior, or for single widgets
+**Show on widget activity** under Bar → Behavior, or for single widgets
 with **Show on activity** in the Layout inspector; the keys are
 `powerbarAutoHideActivity` and a widget's `powerbarActivityPeek: false`): when a widget's icon or
 value changes, its island slides out (the whole bar for flat and floating
@@ -188,7 +194,7 @@ existing drawer without adding a second widget host or helper daemon.
 
 ## Shadows and backdrop blur
 
-General → Behavior offers **Animations** (enabled by default). Main
+Bar → Behavior offers **Animations** (enabled by default). Main
 and extended islands ease to their new size as widgets change; drawers grow out
 of their edge over 160 ms and close over 110 ms, both on a strong ease-out
 without overshoot. Widget spacing and island size share a 120 ms ease-out
@@ -210,13 +216,19 @@ nested inside the island's, and the highlight never leaves its island.
 **Large bar** (`powerbarLargeBar`) makes the bar 12 px thicker (Omarchy's size
 plus a 6 px lip above and below each widget) and doubles the islands' end padding.
 Text and icons keep their size; widgets gain room around them and their
-highlights grow with the bar. Drawers, the Appearance preview and the Layout
+highlights grow with the bar. Drawers and the Layout
 page's bar row follow the same thickness.
 
-**Appearance** applies one set of controls to the full bar, main islands, and
-extended islands, including group drawers: borders (0–6 px), rounding (0–32 px),
-shadow on/off, softness (0–32 px), shadow opacity (0–45%), blur on/off, and
-background opacity (0–100%). Opacity works independently of blur. Blur strength
+The **Shape**, **Surface** and **Shadow** tiles apply one set of controls to the
+full bar, main islands, and extended islands, including group drawers: borders
+on/off and their thickness (0.5–3 px), rounding (square up to a full pill at the
+bar's thickness), blur on/off, background opacity (0–100% in 5% steps), shadow
+on/off, softness (2–24 px) and strength (5–60%). **Text and icons** (`powerbarForeground`) is
+the theme's colours by default, or one fixed **Light** or **Dark** colour (the
+theme's own bar text and background, whichever is lighter or darker) for every
+Powerbar surface: the bar, drawers and menu-style groups. Powerbar never picks
+it from the wallpaper, even with Omarchy's transparent bar on: it draws a
+surface behind every widget and cannot know what shows through it. Opacity works independently of blur. Blur strength
 follows the desktop's Hyprland settings. **Readable over windows** (on by
 default, `powerbarReadableOverlay`) keeps surfaces that lie over windows, which
 means every drawer and the bar itself while it autohides, at least 88% opaque
@@ -295,15 +307,22 @@ colors are not activity. Each event restarts the reveal interval; frequently
 changing values can keep a widget visible continuously. Powerbar adds no polling.
 Widgets without exposed presentation signals still work in the drawer.
 
-Custom border thickness and corner rounding have sliders and a theme reset in
-General. Bar size uniformly scales icons, text, and controls, including third-party
+Custom border thickness and corner rounding have sliders, and the Shape,
+Surface and Shadow tiles each have a Reset to the theme, shown only while one of
+their settings is set. Sliders keep a draft while you work them and apply it to the bar
+once it settles (on release, or after a short pause for keys and the wheel),
+and their ranges stop where more stops looking different: rounding tops out at
+a full pill for the bar's thickness. Bar size uniformly scales icons, text, and controls, including third-party
 widgets; drawer contents use the same scale. All numeric preferences use sliders.
 
 ## Validation
 
 ```sh
 node --test tests/*.test.cjs
-QT_QPA_PLATFORM=offscreen QT_QPA_PLATFORMTHEME= QT_QUICK_CONTROLS_STYLE=Basic QT_QUICK_BACKEND=software /usr/lib/qt6/bin/qmltestrunner -import tests/qml/imports -input tests/qml -o -,txt
+# QML tests run against Omarchy's real Commons and Ui, linked from outside the
+# plugin (plugins may not contain symlinks), with Quickshell stubbed.
+KIT=$(mktemp -d); mkdir -p "$KIT/qs"; ln -s /usr/share/omarchy/shell/Commons /usr/share/omarchy/shell/Ui "$KIT/qs/"
+QT_QPA_PLATFORM=offscreen QT_QPA_PLATFORMTHEME= QT_QUICK_CONTROLS_STYLE=Basic QT_QUICK_BACKEND=software /usr/lib/qt6/bin/qmltestrunner -import tests/qml/imports -import "$KIT" -input tests/qml -o -,txt
 
 # Exercise the actual badge and editor startup bindings with fictional data.
 node tests/startup-probe.cjs /tmp/powerbar-startup-probe

@@ -125,7 +125,9 @@ ShellRoot {
     if (scenario === "drawer") return drawerStep(0)
     if (scenario === "dnd") return dndRun()
     if (scenario === "prefs") return prefsRun()
+    if (scenario === "sliders") return slidersRun()
     if (scenario === "inline") return inlineRun()
+    if (scenario === "blur") return blurRun()
     if (scenario === "activity") return activityStep(0)
     if (scenario === "flash") return flashStep(0)
     finish()
@@ -309,6 +311,175 @@ ShellRoot {
   }
   property real prefsDropTotal: 0
   Timer { id: prefsTimer; interval: 16; repeat: true; onTriggered: { var f = shellRoot.prefsQueue.shift(); if (!shellRoot.prefsQueue.length) stop(); if (f) f() } }
+
+  // Preferences sliders: drive each gesture the way its pointer and key
+  // handlers do and count how often the bar's config changes. A drag or a run
+  // of key presses must reach the bar once, after it settles, not per move.
+  // Each applied edit changes the config twice: once at once, then again when
+  // the debounced write to shell.json comes back (about 300 ms later), so
+  // phases start a second apart and report changes before the echo.
+  property int configChanges: 0
+  property var sliderPlan: []
+  Connections {
+    target: shellRoot.scenario === "sliders" ? shellRoot.bar : null
+    ignoreUnknownSignals: true
+    function onBarConfigChanged() { shellRoot.configChanges++ }
+  }
+  Timer {
+    id: sliderTimer
+    onTriggered: {
+      var next = shellRoot.sliderPlan.shift()
+      if (!next) return
+      next.run()
+      if (shellRoot.sliderPlan.length) { interval = shellRoot.sliderPlan[0].after; start() }
+    }
+  }
+  function plan(after, run) { sliderPlan.push({ after: after, run: run }) }
+  function findSliders(item, out) {
+    if (!item) return out
+    if (item.keyHints !== undefined && item.setDraft !== undefined && item.label !== undefined) out.push(item)
+    for (var i = 0; i < item.children.length; i++) findSliders(item.children[i], out)
+    return out
+  }
+  function prefsShot(label) {
+    var file = Quickshell.env("BENCH_SHOT")
+    if (!file || file === "/dev/null") return
+    var top = prefsPane.pageItems[2]
+    while (top.parent && String(top.parent).indexOf("ProxyWindowContentItem") < 0) top = top.parent
+    top.grabToImage(function(r) { r.saveToFile(file.replace(/\.png$/, "") + "-" + label + ".png") })
+  }
+  function controlName(item) {
+    return item.label || item.text || (item.Accessible ? item.Accessible.name : "") || String(item).split("(")[0]
+  }
+  function findForm(item) {
+    if (!item) return null
+    if (item.step !== undefined && item.focusFirst !== undefined && item.contentItem !== undefined) return item
+    for (var i = 0; i < item.children.length; i++) { var f = findForm(item.children[i]); if (f) return f }
+    return null
+  }
+  function findBento(item) {
+    if (!item) return null
+    if (item.jump !== undefined && item.shownTiles !== undefined) return item
+    for (var i = 0; i < item.children.length; i++) { var f = findBento(item.children[i]); if (f) return f }
+    return null
+  }
+  // Tab from the first control: which tiles it lands in, in order.
+  function auditTabs(form, index) {
+    var bento = findBento(form)
+    if (!bento) return
+    form.focusFirst()
+    var titles = []
+    for (var n = 0; n < bento.shownTiles.length; n++) {
+      var t = bento.tileOf(form.focusedItem)
+      titles.push(t ? t.title : "?")
+      bento.jump(true)
+    }
+    log("AUDIT tabs", index + 1, "columns", bento.columns, "gap", bento.gap, JSON.stringify(titles), "wraps", bento.tileOf(form.focusedItem) === bento.shownTiles[0])
+    for (var i = 0; i < bento.shownTiles.length; i++) {
+      var tile = bento.shownTiles[i]
+      log("AUDIT tile", JSON.stringify(tile.title), "x", Math.round(tile.x), "y", Math.round(tile.y), "w", Math.round(tile.width), "h", Math.round(tile.height), "needs", Math.round(tile.implicitHeight))
+    }
+  }
+  function auditPage(host, index) {
+    var page = findForm(host)
+    var view = page.contentItem
+    log("AUDIT page", index + 1, "viewport", Math.round(page.height), "content", Math.round(view.contentHeight), "scrolls", view.contentHeight > page.height + 1)
+    page.focusFirst()
+    var seen = [], stops = 0
+    for (var n = 0; n < 60; n++) {
+      var f = page.focusedItem
+      if (!f || seen.indexOf(f) >= 0) break
+      seen.push(f); stops++
+      log("AUDIT stop", index + 1, JSON.stringify(controlName(f)), "y", Math.round(f.mapToItem(page, 0, 0).y), "scroll", Math.round(view.contentY))
+      page.step(true)
+    }
+    log("AUDIT summary", index + 1, "stops", stops)
+  }
+  function slidersRun() {
+    prefsPane = findPrefs()
+    if (!prefsPane) { log("no real preferences"); return finish() }
+    prefsPane.show(Quickshell.screens[0])
+    prefsPane.setPage(2)
+    var sliders = {}, c0 = 0
+    plan(600, function() {
+      var all = findSliders(prefsPane.pageItems[2], [])
+      for (var s of all) {
+        sliders[s.label] = s
+        log("SLIDER", JSON.stringify(s.label), "range", s.minimum, s.maximum, "step", s.stepSize,
+          "default", s.defaultValue, "shows", JSON.stringify(s.format(s.shown)), "enabled", s.enabled)
+      }
+      prefsShot("open")
+    })
+    // A pointer drag across the whole rounding range.
+    plan(50, function() { var s = sliders["Corner rounding"]; s.forceActiveFocus(); c0 = configChanges; s.dragging = true })
+    for (var i = 0; i <= 30; i++) (function(i) {
+      plan(16, function() { var s = sliders["Corner rounding"]; s.setDraft(s.minimum + (s.maximum - s.minimum) * i / 30 * 0.6) })
+    })(i)
+    plan(16, function() {
+      var s = sliders["Corner rounding"]
+      log("drag: bar changes while held", configChanges - c0, "draft", s.draft, "bar rounding", bar.islandRounding)
+      prefsShot("drag")
+      s.endDrag()
+    })
+    plan(60, function() { log("drag: bar changes 60 ms after release", configChanges - c0) })
+    plan(300, function() {
+      var s = sliders["Corner rounding"]
+      log("drag: bar changes 360 ms after release", configChanges - c0, "value", s.value, "drafting", s.drafting, "bar rounding", bar.islandRounding)
+    })
+    // Held key: repeats every 30 ms.
+    plan(1200, function() { var s = sliders["Background opacity"]; s.forceActiveFocus(); c0 = configChanges })
+    for (var k = 0; k < 12; k++) plan(30, function() { sliders["Background opacity"].step(-1) })
+    plan(300, function() { log("key repeat: bar changes 300 ms after last repeat", configChanges - c0, "draft", sliders["Background opacity"].draft) })
+    plan(250, function() { log("key repeat: bar changes 550 ms after last repeat", configChanges - c0, "value", sliders["Background opacity"].value) })
+    // Deliberate taps every 400 ms.
+    plan(1200, function() { c0 = configChanges })
+    for (var t = 0; t < 4; t++) plan(t ? 400 : 0, function() { sliders["Background opacity"].step(1) })
+    plan(450, function() { log("taps every 400 ms: bar changes 450 ms after last tap", configChanges - c0) })
+    plan(250, function() { log("taps every 400 ms: bar changes 700 ms after last tap", configChanges - c0, "value", sliders["Background opacity"].value) })
+    // Leaving a slider with a draft applies it at once.
+    plan(1200, function() { var s = sliders["Background opacity"]; c0 = configChanges; s.step(2); prefsPane.setPage(1) })
+    plan(30, function() { log("page switch with a draft: bar changes", configChanges - c0) })
+    plan(400, function() { prefsPane.setPage(2) })
+    plan(400, function() { prefsShot("end") })
+    // The Bar page: whether it scrolls in this window, each focus stop, and
+    // where Tab goes.
+    plan(300, function() { auditPage(prefsPane.pageItems[2], 2) })
+    plan(100, function() { auditTabs(findForm(prefsPane.pageItems[2]), 2) })
+    for (var pg = 0; pg < 3; pg++) (function(pg) {
+      plan(300, function() { prefsPane.setPage(pg) })
+      plan(500, function() { prefsShot("page-" + (pg + 1)) })
+    })(pg)
+    plan(100, function() { prefsPane.close() })
+    plan(100, function() { finish() })
+    sliderTimer.interval = sliderPlan[0].after
+    sliderTimer.start()
+  }
+
+  // Blur on and off: the window remaps to change its layer namespace; every
+  // widget must come back to the place it had.
+  property var blurQueue: []
+  function blurOrder(label) {
+    for (var zone of ["left", "center", "right"]) {
+      var row = bar.moduleSlots.filter(function(s) { return s.region === zone && s.mainVisible && !s.drawerHost && s.width > 0 })
+        .map(function(s) { var p = s.mapToItem(null, 0, 0); return { x: Math.round(bar.vertical ? p.y : p.x), n: s.moduleName.split(".").pop() + "/" + Math.round(bar.vertical ? s.height : s.width) + "/i" + (s.ink ? s.ink.length.toFixed(1) : "-") + "/s" + (s.inkShift !== undefined ? s.inkShift.toFixed(1) : "-") + "/v" + (s.activeItem ? s.activeItem.visible : "-") } })
+        .sort(function(a, b) { return a.x - b.x })
+      log("GEO blur", label, zone, row.map(function(r) { return r.n + "@" + r.x }).join(" "))
+    }
+  }
+  function blurRun() {
+    blurQueue.push(function() { blurOrder("before") })
+    blurQueue.push(function() { mutateShellConfig(function(c) { c.bar.powerbarBlur = !(c.bar.powerbarBlur === true) }) })
+    for (var i = 0; i < 4; i++) (function(i) { blurQueue.push(function() { blurOrder("toggled-" + i) }) })(i)
+    blurQueue.push(function() { mutateShellConfig(function(c) { c.bar.powerbarBlur = !(c.bar.powerbarBlur === true) }) })
+    for (var j = 0; j < 4; j++) (function(j) { blurQueue.push(function() { blurOrder("back-" + j) }) })(j)
+    blurQueue.push(function() { finish() })
+    blurTimer.start()
+  }
+  Timer {
+    id: blurTimer
+    interval: 400; repeat: true
+    onTriggered: { var next = shellRoot.blurQueue.shift(); if (next) next(); if (!shellRoot.blurQueue.length) stop() }
+  }
 
   // Inline mode: open each zone's dots as a click would, then collapse.
   property var inlineQueue: []

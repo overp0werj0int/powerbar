@@ -5,16 +5,22 @@ import qs.Ui
 
 // A labelled pick-one row. The chips are a single focus stop: h/l or
 // Left/Right walk them, Space or Enter chooses. Narrow places stack the label
-// above the chips.
+// above the chips. Compact rows sit in tiles, indented like the switch and
+// slider rows around them.
 GridLayout {
   id: row
   property bool stacked: false
+  property bool compact: false
   property string label: ""
   property string description: ""
   property var options: []
   property string value: ""
   signal chosen(string value)
   Layout.fillWidth: true
+  Layout.leftMargin: compact ? Style.spacing.rowPaddingX : 0
+  Layout.rightMargin: compact ? Style.spacing.rowPaddingX - Style.space(4) : 0
+  Layout.topMargin: compact ? Style.space(4) : 0
+  Layout.bottomMargin: compact ? Style.space(4) : 0
   columns: stacked ? 1 : 2
   columnSpacing: Style.space(16)
   rowSpacing: Style.space(6)
