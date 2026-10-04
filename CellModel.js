@@ -46,8 +46,12 @@ function isGlyph(ink, glyphHint) {
 
 // The cell's length along the bar. Only free text (window titles, media) is
 // capped at MAX_INK; compounds and vertical stacks keep their full length.
+// A glyph's cell is square, but only while its ink fits in it: a narrow stack
+// that is long along the bar (ScratchPeek's mark over its count on a side bar
+// reads as a glyph across) gets the room text gets, so its slot and highlight
+// never cut what it paints.
 function cellLength(k, ink, glyph, cap) {
-  if (glyph) return k.cell
+  if (glyph && ink <= k.cell) return k.cell
   var shown = cap === false ? Math.max(0, ink) : Math.min(Math.max(0, ink), MAX_INK)
   return Math.max(k.cell, shown + 2 * k.air)
 }
