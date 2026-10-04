@@ -564,7 +564,8 @@ Item {
     readonly property var snapshot: mode === "shown" && record.instanceKey ? editor.snapshots[record.instanceKey] : null
     readonly property bool isCursor: !ghost && !editor.lifted && editor.cursorKey !== "" && record.instanceKey === editor.cursorKey
     readonly property bool hovered: !ghost && !editor.lifted && editor.hoverKey === record.instanceKey
-    readonly property int memberCount: record.groupId ? (editor.bar.groups.find(function(g) { return g.id === record.groupId }) || { items: [] }).items.length : 0
+    readonly property var group: record.groupId ? editor.bar.groups.find(function(g) { return g.id === record.groupId }) || null : null
+    readonly property int memberCount: group ? group.items.length : 0
     // On the bar row a tile is a bar slot: as thick as the bar, with its
     // highlight inset the way the bar insets its own.
     readonly property bool onBar: mode === "shown" && !ghost
@@ -574,10 +575,12 @@ Item {
     scale: pressedDown ? 0.97 : 1
     Behavior on scale { enabled: editor.bar.animationsEnabled; NumberAnimation { duration: 120; easing.type: Easing.OutCubic } }
     // On the bar row a widget is drawn as it looks: live on a horizontal bar,
-    // otherwise its saved horizontal look. Only without either does it fall
-    // back to a glyph and its name.
+    // otherwise its saved horizontal look, otherwise its glyph alone, as the
+    // bar shows it; a group shows the face it is set to (glyph, name or both).
+    // Names are for the rows below, which the bar does not show.
     readonly property bool pictured: !!snapshot || (onBar && rowIcon.hasImage)
-    implicitWidth: body.implicitWidth + Style.space(pictured ? 8 : 16)
+    readonly property bool groupFace: onBar && !!group && !snapshot
+    implicitWidth: body.implicitWidth + Style.space(pictured || onBar ? 8 : 16)
     implicitHeight: onBar ? editor.bar.barSize
       : Math.max(snapshot ? snapshot.height + Style.space(6) : Style.spacing.controlHeight, body.implicitHeight + Style.space(8))
     opacity: mode === "hidden" && !placeholder && !ghost ? 0.62 : ghost ? 0.9 : 1
@@ -591,7 +594,7 @@ Item {
         : tile.isCursor && editor.gridFocused ? Style.focusFillFor(Color.popups.text, Color.accent)
         : tile.isCursor ? Style.selectedFillFor(Color.popups.text, Color.accent)
         : tile.hovered ? Style.hoverFillFor(Color.popups.text, Color.accent)
-        : tile.pictured ? "transparent" : Qt.alpha(Color.popups.text, 0.06)
+        : tile.pictured || tile.onBar ? "transparent" : Qt.alpha(Color.popups.text, 0.06)
       borderSpec: tile.placeholder || tile.ghost ? Border.flat(Color.accent, Math.max(1, Style.space(2)))
         : tile.isCursor && editor.gridFocused ? Border.controlSpec("focus", Color.popups.text, Color.accent)
         : tile.isCursor ? Border.flat(Qt.alpha(Color.popups.text, 0.35), 1)
@@ -614,15 +617,27 @@ Item {
       }
       WidgetIcon {
         id: rowIcon
-        visible: !tile.snapshot
+        visible: !tile.snapshot && !tile.groupFace
         preferences: editor.preferences
         record: tile.record
         size: Math.round(tile.onBar ? editor.bar.themeBarSize : editor.bar.themeBarSize * 0.85)
         maxAspect: tile.onBar ? 40 : 3.2
         anchors.verticalCenter: parent.verticalCenter
       }
+      // A group's face, drawn the way the bar draws its button.
       Text {
-        visible: !tile.pictured
+        readonly property string face: tile.group ? tile.group.face : "glyph"
+        visible: tile.groupFace
+        text: !tile.group ? "" : face === "text" ? tile.group.label
+          : face === "both" ? tile.group.icon + "  " + tile.group.label : tile.group.icon
+        textFormat: Text.PlainText
+        color: Color.popups.text
+        font.family: face === "glyph" ? (Groups.iconFont(text) || Style.font.family) : Style.font.family
+        font.pixelSize: Style.font.body
+        anchors.verticalCenter: parent.verticalCenter
+      }
+      Text {
+        visible: !tile.pictured && !tile.onBar
         text: tile.record.instanceKey ? editor.preferences.title(tile.record) : ""
         textFormat: Text.PlainText
         color: Color.popups.text
@@ -636,7 +651,7 @@ Item {
       }
       Text {
         id: memberLabel
-        visible: tile.memberCount > 0 && !tile.pictured
+        visible: tile.memberCount > 0 && !tile.pictured && !tile.onBar
         text: tile.memberCount
         textFormat: Text.PlainText
         color: Qt.alpha(Color.popups.text, 0.55)

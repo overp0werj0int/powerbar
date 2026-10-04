@@ -40,10 +40,14 @@ part of them works from the keyboard.
   Widgets appear as they draw themselves, including third-party widgets:
   drawer and group members are rendered live because they stay loaded, and a
   hidden widget shows the last look Powerbar saw, kept in
-  `~/.cache/powerbar/widgets/`. A widget that has never been shown falls back
-  to a stock glyph. Every preview draws a horizontal bar at your bar's size,
-  whatever edge the bar is on; with a side bar, widgets show their saved
-  horizontal look, since only a horizontal bar is ever captured.
+  `~/.cache/powerbar/widgets/`. Every preview draws a horizontal bar at your
+  bar's size, whatever edge the bar is on; with a side bar, widgets show their
+  saved horizontal look, since only a horizontal bar is ever captured. A
+  widget Powerbar has no image of shows its own glyph instead, read from the
+  button it draws on the bar at either orientation and kept in
+  `~/.cache/powerbar/glyphs.json`, so a widget added to a side bar still
+  shows its icon. Only a widget that draws no font glyph (a picture, or a
+  value such as the clock) falls back to a stock one.
 
   The inspector beside the grid shows the selected widget or group: its zone,
   visibility, group, and whether it is pinned to the exact screen center.

@@ -3,7 +3,8 @@ import QtQuick.Window
 import qs.Commons
 
 // A widget's own look at icon size: its live rendering when it is loaded, the
-// last rendering Powerbar saw when it is hidden, and a stock glyph otherwise.
+// last rendering Powerbar saw when it is hidden, and otherwise its glyph: the
+// one the widget draws itself (Preferences.icon), or a stock one.
 Item {
   id: icon
   required property var preferences
@@ -15,10 +16,13 @@ Item {
   readonly property var live: key ? preferences.snapshots[key] : null
   readonly property string cachedUrl: !live && key !== "" && !record.groupId ? preferences.cachedImageUrl(key) : ""
   readonly property bool useCache: cachedUrl !== ""
-  // Images saved from a vertical bar before Powerbar stopped capturing one are
-  // columns, taller than they are wide; they fall back to the glyph instead.
+  // Images saved from a vertical bar before Powerbar stopped capturing one fall
+  // back to the glyph. A horizontal image is as tall as a horizontal bar, at
+  // either size; its shape says nothing, since an icon on a large bar is
+  // 27 × 38.
   readonly property bool cacheUsable: useCache && cached.status === Image.Ready
-    && cached.sourceSize.height <= cached.sourceSize.width * 1.3
+    && (Math.abs(imageHeight - Style.bar.sizeHorizontal) <= 1
+      || Math.abs(imageHeight - Style.bar.sizeHorizontal - (bar ? bar.largeBarLip * 2 : 0)) <= 1)
   readonly property bool hasImage: !!live || cacheUsable
   // Images are grabbed at twice their size; a large bar's slots include a lip
   // above and below the widget (beside it on a vertical bar), trimmed here so

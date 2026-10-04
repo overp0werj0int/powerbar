@@ -78,6 +78,7 @@ Item {
     cacheListing.running = true
     gapsInProc.running = true
     opened = true
+    bar.readWidgetGlyphs()
     refreshSnapshots()
     Qt.callLater(focusPage)
   }
@@ -133,8 +134,18 @@ Item {
     onStarted: found = ({})
     onExited: prefs.cachedImages = found
   }
-  function iconFont(record) { return Groups.iconFont(icon(record)) || Style.font.family }
-  function icon(record) { return record.groupId ? record.icon : Model.icon(String(record.id || "")) }
+  // Where Preferences has no image of a widget: the glyph the widget itself
+  // draws (read by the bar at any orientation), then Powerbar's stock one.
+  function readGlyph(record) { return !record.groupId && bar && bar.widgetGlyphs ? bar.widgetGlyphs[record.instanceKey] || null : null }
+  function iconFont(record) {
+    var read = readGlyph(record)
+    return read && read.font || Groups.iconFont(icon(record)) || Style.font.family
+  }
+  function icon(record) {
+    if (record.groupId) return record.icon
+    var read = readGlyph(record)
+    return read ? read.glyph : Model.icon(String(record.id || ""))
+  }
   // Edits show on the bar at once and are written once it settles
   // (Bar.writeConfig); a write that fails later is reported here.
   function setOption(key, value) {
