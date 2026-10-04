@@ -336,11 +336,20 @@ Item {
     var next = resolveTargetSlot(target)
     if (previous && previous.slot === next) return
     if (previous) {
-      previous.slot.slotTargets = previous.slot.slotTargets.filter(function(item) { return item !== target })
+      detachTarget(previous.slot, target)
       targetSlots = targetSlots.filter(function(record) { return record !== previous })
     }
     pendingTargets = pendingTargets.filter(function(item) { return item !== target })
     if (!attachTarget(target)) pendingTargets.push(target)
+  }
+  // A slot's own list of targets. A slot that is being destroyed may already
+  // have lost its properties while its widget's buttons unregister.
+  function detachTarget(slot, target) {
+    if (slot && Array.isArray(slot.slotTargets)) slot.slotTargets = slot.slotTargets.filter(function(item) { return item !== target })
+  }
+  // A destroyed slot's records go with it, so nothing later reads the dead slot.
+  function forgetSlotTargets(slot) {
+    targetSlots = targetSlots.filter(function(record) { return record.slot !== slot })
   }
   function resolveTargetSlot(target) {
     if (!target || target.powerbarPlaceholder === true) return null
@@ -856,8 +865,7 @@ Item {
     })
     targetSlots = targetSlots.filter(function(record) {
       if (record.target !== target) return true
-      var slot = record.slot
-      if (slot) slot.slotTargets = slot.slotTargets.filter(function(t) { return t !== target })
+      detachTarget(record.slot, target)
       return false
     })
     pendingTargets = pendingTargets.filter(function(t) { return t !== target })
@@ -4315,6 +4323,7 @@ Item {
     Component.onCompleted: { root.registerModuleSlot(slot); syncActivity(); Qt.callLater(updateHold) }
     Component.onDestruction: {
       if (root.barDragSource === slot) root.clearBarDrag()
+      root.forgetSlotTargets(slot)
       root.unregisterModuleSlot(slot)
     }
 
