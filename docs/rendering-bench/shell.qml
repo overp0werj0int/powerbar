@@ -928,6 +928,10 @@ ShellRoot {
       // "~<waypoint>": pass through without resting there.
       var pass = wp.charAt(0) === "~"
       if (pass) wp = wp.slice(1)
+      if (wp.indexOf("shot:") === 0) {
+        steps.push(function() { dragLog("shot " + wp.slice(5) + " onDemand " + bar.barDragLandsOnDemand, true); shot(wp.slice(5)) })
+        return
+      }
       if (wp.indexOf("rest:") === 0) {
         var n = Math.round(+wp.slice(5) / 16)
         for (var k = 0; k < n; k++) steps.push(function() { dragLog("rest") })

@@ -744,6 +744,12 @@ Item {
   }
   // The dots holding the drop, and where they were when they took it.
   property var barDragHandleHeld: null
+  // The drop shown lands the widget On demand (behind the zone's dots).
+  readonly property bool barDragLandsOnDemand: {
+    var d = barDragDrop, source = barDragSource
+    if (!source || !d || !d.slot || d.into || d.slot.drawerHost) return false
+    return barGapOnDemand(d.slot, d.after, source)
+  }
   function refreshIconDrag() {
     if (barDragSource && barDragScene) updateIconDrag(barDragScene, barDragSource)
   }
@@ -4247,7 +4253,7 @@ Item {
       id: startGap
       targetWidth: root.vertical ? root.barSize : moduleListRoot.previewStartGap ? root.dragGapWidth : 0
       targetHeight: !root.vertical ? root.barSize : moduleListRoot.previewStartGap ? root.dragGapHeight : 0
-      DropOutline { bar: root; gapLength: root.vertical ? parent.height : parent.width }
+      DropOutline { bar: root; onDemand: root.barDragLandsOnDemand; gapLength: root.vertical ? parent.height : parent.width }
       motionEnabled: root.animationsEnabled && !root.dragHandover
       motionDuration: root.dragMotionDuration; motionEasing: root.dragMotionEasing
     }
@@ -4296,7 +4302,7 @@ Item {
       y: root.vertical ? endHandle.y + endHandle.height : 0
       targetWidth: root.vertical ? root.barSize : moduleListRoot.previewEndGap ? root.dragGapWidth : 0
       targetHeight: !root.vertical ? root.barSize : moduleListRoot.previewEndGap ? root.dragGapHeight : 0
-      DropOutline { bar: root; gapLength: root.vertical ? parent.height : parent.width }
+      DropOutline { bar: root; onDemand: root.barDragLandsOnDemand; gapLength: root.vertical ? parent.height : parent.width }
       motionEnabled: root.animationsEnabled && !root.dragHandover
       motionDuration: root.dragMotionDuration; motionEasing: root.dragMotionEasing
     }
@@ -4615,6 +4621,7 @@ Item {
 
     DropOutline {
       bar: root
+      onDemand: root.barDragLandsOnDemand
       readonly property real slotLength: root.vertical ? slot.height : slot.width
       readonly property real insetLength: root.vertical ? slot.animatedInsetY : slot.animatedInsetX
       readonly property bool open: !slot.drawerHost && slot.mainVisible && (slot.preview.before || slot.preview.after)

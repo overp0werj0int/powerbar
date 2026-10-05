@@ -1,4 +1,5 @@
 import QtQuick
+import qs.Commons
 
 // Where a dragged widget will land: its cell outlined inside the open drop
 // gap. One look for every drop surface: the bar's zones, drawer strips and
@@ -24,6 +25,9 @@ Rectangle {
   // A fully open gap, so the outline fades in with it.
   property real fullGap: bar ? (vertical ? bar.dragGapHeight : bar.dragGapWidth) : 1
   property color ink: bar ? bar.barForeground : "transparent"
+  // The widget lands On demand here: the outline holds the zone's dots, drawn
+  // as quietly as a yield marker, so the landing says where the widget goes.
+  property bool onDemand: false
   readonly property real along: Math.max(0, Math.min(cellAlong, gapLength - 2))
   readonly property real alongStart: landingOffset >= 0 ? gapStart + Math.min(landingOffset, Math.max(0, gapLength - along - 1))
     : gapStart + (gapLength - along) / 2
@@ -38,4 +42,14 @@ Rectangle {
   border.width: 1
   border.color: Qt.rgba(ink.r, ink.g, ink.b, 0.45)
   Accessible.ignored: true
+  Text {
+    anchors.centerIn: parent
+    visible: outline.onDemand
+    textFormat: Text.PlainText
+    text: outline.vertical ? "󰇙" : "󰇘"
+    color: outline.ink
+    opacity: 0.45
+    font.family: outline.bar ? outline.bar.fontFamily : Style.font.family
+    font.pixelSize: Style.font.body
+  }
 }
