@@ -649,10 +649,12 @@ Item {
   // indicators' hover reveal closed: the dots expand only their own side, and
   // the indicators would grow the side before the anchor. Counted per bar window.
   property int centerRevealBlocks: 0
+  // When the block lifts with the pointer still on the centre (a swipe across
+  // the dots, an expansion that collapsed), the reveal opens again.
   onCenterRevealBlocksChanged: if (centerRevealBlocks > 0) {
     centerSectionRevealTimer.stop()
     centerSectionRevealHeld = false
-  }
+  } else Qt.callLater(root.openCenterReveal)
   // One bar surface exists per monitor and each reports into this count, so a
   // pointer crossing between monitors stays counted however events interleave.
   property int barHoverCount: 0
@@ -3249,6 +3251,9 @@ Item {
       }
       HoverHandler { id: windowHover }
     }
+    // The pointer over this window's bar, for areas that must know where it
+    // is whatever widget sits on top (the centre's hover reveal).
+    readonly property var barPointer: windowHover
 
     Item {
       x: mainStrip.x; y: mainStrip.y
@@ -3746,12 +3751,20 @@ Item {
       y: root.vertical ? centerIsland.y : 0
       width: root.vertical ? parent.width : Math.max(0, centerIsland.width)
       height: root.vertical ? Math.max(0, centerIsland.height) : parent.height
-      HoverHandler {
-        // A hidden centre doesn't answer the pointer passing over the expansion.
-        enabled: !centerIsland.zoneHidden
-        onHoveredChanged: root.setCenterSectionHovered(hovered)
-        Component.onDestruction: if (hovered) root.setCenterSectionHovered(false)
+      // The pointer on the centre island, widgets included: read from the
+      // bar's own hover, since a handler here sits below the widgets and
+      // their hover-enabled buttons would hide the pointer from it (it saw
+      // only the gaps between them). A hidden centre doesn't answer the
+      // pointer passing over the expansion.
+      readonly property var pointer: centerRoot.homeWindow ? centerRoot.homeWindow.barPointer : null
+      readonly property bool pointerInside: {
+        if (!pointer || !pointer.hovered || centerIsland.zoneHidden || width <= 0 || height <= 0) return false
+        var pos = pointer.point.position
+        var p = mapFromItem(pointer.parent, pos.x, pos.y)
+        return x === x && y === y && p.x >= 0 && p.y >= 0 && p.x < width && p.y < height
       }
+      onPointerInsideChanged: root.setCenterSectionHovered(pointerInside)
+      Component.onDestruction: if (pointerInside) root.setCenterSectionHovered(false)
     }
     ModuleList {
       id: groupModules

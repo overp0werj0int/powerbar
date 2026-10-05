@@ -1,6 +1,7 @@
 import Quickshell
 import Quickshell.Io
 import QtQuick
+import QtTest
 import qs.Commons
 import qs.Ui
 import "Powerbar" as PB
@@ -127,6 +128,7 @@ ShellRoot {
     if (scenario === "prefs") return prefsRun()
     if (scenario === "sliders") return slidersRun()
     if (scenario === "inline") return inlineRun()
+    if (scenario === "hover") return hoverRun()
     if (scenario === "blur") return blurRun()
     if (scenario === "activity") return activityStep(0)
     if (scenario === "flash") return flashStep(0)
@@ -482,6 +484,54 @@ ShellRoot {
   }
 
   // Inline mode: open each zone's dots as a click would, then collapse.
+
+  // Real pointer events (QtTest) across the centre: the indicators' hover
+  // reveal and the centre's dots. Logs the reveal state after each move.
+  TestCase { id: pointer; name: "pointer"; when: false }
+  function findAll(item, pred, out) {
+    out = out || []
+    if (!item) return out
+    if (pred(item)) out.push(item)
+    for (var c of item.children) findAll(c, pred, out)
+    return out
+  }
+  function centreOf(item, root) { var p = item.mapToItem(root, item.width / 2, item.height / 2); return { x: p.x, y: p.y } }
+  function hoverState(label) {
+    var w = bar.slotWindow(bar.moduleSlots[0])
+    log("HOVER", label, "held", bar.centerSectionRevealHeld, "blocks", bar.centerRevealBlocks, "centerCount", bar.centerHoverCount,
+      "barCount", bar.barHoverCount, "request", w.inlineRequest || "-", "zone", w.inlineZone || "-", "handle", w.inlineHandleZone || "-")
+  }
+  function hoverRun() {
+    var w = bar.slotWindow(bar.moduleSlots[0])
+    var root = w.contentItem
+    var dots = findAll(root, function(i) { return i.inlineToken !== undefined && i.visible && i.width > 0 && i.enabled })
+    log("HOVER dots", dots.map(function(d) { var c = centreOf(d, root); return d.inlineToken + "@" + Math.round(c.x) + "," + Math.round(c.y) }).join(" "))
+    var clock = slotByName("omarchy.clock"), ind = slotByName("omarchy.indicators")
+    var startDots = dots.find(function(d) { return d.inlineToken === "center:start" }) || dots.find(function(d) { return d.inlineToken.indexOf("center") === 0 })
+    var steps = []
+    function at(label, target, wait) { steps.push({ label: label, target: target, wait: wait }) }
+    at("clock", clock, 400)
+    if (startDots) at("dots-swipe", startDots, 40)
+    at("back-to-clock", clock, 400)
+    if (startDots) at("dots-rest", startDots, 900)
+    at("clock-after-expand", clock, 400)
+    at("indicators", ind, 400)
+    hoverSteps = steps
+    hoverStep()
+  }
+  property var hoverSteps: []
+  function hoverStep() {
+    var step = hoverSteps.shift()
+    if (!step) return finish()
+    var w = bar.slotWindow(bar.moduleSlots[0])
+    var c = centreOf(step.target, w.contentItem)
+    pointer.mouseMove(w.contentItem, c.x, c.y)
+    hoverState(step.label + "-now")
+    hoverTimer.interval = step.wait
+    hoverTimer.label = step.label
+    hoverTimer.start()
+  }
+  Timer { id: hoverTimer; property string label; onTriggered: { shellRoot.hoverState(label + "-later"); shellRoot.hoverStep() } }
   property var inlineQueue: []
   function inlineState(label) {
     var w = bar.slotWindow(bar.moduleSlots[0])
