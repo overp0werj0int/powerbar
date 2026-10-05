@@ -40,7 +40,7 @@ BorderSurface {
   readonly property string tag: !usable ? unavailable
     : store.busy && phase === "idle" ? "Saving"
     : phase === "recording" ? (notice || "Press the keys")
-    : phase === "confirm" ? clashes.map(function(c) { return c.description }).join(", ") + " has it"
+    : phase === "confirm" ? clashes.map(function(c) { return c.description }).join(", ")
     : info.source === "omarchy" ? "Omarchy's"
     : info.source === "config" ? "Your Hyprland's"
     : info.source === "yours" ? ""
@@ -169,7 +169,7 @@ BorderSurface {
       horizontalAlignment: Text.AlignRight
       text: row.tag
       textFormat: Text.PlainText
-      elide: Text.ElideLeft
+      elide: Text.ElideRight
       color: row.phase === "confirm" || (row.phase === "recording" && row.notice) ? Color.urgent
         : row.phase === "recording" ? Color.accent : Qt.alpha(Color.popups.text, 0.6)
       font.family: Style.font.family
