@@ -40,14 +40,14 @@ Item {
     : shelfFocus.activeFocus ? [
       { keys: "h l", label: "Choose" }, { keys: "n", label: "New group" },
       { keys: "x", label: pendingDissolve && pendingDissolve === selectedId ? "Again to dissolve" : "Dissolve" },
-      { keys: "enter", label: "Edit" }, { keys: "tab", label: "Next tile" }, { keys: "1-3", label: "Pages" }, { keys: "esc", label: "Close" }]
+      { keys: "enter", label: "Edit" }, { keys: "tab shift+tab", label: "Next, previous tile" }, { keys: "1-3", label: "Pages" }, { keys: "esc", label: "Close" }]
     : drawerFocus.activeFocus ? (drawerFocus.lifted ? [
       { keys: "j k", label: "Reorder" }, { keys: "space", label: "Drop" }, { keys: "esc", label: "Cancel" }] : [
       { keys: "j k", label: "Choose" }, { keys: "space", label: "Pick up" }, { keys: "x", label: "Remove" },
-      { keys: "tab", label: "Next tile" }, { keys: "esc", label: "Close" }])
+      { keys: "tab shift+tab", label: "Next, previous tile" }, { keys: "esc", label: "Close" }])
     : availFocus.activeFocus ? [
       { keys: "j k", label: "Choose" }, { keys: "enter", label: "Add to " + (selectedGroup ? selectedGroup.label : "group") },
-      { keys: "type", label: "Filter" }, { keys: "tab", label: "Next tile" }, { keys: "esc", label: "Close" }]
+      { keys: "type", label: "Filter" }, { keys: "tab shift+tab", label: "Next, previous tile" }, { keys: "esc", label: "Close" }]
     : form.hints
 
   function focusFirst() { shelfFocus.forceActiveFocus(Qt.TabFocusReason) }

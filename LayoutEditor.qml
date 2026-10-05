@@ -207,7 +207,7 @@ Item {
   ] : gridFocused ? [
     { keys: "h j k l", label: "Move" }, { keys: "space", label: "Pick up" },
     { keys: "x", label: "Hide" }, { keys: "enter", label: "Settings" },
-    { keys: "tab", label: "Next tile" }, { keys: "1-3", label: "Pages" }, { keys: "esc", label: "Close" }
+    { keys: "tab shift+tab", label: "Next, previous tile" }, { keys: "1-3", label: "Pages" }, { keys: "esc", label: "Close" }
   ] : form.hints
 
   function shelfFor(mode) { return mode === "shown" ? shelfShown : mode === "managed" ? shelfManaged : shelfHidden }
