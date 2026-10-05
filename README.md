@@ -111,6 +111,13 @@ Preferences is open, then slides away 400 ms after the pointer leaves. A 2 px
 strip along the edge remains clickable for the bar while it is hidden. It works
 with every bar style and on every edge.
 
+Omarchy's bar toggle (Super+Shift+Space, `omarchy toggle bar`) brings an
+autohidden bar out the same way instead of switching it off: it stays out while
+the toggle's key is held and slides away 400 ms after the key is let go. The
+`bar-off` flag goes back off, so turning autohide off later never finds the bar
+hidden. Powerbar binds nothing for this; it asks Hyprland whether the key of
+the bind described "Toggle top bar" (or any modifier) is still down.
+
 While the bar is hidden, widget activity still shows (turn this off with
 **Show on widget activity** under Bar → Behavior, or for single widgets
 with **Show on activity** in the Layout page's settings tile; the keys are

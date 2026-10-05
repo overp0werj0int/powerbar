@@ -132,6 +132,8 @@ ShellRoot {
     if (scenario === "inline") return inlineRun()
     if (scenario === "hover") return hoverRun()
     if (scenario === "tooltip") return tooltipRun()
+    if (scenario === "prefskeys") return prefsKeysRun()
+    if (scenario === "toggle") return toggleRun()
     if (scenario === "blur") return blurRun()
     if (scenario === "activity") return activityStep(0)
     if (scenario === "flash") return flashStep(0)
@@ -314,6 +316,68 @@ ShellRoot {
     prefsQueue.push(function() { finish() })
     prefsTimer.start()
   }
+
+  // Preferences from the keyboard: on each page, Tab then Shift+Tab through
+  // the tiles; logs the tile that holds focus after each key.
+  function tileTitle(item) {
+    for (var p = item; p; p = p.parent) if (p.title !== undefined && p.tileHints !== undefined) return p.title
+    return "-"
+  }
+  function prefsFocus() {
+    var win = null
+    for (var d of prefsPane.data) if (d && d.contentItem !== undefined) win = d
+    var found = null
+    ;(function walk(item) {
+      if (!item) return
+      if (item.activeFocus) found = item
+      for (var c of item.children) walk(c)
+    })(win ? win.contentItem : null)
+    return found
+  }
+  function prefsKeysRun() {
+    prefsPane = findPrefs()
+    if (!prefsPane || !prefsPane.pageItems) { log("no real preferences"); return finish() }
+    prefsPane.show(Quickshell.screens[0])
+    var q = []
+    for (var w = 0; w < 40; w++) q.push(function() {})
+    for (var page = 0; page < prefsPane.pages.length; page++) (function(page) {
+      q.push(function() { prefsPane.setPage(page) })
+      for (var w1 = 0; w1 < 20; w1++) q.push(function() {})
+      if (Quickshell.env("BENCH_FOCUS_FIRST") !== "0") q.push(function() { prefsPane.pageItems[page].focusFirst(); })
+      q.push(function() { log("KEYS page", page, "start", tileTitle(prefsFocus()), String(prefsFocus()).split("(")[0]) })
+      ;[["Tab", Qt.Key_Tab, Qt.NoModifier], ["Tab", Qt.Key_Tab, Qt.NoModifier], ["Tab", Qt.Key_Tab, Qt.NoModifier],
+        ["Shift+Tab", Qt.Key_Backtab, Qt.ShiftModifier], ["Shift+Tab", Qt.Key_Backtab, Qt.ShiftModifier], ["Shift+Tab", Qt.Key_Backtab, Qt.ShiftModifier]].forEach(function(k) {
+        q.push(function() { pointer.keyClick(k[1], k[2]) })
+        q.push(function() {})
+        q.push(function() { log("KEYS page", page, k[0], tileTitle(prefsFocus()), String(prefsFocus()).split("(")[0]) })
+      })
+    })(page)
+    q.push(function() { prefsPane.close(); finish() })
+    prefsQueue = q
+    prefsTimer.start()
+  }
+
+  // Omarchy's bar toggle on an autohidden bar (BENCH_AUTOHIDE=1; run with a
+  // private HOME): the flag appears, the bar slides out, the flag goes back.
+  property var toggleLog: []
+  function toggleState(label) {
+    var w = bar.slotWindow(bar.moduleSlots[0])
+    log("TOGGLE", label, "hidden", bar.barHidden, "held", bar.toggleHeld, "revealed", w.autoHideRevealed, "shown", w.autoHideShown, "offset", Math.round(w.autoHideOffset))
+  }
+  function toggleRun() {
+    toggleState("rest")
+    toggleProc.command = ["bash", "-c", "mkdir -p $HOME/.local/state/omarchy/toggles && omarchy-toggle bar-off toggle && ls $HOME/.local/state/omarchy/toggles"]
+    toggleProc.running = true
+    toggleTimer.n = 0
+    toggleTimer.start()
+  }
+  Process { id: toggleProc; stdout: SplitParser { onRead: function(line) { shellRoot.log("TOGGLE flag-dir", line) } } }
+  Timer { id: toggleTimer; property int n: 0; interval: 100; repeat: true; onTriggered: {
+    shellRoot.toggleState("t+" + (n * 100))
+    if (++n > 12) { stop(); flagCheck.running = true }
+  } }
+  Process { id: flagCheck; command: ["bash", "-c", "ls -A $HOME/.local/state/omarchy/toggles; echo end"]
+    stdout: SplitParser { onRead: function(line) { shellRoot.log("TOGGLE flag-after", line); if (line === "end") shellRoot.finish() } } }
   property real prefsDropTotal: 0
   Timer { id: prefsTimer; interval: 16; repeat: true; onTriggered: { var f = shellRoot.prefsQueue.shift(); if (!shellRoot.prefsQueue.length) stop(); if (f) f() } }
 
