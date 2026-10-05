@@ -64,6 +64,9 @@ ShellRoot {
     if (id === "omarchy.clock") return clockWidget
     if (id === "omarchy.workspaces") return workspacesWidget
     if (id === "omarchy.indicators") return Quickshell.env("BENCH_REAL_INDICATORS") === "1" ? realIndicators : indicatorsWidget
+    // BENCH_REAL_PLUGINS=a.b,c.d: those plugins' own bar widgets.
+    if ((Quickshell.env("BENCH_REAL_PLUGINS") || "").split(",").indexOf(id) >= 0)
+      return Qt.createComponent("file://" + Quickshell.env("HOME") + "/.config/omarchy/plugins/" + id + "/Widget.qml")
     if (id === "omarchy.network") return valueWidget
     if (id === "omarchy.power" || id === "omarchy.keyboard-layout") return textWidget
     return glyphWidget
@@ -136,6 +139,7 @@ ShellRoot {
     if (scenario === "toggle") return toggleRun()
     if (scenario === "prefsshots") return prefsShotsRun()
     if (scenario === "shortcut") return shortcutRun()
+    if (scenario === "stack") return stackRun()
     if (scenario === "blur") return blurRun()
     if (scenario === "activity") return activityStep(0)
     if (scenario === "flash") return flashStep(0)
@@ -451,6 +455,41 @@ ShellRoot {
   }
   Process { id: filesProc; command: ["bash", "-c", "echo '--- powerbar.lua'; cat \"$POWERBAR_HYPR_DIR/powerbar.lua\"; echo '--- hyprland.lua tail'; tail -14 \"$POWERBAR_HYPR_DIR/hyprland.lua\"; ls \"$POWERBAR_HYPR_DIR\" | grep powerbar"]
     stdout: SplitParser { onRead: function(line) { shellRoot.log("FILE", line) } } }
+
+  // What takes the pointer at a point (BENCH_AT=x,y in window coordinates, or
+  // the centre's start dots after the clock opened the reveal): every visible
+  // hover-enabled item there, top first, with its slot and whether a clipping
+  // ancestor hides the point.
+  function stackRun() {
+    var w = bar.slotWindow(bar.moduleSlots[0]), root = w.contentItem
+    var clock = slotByName("omarchy.clock")
+    var c = centreOf(clock, root)
+    pointer.mouseMove(root, c.x, c.y)
+    stackTimer.start()
+  }
+  Timer { id: stackTimer; interval: 600; onTriggered: {
+    var w = shellRoot.bar.slotWindow(shellRoot.bar.moduleSlots[0]), root = w.contentItem
+    var dots = shellRoot.findAll(root, function(i) { return i.inlineToken === "center:start" && i.visible && i.width > 0 })[0]
+    var at = Quickshell.env("BENCH_AT")
+    var p = at ? { x: Number(at.split(",")[0]), y: Number(at.split(",")[1]) } : shellRoot.centreOf(dots, root)
+    shellRoot.log("STACK held", shellRoot.bar.centerSectionRevealHeld, "point", Math.round(p.x), Math.round(p.y))
+    var hits = []
+    ;(function walk(item, clipped) {
+      if (!item || !item.visible) return
+      var q = item.mapFromItem(root, p.x, p.y)
+      var inside = q.x >= 0 && q.y >= 0 && q.x < item.width && q.y < item.height
+      var clipNow = clipped || (item.clip && !inside)
+      if (inside && (item.hoverEnabled === true || item.data.some(function(d) { return d && d.point !== undefined && d.enabled !== false && String(d).indexOf("HoverHandler") >= 0 }))) {
+        var slot = null
+        for (var a = item; a; a = a.parent) if (a.powerbarSlotOwner) { slot = a.powerbarSlotOwner; break }
+        hits.push(String(item).split("(")[0].slice(0, 30) + (item.hoverEnabled ? "[MA]" : "[HH]") + (clipNow ? "[clipped]" : "") + " op" + item.opacity.toFixed(2)
+          + (slot ? " slot=" + slot.moduleName + " yielded=" + slot.fitYielded + " main=" + slot.mainVisible + " slotsize=" + Math.round(slot.width) + "x" + Math.round(slot.height) : ""))
+      }
+      for (var ch of item.children) walk(ch, clipNow)
+    })(root, false)
+    hits.reverse().forEach(function(h) { shellRoot.log("STACK", h) })
+    shellRoot.finish()
+  } }
   property real prefsDropTotal: 0
   Timer { id: prefsTimer; interval: 16; repeat: true; onTriggered: { var f = shellRoot.prefsQueue.shift(); if (!shellRoot.prefsQueue.length) stop(); if (f) f() } }
 
