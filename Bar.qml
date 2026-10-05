@@ -652,15 +652,14 @@ Item {
   readonly property bool centerSectionHovered: centerHoverCount > 0
   property bool centerSectionRevealHeld: false
   // A centre side expanding inline, or asked for on its dots, keeps the
-  // indicators' hover reveal closed: the dots expand only their own side, and
-  // the indicators would grow the side before the anchor. Counted per bar window.
+  // indicators' hover reveal from opening; it never closes one already open.
+  // The dots sit at the outer end of the side the indicators grow, so either
+  // change would slide them out from under the pointer resting on them (and
+  // slide another zone's widgets in). Counted per bar window.
   property int centerRevealBlocks: 0
   // When the block lifts with the pointer still on the centre (a swipe across
-  // the dots, an expansion that collapsed), the reveal opens again.
-  onCenterRevealBlocksChanged: if (centerRevealBlocks > 0) {
-    centerSectionRevealTimer.stop()
-    centerSectionRevealHeld = false
-  } else Qt.callLater(root.openCenterReveal)
+  // the dots, an expansion that collapsed), the reveal opens.
+  onCenterRevealBlocksChanged: if (centerRevealBlocks === 0) Qt.callLater(root.openCenterReveal)
   // One bar surface exists per monitor and each reports into this count, so a
   // pointer crossing between monitors stays counted however events interleave.
   property int barHoverCount: 0
@@ -4562,7 +4561,14 @@ Item {
       id: presentation
       property var powerbarSlotOwner: slot
       parent: slot.drawerHost || slot
-      x: slot.drawerHost ? slot.drawerHost.contentOffsetX : slot.animatedInsetX + (root.vertical ? slot.crossShift : slot.inkShift)
+      // A widget off the bar (yielded to a moment, folded, waiting behind its
+      // dots) keeps its box where the bar used to put it, and Qt still hovers
+      // disabled and transparent items: it would take the pointer from
+      // whatever now sits there (the centre's dots) and show its own tooltip.
+      // Once faded out it is parked far away. Not hidden: a widget's
+      // visibility can change its own size, which the zone fit reads.
+      readonly property bool parked: !slot.drawerHost && !slot.mainVisible && opacity === 0
+      x: parked ? -100000 : slot.drawerHost ? slot.drawerHost.contentOffsetX : slot.animatedInsetX + (root.vertical ? slot.crossShift : slot.inkShift)
       y: slot.drawerHost ? slot.drawerHost.contentOffsetY : slot.animatedInsetY + (root.vertical ? slot.inkShift : slot.crossCentre)
       width: slot.naturalWidth
       height: slot.naturalHeight
