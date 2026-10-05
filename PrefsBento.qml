@@ -64,6 +64,18 @@ Item {
   // A focused control steps the focus chain itself on Tab before any parent
   // sees the key, so the jump is a shortcut, live only while focus is in a tile.
   readonly property bool focusInside: shownTiles.length > 0 && tileOf(Window.activeFocusItem) !== null
-  Shortcut { sequences: ["Tab"]; enabled: bento.focusInside; onActivated: bento.jump(true) }
-  Shortcut { sequences: ["Shift+Tab", "Backtab"]; enabled: bento.focusInside; onActivated: bento.jump(false) }
+  // The direction comes from the key itself, as in Omarchy's panels: Backtab,
+  // or Tab with Shift. On a real keyboard's layout one Shift+Tab press matches
+  // several of these sequences, which Qt reports as ambiguous and swallows.
+  property bool tabForward: true
+  Keys.onShortcutOverride: function(event) {
+    if (event.key === Qt.Key_Tab || event.key === Qt.Key_Backtab)
+      tabForward = event.key === Qt.Key_Tab && !(event.modifiers & Qt.ShiftModifier)
+  }
+  Shortcut {
+    sequences: ["Tab", "Shift+Tab", "Backtab", "Shift+Backtab"]
+    enabled: bento.focusInside
+    onActivated: bento.jump(bento.tabForward)
+    onActivatedAmbiguously: bento.jump(bento.tabForward)
+  }
 }

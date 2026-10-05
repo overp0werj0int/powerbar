@@ -79,6 +79,21 @@ Item {
       verify(autohide.activeFocus, "Shift+Tab wraps back")
     }
 
+    function test_everyShiftTabFormGoesBack_data() {
+      return [
+        { tag: "Backtab", key: Qt.Key_Backtab, mods: Qt.NoModifier },
+        { tag: "Shift+Backtab", key: Qt.Key_Backtab, mods: Qt.ShiftModifier },
+        { tag: "Shift+Tab", key: Qt.Key_Tab, mods: Qt.ShiftModifier }
+      ]
+    }
+    function test_everyShiftTabFormGoesBack(data) {
+      keyClick(Qt.Key_Tab)
+      keyClick(Qt.Key_Tab)
+      verify(autohide.activeFocus)
+      keyClick(data.key, data.mods)
+      verify(bento.tileOf(bento.Window.activeFocusItem) === shadowTile)
+    }
+
     function test_headerSwitchTurnsTheTileOn() {
       keyClick(Qt.Key_Tab)
       keyClick(Qt.Key_Space)
