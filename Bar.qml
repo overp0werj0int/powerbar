@@ -5055,10 +5055,10 @@ Item {
         bar: root
         readonly property var group: slot.groupConfig
         readonly property string preferredFace: group ? group.face : "glyph"
-        // Nothing grows across a vertical bar: a text face wider than the
-        // highlight shows the group's glyph there.
-        readonly property string face: root.vertical && preferredFace !== "glyph"
-          && labelMetrics.width > root.cellTokens.thickness ? "glyph" : preferredFace
+        // A side bar has no room for a name across it: groups show their icon
+        // there, and their name on hover.
+        readonly property bool nameHidden: root.vertical && preferredFace !== "glyph"
+        readonly property string face: nameHidden ? "glyph" : preferredFace
         readonly property var badge: group ? root.groupBadge(group.id, root.targetWindow(slot)) : ({ count: 0, urgent: false })
         // Your own image, or an icon in another font beside the name, is
         // drawn as runs (GroupFace); everything else is the kit's one string.
@@ -5081,13 +5081,7 @@ Item {
           fontFamily: Style.font.family
           fontSize: groupButton.fontSize
         }
-        TextMetrics {
-          id: labelMetrics
-          font.family: Style.font.family
-          font.pixelSize: groupButton.fontSize
-          text: groupButton.preferredFace === "both" && group ? group.icon + " " + group.label : group ? group.label : ""
-        }
-        tooltipText: group && (group.tooltip === undefined ? face === "glyph" : group.tooltip)
+        tooltipText: group && (nameHidden || (group.tooltip === undefined ? face === "glyph" : group.tooltip))
           ? group.label : ""
         onPressed: function(button) {
           var window = root.targetWindow(slot)
