@@ -47,10 +47,13 @@ ShellRoot {
     property var bar; property string moduleName; property var settings
     Repeater { model: 5; WidgetButton { required property int index; bar: ws.bar; text: String(index + 1); active: index === 1 } }
   } }
-  Component { id: indicatorsWidget; Row {
+  Component { id: indicatorsWidget; Grid {
     id: ind
     property var bar; property string moduleName; property var settings
-    Repeater { model: 3; WidgetButton { required property int index; bar: ind.bar; text: ["󰍬", "󰂚", "󰖩"][index] } }
+    // Along the bar, as Omarchy's own indicators lay out.
+    columns: shellRoot.bar && shellRoot.bar.vertical ? 1 : 9
+    // Revealed on hover, as Omarchy's own indicators are: three more icons.
+    Repeater { model: shellRoot.bar && shellRoot.bar.centerSectionRevealHeld ? 6 : 3; WidgetButton { required property int index; bar: ind.bar; text: ["󰍬", "󰂚", "󰖩", "󰍭", "󰂛", "󰖪"][index] } }
   } }
   // Omarchy's own indicators (BENCH_REAL_INDICATORS=1), for hover and tooltips.
   property Component realIndicators: Qt.createComponent("file:///usr/share/omarchy/shell/plugins/bar/widgets/Indicators.qml")
@@ -879,6 +882,9 @@ ShellRoot {
     var f = w.zoneFit || {}
     return "src " + (bar.barDragSource ? bar.barDragSource.moduleName.split(".").pop() : "-") + " req " + (w.inlineRequest || "-") + " zone " + (w.inlineZone || "-") + " handle " + (w.inlineHandleZone || "-")
       + " spring " + (bar.springHandleZone || "-") + " drop " + drop + " hidden " + JSON.stringify(f.hidden || {})
+      + " ind " + (function() { var i = slotByName("omarchy.indicators"); return i ? Math.round(bar.vertical ? i.height : i.width) + "/" + (i.activeItem ? Math.round(bar.vertical ? i.activeItem.implicitHeight : i.activeItem.implicitWidth) : "?") : "-" })()
+      + " reveal " + (bar.centerSectionRevealHeld ? "held" : bar.centerSectionHovered ? "hover" : "-")
+      + " yield [" + findAll(w.contentItem, function(i) { return i.isYieldMarker === true && i.shown && i.visible }).map(function(m) { var c = centreOf(m, w.contentItem); return Math.round(bar.vertical ? c.y : c.x) + "x" + m.count }).join(" ") + "]"
       + " drawer " + (w.managedDrawer.opened ? w.managedDrawer.zone || w.managedDrawer.groupId : "-") + " dots [" + dots + "]"
   }
   function dragLog(label, force) {
@@ -889,6 +895,11 @@ ShellRoot {
   }
   function dragTarget(spec) {
     var w = bar.slotWindow(bar.moduleSlots[0])
+    // "yield": the first yield marker shown.
+    if (spec === "yield") {
+      var m = findAll(w.contentItem, function(i) { return i.isYieldMarker === true && i.shown && i.visible })[0]
+      return m ? centreOf(m, w.contentItem) : null
+    }
     // "pt:<along>": a fixed point along the bar, on the bar's centre line.
     if (spec.indexOf("pt:") === 0) {
       var along = +spec.slice(3), across = centreOf(bar.moduleSlots[0], w.contentItem)
@@ -910,20 +921,26 @@ ShellRoot {
   function dragDotsRun() {
     dragHandles()
     var spec = (Quickshell.env("BENCH_DRAG") || "omarchy.tray right center:end left rest:1500").split(" ")
-    var name = spec.shift()
+    // "-" as the widget: hover only, nothing is pressed.
+    var name = spec.shift(), hoverOnly = name === "-"
     var w = bar.slotWindow(bar.moduleSlots[0])
     var root = w.contentItem
     var pos = { x: 0, y: 0 }
     var steps = []
     // Open the widget's zone first if it waits behind the dots.
-    var src = slotByName(name)
-    steps.push(function() { dragLog("start", true); var t = dragTarget(src.region === "center" ? "center:" + src.centerSide : src.region); if (t && !src.mainVisible) { pos = t; pointer.mouseMove(root, t.x, t.y) } })
-    for (var i = 0; i < 50; i++) steps.push(function() { dragLog("open") })
-    steps.push(function() {
-      var s = slotByName(name); pos = centreOf(s, root)
-      dragLog("press " + name + " visible " + s.mainVisible, true)
-      pointer.mousePress(root, pos.x, pos.y, Qt.LeftButton)
-    })
+    var src = hoverOnly ? null : slotByName(name)
+    var buttons = hoverOnly ? Qt.NoButton : Qt.LeftButton
+    if (hoverOnly) {
+      steps.push(function() { dragLog("start", true); pos = centreOf(bar.moduleSlots[0], root); pointer.mouseMove(root, pos.x, pos.y) })
+    } else {
+      steps.push(function() { dragLog("start", true); var t = dragTarget(src.region === "center" ? "center:" + src.centerSide : src.region); if (t && !src.mainVisible) { pos = t; pointer.mouseMove(root, t.x, t.y) } })
+      for (var i = 0; i < 50; i++) steps.push(function() { dragLog("open") })
+      steps.push(function() {
+        var s = slotByName(name); pos = centreOf(s, root)
+        dragLog("press " + name + " visible " + s.mainVisible, true)
+        pointer.mousePress(root, pos.x, pos.y, Qt.LeftButton)
+      })
+    }
     spec.forEach(function(wp) {
       // "~<waypoint>": pass through without resting there.
       var pass = wp.charAt(0) === "~"
@@ -945,14 +962,14 @@ ShellRoot {
         var step = Math.min(6, dist)
         if (dist > 0.5) {
           pos = { x: pos.x + dx / dist * step, y: pos.y + dy / dist * step }
-          pointer.mouseMove(root, pos.x, pos.y, -1, Qt.LeftButton)
+          pointer.mouseMove(root, pos.x, pos.y, -1, buttons)
           dragLog("move " + wp + " @" + Math.round(bar.vertical ? pos.y : pos.x))
           dotsSteps.unshift(walk)
         } else dragLog("at " + wp, true)
       })
       if (!pass) for (var r = 0; r < 40; r++) steps.push(function() { dragLog("dwell " + wp) })
     })
-    steps.push(function() { dragLog("release", true); pointer.mouseRelease(root, pos.x, pos.y, Qt.LeftButton) })
+    steps.push(function() { dragLog("release", true); if (!hoverOnly) pointer.mouseRelease(root, pos.x, pos.y, Qt.LeftButton) })
     for (var e = 0; e < 60; e++) steps.push(function() { dragLog("after") })
     steps.push(function() {
       dragLog("end", true)

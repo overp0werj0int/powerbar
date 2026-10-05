@@ -2106,6 +2106,12 @@ Item {
     if (centerSectionHovered && centerRevealBlocks === 0) centerSectionRevealHeld = true
   }
 
+  // The pointer on a zone's yield marker: end the hover moments it gave way to.
+  function releaseYield(window, zone) {
+    if (centerSectionRevealHeld && zone !== "center" && !centerSectionHovered) centerSectionRevealHeld = false
+    if (window && window.inlineZone && window.inlineZoneName !== zone) window.inlineAsk("")
+  }
+
   function setCenterHoverRevealSuppressed(value) {
     centerHoverRevealSuppressed = !!value
   }
@@ -4129,6 +4135,9 @@ Item {
   // and not interactive, with the count of widgets out of view (docs/zone-fit-lab).
   component YieldMarker: Item {
     id: yieldMarker
+    readonly property bool isYieldMarker: true
+    property var homeWindow: null
+    property string zone: ""
     property int count: 0
     readonly property bool shown: count > 0
     readonly property var cellPlace: CellModel.place(root.cellTokens, CellModel.TYPICAL_GLYPH, true)
@@ -4171,6 +4180,23 @@ Item {
         font.family: Style.font.family
         font.pixelSize: Style.font.caption
       }
+    }
+    // Resting on the marker brings its widgets back: it ends the hover moment
+    // that made them give way (the indicators' held reveal, or another zone's
+    // inline expansion), after the same intent as the dots. Read from the bar
+    // window's own pointer: the widgets it stands for still take hover.
+    readonly property var pointer: homeWindow ? homeWindow.barPointer : null
+    readonly property bool pointerInside: {
+      if (!shown || !pointer || !pointer.hovered || root.barDragSource || width <= 0 || height <= 0) return false
+      var pos = pointer.point.position
+      var p = mapFromItem(pointer.parent, pos.x, pos.y)
+      return p.x >= 0 && p.y >= 0 && p.x < width && p.y < height
+    }
+    onPointerInsideChanged: if (pointerInside) yieldRelease.restart(); else yieldRelease.stop()
+    Timer {
+      id: yieldRelease
+      interval: 90
+      onTriggered: root.releaseYield(yieldMarker.homeWindow, yieldMarker.zone)
     }
   }
 
@@ -4267,12 +4293,16 @@ Item {
       y: root.vertical ? startGap.height : 0
     }
     YieldMarker {
+      homeWindow: moduleListRoot.homeWindow
+      zone: moduleListRoot.region
       count: moduleListRoot.leadRun > 0 && !moduleListRoot.zoneHidden ? moduleListRoot.yieldCount(false) : 0
       readonly property real along: moduleListRoot.leadRun - moduleListRoot.markerPlace.extent
       x: root.vertical ? 0 : along
       y: root.vertical ? along : 0
     }
     YieldMarker {
+      homeWindow: moduleListRoot.homeWindow
+      zone: moduleListRoot.region
       count: moduleListRoot.trailRun > 0 && !moduleListRoot.zoneHidden ? moduleListRoot.yieldCount(true) : 0
       readonly property real along: moduleListRoot.listLength - moduleListRoot.trailRun
       x: root.vertical ? 0 : along
