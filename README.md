@@ -238,6 +238,44 @@ it. The first change adds a marked block to `~/.config/hypr/hyprland.lua`
 bindings, then Hyprland reloads; a file Hyprland reports an error in is put
 back as it was. Dissolving a group drops its shortcut.
 
+## Keyboard
+
+The bar works from the keyboard (design: `docs/bar-keys-lab`). The shortcut is
+offered, not bound: Preferences → Bar → Keyboard shows Super+B as suggested,
+and Enter takes it (checked for clashes like any shortcut; Space records
+other keys). It runs `omarchy-shell powerbar keys`, which puts a cursor on the
+clock of the focused monitor's bar, or on the widget whose panel is open; the
+same keys again leave.
+
+Keys are named by direction relative to the bar, so they mean the same on
+every edge:
+
+- The arrows (and h j k l) that run along the bar move the cursor; it stops at
+  both ends. Home and End jump to them.
+- The key that points into the screen (↓ on a top bar, ← on a right one) goes
+  into a group's drawer; the opposite key comes back. In the drawer the keys
+  that follow its rows walk them. A group under the cursor unfolds once the
+  key is let go, so a held key sweeping past never flashes it.
+- Tab and Shift+Tab jump to the next zone's nearest item.
+- Moving onto a zone's dots opens them, and the cursor lands on the first
+  widget that appeared; leaving the zone folds them back. With On demand set
+  to In a drawer, the into key opens the zone's drawer from any of its widgets.
+- Enter or Space opens the widget (a click), or a group's drawer. A panel that
+  opens takes the keys; Esc in it comes back to the bar.
+- `/` finds a widget by any word of its name (word starts first), opening the
+  way to it: into a group, behind dots or into a zone drawer. ↓ or Tab moves
+  to the next match, Enter opens it.
+- `?` lists the shortcut of every widget and group on the bar.
+- Esc closes the innermost thing first: the search, a drawer, a panel, then
+  the cursor. A click off the bar leaves too, and moving the pointer over the
+  bar moves the cursor with it.
+
+A name card beside the cursor shows the widget's name and shortcut, and a
+strip of keys sits at the far edge from the bar (Key legend turns it off). An
+autohidden bar slides out while the cursor is on it, and a bar switched off
+with Super+Shift+Space shows while it lasts; Omarchy's flag is never touched.
+`omarchy-shell powerbar keysStatus` reports the cursor's state as JSON.
+
 ## Shadows and backdrop blur
 
 Bar → Behavior offers **Animations** (enabled by default). Main

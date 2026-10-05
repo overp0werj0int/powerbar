@@ -1,0 +1,129 @@
+// Keyboard navigation of the bar (docs/bar-keys-lab): which key means what on
+// each edge, how the cursor steps through the bar's stops, and how a search
+// ranks names. Pure decisions; Bar.qml carries them out.
+//
+// Keys are named by direction relative to the bar, so one table serves every
+// edge: "along" keys move along it, "into" points into the screen (where a
+// drawer opens) and enters a group, "out" comes back. On a side bar Up and
+// Down run along it, so ← or → enter and leave.
+//
+// A key name is "Left", "Right", "Up", "Down", "Home", "End", "Tab",
+// "Backtab", "Enter", "Space", "Escape", "Backspace", or the character typed.
+
+var ZONES = ["left", "center", "right"]
+
+function keymap(position) {
+  var vertical = position === "left" || position === "right"
+  var along = vertical ? { Up: -1, k: -1, Down: 1, j: 1 } : { Left: -1, h: -1, Right: 1, l: 1 }
+  var into = position === "top" ? ["Down", "j"] : position === "bottom" ? ["Up", "k"]
+    : position === "right" ? ["Left", "h"] : ["Right", "l"]
+  var out = position === "top" ? ["Up", "k"] : position === "bottom" ? ["Down", "j"]
+    : position === "right" ? ["Right", "l"] : ["Left", "h"]
+  return { vertical: vertical, along: along, into: into, out: out }
+}
+
+// What a key asks for on the bar: { move: ±1 } along, { zone: ±1 } (Tab),
+// { home }, { end }, { into }, { open }, { find }, { sheet }, { leave }, or
+// null for a key the bar does not use.
+function barIntent(position, key) {
+  var map = keymap(position)
+  if (map.along[key] !== undefined) return { move: map.along[key] }
+  if (map.into.indexOf(key) >= 0) return { into: true }
+  if (key === "Tab") return { zone: 1 }
+  if (key === "Backtab") return { zone: -1 }
+  if (key === "Home") return { home: true }
+  if (key === "End") return { end: true }
+  if (key === "Enter" || key === "Space") return { open: true }
+  if (key === "/") return { find: true }
+  if (key === "?") return { sheet: true }
+  if (key === "Escape") return { leave: true }
+  return null
+}
+
+// What a key asks for inside a drawer opened from the cursor. A drawer's rows
+// run down the screen: on a side bar that is along the bar, so the along keys
+// walk them and the out key leaves; on a top or bottom bar they run away from
+// it, so the into key goes on down the rows and the out key comes back up
+// (to the icon from the first row), and the along keys leave and move on.
+// Returns { member: ±1 }, { back }, { backMove: ±1 }, { zone: ±1 }, { open },
+// { find }, { sheet }, or null.
+function drawerIntent(position, key, member) {
+  var map = keymap(position)
+  if (key === "Escape") return { back: true }
+  if (key === "Enter" || key === "Space") return { open: true }
+  if (key === "Tab") return { zone: 1 }
+  if (key === "Backtab") return { zone: -1 }
+  if (key === "/") return { find: true }
+  if (key === "?") return { sheet: true }
+  if (map.vertical) {
+    if (map.along[key] !== undefined) return { member: map.along[key] }
+    if (map.out.indexOf(key) >= 0) return { back: true }
+    return null
+  }
+  if (map.into.indexOf(key) >= 0) return { member: 1 }
+  if (map.out.indexOf(key) >= 0) return member > 0 ? { member: -1 } : { back: true }
+  if (map.along[key] !== undefined) return { backMove: map.along[key] }
+  return null
+}
+
+// The next stop along the row, or -1 at either end: the cursor stops there
+// (no wrap), so the ends stay a landmark.
+function step(count, index, dir) {
+  var to = index + dir
+  return to < 0 || to >= count ? -1 : to
+}
+
+// Tab: the next zone with stops, wrapping; it lands on the zone's first stop
+// going forward and its last going back, the nearest either way.
+//   zones: each stop's zone, in bar order
+function zoneStep(zones, index, dir) {
+  if (!zones.length) return -1
+  var from = ZONES.indexOf(zones[index])
+  if (from < 0) from = 1
+  for (var n = 1; n <= ZONES.length; n++) {
+    var zone = ZONES[(from + dir * n + ZONES.length * 3) % ZONES.length]
+    if (dir > 0) { var first = zones.indexOf(zone); if (first >= 0) return first }
+    else { var last = zones.lastIndexOf(zone); if (last >= 0) return last }
+  }
+  return -1
+}
+
+// Search: the matches for a query, best first. A word of the name that starts
+// with the text beats a name that only contains it; ties keep bar order.
+//   names: one per item, in bar order. Returns item indices.
+function matches(names, query) {
+  var q = String(query || "").toLowerCase().trim()
+  if (!q) return []
+  var scored = []
+  names.forEach(function(name, i) {
+    var n = String(name || "").toLowerCase()
+    // Words end at spaces and punctuation (Qt's engine has no \p{L}).
+    var words = n.split(/[\s\-_.:,;\/()\[\]+&]+/)
+    var score = words.some(function(w) { return w.indexOf(q) === 0 }) ? 2 : n.indexOf(q) >= 0 ? 1 : 0
+    if (score) scored.push({ i: i, score: score })
+  })
+  scored.sort(function(a, b) { return b.score - a.score || a.i - b.i })
+  return scored.map(function(x) { return x.i })
+}
+
+// The key strip's entries for an edge: [{ keys, label }].
+// drawers: on-demand widgets wait in zone drawers (the into key enters them).
+function legend(position, state, drawers) {
+  var map = keymap(position)
+  var arrows = { Up: "↑", Down: "↓", Left: "←", Right: "→" }
+  var alongKeys = map.vertical ? "↑ ↓" : "← →"
+  if (state === "search") return [
+    { keys: "↓ Tab", label: "Next match" }, { keys: "Enter", label: "Open" }, { keys: "Esc", label: "Stop finding" }
+  ]
+  if (state === "drawer") return [
+    { keys: map.vertical ? alongKeys : arrows[map.into[0]] + " " + arrows[map.out[0]], label: "Move" },
+    { keys: "Enter", label: "Open" }, { keys: map.vertical ? arrows[map.out[0]] + " Esc" : "Esc", label: "Back" }
+  ]
+  return [
+    { keys: alongKeys, label: "Move" }, { keys: arrows[map.into[0]], label: drawers ? "Into a group or drawer" : "Into a group" },
+    { keys: "Tab", label: "Next zone" }, { keys: "Enter", label: "Open" }, { keys: "/", label: "Find" },
+    { keys: "?", label: "Shortcuts" }, { keys: "Esc", label: "Leave" }
+  ]
+}
+
+if (typeof module !== "undefined") module.exports = { ZONES, keymap, barIntent, drawerIntent, step, zoneStep, matches, legend }

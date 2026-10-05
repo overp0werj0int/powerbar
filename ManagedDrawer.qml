@@ -100,6 +100,9 @@ Item {
   property bool sourceHovered: false
   property bool entered: false
   property bool keyboardMode: false
+  // Opened from the bar's keyboard cursor (BarKeys.qml): it stays while the
+  // cursor is on it, and its keys go to the cursor's rules first.
+  property bool barKeysHeld: false
   property int cursor: 0
   property bool cursorActive: false
   readonly property bool selectionVisible: Model.cursorVisible(keyboardMode, cursorActive, slots.length)
@@ -146,7 +149,7 @@ Item {
     var cross = (along ? item.width : item.height) / 2
     return { item: item, local: along ? { x: cross, y: centre } : { x: centre, y: cross } }
   }
-  readonly property bool interactionHeld: keyboardMode || bar.dragMotionActive || slots.some(function(slot) { return slot.panelOpen })
+  readonly property bool interactionHeld: keyboardMode || barKeysHeld || bar.dragMotionActive || slots.some(function(slot) { return slot.panelOpen })
   // Menu padding, and the pitch a drag opens between rows.
   readonly property real padding: tokens.inset
   readonly property real rowPitch: tokens.thickness + tokens.inset
@@ -342,15 +345,18 @@ Item {
     if (drawer.stripVertical) viewport.contentY = next
     else viewport.contentX = next
   }
-  Keys.onEscapePressed: close()
-  Keys.onTabPressed: navigate(1)
-  Keys.onBacktabPressed: navigate(-1)
-  Keys.onLeftPressed: navigate(-1)
-  Keys.onUpPressed: navigate(-1)
-  Keys.onRightPressed: navigate(1)
-  Keys.onDownPressed: navigate(1)
-  Keys.onReturnPressed: if (slots[cursor]) slots[cursor].activate()
-  Keys.onSpacePressed: if (slots[cursor]) slots[cursor].activate()
+  Keys.onPressed: function(event) {
+    if (barKeysHeld && bar.barKeys.drawerKey(event)) { event.accepted = true; return }
+    switch (event.key) {
+    case Qt.Key_Escape: close(); break
+    case Qt.Key_Tab: navigate(event.modifiers & Qt.ShiftModifier ? -1 : 1); break
+    case Qt.Key_Backtab: case Qt.Key_Left: case Qt.Key_Up: navigate(-1); break
+    case Qt.Key_Right: case Qt.Key_Down: navigate(1); break
+    case Qt.Key_Return: case Qt.Key_Enter: case Qt.Key_Space: if (slots[cursor]) slots[cursor].activate(); break
+    default: return
+    }
+    event.accepted = true
+  }
 
   EffectSurface {
     anchors.fill: parent

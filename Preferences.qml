@@ -716,7 +716,7 @@ Item {
               }
               PrefsTile {
                 title: "Behavior"
-                span12: 6; span6: 3
+                span12: 4; span6: 3
                 PrefsToggle {
                   compact: true
                   label: "Autohide"
@@ -744,7 +744,7 @@ Item {
               }
               PrefsTile {
                 title: "On demand"
-                span12: 6; span6: 3
+                span12: 4; span6: 3
                 PrefsChoice {
                   compact: true
                   stacked: bento.columns !== 12
@@ -761,6 +761,24 @@ Item {
                   label: "Count on the dots"
                   checked: prefs.config.powerbarDotsBadge !== false
                   onToggled: function(checked) { prefs.setOption("powerbarDotsBadge", checked) }
+                }
+              }
+              // The keyboard mode (docs/bar-keys-lab): its shortcut, offered
+              // rather than bound, and the strip of keys it shows.
+              PrefsTile {
+                title: "Keyboard"
+                span12: 4; span6: 6
+                ShortcutRow {
+                  label: "Bar keyboard"
+                  store: prefs.shortcuts
+                  target: "bar:keys"
+                  suggested: "SUPER + B"
+                }
+                PrefsToggle {
+                  compact: true
+                  label: "Key legend"
+                  checked: prefs.config.powerbarKeyLegend !== false
+                  onToggled: function(checked) { prefs.setOption("powerbarKeyLegend", checked) }
                 }
               }
             }

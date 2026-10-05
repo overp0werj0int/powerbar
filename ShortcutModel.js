@@ -221,6 +221,8 @@ function luaString(s) { return '"' + String(s).replace(/\\/g, "\\\\").replace(/"
 function command(target) {
   if (target.indexOf("widget:") === 0) return "omarchy-shell shell toggle " + target.slice(7)
   if (target.indexOf("group:") === 0) return "omarchy-shell powerbar toggleGroup " + target.slice(6)
+  // The keyboard mode: a cursor on the focused monitor's bar.
+  if (target === "bar:keys") return "omarchy-shell powerbar keys"
   return ""
 }
 
