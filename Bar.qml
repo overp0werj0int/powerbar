@@ -4807,11 +4807,15 @@ Item {
       enabled: root.barDragSource === slot || (slot.mainVisible && slot.visible && slot.width > 0 && slot.height > 0)
       propagateComposedEvents: true
       // Hit-testing scans every click target, so it runs only while the
-      // pointer is over the slot: elsewhere the shape is never shown.
+      // pointer is over the slot: elsewhere the shape is never shown. The
+      // slot's own hover gives the position (this area is not hover-enabled,
+      // so mouseX only follows a press). No hover handler on this area: it
+      // sits above the widget and would keep the pointer from the widget's
+      // own buttons (their hover state and tooltips).
       cursorShape: dragging ? Qt.ClosedHandCursor
-        : !cursorHover.hovered && !pressed ? Qt.ArrowCursor
-        : root.moduleClickTargetAt(slot, mouseX, mouseY) ? Qt.PointingHandCursor : Qt.ArrowCursor
-      HoverHandler { id: cursorHover }
+        : !slotHover.hovered && !pressed ? Qt.ArrowCursor
+        : root.moduleClickTargetAt(slot, pressed ? mouseX : slotHover.point.position.x, pressed ? mouseY : slotHover.point.position.y)
+          ? Qt.PointingHandCursor : Qt.ArrowCursor
       // Do not assign drag.target here: ModuleSlot is owned by Row/Column
       // positioners, and mutating slot.x/slot.y can leave stale offsets that
       // make neighboring modules overlap after a small aborted drag.
