@@ -548,6 +548,12 @@ Item {
       })
       if (slot) root.targetWindow(slot).managedDrawer.openGroup(id, slot, true)
     }
+    // A group's shortcut: opens its drawer for the keyboard, or closes it.
+    function toggleGroup(id: string): void {
+      var owner = root.managedOwner
+      if (owner && owner.opened && owner.groupId === id) root.closeManagedDrawer()
+      else group(id)
+    }
     function groupsPreferences(): void { preferences(); preferencesPane.page = 2 }
     function popupStatus(): string {
       return JSON.stringify(root.popupPlacements.filter(function(record) { return record.panel && record.panel.open }).map(function(record) {

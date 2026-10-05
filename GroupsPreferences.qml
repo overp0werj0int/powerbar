@@ -368,6 +368,29 @@ Item {
             }
           }
         }
+        // The shortcut that opens its drawer, and what it means.
+        RowLayout {
+          Layout.fillWidth: true
+          Layout.bottomMargin: Style.space(4)
+          spacing: settingsGrid.columnSpacing
+          ShortcutRow {
+            id: shortcutRow
+            Layout.fillWidth: false
+            Layout.preferredWidth: settingsGrid.columnWidth
+            store: pane.preferences.shortcuts
+            target: pane.selectedGroup ? "group:" + pane.selectedGroup.id : ""
+            unavailable: pane.selectedGroup && pane.selectedGroup.visibility === "hidden" ? "Hidden groups can't open" : ""
+          }
+          Hint {
+            Layout.fillWidth: true
+            Layout.alignment: Qt.AlignVCenter
+            Layout.leftMargin: Style.spacing.rowPaddingX
+            Layout.rightMargin: Style.spacing.rowPaddingX
+            text: shortcutRow.message || (!pane.selectedGroup ? ""
+              : shortcutRow.unavailable ? "Put it on the bar or on demand to give it a shortcut"
+              : "Opens " + pane.selectedGroup.label + "'s drawer from anywhere, ready for the arrow keys")
+          }
+        }
       }
 
       // ---------------------------------------------------- the drawer

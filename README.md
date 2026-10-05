@@ -209,11 +209,34 @@ facade can still lose that service under a replacement bar; grouping does not
 change this host restriction.
 
 `omarchy-shell powerbar groupsPreferences` opens this page;
-`omarchy-shell powerbar group <id>` opens and pins a group on the focused monitor.
+`omarchy-shell powerbar group <id>` opens and pins a group on the focused monitor,
+and `omarchy-shell powerbar toggleGroup <id>` opens it or closes it again.
 
 Mini Bar's [reference design](https://github.com/JMThomas00/omarchy-mini-bar)
 informed these controls; Powerbar implements them in its own group model and
 existing drawer without adding a second widget host or helper daemon.
+
+## Shortcuts
+
+A widget's settings (Layout page) and a group's (Groups page) show the
+shortcut that opens it: Omarchy's own (Super+Ctrl+A opens Audio), one from your
+Hyprland files, one set in Powerbar, or the bar's place-based Super+Ctrl+1–9
+for a panel in the right zone. Enter or a click records new keys: Hyprland's
+own shortcuts pause (an empty submap that resets itself after 15 seconds;
+Super+Ctrl+Shift+Alt+Esc leaves it by hand) so every key reaches the row, and
+a shortcut needs Super, Ctrl or Alt unless it is an F-key. Keys another
+shortcut already has ask first: the row names what has them, and Enter takes
+them over. `x` removes a shortcut; Backspace brings back the one Omarchy or
+your files give it.
+
+Widgets keep Omarchy's command, `omarchy-shell shell toggle <id>`; a group runs
+`omarchy-shell powerbar toggleGroup <id>` and opens its drawer ready for the
+arrow keys. Changes are kept in `powerbarShortcuts` and written to
+`~/.config/hypr/powerbar.lua`, which unbinds each key it takes before binding
+it. The first change adds a marked block to `~/.config/hypr/hyprland.lua`
+(after a backup) that loads the file after Omarchy's defaults and your own
+bindings, then Hyprland reloads; a file Hyprland reports an error in is put
+back as it was. Dissolving a group drops its shortcut.
 
 ## Shadows and backdrop blur
 

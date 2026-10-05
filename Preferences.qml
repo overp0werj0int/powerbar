@@ -82,7 +82,12 @@ Item {
     refreshSnapshots()
     Qt.callLater(focusPage)
   }
+  // Widget and group shortcuts: read from Hyprland each time Preferences opens.
+  ShortcutStore { id: shortcutStore; bar: prefs.bar; preferences: prefs }
+  readonly property var shortcuts: shortcutStore
+  onOpenedChanged: if (opened && bar) shortcutStore.refresh()
   function close() {
+    shortcutStore.stopRecording()
     opened = false
     captureEpoch++
     snapshotBatch = ({})
