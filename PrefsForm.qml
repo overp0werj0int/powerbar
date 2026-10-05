@@ -21,7 +21,7 @@ Controls.ScrollView {
   }
   readonly property var tileHints: focusedTile && contains(focusedTile) ? focusedTile.tileHints : []
   readonly property var hints: [{ keys: "j k", label: "Move" }]
-    .concat(focusedTile && !focusedHints ? [{ keys: "tab", label: "Next tile" }] : [])
+    .concat(focusedTile && !focusedHints ? [{ keys: "tab shift+tab", label: "Next, previous tile" }] : [])
     .concat(focusedHints || [{ keys: "h l", label: "Adjust" }, { keys: "space", label: "Toggle" }])
     .concat(tileHints, [{ keys: "1-3", label: "Pages" }],
       focusedHints && focusedHints.some(function(h) { return h.keys === "esc" }) ? [] : [{ keys: "esc", label: "Close" }])
