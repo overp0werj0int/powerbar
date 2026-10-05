@@ -914,6 +914,16 @@ Item {
           value: panel.record ? panel.record.mode : ""
           onChosen: function(value) { editor.setPlacement(panel.record, panel.record.section, value) }
         }
+        // Opens its panel (a group: its drawer) from anywhere.
+        ShortcutRow {
+          padding: 0
+          store: editor.preferences.shortcuts
+          target: !panel.record ? "" : panel.isGroup ? "group:" + panel.record.groupId : "widget:" + panel.record.id
+          unavailable: !panel.record ? ""
+            : panel.record.mode === "hidden" ? (panel.isGroup ? "Hidden groups can't open" : "Hidden widgets can't open")
+            : panel.isGroup || editor.bar.findPanelWidget(panel.record.id) || store.ready && store.info(target).keys ? ""
+            : "Nothing to open"
+        }
       }
 
       // How it behaves on the bar.

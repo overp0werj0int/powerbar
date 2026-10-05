@@ -134,6 +134,8 @@ ShellRoot {
     if (scenario === "tooltip") return tooltipRun()
     if (scenario === "prefskeys") return prefsKeysRun()
     if (scenario === "toggle") return toggleRun()
+    if (scenario === "prefsshots") return prefsShotsRun()
+    if (scenario === "shortcut") return shortcutRun()
     if (scenario === "blur") return blurRun()
     if (scenario === "activity") return activityStep(0)
     if (scenario === "flash") return flashStep(0)
@@ -378,6 +380,77 @@ ShellRoot {
   } }
   Process { id: flagCheck; command: ["bash", "-c", "ls -A $HOME/.local/state/omarchy/toggles; echo end"]
     stdout: SplitParser { onRead: function(line) { shellRoot.log("TOGGLE flag-after", line); if (line === "end") shellRoot.finish() } } }
+
+  // A picture of each Preferences page (BENCH_SHOT=dir/name.png), after
+  // BENCH_PREFS_SETUP's JavaScript (given `prefs`) has run.
+  function prefsShotsRun() {
+    prefsPane = findPrefs()
+    if (!prefsPane || !prefsPane.pageItems) { log("no real preferences"); return finish() }
+    prefsPane.show(Quickshell.screens[0])
+    var q = []
+    for (var w = 0; w < 40; w++) q.push(function() {})
+    var setup = Quickshell.env("BENCH_PREFS_SETUP")
+    if (setup) q.push(function() { (new Function("prefs", "shell", setup))(prefsPane, shellRoot) })
+    var pages = (Quickshell.env("BENCH_PAGES") || "0,1,2").split(",").map(Number)
+    pages.forEach(function(page) {
+      q.push(function() { prefsPane.setPage(page) })
+      for (var w1 = 0; w1 < 30; w1++) q.push(function() {})
+      q.push(function() {
+        var file = Quickshell.env("BENCH_SHOT")
+        var top = prefsPane.pageItems[page]
+        while (top.parent && String(top.parent).indexOf("ProxyWindowContentItem") < 0) top = top.parent
+        top.grabToImage(function(r) { r.saveToFile(file.replace(/\.png$/, "") + "-page-" + (page + 1) + ".png") })
+      })
+      for (var w2 = 0; w2 < 10; w2++) q.push(function() {})
+    })
+    q.push(function() { prefsPane.close(); finish() })
+    prefsQueue = q
+    prefsTimer.start()
+  }
+
+  // A group's shortcut from the keyboard: record keys another bind has, take
+  // them over, remove, restore. Writes only to the bench's hypr copy.
+  property var shortcutRow: null
+  function rowState(label) {
+    var r = shortcutRow
+    log("SHORTCUT", label, "phase", r.phase, "tag", JSON.stringify(r.tag), "caps", JSON.stringify(r.shownCaps),
+      "config", JSON.stringify(shellConfig.bar.powerbarShortcuts || null), "busy", r.store.busy, "hints", JSON.stringify(r.keyHints.map(function(h) { return h.keys + ":" + h.label })))
+  }
+  function shortcutRun() {
+    prefsPane = findPrefs()
+    prefsPane.show(Quickshell.screens[0])
+    var q = []
+    function wait(n) { for (var i = 0; i < n; i++) q.push(function() {}) }
+    function key(k, mods, label) { q.push(function() { pointer.keyClick(k, mods || Qt.NoModifier) }); wait(2); q.push(function() { rowState(label) }) }
+    wait(40)
+    q.push(function() { prefsPane.setPage(1) })
+    wait(20)
+    q.push(function() {
+      shortcutRow = findAll(prefsPane.pageItems[1], function(i) { return i.store !== undefined && i.target !== undefined && i.phase !== undefined })[0]
+      shortcutRow.forceActiveFocus()
+      rowState("start " + shortcutRow.target)
+    })
+    key(Qt.Key_Return, 0, "enter")
+    key(Qt.Key_A, Qt.ShiftModifier, "shift+a")
+    key(Qt.Key_A, Qt.MetaModifier | Qt.ControlModifier, "super+ctrl+a")
+    key(Qt.Key_Return, 0, "take-over")
+    wait(60)
+    q.push(function() { rowState("saved") })
+    q.push(function() { filesProc.running = true })
+    wait(30)
+    key(Qt.Key_Return, 0, "enter-again")
+    key(Qt.Key_1, Qt.ControlModifier, "ctrl+1 (no page switch)")
+    q.push(function() { log("SHORTCUT page", prefsPane.page) })
+    key(Qt.Key_Escape, 0, "esc")
+    key(Qt.Key_X, 0, "x removes")
+    wait(60)
+    q.push(function() { rowState("removed") })
+    q.push(function() { prefsPane.close(); finish() })
+    prefsQueue = q
+    prefsTimer.start()
+  }
+  Process { id: filesProc; command: ["bash", "-c", "echo '--- powerbar.lua'; cat \"$POWERBAR_HYPR_DIR/powerbar.lua\"; echo '--- hyprland.lua tail'; tail -14 \"$POWERBAR_HYPR_DIR/hyprland.lua\"; ls \"$POWERBAR_HYPR_DIR\" | grep powerbar"]
+    stdout: SplitParser { onRead: function(line) { shellRoot.log("FILE", line) } } }
   property real prefsDropTotal: 0
   Timer { id: prefsTimer; interval: 16; repeat: true; onTriggered: { var f = shellRoot.prefsQueue.shift(); if (!shellRoot.prefsQueue.length) stop(); if (f) f() } }
 
