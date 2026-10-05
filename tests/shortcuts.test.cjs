@@ -161,12 +161,14 @@ test('the generated file takes keys over, moves or removes Omarchy shortcuts, an
   assert.match(m.render({ 'group:a"b': 'SUPER + B' }, d, {}), /toggleGroup a\\"b/);
 });
 
-test('recording enters an empty submap with a watchdog, and leaves only that submap', () => {
-  assert.match(m.recordLua(true), /hl\.dispatch\(hl\.dsp\.submap\("powerbar-record"\)\) hl\.timer\(function\(\) if hl\.get_current_submap\(\) == "powerbar-record"/);
-  assert.match(m.recordLua(true), /timeout = 15000, type = "oneshot"/);
+test('recording enters an empty submap (registering it when Hyprland has not), with a watchdog, and leaves only that submap', () => {
+  const lua = m.recordLua(true);
+  assert.match(lua, /^local function enter\(\) pcall\(function\(\) hl\.dispatch\(hl\.dsp\.submap\("powerbar-record"\)\) end\) end enter\(\) /);
+  assert.match(lua, /if hl\.get_current_submap\(\) ~= "powerbar-record" then hl\.define_submap\("powerbar-record", function\(\) hl\.bind\("SUPER \+ CTRL \+ SHIFT \+ ALT \+ ESCAPE", hl\.dsp\.submap\("reset"\)\) end\) enter\(\) end /);
+  assert.match(lua, /hl\.timer\(function\(\) if hl\.get_current_submap\(\) == "powerbar-record"/);
+  assert.match(lua, /timeout = 15000, type = "oneshot"/);
   assert.equal(m.recordLua(false), 'if hl.get_current_submap() == "powerbar-record" then hl.dispatch(hl.dsp.submap("reset")) end');
 });
-
 test("the user's own files add shortcuts and win over Omarchy's for the same widget", () => {
   const mine = 'o.bind("SUPER + SLASH", "Everything", "omarchy-shell shell toggle b.everything")\n'
     + 'hl.bind("SUPER + CTRL + M", hl.dsp.exec_cmd("omarchy-shell shell toggle omarchy.audio"), { description = "Audio" })';

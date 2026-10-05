@@ -277,11 +277,18 @@ var BLOCK = [
   "-- <<< powerbar <<<"
 ].join("\n")
 
-// Lua for `hyprctl eval`: enter the recording submap with a watchdog, or leave it.
+// Lua for `hyprctl eval`: enter the recording submap with a watchdog, or leave
+// it. Hyprland only enters a registered submap, and powerbar.lua (which
+// registers it) does not exist before the first change, so a submap that did
+// not take is registered on the spot and entered again. A failed entry is
+// reported, not raised: the check is the current submap.
 function recordLua(start) {
   var leave = "if hl.get_current_submap() == " + luaString(SUBMAP) + " then hl.dispatch(hl.dsp.submap(\"reset\")) end"
   if (!start) return leave
-  return "hl.dispatch(hl.dsp.submap(" + luaString(SUBMAP) + ")) hl.timer(function() " + leave + " end, { timeout = 15000, type = \"oneshot\" })"
+  return "local function enter() pcall(function() hl.dispatch(hl.dsp.submap(" + luaString(SUBMAP) + ")) end) end enter() "
+    + "if hl.get_current_submap() ~= " + luaString(SUBMAP) + " then hl.define_submap(" + luaString(SUBMAP)
+    + ", function() hl.bind(\"SUPER + CTRL + SHIFT + ALT + ESCAPE\", hl.dsp.submap(\"reset\")) end) enter() end "
+    + "hl.timer(function() " + leave + " end, { timeout = 15000, type = \"oneshot\" })"
 }
 
 if (typeof module !== "undefined") module.exports = { MODS, MASK, DESCRIPTION, SUBMAP, BLOCK, BLOCK_START, parse, format, normalize, same, caps, label,
