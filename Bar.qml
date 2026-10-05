@@ -21,11 +21,17 @@ import "InlineQueue.js" as InlineQueue
 import "RenderModel.js" as RenderModel
 import "ZoneOrderModel.js" as ZoneOrderModel
 import "GlyphModel.js" as GlyphModel
+import "ShortcutModel.js" as ShortcutModel
+import "BarKeysModel.js" as KeysModel
 
 Item {
   id: root
 
   Preferences { id: preferencesPane; bar: root }
+  // The keyboard mode (Super+B): a cursor on the bar (BarKeys.qml).
+  BarKeys { id: barKeysItem; bar: root }
+  readonly property var barKeys: barKeysItem
+  readonly property bool preferencesOpen: preferencesPane.opened
   readonly property bool animationsEnabled: barConfig.powerbarAnimations !== false
   // Neighbours make way over a time that grows with the gap (150 ms for an
   // icon, at most 260 ms), so wide widgets never sweep their neighbours.
@@ -372,6 +378,8 @@ Item {
   // hovered ("drawer"), or wait behind the zone's dots and expand in the bar
   // when the dots are hovered ("inline"; docs/zone-fit-implementation.md).
   readonly property bool onDemandInline: barConfig.powerbarOnDemand === "inline"
+  // The keyboard mode's key strip (Preferences → Bar → Keyboard).
+  readonly property bool keyLegend: barConfig.powerbarKeyLegend !== false
   // The count badge on a zone's dots (drawer handle and yield marker).
   readonly property bool dotsBadge: barConfig.powerbarDotsBadge !== false
   onOnDemandInlineChanged: closeManagedDrawer()
@@ -540,6 +548,9 @@ Item {
     }
     function managed(zone: string): void { root.openManagedZone(zone) }
     function closeManaged(): void { root.closeManagedDrawer() }
+    // The keyboard mode on the focused monitor's bar (Super+B by default).
+    function keys(): void { root.barKeys.toggle() }
+    function keysStatus(): string { return JSON.stringify(root.barKeys.status()) }
     function group(id: string): void {
       var slot = root.moduleSlots.find(function(s) {
         if (!s.groupHeader || s.entry.powerbarGroupId !== id) return false
@@ -633,7 +644,10 @@ Item {
   // Mirrors the on-disk `bar-off` flag so the user can hide the bar without
   // killing the entire shell. Hidden panels stay mapped but park off-screen
   // without an exclusion zone; updated by the FileView watcher further down.
-  property bool barHidden: false
+  property bool barOffFlag: false
+  // The keyboard mode shows a switched-off bar while it lasts; the flag itself
+  // is never touched.
+  readonly property bool barHidden: barOffFlag && !barKeysItem.active
   property string home: Quickshell.env("HOME")
   property string stateHome: home + "/.local/state"
   property string omarchyConfigDir: home + "/.config/omarchy"
@@ -1125,6 +1139,8 @@ Item {
   }
 
   function targetTooltipHovered(target) {
+    // The keyboard cursor's name card stays while the cursor is there.
+    if (!!target && barKeysItem.here && target === barKeysItem.cursor) return true
     return !!target && target.visible !== false && target.opacity !== 0 && target.tooltipHovered === true
   }
 
@@ -1985,6 +2001,42 @@ Item {
     return items
   }
 
+  // The bar window on the monitor Hyprland has focused.
+  function focusedBarWindow() {
+    var name = focusedScreenName(), first = null
+    for (var i = 0; i < moduleSlots.length; i++) {
+      var w = targetWindow(moduleSlots[i])
+      if (!w || !w.screen) continue
+      if (!first) first = w
+      if (String(w.screen.name || "") === name) return w
+    }
+    return first
+  }
+  // What a slot is called: a group's label, a widget's name.
+  function slotName(slot) {
+    if (!slot) return ""
+    if (slot.groupHeader) return slot.groupConfig ? slot.groupConfig.label : ""
+    return slot.displayName || String(slot.moduleName || "").split(".").pop()
+  }
+  // A widget's or group's shortcut as keycaps text ("Super Ctrl A"), or "".
+  function shortcutLabel(target) {
+    var store = preferencesPane.shortcuts
+    if (!store || !store.ready) return ""
+    var info = store.info(target)
+    var keys = info && info.keys ? info.keys : info && info.positional ? info.positional : ""
+    return keys ? ShortcutModel.label(keys) : ""
+  }
+  function refreshShortcuts() { if (preferencesPane.shortcuts) preferencesPane.shortcuts.refresh() }
+  // The keyboard cursor's name card: the bar's tooltip, shown at once.
+  function showCard(target, text) {
+    clearTooltip()
+    if (!target || !text) return
+    tooltipTarget = target
+    tooltipText = text
+    tooltipShown = true
+  }
+  function hideCard() { clearTooltip() }
+
   function slotScreenName(slot) {
     var window = slotWindow(slot)
     return window && window.screen ? String(window.screen.name || "") : ""
@@ -2681,8 +2733,8 @@ Item {
       var off = String(line).trim() === "yes"
       // Autohide: Omarchy's bar toggle (Super+Shift+Space) reveals the bar
       // instead of hiding it for good, and the flag goes back off.
-      if (off && !root.barHidden && root.autoHide) root.revealFromToggle()
-      else root.barHidden = off
+      if (off && !root.barOffFlag && root.autoHide) root.revealFromToggle()
+      else root.barOffFlag = off
     } }
   }
 
@@ -2984,6 +3036,7 @@ Item {
     // yielded or hidden under an expansion the drag has moved past.
     readonly property bool inlineDragHere: !!root.barDragSource && root.barDragZone === inlineZoneName
     readonly property bool inlineInteraction: inlineZone !== "" && (inlineDragHere
+      || root.barKeys.heldBy(barWindow) && root.barKeys.zone === inlineZoneName
       || (drawer.presenting && !!drawer.groupId)
       || moduleItems.some(function(s) { return s && s.region === barWindow.inlineZoneName && s.panelOpen }))
     onInlineHoveredChanged: inlineSchedule()
@@ -3190,6 +3243,7 @@ Item {
     readonly property bool autoHideHeld: windowHover.hovered || edgeHover.hovered || drawer.opened
       || (!!root.activePopout && root.sameWindow(root.targetWindow(root.activePopout), barWindow))
       || !!root.barDragSource || root.barDragSettling || root.barMoveActive || preferencesPane.opened || root.toggleHeld
+      || root.barKeys.heldBy(barWindow)
     property bool autoHideRevealed: false
     onAutoHideHeldChanged: {
       if (autoHideHeld) {
@@ -3289,7 +3343,19 @@ Item {
     WlrLayershell.namespace: root.surfaceEffects.blur ? "powerbar" : "powerbar-clear"
     WlrLayershell.layer: WlrLayer.Top
 
-    WlrLayershell.keyboardFocus: drawer.opened && drawer.keyboardMode ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
+    // The keyboard: a keyboard-opened drawer's, or the keyboard mode's cursor
+    // (not while a panel it opened has the keys).
+    readonly property bool keysHere: root.barKeys.heldBy(barWindow) && !root.barKeys.suspended
+    // As Omarchy's keyboard panels do: Exclusive takes the keyboard, then
+    // OnDemand keeps it. Exclusive alone would send every click to the bar,
+    // so the dismiss layer below (under the pointer everywhere off the bar)
+    // could never see one.
+    property bool keysFocusPrimed: false
+    onKeysHereChanged: { keysFocusPrimed = false; if (keysHere) keysPrime.restart(); else keysPrime.stop() }
+    Timer { id: keysPrime; interval: 200; onTriggered: barWindow.keysFocusPrimed = barWindow.keysHere }
+    readonly property int keyboardFocusMode: keysHere ? (keysFocusPrimed ? WlrKeyboardFocus.OnDemand : WlrKeyboardFocus.Exclusive)
+      : drawer.opened && drawer.keyboardMode ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
+    WlrLayershell.keyboardFocus: keyboardFocusMode
     mask: Region {
       x: mainStrip.x; y: mainStrip.y
       width: mainStrip.width; height: mainStrip.height
@@ -3307,7 +3373,7 @@ Item {
     HyprlandFocusGrab {
       // Hover drawers must stay passive so wheel input reaches other windows.
       // Only an explicitly opened keyboard drawer needs outside-click dismissal.
-      active: drawer.opened && drawer.keyboardMode && drawer.grabReady && !root.activePopout
+      active: drawer.opened && drawer.keyboardMode && drawer.grabReady && !root.activePopout && !barWindow.keysHere
       windows: [barWindow]
       onCleared: drawer.close()
     }
@@ -3373,6 +3439,15 @@ Item {
     // is whatever widget sits on top (the centre's hover reveal).
     readonly property var barPointer: windowHover
 
+    // The keyboard mode's keys (BarKeys.qml); a key let go unfolds a group
+    // under the cursor, so a held key sweeping past never flashes one.
+    readonly property Item keyCatcher: keyCatcherItem
+    Item {
+      id: keyCatcherItem
+      Keys.onPressed: function(event) { if (root.barKeys.barKey(event)) event.accepted = true }
+      Keys.onReleased: function(event) { if (!event.isAutoRepeat) root.barKeys.released() }
+    }
+
     Item {
       x: mainStrip.x; y: mainStrip.y
       width: mainStrip.width; height: mainStrip.height
@@ -3414,6 +3489,170 @@ Item {
               hoverColor: root.highlightHoverColor
               selectedColor: root.highlightSelectedColor
               rounding: root.highlightRadius
+            }
+          }
+        }
+      }
+    }
+
+    // While the keyboard mode lasts, a click anywhere off the bar (and off a
+    // drawer it opened) ends it, as a click outside dismisses Omarchy's
+    // keyboard panels, so the keys are never trapped. The click is spent there.
+    PanelWindow {
+      id: keysDismiss
+      screen: barWindow.screen
+      visible: barWindow.keysHere
+      color: "transparent"
+      exclusionMode: ExclusionMode.Ignore
+      WlrLayershell.namespace: "powerbar-keys-dismiss"
+      WlrLayershell.layer: WlrLayer.Top
+      WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
+      anchors { top: true; bottom: true; left: true; right: true }
+      // Everything but the bar strip and an open drawer. The bar window sits
+      // at its edge of the screen, so its corner is the screen's size less its own.
+      readonly property real barX: root.position === "right" ? width - barWindow.width : 0
+      readonly property real barY: root.position === "bottom" ? height - barWindow.height : 0
+      mask: Region {
+        width: keysDismiss.width; height: keysDismiss.height
+        Region {
+          x: keysDismiss.barX + mainStrip.x; y: keysDismiss.barY + mainStrip.y
+          width: mainStrip.width; height: mainStrip.height
+          intersection: Intersection.Subtract
+        }
+        Region {
+          x: keysDismiss.barX + drawer.x; y: keysDismiss.barY + drawer.y
+          width: drawer.opened ? drawer.width : 0; height: drawer.opened ? drawer.height : 0
+          intersection: Intersection.Subtract
+        }
+      }
+      MouseArea {
+        anchors.fill: parent
+        acceptedButtons: Qt.AllButtons
+        onPressed: root.barKeys.leave()
+      }
+    }
+
+    // The keyboard mode's key strip (docs/bar-keys-lab): at the far edge from
+    // the bar (along the bottom for a side bar), so panels and drawers that
+    // open beside the bar are never under it. It shows this edge's keys, the
+    // search while finding, and every shortcut on ?.
+    PanelWindow {
+      id: keysStrip
+      readonly property var keys: root.barKeys
+      readonly property bool wanted: keys.heldBy(barWindow) && !keys.suspended && (root.keyLegend || keys.searching || keys.sheet)
+      screen: barWindow.screen
+      visible: wanted
+      color: "transparent"
+      exclusionMode: ExclusionMode.Ignore
+      WlrLayershell.namespace: "powerbar-keys"
+      WlrLayershell.layer: WlrLayer.Overlay
+      WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
+      mask: Region {}
+      anchors.bottom: root.position !== "bottom"
+      anchors.top: root.position === "bottom"
+      margins.bottom: root.position !== "bottom" ? Style.space(24) : 0
+      margins.top: root.position === "bottom" ? Style.space(24) : 0
+      implicitWidth: Math.ceil(stripCard.implicitWidth)
+      implicitHeight: Math.ceil(stripCard.implicitHeight)
+      readonly property var entries: wanted ? KeysModel.legend(root.position, keys.mode, !root.onDemandInline) : []
+      readonly property var sheetEntries: wanted && keys.sheet ? keys.sheetEntries() : []
+      BorderSurface {
+        id: stripCard
+        anchors.centerIn: parent
+        implicitWidth: stripColumn.implicitWidth + Style.space(24)
+        implicitHeight: stripColumn.implicitHeight + Style.space(16)
+        radius: Style.cornerRadius
+        color: Qt.alpha(Color.popups.background, 0.84)
+        borderSpec: Border.surfaceSpec("popups", "border", Color.popups.border, 1)
+        Column {
+          id: stripColumn
+          anchors.centerIn: parent
+          spacing: Style.space(10)
+          // ?: every widget's own shortcut on this bar.
+          Column {
+            visible: keysStrip.keys.sheet
+            spacing: Style.space(4)
+            Text {
+              text: keysStrip.sheetEntries.length ? "Shortcuts" : "No widget on this bar has a shortcut yet. Set them in Preferences → Layout."
+              color: Color.popups.text
+              font.family: Style.font.family
+              font.pixelSize: Style.font.bodySmall
+              font.bold: keysStrip.sheetEntries.length > 0
+            }
+            Grid {
+              columns: 2
+              columnSpacing: Style.space(16)
+              rowSpacing: Style.space(4)
+              Repeater {
+                model: keysStrip.sheetEntries.length * 2
+                Text {
+                  required property int index
+                  readonly property var entry: keysStrip.sheetEntries[Math.floor(index / 2)]
+                  text: entry ? (index % 2 ? entry.keys : entry.name) : ""
+                  color: index % 2 ? Color.popups.text : Qt.alpha(Color.popups.text, 0.7)
+                  font.family: Style.font.family
+                  font.pixelSize: Style.font.bodySmall
+                }
+              }
+            }
+          }
+          // /: what is typed, and whether anything matches.
+          Row {
+            visible: keysStrip.keys.searching
+            spacing: Style.space(8)
+            Text {
+              text: "Find"
+              color: Qt.alpha(Color.popups.text, 0.7)
+              font.family: Style.font.family
+              font.pixelSize: Style.font.bodySmall
+              anchors.verticalCenter: parent.verticalCenter
+            }
+            BorderSurface {
+              width: Math.max(Style.space(140), queryText.implicitWidth + Style.space(16))
+              height: queryText.implicitHeight + Style.space(8)
+              radius: Math.min(Style.cornerRadius, Style.space(4))
+              color: Qt.alpha(Color.popups.text, 0.06)
+              borderSpec: Border.flat(Color.accent, 1)
+              Text {
+                id: queryText
+                x: Style.space(8)
+                anchors.verticalCenter: parent.verticalCenter
+                text: keysStrip.keys.query + "▏"
+                color: Color.popups.text
+                font.family: Style.font.family
+                font.pixelSize: Style.font.body
+              }
+            }
+            Text {
+              readonly property bool none: keysStrip.keys.query !== "" && keysStrip.keys.matchCount === 0
+              text: keysStrip.keys.query === "" ? "Type part of a name" : none ? "No widget named that"
+                : keysStrip.keys.matchCount === 1 ? "1 match" : (keysStrip.keys.matchIndex + 1) + " of " + keysStrip.keys.matchCount
+              color: none ? Color.urgent : Qt.alpha(Color.popups.text, 0.7)
+              font.family: Style.font.family
+              font.pixelSize: Style.font.bodySmall
+              anchors.verticalCenter: parent.verticalCenter
+            }
+          }
+          // The keys for where the cursor is.
+          Row {
+            spacing: Style.space(14)
+            Repeater {
+              model: keysStrip.entries
+              Row {
+                required property var modelData
+                spacing: Style.space(5)
+                Repeater {
+                  model: String(modelData.keys).split(" ")
+                  KeyCap { required property var modelData; text: modelData }
+                }
+                Text {
+                  text: modelData.label
+                  color: Qt.alpha(Color.popups.text, 0.75)
+                  font.family: Style.font.family
+                  font.pixelSize: Style.font.bodySmall
+                  anchors.verticalCenter: parent.verticalCenter
+                }
+              }
             }
           }
         }
@@ -4059,9 +4298,19 @@ Item {
     Accessible.name: label
     Keys.onReturnPressed: if (drawerRef) drawerRef.openZone(zone, true)
     Keys.onSpacePressed: if (drawerRef) drawerRef.openZone(zone, true)
+    readonly property bool keysCursor: root.barKeys.here && root.barKeys.cursor === foldHandle
+    Rectangle {
+      x: handleHighlight.x; y: handleHighlight.y; width: handleHighlight.width; height: handleHighlight.height
+      radius: handleHighlight.radius
+      z: 3
+      visible: foldHandle.keysCursor
+      color: "transparent"
+      border.width: 1.5
+      border.color: Color.accent
+    }
     HoverHighlight {
       id: handleHighlight
-      hovered: (handleMouse.containsMouse || foldHandle.activeFocus) && !root.barDragSource && !root.barHidden
+      hovered: (handleMouse.containsMouse || foldHandle.activeFocus || foldHandle.keysCursor) && !root.barDragSource && !root.barHidden
       selected: foldHandle.drawerOpen || foldHandle.dropTarget
       motionEnabled: root.animationsEnabled
       hoverColor: root.highlightHoverColor
@@ -4765,12 +5014,26 @@ Item {
     // It is drawn in the zone's highlight layer, beneath the widgets. The layer
     // moves with its zone, so the highlight re-places only when geometry
     // changes, never per frame.
+    // The keyboard cursor: the slot's highlight plus the accent ring the
+    // drawer's keyboard cursor draws; it never animates.
+    readonly property bool keysCursor: root.barKeys.here && root.barKeys.cursor === slot && !slot.drawerHost
+      && !(root.barKeys.drawer && !root.barKeys.previewing)
+    Rectangle {
+      parent: barHighlight.parent
+      x: barHighlight.x; y: barHighlight.y; width: barHighlight.width; height: barHighlight.height
+      radius: barHighlight.radius
+      z: 3
+      visible: slot.keysCursor && slot.mainVisible
+      color: "transparent"
+      border.width: 1.5
+      border.color: Color.accent
+    }
     HoverHighlight {
       id: barHighlight
       readonly property var hostWindow: root.targetWindow(slot)
       readonly property Item hostLayer: hostWindow && hostWindow.highlightLayers ? hostWindow.highlightLayers[slot.region] || null : null
       parent: hostLayer || presentation
-      hovered: (slot.hovered || slot.activityFlash || slot.preview.into) && slot.mainVisible && !slot.dragSource && !root.barHidden && !preferencesPane.opened
+      hovered: (slot.hovered || slot.activityFlash || slot.preview.into || slot.keysCursor) && slot.mainVisible && !slot.dragSource && !root.barHidden && !preferencesPane.opened
       // A group icon shows the open fill while its drawer is open.
       selected: (slot.panelOpen || slot.drawerOpen) && !slot.dragSource
       motionEnabled: root.animationsEnabled

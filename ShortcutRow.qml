@@ -17,6 +17,10 @@ BorderSurface {
   // Why it can't have one (a hidden widget, no panel to open); "" when it can.
   property string unavailable: ""
   property string label: "Shortcut"
+  // Keys offered while nothing is bound ("SUPER + B"): drawn faded with
+  // "Suggested"; Enter takes them (checked for clashes), Space records others.
+  property string suggested: ""
+  readonly property bool suggesting: phase === "idle" && usable && !!suggested && !info.keys && !info.positional && info.source !== "removed"
   // Where the label starts: compact rows indent; beside unindented choices, 0.
   property real padding: Style.spacing.rowPaddingX
 
@@ -31,7 +35,7 @@ BorderSurface {
   readonly property bool ownsFocusRing: phase !== "idle"
   readonly property string shownKeys: phase === "confirm" ? captured
     : phase === "recording" ? Shortcuts.format({ mask: heldMods, key: "" }).replace(/ \+ $/, "")
-    : info.keys || info.positional
+    : info.keys || info.positional || (suggesting ? suggested : "")
   readonly property var shownCaps: phase === "recording"
     ? Shortcuts.caps(Shortcuts.format({ mask: heldMods, key: "X" })).slice(0, -1) : Shortcuts.caps(shownKeys)
 
@@ -45,6 +49,7 @@ BorderSurface {
     : info.source === "config" ? "Your Hyprland's"
     : info.source === "yours" ? ""
     : info.positional ? "By its place"
+    : suggesting ? "Suggested"
     : info.source === "removed" ? "None, " + Shortcuts.label(info.fallback) + " removed"
     : "None"
   readonly property string message: store.error ? store.error
@@ -61,6 +66,7 @@ BorderSurface {
   readonly property var keyHints: phase === "recording" ? [{ keys: "esc", label: "Cancel" }]
     : phase === "confirm" ? [{ keys: "enter", label: "Take over" }, { keys: "esc", label: "Keep it there" }]
     : !usable ? []
+    : suggesting ? [{ keys: "enter", label: "Use " + Shortcuts.label(suggested) }, { keys: "space", label: "Choose others" }]
     : [{ keys: "enter", label: info.keys ? "Change" : "Set" }]
       .concat(info.keys ? [{ keys: "x", label: "Remove" }] : [])
       .concat((info.source === "yours" || info.source === "removed") && info.fallback !== ""
@@ -146,7 +152,8 @@ BorderSurface {
       return
     }
     if (!row.usable) return
-    if ((key === Qt.Key_Return || key === Qt.Key_Enter || key === Qt.Key_Space) && plain) { row.record(); event.accepted = true }
+    if ((key === Qt.Key_Return || key === Qt.Key_Enter) && plain && row.suggesting) { row.take(row.suggested); event.accepted = true }
+    else if ((key === Qt.Key_Return || key === Qt.Key_Enter || key === Qt.Key_Space) && plain) { row.record(); event.accepted = true }
     else if ((key === Qt.Key_X || key === Qt.Key_Delete) && plain && row.info.keys) { row.remove(); event.accepted = true }
     else if (key === Qt.Key_Backspace && plain && (row.info.source === "yours" || row.info.source === "removed")) { row.store.restore(row.target); event.accepted = true }
   }

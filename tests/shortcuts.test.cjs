@@ -179,3 +179,12 @@ test("the user's own files add shortcuts and win over Omarchy's for the same wid
   const binds = m.parseBinds(hyprctl).concat([{ keys: 'SUPER + SLASH', mask: 64, key: 'SLASH', description: 'Everything', submap: '' }]);
   assert.equal(m.effective('widget:b.everything', {}, d, binds).source, 'config');
 });
+
+test('the bar keyboard target binds the keys IPC', () => {
+  const sm = require('../ShortcutModel.js');
+  assert.equal(sm.command('bar:keys'), 'omarchy-shell powerbar keys');
+  const lua = sm.render({ 'bar:keys': 'SUPER + B' }, { widgets: [], positions: [] }, { 'bar:keys': 'Bar keyboard' });
+  assert.match(lua, /hl\.bind\("SUPER \+ B", hl\.dsp\.exec_cmd\("omarchy-shell powerbar keys"\), \{ description = "Powerbar: Bar keyboard" \}\)/);
+  assert.deepEqual(sm.effective('bar:keys', {}, { widgets: [], positions: [] }, []), { keys: '', source: 'none', fallback: '' });
+});
+
