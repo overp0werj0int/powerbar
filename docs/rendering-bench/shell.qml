@@ -52,6 +52,8 @@ ShellRoot {
     property var bar; property string moduleName; property var settings
     Repeater { model: 3; WidgetButton { required property int index; bar: ind.bar; text: ["󰍬", "󰂚", "󰖩"][index] } }
   } }
+  // Omarchy's own indicators (BENCH_REAL_INDICATORS=1), for hover and tooltips.
+  property Component realIndicators: Qt.createComponent("file:///usr/share/omarchy/shell/plugins/bar/widgets/Indicators.qml")
   QtObject {
     id: registry
     property var widgets: ({})
@@ -61,7 +63,7 @@ ShellRoot {
   function kindFor(id) {
     if (id === "omarchy.clock") return clockWidget
     if (id === "omarchy.workspaces") return workspacesWidget
-    if (id === "omarchy.indicators") return indicatorsWidget
+    if (id === "omarchy.indicators") return Quickshell.env("BENCH_REAL_INDICATORS") === "1" ? realIndicators : indicatorsWidget
     if (id === "omarchy.network") return valueWidget
     if (id === "omarchy.power" || id === "omarchy.keyboard-layout") return textWidget
     return glyphWidget
@@ -129,6 +131,7 @@ ShellRoot {
     if (scenario === "sliders") return slidersRun()
     if (scenario === "inline") return inlineRun()
     if (scenario === "hover") return hoverRun()
+    if (scenario === "tooltip") return tooltipRun()
     if (scenario === "blur") return blurRun()
     if (scenario === "activity") return activityStep(0)
     if (scenario === "flash") return flashStep(0)
@@ -520,9 +523,47 @@ ShellRoot {
     hoverStep()
   }
   property var hoverSteps: []
+  // Hover each indicator button in turn (after opening the centre reveal on
+  // the clock) and log whether its tooltip shows.
+  function tooltipRun() {
+    var w = bar.slotWindow(bar.moduleSlots[0])
+    var ind = slotByName("omarchy.indicators"), clock = slotByName("omarchy.clock")
+    var steps = [{ label: "clock", target: clock, wait: 600 }]
+    hoverSteps = steps
+    tooltipQueue = []
+    hoverStepThen(function() {
+      var buttons = findAll(ind, function(i) { return i.tooltipHovered !== undefined && i.visible && i.width > 0 })
+      log("TIP buttons", buttons.length, buttons.map(function(b) { return (b.moduleName || "?") + ":" + b.text.codePointAt(0) + ":op" + b.opacity.toFixed(2) + ":" + JSON.stringify(b.tooltipText) }).join(" "))
+      var others = findAll(slotByName("omarchy.clock"), function(i) { return i.tooltipHovered !== undefined })
+        .concat(findAll(slotByName("omarchy.keyboard-layout"), function(i) { return i.tooltipHovered !== undefined }))
+      tooltipQueue = others.concat(buttons)
+      tooltipNext()
+    })
+  }
+  property var tooltipQueue: []
+  function tooltipNext() {
+    var b = tooltipQueue.shift()
+    if (!b) return finish()
+    var w = bar.slotWindow(bar.moduleSlots[0])
+    var c = centreOf(b, w.contentItem)
+    pointer.mouseMove(w.contentItem, c.x, c.y)
+    log("TIP move", b.moduleName, Math.round(c.x), Math.round(c.y))
+    hoverState("moved-" + b.moduleName)
+    tipTimer.button = b
+    tipTimer.start()
+  }
+  Timer { id: tipTimer; property var button; interval: 700; onTriggered: {
+    var b = button
+    shellRoot.log("TIP", b.moduleName, "hovered", b.tooltipHovered, "concealed", b.concealed, "interactive", b.interactive, "op", b.opacity.toFixed(2),
+      "target", shellRoot.bar.tooltipTarget === b, "shown", shellRoot.bar.tooltipShown, "text", JSON.stringify(shellRoot.bar.tooltipText), "held", shellRoot.bar.centerSectionRevealHeld)
+    shellRoot.hoverState("after-" + b.moduleName)
+    shellRoot.tooltipNext()
+  } }
+  property var hoverThen: null
+  function hoverStepThen(f) { hoverThen = f; hoverStep() }
   function hoverStep() {
     var step = hoverSteps.shift()
-    if (!step) return finish()
+    if (!step) { if (hoverThen) { var f = hoverThen; hoverThen = null; return f() } return finish() }
     var w = bar.slotWindow(bar.moduleSlots[0])
     var c = centreOf(step.target, w.contentItem)
     pointer.mouseMove(w.contentItem, c.x, c.y)
