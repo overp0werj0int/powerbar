@@ -140,6 +140,7 @@ ShellRoot {
     if (scenario === "prefsshots") return prefsShotsRun()
     if (scenario === "shortcut") return shortcutRun()
     if (scenario === "stack") return stackRun()
+    if (scenario === "dragdots") return dragDotsRun()
     if (scenario === "blur") return blurRun()
     if (scenario === "activity") return activityStep(0)
     if (scenario === "flash") return flashStep(0)
@@ -857,4 +858,110 @@ ShellRoot {
     settingsTimer.start()
   }
   Timer { id: settingsTimer; property int n: 0; interval: 60; onTriggered: shellRoot.settingsStep(n) }
+  // Drag over the dots with real pointer events (BENCH_DRAG: "<widget> <path>",
+  // path a list of waypoints: a zone's dots token, "slot:<widget>", or
+  // "rest:<ms>"). Logs every change of the expansion, springs and drop target.
+  property var dotsSteps: []
+  property string dragLogLast: ""
+  function dragDots() {
+    var w = bar.slotWindow(bar.moduleSlots[0])
+    return findAll(w.contentItem, function(i) { return i.isFoldHandle === true })
+  }
+  function dragInfo() {
+    var w = bar.slotWindow(bar.moduleSlots[0])
+    var d = bar.barDragDrop
+    var drop = !d ? "-" : d.handle ? "dots:" + d.handleToken : d.slot ? (d.into ? "into:" : "at:") + d.slot.moduleName.split(".").pop() + (d.after ? "+" : "-")
+      : d.zone ? "zone:" + d.zone : d.drawer ? "drawer" : d.source ? "source" : JSON.stringify(d)
+    var dots = dragDots().filter(function(h) { return h.shown && h.visible }).map(function(h) {
+      var c = centreOf(h, w.contentItem)
+      return h.inlineToken + "@" + Math.round(bar.vertical ? c.y : c.x) + (h.fitYielded ? "y" : "") + (h.opacity < 1 ? "o" + h.opacity.toFixed(1) : "")
+    }).join(" ")
+    var f = w.zoneFit || {}
+    return "src " + (bar.barDragSource ? bar.barDragSource.moduleName.split(".").pop() : "-") + " req " + (w.inlineRequest || "-") + " zone " + (w.inlineZone || "-") + " handle " + (w.inlineHandleZone || "-")
+      + " spring " + (bar.springHandleZone || "-") + " drop " + drop + " hidden " + JSON.stringify(f.hidden || {})
+      + " drawer " + (w.managedDrawer.opened ? w.managedDrawer.zone || w.managedDrawer.groupId : "-") + " dots [" + dots + "]"
+  }
+  function dragLog(label, force) {
+    var info = dragInfo()
+    if (!force && info === dragLogLast) return
+    dragLogLast = info
+    log("DRAG", label, info)
+  }
+  function dragTarget(spec) {
+    var w = bar.slotWindow(bar.moduleSlots[0])
+    // "pt:<along>": a fixed point along the bar, on the bar's centre line.
+    if (spec.indexOf("pt:") === 0) {
+      var along = +spec.slice(3), across = centreOf(bar.moduleSlots[0], w.contentItem)
+      return bar.vertical ? { x: across.x, y: along } : { x: along, y: across.y }
+    }
+    if (spec.indexOf("slot:") === 0) { var s = slotByName(spec.slice(5)); return s ? centreOf(s, w.contentItem) : null }
+    var all = dragDots().filter(function(x) { return x.inlineToken === spec })
+    var h = all.find(function(x) { return x.shown && x.visible }) || all.find(function(x) { return x.visible }) || all[0]
+    return h ? centreOf(h, w.contentItem) : null
+  }
+  function dragHandles() {
+    var w = bar.slotWindow(bar.moduleSlots[0])
+    dragDots().forEach(function(h) {
+      var c = centreOf(h, w.contentItem), op = 1, vis = true
+      for (var p = h; p; p = p.parent) { op *= p.opacity; vis = vis && p.visible }
+      log("HANDLE", h.inlineToken, "shown", h.shown, "count", h.count, "active", h.active, "at", Math.round(c.x), Math.round(c.y), "size", h.width, h.height, "eff-op", op.toFixed(2), "vis", vis, "list", h.parent && h.parent.listRole)
+    })
+  }
+  function dragDotsRun() {
+    dragHandles()
+    var spec = (Quickshell.env("BENCH_DRAG") || "omarchy.tray right center:end left rest:1500").split(" ")
+    var name = spec.shift()
+    var w = bar.slotWindow(bar.moduleSlots[0])
+    var root = w.contentItem
+    var pos = { x: 0, y: 0 }
+    var steps = []
+    // Open the widget's zone first if it waits behind the dots.
+    var src = slotByName(name)
+    steps.push(function() { dragLog("start", true); var t = dragTarget(src.region === "center" ? "center:" + src.centerSide : src.region); if (t && !src.mainVisible) { pos = t; pointer.mouseMove(root, t.x, t.y) } })
+    for (var i = 0; i < 50; i++) steps.push(function() { dragLog("open") })
+    steps.push(function() {
+      var s = slotByName(name); pos = centreOf(s, root)
+      dragLog("press " + name + " visible " + s.mainVisible, true)
+      pointer.mousePress(root, pos.x, pos.y, Qt.LeftButton)
+    })
+    spec.forEach(function(wp) {
+      // "~<waypoint>": pass through without resting there.
+      var pass = wp.charAt(0) === "~"
+      if (pass) wp = wp.slice(1)
+      if (wp.indexOf("shot:") === 0) {
+        steps.push(function() { dragLog("shot " + wp.slice(5) + " onDemand " + bar.barDragLandsOnDemand, true); shot(wp.slice(5)) })
+        return
+      }
+      if (wp.indexOf("rest:") === 0) {
+        var n = Math.round(+wp.slice(5) / 16)
+        for (var k = 0; k < n; k++) steps.push(function() { dragLog("rest") })
+        return
+      }
+      // Walk towards the waypoint 6 px a frame; it can move while we walk.
+      steps.push(function walk() {
+        var t = dragTarget(wp)
+        if (!t) { dragLog("no target " + wp, true); return }
+        var dx = t.x - pos.x, dy = t.y - pos.y, dist = Math.sqrt(dx * dx + dy * dy)
+        var step = Math.min(6, dist)
+        if (dist > 0.5) {
+          pos = { x: pos.x + dx / dist * step, y: pos.y + dy / dist * step }
+          pointer.mouseMove(root, pos.x, pos.y, -1, Qt.LeftButton)
+          dragLog("move " + wp + " @" + Math.round(bar.vertical ? pos.y : pos.x))
+          dotsSteps.unshift(walk)
+        } else dragLog("at " + wp, true)
+      })
+      if (!pass) for (var r = 0; r < 40; r++) steps.push(function() { dragLog("dwell " + wp) })
+    })
+    steps.push(function() { dragLog("release", true); pointer.mouseRelease(root, pos.x, pos.y, Qt.LeftButton) })
+    for (var e = 0; e < 60; e++) steps.push(function() { dragLog("after") })
+    steps.push(function() {
+      dragLog("end", true)
+      for (var z of ["left", "center", "right"]) log("GEO layout", z, shellConfig.bar.layout[z].map(function(x) { return x.id.split(".").pop() + (x.powerbarVisibility === "managed" ? "*" : "") }).join(" "))
+      finish()
+    })
+    dotsSteps = steps
+    dotsTimer.start()
+  }
+  Timer { id: dotsTimer; interval: 16; repeat: true; onTriggered: { var f = shellRoot.dotsSteps.shift(); if (!shellRoot.dotsSteps.length) stop(); if (f) f() } }
+
 }

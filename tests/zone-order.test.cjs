@@ -79,6 +79,10 @@ test('a gap lands On demand only inside the expansion run', () => {
   const left = [item('K', 'left'), item('W', 'left'), item('A', 'left'), item('e', 'left', true), item('s', 'left', true)];
   assert.equal(order.landsOnDemand(left, 2), false, 'between shown widgets');
   assert.equal(order.landsOnDemand(left, 3), false, 'where the shown run meets the expansion');
+  assert.equal(order.landsOnDemand(left, 3, 'A'), false, 'at the meeting, on the last shown widget');
+  assert.equal(order.landsOnDemand(left, 3, 'e'), true, 'at the meeting, on the first expanded widget');
+  assert.equal(order.landsOnDemand(left, 2, 'A'), false, 'between shown widgets, whichever is under the pointer');
+  assert.equal(order.landsOnDemand(left, 4, 's'), true, 'between expanded widgets, whichever is under the pointer');
   assert.equal(order.landsOnDemand(left, 4), true, 'between expanded widgets');
   assert.equal(order.landsOnDemand(left, 5), true, 'between the last expanded widget and the dots');
   assert.equal(order.landsOnDemand(left, 0), false, 'at the zone start');
@@ -86,6 +90,8 @@ test('a gap lands On demand only inside the expansion run', () => {
   const right = [item('m1', 'right', true), item('m2', 'right', true), item('S1', 'right'), item('S2', 'right')];
   assert.equal(order.landsOnDemand(right, 0), true, 'between the dots and the first expanded widget');
   assert.equal(order.landsOnDemand(right, 2), false, 'where the expansion meets the shown run');
+  assert.equal(order.landsOnDemand(right, 2, 'm2'), true, 'at the meeting, on the last expanded widget');
+  assert.equal(order.landsOnDemand(right, 2, 'S1'), false, 'at the meeting, on the first shown widget');
   assert.equal(order.landsOnDemand(right, 4), false, 'at the zone end');
   // Centre, start side expanded: [m* | B | anchor | F].
   const centre = [item('m', 'before', true), item('B', 'before'), item('A', 'anchor'), item('F', 'after')];

@@ -43,8 +43,9 @@ function dropBefore(o) {
 
 // Whether a drop into a gap lands On demand. Only inside the expansion's run:
 // the gap's neighbours are both widgets the expansion shows, or one of them is
-// and the other side is the zone's dots end. The gap where the shown widgets
-// meet the expansion is the end of the shown run, so it lands shown.
+// and the other side is the zone's dots end. Where the shown widgets meet the
+// expansion, the gap belongs to the run of the neighbour the pointer is on
+// (near: its key); without one it is the end of the shown run, so it lands shown.
 // Neighbours are the nearest widgets on screen: hidden ones (group members,
 // widgets waiting behind other dots) are skipped.
 //   sequence: the zone as drawn, without the moving widget
@@ -56,14 +57,16 @@ function neighbours(sequence, gap) {
   for (var j = gap; j < sequence.length && !next; j++) if (!sequence[j].hidden) next = sequence[j]
   return { prev: prev, next: next }
 }
-function landsOnDemand(sequence, gap) {
+function landsOnDemand(sequence, gap, near) {
   var n = neighbours(sequence, gap), prev = n.prev, next = n.next
+  var nearItem = near && prev && prev.key === near ? prev : near && next && next.key === near ? next : null
   var list = (prev || next || {}).list
   function side(item, dotsHere) {
     if (item) return item.expanded ? "demand" : "shown"
     return dotsHere ? "demand" : "edge"
   }
   var before = side(prev, dotsAtStart(list)), after = side(next, !dotsAtStart(list) && list !== "anchor")
+  if (nearItem && before !== after && (before === "shown" || after === "shown")) return !!nearItem.expanded
   if (before === "shown" || after === "shown") return false
   return before === "demand" || after === "demand"
 }

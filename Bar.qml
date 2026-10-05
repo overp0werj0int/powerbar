@@ -729,6 +729,30 @@ Item {
   property real barDragImageHeight: 0
   property real barDragScreenX: 0
   property real barDragScreenY: 0
+  // Where the pointer last was, to read the drop again when the bar changes
+  // under a still pointer (an expansion opening or closing).
+  property var barDragScene: null
+  // The bar zone the drag is over, by its drop; "" off the bar or over a
+  // drawer. An inline expansion holds only while the drag stays in its zone.
+  readonly property string barDragZone: {
+    var d = barDragDrop
+    if (!barDragSource || !d) return ""
+    if (d.handle) return d.managedZone || ""
+    if (d.source) return barDragSource.region || ""
+    if (d.slot) return d.slot.drawerHost ? "" : d.slot.region || ""
+    return d.zone || ""
+  }
+  // The dots holding the drop, and where they were when they took it.
+  property var barDragHandleHeld: null
+  // The drop shown lands the widget On demand (behind the zone's dots).
+  readonly property bool barDragLandsOnDemand: {
+    var d = barDragDrop, source = barDragSource
+    if (!source || !d || !d.slot || d.into || d.slot.drawerHost) return false
+    return barGapOnDemand(d.slot, d.after, source)
+  }
+  function refreshIconDrag() {
+    if (barDragSource && barDragScene) updateIconDrag(barDragScene, barDragSource)
+  }
   property real barDragOffsetX: 0
   property real barDragOffsetY: 0
   // Release settle: a committed drop rebuilds every slot, so the captured
@@ -1125,6 +1149,8 @@ Item {
     springGroupSlot = null
     springOpenedDrawer = null
     barDragSource = null
+    barDragScene = null
+    barDragHandleHeld = null
     barDragSourceSurface = ""
     barDragSourceRect = null
     barDragWindow = null
@@ -1381,15 +1407,28 @@ Item {
 
   function updateIconDrag(scenePoint, slot) {
     if (root.barDragSource !== slot) return
+    root.barDragScene = { x: scenePoint.x, y: scenePoint.y }
     var screenPoint = root.barDragScreenPoint(scenePoint)
     root.barDragScreenX = screenPoint.x
     root.barDragScreenY = screenPoint.y
     var drop = root.moduleDropAtScene(scenePoint, slot)
+    root.holdHandle(drop)
     root.updateSpringGroup(drop, slot, root.groupSlotAt(scenePoint, slot), scenePoint)
     var old = root.barDragDrop
     if (old && drop && old.source === drop.source && old.slot === drop.slot && old.after === drop.after &&
         old.drawer === drop.drawer && old.zone === drop.zone && old.managedZone === drop.managedZone && old.handle === drop.handle && old.handleToken === drop.handleToken && old.into === drop.into) return
     root.barDragDrop = drop
+  }
+
+  function holdHandle(drop) {
+    var window = root.barDragWindow
+    var handle = drop && drop.handle && window ? window.foldHandles.find(function(h) {
+      return h && h.shown && h.visible && h.inlineToken === drop.handleToken
+    }) : null
+    if (!handle) { barDragHandleHeld = null; return }
+    if (barDragHandleHeld && barDragHandleHeld.handle === handle) return
+    var a = handle.mapToItem(window.contentItem, 0, 0), b = handle.mapToItem(window.contentItem, handle.width, handle.height)
+    barDragHandleHeld = { handle: handle, x1: Math.min(a.x, b.x), y1: Math.min(a.y, b.y), x2: Math.max(a.x, b.x), y2: Math.max(a.y, b.y) }
   }
 
   function finishIconDrag(scenePoint, slot) {
@@ -2186,6 +2225,12 @@ Item {
       if (!inStrip && !inDrawer) return null
       if (inStrip) zone = root.barZoneAt(barPoint, sourceWindow)
       var handle = inStrip && typeof sourceWindow.foldHandleAt === "function" ? sourceWindow.foldHandleAt(barPoint) : null
+      // A gap opening just before the dots pushes them along, and dropping on
+      // them closes it again: the dots keep the drop while the pointer stays
+      // where they were when they took it, so the two never trade places.
+      var held = root.barDragHandleHeld
+      if (inStrip && !handle && held && held.handle.shown && held.handle.visible && !held.handle.fitYielded
+          && barPoint.x >= held.x1 && barPoint.x <= held.x2 && barPoint.y >= held.y1 && barPoint.y <= held.y2) handle = held.handle
     }
 
     // Landing follows the dragged widget's painted centre, not the pointer, so
@@ -2209,6 +2254,9 @@ Item {
       if (sourceWindow && (inStrip ? !!slot.drawerHost : !slot.drawerHost)) continue
       var item = slot.drawerHost || slot
       if (item.width <= 0 || item.height <= 0 || (!slot.mainVisible && !slot.drawerHost)) continue
+      // Widgets out of view (yielded to an expansion, or in a zone it hid)
+      // keep their place but take no drops: the pointer is over what is seen.
+      if (!slot.drawerHost && (slot.fitYielded || (slot.homeWindow && slot.homeWindow.zoneHidden(slot.region)))) continue
       if (sourceWindow && !root.sameWindow(root.slotWindow(slot), sourceWindow)) continue
 
       var slotPoint = { x: slot.x, y: slot.y }
@@ -2328,10 +2376,11 @@ Item {
     return { sequence: sequence, rest: rest, gap: at + (after ? 1 : 0), anchorKey: anchorKey, region: region }
   }
   // A gap inside an expansion's run lands On demand; where the shown widgets
-  // meet the expansion it lands shown (ZoneOrderModel.landsOnDemand).
+  // meet the expansion it joins the run of the widget the pointer is on
+  // (ZoneOrderModel.landsOnDemand).
   function barGapOnDemand(targetSlot, after, sourceSlot) {
     var g = barGap(targetSlot, after, sourceSlot)
-    return !!g && ZoneOrderModel.landsOnDemand(g.rest, g.gap)
+    return !!g && ZoneOrderModel.landsOnDemand(g.rest, g.gap, targetSlot.instanceKey)
   }
   function barDropBefore(targetSlot, after, sourceSlot, managed) {
     var g = barGap(targetSlot, after, sourceSlot)
@@ -2737,7 +2786,7 @@ Item {
     function foldHandleAt(point) {
       for (var i = 0; i < foldHandles.length; i++) {
         var h = foldHandles[i]
-        if (!h || !h.shown || h.fitYielded || !h.visible) continue
+        if (!h || !h.shown || h.fitYielded || !h.visible || zoneHidden(h.zone)) continue
         var a = h.mapToItem(barWindow.contentItem, 0, 0), b = h.mapToItem(barWindow.contentItem, h.width, h.height)
         if (point.x >= Math.min(a.x, b.x) && point.x <= Math.max(a.x, b.x) && point.y >= Math.min(a.y, b.y) && point.y <= Math.max(a.y, b.y)) return h
       }
@@ -2923,7 +2972,12 @@ Item {
     // An expansion holds while the pointer is anywhere on its zone.
     readonly property bool inlineHovered: inlineZone !== "" && (inlineHandleZone === inlineZone
       || moduleItems.some(function(s) { return s && s.region === barWindow.inlineZoneName && s.hovered && !s.drawerHost }))
-    readonly property bool inlineInteraction: inlineZone !== "" && (!!root.barDragSource
+    // A drag holds it only while it stays in the zone (or on its dots); it
+    // closes on the exit grace once the drag leaves the bar, and at once when
+    // the drag reaches another zone, so that zone's dots are never left
+    // yielded or hidden under an expansion the drag has moved past.
+    readonly property bool inlineDragHere: !!root.barDragSource && root.barDragZone === inlineZoneName
+    readonly property bool inlineInteraction: inlineZone !== "" && (inlineDragHere
       || (drawer.presenting && !!drawer.groupId)
       || moduleItems.some(function(s) { return s && s.region === barWindow.inlineZoneName && s.panelOpen }))
     onInlineHoveredChanged: inlineSchedule()
@@ -2935,6 +2989,22 @@ Item {
       inlineCollapse.start()
     }
     Timer { id: inlineCollapse; onTriggered: barWindow.inlineAsk("") }
+    Connections {
+      target: root
+      function onBarDragZoneChanged() {
+        var asked = (barWindow.inlineZone || barWindow.inlineRequest).split(":")[0]
+        if (root.barDragSource && root.barDragZone && asked && root.barDragZone !== asked
+            && root.sameWindow(root.barDragWindow, barWindow)) barWindow.inlineAsk("")
+      }
+    }
+    // An expansion opening or closing under a still pointer: once it has
+    // settled, the drop is read again where the pointer is.
+    Timer {
+      id: inlineDragRefresh
+      // Past the motion, or two frames for the layout to land without it.
+      interval: root.animationsEnabled ? 330 : 40
+      onTriggered: root.refreshIconDrag()
+    }
     Timer { id: inlineStep; onTriggered: barWindow.inlineAdvance(true) }
     // Show a zone's expansion (or none) and fit the bar in the same step, so
     // its widgets and their neighbours' yields land in the same frame.
@@ -2945,6 +3015,7 @@ Item {
       // The dots give way to the widgets; from here the zone's slots hold it.
       if (zone) inlineHandleZone = ""
       refit(true)
+      if (root.barDragSource) inlineDragRefresh.restart()
       inlineSchedule()
     }
     function inlineAsk(zone) {
@@ -4182,7 +4253,7 @@ Item {
       id: startGap
       targetWidth: root.vertical ? root.barSize : moduleListRoot.previewStartGap ? root.dragGapWidth : 0
       targetHeight: !root.vertical ? root.barSize : moduleListRoot.previewStartGap ? root.dragGapHeight : 0
-      DropOutline { bar: root; gapLength: root.vertical ? parent.height : parent.width }
+      DropOutline { bar: root; onDemand: root.barDragLandsOnDemand; gapLength: root.vertical ? parent.height : parent.width }
       motionEnabled: root.animationsEnabled && !root.dragHandover
       motionDuration: root.dragMotionDuration; motionEasing: root.dragMotionEasing
     }
@@ -4231,7 +4302,7 @@ Item {
       y: root.vertical ? endHandle.y + endHandle.height : 0
       targetWidth: root.vertical ? root.barSize : moduleListRoot.previewEndGap ? root.dragGapWidth : 0
       targetHeight: !root.vertical ? root.barSize : moduleListRoot.previewEndGap ? root.dragGapHeight : 0
-      DropOutline { bar: root; gapLength: root.vertical ? parent.height : parent.width }
+      DropOutline { bar: root; onDemand: root.barDragLandsOnDemand; gapLength: root.vertical ? parent.height : parent.width }
       motionEnabled: root.animationsEnabled && !root.dragHandover
       motionDuration: root.dragMotionDuration; motionEasing: root.dragMotionEasing
     }
@@ -4534,7 +4605,7 @@ Item {
         // collapses the expanded one at once, as a drawer would switch.
         else if (root.onDemandInline && !slot.groupHeader) {
           var asked = (window.inlineZone || window.inlineRequest).split(":")[0]
-          if (hovered && asked && asked !== slot.region) window.inlineAsk("")
+          if (hovered && asked && asked !== slot.region && !root.barDragSource) window.inlineAsk("")
         }
         else if (hovered) window.managedDrawer.sourceEnter(slot.region)
         else window.managedDrawer.sourceLeave(slot.region)
@@ -4550,6 +4621,7 @@ Item {
 
     DropOutline {
       bar: root
+      onDemand: root.barDragLandsOnDemand
       readonly property real slotLength: root.vertical ? slot.height : slot.width
       readonly property real insetLength: root.vertical ? slot.animatedInsetY : slot.animatedInsetX
       readonly property bool open: !slot.drawerHost && slot.mainVisible && (slot.preview.before || slot.preview.after)
