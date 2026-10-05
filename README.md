@@ -231,19 +231,32 @@ your files give it.
 
 Widgets keep Omarchy's command, `omarchy-shell shell toggle <id>`; a group runs
 `omarchy-shell powerbar toggleGroup <id>` and opens its drawer ready for the
-arrow keys. Changes are kept in `powerbarShortcuts` and written to
-`~/.config/hypr/powerbar.lua`, which unbinds each key it takes before binding
-it. The first change adds a marked block to `~/.config/hypr/hyprland.lua`
-(after a backup) that loads the file after Omarchy's defaults and your own
-bindings, then Hyprland reloads; a file Hyprland reports an error in is put
-back as it was. Dissolving a group drops its shortcut.
+arrow keys. Changes are kept in `powerbarShortcuts` and written the way Omarchy
+plugins add binds: a marked block in `~/.config/hypr/bindings.lua`, rewritten in
+place on every change (everything outside the markers is left alone), where each
+shortcut is an Omarchy `o.bind` with its name, so Super+K lists it. A key it
+takes is unbound first, as is an Omarchy shortcut it moves or removes:
+
+```lua
+-- >>> powerbar: widget, group and bar shortcuts (written by Powerbar Preferences)
+hl.unbind("SUPER + B")
+o.bind("SUPER + B", "Powerbar keyboard", "omarchy-shell powerbar keys")
+-- <<< powerbar
+```
+
+Setting a shortcut in Preferences is the confirmation; Hyprland reloads after
+each change, and a file it reports a new error in is put back as it was. The
+same lines can be pasted by hand. Dissolving a group drops its shortcut.
+Earlier versions kept these in `~/.config/hypr/powerbar.lua`, loaded from a
+block in `hyprland.lua`; the first change removes both (after a backup of
+`hyprland.lua`).
 
 ## Keyboard
 
 The bar works from the keyboard (design: `docs/bar-keys-lab`). The shortcut is
 offered, not bound: Preferences → Bar → Keyboard shows Super+B as suggested,
 and Enter takes it (checked for clashes like any shortcut; Space records
-other keys). It runs `omarchy-shell powerbar keys`, which puts a cursor on the
+other keys), writing it into the block above. It runs `omarchy-shell powerbar keys`, which puts a cursor on the
 clock of the focused monitor's bar, or on the widget whose panel is open; the
 same keys again leave.
 

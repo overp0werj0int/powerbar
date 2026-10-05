@@ -5,7 +5,8 @@ import "ShortcutModel.js" as Shortcuts
 
 // Shortcuts for widgets and groups (ShortcutModel.js): what Hyprland has
 // bound, what Omarchy's and the user's binding files say, and Powerbar's own
-// changes (bar.powerbarShortcuts), written to ~/.config/hypr/powerbar.lua.
+// changes (bar.powerbarShortcuts), written as a marked block of Omarchy o.bind
+// calls in ~/.config/hypr/bindings.lua, the way Omarchy plugins add binds.
 // Preferences reads it when it opens and after every change.
 Item {
   id: store
@@ -16,6 +17,8 @@ Item {
   readonly property var config: bar && bar.barConfig && bar.barConfig.powerbarShortcuts
     && typeof bar.barConfig.powerbarShortcuts === "object" ? bar.barConfig.powerbarShortcuts : ({})
   property var binds: []
+  // The keys Powerbar's own block binds now: not a clash with itself.
+  property var ownKeys: []
   property var defaults: ({ widgets: [], positions: [] })
   property bool ready: false
   // A change being written and Hyprland reloading.
@@ -28,7 +31,7 @@ Item {
 
   // What each target is called in Hyprland's list and in messages.
   function nameOf(target) {
-    if (target === "bar:keys") return "Bar keyboard"
+    if (target === "bar:keys") return "Powerbar keyboard"
     if (target.indexOf("group:") === 0) {
       var g = (bar.groups || []).find(function(x) { return "group:" + x.id === target })
       return (g ? g.label : target.slice(6)) + " group"
@@ -57,7 +60,7 @@ Item {
   function conflicts(keys, target) {
     var named = {}
     Object.keys(config).forEach(function(t) { named[t] = store.nameOf(t) })
-    return Shortcuts.conflicts(keys, target, config, binds, named)
+    return Shortcuts.conflicts(keys, target, config, binds, named, ownKeys)
   }
 
   function save(target, keys) { write(Shortcuts.assign(config, target, keys)) }
@@ -66,7 +69,8 @@ Item {
     error = ""
     preferences.setOption("powerbarShortcuts", Object.keys(next).length ? next : undefined)
     busy = true
-    applyProc.command = ["bash", "-c", applyScript, "powerbar", Shortcuts.render(next, defaults, names(next)), Shortcuts.BLOCK]
+    applyProc.command = ["bash", "-c", applyScript, "powerbar", Shortcuts.render(next, defaults, names(next)),
+      Shortcuts.BEGIN, Shortcuts.END, Shortcuts.OLD_START, Shortcuts.OLD_END]
     applyProc.running = true
   }
 
@@ -107,41 +111,61 @@ Item {
       done`]
     stdout: StdioCollector {
       onStreamFinished: {
-        var parts = text.split(/^@@/m), binds = [], files = []
+        var parts = text.split(/^@@/m), binds = [], files = [], own = []
         for (var p of parts) {
           var nl = p.indexOf("\n"), head = p.slice(0, nl), body = p.slice(nl + 1)
           if (head === "BINDS") binds = Shortcuts.parseBinds(body)
-          else if (head.indexOf("FILE ") === 0) files.push({ origin: head.split(" ")[1], text: body })
+          else if (head.indexOf("FILE ") === 0) {
+            // Powerbar's own block is not the user's: cut it out, keep its keys.
+            own = own.concat(Shortcuts.blockKeys(body))
+            files.push({ origin: head.split(" ")[1], text: Shortcuts.strip(body) })
+          }
         }
         store.binds = binds
+        store.ownKeys = own
         store.defaults = Shortcuts.readDefaults(files)
         store.ready = true
       }
     }
   }
 
-  // Writes powerbar.lua ($1), adds the loading block to hyprland.lua once ($2,
-  // after a backup), reloads Hyprland and checks it took the file; a file
-  // Hyprland rejects is put back as it was.
+  // Puts the block ($1; "" removes it) into bindings.lua between its markers
+  // ($2, $3), or at the end the first time, leaving the rest of the file as it
+  // is on disk now. Removes the loader of the old powerbar.lua ($4..$5 in
+  // hyprland.lua, after a backup) and that file. Then Hyprland reloads; a file
+  // it reports a new error in is put back as it was.
   readonly property string applyScript: `
-    c=\${POWERBAR_HYPR_DIR:-\${XDG_CONFIG_HOME:-$HOME/.config}/hypr}; f="$c/powerbar.lua"; main="$c/hyprland.lua"
-    mkdir -p "$c"
-    prev=$(mktemp); had=0
-    [ -f "$f" ] && { cp "$f" "$prev"; had=1; }
-    printf '%s\\n' "$1" > "$f.tmp" && mv "$f.tmp" "$f"
-    if [ -f "$main" ] && ! grep -qF -- '${Shortcuts.BLOCK_START}' "$main"; then
-      cp "$main" "$main.bak.$(date +%Y%m%d%H%M%S)-powerbar"
-      printf '\\n%s\\n' "$2" >> "$main"
+    c=\${POWERBAR_HYPR_DIR:-\${XDG_CONFIG_HOME:-$HOME/.config}/hypr}; f="$c/bindings.lua"; main="$c/hyprland.lua"
+    mkdir -p "$c"; [ -e "$f" ] || : > "$f"
+    prev=$(mktemp); cp "$f" "$prev"
+    blockf=$(mktemp); printf '%s\n' "$1" > "$blockf"
+    next=$(mktemp)
+    awk -v b="$2" -v e="$3" -v bf="$blockf" -v has="\${1:+1}" '
+      $0 == b { skip = 1; if (has && !done) { while ((getline l < bf) > 0) print l; done = 1 }; next }
+      skip { if ($0 == e) skip = 0; next }
+      { print }' "$f" > "$next"
+    if [ -n "$1" ] && ! grep -qxF -- "$2" "$f"; then
+      [ -s "$next" ] && printf '\n' >> "$next"
+      cat "$blockf" >> "$next"
     fi
+    cat "$next" > "$f"
+    rm -f "$blockf" "$next"
+    if [ -f "$main" ] && grep -qxF -- "$4" "$main"; then
+      cp "$main" "$main.bak.$(date +%Y%m%d%H%M%S)-powerbar"
+      old=$(mktemp)
+      awk -v b="$4" -v e="$5" '$0 == b { skip = 1; next } skip { if ($0 == e) skip = 0; next } { print }' "$main" > "$old" && cat "$old" > "$main"
+      rm -f "$old"
+    fi
+    rm -f "$c/powerbar.lua"
     before=$(hyprctl configerrors 2>/dev/null)
     hyprctl reload config-only >/dev/null 2>&1
     sleep 0.3
     after=$(hyprctl configerrors 2>/dev/null)
-    if [ "$after" != "$before" ] && printf '%s' "$after" | grep -qi powerbar; then
-      if [ $had = 1 ]; then cp "$prev" "$f"; else rm -f "$f"; fi
+    if [ "$after" != "$before" ] && [ -n "$(printf '%s' "$after" | tr -d '[:space:]')" ]; then
+      cat "$prev" > "$f"
       hyprctl reload config-only >/dev/null 2>&1
       rm -f "$prev"
-      echo "error $(printf '%s' "$after" | grep -i powerbar | head -1)"
+      echo "error $(printf '%s' "$after" | head -1)"
       exit 1
     fi
     rm -f "$prev"

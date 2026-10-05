@@ -118,12 +118,14 @@ test("a widget shows Omarchy's shortcut, yours, or none", () => {
 });
 
 test("conflicts name Hyprland's binds and Powerbar's other shortcuts, never its own", () => {
-  const binds = m.parseBinds(hyprctl).concat([{ keys: 'SUPER + CTRL + I', mask: 68, key: 'I', description: 'Powerbar: AI group', submap: '' }]);
-  const config = { 'group:ai': 'SUPER + CTRL + I' };
-  assert.deepEqual(plain(m.conflicts('SUPER + CTRL + T', 'group:tools', config, binds)), [{ description: 'Activity', target: '' }]);
-  assert.deepEqual(plain(m.conflicts('SUPER + CTRL + I', 'group:tools', config, binds, { 'group:ai': 'the AI group' })),
+  const binds = m.parseBinds(hyprctl).concat([{ keys: 'SUPER + CTRL + I', mask: 68, key: 'I', description: 'AI group', submap: '' }]);
+  const config = { 'group:ai': 'SUPER + CTRL + I' }, own = ['SUPER + CTRL + I'];
+  assert.deepEqual(plain(m.conflicts('SUPER + CTRL + T', 'group:tools', config, binds, {}, own)), [{ description: 'Activity', target: '' }]);
+  assert.deepEqual(plain(m.conflicts('SUPER + CTRL + I', 'group:tools', config, binds, { 'group:ai': 'the AI group' }, own)),
     [{ description: 'the AI group', target: 'group:ai' }]);
-  assert.deepEqual(plain(m.conflicts('SUPER + CTRL + I', 'group:ai', config, binds)), []);
+  assert.deepEqual(plain(m.conflicts('SUPER + CTRL + I', 'group:ai', config, binds, {}, own)), []);
+  // Without Powerbar's block holding them, the same keys are someone else's.
+  assert.deepEqual(plain(m.conflicts('SUPER + CTRL + I', 'group:ai', config, binds, {}, [])), [{ description: 'AI group', target: '' }]);
   // A bind in another submap is not a conflict.
   assert.deepEqual(plain(m.conflicts('ESCAPE', 'group:ai', config, binds)), []);
 });
@@ -149,16 +151,30 @@ test('key presses become shortcuts that need Super, Ctrl or Alt (F-keys alone ar
   assert.equal(m.fromKeyEvent(0x01000020, Shift | Meta, 50).error, '');
 });
 
-test('the generated file takes keys over, moves or removes Omarchy shortcuts, and defines the recording submap', () => {
+test('the block in bindings.lua takes keys over, moves or removes Omarchy shortcuts, with o.bind', () => {
   const d = m.parseDefaults(omarchyLua);
   const lua = m.render({ 'widget:omarchy.audio': 'SUPER + CTRL + M', 'widget:omarchy.clock': '', 'group:ai': 'SUPER + CTRL + I' }, d,
     { 'widget:omarchy.audio': 'Audio', 'widget:omarchy.clock': 'Clock', 'group:ai': 'AI group' });
-  assert.match(lua, /-- Audio\npcall\(hl\.unbind, "SUPER \+ CTRL \+ A"\)\npcall\(hl\.unbind, "SUPER \+ CTRL \+ M"\)\nhl\.bind\("SUPER \+ CTRL \+ M", hl\.dsp\.exec_cmd\("omarchy-shell shell toggle omarchy\.audio"\), \{ description = "Powerbar: Audio" \}\)/);
-  assert.match(lua, /-- Clock\npcall\(hl\.unbind, "SUPER \+ CTRL \+ ALT \+ D"\)\n\n/);
-  assert.match(lua, /hl\.bind\("SUPER \+ CTRL \+ I", hl\.dsp\.exec_cmd\("omarchy-shell powerbar toggleGroup ai"\), \{ description = "Powerbar: AI group" \}\)/);
-  assert.match(lua, /hl\.define_submap\("powerbar-record"/);
+  assert.equal(lua, [m.BEGIN,
+    'hl.unbind("SUPER + CTRL + I")',
+    'o.bind("SUPER + CTRL + I", "AI group", "omarchy-shell powerbar toggleGroup ai")',
+    'hl.unbind("SUPER + CTRL + A")',
+    'hl.unbind("SUPER + CTRL + M")',
+    'o.bind("SUPER + CTRL + M", "Audio", "omarchy-shell shell toggle omarchy.audio")',
+    'hl.unbind("SUPER + CTRL + ALT + D")',
+    m.END].join('\n'));
+  assert.equal(m.render({}, d, {}), '', 'nothing to bind: no block');
   // Ids reach Lua as strings, never as code.
   assert.match(m.render({ 'group:a"b': 'SUPER + B' }, d, {}), /toggleGroup a\\"b/);
+});
+
+test("Powerbar's block is cut out before reading the user's bindings, and its keys are known", () => {
+  const block = m.render({ 'bar:keys': 'SUPER + B', 'widget:b.everything': 'SUPER + CTRL + SLASH' }, { widgets: [], positions: [] },
+    { 'bar:keys': 'Powerbar keyboard', 'widget:b.everything': 'Everything' });
+  const file = 'o.bind("SUPER + RETURN", "Terminal", "uwsm-app -- xdg-terminal-exec")\n\n' + block + '\n';
+  assert.equal(m.strip(file), 'o.bind("SUPER + RETURN", "Terminal", "uwsm-app -- xdg-terminal-exec")\n\n');
+  assert.deepEqual(plain(m.blockKeys(file)), ['SUPER + B', 'SUPER + CTRL + SLASH']);
+  assert.equal(m.readDefaults([{ text: m.strip(file), origin: 'config' }]).widgets.length, 0, 'its own binds never read as the user\'s');
 });
 
 test('recording enters an empty submap (registering it when Hyprland has not), with a watchdog, and leaves only that submap', () => {
@@ -183,8 +199,8 @@ test("the user's own files add shortcuts and win over Omarchy's for the same wid
 test('the bar keyboard target binds the keys IPC', () => {
   const sm = require('../ShortcutModel.js');
   assert.equal(sm.command('bar:keys'), 'omarchy-shell powerbar keys');
-  const lua = sm.render({ 'bar:keys': 'SUPER + B' }, { widgets: [], positions: [] }, { 'bar:keys': 'Bar keyboard' });
-  assert.match(lua, /hl\.bind\("SUPER \+ B", hl\.dsp\.exec_cmd\("omarchy-shell powerbar keys"\), \{ description = "Powerbar: Bar keyboard" \}\)/);
+  const lua = sm.render({ 'bar:keys': 'SUPER + B' }, { widgets: [], positions: [] }, { 'bar:keys': 'Powerbar keyboard' });
+  assert.match(lua, /o\.bind\("SUPER \+ B", "Powerbar keyboard", "omarchy-shell powerbar keys"\)/);
   assert.deepEqual(sm.effective('bar:keys', {}, { widgets: [], positions: [] }, []), { keys: '', source: 'none', fallback: '' });
 });
 
