@@ -2617,7 +2617,43 @@ Item {
     id: barHiddenProbe
     running: true
     command: ["bash", "-c", "[[ -f $HOME/.local/state/omarchy/toggles/bar-off ]] && echo yes || echo no"]
-    stdout: SplitParser { onRead: function(line) { root.barHidden = String(line).trim() === "yes" } }
+    stdout: SplitParser { onRead: function(line) {
+      var off = String(line).trim() === "yes"
+      // Autohide: Omarchy's bar toggle (Super+Shift+Space) reveals the bar
+      // instead of hiding it for good, and the flag goes back off.
+      if (off && !root.barHidden && root.autoHide) root.revealFromToggle()
+      else root.barHidden = off
+    } }
+  }
+
+  // The bar toggle on an autohidden bar works like the pointer at the edge:
+  // the bar slides out and stays while the toggle's key is held, and slides
+  // away the usual delay after it is let go (a tap: at once). Omarchy's own
+  // bind fires once, on the press, so the key is followed by asking Hyprland
+  // whether it is still down (hl.is_key_down): the toggle bind's key, or any
+  // modifier when the bind can't be found. Nothing new is bound.
+  property bool toggleHeld: false
+  function revealFromToggle() {
+    toggleHeld = true
+    toggleKeyWatch.running = false
+    toggleKeyWatch.running = true
+    run("omarchy-toggle bar-off off")
+  }
+  Process {
+    id: toggleKeyWatch
+    command: ["bash", "-c", `
+      key=$(hyprctl binds -j 2>/dev/null | jq -r 'map(select(.description == "Toggle top bar"))[0].key // ""' 2>/dev/null)
+      mods='down("Super_L") or down("Super_R") or down("Shift_L") or down("Shift_R") or down("Control_L") or down("Control_R") or down("Alt_L") or down("Alt_R")'
+      if [ -n "$key" ]; then held="down(\\"$key\\") or down(string.lower(\\"$key\\"))"; else held=$mods; fi
+      lua="local function down(k) local ok, r = pcall(hl.is_key_down, k); return ok and r == true end; return $held"
+      # At most a minute, a poll every 50 ms.
+      for i in $(seq 1200); do
+        [ "$(hyprctl repl "$lua" 2>/dev/null)" = true ] || break
+        sleep 0.05
+      done
+      echo released`]
+    stdout: SplitParser { onRead: function(line) { if (String(line).trim() === "released") root.toggleHeld = false } }
+    onExited: root.toggleHeld = false
   }
   FileView {
     path: root.home + "/.local/state/omarchy/toggles"
@@ -3071,7 +3107,7 @@ Item {
     readonly property bool autoHideActive: root.autoHide && !root.barHidden
     readonly property bool autoHideHeld: windowHover.hovered || edgeHover.hovered || drawer.opened
       || (!!root.activePopout && root.sameWindow(root.targetWindow(root.activePopout), barWindow))
-      || !!root.barDragSource || root.barDragSettling || root.barMoveActive || preferencesPane.opened
+      || !!root.barDragSource || root.barDragSettling || root.barMoveActive || preferencesPane.opened || root.toggleHeld
     property bool autoHideRevealed: false
     onAutoHideHeldChanged: {
       if (autoHideHeld) {
