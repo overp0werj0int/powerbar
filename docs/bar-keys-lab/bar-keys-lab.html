@@ -1,0 +1,678 @@
+<title>Powerbar Keys Lab</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap">
+<style>
+/* Layout: one reading column; the user's screen (wallpaper, bar, drawers) is the hero, drawn at true size. */
+:root {
+  --ground: #f5f1f0; --panel: #fffdfc; --ink: #261f1f; --muted: #6e6264; --line: #e2d9d7;
+  --accent: #5f5889; --accent-soft: rgba(95, 88, 137, 0.12); --good: #3f7a5a; --warn: #9a5b3c; --code-bg: #efe9e8;
+  --bar-fg: 216, 222, 233; --bar-bg: rgba(46, 52, 64, 0.94); --bar-accent: #81a1c1; --bar-urgent: #bf616a; --bar-dark: #222730;
+  --sans: "Instrument Sans", "Segoe UI", system-ui, sans-serif;
+  --mono: "JetBrains Mono", "JetBrainsMono Nerd Font", ui-monospace, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark; --ground: #1c1818; --panel: #241f1f; --ink: #ebe5e4; --muted: #a69b9d; --line: #3a3131;
+    --accent: #b8b2d6; --accent-soft: rgba(184, 178, 214, 0.14); --good: #8cc5a3; --warn: #e0a383; --code-bg: #2c2626;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark; --ground: #1c1818; --panel: #241f1f; --ink: #ebe5e4; --muted: #a69b9d; --line: #3a3131;
+  --accent: #b8b2d6; --accent-soft: rgba(184, 178, 214, 0.14); --good: #8cc5a3; --warn: #e0a383; --code-bg: #2c2626;
+}
+* { box-sizing: border-box; }
+body { background: var(--ground); color: var(--ink); font: 15px/1.55 var(--sans); padding-inline: 20px; padding-block: 0 64px; }
+.page { max-width: 1180px; margin: 0 auto; }
+h1, h2, h3 { text-wrap: balance; line-height: 1.2; margin: 0; font-weight: 600; }
+h1 { font-size: clamp(30px, 4.4vw, 46px); letter-spacing: -0.02em; }
+h2 { font-size: 24px; letter-spacing: -0.01em; }
+h3 { font-size: 16px; }
+p { margin: 0; }
+code, .mono { font-family: var(--mono); font-size: 0.86em; }
+code { background: var(--code-bg); padding: 1px 5px; border-radius: 4px; }
+a { color: var(--accent); }
+section { margin-top: 64px; }
+.section-head { display: grid; gap: 6px; margin-bottom: 20px; max-width: 72ch; }
+.section-head p { color: var(--muted); }
+header.top { padding-block: 44px 20px; display: grid; gap: 14px; }
+header.top .lead { font-size: 17px; max-width: 70ch; color: var(--muted); }
+header.top .lead strong { color: var(--ink); font-weight: 600; }
+.pill { justify-self: start; font: 600 11px var(--sans); letter-spacing: 0.04em; color: var(--warn); border: 1px solid color-mix(in srgb, var(--warn) 45%, var(--line)); border-radius: 999px; padding: 2px 9px; }
+.note { font-size: 13px; color: var(--muted); margin-top: 10px; max-width: 82ch; }
+kbd { font: 700 11px var(--mono); border: 1px solid var(--line); background: var(--panel); border-radius: 4px; padding: 1px 5px; white-space: nowrap; }
+
+.controls { display: flex; flex-wrap: wrap; gap: 14px 22px; align-items: center; margin: 18px 0 12px; }
+.ctl { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
+.seg { display: inline-flex; background: var(--panel); border: 1px solid var(--line); border-radius: 999px; padding: 3px; gap: 2px; flex-wrap: wrap; }
+.seg button { font: 500 13px var(--sans); color: var(--ink); background: transparent; border: 0; padding: 5px 12px; border-radius: 999px; cursor: pointer; }
+.seg button[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent); }
+.seg button:focus-visible, .tog:focus-visible, .btn:focus-visible, .stage:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.tog { display: inline-flex; align-items: center; gap: 7px; font: 500 13px var(--sans); color: var(--ink); background: var(--panel); border: 1px solid var(--line); border-radius: 999px; padding: 5px 12px; cursor: pointer; }
+.tog::before { content: ""; width: 8px; height: 8px; border-radius: 50%; border: 1.5px solid var(--muted); }
+.tog[aria-pressed="true"]::before { background: var(--accent); border-color: var(--accent); }
+.btn { font: 600 13px var(--sans); color: var(--ink); background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 6px 12px; cursor: pointer; }
+.btn.primary { background: var(--accent); color: var(--ground); border-color: var(--accent); }
+
+/* The user's screen */
+.screenwrap { overflow-x: auto; border-radius: 14px; }
+.stage { position: relative; background: #2e3440 url("wall.jpg") center / cover no-repeat; border-radius: 14px; overflow: hidden; outline: none; }
+.stage .dimmer { position: absolute; inset: 0; background: rgba(0,0,0,.18); pointer-events: none; }
+.page img { max-width: none; max-height: none; }
+.barlayer { position: absolute; inset: 0; transition: transform 180ms cubic-bezier(.23,1,.32,1); }
+.island { position: absolute; background: var(--bar-bg); box-shadow: 0 1px 4px rgba(0,0,0,.37); outline: .5px solid rgba(var(--bar-fg), .16); }
+.cell { position: absolute; }
+.cell img { position: absolute; pointer-events: none; user-select: none; }
+.cell.dim { opacity: .28; }
+.cell .lbl { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: rgb(var(--bar-fg)); font: 500 12px/1.05 var(--mono); text-align: center; white-space: pre; }
+.cell .dots { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: rgba(var(--bar-fg), .85); font: 700 15px var(--mono); }
+.hl { position: absolute; border-radius: 6px; background: rgba(var(--bar-fg), .13); box-shadow: inset 0 0 0 1.5px var(--bar-accent); pointer-events: none; }
+.hl.match { background: transparent; box-shadow: inset 0 0 0 1px rgba(var(--bar-fg), .45); }
+.drawer { position: absolute; background: var(--bar-bg); border-radius: 8px; outline: .5px solid rgba(var(--bar-fg), .2); box-shadow: 0 6px 18px rgba(0,0,0,.4); padding: 4px; animation: pop 160ms cubic-bezier(.23,1,.32,1); }
+.drawer .row { position: relative; height: 30px; display: flex; align-items: center; gap: 8px; padding-right: 10px; border-radius: 5px; color: rgb(var(--bar-fg)); font: 500 12px var(--mono); white-space: nowrap; }
+.drawer .row .ic { width: 27px; height: 30px; position: relative; overflow: hidden; flex: none; }
+.drawer .row .ic img { position: absolute; left: 0; top: -4px; }
+.drawer .row.cur { background: rgba(var(--bar-fg), .13); box-shadow: inset 0 0 0 1.5px var(--bar-accent); }
+.drawer .row .sc { margin-left: auto; display: flex; gap: 3px; padding-left: 12px; }
+.drawer.preview .row { opacity: .9; }
+.card { position: absolute; background: var(--bar-dark); color: rgb(var(--bar-fg)); border-radius: 8px; padding: 8px 11px; font: 500 12px var(--mono); box-shadow: 0 6px 18px rgba(0,0,0,.45); outline: .5px solid rgba(var(--bar-fg), .18); white-space: nowrap; display: grid; gap: 5px; animation: fade 110ms ease-out; }
+.card .sub { color: rgba(var(--bar-fg), .6); font-size: 11px; }
+.caps { display: inline-flex; gap: 3px; }
+.cap { font: 700 10px var(--mono); color: rgb(var(--bar-fg)); border: 1px solid rgba(var(--bar-fg), .3); background: rgba(var(--bar-fg), .08); border-radius: 4px; padding: 1px 5px; }
+.legend { position: absolute; background: rgba(34, 39, 48, .72); backdrop-filter: blur(6px); color: rgb(var(--bar-fg)); border-radius: 10px; padding: 7px 12px; font: 500 11.5px var(--mono); display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; outline: .5px solid rgba(var(--bar-fg), .16); animation: fade 140ms ease-out; max-width: 92%; }
+.legend span { display: inline-flex; gap: 5px; align-items: center; color: rgba(var(--bar-fg), .75); }
+.legend .find { color: rgb(var(--bar-fg)); }
+.legend .find b { color: var(--bar-accent); font-weight: 700; }
+.legend .miss { color: var(--bar-urgent); }
+.panel { position: absolute; width: 250px; background: var(--bar-dark); color: rgb(var(--bar-fg)); border-radius: 10px; padding: 14px; font: 500 12px var(--mono); box-shadow: 0 10px 28px rgba(0,0,0,.5); outline: .5px solid rgba(var(--bar-fg), .18); display: grid; gap: 8px; animation: pop 180ms cubic-bezier(.23,1,.32,1); }
+.panel h4 { margin: 0; font: 700 13px var(--mono); }
+.panel p { color: rgba(var(--bar-fg), .65); font-size: 11.5px; white-space: normal; }
+.sheet { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(520px, 86%); max-height: 80%; overflow: auto; background: rgba(34, 39, 48, .92); backdrop-filter: blur(8px); color: rgb(var(--bar-fg)); border-radius: 12px; padding: 16px 18px; font: 500 12px var(--mono); outline: .5px solid rgba(var(--bar-fg), .2); box-shadow: 0 12px 36px rgba(0,0,0,.5); animation: fade 140ms ease-out; }
+.sheet h4 { margin: 0 0 10px; font: 700 13px var(--mono); }
+.sheet .r { display: grid; grid-template-columns: 1fr auto; gap: 10px; padding: 4px 0; border-top: 1px solid rgba(var(--bar-fg), .1); }
+.sheet .r .w { color: rgba(var(--bar-fg), .6); }
+.toast { position: absolute; left: 16px; top: 14px; background: rgba(34,39,48,.8); color: rgb(var(--bar-fg)); font: 500 12px var(--mono); padding: 6px 10px; border-radius: 8px; }
+.callout { position: absolute; left: 50%; top: 46%; transform: translate(-50%, -50%); display: grid; gap: 10px; justify-items: center; text-align: center; color: #eceff4; font: 500 14px var(--sans); text-shadow: 0 1px 3px rgba(0,0,0,.7); max-width: 80%; }
+@keyframes pop { from { opacity: 0; transform: scale(.97); } to { opacity: 1; transform: none; } }
+@keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+
+.chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.chip { font: 500 12px var(--mono); padding: 4px 10px; border-radius: 999px; background: var(--panel); border: 1px solid var(--line); color: var(--ink); }
+.chip b { font-weight: 500; color: var(--muted); margin-right: 6px; font-family: var(--sans); }
+.chip.good { border-color: color-mix(in srgb, var(--good) 45%, var(--line)); }
+.chip.good::after { content: " ✓"; color: var(--good); }
+.chip.bad { border-color: color-mix(in srgb, var(--warn) 45%, var(--line)); }
+.chip.bad::after { content: " ✗"; color: var(--warn); }
+
+.tablewrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); }
+table { border-collapse: collapse; width: 100%; font-size: 13.5px; }
+th, td { text-align: left; padding: 10px 14px; border-top: 1px solid var(--line); vertical-align: top; }
+thead th { border-top: 0; font-weight: 600; color: var(--muted); font-size: 12.5px; }
+td.keep { color: var(--good); font-weight: 600; white-space: nowrap; }
+td.change { color: var(--warn); font-weight: 600; white-space: nowrap; }
+td.add { color: var(--accent); font-weight: 600; white-space: nowrap; }
+td .muted, .muted { color: var(--muted); }
+.grid2 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 28px; align-items: start; }
+.cases { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.case { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; display: grid; gap: 8px; align-content: start; }
+.case p { color: var(--muted); font-size: 13.5px; }
+.case .try { justify-self: start; }
+.finds { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 4px 18px; font-size: 13px; }
+.finds div { display: flex; justify-content: space-between; gap: 10px; border-bottom: 1px dashed var(--line); padding: 3px 0; }
+.finds code { background: none; padding: 0; color: var(--accent); }
+.steps { display: grid; gap: 12px; padding-left: 22px; margin: 0; max-width: 80ch; }
+.steps li p { color: var(--muted); font-size: 14px; margin-top: 2px; }
+.sources { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 28px; padding: 0; list-style: none; margin: 0; }
+.sources li { font-size: 13.5px; }
+.sources li span { color: var(--muted); display: block; }
+.prefs-card { background: var(--bar-dark); color: rgb(var(--bar-fg)); border: 1px solid rgba(var(--bar-fg), .14); border-radius: 12px; padding: 18px 20px; display: grid; gap: 12px; font-family: var(--mono); box-shadow: 0 8px 28px rgba(0,0,0,.35); }
+.prefs-card h4 { margin: 0; font: 600 11.5px var(--mono); letter-spacing: .06em; color: rgba(var(--bar-fg), .7); }
+.prow { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 16px; align-items: center; }
+.prow .pl { font-weight: 700; font-size: 13px; }
+.prow .pd { font-size: 11px; color: rgba(var(--bar-fg), .6); grid-column: 1 / -1; }
+.switch { width: 34px; height: 18px; border-radius: 9px; background: rgba(var(--bar-fg), .25); position: relative; }
+.switch::after { content: ""; position: absolute; right: 3px; top: 3px; width: 12px; height: 12px; border-radius: 3px; background: rgb(var(--bar-fg)); }
+@media (max-width: 860px) {
+  .grid2, .cases, .sources { grid-template-columns: minmax(0, 1fr); }
+}
+html.no-motion .page *, html.no-motion .page *::before, html.no-motion .page *::after { transition-duration: 0s !important; animation: none !important; }
+@media (prefers-reduced-motion: reduce) { .barlayer, .drawer, .card, .legend, .panel, .sheet { transition: none; animation: none; } }
+</style>
+
+<div class="page">
+  <header class="top">
+    <span class="pill">Draft for review</span>
+    <h1>Along the bar, across into it</h1>
+    <p class="lead">Super+B puts a keyboard cursor on the clock. From there <strong>the keys that run along your bar move along it, and the keys that point across it go into a group's drawer and back</strong>, whichever edge the bar is on. Tab jumps a zone, <kbd>/</kbd> finds a widget by any word of its name, Enter opens it, and Esc steps back one layer at a time. The demo below is your own bar, on the right edge of your screen with your wallpaper, built from your layout and widget images.</p>
+  </header>
+
+  <div class="controls" role="group" aria-label="Demo options">
+    <div class="ctl"><span id="edge-l">Bar on</span><div class="seg" id="edge" role="group" aria-labelledby="edge-l">
+      <button data-v="right">Right (yours)</button><button data-v="top">Top</button><button data-v="bottom">Bottom</button></div></div>
+    <div class="ctl"><span id="scheme-l">Group keys</span><div class="seg" id="scheme" role="group" aria-labelledby="scheme-l">
+      <button data-v="along">Across the bar (recommended)</button><button data-v="updown">Up and Down (first proposal)</button></div></div>
+    <button class="tog" id="autohide" aria-pressed="false">Autohide</button>
+    <button class="tog" id="legendTog" aria-pressed="true">Key legend</button>
+    <button class="tog" id="motion" aria-pressed="true">Animations</button>
+  </div>
+
+  <div class="screenwrap"><div class="stage" id="stage" tabindex="0" aria-label="Your screen. Press Super+B, or B, to put the keyboard on the bar."></div></div>
+  <div class="chips" id="chips"></div>
+  <p class="note">Click the screen, then press <kbd>B</kbd> (your browser keeps Super+B for itself) or use the button on it. Every key below works as described; panels are drawn as placeholders. On a side bar the clock and workspaces are drawn in their vertical form; the other images are your captures. Dots hold the on-demand widgets of their zone (placed at the zone's inner end in this model). The numbers come from <code>nav.js</code>, the same rules the demo runs, over your 36 widgets and groups.</p>
+
+  <section id="changes">
+    <div class="section-head">
+      <h2>Your proposal, checked</h2>
+      <p>Most of it stands as you wrote it. Two parts change because of your own setup: your bar is vertical, and your keyboard repeats at 40 keys a second.</p>
+    </div>
+    <div class="tablewrap"><table>
+      <thead><tr><th>Part</th><th></th><th>What it does here, and why</th></tr></thead>
+      <tbody id="changesBody"></tbody>
+    </table></div>
+  </section>
+
+  <section id="keymap">
+    <div class="section-head">
+      <h2>One meaning per key, on every edge</h2>
+      <p>Keys are named by direction relative to the bar. A drawer always opens into the screen, so the key that points into the screen enters it, and the opposite key comes back. Up and Down can't do that job on a side bar: they are the keys that move along it.</p>
+    </div>
+    <div class="tablewrap"><table>
+      <thead><tr><th>Bar on</th><th>Move along</th><th>Into a group</th><th>Back out</th><th>Zones</th><th>Ends</th></tr></thead>
+      <tbody id="keymapBody"></tbody>
+    </table></div>
+    <p class="note">Everywhere: Enter or Space opens the widget under the cursor (a group: its drawer). <kbd>/</kbd> finds, <kbd>↓</kbd> or <kbd>Tab</kbd> goes to the next match. <kbd>?</kbd> lists every widget's own shortcut. Esc closes the innermost thing first: the search, a drawer, a panel, then the cursor itself. Super+B again leaves at once.</p>
+  </section>
+
+  <section id="numbers">
+    <div class="section-head">
+      <h2>How many keys to reach anything</h2>
+      <p>Fewest presses from the clock to put the cursor on each of your 36 widgets and groups, counted by a breadth-first search over the keys each way allows. On-demand widgets count the walk through their dots, group members the step into the drawer.</p>
+    </div>
+    <div class="tablewrap"><table>
+      <thead><tr><th>Way</th><th>Median</th><th>Mean</th><th>Most</th><th>More than 6 keys</th><th>Hardest</th></tr></thead>
+      <tbody id="numbersBody"></tbody>
+    </table></div>
+    <h3 style="margin-top:26px">What you would type to find each one</h3>
+    <p class="note" style="margin-top:4px">The start of a word of its name, after <kbd>/</kbd>; <kbd>+↓</kbd> counts the matches ahead of it. A word that starts with the text beats a word that contains it, then bar order. Two items share a name (the Audio group and the Audio widget in it): the second is one <kbd>↓</kbd> away.</p>
+    <div class="finds" id="finds" style="margin-top:12px"></div>
+  </section>
+
+  <section id="cases">
+    <div class="section-head">
+      <h2>Edge cases</h2>
+      <p>The states the bar can be in when Super+B arrives, and what the cursor does in each. Where the demo can show it, the button sets it up.</p>
+    </div>
+    <div class="cases" id="casesGrid"></div>
+  </section>
+
+  <section id="motion-sec">
+    <div class="section-head">
+      <h2>Motion</h2>
+      <p>Moving the cursor is something you do dozens of times a minute, so it never animates: the ring is where the key put it, at once. Things that appear (the legend, a drawer, a panel) use the bar's existing timing and switch off with Animations (<code>powerbarAnimations</code>).</p>
+    </div>
+    <div class="tablewrap"><table>
+      <thead><tr><th>Change</th><th>Animations on</th><th>Animations off</th><th>Why it still reads</th></tr></thead>
+      <tbody>
+        <tr><td>Cursor moves</td><td class="mono">none</td><td>none</td><td>The accent ring jumps; keyboard focus never glides.</td></tr>
+        <tr><td>Bar slides out (autohide, bar off)</td><td class="mono">180 ms ease-out, back 130 ms</td><td>at once</td><td>The same slide the pointer at the edge gives.</td></tr>
+        <tr><td>Group drawer unfolds after the key is let go</td><td class="mono">drawer's own 160 ms</td><td>at once</td><td>Rows appear beside the icon the ring is on.</td></tr>
+        <tr><td>Dots open (inline expansion)</td><td class="mono">slots 120 ms</td><td>at once</td><td>The ring lands on the first widget that appeared.</td></tr>
+        <tr><td>Key legend and name card</td><td class="mono">fade 110–140 ms</td><td>at once</td><td>Plain text; nothing moves under it.</td></tr>
+        <tr><td>Bump at either end</td><td class="mono">none</td><td>none</td><td>The ring stays put. No wrap, so the ends are a landmark.</td></tr>
+      </tbody>
+    </table></div>
+  </section>
+
+  <section id="prefs">
+    <div class="section-head">
+      <h2>In Preferences</h2>
+      <p>A Keyboard tile on the Bar page, beside Behavior. Its shortcut row is the one the Layout and Groups pages already use, so changing Super+B checks for clashes the same way.</p>
+    </div>
+    <div class="grid2">
+      <div class="prefs-card" aria-label="Preferences mock">
+        <h4>KEYBOARD</h4>
+        <div class="prow"><span class="pl">Bar keyboard</span><span class="caps"><span class="cap">Super</span><span class="cap">B</span></span>
+          <span class="pd">Puts a cursor on the clock; arrows move, Enter opens, / finds</span></div>
+        <div class="prow"><span class="pl">Key legend</span><span class="switch" aria-hidden="true"></span>
+          <span class="pd">The strip of keys at the far edge while the cursor is on the bar</span></div>
+      </div>
+      <div>
+        <h3>Open questions for your review</h3>
+        <ol class="steps" style="margin-top:10px">
+          <li><strong>Bind Super+B on install, or offer it?</strong><p>Super+B is free on your machine and in stock Omarchy (the browser is on Super+Shift+B). Binding it at install writes <code>powerbar.lua</code> before you asked for anything. Recommended: offer it. The Keyboard tile shows "Super B, suggested" and Enter binds it.</p></li>
+          <li><strong>Legend always, or only until you have used it a few times?</strong><p>Recommended: always, small, at the far edge. <kbd>?</kbd> opens the full list, and the switch turns the strip off.</p></li>
+          <li><strong>Should hidden widgets be findable?</strong><p>Recommended: no. They have no place on the bar to put a cursor on. Preferences already finds them.</p></li>
+        </ol>
+      </div>
+    </div>
+  </section>
+
+  <section id="build">
+    <div class="section-head">
+      <h2>How it would be built</h2>
+      <p>After you approve the draft. Everything here reuses parts Powerbar already has.</p>
+    </div>
+    <ol class="steps">
+      <li><strong>A pure model, <code>BarKeysModel.js</code>.</strong><p>This page's <code>nav.js</code>, grown up: stops from the bar's slots (widgets, group headers, dots, a folded zone's drawer button), the edge's key map, and every key as a state change. Node tests replay the tables on this page.</p></li>
+      <li><strong>A focus mode in <code>Bar.qml</code>.</strong><p>An IPC <code>omarchy-shell powerbar keys</code> toggles it on the focused monitor's bar. While it lasts, the bar window takes exclusive keyboard focus (<code>WlrKeyboardFocus.Exclusive</code>), and the cursor draws with the existing keyboard highlight (<code>HighlightModel</code>, focus fill and accent ring). <code>autoHideHeld</code> includes it, so an autohidden or switched-off bar comes out the way the pointer brings it.</p></li>
+      <li><strong>Reuse what already moves.</strong><p>Dots open through <code>inlineEnter</code>. Groups open through <code>managedDrawer.openGroup(id, slot, true)</code>, whose keyboard mode already walks members. Enter calls the slot's <code>activate</code>. Panels open with <code>summonBarWidget</code>; Omarchy's Tab-between-panels then moves the bar's cursor with it.</p></li>
+      <li><strong>The legend and name card.</strong><p>A small layer surface at the far edge, plus the bar's tooltip with the widget's name and its shortcut from <code>ShortcutStore</code>. <kbd>?</kbd> lists every shortcut. The search field lives in the legend.</p></li>
+      <li><strong>The shortcut.</strong><p>A <code>bar:keys</code> target in <code>powerbarShortcuts</code>, written to <code>powerbar.lua</code> like the widget shortcuts.</p></li>
+      <li><strong>Check it live.</strong><p>Every edge; autohide and bar off; a held key sweeping past both groups; Tab through the dots; <kbd>/au</kbd>; a panel open when Super+B arrives; two monitors.</p></li>
+    </ol>
+  </section>
+
+  <section id="research">
+    <div class="section-head">
+      <h2>What the research says</h2>
+      <p>Each source changed a rule or confirmed one.</p>
+    </div>
+    <ul class="sources">
+      <li><a href="https://www.itechguides.com/how-to-open-system-tray-windows-11/">Windows 11: Win+B, Win+T</a><span>Win+B puts focus on the tray; B for bar is a familiar letter. Arrows move, Enter opens.</span></li>
+      <li><a href="https://www.elevenforum.com/t/open-apps-on-taskbar-in-windows-11.29087/">Taskbar with the keyboard</a><span>Home and End jump to the ends; a letter jumps to a name. Here <kbd>/</kbd> does that, since h, j, k and l move.</span></li>
+      <li><a href="https://support.apple.com/en-my/102650">Mac keyboard shortcuts</a><span>Ctrl+F8 focuses the status menus, then arrows and Return. One key to enter, arrows inside.</span></li>
+      <li><a href="https://help.gnome.org/users/gnome-help/stable/shell-keyboard-shortcuts.html.en">GNOME: Ctrl+Alt+Tab to the top bar</a><span>Focus stays on the bar until you leave. Its regression (focus dropping on release) is the case to avoid.</span></li>
+      <li><a href="https://www.w3.org/WAI/ARIA/apg/patterns/toolbar/">WAI-ARIA toolbar pattern</a><span>Arrows inside, Home and End to the ends, wrapping optional. Tab jumps by zone here, since the bar has three.</span></li>
+      <li><a href="https://www.w3.org/WAI/ARIA/apg/patterns/menubar/examples/menubar-navigation/">WAI-ARIA menubar</a><span>The key that points at a submenu opens it. That is the across rule.</span></li>
+      <li><a href="https://github.com/philc/vimium/blob/master/README.md">Vimium</a><span><kbd>/</kbd> to find, Esc to cancel, n and N between matches. Vim users already know these keys.</span></li>
+      <li>Omarchy's <code>PanelKeyCatcher</code> and <code>KeyboardPanel</code><span>Panels already use h, j, k, l, Enter, Space and Esc, and Tab moves to the next panel. The bar keeps the same keys.</span></li>
+      <li>Your Hyprland input settings<span>Repeat 40 a second after 250 ms. No fixed delay separates a held key from a press, so groups unfold when the key is released.</span></li>
+      <li>Emil Kowalski, via the Omarchy UX skill<span>Frequent keyboard actions don't animate. Things that appear use 110–180 ms ease-out.</span></li>
+    </ul>
+  </section>
+</div>
+
+<script src="widgets.js"></script>
+<script src="layout.js"></script>
+<script src="measurements.js"></script>
+<script src="nav.js"></script>
+<script>
+(function() {
+  var LAB = window.LAB, BAR = window.BAR, M = window.MEASURE
+  var T = 38, SCREEN_W = 1600, SCREEN_H = 1000, GAP = 6
+  var st = Nav.stops(BAR)
+  var ui = { edge: "right", scheme: "along", autohide: false, legend: true, motion: true }
+  var s = null, active = false, preview = false, panel = null, toast = "", toastTimer = 0, unfoldTimer = 0, hideTimer = 0, shownByKeys = false
+  var stage = document.getElementById("stage")
+  try { var saved = JSON.parse(localStorage.getItem("barkeys") || "{}"); Object.assign(ui, saved.edge ? saved : {}) } catch (e) {}
+
+  // ----- geometry ------------------------------------------------------
+  var vertical = function() { return ui.edge === "left" || ui.edge === "right" }
+  function widgetFor(item) { return item && item.key ? LAB.widgets[item.key] : null }
+  // A stop's length along the bar, and what it draws.
+  function face(stop) {
+    var item = stop.item
+    if (stop.kind === "dots") return { len: 22, dots: true }
+    if (stop.kind === "group") {
+      var g = LAB.widgets[item.key]
+      if (vertical()) return { len: 27, img: item.key, cx: g ? g.parts[0][0] + g.parts[0][1] / 2 : 13.5 }
+      return { len: g ? g.w : 60, img: item.key }
+    }
+    var w = widgetFor(item)
+    if (vertical()) {
+      if (item.id === "omarchy.clock") return { len: 54, text: "22\n—\n56" }
+      if (item.id === "omarchy.workspaces") return { len: 112, text: "●\n2\n3\n4\n5" }
+      if (item.id === "omarchy.keyboard-layout") return { len: 27, text: "EN" }
+      if (w && w.w > 34) return { len: 27, img: item.key, cx: w.parts[0][0] + w.parts[0][1] / 2 }
+      return { len: w ? Math.max(24, w.w) : 27, img: item.key }
+    }
+    if (!w) return { len: 27, text: item.name.slice(0, 2) }
+    return { len: w.w, img: item.key }
+  }
+  // Every stop's box on the screen (logical px), by zone.
+  function layout() {
+    var r = Nav.row(st, s ? s.open : null), out = [], zones = { left: [], center: [], right: [] }
+    r.forEach(function(stop, i) { zones[stop.zone].push({ stop: stop, i: i, f: face(stop) }) })
+    var along = vertical() ? SCREEN_H : SCREEN_W, pad = 4, islands = []
+    ;["left", "center", "right"].forEach(function(z) {
+      var list = zones[z], total = list.reduce(function(a, x) { return a + x.f.len }, 0) + pad * 2
+      var start = z === "left" ? GAP : z === "right" ? along - GAP - total : (along - total) / 2
+      if (!list.length) return
+      islands.push({ start: start, len: total })
+      var p = start + pad
+      list.forEach(function(x) { x.start = p; p += x.f.len; out[x.i] = x })
+    })
+    return { cells: out, islands: islands }
+  }
+  function box(start, len) {
+    // along/cross → screen rect
+    var cross = ui.edge === "right" ? SCREEN_W - GAP - T : ui.edge === "bottom" ? SCREEN_H - GAP - T : GAP
+    return vertical() ? { x: cross, y: start, w: T, h: len } : { x: start, y: cross, w: len, h: T }
+  }
+  // The screen shown: all of it for top and bottom bars; the right-hand part
+  // for a side bar, at true size.
+  function view() {
+    var wrapW = stage.parentNode.clientWidth || 1100
+    if (vertical()) {
+      var w = Math.min(wrapW, 900), z = 0.82
+      return { z: z, w: w, h: SCREEN_H * z, x0: ui.edge === "right" ? SCREEN_W - w / z : 0, y0: 0 }
+    }
+    var zz = Math.min(1, wrapW / SCREEN_W)
+    return { z: zz, w: SCREEN_W * zz, h: 560 * zz, x0: 0, y0: ui.edge === "bottom" ? SCREEN_H - 560 : 0 }
+  }
+
+  // ----- drawing --------------------------------------------------------
+  function el(tag, cls, css, html) {
+    var e = document.createElement(tag)
+    if (cls) e.className = cls
+    if (css) Object.assign(e.style, css)
+    if (html !== undefined) e.innerHTML = html
+    return e
+  }
+  function px(v) { return Math.round(v * 10) / 10 + "px" }
+  function caps(keys) {
+    if (!keys) return ""
+    return '<span class="caps">' + label(keys).map(function(k) { return '<span class="cap">' + k + "</span>" }).join("") + "</span>"
+  }
+  function label(keys) {
+    var parts = keys.split("+").map(function(p) { return p.trim() })
+    var names = { SUPER: "Super", CTRL: "Ctrl", ALT: "Alt", SHIFT: "Shift", SLASH: "/", SPACE: "Space" }
+    var codes = { 10: "1", 11: "2", 12: "3", 13: "4", 14: "5", 15: "6", 16: "7", 17: "8", 18: "9", 19: "0" }
+    return parts.map(function(p) { var m = /^code:(\d+)$/.exec(p); return m ? codes[m[1]] || p : names[p] || p })
+  }
+  function render() {
+    var v = view(), lay = layout(), z = v.z
+    stage.innerHTML = ""
+    stage.style.width = px(v.w); stage.style.height = px(v.h)
+    stage.appendChild(el("div", "dimmer"))
+    var layer = el("div", "barlayer")
+    var tucked = ui.autohide && !active && !shownByKeys
+    var off = (T + GAP + 8) * z
+    layer.style.transform = !tucked ? "none" : ui.edge === "right" ? "translateX(" + off + "px)" : ui.edge === "top" ? "translateY(-" + off + "px)" : ui.edge === "bottom" ? "translateY(" + off + "px)" : "translateX(-" + off + "px)"
+    stage.appendChild(layer)
+    function place(e, r) {
+      e.style.left = px((r.x - v.x0) * z); e.style.top = px((r.y - v.y0) * z); e.style.width = px(r.w * z); e.style.height = px(r.h * z)
+      return e
+    }
+    lay.islands.forEach(function(isl) { var e = place(el("div", "island"), box(isl.start, isl.len)); e.style.borderRadius = px(6 * z); layer.appendChild(e) })
+    var found = s && s.searching && s.query ? Nav.matches(st, s.query) : null
+    var foundItems = found ? found.map(function(m) { return m.group || m.item }) : null
+    lay.cells.forEach(function(c, i) {
+      if (!c) return
+      var r = box(c.start, c.f.len), cell = place(el("div", "cell"), r)
+      if (foundItems && c.stop.item && foundItems.indexOf(c.stop.item) < 0) cell.classList.add("dim")
+      if (c.f.dots) cell.appendChild(el("div", "dots", null, vertical() ? "⋮" : "⋯"))
+      else if (c.f.text) { var t = el("div", "lbl", { fontSize: px(12 * z) }); t.textContent = c.f.text; cell.appendChild(t) }
+      else if (c.f.img) {
+        var w = LAB.widgets[c.f.img]
+        if (w) {
+          var img = el("img"); img.src = "w/" + c.f.img + ".png"; img.alt = ""
+          img.style.width = px(w.w * z); img.style.height = px(w.h * z)
+          if (vertical()) {
+            // A wide face shows only its first painted part (its icon), clipped
+            // to an icon's square and centred across the bar.
+            var clipW = c.f.cx !== undefined ? 27 : T
+            var holder = el("div", null, { position: "absolute", left: px((T - clipW) / 2 * z), top: 0, width: px(clipW * z), height: px(c.f.len * z), overflow: "hidden" })
+            img.style.left = px((clipW / 2 - (c.f.cx !== undefined ? c.f.cx : w.w / 2)) * z)
+            img.style.top = px((c.f.len - w.h) / 2 * z)
+            holder.appendChild(img); cell.appendChild(holder)
+          } else { img.style.left = 0; img.style.top = 0; cell.appendChild(img) }
+        }
+      }
+      if (found && c.stop.item && foundItems.indexOf(c.stop.item) >= 0 && i !== s.cursor) cell.appendChild(el("div", "hl match", { inset: px(3 * z) }))
+      if (active && s && i === s.cursor && !s.drawer) cell.appendChild(el("div", "hl", { inset: px(3 * z) }))
+      layer.appendChild(cell)
+    })
+    if (!active) {
+      var call = el("div", "callout")
+      call.innerHTML = '<span>' + (ui.autohide ? "The bar is tucked away (autohide)." : "Your bar, on the " + ui.edge + " edge.") + '</span>'
+      var b = el("button", "btn primary", null, "Press Super+B"); b.addEventListener("click", function() { enter(); stage.focus() })
+      call.appendChild(b); stage.appendChild(call)
+      return
+    }
+    var cur = lay.cells[s.cursor], curBox = cur ? box(cur.start, cur.f.len) : null
+    // Drawer: entered, or previewed after the key was let go.
+    var group = s.drawer || (preview && cur && cur.stop.kind === "group" ? cur.stop.item : null)
+    if (group && curBox) {
+      var d = el("div", "drawer" + (s.drawer ? "" : " preview"))
+      // Rows start at the bar: above a bottom bar the first is at the bottom.
+      if (ui.edge === "bottom") { d.style.display = "flex"; d.style.flexDirection = "column-reverse" }
+      group.members.forEach(function(m, mi) {
+        var row = el("div", "row" + (s.drawer && mi === s.member ? " cur" : ""))
+        var ic = el("div", "ic"), w = LAB.widgets[m.key]
+        if (w) { var im = el("img"); im.src = "w/" + m.key + ".png"; im.alt = ""; im.style.width = px(w.w); im.style.height = px(w.h); ic.appendChild(im) }
+        row.appendChild(ic)
+        var nm = el("span"); nm.textContent = m.name; row.appendChild(nm)
+        if (m.shortcut) row.appendChild(el("span", "sc", null, caps(m.shortcut)))
+        if (foundItems && foundItems.indexOf(m) < 0 && foundItems.indexOf(group) < 0) row.style.opacity = .3
+        d.appendChild(row)
+      })
+      stage.appendChild(d)
+      var dw = d.offsetWidth, dh = d.offsetHeight
+      var gx = (curBox.x - v.x0) * z, gy = (curBox.y - v.y0) * z
+      if (ui.edge === "right") { d.style.left = px(gx - dw - 6); d.style.top = px(Math.min(v.h - dh - 8, gy)) }
+      else if (ui.edge === "left") { d.style.left = px(gx + T * z + 6); d.style.top = px(gy) }
+      else if (ui.edge === "top") { d.style.left = px(Math.min(v.w - dw - 8, gx)); d.style.top = px(gy + T * z + 6) }
+      else { d.style.left = px(gx); d.style.top = px(gy - dh - 6) }
+    }
+    // Name card: name, its own shortcut, what Enter does.
+    if (curBox && !panel && !s.sheet) {
+      var it = s.drawer ? s.drawer.members[s.member] : cur.stop.item
+      if (it) {
+        var card = el("div", "card")
+        var head = el("div"); head.innerHTML = "<span></span> " + caps(it.shortcut || (cur.stop.kind === "group" && !s.drawer ? cur.stop.item.shortcut : ""))
+        head.firstChild.textContent = it.name + (cur.stop.kind === "group" && !s.drawer ? " group" : "")
+        card.appendChild(head)
+        card.appendChild(el("div", "sub", null, cur.stop.kind === "group" && !s.drawer ? it.members.length + " widgets · " + intoLabel() + " goes in" : "Enter opens it" + (cur.stop.behind ? " · on demand" : "")))
+        stage.appendChild(card)
+        var cw = card.offsetWidth, ch = card.offsetHeight, ax = (curBox.x - v.x0) * z, ay = (curBox.y - v.y0) * z
+        var dEl = stage.querySelector(".drawer")
+        if (ui.edge === "right") { card.style.left = px((dEl ? dEl.offsetLeft : ax) - cw - 8); card.style.top = px(Math.max(8, Math.min(v.h - ch - 60, ay + (s.drawer ? s.member * 30 : 0)))) }
+        else if (ui.edge === "top") { card.style.left = px(Math.max(8, Math.min(v.w - cw - 8, ax + (dEl ? dEl.offsetWidth + 10 : 0)))); card.style.top = px(ay + T * z + 8) }
+        else if (ui.edge === "bottom") { card.style.left = px(Math.max(8, Math.min(v.w - cw - 8, ax + (dEl ? dEl.offsetWidth + 10 : 0)))); card.style.top = px(ay - ch - 8) }
+        else { card.style.left = px(ax + T * z + 8); card.style.top = px(ay) }
+      }
+    }
+    if (panel && curBox) {
+      var pn = el("div", "panel")
+      pn.innerHTML = "<h4></h4><p>This widget's own panel opens here and takes the keys. Tab walks to the next panel, as in Omarchy, and the bar's cursor follows. Esc comes back to the bar.</p>"
+      pn.firstChild.textContent = panel.name
+      stage.appendChild(pn)
+      var ph = pn.offsetHeight, bx = (curBox.x - v.x0) * z, by = (curBox.y - v.y0) * z
+      if (ui.edge === "right") { pn.style.left = px(bx - 262); pn.style.top = px(Math.max(8, Math.min(v.h - ph - 60, by - 40))) }
+      else if (ui.edge === "top") { pn.style.left = px(Math.max(8, Math.min(v.w - 260, bx - 100))); pn.style.top = px(by + T * z + 8) }
+      else { pn.style.left = px(Math.max(8, Math.min(v.w - 260, bx - 100))); pn.style.top = px(by - ph - 8) }
+    }
+    if (ui.legend) {
+      var lg = el("div", "legend")
+      if (s.searching) {
+        var n = Nav.matches(st, s.query).length
+        lg.innerHTML = '<span class="find">/ <b></b>▏</span>' + (s.query ? (n ? "<span>" + ((s.matchIndex || 0) + 1) + " of " + n + "</span><span>" + key("↓") + key("tab") + " next</span>" : '<span class="miss">No widget named that</span>') : "<span>type part of a name</span>") + "<span>" + key("enter") + " open</span><span>" + key("esc") + " clear</span>"
+        lg.querySelector("b").textContent = s.query
+      } else {
+        var mp = Nav.keymap(ui.edge, ui.scheme)
+        var alongKeys = vertical() ? key("↑") + key("↓") + key("k") + key("j") : key("←") + key("→") + key("h") + key("l")
+        lg.innerHTML = "<span>" + alongKeys + " move</span><span>" + key("tab") + " zone</span>" +
+          (mp.clash.length ? '<span class="miss">' + key("enter") + " group (↑↓ move)</span>" : "<span>" + key(arrow(mp.into[0])) + key(mp.into[1]) + " into group</span>") +
+          "<span>" + key("enter") + " open</span><span>" + key("/") + " find</span><span>" + key("?") + " shortcuts</span><span>" + key("esc") + " " + (s.drawer ? "back" : panel ? "close panel" : "leave") + "</span>"
+      }
+      stage.appendChild(lg)
+      var lw = lg.offsetWidth
+      if (ui.edge === "bottom") { lg.style.top = "12px"; lg.style.left = px((v.w - lw) / 2) }
+      else if (ui.edge === "right") { lg.style.bottom = "12px"; lg.style.right = px((T + GAP + 14) * z) }
+      else { lg.style.bottom = "12px"; lg.style.left = px((v.w - lw) / 2) }
+    }
+    if (s.sheet) {
+      var sh = el("div", "sheet"), rows = "<h4>Every shortcut on your bar</h4>"
+      Nav.catalogue(st).forEach(function(c) { if (c.item.shortcut) rows += '<div class="r"><span>' + esc(c.item.name) + (c.group ? ' <span class="w">in ' + esc(c.group.name) + "</span>" : "") + "</span>" + caps(c.item.shortcut) + "</div>" })
+      rows += '<div class="r"><span>Panels in the ' + (vertical() ? "bottom" : "right") + ' zone, by place <span class="w">1 is the first</span></span><span class="caps"><span class="cap">Super</span><span class="cap">Ctrl</span><span class="cap">1–9</span></span></div>'
+      rows += '<div class="r"><span>This cursor</span><span class="caps"><span class="cap">Super</span><span class="cap">B</span></span></div>'
+      sh.innerHTML = rows + '<p class="w" style="margin-top:10px">? or Esc closes this list.</p>'
+      stage.appendChild(sh)
+    }
+    if (toast) stage.appendChild(el("div", "toast", null, esc(toast)))
+  }
+  function key(k) { return '<span class="cap">' + esc(k) + "</span>" }
+  function arrow(k) { return { ArrowLeft: "←", ArrowRight: "→", ArrowUp: "↑", ArrowDown: "↓" }[k] || k }
+  function intoLabel() { var mp = Nav.keymap(ui.edge, ui.scheme); return mp.clash.length ? "Enter" : arrow(mp.into[0]) + " " + mp.into[1] }
+  function esc(t) { return String(t).replace(/[&<>"]/g, function(c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c] }) }
+
+  // ----- keys -------------------------------------------------------------
+  function say(t) { toast = t; clearTimeout(toastTimer); toastTimer = setTimeout(function() { toast = ""; render() }, 1800) }
+  function enter() {
+    s = Nav.start(BAR, st); active = true; shownByKeys = true; preview = false; panel = null
+    clearTimeout(hideTimer); render()
+  }
+  function leave() {
+    active = false; preview = false; panel = null; render()
+    hideTimer = setTimeout(function() { shownByKeys = false; render() }, ui.motion ? 400 : 0)
+  }
+  function name(e) {
+    if (e.key === "Tab") return e.shiftKey ? "Shift+Tab" : "Tab"
+    if (e.key === " ") return " "
+    return e.key
+  }
+  stage.addEventListener("keydown", function(e) {
+    if (e.ctrlKey || e.altKey) return
+    if (!active) {
+      if (e.key === "b" || e.key === "B" || (e.metaKey && e.key.toLowerCase() === "b")) { e.preventDefault(); enter() }
+      return
+    }
+    if (e.metaKey && e.key.toLowerCase() === "b") { e.preventDefault(); leave(); return }
+    var k = name(e)
+    clearTimeout(unfoldTimer); preview = false
+    if (panel) {
+      e.preventDefault()
+      if (k === "Escape") { panel = null; render(); return }
+      if (k === "Tab" || k === "Shift+Tab") {
+        var r = Nav.row(st, s.open), dir = k === "Tab" ? 1 : -1
+        for (var i = s.cursor + dir; i >= 0 && i < r.length; i += dir) if (r[i].kind === "widget") { s = Object.assign({}, s, { cursor: i }); panel = r[i].item; break }
+        render(); return
+      }
+      return
+    }
+    var n = Nav.press(BAR, st, s, k, ui.edge, ui.scheme)
+    if (n === s) return
+    e.preventDefault()
+    s = n
+    if (n.effect === "leave") { leave(); return }
+    if (n.effect === "bump") say("The end of the bar")
+    if (n.effect === "open-panel") {
+      var it = s.drawer ? s.drawer.members[s.member] : Nav.row(st, s.open)[s.cursor].item
+      if (it) panel = it
+    }
+    render()
+  })
+  stage.addEventListener("keyup", function() {
+    if (!active || !s || s.drawer || s.searching) return
+    var cur = Nav.row(st, s.open)[s.cursor]
+    if (cur && cur.kind === "group") { clearTimeout(unfoldTimer); unfoldTimer = setTimeout(function() { preview = true; render() }, 100) }
+  })
+
+  // ----- controls, tables -------------------------------------------------
+  function seg(id, prop) {
+    var root = document.getElementById(id)
+    root.querySelectorAll("button").forEach(function(b) {
+      b.setAttribute("aria-pressed", String(ui[prop] === b.dataset.v))
+      b.addEventListener("click", function() {
+        ui[prop] = b.dataset.v
+        root.querySelectorAll("button").forEach(function(x) { x.setAttribute("aria-pressed", String(x === b)) })
+        persist(); if (active) s = Nav.start(BAR, st); render(); chips(); stage.focus()
+      })
+    })
+  }
+  function tog(id, prop, after) {
+    var b = document.getElementById(id)
+    b.setAttribute("aria-pressed", String(ui[prop]))
+    b.addEventListener("click", function() { ui[prop] = !ui[prop]; b.setAttribute("aria-pressed", String(ui[prop])); persist(); if (after) after(); render() })
+  }
+  function persist() { try { localStorage.setItem("barkeys", JSON.stringify(ui)) } catch (e) {} }
+  seg("edge", "edge"); seg("scheme", "scheme")
+  tog("autohide", "autohide"); tog("legendTog", "legend")
+  tog("motion", "motion", function() { document.documentElement.classList.toggle("no-motion", !ui.motion) })
+  document.documentElement.classList.toggle("no-motion", !ui.motion)
+
+  function chips() {
+    var a = M[ui.edge === "top" || ui.edge === "bottom" ? "top/" + ui.scheme : "right/" + ui.scheme]
+    var mp = Nav.keymap(ui.edge, ui.scheme)
+    var list = [
+      { b: "Arrows only", t: "median " + a.arrows.median + ", most " + a.arrows.max + " keys", good: a.arrows.max <= 7 },
+      { b: "With Tab between zones", t: "median " + a.withTab.median + ", most " + a.withTab.max, good: a.withTab.max <= 7 },
+      { b: "By name with /", t: "median " + M.find.median + ", most " + M.find.max, good: M.find.max <= 7 },
+      { b: "Group keys on this edge", t: mp.clash.length ? "↑↓ already move along" : arrow(mp.into[0]) + " in, " + arrow(mp.out[0]) + " out", good: !mp.clash.length },
+      { b: "Drawers flashing during a held key", t: "0 (they unfold on release)", good: true }
+    ]
+    document.getElementById("chips").innerHTML = list.map(function(c) { return '<span class="chip ' + (c.good ? "good" : "bad") + '"><b>' + c.b + "</b>" + esc(c.t) + "</span>" }).join("")
+  }
+
+  var CHANGES = [
+    ["Super+B, a free key", "keep", "Free on your machine and in stock Omarchy. B for bar, like Windows' Win+B for the tray. Super+B again leaves at once."],
+    ["Start on the clock", "keep", "Predictable, and in the middle of the bar: no widget is more than one zone away. If a panel is open, the cursor starts on its widget instead."],
+    ["Arrows and h j k l move across the whole bar and between zones", "keep", "The keys that run along the bar move. On your right-edge bar that is ↑ ↓ k j. The cursor stops at the ends (no wrap), so they stay a landmark."],
+    ["Tab and Shift+Tab jump a zone, to its nearest icon", "keep", "Tab lands on a zone's first item, Shift+Tab on the previous zone's last: both are the nearest. It wraps. Arrows alone need 17 keys at worst on your bar; with Tab, 7."],
+    ["Enter opens the highlighted widget", "keep", "Space too, as in Omarchy's panels. The panel takes the keys; Esc in it comes back to the bar, not out of it."],
+    ["Groups unfold on highlight", "change", "They unfold when you let the key go. At 40 repeats a second a held key would flash the AI drawer for 25 ms on its way past. A single press still unfolds about 100 ms after release."],
+    ["↑ ↓ enter and leave a group", "change", "On your vertical bar ↑ ↓ already move along it. The key that points into the screen, where the drawer opens, goes in: ← h on a right bar, ↓ j on a top bar. The opposite key comes back. Enter also opens a group."],
+    ["/ searches anywhere in names", "keep", "Word starts rank first, then any match, then bar order. It reaches into groups and behind dots, opening the way there. ↓ or Tab cycles matches. On your bar it takes 3 keys at the median, 5 at most."],
+    ["A translucent key strip at the top or bottom", "keep", "At the far edge from a top or bottom bar, and along the bottom for a side bar. Panels and drawers open next to the bar, so the strip never covers them."],
+    ["Show the widgets' own shortcuts", "keep", "A name card beside the cursor shows the widget's name and its shortcut. ? opens the full list, including the place-based Super+Ctrl+1–9."],
+    ["Esc dismisses", "keep", "One layer at a time: search, drawer, panel, then the cursor itself."],
+    ["Home and End", "add", "The first and last item, as in Windows' taskbar and the ARIA toolbar."],
+    ["The pointer takes over", "add", "Moving the pointer over the bar moves the cursor with the hover. A click elsewhere leaves, so the keyboard never stays trapped."]
+  ]
+  document.getElementById("changesBody").innerHTML = CHANGES.map(function(r) {
+    return "<tr><td>" + esc(r[0]) + '</td><td class="' + r[1] + '">' + { keep: "Keep", change: "Change", add: "Add" }[r[1]] + "</td><td>" + esc(r[2]) + "</td></tr>"
+  }).join("")
+
+  var KEYMAP = [["Top", "← →  h l", "↓ j", "↑ k"], ["Bottom", "← →  h l", "↑ k", "↓ j"], ["Right (yours)", "↑ ↓  k j", "← h", "→ l"], ["Left", "↑ ↓  k j", "→ l", "← h"]]
+  document.getElementById("keymapBody").innerHTML = KEYMAP.map(function(r) {
+    return "<tr><td>" + r[0] + '</td><td class="mono">' + r[1] + '</td><td class="mono">' + r[2] + '</td><td class="mono">' + r[3] + '</td><td class="mono">Tab, Shift+Tab</td><td class="mono">Home, End</td></tr>'
+  }).join("")
+
+  var rowsN = [["Arrows only", M["right/along"].arrows, M["right/along"].arrows], ["Arrows and Tab", M["right/along"].withTab, M["right/along"].withTab], ["/ and a name", M.find, M.find]]
+  var worst = { "Arrows only": "", "Arrows and Tab": M["right/along"].worst.join(", "), "/ and a name": "" }
+  document.getElementById("numbersBody").innerHTML = rowsN.map(function(r) {
+    var x = r[1]
+    return "<tr><td>" + r[0] + '</td><td class="mono">' + x.median + '</td><td class="mono">' + x.mean + '</td><td class="mono">' + x.max + '</td><td class="mono">' + x.over6 + " of " + x.count + '</td><td class="muted">' + esc(worst[r[0]]) + "</td></tr>"
+  }).join("")
+  document.getElementById("finds").innerHTML = M.findTyped.map(function(t) {
+    var p = t.split(" → ")
+    return "<div><span>" + esc(p[0]) + "</span><code>" + esc(p[1]) + "</code></div>"
+  }).join("")
+
+  var CASES = [
+    ["Autohide is on", "Super+B slides the bar out the way the pointer at the edge does, and holds it while the cursor is there. Leaving lets it slide away after the usual 400 ms.", { autohide: true }],
+    ["The bar is switched off", "Super+Shift+Space turned it off. Super+B shows it while you navigate and hides it again after. Omarchy's bar-off flag is never touched.", null],
+    ["On-demand widgets behind dots", "Moving onto the dots opens them, as hovering does, and the cursor lands on the first widget that appeared, in the direction you were going. Leaving the zone folds them back.", { find: "" }],
+    ["A zone folded into its drawer", "When a zone has no room, its widgets wait in a drawer behind its button. The button is a stop like the dots, and the across key goes into the drawer.", null],
+    ["A side bar (yours)", "Along is ↑ ↓ k j, and into a group is the key that points into the screen. The first proposal's ↑ ↓ would mean two things at once here.", { edge: "right" }],
+    ["A panel is already open", "The cursor starts on that panel's widget. Esc closes the panel first; a second Esc leaves.", null],
+    ["Widgets with no panel, and compounds", "Enter clicks a widget the way the pointer does (the tray, a toggle). For compounds like Workspaces, the into key walks their parts the way it walks a group.", null],
+    ["Preferences is open", "Preferences already has the keyboard, so Super+B does nothing until it closes.", null],
+    ["Two monitors", "The cursor appears on the bar of the monitor with the focused window, the same one Omarchy's panel shortcuts use.", null],
+    ["Nothing matches the search", "The cursor stays where it was, the strip says “No widget named that” in the urgent colour, and Backspace edits the text.", null],
+    ["Hidden widgets", "Not on the bar, so nothing to put a cursor on. Search skips them. Preferences finds them.", null],
+    ["Locked or fullscreen", "Never on the lock screen. Over a fullscreen window the bar appears above it while the cursor is on it, as autohide does.", null]
+  ]
+  var grid = document.getElementById("casesGrid")
+  CASES.forEach(function(c) {
+    var d = el("div", "case")
+    d.innerHTML = "<h3></h3><p></p>"
+    d.querySelector("h3").textContent = c[0]; d.querySelector("p").textContent = c[1]
+    if (c[2]) {
+      var b = el("button", "btn try", null, "Try it above")
+      b.addEventListener("click", function() {
+        if (c[2].autohide) { ui.autohide = true; document.getElementById("autohide").setAttribute("aria-pressed", "true"); active = false; shownByKeys = false }
+        if (c[2].edge) { ui.edge = c[2].edge; document.querySelectorAll("#edge button").forEach(function(x) { x.setAttribute("aria-pressed", String(x.dataset.v === ui.edge)) }) }
+        if (c[2].find !== undefined) { enter(); var r = Nav.row(st, null); var di = r.findIndex(function(x) { return x.kind === "dots" && x.zone === "center" }); s = Object.assign({}, s, { cursor: di + 1 }); s = Nav.press(BAR, st, s, vertical() ? "ArrowUp" : "ArrowLeft", ui.edge, ui.scheme) }
+        persist(); render(); chips(); stage.scrollIntoView({ behavior: ui.motion ? "smooth" : "auto", block: "center" }); stage.focus()
+      })
+      d.appendChild(b)
+    }
+    grid.appendChild(d)
+  })
+
+  window.addEventListener("resize", render)
+  chips(); render()
+  // A local check can open the demo in a state: #keys, #drawer, #search, #sheet, #top.
+  var h = location.hash.slice(1)
+  if (h) {
+    if (h.indexOf("top") >= 0) { ui.edge = "top" }
+    enter()
+    if (h.indexOf("drawer") >= 0) { var r = Nav.row(st, null); s.cursor = r.findIndex(function(x) { return x.kind === "group" }); s = Nav.press(BAR, st, s, Nav.keymap(ui.edge, ui.scheme).into[0], ui.edge, ui.scheme); s = Nav.press(BAR, st, s, Nav.keymap(ui.edge, ui.scheme).into[0], ui.edge, ui.scheme) }
+    if (h.indexOf("search") >= 0) { s = Nav.press(BAR, st, s, "/", ui.edge, ui.scheme); "au".split("").forEach(function(ch) { s = Nav.press(BAR, st, s, ch, ui.edge, ui.scheme) }) }
+    if (h.indexOf("sheet") >= 0) s = Nav.press(BAR, st, s, "?", ui.edge, ui.scheme)
+    render()
+  }
+})()
+</script>
