@@ -862,6 +862,10 @@ Item {
   property var pendingTooltipTarget: null
   property string tooltipText: ""
   property string pendingTooltipText: ""
+  // A shortcut's keys, shown under the tooltip's text as keycaps (Powerbar's
+  // own tooltips only; a widget's showTooltip(text) stays one line).
+  property var tooltipKeys: []
+  property var pendingTooltipKeys: []
   property bool tooltipShown: false
   property int tooltipRequest: 0
   property var activePopout: null
@@ -1285,8 +1289,10 @@ Item {
     tooltipTimer.stop()
     pendingTooltipTarget = null
     pendingTooltipText = ""
+    pendingTooltipKeys = []
     tooltipTarget = null
     tooltipText = ""
+    tooltipKeys = []
     tooltipShown = false
   }
 
@@ -2163,21 +2169,24 @@ Item {
     return slot.displayName || String(slot.moduleName || "").split(".").pop()
   }
   // A widget's or group's shortcut as keycaps text ("Super Ctrl A"), or "".
-  function shortcutLabel(target) {
+  function shortcutLabel(target) { return shortcutCaps(target).join(" ") }
+  // The same as a list of keycaps (["Super", "Ctrl", "A"]), or [].
+  function shortcutCaps(target) {
     var store = preferencesPane.shortcuts
-    if (!store || !store.ready) return ""
+    if (!store || !store.ready) return []
     var info = store.info(target)
     var keys = info && info.keys ? info.keys : info && info.positional ? info.positional : ""
-    return keys ? ShortcutModel.label(keys) : ""
+    return keys ? ShortcutModel.caps(keys) : []
   }
   function refreshShortcuts() { if (preferencesPane.shortcuts) preferencesPane.shortcuts.refresh() }
   readonly property var shortcutStore: preferencesPane.shortcuts
   // The keyboard cursor's name card: the bar's tooltip, shown at once.
-  function showCard(target, text) {
+  function showCard(target, text, keys) {
     clearTooltip()
     if (!target || !text) return
     tooltipTarget = target
     tooltipText = text
+    tooltipKeys = keys || []
     tooltipShown = true
   }
   function hideCard() { clearTooltip() }
@@ -2832,9 +2841,10 @@ Item {
     // A widget that brings no tooltip of its own is named, with its shortcut,
     // as the keyboard cursor names it. Groups keep their own setting, and a
     // compound (workspaces, the tray) is several things, not one name.
+    var keys = []
     if (!text && owner && !owner.groupHeader && owner.compoundTargets.length < 2 && !(owner.drawerHost && owner.drawerHost.labelled)) {
-      var keysLabel = shortcutLabel("widget:" + owner.moduleName)
-      text = slotName(owner) + (keysLabel ? "   " + keysLabel : "")
+      text = slotName(owner)
+      keys = shortcutCaps("widget:" + owner.moduleName)
     }
     if (unseen || !targetTooltipHovered(target) || !text) {
       tooltipRequest += 1
@@ -2845,6 +2855,7 @@ Item {
     tooltipRequest = request
     pendingTooltipTarget = target
     pendingTooltipText = text
+    pendingTooltipKeys = keys
 
     Qt.callLater(function() {
       if (request !== tooltipRequest) return
@@ -2854,8 +2865,10 @@ Item {
       }
       tooltipTarget = pendingTooltipTarget
       tooltipText = pendingTooltipText
+      tooltipKeys = pendingTooltipKeys
       pendingTooltipTarget = null
       pendingTooltipText = ""
+      pendingTooltipKeys = []
       tooltipTimer.interval = Date.now() < tooltipWarmUntil ? 1 : 400
       tooltipTimer.restart()
     })
@@ -3835,13 +3848,27 @@ Item {
               rowSpacing: Style.space(4)
               Repeater {
                 model: keysStrip.sheetEntries.length * 2
-                Text {
+                Item {
                   required property int index
                   readonly property var entry: keysStrip.sheetEntries[Math.floor(index / 2)]
-                  text: entry ? (index % 2 ? entry.keys : entry.name) : ""
-                  color: index % 2 ? keysStrip.ink : Qt.alpha(keysStrip.ink, 0.7)
-                  font.family: Style.font.family
-                  font.pixelSize: Style.font.bodySmall
+                  implicitWidth: index % 2 ? sheetKeys.implicitWidth : sheetName.implicitWidth
+                  implicitHeight: Math.max(sheetKeys.implicitHeight, sheetName.implicitHeight)
+                  Text {
+                    id: sheetName
+                    visible: index % 2 === 0
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: entry ? entry.name : ""
+                    color: Qt.alpha(keysStrip.ink, 0.7)
+                    font.family: Style.font.family
+                    font.pixelSize: Style.font.bodySmall
+                  }
+                  KeyCombo {
+                    id: sheetKeys
+                    visible: index % 2 === 1
+                    anchors.verticalCenter: parent.verticalCenter
+                    keys: entry ? entry.keys : []
+                    foreground: keysStrip.ink
+                  }
                 }
               }
             }
@@ -3954,26 +3981,39 @@ Item {
         y: root.overlayShadowPad
         width: implicitWidth
         height: implicitHeight
-        implicitWidth: tooltipLabel.implicitWidth + 20
-        implicitHeight: tooltipLabel.implicitHeight + 14
+        implicitWidth: tooltipContent.implicitWidth + 20
+        implicitHeight: tooltipContent.implicitHeight + 14
         color: root.overlayStyled.surface ? root.overlaySurfaceColor : Color.tooltip.background
         borderSpec: root.overlayStyled.shape ? root.overlayBorder : Border.surfaceSpec("tooltip", "border", Color.tooltip.border, 1)
         // A pill at most, as drawers cap theirs.
-        radius: root.overlayStyled.shape ? Math.min(root.islandRounding, implicitHeight / 2) : Style.cornerRadius
+        // Capped at a one-line pill, so a tooltip with keys keeps the same corners.
+        radius: root.overlayStyled.shape ? Math.min(root.islandRounding, (tooltipLabel.implicitHeight + 14) / 2) : Style.cornerRadius
         shadowEnabled: root.overlayShadow
         shadowSize: root.surfaceEffects.shadowSize
         shadowOpacity: root.surfaceEffects.shadowOpacity
 
-        Text {
-          id: tooltipLabel
-          textFormat: Text.PlainText
+        Column {
+          id: tooltipContent
           anchors.centerIn: parent
-          text: root.tooltipText
-          color: root.overlayStyled.surface ? root.barForeground : Color.tooltip.text
-          font.family: root.fontFamily
-          font.pixelSize: Style.font.body
-          horizontalAlignment: Text.AlignHCenter
-          verticalAlignment: Text.AlignVCenter
+          spacing: Style.space(5)
+          readonly property color ink: root.overlayStyled.surface ? root.barForeground : Color.tooltip.text
+          Text {
+            id: tooltipLabel
+            textFormat: Text.PlainText
+            anchors.horizontalCenter: parent.horizontalCenter
+            text: root.tooltipText
+            color: tooltipContent.ink
+            font.family: root.fontFamily
+            font.pixelSize: Style.font.body
+            horizontalAlignment: Text.AlignHCenter
+            verticalAlignment: Text.AlignVCenter
+          }
+          KeyCombo {
+            visible: root.tooltipKeys.length > 0
+            anchors.horizontalCenter: parent.horizontalCenter
+            keys: root.tooltipKeys
+            foreground: tooltipContent.ink
+          }
         }
       }
     }

@@ -182,17 +182,10 @@ BorderSurface {
       font.family: Style.font.family
       font.pixelSize: Style.font.bodySmall
     }
-    Row {
-      spacing: Style.space(3)
-      Repeater {
-        model: row.shownCaps
-        KeyCap {
-          required property string modelData
-          text: modelData
-          foreground: row.phase === "confirm" ? Color.urgent : Color.popups.text
-          opacity: row.info.keys || row.phase !== "idle" ? 1 : 0.6
-        }
-      }
+    KeyCombo {
+      keys: row.shownCaps
+      foreground: row.phase === "confirm" ? Color.urgent : Color.popups.text
+      opacity: row.info.keys || row.phase !== "idle" ? 1 : 0.6
     }
     Button {
       visible: row.phase === "confirm"
