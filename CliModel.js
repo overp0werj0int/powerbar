@@ -188,11 +188,11 @@ function groupRecord(groups, selector) {
 }
 var groupChoices = {
   visibility: visibilities, face: ["glyph", "text", "both"], badgeMode: ["sum", "members"],
-  orientation: ["auto", "horizontal", "vertical"], memberDisplay: ["native", "name", "both"],
+  memberDisplay: ["native", "name", "both"],
   iconTint: ["text", "own"], iconFont: ["", "omarchy"]
 }
 var groupFields = ["label", "icon", "iconFont", "iconImage", "iconTint", "zone", "before", "visibility",
-  "face", "tooltip", "badge", "badgeMode", "orientation", "memberDisplay", "members"]
+  "face", "tooltip", "badge", "badgeMode", "memberDisplay", "members"]
 // A group change, checked whole. → { patch } in GroupsModel.edit's terms
 // (zone becomes section) plus `members` (selectors) and `before` (a widget
 // selector, resolved by the caller), or { error }.

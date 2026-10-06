@@ -211,7 +211,7 @@ Item {
     return bar.groups.map(function(g) {
       return { id: g.id, label: g.label, icon: g.icon, iconFont: g.iconFont || "", iconImage: g.iconImage || "",
         iconTint: g.iconTint || "text", zone: g.section, before: g.before, visibility: g.visibility, face: g.face,
-        tooltip: g.tooltip === undefined ? null : g.tooltip, badge: g.badge, badgeMode: g.badgeMode, orientation: g.orientation,
+        tooltip: g.tooltip === undefined ? null : g.tooltip, badge: g.badge, badgeMode: g.badgeMode,
         memberDisplay: g.memberDisplay, members: g.items.map(function(key) {
           var r = entries.find(function(e) { return e.instanceKey === key })
           return { instance: key, id: r ? r.id : "" }
