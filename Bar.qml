@@ -782,7 +782,10 @@ Item {
     onFileChanged: reload()
   }
   readonly property var foregroundPair: AppearanceModel.textPair(themeForeground, themeContrastForeground)
-  property color barForeground: textOn(themeForeground)
+  // Over a transparent bar (Omarchy's `bar.transparent`), the colour Omarchy
+  // reads from the wallpaper, as its own bar does.
+  property color barForeground: textOn(useTransparentForeground && AppearanceModel.wallpaperText(mainSurfaceColor.a, foregroundChoice)
+    ? transparentForeground : themeForeground)
   // The chosen colour, or `themeColor` (the theme's own for that place) when
   // the choice is the theme's.
   function textOn(themeColor) {
@@ -1764,7 +1767,7 @@ Item {
   readonly property color overlaySurfaceColor: Qt.alpha(background, AppearanceModel.overlayOpacity(surfaceEffects))
   readonly property color mainSurfaceColor: surfaceColorFor(surfaceEffects)
   function surfaceColorFor(effects) {
-    return Qt.alpha(background, autoHide ? AppearanceModel.overlayOpacity(effects) : effects.backgroundOpacity)
+    return Qt.alpha(background, AppearanceModel.barOpacity(effects, autoHide, transparent))
   }
   readonly property color extendedSurfaceColor: overlaySurfaceColor
 

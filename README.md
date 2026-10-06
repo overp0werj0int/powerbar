@@ -371,9 +371,13 @@ for the full bar, main islands and extended islands, group drawers included.
 **Text and icons** is the theme's colours, or one fixed **Light** or **Dark**
 colour (the theme's own bar text and background, whichever is lighter or
 darker), and is always kept per theme: a dark colour chosen in a light theme
-would blank the bar in a dark one. Powerbar never picks it from the wallpaper,
-even with Omarchy's transparent bar on: it draws a surface behind every widget
-and cannot know what shows through it. Blur strength follows the desktop's
+would blank the bar in a dark one. Powerbar picks it from the wallpaper only
+where nothing is drawn behind the text: Omarchy's transparent bar
+(`omarchy bar transparent true`, or Transparency in Omarchy's menu) clears the
+bar's surface in every style, and then, as on Omarchy's bar, Theme text takes
+the colour Omarchy reads from the wallpaper; Light or Dark still wins. An
+autohiding bar keeps its readable minimum, and drawers keep their surface.
+Choosing a background opacity turns Omarchy's transparency off. Blur strength follows the desktop's
 Hyprland settings. **Readable over windows** (Behavior, on by default,
 `powerbarReadableOverlay`) keeps surfaces that lie over windows, which means
 every drawer and the bar itself while it autohides, at least 88% opaque unless

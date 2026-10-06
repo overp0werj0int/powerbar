@@ -183,7 +183,13 @@ Item {
     var look = bar ? bar.themeLook : ({})
     writeLook(function(b, theme) { AppearanceModel.setScope(b, theme, tile, scope, look) })
   }
-  function setLook(tile, key, value) { writeLook(function(b, theme) { AppearanceModel.setValue(b, theme, tile, key, value) }) }
+  // Choosing an opacity ends Omarchy's transparent bar (`omarchy bar transparent`).
+  function setLook(tile, key, value) {
+    writeLook(function(b, theme) {
+      AppearanceModel.setValue(b, theme, tile, key, value)
+      if (tile === "surface" && key === "opacity") delete b.transparent
+    })
+  }
   function setText(value) { writeLook(function(b, theme) { AppearanceModel.setText(b, theme, value) }) }
   // The line under a tile's header: where its values come from, or what a
   // change there reaches.
@@ -705,7 +711,8 @@ Item {
                   unit: "%"
                   minimum: prefs.ranges.backgroundOpacity.min; maximum: prefs.ranges.backgroundOpacity.max; stepSize: prefs.ranges.backgroundOpacity.step
                   defaultValue: prefs.ranges.backgroundOpacity.fallback
-                  value: prefs.bar ? Math.round(prefs.bar.surfaceEffects.backgroundOpacity * 100) : 100
+                  // A transparent bar (Omarchy's Transparency) shows as Clear.
+                  value: !prefs.bar ? 100 : prefs.bar.requestedTransparent ? 0 : Math.round(prefs.bar.surfaceEffects.backgroundOpacity * 100)
                   formatter: function(v) { return v === 0 ? "Clear" : v === 100 ? "Opaque" : "" }
                   animate: prefs.motion
                   onEdited: function(v) { prefs.setLook("surface", "opacity", v) }
