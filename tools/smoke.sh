@@ -28,6 +28,8 @@ PLUGIN_DIR="$HOME_DIR/.config/omarchy/plugins/$ID"
 mkdir -p "$PLUGIN_DIR"
 rsync -a --delete --exclude .git --exclude .claude --exclude docs --exclude tests \
   "$ROOT/" "$PLUGIN_DIR/" || { fail "copy plugin"; exit 1; }
+# omabox seeds the box from the user's config; start from Omarchy's defaults.
+omabox run -b "$NAME" -- omarchy bar defaults >/dev/null 2>&1
 omabox run -b "$NAME" -- omarchy bar use "$ID" >/dev/null 2>&1
 omabox restart-shell -b "$NAME" >/dev/null 2>&1   # "crashed while starting" is harmless here
 if omabox wait -b "$NAME" --timeout 60s cmd -- omarchy-shell powerbar help >/dev/null 2>&1; then
@@ -40,9 +42,9 @@ fi
 
 check "status is JSON with settings/widgets/runtime" \
   "$(ipc status | jsget '["settings","widgets","runtime"].every(k=>k in o)')" "true"
-# The clean box lists Omarchy's default on-demand widgets, none of them out.
-check "managedStatus is an array, nothing revealed" \
-  "$(ipc managedStatus | jsget 'Array.isArray(o) && !o.some(w=>w.revealed||w.panelOpen)')" "true"
+check "managedStatus is [] on a fresh install" "$(ipc managedStatus | tr -d ' \n')" "[]"
+check "shell.json has no powerbarVisibility key" \
+  "$(grep -c '"powerbarVisibility"' "$HOME_DIR/.config/omarchy/shell.json" 2>/dev/null)" "0"
 check "get position = top" "$(ipc get position | tr -d '" \n')" "top"
 check "set spacing 4" "$(ipc set spacing 4)" "ok"
 check "get spacing = 4" "$(ipc get spacing | tr -d ' \n')" "4"
