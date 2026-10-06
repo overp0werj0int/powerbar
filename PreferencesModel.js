@@ -130,3 +130,11 @@ function toggledHidden(currentMode, rememberedMode) {
   if (currentMode !== "hidden") return "hidden"
   return rememberedMode === "shown" || rememberedMode === "managed" ? rememberedMode : "shown"
 }
+// The page `omarchy-shell powerbar preferencesPage <n>` opens: n counts from 1
+// (Layout), and anything past either end opens the nearest page. Earlier
+// pages 3 and 4 (General, Appearance) are the Bar page now.
+function pageIndex(page, count) {
+  var n = Math.round(Number(page))
+  if (!isFinite(n)) n = 1
+  return Math.max(0, Math.min(n, count) - 1)
+}
