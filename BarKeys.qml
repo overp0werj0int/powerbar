@@ -38,7 +38,7 @@ Item {
   readonly property bool here: active && !suspended
   readonly property string position: bar.position
   readonly property bool cursorIsDots: !!cursor && cursor.isFoldHandle === true
-  readonly property string zone: !cursor ? "" : cursorIsDots ? cursor.zone : String(cursor.region || "")
+  readonly property string zone: !cursor ? "" : cursorIsDots ? cursor.zone : cursor.isPrefsButton ? "right" : String(cursor.region || "")
   // What the key strip shows: "bar", "drawer" or "search".
   readonly property string mode: searching ? "search" : drawer && !previewing ? "drawer" : "bar"
 
@@ -46,9 +46,9 @@ Item {
   function status() {
     var d = drawer
     return { active: active, suspended: suspended, screen: window && window.screen ? String(window.screen.name) : "",
-      cursor: !cursor ? "" : cursorIsDots ? "dots:" + cursor.inlineToken : bar.slotName(cursor), kind: kindOf(cursor), zone: zone,
+      cursor: !cursor ? "" : cursorIsDots ? "dots:" + cursor.inlineToken : nameOf(cursor), kind: kindOf(cursor), zone: zone,
       cursorState: cursor && !cursorIsDots ? { managed: cursor.managed, inlineShown: cursor.inlineShown, activity: cursor.activityVisible, hovered: cursor.hovered, token: cursor.inlineToken } : null,
-      stops: active ? stops().map(function(s) { return s.kind === "dots" ? "dots:" + s.item.inlineToken : bar.slotName(s.item) }) : [],
+      stops: active ? stops().map(function(s) { return s.kind === "dots" ? "dots:" + s.item.inlineToken : nameOf(s.item) }) : [],
       drawer: d ? { group: d.groupId, zone: d.zone, previewing: previewing, cursor: d.cursorActive ? d.cursor : -1,
         member: d.cursorActive && d.slots[d.cursor] ? bar.slotName(d.slots[d.cursor]) : "" } : null,
       searching: searching, query: query, matches: matchCount, sheet: sheet, inline: window ? window.inlineZone : "",
@@ -61,6 +61,7 @@ Item {
     if (!item || !item.visible || item.width <= 0 || item.height <= 0) return false
     var w = keys.window
     if (item.isFoldHandle) return item.shown && !item.fitYielded && !w.zoneHidden(item.zone)
+    if (item.isPrefsButton) return !w.zoneHidden("right")
     return item.mainVisible && !item.drawerHost && !item.fitYielded && !w.zoneHidden(item.region)
   }
   // Every stop on the bar, in bar order: { item, kind, zone }.
@@ -77,6 +78,7 @@ Item {
       if (seen(slot)) add(slot, slot.groupHeader ? "group" : "widget", slot.region)
     })
     ;(w.foldHandles || []).forEach(function(h) { if (seen(h)) add(h, "dots", h.zone) })
+    if (w.prefsButton && seen(w.prefsButton)) add(w.prefsButton, "prefs", "right")
     out.sort(function(a, b) { return a.at - b.at })
     return out
   }
@@ -92,7 +94,9 @@ Item {
     for (var j = 0; j < list.length; j++) if (list[j].zone === zone) return j
     return -1
   }
-  function kindOf(item) { return !item ? "" : item.isFoldHandle ? "dots" : item.groupHeader ? "group" : "widget" }
+  function kindOf(item) { return !item ? "" : item.isFoldHandle ? "dots" : item.isPrefsButton ? "prefs" : item.groupHeader ? "group" : "widget" }
+  // What the cursor's stop is called on the card and in a search.
+  function nameOf(item) { return !item ? "" : item.isFoldHandle || item.isPrefsButton ? item.label : bar.slotName(item) }
   // A stop that opens a drawer: a group, or a zone's dots in drawer mode.
   function opensDrawer(item) { var k = kindOf(item); return k === "group" || (k === "dots" && !bar.onDemandInline) }
 
@@ -135,6 +139,12 @@ Item {
   }
   onSuspendedChanged: if (!suspended && active) { showCard(); focusLater() }
 
+  // The keys must always land somewhere: if neither the bar nor a drawer it
+  // opened has them (a drawer closed under them), the bar takes them back.
+  readonly property bool hasFocus: !!window && (!!window.keyCatcher && window.keyCatcher.activeFocus || !!drawer && drawer.activeFocus)
+  onHasFocusChanged: if (!hasFocus && here) refocus.restart()
+  Timer { id: refocus; interval: 60; onTriggered: if (keys.here && !keys.hasFocus) keys.focusLater() }
+
   // ---- moving -------------------------------------------------------------
   function put(item, dir) {
     closeDrawer(false)
@@ -144,6 +154,7 @@ Item {
     if (w && w.inlineZone && w.inlineZoneName !== zone) w.inlineAsk("")
     if (cursorIsDots && bar.onDemandInline) openDots(cursor.inlineToken, dir, "")
     showCard()
+    focusLater()
   }
   function moveBy(dir) {
     var list = stops(), i = at(list)
@@ -203,13 +214,13 @@ Item {
   // A group's drawer unfolds beside its icon once the key is let go, so a
   // held key sweeping past never flashes it.
   function released() {
-    if (!here || drawer || !opensDrawer(cursor)) return
+    if (!here || drawer || searching || !opensDrawer(cursor)) return
     previewTimer.restart()
   }
   Timer {
     id: previewTimer
     interval: 100
-    onTriggered: if (keys.here && !keys.drawer && keys.opensDrawer(keys.cursor)) keys.openDrawer(false)
+    onTriggered: if (keys.here && !keys.drawer && !keys.searching && keys.opensDrawer(keys.cursor)) keys.openDrawer(false)
   }
   function openDrawer(enterIt) {
     var w = window, d = w ? w.managedDrawer : null, item = cursor
@@ -243,7 +254,9 @@ Item {
     drawer = null
     previewing = false
     if (d) { d.barKeysHeld = false; if (d.opened) d.close("immediate") }
-    if (refocus !== false) { showCard(); focusLater() }
+    if (refocus !== false) showCard()
+    // The drawer may have had the keys: they always come back to the bar.
+    focusLater()
   }
   Connections {
     target: keys.drawer
@@ -264,6 +277,8 @@ Item {
     var item = cursor
     if (!item) return
     if (opensDrawer(item)) { openDrawer(true); return }
+    // Preferences takes the keyboard: the cursor leaves first.
+    if (item.isPrefsButton) { leave(); item.activate(); return }
     if (item.isFoldHandle) { openDots(item.inlineToken, 1, ""); return }
     bar.hideCard()
     item.activate()
@@ -293,7 +308,7 @@ Item {
     var name = keyName(event)
     if (!name || !here) return false
     previewTimer.stop()
-    if (searching) return searchKey(name)
+    if (searching && searchKey(name)) return true
     if (sheet) {
       sheet = false
       if (name === "Escape" || name === "?") return true
@@ -320,7 +335,7 @@ Item {
   function drawerKey(event) {
     var name = keyName(event), d = drawer
     if (!name || !here || !d) return false
-    if (searching) return searchKey(name)
+    if (searching && searchKey(name)) return true
     if (sheet) { sheet = false; if (name === "Escape" || name === "?") return true }
     var it = KeysModel.drawerIntent(position, name, d.cursorActive ? d.cursor : 0)
     if (!it) return true
@@ -344,7 +359,7 @@ Item {
     var out = [], w = window
     if (!w) return out
     stops().forEach(function(s) {
-      if (s.kind === "widget") out.push({ name: bar.slotName(s.item), slot: s.item, stop: s.item })
+      if (s.kind === "widget" || s.kind === "prefs") out.push({ name: nameOf(s.item), slot: s.item, stop: s.item })
       else if (s.kind === "group") {
         out.push({ name: bar.slotName(s.item), slot: s.item, stop: s.item })
         bar.groupSlots(s.item.entry.powerbarGroupId, w).forEach(function(m) {
@@ -371,8 +386,15 @@ Item {
   function searchKey(name) {
     if (name === "Escape") { searching = false; query = ""; return true }
     if (name === "Enter") { searching = false; openCursor(); return true }
-    if (name === "Down" || name === "Tab") { reveal(matchIndex + 1); return true }
-    if (name === "Up" || name === "Backtab") { reveal(matchIndex - 1); return true }
+    if (name === "Tab") { reveal(matchIndex + 1); return true }
+    if (name === "Backtab") { reveal(matchIndex - 1); return true }
+    // An arrow, Home or End ends the search where it is and does its usual
+    // job (↓ on a top bar goes into the group found).
+    if (["Up", "Down", "Left", "Right", "Home", "End"].indexOf(name) >= 0) {
+      searching = false
+      query = ""
+      return false
+    }
     if (name === "Backspace") { query = query.slice(0, -1); reveal(0); return true }
     if (name.length === 1 && name !== " " || name === "Space") {
       query += name === "Space" ? " " : name
@@ -414,7 +436,7 @@ Item {
 
   // ---- the shortcut sheet ---------------------------------------------------
   function targetOf(slot) {
-    return !slot || slot.isFoldHandle ? "" : slot.groupHeader ? "group:" + slot.entry.powerbarGroupId : "widget:" + slot.moduleName
+    return !slot || slot.isFoldHandle || slot.isPrefsButton ? "" : slot.groupHeader ? "group:" + slot.entry.powerbarGroupId : "widget:" + slot.moduleName
   }
   // Every widget and group on this bar with a shortcut: [{ name, keys }].
   function sheetEntries() {
@@ -432,10 +454,18 @@ Item {
   function showCard() {
     // A drawer open beside the icon names its own widgets; the card would cover it.
     if (!here || !cursor || drawer) { bar.hideCard(); return }
-    var name = cursorIsDots ? cursor.label : bar.slotName(cursor)
+    var name = nameOf(cursor)
     var target = targetOf(cursor)
     var keysLabel = target ? bar.shortcutLabel(target) : ""
     bar.showCard(cursor, keysLabel ? name + "   " + keysLabel : name)
+  }
+
+  // The shortcuts are read again on entering: the card names them once they arrive.
+  Connections {
+    target: keys.bar.shortcutStore
+    ignoreUnknownSignals: true
+    function onReadyChanged() { if (keys.here) keys.showCard() }
+    function onBindsChanged() { if (keys.here) keys.showCard() }
   }
 
   // The pointer takes over: moving it onto a stop moves the cursor there.
