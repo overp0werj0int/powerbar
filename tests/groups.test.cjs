@@ -181,3 +181,14 @@ test('members whose widget was uninstalled leave the group; nothing is pruned wi
   assert.equal(groupsModel.danglingMembers(bare), 0);
   assert.deepEqual(JSON.parse(JSON.stringify(groupsModel.groups(bare)[0].items)), ['pw-x']);
 });
+
+test('a glyph replacing your own image drops its tint, so the next image starts tinted like text', () => {
+  const c = fixture(); m.create(c, 'a', 'Tools');
+  m.edit(c, 'a', { iconImage: '/tmp/a.svg', iconTint: 'own' });
+  assert.equal(m.groups(c.bar)[0].iconTint, 'own');
+  m.edit(c, 'a', { icon: '\uf013' });
+  assert.equal(m.groups(c.bar)[0].iconImage, undefined);
+  assert.equal(m.groups(c.bar)[0].iconTint, undefined);
+  m.edit(c, 'a', { iconImage: '/tmp/b.svg' });
+  assert.equal(m.groups(c.bar)[0].iconTint, undefined);
+});

@@ -113,12 +113,14 @@ function edit(config, id, patch) {
   var list = groups(config.bar), group = list.find(function(g) { return g.id === id })
   if (!group) return false
   if (typeof patch.label === "string" && patch.label.trim()) group.label = patch.label.trim().slice(0, 80)
-  // A new icon replaces the old one whole: a glyph clears your own image,
-  // and each icon keeps the font it was chosen in.
+  // A new icon replaces the old one whole: a glyph clears your own image and
+  // its tint (a tint belongs to the image it was chosen with), and each icon
+  // keeps the font it was chosen in.
   if (typeof patch.icon === "string" && patch.icon) {
     group.icon = patch.icon
     group.iconFont = patch.iconFont === "omarchy" ? "omarchy" : undefined
     group.iconImage = undefined
+    group.iconTint = undefined
   }
   if (typeof patch.iconImage === "string" && patch.iconImage) group.iconImage = patch.iconImage
   if (patch.iconTint === "text" || patch.iconTint === "own") group.iconTint = patch.iconTint === "own" ? "own" : undefined
