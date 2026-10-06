@@ -70,6 +70,11 @@ here automatically:
 - **omarchy-widget-lab**: evidence-based design labs built from the user's
   real bar (`docs/*-lab`).
 
+`agents/skills/powerbar/` is the other kind: the skill a user's agent loads to
+*operate* Powerbar (CLI, settings, recipes). Keep development guidance out of
+it, and update it in the same commit as any change to `omarchy-shell powerbar`
+functions or settings.
+
 ## Git
 
 - One branch per item; merge to master with `--no-ff`, then push.
