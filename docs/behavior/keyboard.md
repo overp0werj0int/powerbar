@@ -114,6 +114,8 @@ The CLI as a whole (`status`, `shortcuts`, `help`, error format) is integration.
 
 - **KEYS-41** In an entered drawer the card names the current row's widget (and its shortcut) instead of the cursor.
 
+- **KEYS-77** A card on a drawer's row sits beside that row once the drawer has finished opening, outside the drawer, also when a search (`/`) opened the drawer and put the cursor on a row in the same moment; it is placed again when the drawer's size or position changes. Before, a search into a left-zone group left the card at the first row's height, over the menu. Code: Bar.qml reanchorTooltip (drawer reveal end, geometry).
+
 - **KEYS-42** The card refreshes when the cursor moves, when the drawer's row changes, when the drawer is no longer stepped aside, and when the shortcut store changes.
 
 - **KEYS-43** The card is hidden on group icons and on zone dots in drawer mode (they open a drawer), on a drawer preview, while suspended or handing off, and when the mode ends.
