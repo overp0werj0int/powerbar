@@ -37,17 +37,23 @@
   .chip::before { content: ""; display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); margin-right: 8px; vertical-align: 2px }
   .foot { position: absolute; left: 64px; bottom: 44px; font-size: 13px; color: #6f7d8b; letter-spacing: .04em }
   .shot {
-    position: absolute; right: 52px; top: 70px; width: 600px; height: 375px; border-radius: 12px; overflow: hidden;
+    position: absolute; left: 574px; top: 46px; width: 576px; height: 360px; border-radius: 12px; overflow: hidden;
     border: 1px solid var(--line); box-shadow: 0 30px 80px rgba(0, 0, 0, .55), 0 0 0 1px rgba(0, 0, 0, .4);
   }
   .shot img { width: 100%; height: 100%; object-fit: cover; display: block }
-  .callout {
-    position: absolute; width: 330px; border-radius: 10px; overflow: hidden; border: 1px solid rgba(255, 255, 255, .22);
-    box-shadow: 0 24px 60px rgba(0, 0, 0, .6);
+  .insert, .callout {
+    position: absolute; border-radius: 10px; overflow: hidden; border: 1px solid rgba(255, 255, 255, .22);
+    box-shadow: 0 22px 56px rgba(0, 0, 0, .6);
   }
-  .callout img { width: 100%; display: block }
-  .callout.audio { left: 588px; top: 372px; width: 320px }
-  .callout.keys { right: 52px; top: 486px; width: 400px }
+  .insert img, .callout img { width: 100%; display: block }
+  .insert .tag {
+    position: absolute; right: 8px; bottom: 7px; font-size: 9.5px; letter-spacing: .05em; padding: 2px 6px; border-radius: 4px;
+    background: rgba(16, 21, 27, .82); color: #e8edf2; border: 1px solid rgba(255, 255, 255, .14);
+  }
+  .insert.flat { left: 540px; top: 196px; width: 420px }
+  .insert.floating { left: 742px; top: 290px; width: 430px }
+  .callout.audio { left: 560px; top: 444px; width: 300px }
+  .callout.keys { left: 806px; top: 520px; width: 362px }
 </style>
 </head>
 <body>
@@ -66,6 +72,8 @@
   </div>
   <div class="foot">github.com/overp0werj0int/powerbar</div>
   <div class="shot"><img src="../../screenshots/hero.jpg" alt=""></div>
+  <div class="insert flat"><img src="../../screenshots/insert-flat-tokyo-night.png" alt=""><span class="tag">Flat · Tokyo Night</span></div>
+  <div class="insert floating"><img src="../../screenshots/insert-floating-quattrocento.png" alt=""><span class="tag">Floating pill · Quattrocento Light</span></div>
   <div class="callout audio"><img src="../../screenshots/callout-audio.png" alt=""></div>
   <div class="callout keys"><img src="../../screenshots/callout-keys.png" alt=""></div>
 </body>
