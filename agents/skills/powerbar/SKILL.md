@@ -7,7 +7,7 @@ description: >
   per theme), the keyboard mode, and Omarchy's own `omarchy bar` commands.
   Use whenever the user asks to change, explain or inspect their bar while
   Powerbar (p0werj0int.powerbar) is the active bar, or to switch to or away
-  from it. Not for developing the plugin's code (that is AGENTS.md in the repo).
+  from it. Not for developing the plugin's code (that is DEVELOPMENT.md in the repo).
 ---
 
 # Operating Powerbar

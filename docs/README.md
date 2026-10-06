@@ -9,5 +9,5 @@ For people working on Powerbar. Users start at the top-level README.md.
 | [performance/](performance/) | The rendering audit (`plan.md`), what was measured and changed (`implementation.md`), the path probe (`probe.cjs`) and the offscreen whole-bar benchmark and profiler (`bench/`). |
 
 The glossary is `CONTEXT.md` at the top level; the development loop is
-`AGENTS.md`. The agent guide for operating Powerbar (not developing it) is
+`DEVELOPMENT.md`. The agent guide for operating Powerbar (not developing it) is
 `agents/skills/powerbar/`.
