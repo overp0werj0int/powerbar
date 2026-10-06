@@ -192,18 +192,14 @@ Item {
     var theme = themeName || "this theme", own = !!look.look[tile]
     var scope = look.scopes[tile]
     // One line in a tile a third of the card wide: the page must not scroll.
-    if (scope === "theme") {
-      if (own) return "From " + theme + "'s Powerbar look."
-      return ({ shape: "From " + theme + " and Hyprland.", surface: "From " + theme + "'s bar.",
-        shadow: "Off, as on Omarchy's bar." })[tile]
-    }
-    if (scope === "all") return own ? theme + " has its own look; this is shared." : "Shared by every theme without its own."
-    return "Only for " + theme + "."
+    if (scope === "theme") return own ? "Using " + theme + "'s Powerbar look." : "Using " + theme + "'s look."
+    if (scope === "all") return own ? "Yours everywhere; " + theme + " has its own look." : "Yours, in every theme that has no own choice."
+    return "Yours, only while " + theme + " is on."
   }
   component ScopeChoice: ButtonGroup {
     property string tile: ""
     anchors.verticalCenter: parent ? parent.verticalCenter : undefined
-    options: [{ value: "theme", label: "Theme" }, { value: "all", label: "All themes" }, { value: "this", label: "This theme" }]
+    options: [{ value: "theme", label: "Theme" }, { value: "all", label: "Everywhere" }, { value: "this", label: "Just here" }]
     value: prefs.scopeOf(tile)
     foreground: Color.popups.text
     background: "transparent"
