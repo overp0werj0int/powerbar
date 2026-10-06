@@ -1,15 +1,123 @@
+<div align="center">
+
 # Powerbar
 
-![Powerbar: islands, a group opened as a menu, On demand widgets in a drawer](preview.png)
+[![Built for Omarchy: Plugin](https://raw.githubusercontent.com/tcballard/omarchy-badges/3ee85c9ea63c83845b992f8acb086c4a69cca12a/badges/v1/omarchy-plugin.svg)](https://github.com/tcballard/omarchy-badges)
+[![Supported Omarchy versions: 4.0.0+](https://raw.githubusercontent.com/tcballard/omarchy-badges/3ee85c9ea63c83845b992f8acb086c4a69cca12a/badges/v1/compatibility/omarchy-4.0.0-plus.svg)](https://github.com/tcballard/omarchy-badges)
+[![Hyprland](https://img.shields.io/badge/Hyprland-Wayland-58e1ff?style=flat-square&logo=hyprland&logoColor=white)](https://hypr.land)
+[![License: MIT](https://img.shields.io/badge/License-MIT-6aa84f?style=flat-square)](LICENSE)
 
-A drop-in replacement for Omarchy's bar. It starts out looking and behaving
-exactly like Omarchy's own bar, answers to the same `omarchy bar` commands,
-and adds on-demand widgets, groups, bar styles, autohide, a keyboard mode and
-a Preferences window, all of which you can also drive from the command line.
+![Powerbar: Omarchy's bar with drawers, groups and a keyboard mode, on a live desktop](preview.png)
+
+</div>
+
+Powerbar is Omarchy's bar, rebuilt by someone who looks at their bar all day.
+On a fresh install it looks like the bar you already have, down to the
+spacing, with one small button at the far end. From there you can tuck
+widgets away in drawers of two kinds: a Bartender-style strip of live icons
+that slides out beside the bar, or a menu whose rows show each widget's name,
+on its own or next to its icon. Everything below waits until you turn it on,
+and then behaves the same way every time. Things move with some care, too:
+drawers grow out of the bar and neighbours slide aside for a dragged widget,
+all of it carefully timed, so the bar never feels slow. If you'd rather it didn't move at all, one switch turns animation
+off.
+
+### What you get
+
+- Widgets you rarely read can go On demand. They leave the bar and slide back
+  for a couple of seconds when something in them changes, so a pending update
+  still catches your eye. Hover their zone and they open in a drawer.
+- Related widgets can share one icon as a group, opening as a strip or a named
+  menu, with a badge that adds up their unread counts.
+- The bar can stay flat like Omarchy's, float as one surface, or split into
+  islands, and it can autohide until you push the pointer to the edge. On an
+  islands bar, activity slides out only the island that changed, with the
+  widget highlighted for a couple of seconds, while the others stay tucked
+  away.
+- Large bar adds a 6 px lip above and below every widget, so a 28 px side bar
+  becomes 40 px wide. Icons and text keep their size and get room to breathe,
+  and the hover highlights grow with the bar. It helps most on a left or right
+  edge, where the stock strip is narrow.
+- Rounding, borders, blur and shadow follow each theme until you change them,
+  for every theme at once or just the one you're on.
+- You never need the mouse. A shortcut puts a cursor on the bar; the arrows
+  walk it, Tab jumps zone to zone, the key that points into the screen opens a
+  group or a drawer, and Enter opens what's under the cursor. Esc steps back
+  one level, and Esc twice gives the keyboard back to your window.
+- `/` is a fuzzy finder. Type a few letters of a name in order and the best
+  match comes first: `/pm` finds Plugin Manager, and a group's name finds its
+  members. It reaches every widget you haven't hidden, wherever it sits, and
+  opens the way there: into a group, out from behind a zone's dots, or into a
+  drawer.
+- Any widget or group can have its own shortcut, and `?` lists them all. The
+  Preferences window works the same way, with the keys for whatever has focus
+  shown along its bottom edge.
+- Everything in Preferences is also a command (`omarchy-shell powerbar help`),
+  so a script or your coding agent can rearrange the bar for you.
+
+### What went into the details
+
+- Every glyph sits in a square cell of
+  the same size, so hover circles match from one icon to the next, menu rows
+  are inset so their corners follow the menu's, and on a flat bar the end
+  icons land exactly where Omarchy puts them.
+- Spacing is measured from what each icon actually paints. Switch to Equal
+  gaps and every glyph gets the same air on both sides, whether it is a thin
+  mic icon or a wide battery readout. Powerbar reads each glyph's real bounds
+  from its font, which is how it caught a speaker icon sitting 3.5 px off
+  centre. Equal slots, the default, keeps the even grid of Omarchy's bar.
+- Motion is tuned to distance. Neighbours make room for a dragged widget a
+  little longer the further they have to move, the widget glides into its
+  slot, and drawers close faster than they open. Turn Animations off and all
+  of it happens at once.
+- It stays quick. Drop a widget and the bar shows it in place in about 8 ms,
+  without waiting the 400 or so it takes Omarchy to save the change. Widgets
+  in drawers stay loaded, and Powerbar notices their changes as they happen
+  instead of checking on a timer.
+- Keys are named by where they point, so they mean the same thing on a top,
+  bottom or side bar, and a name card beside the cursor tells you what you're
+  on and how to reach it next time.
+- It tries hard not to surprise you. Nothing is bound until you accept a
+  shortcut, Omarchy's `omarchy bar` commands keep working, a shortcut Hyprland
+  rejects puts your files back as they were, and settings for an uninstalled
+  widget clean themselves up.
 
 Powerbar is based on the [Omarchy bar](https://github.com/omacom/omarchy/tree/quattro/shell/plugins/bar),
 whose original copyright and MIT license notice are preserved in
 [LICENSE](LICENSE).
+
+## Screenshots
+
+<table>
+<tr>
+<td width="50%"><a href="screenshots/look-nord.jpg"><img src="screenshots/look-nord.jpg" alt="Powerbar on the nord theme: islands, pill corners, soft shadow"></a><br><sub><b>nord</b>: islands, pill corners, soft shadow</sub></td>
+<td width="50%"><a href="screenshots/look-hinterlands.jpg"><img src="screenshots/look-hinterlands.jpg" alt="Powerbar on the hinterlands theme: floating, blur, deeper shadow"></a><br><sub><b>hinterlands</b>: floating, blur, deeper shadow</sub></td>
+</tr>
+<tr>
+<td width="50%"><a href="screenshots/look-waffle-cat.jpg"><img src="screenshots/look-waffle-cat.jpg" alt="Powerbar on the waffle-cat theme: square islands, 2 px borders"></a><br><sub><b>waffle-cat</b>: square islands, 2 px borders</sub></td>
+<td width="50%"><a href="screenshots/look-venice-from-above.jpg"><img src="screenshots/look-venice-from-above.jpg" alt="Powerbar on the venice-from-above theme: floating, blur at 70%"></a><br><sub><b>venice-from-above</b>: floating, blur at 70%</sub></td>
+</tr>
+<tr>
+<td width="50%"><a href="screenshots/look-quattrocento-light.jpg"><img src="screenshots/look-quattrocento-light.jpg" alt="Powerbar on the quattrocento-light theme: large bar on a light theme"></a><br><sub><b>quattrocento-light</b>: large bar on a light theme</sub></td>
+<td width="50%"><a href="screenshots/look-everforest.jpg"><img src="screenshots/look-everforest.jpg" alt="Powerbar on the everforest theme: islands without borders, blur"></a><br><sub><b>everforest</b>: islands without borders, blur</sub></td>
+</tr>
+</table>
+
+<table>
+<tr>
+<td width="33%"><a href="screenshots/keys-search.jpg"><img src="screenshots/keys-search.jpg" alt="Typing /sess opens the AI group with the cursor on Session Browser"></a><br><sub><code>/sess</code> opens the group and lands on the row</sub></td>
+<td width="33%"><a href="screenshots/keys-walk.jpg"><img src="screenshots/keys-walk.jpg" alt="The arrows walk the open menu, the name card follows"></a><br><sub>Arrows walk the menu; the name card follows</sub></td>
+<td width="33%"><a href="screenshots/keys-sheet.jpg"><img src="screenshots/keys-sheet.jpg" alt="The ? sheet lists every shortcut, on a large side bar"></a><br><sub><code>?</code> lists every shortcut; large bar on the right edge</sub></td>
+</tr>
+</table>
+
+<details>
+<summary>More screenshots</summary>
+
+<p><img src="screenshots/drawer.jpg" alt="On demand widgets in the right zone's drawer"><br><sub>On demand widgets in their zone's drawer</sub></p>
+<p><img src="screenshots/preferences.jpg" alt="Preferences, Bar page"><br><sub>Preferences: the Bar page</sub></p>
+
+</details>
 
 ## Install
 
@@ -69,39 +177,6 @@ jq 'def clean: with_entries(select(.key | startswith("powerbar") | not));
     then map(if type == "object" then clean else . end) else . end) else . end)' \
   "$f.bak" > "$f.new" && mv "$f.new" "$f"
 ```
-
-## What it adds
-
-**Where each widget lives.** Every widget is **On the bar**, **On demand** or
-**Hidden**. On demand widgets stay out of the way and show up for a moment
-when something changes in them (a new value, an icon change). The rest of the
-time you reach them by hovering their zone, which opens a drawer beside the
-bar, or, with *On demand: In the bar*, behind the zone's dots, which expand in
-place. When a zone runs out of room, its widgets fold behind the same dots
-instead of overlapping the next zone.
-
-**Groups.** Gather widgets under one icon (or name) on the bar that opens
-them as a drawer or menu. A group can show a badge that adds up its members'
-counts (unread, updates, alerts) and turns urgent when a member does.
-
-**Bar styles.** *Flat* (Omarchy's), *Floating* (one surface held off the
-screen edges) or *Islands* (each zone on its own). **Autohide** parks the bar
-past its edge: push the pointer there and it slides out, and widget activity
-peeks it out for a moment. Omarchy's bar toggle (Super+Shift+Space) brings an
-autohidden bar out while you hold it.
-
-**Your look or the theme's.** Rounding, borders, opacity, blur, shadow and
-text colour follow your theme until you change them, and then each of Shape,
-Surface and Shadow can use your values *Everywhere* or *Just here* (this theme
-only). Switching themes never asks you to redo anything.
-
-**Keyboard.** The whole bar, its drawers and groups work from the keyboard,
-with fuzzy search to find any widget wherever it is. Any widget or group can
-have a shortcut.
-
-**Drag and drop.** Drag widgets along the bar, between zones, into a drawer
-(makes them On demand), onto a group, or out of one. The landing place opens
-up before you let go.
 
 ## Preferences
 

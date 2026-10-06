@@ -71,6 +71,14 @@ omabox for desktop tests in a private Hyprland session
 | `popupStatus` | the open widget panel |
 | `keys` | toggles the keyboard mode (Super+B by default) |
 
+## README images
+
+`screenshots/` holds the README gallery, real captures only. `preview.png`
+(the README hero, the plugin's preview and the GitHub social card) is
+`tools/showcase/card.html` rendered by `tools/showcase/render.sh` (headless
+Chromium, 1200x630 at 2x) from `screenshots/hero.jpg` and its two callouts;
+re-run it after replacing them.
+
 ## Skills
 
 Development skills are not part of the plugin: `omarchy plugin add` clones

@@ -1,0 +1,72 @@
+<!doctype html>
+<!-- Powerbar's README hero and social card: a layout of untouched screenshots
+     from screenshots/, rendered by render.sh (headless Chromium, 1200x630 at
+     2x). No mock UI: everything on the right is a real capture. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<style>
+  :root {
+    --bg: #10151b; --grid: rgba(255, 255, 255, .035); --fg: #e8edf2; --muted: #93a1b0;
+    --line: rgba(255, 255, 255, .12); --accent: #f2743a; --chip: rgba(255, 255, 255, .06);
+    --mono: "JetBrainsMono Nerd Font", "JetBrains Mono", ui-monospace, monospace;
+  }
+  * { box-sizing: border-box; margin: 0 }
+  html, body { width: 1200px; height: 630px; overflow: hidden }
+  body {
+    background:
+      radial-gradient(900px 500px at 82% 30%, rgba(242, 116, 58, .16), transparent 60%),
+      radial-gradient(700px 500px at 10% 100%, rgba(90, 120, 150, .18), transparent 65%),
+      linear-gradient(var(--grid) 1px, transparent 1px) 0 0 / 32px 32px,
+      linear-gradient(90deg, var(--grid) 1px, transparent 1px) 0 0 / 32px 32px,
+      var(--bg);
+    color: var(--fg); font-family: var(--mono); position: relative;
+  }
+  .left { position: absolute; left: 64px; top: 96px; width: 470px; display: grid; gap: 22px }
+  .eyebrow { display: flex; align-items: center; gap: 12px; font-size: 13px; letter-spacing: .22em; color: var(--muted) }
+  .mark {
+    width: 38px; height: 38px; border-radius: 9px; background: var(--accent);
+    display: grid; grid-template-columns: repeat(3, 5px); gap: 4px; place-content: center;
+  }
+  .mark i { width: 5px; height: 5px; border-radius: 1.5px; background: #10151b }
+  h1 { font-size: 78px; line-height: 1; font-weight: 800; letter-spacing: -.03em }
+  .tag { font-size: 19px; line-height: 1.5; color: #c6d0da }
+  .tag b { color: var(--fg); font-weight: 700 }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px }
+  .chip { font-size: 13px; padding: 7px 11px; border-radius: 7px; background: var(--chip); border: 1px solid var(--line); color: #d5dde5 }
+  .chip::before { content: ""; display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); margin-right: 8px; vertical-align: 2px }
+  .foot { position: absolute; left: 64px; bottom: 44px; font-size: 13px; color: #6f7d8b; letter-spacing: .04em }
+  .shot {
+    position: absolute; right: 52px; top: 70px; width: 600px; height: 375px; border-radius: 12px; overflow: hidden;
+    border: 1px solid var(--line); box-shadow: 0 30px 80px rgba(0, 0, 0, .55), 0 0 0 1px rgba(0, 0, 0, .4);
+  }
+  .shot img { width: 100%; height: 100%; object-fit: cover; display: block }
+  .callout {
+    position: absolute; width: 330px; border-radius: 10px; overflow: hidden; border: 1px solid rgba(255, 255, 255, .22);
+    box-shadow: 0 24px 60px rgba(0, 0, 0, .6);
+  }
+  .callout img { width: 100%; display: block }
+  .callout.audio { left: 588px; top: 372px; width: 320px }
+  .callout.keys { right: 52px; top: 486px; width: 400px }
+</style>
+</head>
+<body>
+  <div class="left">
+    <div class="eyebrow"><span class="mark"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span>OMARCHY PLUGIN</div>
+    <h1>Powerbar</h1>
+    <p class="tag">Omarchy's bar, with <b>drawers</b>, <b>groups</b> and a <b>keyboard mode</b> that reaches every widget.</p>
+    <div class="chips">
+      <span class="chip">On demand widgets</span>
+      <span class="chip">Groups as strips or menus</span>
+      <span class="chip">Fuzzy find with /</span>
+      <span class="chip">Flat · floating · islands</span>
+      <span class="chip">Your look per theme</span>
+      <span class="chip">Large bar for side edges</span>
+    </div>
+  </div>
+  <div class="foot">github.com/overp0werj0int/powerbar</div>
+  <div class="shot"><img src="../../screenshots/hero.jpg" alt=""></div>
+  <div class="callout audio"><img src="../../screenshots/callout-audio.png" alt=""></div>
+  <div class="callout keys"><img src="../../screenshots/callout-keys.png" alt=""></div>
+</body>
+</html>
