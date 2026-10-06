@@ -256,6 +256,32 @@ Powerbar adds no polling.
 
 ## Known limitations
 
+- **Widgets that talk to their own background service do nothing on any
+  replacement bar, Powerbar included.** Some widget plugins come in two parts,
+  a bar widget and a service that does the work (kinds `bar-widget` and
+  `service`; for example OmaSettings, Everything, Omapop, Notification Center,
+  Omatop, Side Panel). The widget reaches its service with
+  `bar.shell.serviceFor()`. Since Omarchy 4.0.3 that only works under
+  Omarchy's own bar: widgets hosted by any third-party bar get a
+  "service-less" facade on purpose, so a bar from outside can't get at other
+  plugins' services ([#9618](https://github.com/omacom/omarchy/pull/9618);
+  Omarchy's shell README, "Widgets rendered by a third-party replacement
+  bar…"). Under Powerbar such a widget shows, but its button does nothing, its
+  panel waits forever ("warming up", "Reading the archive…") or it draws empty;
+  the service itself keeps running, and its own shortcuts and commands still
+  work. Powerbar can't fix this from its side; it needs a change in Omarchy.
+  Reported as [#11051](https://github.com/omacom/omarchy/issues/11051),
+  [#11713](https://github.com/omacom/omarchy/issues/11713),
+  [#11796](https://github.com/omacom/omarchy/issues/11796),
+  [#12648](https://github.com/omacom/omarchy/issues/12648),
+  [#13289](https://github.com/omacom/omarchy/issues/13289) and
+  [#14101](https://github.com/omacom/omarchy/issues/14101)
+  ([#11949](https://github.com/omacom/omarchy/issues/11949) was closed); fixes
+  proposed in [#11970](https://github.com/omacom/omarchy/pull/11970),
+  [#13194](https://github.com/omacom/omarchy/pull/13194) and
+  [#12260](https://github.com/omacom/omarchy/pull/12260), not merged as of
+  October 2026. Until then, use such a widget's own shortcut or command, or
+  `omarchy bar reset` to go back to Omarchy's bar.
 - **Scrolling layout: a click on the bar can scroll the view.** This is
   Hyprland's: its scrolling layout scrolls the focused window into view on
   every mouse button release over any part of it, even when the click landed
@@ -301,6 +327,10 @@ keyboard focus in the keyboard mode, through Quickshell's Hyprland module.
 | Your custom modules' `exec`, `onClick`… | Command modules in your layout, through `bash -lc`, as on Omarchy's bar |
 
 ## Troubleshooting
+
+**A widget's button does nothing, or its panel never finishes loading.** If
+the widget comes with a background service, this is Omarchy's limit on
+replacement bars, not a fault in the widget: see Known limitations.
 
 **The bar is gone.** If it was switched off with Omarchy's bar toggle
 (Super+Shift+Space, `omarchy toggle bar`), `omarchy-shell powerbar show`
