@@ -1,5 +1,7 @@
 # Powerbar
 
+![Powerbar: islands, a group opened as a menu, On demand widgets in a drawer](preview.png)
+
 A drop-in replacement for Omarchy's bar. It starts out looking and behaving
 exactly like Omarchy's own bar, answers to the same `omarchy bar` commands,
 and adds on-demand widgets, groups, bar styles, autohide, a keyboard mode and
