@@ -33,4 +33,4 @@ bug, which gets a test and a fix).
 ## Keeping it true
 
 A change to what the user sees or can do updates its entry here in the same
-commit (see AGENTS.md, "The loop").
+commit (see DEVELOPMENT.md, "The loop").
