@@ -138,8 +138,12 @@ The added bar keys are `powerbarStyle` (`flat`, `floating` or `islands`),
 `powerbarAutoHide` and `powerbarSpacing`. Configs from before bar styles keep
 working: `powerbarIslands: true` reads as islands and anything else as flat,
 and choosing a style replaces the old key; each layout entry
-may have `powerbarVisibility` (`shown`, `managed`, or `hidden`). Without an explicit choice, Omarchy system
-widgets default to Always shown and custom widgets to Managed. Stable
+may have `powerbarVisibility` (`shown`, `managed`, or `hidden`). Without an explicit choice, every widget is
+Always shown, as on Omarchy's bar. Earlier versions put custom widgets On
+demand by default; a config Powerbar ran on before keeps that: the first run
+writes `powerbarVisibility: "managed"` on those widgets once and marks the
+config with `powerbarVisibilityDefault: "shown"`, which a fresh config gets on
+its first run too. Stable
 `powerbarInstance` keys are assigned once to distinguish duplicate instances.
 Existing inline settings and duplicate widget instances are preserved.
 The system tray retains Omarchy's placement at the inner edge of its section.

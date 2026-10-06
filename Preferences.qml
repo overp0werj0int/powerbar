@@ -47,7 +47,7 @@ Item {
   function metadataFor(id) { return registryMetadata[String(id)] || null }
   onBarChanged: refreshRegistryMetadata()
   Component.onCompleted: refreshRegistryMetadata()
-  readonly property var entries: Model.records(config.layout, function(id) { return prefs.metadataFor(id) })
+  readonly property var entries: Model.records(config.layout, function(id) { return prefs.metadataFor(id) }, bar ? bar.legacyVisibility : false)
   readonly property var layoutEntries: {
     var result = entries.filter(function(e) { return !bar.groupFor(e.instanceKey) })
     bar.groups.forEach(function(g) {

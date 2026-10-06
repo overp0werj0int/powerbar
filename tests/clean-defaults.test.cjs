@@ -114,7 +114,10 @@ test('clean config: a widget with nothing to show hides itself, as on Omarchy\'s
   assert.equal(managed.placeholder({ id: 'omarchy.system-update', powerbarVisibility: 'shown' }, 'shown'), true);
   // On demand: the drawer needs something to show.
   assert.equal(managed.placeholder({ id: 'omarchy.bluetooth', powerbarVisibility: 'managed' }, 'managed'), true);
-  assert.equal(managed.placeholder({ id: 'local.widget' }, managed.mode({ id: 'local.widget' }, { firstParty: false })), true);
+  // A third-party widget with no saved visibility: on the bar like Omarchy's
+  // own (no fallback), or On demand on a config still on the old default.
+  assert.equal(managed.placeholder({ id: 'local.widget' }, managed.mode({ id: 'local.widget' }, { firstParty: false })), false);
+  assert.equal(managed.placeholder({ id: 'local.widget' }, managed.mode({ id: 'local.widget' }, { firstParty: false }, true)), true);
   assert.equal(managed.placeholder({ id: 'omarchy.power', powerbarVisibility: 'hidden' }, 'hidden'), false);
 });
 
@@ -141,4 +144,70 @@ test('clean config folds nothing on a 1920 px screen', () => {
   }));
   assert.deepEqual(r.folded, { left: [], center: [], right: [] });
   assert.equal(r.fits, true);
+});
+
+// ---- Visibility default: widgets not from Omarchy ---------------------------
+// What Bar.qml's thirdPartyEntry decides, by id while the registry is loading.
+const thirdParty = entry => !String(typeof entry === 'string' ? entry : entry.id).startsWith('omarchy.');
+const metaFor = entry => thirdParty(entry) ? { firstParty: false } : firstParty;
+const all = b => [].concat(b.layout.left, b.layout.center, b.layout.right);
+const modes = b => all(b).map(e => managed.mode(e, metaFor(e), managed.legacyDefaults(b)));
+// Bar.qml's first-run write (ensureInstanceIds): the heal, then the ids.
+const firstRun = b => {
+  managed.healVisibility(b, thirdParty);
+  for (const s of ['left', 'center', 'right'])
+    b.layout[s] = b.layout[s].map((e, i) => {
+      const entry = typeof e === 'string' ? { id: e } : e;
+      if (!entry.powerbarInstance) entry.powerbarInstance = `pw-${s}-${i}`;
+      return entry;
+    });
+};
+
+test('fresh switch from stock with a third-party widget: it shows on the bar, no visibility is written', () => {
+  const b = stock();
+  b.layout.right.splice(1, 0, { id: 'acme.weather-plus' }, 'acme.string-entry');
+  assert.equal(managed.powerbarHasRun(b), false);
+  assert.equal(managed.legacyDefaults(b), false);
+  assert.ok(modes(b).every(m => m === 'shown'));
+  assert.equal(prefs.mode({ id: 'acme.weather-plus' }, { firstParty: false }, managed.legacyDefaults(b)), 'shown');
+  firstRun(b);
+  assert.ok(all(b).every(e => !('powerbarVisibility' in e)), 'no visibility written');
+  assert.equal(b.powerbarVisibilityDefault, 'shown');
+  // The second run sees instance ids, and stays on the new default.
+  assert.equal(managed.legacyDefaults(b), false);
+  assert.ok(modes(b).every(m => m === 'shown'));
+  const before = JSON.stringify(b);
+  assert.equal(managed.healVisibility(b, thirdParty), false);
+  assert.equal(JSON.stringify(b), before);
+});
+
+test('existing Powerbar config: an unplaced third-party widget stays On demand, written down once', () => {
+  const b = stock();
+  for (const s of ['left', 'center', 'right']) b.layout[s].forEach((e, i) => { e.powerbarInstance = `pw-${s}-${i}`; });
+  b.layout.right.splice(1, 0, { id: 'acme.weather-plus', powerbarInstance: 'pw-acme' },
+    { id: 'acme.placed', powerbarInstance: 'pw-placed', powerbarVisibility: 'shown' });
+  b.layout.left.push({ id: 'local.vpn', type: 'command', exec: 'vpn-status', powerbarInstance: 'pw-vpn' });
+  assert.equal(managed.legacyDefaults(b), true);
+  const effective = modes(b);
+  assert.equal(effective.filter(m => m === 'managed').length, 2);
+  firstRun(b);
+  assert.equal(b.layout.right[1].powerbarVisibility, 'managed');
+  assert.equal(b.layout.right[2].powerbarVisibility, 'shown');
+  assert.equal(b.layout.left[2].powerbarVisibility, 'managed');
+  assert.ok(all(b).filter(e => e.id.startsWith('omarchy.')).every(e => !('powerbarVisibility' in e)),
+    "Omarchy's widgets keep no saved visibility");
+  assert.equal(managed.legacyDefaults(b), false);
+  assert.deepEqual(modes(b), effective, 'what shows is unchanged');
+  // Second run: nothing to write.
+  const before = JSON.stringify(b);
+  assert.equal(managed.healVisibility(b, thirdParty), false);
+  assert.equal(JSON.stringify(b), before);
+});
+
+test('a Powerbar setting alone marks a config Powerbar ran on', () => {
+  const b = Object.assign(stock(), { powerbarStyle: 'islands' });
+  b.layout.right.push({ id: 'acme.tool' });
+  assert.equal(managed.legacyDefaults(b), true);
+  assert.equal(managed.healVisibility(b, thirdParty), true);
+  assert.equal(b.layout.right.at(-1).powerbarVisibility, 'managed');
 });

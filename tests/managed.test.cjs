@@ -4,10 +4,13 @@ const vm = require('node:vm');
 const fs = require('node:fs');
 const m = vm.createContext({});
 vm.runInContext(fs.readFileSync(`${__dirname}/../ManagedModel.js`, 'utf8'), m);
-test('explicit modes win; defaults use registry provenance and defer discovery', () => {
+test('explicit modes win; every discovered widget defaults to shown, old configs keep provenance; discovery defers', () => {
   assert.equal(m.mode({}, null), 'pending');
   assert.equal(m.mode({}, { firstParty: true }), 'shown');
-  assert.equal(m.mode({}, { firstParty: false }), 'managed');
+  assert.equal(m.mode({}, { firstParty: false }), 'shown');
+  assert.equal(m.mode({}, { firstParty: true }, true), 'shown');
+  assert.equal(m.mode({}, { firstParty: false }, true), 'managed');
+  assert.equal(m.mode({ powerbarVisibility: 'shown' }, { firstParty: false }, true), 'shown');
   assert.equal(m.mode({ powerbarVisibility: 'hidden' }, { firstParty: true }), 'hidden');
   assert.equal(m.mode({ powerbarVisibility: 'shown' }, { firstParty: false }), 'shown');
 });

@@ -424,10 +424,23 @@ Item {
     activityDeadlines[key] = until
     for (var slot of (slotCopies[key] || [])) if (slot) slot.activityUntil = until
   }
-  // Assign stable identities once, preserving duplicate plugin instances on moves.
+  // Whether this config still follows the old visibility default (widgets not
+  // from Omarchy On demand) until healVisibility writes it down.
+  readonly property bool legacyVisibility: ManagedModel.legacyDefaults(barConfig)
+  // Not from Omarchy: a command or QML module, or a plugin the registry does
+  // not call first-party (by its id while the registry has not loaded it).
+  function thirdPartyEntry(entry) {
+    if (customModuleType(entry)) return true
+    var id = canonicalWidgetId(entryId(entry))
+    var metadata = barWidgetRegistry.metadataFor(id)
+    return metadata ? metadata.firstParty !== true : id.indexOf("omarchy.") !== 0
+  }
+  // Assign stable identities once, preserving duplicate plugin instances on
+  // moves. The visibility default is settled in the same write, before the
+  // ids exist: they would make a fresh config look like one Powerbar ran on.
   function ensureInstanceIds() {
     if (!shell || !barConfig.layout) return
-    var seen = {}, missing = false
+    var seen = {}, missing = barConfig.powerbarVisibilityDefault !== "shown"
     for (var zone of ["left", "center", "right"]) {
       for (var entry of (barConfig.layout[zone] || [])) {
         var key = entry && entry.powerbarInstance
@@ -437,6 +450,7 @@ Item {
     }
     if (!missing) return
     shell.mutateShellConfig(function(config) {
+      ManagedModel.healVisibility(config.bar, root.thirdPartyEntry)
       var used = {}
       for (var zone of ["left", "center", "right"]) {
         var entries = config.bar.layout[zone] || []
@@ -4781,7 +4795,7 @@ Item {
     readonly property var memberGroup: groupHeader ? null : root.groupFor(instanceKey)
     readonly property var badgeInfo: memberGroup && memberGroup.badge ? GroupBadgeModel.sample(activeItem,
       entry && entry.powerbarBadgeProperty || "", entry && entry.powerbarUrgentProperty || "") : ({ count: 0, urgent: false })
-    readonly property string visibilityMode: ManagedModel.mode(entry, registryMetadata || (customType ? { firstParty: false } : null))
+    readonly property string visibilityMode: ManagedModel.mode(entry, registryMetadata || (customType ? { firstParty: false } : null), root.legacyVisibility)
     readonly property bool managed: visibilityMode === "managed"
     readonly property bool alwaysShown: visibilityMode === "shown"
     property var slotTargets: []
