@@ -3355,9 +3355,35 @@ Item {
     // so the dismiss layer below (under the pointer everywhere off the bar)
     // could never see one.
     property bool keysFocusPrimed: false
-    onKeysHereChanged: { keysFocusPrimed = false; if (keysHere) keysPrime.restart(); else keysPrime.stop() }
-    Timer { id: keysPrime; interval: 200; onTriggered: barWindow.keysFocusPrimed = barWindow.keysHere }
-    readonly property int keyboardFocusMode: keysHere ? (keysFocusPrimed ? WlrKeyboardFocus.OnDemand : WlrKeyboardFocus.Exclusive)
+    property int keysPrimeTries: 0
+    onKeysHereChanged: { keysFocusPrimed = false; keysPrimeTries = 0; if (keysHere) keysPrime.restart(); else { keysPrime.stop(); keysKick.stop() } }
+    // The keyboard can be taken away while the mode holds it: a panel it
+    // opened hands focus back to the window that had it before, after its
+    // fade-out, even across the prime. Asking for Exclusive again while
+    // already Exclusive sends nothing, so the bar drops to OnDemand for a
+    // moment and asks anew, a few times. A click elsewhere ends the mode first.
+    readonly property bool keysWindowActive: keyCatcherItem.Window.active
+    Timer {
+      id: keysPrime
+      interval: 200
+      onTriggered: {
+        if (barWindow.keysHere && !barWindow.keysWindowActive && barWindow.keysPrimeTries < 6) {
+          barWindow.keysPrimeTries++
+          barWindow.keysFocusPrimed = true
+          keysKick.restart()
+          return
+        }
+        barWindow.keysFocusPrimed = barWindow.keysHere
+      }
+    }
+    Timer { id: keysKick; interval: 50; onTriggered: if (barWindow.keysHere) { barWindow.keysFocusPrimed = false; keysPrime.restart() } }
+    onKeysWindowActiveChanged: if (!keysWindowActive && keysHere && keysFocusPrimed && !keysKick.running) {
+      keysFocusPrimed = false; keysPrimeTries = 0; keysPrime.restart()
+    }
+    // While the keyboard mode is on this bar, it alone decides: a drawer it
+    // entered must not hold the keys while a panel it opened has them.
+    readonly property int keyboardFocusMode: root.barKeys.heldBy(barWindow)
+      ? (keysHere ? (keysFocusPrimed ? WlrKeyboardFocus.OnDemand : WlrKeyboardFocus.Exclusive) : WlrKeyboardFocus.None)
       : drawer.opened && drawer.keyboardMode ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
     WlrLayershell.keyboardFocus: keyboardFocusMode
     mask: Region {

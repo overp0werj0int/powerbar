@@ -275,8 +275,11 @@ every edge:
   to In a drawer, the into key opens the zone's drawer from any of its widgets.
 - Enter or Space opens the widget (a click), or a group's drawer. A panel that
   opens takes the keys; Esc in it comes back to the bar.
-- `/` finds a widget by any word of its name (word starts first), opening the
-  way to it: into a group, behind dots or into a zone drawer. Tab and
+- `/` finds a widget by the words of its name: each word typed matches a word
+  of its own (its start first; a single letter only starts), and a group's
+  members match by the group's name too, so `/ai a` finds the AI group's
+  members starting with "a". It opens the way: into a group, behind dots or
+  into a zone drawer. Tab and
   Shift+Tab move between matches, Enter opens one; an arrow ends the search
   where it is and moves on from there (↓ on a top bar goes into the group found).
 - The Powerbar button is the last stop: Enter opens Preferences.
