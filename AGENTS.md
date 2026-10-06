@@ -41,6 +41,10 @@ omabox for desktop tests in a private Hyprland session
    with `omabox pointer`, `omabox click`, `omabox keys`, look with `omabox shot
    -g …`, read state with `omabox run -- omarchy-shell powerbar <status>`.
    `omabox down` when done.
+   `tools/smoke.sh [name]` does all of this in a throwaway box and asserts
+   the IPC basics (status, settings, keys, bar position); `SMOKE_SHOT=file.png`
+   keeps a screenshot. `tests/run` is the portable subset (node tests and
+   `bash -n`) that CI runs.
 4. **The live desktop only when the user asks.** Restart the user's shell with
    `.claude/skills/omarchy-widget-debug/scripts/live.sh restart powerbar`
    (it refuses while the session is locked; never restart a locked session).
