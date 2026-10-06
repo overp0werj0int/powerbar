@@ -218,7 +218,7 @@ Storage: the look lives in `bar.powerbarAppearance` of shell.json: `all` (values
 
 - **LOOK-92** A tooltip is not shown while the bar is sliding out, for a widget that is hidden, folded or yielded (Qt still hovers it); it hides within 100 ms of the pointer leaving. Code: Bar.qml tooltipWindow (visible: !sliding), showTooltip, hover poll timer.
 
-- **LOOK-93** A tooltip shows 400 ms after the pointer rests on a widget; when another tooltip was shown and cleared within the last 800 ms it shows after about 1 ms. The warm state is one global timer, not per widget. A widget with no tooltip of its own is named, with its shortcut on a second centred row of keycaps joined by "+" (KeyCombo.qml), as the keyboard cursor's name card names it (compounds such as workspaces and the tray, and groups, keep their own). Code: Bar.qml showTooltip, tooltipWarmUntil, tooltipTimer.
+- **LOOK-93** A tooltip shows 400 ms after the pointer rests on a widget; when another tooltip was shown and cleared within the last 800 ms it shows after about 1 ms. The warm state is one global timer, not per widget. A tooltip is the widget's own text, as on Omarchy's bar: a widget that brings none shows none, and no tooltip carries a shortcut. Code: Bar.qml showTooltip, tooltipWarmUntil, tooltipTimer.
 
 - **LOOK-135** A tooltip (and the keyboard name card) for a widget on the bar sits the tooltip gap past the bar's outer edge, the strip that holds the islands, never past the widget's own cell: an island and a large bar's lip reach beyond the cell, and a tooltip measured from the cell sat on the island's edge. Code: TooltipModel.place (bar), Bar.qml tooltip anchoring with mainStrip.
 

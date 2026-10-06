@@ -862,10 +862,6 @@ Item {
   property var pendingTooltipTarget: null
   property string tooltipText: ""
   property string pendingTooltipText: ""
-  // A shortcut's keys, shown under the tooltip's text as keycaps (Powerbar's
-  // own tooltips only; a widget's showTooltip(text) stays one line).
-  property var tooltipKeys: []
-  property var pendingTooltipKeys: []
   property bool tooltipShown: false
   property int tooltipRequest: 0
   property var activePopout: null
@@ -1289,10 +1285,8 @@ Item {
     tooltipTimer.stop()
     pendingTooltipTarget = null
     pendingTooltipText = ""
-    pendingTooltipKeys = []
     tooltipTarget = null
     tooltipText = ""
-    tooltipKeys = []
     tooltipShown = false
   }
 
@@ -2181,12 +2175,11 @@ Item {
   function refreshShortcuts() { if (preferencesPane.shortcuts) preferencesPane.shortcuts.refresh() }
   readonly property var shortcutStore: preferencesPane.shortcuts
   // The keyboard cursor's name card: the bar's tooltip, shown at once.
-  function showCard(target, text, keys) {
+  function showCard(target, text) {
     clearTooltip()
     if (!target || !text) return
     tooltipTarget = target
     tooltipText = text
-    tooltipKeys = keys || []
     tooltipShown = true
   }
   function hideCard() { clearTooltip() }
@@ -2838,14 +2831,9 @@ Item {
     // (it hovers disabled items); it shows no tooltip.
     var owner = resolveTargetSlot(target)
     var unseen = !!owner && !owner.drawerHost && !owner.mainVisible
-    // A widget that brings no tooltip of its own is named, with its shortcut,
-    // as the keyboard cursor names it. Groups keep their own setting, and a
-    // compound (workspaces, the tray) is several things, not one name.
-    var keys = []
-    if (!text && owner && !owner.groupHeader && owner.compoundTargets.length < 2 && !(owner.drawerHost && owner.drawerHost.labelled)) {
-      text = slotName(owner)
-      keys = shortcutCaps("widget:" + owner.moduleName)
-    }
+    // As on Omarchy's bar, a widget's tooltip is its own text, and a widget
+    // that brings none shows none. Shortcuts live in the keyboard mode's ?
+    // sheet and in Preferences, not in tooltips.
     if (unseen || !targetTooltipHovered(target) || !text) {
       tooltipRequest += 1
       return
@@ -2855,7 +2843,6 @@ Item {
     tooltipRequest = request
     pendingTooltipTarget = target
     pendingTooltipText = text
-    pendingTooltipKeys = keys
 
     Qt.callLater(function() {
       if (request !== tooltipRequest) return
@@ -2865,10 +2852,8 @@ Item {
       }
       tooltipTarget = pendingTooltipTarget
       tooltipText = pendingTooltipText
-      tooltipKeys = pendingTooltipKeys
       pendingTooltipTarget = null
       pendingTooltipText = ""
-      pendingTooltipKeys = []
       tooltipTimer.interval = Date.now() < tooltipWarmUntil ? 1 : 400
       tooltipTimer.restart()
     })
@@ -3981,39 +3966,26 @@ Item {
         y: root.overlayShadowPad
         width: implicitWidth
         height: implicitHeight
-        implicitWidth: tooltipContent.implicitWidth + 20
-        implicitHeight: tooltipContent.implicitHeight + 14
+        implicitWidth: tooltipLabel.implicitWidth + 20
+        implicitHeight: tooltipLabel.implicitHeight + 14
         color: root.overlayStyled.surface ? root.overlaySurfaceColor : Color.tooltip.background
         borderSpec: root.overlayStyled.shape ? root.overlayBorder : Border.surfaceSpec("tooltip", "border", Color.tooltip.border, 1)
         // A pill at most, as drawers cap theirs.
-        // Capped at a one-line pill, so a tooltip with keys keeps the same corners.
-        radius: root.overlayStyled.shape ? Math.min(root.islandRounding, (tooltipLabel.implicitHeight + 14) / 2) : Style.cornerRadius
+        radius: root.overlayStyled.shape ? Math.min(root.islandRounding, implicitHeight / 2) : Style.cornerRadius
         shadowEnabled: root.overlayShadow
         shadowSize: root.surfaceEffects.shadowSize
         shadowOpacity: root.surfaceEffects.shadowOpacity
 
-        Column {
-          id: tooltipContent
+        Text {
+          id: tooltipLabel
+          textFormat: Text.PlainText
           anchors.centerIn: parent
-          spacing: Style.space(5)
-          readonly property color ink: root.overlayStyled.surface ? root.barForeground : Color.tooltip.text
-          Text {
-            id: tooltipLabel
-            textFormat: Text.PlainText
-            anchors.horizontalCenter: parent.horizontalCenter
-            text: root.tooltipText
-            color: tooltipContent.ink
-            font.family: root.fontFamily
-            font.pixelSize: Style.font.body
-            horizontalAlignment: Text.AlignHCenter
-            verticalAlignment: Text.AlignVCenter
-          }
-          KeyCombo {
-            visible: root.tooltipKeys.length > 0
-            anchors.horizontalCenter: parent.horizontalCenter
-            keys: root.tooltipKeys
-            foreground: tooltipContent.ink
-          }
+          text: root.tooltipText
+          color: root.overlayStyled.surface ? root.barForeground : Color.tooltip.text
+          font.family: root.fontFamily
+          font.pixelSize: Style.font.body
+          horizontalAlignment: Text.AlignHCenter
+          verticalAlignment: Text.AlignVCenter
         }
       }
     }

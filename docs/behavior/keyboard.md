@@ -110,13 +110,13 @@ The CLI as a whole (`status`, `shortcuts`, `help`, error format) is integration.
 
 ## Name card
 
-- **KEYS-40** When the mode is `here` and the cursor is on a widget, the card beside it shows "<name>" and, when it has a shortcut, a second centred row of keycaps joined by "+" (Super + Ctrl + A). The Preferences button's card is "Powerbar preferences".
+- **KEYS-40** When the mode is `here` and the cursor is on a widget, the card beside it shows the widget's name, one line, no shortcut (shortcuts are on the `?` sheet, KEYS-70, and in Preferences). The Preferences button's card is "Powerbar preferences".
 
-- **KEYS-41** In an entered drawer the card is about the current row instead of the cursor: in an icon strip it names the row's widget; in a named menu (where the row already shows the name) it shows what hovering the row shows, the widget's own tooltip such as "Microphone muted", falling back to the name when the widget has none. The shortcut is the keycap row under it in both. Code: BarKeysModel.js cardText(), KeyCombo.qml.
+- **KEYS-41** In an entered drawer the card is about the current row instead of the cursor: in an icon strip it names the row's widget; in a named menu (where the row already shows the name) it shows what hovering the row shows, the widget's own tooltip such as "Microphone muted", falling back to the name when the widget has none. Code: BarKeysModel.js cardText().
 
 - **KEYS-77** A card on a drawer's row sits beside that row once the drawer has finished opening, outside the drawer, also when a search (`/`) opened the drawer and put the cursor on a row in the same moment; it is placed again when the drawer's size or position changes. Before, a search into a left-zone group left the card at the first row's height, over the menu. Code: Bar.qml reanchorTooltip (drawer reveal end, geometry).
 
-- **KEYS-42** The card refreshes when the cursor moves, when the drawer's row changes, when the drawer is no longer stepped aside, and when the shortcut store changes.
+- **KEYS-42** The card refreshes when the cursor moves, when the drawer's row changes and when the drawer is no longer stepped aside.
 
 - **KEYS-43** The card is hidden on group icons and on zone dots in drawer mode (they open a drawer), on a drawer preview, while suspended or handing off, and when the mode ends.
 

@@ -218,7 +218,7 @@ function startScreen(screens, focused) {
 // The name card's text. On a row of a named menu the row already shows the
 // name, so the card says what hovering the row says: the widget's own
 // tooltip (a status, a level), when it has one that is not just its name.
-// Elsewhere it names the stop. The shortcut is drawn under it as keycaps.
+// Elsewhere it names the stop. Shortcuts are on the ? sheet, not the card.
 function cardText(name, own, namedMenu) {
   return namedMenu && own && own !== name ? own : name
 }
