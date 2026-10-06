@@ -442,7 +442,27 @@ and their ranges stop where more stops looking different: rounding tops out at
 a full pill for the bar's thickness. Bar size uniformly scales icons, text, and controls, including third-party
 widgets; drawer contents use the same scale. All numeric preferences use sliders.
 
+## Known limitations
+
+- **Scrolling layout: a click on the bar can scroll the view.** This is
+  Hyprland's, not Powerbar's: its scrolling layout scrolls the focused window
+  into view on every mouse button release while the pointer is over any part of
+  that window, even when the click landed on something drawn over it, such as
+  a bar (Hyprland 0.56.2, and main as of October 2026; see
+  [hyprwm/Hyprland#13558](https://github.com/hyprwm/Hyprland/discussions/13558),
+  where a one-line fix is proposed). Powerbar meets it wherever a window sits
+  under the bar: with autohide on, since the bar then overlays windows instead
+  of reserving its strip, and on a side bar, where columns scrolled off screen
+  run on under it. It shows when the focused window is partly off screen, as
+  happens when focus follows the pointer onto it; then any click on the bar
+  slides the layout. Other layouts don't scroll on a click, so they aren't
+  affected. Until Hyprland fixes it, `scrolling:follow_focus = false` stops it,
+  at a cost: clicking or hovering a partly hidden window no longer brings it
+  into view (moving focus with the keyboard still does).
+
 ## Validation
+
+Everything below in one command: `tools/validate.sh`.
 
 ```sh
 node --test tests/*.test.cjs
