@@ -60,7 +60,7 @@ Item {
       drawer: d ? { group: d.groupId, zone: d.zone, previewing: previewing, aside: d.steppedAside, cursor: d.cursorActive ? d.cursor : -1,
         member: d.cursorActive && d.slots[d.cursor] ? bar.slotName(d.slots[d.cursor]) : "" } : null,
       searching: searching, query: query, matches: matchCount, sheet: sheet, handOff: handOff, foreign: foreign, inline: window ? window.inlineZone : "",
-      barHidden: bar.barHidden, windowActive: !!(window && window.keysWindowActive), drawerFocused: !!(drawer && drawer.activeFocus), pointer: window && window.barPointer ? { hovered: window.barPointer.hovered, x: Math.round(window.barPointer.point.position.x), y: Math.round(window.barPointer.point.position.y) } : null, card: { shown: bar.tooltipShown, text: bar.tooltipText, mine: bar.tooltipTarget === cursor, belongs: !!cursor && bar.targetBelongsToWindow(cursor, window) }, focused: !!(window && window.keyCatcher && window.keyCatcher.activeFocus) }
+      barHidden: bar.barHidden, windowActive: !!(window && window.keysWindowActive), drawerFocused: !!(drawer && drawer.activeFocus), pointer: window && window.barPointer ? { hovered: window.barPointer.hovered, x: Math.round(window.barPointer.point.position.x), y: Math.round(window.barPointer.point.position.y) } : null, card: { shown: bar.tooltipShown, text: bar.tooltipText, mine: bar.tooltipTarget === cardTarget && !!cardTarget, belongs: !!cursor && bar.targetBelongsToWindow(cursor, window) }, focused: !!(window && window.keyCatcher && window.keyCatcher.activeFocus) }
   }
   function heldBy(window) { return active && !!keys.window && bar.sameWindow(keys.window, window) }
 
@@ -307,7 +307,9 @@ Item {
     target: keys.drawer
     ignoreUnknownSignals: true
     // Back from stepping aside for a member's panel: the keys go to it again.
-    function onSteppedAsideChanged() { if (keys.drawer && !keys.drawer.steppedAside && keys.here) keys.focusLater() }
+    function onSteppedAsideChanged() { if (keys.drawer && !keys.drawer.steppedAside && keys.here) keys.focusLater(); if (keys.active) keys.showCard() }
+    function onCursorChanged() { if (keys.active) keys.showCard() }
+    function onCursorActiveChanged() { if (keys.active) keys.showCard() }
     // Closed from elsewhere (the pointer, a widget): the keys come back to the bar.
     function onOpenedChanged() {
       if (keys.drawer && !keys.drawer.opened) {
@@ -575,15 +577,23 @@ Item {
   }
 
   // ---- the name card --------------------------------------------------------
+  // What the name card is on: the cursor, or the drawer's current member.
+  property var cardTarget: null
   function showCard() {
-    // A drawer open beside the icon names its own widgets; the card would cover it.
-    // A group (or a zone's dots in drawer mode) unfolds its drawer instead.
-    if (!here || !cursor || drawer || opensDrawer(cursor)) { bar.hideCard(); return }
-    var name = nameOf(cursor)
-    var target = targetOf(cursor)
-    var keysLabel = target ? bar.shortcutLabel(target) : ""
-    bar.showCard(cursor, keysLabel ? name + "   " + keysLabel : name)
+    var d = drawer, target = null, slot = null
+    // In a drawer the card names its current member, where hovering it would.
+    // While it only previews beside the icon, the card would cover it.
+    if (here && d) {
+      if (!previewing && d.opened && d.cursorActive && !d.steppedAside) { slot = d.slots[d.cursor]; target = slot ? d.cellAt(d.cursor) : null }
+    } else if (here && cursor && !opensDrawer(cursor)) { slot = cursor; target = cursor }
+    if (!target) { cardTarget = null; bar.hideCard(); return }
+    var name = nameOf(slot)
+    var shortcut = targetOf(slot)
+    var keysLabel = shortcut ? bar.shortcutLabel(shortcut) : ""
+    cardTarget = target
+    bar.showCard(target, keysLabel ? name + "   " + keysLabel : name)
   }
+
 
   // The shortcuts are read again on entering: the card names them once they arrive.
   Connections {

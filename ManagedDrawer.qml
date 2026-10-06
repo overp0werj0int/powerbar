@@ -360,6 +360,8 @@ Item {
   Component.onDestruction: if (bar.managedOwner === drawer) bar.managedOwner = null
   Timer { id: dismissal; repeat: false; onTriggered: drawer.close("timeout") }
 
+  // The cell showing member i (the keyboard's name card anchors on it).
+  function cellAt(i) { return widgets.itemAt(i) }
   function navigate(delta) {
     if (!slots.length) return
     cursor = cursorActive ? (cursor + delta + slots.length) % slots.length : delta > 0 ? 0 : slots.length - 1
