@@ -32,7 +32,9 @@ function roundingMax(barSize, spacingScale) {
 }
 
 // Resolve old per-surface settings once, using the main bar as the baseline.
-function effects(config) {
+// themeOpacity (0–1): the theme's own bar background alpha, used when no
+// opacity is set (Omarchy's bar draws its theme background as it is).
+function effects(config, themeOpacity) {
   var c = config || {}
   function value(key, fallback) {
     if (c["powerbar" + key] !== undefined) return c["powerbar" + key]
@@ -43,7 +45,8 @@ function effects(config) {
   }
   var opacity = typeof c.powerbarBackgroundOpacity === "number"
     ? number("BackgroundOpacity", ranges.backgroundOpacity)
-    : c.powerbarMainBlur === true ? number("BackgroundOpacity", ranges.backgroundOpacity, 80) : 100
+    : c.powerbarMainBlur === true ? number("BackgroundOpacity", ranges.backgroundOpacity, 80)
+    : typeof themeOpacity === "number" ? Math.round(Math.max(0, Math.min(1, themeOpacity)) * 100) : 100
   return { blur: value("Blur", false) === true, backgroundOpacity: opacity / 100,
     shadow: value("Shadow", false) === true, shadowSize: number("ShadowSize", ranges.shadowSize),
     shadowOpacity: number("ShadowOpacity", ranges.shadowOpacity) / 100,
@@ -67,19 +70,6 @@ function foreground(config, theme) {
   // applies anywhere.
   var picked = isMap(v) && theme ? v[theme] : undefined
   return picked === "light" || picked === "dark" ? picked : "theme"
-}
-// Records the choice for one theme; "theme" clears it. Drops the key when no
-// theme keeps a choice.
-function setForeground(bar, theme, value) {
-  if (!bar) return
-  var map = {}
-  if (isMap(bar.powerbarForeground)) for (var k in bar.powerbarForeground) map[k] = bar.powerbarForeground[k]
-  if (theme) {
-    if (value === "light" || value === "dark") map[theme] = value
-    else delete map[theme]
-  }
-  if (Object.keys(map).length) bar.powerbarForeground = map
-  else delete bar.powerbarForeground
 }
 function luminance(c) {
   function lin(v) { return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4) }
@@ -110,22 +100,249 @@ var tileKeys = {
   surface: legacyKeys(["Blur", "BackgroundOpacity", "ReadableOverlay"]).concat(["powerbarForeground"]),
   shadow: legacyKeys(["Shadow", "ShadowSize", "ShadowOpacity"])
 }
-// Whether a tile differs from the theme: one of its keys is set. Text and
-// icons count only when the current theme `theme` has a choice.
-function customized(config, tile, theme) {
-  var c = config || {}
-  return (tileKeys[tile] || []).some(function(key) {
-    return key === "powerbarForeground" ? foreground(c, theme) !== "theme" : c[key] !== undefined
-  })
+// ---- Appearance scopes (docs: README "Theme or yours") ---------------------
+// Shape, Surface and Shadow each follow one of three scopes, chosen per theme:
+//   "theme"  the theme's values: its powerbar.toml where it ships one, then
+//            Omarchy's and Hyprland's (what the bar draws with nothing set)
+//   "all"    the user's values shared by every theme
+//   "this"   the user's values for the current theme only
+// A value is looked up key by key along the chosen scope's chain (this → all
+// → theme file), so a layer holds only what was changed. Text and icons are
+// stored per theme only: a light or dark choice can't be shared between light
+// and dark themes. Stored as bar.powerbarAppearance:
+//   { all: { shape: {…}, surface: {…}, shadow: {…} },
+//     themes: { "<theme>": { shape: { use: "this", rounding: 10 }, text: "dark" } } }
+var scopeTiles = {
+  shape: ["rounding", "borders", "borderWidth"],
+  surface: ["opacity", "blur"],
+  shadow: ["enabled", "softness", "strength"]
 }
-// Resets one tile, or every tile when none is named. Text and icons go back
-// to the theme's colours in the current theme `theme` only; without a theme,
-// every theme's choice goes.
-function reset(config, tile, theme) {
-  (tile ? [tile] : Object.keys(tileKeys)).forEach(function(name) {
-    (tileKeys[name] || []).forEach(function(key) {
-      if (key === "powerbarForeground" && theme) setForeground(config, theme, "theme")
-      else delete config[key]
+var scopes = ["theme", "all", "this"]
+// The flat keys the bar's drawing code reads, one per value.
+var flatKeys = {
+  rounding: "powerbarIslandRounding", borders: "powerbarIslandBorders", borderWidth: "powerbarIslandBorderWidth",
+  opacity: "powerbarBackgroundOpacity", blur: "powerbarBlur",
+  enabled: "powerbarShadow", softness: "powerbarShadowSize", strength: "powerbarShadowOpacity"
+}
+function filled(o) { return isMap(o) && Object.keys(o).some(function(k) { return k !== "use" && o[k] !== undefined }) }
+function pick(o, key) { return isMap(o) && o[key] !== undefined ? o[key] : undefined }
+
+// A theme's powerbar.toml: [shape] rounding, borders, border-width;
+// [surface] opacity, blur, text; [shadow] enabled, softness, strength. Every
+// key is optional; unknown sections and keys are ignored. Returns
+// { shape: {…}, surface: {…}, shadow: {…} } holding only what the file sets.
+var lookKeys = {
+  shape: { rounding: "rounding", borders: "borders", "border-width": "borderWidth" },
+  surface: { opacity: "opacity", blur: "blur", text: "text" },
+  shadow: { enabled: "enabled", softness: "softness", strength: "strength" }
+}
+function parseLook(text) {
+  var look = {}, section = ""
+  String(text || "").split(/\r?\n/).forEach(function(line) {
+    var l = line.replace(/\s+#.*$/, "").replace(/^\s*#.*$/, "").trim()
+    if (!l) return
+    var head = l.match(/^\[\s*([A-Za-z-]+)\s*\]$/)
+    if (head) { section = head[1].toLowerCase(); return }
+    var kv = l.match(/^([A-Za-z-]+)\s*=\s*(.+)$/)
+    if (!kv || !lookKeys[section]) return
+    var key = lookKeys[section][kv[1].toLowerCase()]
+    if (!key) return
+    var raw = kv[2].trim(), value
+    if (raw === "true" || raw === "false") value = raw === "true"
+    else if (/^-?\d+(\.\d+)?$/.test(raw)) value = Number(raw)
+    else if (/^"[^"]*"$/.test(raw) || /^'[^']*'$/.test(raw)) value = raw.slice(1, -1)
+    else return
+    if (key === "text" && value !== "light" && value !== "dark" && value !== "theme") return
+    if (!look[section]) look[section] = {}
+    look[section][key] = value
+  })
+  return look
+}
+
+// The stored appearance, or one built in memory from the flat keys of
+// earlier versions (so the bar draws the same before migrate() writes it).
+function appearanceOf(bar) {
+  var b = bar || {}
+  return isMap(b.powerbarAppearance) ? b.powerbarAppearance : fromLegacy(b)
+}
+var legacyNames = ["IslandRounding", "IslandBorders", "IslandBorderWidth", "Blur", "BackgroundOpacity",
+  "Shadow", "ShadowSize", "ShadowOpacity"]
+function legacyPresent(bar) {
+  var b = bar || {}
+  if (b.powerbarForeground !== undefined) return true
+  return legacyKeys(legacyNames).some(function(k) { return b[k] !== undefined })
+    || b.powerbarMainReadableOverlay !== undefined || b.powerbarExtendedReadableOverlay !== undefined
+}
+function fromLegacy(bar) {
+  var b = bar || {}, all = {}, themes = {}
+  function put(tile, key, value) { if (value !== undefined) { if (!all[tile]) all[tile] = {}; all[tile][key] = value } }
+  function legacy(name) {
+    return b["powerbar" + name] !== undefined ? b["powerbar" + name] : b["powerbarMain" + name]
+  }
+  put("shape", "rounding", typeof b.powerbarIslandRounding === "number" ? b.powerbarIslandRounding : undefined)
+  put("shape", "borders", typeof b.powerbarIslandBorders === "boolean" ? b.powerbarIslandBorders : undefined)
+  put("shape", "borderWidth", typeof b.powerbarIslandBorderWidth === "number" ? b.powerbarIslandBorderWidth : undefined)
+  // Opacity as the bar drew it: set explicitly, or 80 for an old blurred main bar.
+  var opacity = legacy("BackgroundOpacity")
+  put("surface", "opacity", typeof opacity === "number" ? opacity : b.powerbarMainBlur === true ? 80 : undefined)
+  var blur = legacy("Blur")
+  put("surface", "blur", typeof blur === "boolean" ? blur : undefined)
+  ;["Shadow", "ShadowSize", "ShadowOpacity"].forEach(function(name, i) {
+    var v = legacy(name)
+    put("shadow", ["enabled", "softness", "strength"][i], typeof v === (i ? "number" : "boolean") ? v : undefined)
+  })
+  if (isMap(b.powerbarForeground)) for (var t in b.powerbarForeground) {
+    var c = b.powerbarForeground[t]
+    if (c === "light" || c === "dark") themes[t] = { text: c }
+  }
+  var out = {}
+  if (Object.keys(all).length) out.all = all
+  if (Object.keys(themes).length) out.themes = themes
+  return out
+}
+// Moves earlier versions' flat keys into powerbarAppearance (the shared
+// "All themes" set keeps the bar looking the same) and removes them, the
+// leftovers of per-surface settings included. Returns whether it changed bar.
+function migrate(bar) {
+  if (!bar || !legacyPresent(bar)) return false
+  var next = isMap(bar.powerbarAppearance) ? bar.powerbarAppearance : fromLegacy(bar)
+  legacyKeys(legacyNames).concat(["powerbarForeground", "powerbarMainReadableOverlay", "powerbarExtendedReadableOverlay"])
+    .forEach(function(k) { delete bar[k] })
+  if (Object.keys(next).length) bar.powerbarAppearance = next
+  else delete bar.powerbarAppearance
+  return true
+}
+
+// The scope a tile follows in `theme`: the theme's own choice, else "all"
+// when shared values exist, else "theme".
+function scopeOf(appearance, theme, tile) {
+  var a = appearance || {}
+  var own = theme && isMap(a.themes) ? pick(a.themes[theme], tile) : undefined
+  if (isMap(own) && scopes.indexOf(own.use) >= 0) return own.use
+  return filled(pick(a.all, tile)) ? "all" : "theme"
+}
+// Everything the bar and Preferences need for `theme`:
+//   scopes: tile → scope; values: key → value or undefined (Omarchy's);
+//   from: key → "this" | "all" | "file" | "" (Omarchy and Hyprland);
+//   text: "theme" | "light" | "dark"; look: tile → the theme file sets some of it.
+function resolve(appearance, theme, look) {
+  var a = appearance || {}, l = look || {}
+  var own = theme && isMap(a.themes) && isMap(a.themes[theme]) ? a.themes[theme] : {}
+  var out = { scopes: {}, values: {}, from: {}, text: "theme", look: {} }
+  Object.keys(scopeTiles).forEach(function(tile) {
+    var scope = scopeOf(a, theme, tile)
+    out.scopes[tile] = scope
+    out.look[tile] = filled(l[tile])
+    var chain = scope === "this" ? [["this", own[tile]], ["all", pick(a.all, tile)], ["file", l[tile]]]
+      : scope === "all" ? [["all", pick(a.all, tile)], ["file", l[tile]]] : [["file", l[tile]]]
+    scopeTiles[tile].forEach(function(key) {
+      out.from[key] = ""
+      for (var i = 0; i < chain.length; i++) {
+        var v = pick(chain[i][1], key)
+        if (v !== undefined) { out.values[key] = v; out.from[key] = chain[i][0]; return }
+      }
     })
   })
+  var text = own.text !== undefined ? own.text : pick(l.surface, "text")
+  out.text = text === "light" || text === "dark" ? text : "theme"
+  return out
+}
+// The bar's config with the resolved appearance in the flat keys its
+// drawing code reads (effects, roundingFor, borderFor, foreground).
+function flatten(bar, theme, look) {
+  var b = bar || {}, flat = {}
+  for (var k in b) flat[k] = b[k]
+  legacyKeys(legacyNames).concat(["powerbarForeground", "powerbarMainReadableOverlay", "powerbarExtendedReadableOverlay"])
+    .forEach(function(key) { delete flat[key] })
+  var r = resolve(appearanceOf(b), theme, look)
+  for (var key in flatKeys) if (r.values[key] !== undefined) flat[flatKeys[key]] = r.values[key]
+  if (theme && r.text !== "theme") { flat.powerbarForeground = {}; flat.powerbarForeground[theme] = r.text }
+  return flat
+}
+
+// Writes, on the bar section (Preferences passes it inside writeConfig).
+function ensureAppearance(bar) {
+  if (!isMap(bar.powerbarAppearance)) bar.powerbarAppearance = fromLegacy(bar)
+  return bar.powerbarAppearance
+}
+function prune(a) {
+  if (isMap(a.all)) {
+    for (var t in a.all) if (!filled(a.all[t])) delete a.all[t]
+    if (!Object.keys(a.all).length) delete a.all
+  }
+  if (isMap(a.themes)) {
+    for (var name in a.themes) {
+      var th = a.themes[name]
+      for (var tile in th) if (isMap(th[tile]) && !Object.keys(th[tile]).length) delete th[tile]
+      if (!Object.keys(th).length) delete a.themes[name]
+    }
+    if (!Object.keys(a.themes).length) delete a.themes
+  }
+}
+function themeEntry(a, theme, tile) {
+  if (!isMap(a.themes)) a.themes = {}
+  if (!isMap(a.themes[theme])) a.themes[theme] = {}
+  if (tile && !isMap(a.themes[theme][tile])) a.themes[theme][tile] = {}
+  return tile ? a.themes[theme][tile] : a.themes[theme]
+}
+// Picks a tile's scope in `theme`. Values stored for other scopes stay.
+function setScope(bar, theme, tile, scope) {
+  if (!bar || !theme || !scopeTiles[tile] || scopes.indexOf(scope) < 0) return
+  var a = ensureAppearance(bar)
+  var entry = themeEntry(a, theme, tile)
+  entry.use = scope
+  // The default needs no record: "all" while shared values exist, else "theme".
+  var fallback = filled(pick(a.all, tile)) ? "all" : "theme"
+  if (scope === fallback && !filled(entry)) delete entry.use
+  prune(a)
+  if (!Object.keys(a).length) delete bar.powerbarAppearance
+}
+// Changes one value in the scope the tile follows in `theme` (nothing in
+// "theme": its controls are off). undefined removes the value.
+function setValue(bar, theme, tile, key, value) {
+  if (!bar || scopeTiles[tile] === undefined || scopeTiles[tile].indexOf(key) < 0) return
+  if (scopeOf(appearanceOf(bar), theme, tile) === "theme") return
+  var a = ensureAppearance(bar)
+  var scope = scopeOf(a, theme, tile)
+  if (scope === "all") {
+    // Recorded so the tile stays on "all" once it holds values of its own.
+    var own = theme ? themeEntry(a, theme, tile) : null
+    if (own && own.use === undefined) own.use = "all"
+    if (!isMap(a.all)) a.all = {}
+    if (!isMap(a.all[tile])) a.all[tile] = {}
+    if (value === undefined) delete a.all[tile][key]
+    else a.all[tile][key] = value
+    if (own && own.use === "all" && !filled(own)) delete own.use
+  } else {
+    var entry = themeEntry(a, theme, tile)
+    if (value === undefined) delete entry[key]
+    else entry[key] = value
+  }
+  prune(a)
+  if (!Object.keys(a).length) delete bar.powerbarAppearance
+}
+// Text and icons for `theme`: "theme" removes the choice.
+function setText(bar, theme, value) {
+  if (!bar || !theme) return
+  var a = ensureAppearance(bar)
+  var entry = themeEntry(a, theme)
+  if (value === "light" || value === "dark") entry.text = value
+  else delete entry.text
+  prune(a)
+  if (!Object.keys(a).length) delete bar.powerbarAppearance
+}
+// Whether something is kept for a theme not in `installed`.
+function hasStaleThemes(bar, installed) {
+  var a = bar && bar.powerbarAppearance
+  if (!isMap(a) || !isMap(a.themes) || !installed || !installed.length) return false
+  return Object.keys(a.themes).some(function(name) { return installed.indexOf(name) < 0 })
+}
+// Drops what is kept for themes no longer installed. Returns whether it did.
+function pruneThemes(bar, installed) {
+  var a = bar && bar.powerbarAppearance
+  if (!isMap(a) || !isMap(a.themes) || !installed || !installed.length) return false
+  var changed = false
+  for (var name in a.themes) if (installed.indexOf(name) < 0) { delete a.themes[name]; changed = true }
+  if (changed) { prune(a); if (!Object.keys(a).length) delete bar.powerbarAppearance }
+  return changed
 }
