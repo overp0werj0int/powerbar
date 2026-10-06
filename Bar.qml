@@ -3940,7 +3940,8 @@ Item {
           var at = TooltipModel.place(root.position, { x: box.x, y: box.y, width: box.width, height: box.height },
             { width: Math.ceil(tooltipBubble.implicitWidth), height: Math.ceil(tooltipBubble.implicitHeight) }, 6 * root.barScale,
             open ? { x: drawer.x, y: drawer.y, width: drawer.width, height: drawer.height, vertical: drawer.stripVertical } : null,
-            open && root.itemWithin(target, drawer), { width: barWindow.width, height: barWindow.height })
+            open && root.itemWithin(target, drawer), { width: barWindow.width, height: barWindow.height },
+            { x: mainStrip.x, y: mainStrip.y, width: mainStrip.width, height: mainStrip.height })
           // The window holds the shadow's room around the bubble.
           tooltipAnchor.rect.x = Math.round(at.x) - root.overlayShadowPad
           tooltipAnchor.rect.y = Math.round(at.y) - root.overlayShadowPad

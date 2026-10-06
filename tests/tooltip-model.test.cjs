@@ -43,3 +43,18 @@ test("a drawer's item puts its tooltip outside the drawer", () => {
   // No room on the right of the menu: on its left, never slid back over it.
   assert.deepEqual(tips.place('top', rowItem, popup, gap, menu, true, { width: 700, height: 1000 }), { x: 294, y: 100 });
 });
+
+const m = tips;
+test('a tooltip on the bar clears the bar strip, not just its target cell (islands, large bar)', () => {
+  const popup = { width: 100, height: 20 }, cell = { x: 200, y: 7, width: 32, height: 32 };
+  // Top: the strip reaches 46 px, past the cell's 39: the tooltip starts 6 px below the strip.
+  assert.equal(m.place('top', cell, popup, 6, null, false, null, { x: 0, y: 0, width: 1920, height: 46 }).y, 52);
+  assert.equal(m.place('top', cell, popup, 6).y, 45, 'without a strip: from the cell, as before');
+  // Bottom: strip from 954, cell from 961: the tooltip ends 6 px above the strip.
+  assert.equal(m.place('bottom', { x: 200, y: 961, width: 32, height: 32 }, popup, 6, null, false, null, { x: 0, y: 954, width: 1920, height: 46 }).y, 954 - 20 - 6);
+  // Sides.
+  assert.equal(m.place('left', { x: 7, y: 300, width: 32, height: 32 }, popup, 6, null, false, null, { x: 0, y: 0, width: 46, height: 1080 }).x, 52);
+  assert.equal(m.place('right', { x: 1881, y: 300, width: 32, height: 32 }, popup, 6, null, false, null, { x: 1874, y: 0, width: 46, height: 1080 }).x, 1874 - 100 - 6);
+  // A strip nearer than the target never pulls the tooltip in.
+  assert.equal(m.place('top', cell, popup, 6, null, false, null, { x: 0, y: 0, width: 1920, height: 30 }).y, 45);
+});
