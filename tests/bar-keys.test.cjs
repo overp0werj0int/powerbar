@@ -76,6 +76,18 @@ test('search ranks word starts first, then any match, then bar order', () => {
   assert.deepEqual(keys.matches(['Météo'], 'mé'), [0], 'any letters, not only ASCII');
 });
 
+test('each word typed must match, and a member matches by its group name too', () => {
+  // In bar order: the AI group, its members (text "ai <name>"), then others.
+  const names = ['AI', 'AI Agent Orchestrator', 'AI Agents', 'AI Agent Activity', 'Audio', 'AI usage dashboard'];
+  assert.deepEqual(keys.matches(names, 'ai a'), [1, 2, 3], "the group's members with a word starting with a");
+  assert.deepEqual(keys.matches(names, 'ai act'), [3]);
+  assert.deepEqual(keys.matches(names, 'ai u'), [5]);
+  assert.deepEqual(keys.matches(names, 'act ai'), [3], 'any order');
+  assert.deepEqual(keys.matches(names, 'ai zz'), [], 'every word must match');
+  assert.deepEqual(keys.matches(names, '  au  '), [4], 'spaces around do not count');
+  assert.deepEqual(keys.matches(names, 'ai'), [0, 1, 2, 3, 5], 'the group first, then by bar order');
+});
+
 test('the key strip names the keys of the edge', () => {
   const right = keys.legend('right', 'bar');
   assert.equal(right[0].keys, '↑ ↓');

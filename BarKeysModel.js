@@ -88,18 +88,31 @@ function zoneStep(zones, index, dir) {
   return -1
 }
 
-// Search: the matches for a query, best first. A word of the name that starts
-// with the text beats a name that only contains it; ties keep bar order.
-//   names: one per item, in bar order. Returns item indices.
+// Search: the matches for a query, best first. Each word typed must match a
+// word of its own in the item's text: its start beats a match inside it (a
+// single letter only matches starts).
+// A group member's text includes its group's name, so "ai a" finds the AI
+// group's members starting with "a". Ties keep bar order.
+//   names: one text per item, in bar order. Returns item indices.
 function matches(names, query) {
-  var q = String(query || "").toLowerCase().trim()
-  if (!q) return []
+  var words = String(query || "").toLowerCase().trim().split(/\s+/).filter(function(w) { return w })
+  if (!words.length) return []
   var scored = []
   names.forEach(function(name, i) {
     var n = String(name || "").toLowerCase()
     // Words end at spaces and punctuation (Qt's engine has no \p{L}).
-    var words = n.split(/[\s\-_.:,;\/()\[\]+&]+/)
-    var score = words.some(function(w) { return w.indexOf(q) === 0 }) ? 2 : n.indexOf(q) >= 0 ? 1 : 0
+    var parts = n.split(/[\s\-_.:,;\/()\[\]+&]+/), used = []
+    // Each word typed takes a word of its own: the start of one, else (two
+    // letters or more) one that contains it.
+    var score = 2
+    for (var w of words) {
+      var at = parts.findIndex(function(p, k) { return used.indexOf(k) < 0 && p.indexOf(w) === 0 })
+      var s = 2
+      if (at < 0 && w.length > 1) { at = parts.findIndex(function(p, k) { return used.indexOf(k) < 0 && p.indexOf(w) >= 0 }); s = 1 }
+      if (at < 0) { score = 0; break }
+      used.push(at)
+      score = Math.min(score, s)
+    }
     if (score) scored.push({ i: i, score: score })
   })
   scored.sort(function(a, b) { return b.score - a.score || a.i - b.i })

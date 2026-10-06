@@ -52,7 +52,7 @@ Item {
       drawer: d ? { group: d.groupId, zone: d.zone, previewing: previewing, cursor: d.cursorActive ? d.cursor : -1,
         member: d.cursorActive && d.slots[d.cursor] ? bar.slotName(d.slots[d.cursor]) : "" } : null,
       searching: searching, query: query, matches: matchCount, sheet: sheet, inline: window ? window.inlineZone : "",
-      barHidden: bar.barHidden, pointer: window && window.barPointer ? { hovered: window.barPointer.hovered, x: Math.round(window.barPointer.point.position.x), y: Math.round(window.barPointer.point.position.y) } : null, card: { shown: bar.tooltipShown, text: bar.tooltipText, mine: bar.tooltipTarget === cursor, belongs: !!cursor && bar.targetBelongsToWindow(cursor, window) }, focused: !!(window && window.keyCatcher && window.keyCatcher.activeFocus) }
+      barHidden: bar.barHidden, windowActive: !!(window && window.keysWindowActive), drawerFocused: !!(drawer && drawer.activeFocus), pointer: window && window.barPointer ? { hovered: window.barPointer.hovered, x: Math.round(window.barPointer.point.position.x), y: Math.round(window.barPointer.point.position.y) } : null, card: { shown: bar.tooltipShown, text: bar.tooltipText, mine: bar.tooltipTarget === cursor, belongs: !!cursor && bar.targetBelongsToWindow(cursor, window) }, focused: !!(window && window.keyCatcher && window.keyCatcher.activeFocus) }
   }
   function heldBy(window) { return active && !!keys.window && bar.sameWindow(keys.window, window) }
 
@@ -367,8 +367,10 @@ Item {
       if (s.kind === "widget" || s.kind === "prefs") out.push({ name: nameOf(s.item), slot: s.item, stop: s.item })
       else if (s.kind === "group") {
         out.push({ name: bar.slotName(s.item), slot: s.item, stop: s.item })
+        // A member is found by its group's name too ("ai a").
+        var groupName = bar.slotName(s.item)
         bar.groupSlots(s.item.entry.powerbarGroupId, w).forEach(function(m) {
-          out.push({ name: bar.slotName(m), slot: m, stop: s.item, member: true })
+          out.push({ name: bar.slotName(m), text: groupName + " " + bar.slotName(m), slot: m, stop: s.item, member: true })
         })
       }
     })
@@ -417,7 +419,7 @@ Item {
   }
   // Put the cursor on a match, opening the way to it.
   function reveal(which) {
-    var list = catalogue(), found = KeysModel.matches(list.map(function(c) { return c.name }), query)
+    var list = catalogue(), found = KeysModel.matches(list.map(function(c) { return c.text || c.name }), query)
     matchCount = found.length
     if (!found.length) { matchIndex = 0; return }
     matchIndex = ((which % found.length) + found.length) % found.length
