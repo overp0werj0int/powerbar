@@ -79,7 +79,7 @@ follows keyboard focus.
 | --- | --- |
 | Anywhere | `1`–`3` or Ctrl+`1`–`3` switch pages, Ctrl+Tab cycles them, Tab / Shift+Tab move between controls, Esc closes |
 | Forms | `j` / `k` or Up / Down move between controls, `h` / `l` or Left / Right adjust (Shift for larger steps), Space / Enter toggle or choose |
-| Bar page | Tab / Shift+Tab jump to the next or previous tile; in Shape, Surface and Shadow the first stop is Theme / All themes / This theme (`h` / `l` move, Space chooses) |
+| Bar page | Tab / Shift+Tab jump to the next or previous tile; in Shape, Surface and Shadow the first stop is Theme / Everywhere / Just here (`h` / `l` move, Space chooses) |
 | Sliders | Home / End for the ends, Backspace for the default, Enter applies now, Esc undoes a value not yet applied |
 | Layout shelves | `h` `j` `k` `l` move; Space picks up the widget, then `h` / `l` move it along and across zones and `j` / `k` or Tab change its shelf; Space or Enter drops it, Esc puts it back; `x` hides or restores; Enter goes to its settings (Esc comes back); Tab jumps to the next tile; `g` edits a group |
 | Groups shelf | `h` / `l` choose, `n` makes a group, `x` twice dissolves it, Enter goes to its icon |
@@ -345,22 +345,23 @@ page's On the bar shelf follow the same thickness.
 ### Theme or yours
 
 Powerbar follows your theme until you change something. The **Shape**,
-**Surface** and **Shadow** tiles each choose, in their header, what they follow
+**Surface** and **Shadow** tiles each choose, in their header, whose values they use
 in the theme you're on:
 
 - **Theme**: the theme's values. Its controls dim and show what the theme
   gives. Rounding is Hyprland's `decoration:rounding`, borders are the theme's,
   opacity is the theme's own bar background, and blur and shadow are off, as on
   Omarchy's bar. A theme can ship its own Powerbar look (below), which comes first.
-- **All themes**: your values, shared by every theme that hasn't chosen
-  otherwise. Changing one here changes it for all of them.
-- **This theme**: your values for this theme only, ahead of the shared ones.
+- **Everywhere**: your values, shared by every theme that hasn't chosen
+  otherwise. Changing one here changes it for all of them. Picking it the first
+  time shares what the tile shows at that moment.
+- **Just here**: your values for this theme only, ahead of the shared ones.
 
-A value you haven't set falls through, key by key: This theme, then All themes,
+A value you haven't set falls through, key by key: Just here, then Everywhere,
 then the theme. Switching a tile's choice keeps every stored value, so picking
 a choice again brings its values back, and switching themes swaps sets at once
-without writing anything. A theme you've never customised follows your shared
-values where you have them and its own otherwise. The tile's hint under the
+without writing anything. Until you pick Everywhere, every theme follows its
+own values; after that, a theme you've never customised follows your shared ones. The tile's hint under the
 header says where its values come from.
 
 The tiles cover borders on/off and their thickness (0.5–3 px), rounding (square
@@ -382,8 +383,9 @@ Everything is stored in `bar.powerbarAppearance` in `shell.json`, and only what
 you set: `all` holds the shared values, `themes.<name>` a theme's choices
 (`"use": "theme" | "all" | "this"`), its own values and its text colour.
 Settings from earlier versions (the flat `powerbarIslandRounding`,
-`powerbarBlur`, `powerbarShadow…` keys and the older per-surface ones) move into
-`all` the first time Powerbar loads, so the bar looks the same. What is kept for
+`powerbarBlur`, `powerbarShadow…` keys and the older per-surface ones) become
+the Just here values of the theme on screen when Powerbar first loads, so it
+looks the same; other themes start on Theme. What is kept for
 a theme that is no longer installed is dropped.
 
 #### A theme's own Powerbar look
@@ -411,7 +413,7 @@ softness = 10
 strength = 30
 ```
 
-On a tile set to Theme, the file's values apply. On All themes or This theme
+On a tile set to Theme, the file's values apply. On Everywhere or Just here
 your values win, and the tile's hint says when the theme has its own look.
 
 Backdrop blur needs these Powerbar-only rules in your Hyprland Lua configuration
@@ -423,6 +425,7 @@ hl.layer_rule({
   no_anim = true,
   animation = "none",
   blur = true,
+  blur_popups = true,
   ignore_alpha = 0.01,
 })
 hl.layer_rule({
@@ -432,6 +435,13 @@ hl.layer_rule({
   blur = false,
 })
 ```
+
+`blur_popups` blurs the bar's tooltips too. The key legend uses the same
+names, so the same rules cover it. Tooltips, the keyboard name card and the key
+legend follow Shape, Surface and Shadow like the bar once a tile has your
+values or the theme's Powerbar look; while a tile follows a theme without one,
+they look as Omarchy draws its own tooltips and popups. Key badges keep their
+own look.
 
 Powerbar briefly remaps its surface when switching the blur preference so the
 compositor applies the new namespace immediately. The alpha threshold leaves

@@ -161,9 +161,9 @@ function parseLook(text) {
 
 // The stored appearance, or one built in memory from the flat keys of
 // earlier versions (so the bar draws the same before migrate() writes it).
-function appearanceOf(bar) {
+function appearanceOf(bar, theme) {
   var b = bar || {}
-  return isMap(b.powerbarAppearance) ? b.powerbarAppearance : fromLegacy(b)
+  return isMap(b.powerbarAppearance) ? b.powerbarAppearance : fromLegacy(b, theme)
 }
 var legacyNames = ["IslandRounding", "IslandBorders", "IslandBorderWidth", "Blur", "BackgroundOpacity",
   "Shadow", "ShadowSize", "ShadowOpacity"]
@@ -173,7 +173,10 @@ function legacyPresent(bar) {
   return legacyKeys(legacyNames).some(function(k) { return b[k] !== undefined })
     || b.powerbarMainReadableOverlay !== undefined || b.powerbarExtendedReadableOverlay !== undefined
 }
-function fromLegacy(bar) {
+// Earlier versions' values belong to the theme they were made in (`theme`,
+// the one on screen when Powerbar updates): its This theme. Every other theme
+// starts on Theme; nothing becomes shared unless the user picks All themes.
+function fromLegacy(bar, theme) {
   var b = bar || {}, all = {}, themes = {}
   function put(tile, key, value) { if (value !== undefined) { if (!all[tile]) all[tile] = {}; all[tile][key] = value } }
   function legacy(name) {
@@ -195,17 +198,22 @@ function fromLegacy(bar) {
     var c = b.powerbarForeground[t]
     if (c === "light" || c === "dark") themes[t] = { text: c }
   }
-  var out = {}
-  if (Object.keys(all).length) out.all = all
-  if (Object.keys(themes).length) out.themes = themes
-  return out
+  if (theme && Object.keys(all).length) {
+    if (!themes[theme]) themes[theme] = {}
+    for (var tile in all) {
+      themes[theme][tile] = { use: "this" }
+      for (var key in all[tile]) themes[theme][tile][key] = all[tile][key]
+    }
+  }
+  return Object.keys(themes).length ? { themes: themes } : {}
 }
-// Moves earlier versions' flat keys into powerbarAppearance (the shared
-// "All themes" set keeps the bar looking the same) and removes them, the
-// leftovers of per-surface settings included. Returns whether it changed bar.
-function migrate(bar) {
-  if (!bar || !legacyPresent(bar)) return false
-  var next = isMap(bar.powerbarAppearance) ? bar.powerbarAppearance : fromLegacy(bar)
+// Moves earlier versions' flat keys into powerbarAppearance, as the current
+// theme's own values (so it looks the same), and removes them, the leftovers
+// of per-surface settings included. Waits for the theme to be known. Returns
+// whether it changed bar.
+function migrate(bar, theme) {
+  if (!bar || !theme || !legacyPresent(bar)) return false
+  var next = isMap(bar.powerbarAppearance) ? bar.powerbarAppearance : fromLegacy(bar, theme)
   legacyKeys(legacyNames).concat(["powerbarForeground", "powerbarMainReadableOverlay", "powerbarExtendedReadableOverlay"])
     .forEach(function(k) { delete bar[k] })
   if (Object.keys(next).length) bar.powerbarAppearance = next
@@ -254,15 +262,15 @@ function flatten(bar, theme, look) {
   for (var k in b) flat[k] = b[k]
   legacyKeys(legacyNames).concat(["powerbarForeground", "powerbarMainReadableOverlay", "powerbarExtendedReadableOverlay"])
     .forEach(function(key) { delete flat[key] })
-  var r = resolve(appearanceOf(b), theme, look)
+  var r = resolve(appearanceOf(b, theme), theme, look)
   for (var key in flatKeys) if (r.values[key] !== undefined) flat[flatKeys[key]] = r.values[key]
   if (theme && r.text !== "theme") { flat.powerbarForeground = {}; flat.powerbarForeground[theme] = r.text }
   return flat
 }
 
 // Writes, on the bar section (Preferences passes it inside writeConfig).
-function ensureAppearance(bar) {
-  if (!isMap(bar.powerbarAppearance)) bar.powerbarAppearance = fromLegacy(bar)
+function ensureAppearance(bar, theme) {
+  if (!isMap(bar.powerbarAppearance)) bar.powerbarAppearance = fromLegacy(bar, theme)
   return bar.powerbarAppearance
 }
 function prune(a) {
@@ -286,9 +294,19 @@ function themeEntry(a, theme, tile) {
   return tile ? a.themes[theme][tile] : a.themes[theme]
 }
 // Picks a tile's scope in `theme`. Values stored for other scopes stay.
-function setScope(bar, theme, tile, scope) {
+// The first pick of "all" for a tile shares what the tile shows now
+// (`look`: the theme's powerbar.toml, for what it shows from there).
+function setScope(bar, theme, tile, scope, look) {
   if (!bar || !theme || !scopeTiles[tile] || scopes.indexOf(scope) < 0) return
-  var a = ensureAppearance(bar)
+  var a = ensureAppearance(bar, theme)
+  if (scope === "all" && !filled(pick(a.all, tile))) {
+    var shown = resolve(a, theme, look).values, seed = {}
+    scopeTiles[tile].forEach(function(key) { if (shown[key] !== undefined) seed[key] = shown[key] })
+    if (Object.keys(seed).length) {
+      if (!isMap(a.all)) a.all = {}
+      a.all[tile] = seed
+    }
+  }
   var entry = themeEntry(a, theme, tile)
   entry.use = scope
   // The default needs no record: "all" while shared values exist, else "theme".
@@ -301,8 +319,8 @@ function setScope(bar, theme, tile, scope) {
 // "theme": its controls are off). undefined removes the value.
 function setValue(bar, theme, tile, key, value) {
   if (!bar || scopeTiles[tile] === undefined || scopeTiles[tile].indexOf(key) < 0) return
-  if (scopeOf(appearanceOf(bar), theme, tile) === "theme") return
-  var a = ensureAppearance(bar)
+  if (scopeOf(appearanceOf(bar, theme), theme, tile) === "theme") return
+  var a = ensureAppearance(bar, theme)
   var scope = scopeOf(a, theme, tile)
   if (scope === "all") {
     // Recorded so the tile stays on "all" once it holds values of its own.
@@ -324,7 +342,7 @@ function setValue(bar, theme, tile, key, value) {
 // Text and icons for `theme`: "theme" removes the choice.
 function setText(bar, theme, value) {
   if (!bar || !theme) return
-  var a = ensureAppearance(bar)
+  var a = ensureAppearance(bar, theme)
   var entry = themeEntry(a, theme)
   if (value === "light" || value === "dark") entry.text = value
   else delete entry.text
