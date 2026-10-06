@@ -108,12 +108,12 @@ test("a widget shows Omarchy's shortcut, yours, or none", () => {
   const d = m.parseDefaults(omarchyLua), binds = m.parseBinds(hyprctl);
   assert.deepEqual(plain(m.effective('widget:omarchy.audio', {}, d, binds)), { keys: 'SUPER + CTRL + A', source: 'omarchy', fallback: '' });
   assert.deepEqual(plain(m.effective('widget:omarchy.audio', { 'widget:omarchy.audio': 'SUPER + CTRL + M' }, d, binds)),
-    { keys: 'SUPER + CTRL + M', source: 'yours', fallback: 'SUPER + CTRL + A' });
+    { keys: 'SUPER + CTRL + M', source: 'yours', fallback: 'SUPER + CTRL + A', live: false });
   assert.deepEqual(plain(m.effective('widget:omarchy.audio', { 'widget:omarchy.audio': '' }, d, binds)),
     { keys: '', source: 'removed', fallback: 'SUPER + CTRL + A' });
   // Omarchy's file binds Emojis, but the user's config unbound it.
   assert.deepEqual(plain(m.effective('widget:omarchy.emojis', {}, d, binds)), { keys: '', source: 'none', fallback: '' });
-  assert.deepEqual(plain(m.effective('group:ai', { 'group:ai': 'SUPER + CTRL + I' }, d, binds)), { keys: 'SUPER + CTRL + I', source: 'yours', fallback: '' });
+  assert.deepEqual(plain(m.effective('group:ai', { 'group:ai': 'SUPER + CTRL + I' }, d, binds)), { keys: 'SUPER + CTRL + I', source: 'yours', fallback: '', live: false });
   assert.deepEqual(plain(m.effective('group:ai', {}, d, binds)), { keys: '', source: 'none', fallback: '' });
 });
 
@@ -164,8 +164,8 @@ test('the block in bindings.lua takes keys over, moves or removes Omarchy shortc
     'hl.unbind("SUPER + CTRL + ALT + D")',
     m.END].join('\n'));
   assert.equal(m.render({}, d, {}), '', 'nothing to bind: no block');
-  // Ids reach Lua as strings, never as code.
-  assert.match(m.render({ 'group:a"b': 'SUPER + B' }, d, {}), /toggleGroup a\\"b/);
+  // An id that is not plain never reaches Lua or the shell at all.
+  assert.equal(m.render({ 'group:a"b': 'SUPER + B' }, d, {}), '');
 });
 
 test("Powerbar's block is cut out before reading the user's bindings, and its keys are known", () => {
@@ -214,3 +214,29 @@ test('typed keys follow the recorder: a modifier unless a function key, one spel
   assert.match(m.bindable('HYPER + B').error, /not a key combination/);
 });
 
+
+test('a target that is not a plain id never becomes shell code in a bind', () => {
+  assert.equal(m.command('widget:omarchy.audio; touch /tmp/x #'), '');
+  assert.equal(m.command('group:g-1$(id)'), '');
+  assert.equal(m.command('widget:io.github.x_y-z'), 'omarchy-shell shell toggle io.github.x_y-z');
+  const block = m.render({ 'widget:omarchy.audio; touch /tmp/x #': 'SUPER + A', 'widget:omarchy.audio': 'SUPER + V' }, {}, {});
+  assert.doesNotMatch(block, /touch/);
+  assert.match(block, /SUPER \+ V/);
+});
+
+test('a damaged block (a marker without its pair) reads as the user\'s own text', () => {
+  const text = `a\n${m.BEGIN}\no.bind("SUPER + B", "x", "y")\nb\nc`;
+  assert.equal(m.paired(text), false);
+  assert.equal(m.strip(text), text);
+  assert.deepEqual(Array.from(m.blockKeys(text)), []);
+  const whole = `a\n${m.BEGIN}\no.bind("SUPER + B", "x", "y")\n${m.END}\nb`;
+  assert.equal(m.paired(whole), true);
+  assert.equal(m.strip(whole), 'a\nb');
+  assert.equal(m.paired(`${m.END}\n${m.BEGIN}`), false);
+});
+
+test('a shortcut set in Powerbar says whether Hyprland has it bound', () => {
+  const config = { 'bar:keys': 'SUPER + B' };
+  assert.equal(m.effective('bar:keys', config, {}, []).live, false);
+  assert.equal(m.effective('bar:keys', config, {}, [{ keys: m.normalize('SUPER + B'), description: 'Powerbar keyboard' }]).live, true);
+});

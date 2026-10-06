@@ -176,7 +176,9 @@ Item {
     var entries = preferences.entries
     var found = Cli.widgetRecord(entries, selector)
     if (found.error) return fail(found.error)
-    var checked = Cli.widgetPatch(Cli.parseValue(text), ctx())
+    var named = Cli.widgetGroupById(Cli.parseValue(text), bar.groups)
+    if (named.error) return fail(named.error)
+    var checked = Cli.widgetPatch(named.value, ctx())
     if (checked.error) return fail(checked.error)
     var p = checked.patch, r = Object.assign({}, found.record, { mode: liveMode(found.record) }), beforeRecord = null
     if (p.before) {
@@ -276,7 +278,7 @@ Item {
   function shortcutInfo(target) {
     var e = store.info(target)
     return { target: target, name: store.nameOf(target), keys: e.keys, source: e.source, fallback: e.fallback,
-      positional: e.positional || "", ready: store.ready }
+      positional: e.positional || "", ready: store.ready, live: e.source === "yours" ? e.live === true : null }
   }
   function shortcutList() {
     var targets = ["bar:keys"].concat(bar.groups.map(function(g) { return "group:" + g.id }))

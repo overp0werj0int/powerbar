@@ -165,3 +165,17 @@ test('a tile\'s default scope: Everywhere while shared values exist, else Theme'
   assert.equal(a.defaultScope({ all: { shape: { rounding: 4 } } }, 'shape'), 'all');
   assert.equal(a.defaultScope({ all: { shape: { use: 'all' } } }, 'shape'), 'theme');
 });
+
+test('a shortcut target names a widget by a plain id', () => {
+  assert.notEqual(m.shortcutTarget('widget:omarchy.audio; touch /tmp/x #'), '');
+  assert.equal(m.shortcutTarget('widget:io.github.x_y-z'), '');
+});
+
+test('a widget joins a group named by id or by its unique name', () => {
+  const groups = [{ id: 'g-1', label: 'Sound' }, { id: 'g-2', label: 'Dup' }, { id: 'g-3', label: 'Dup' }];
+  assert.equal(m.widgetGroupById({ group: 'Sound' }, groups).value.group, 'g-1');
+  assert.equal(m.widgetGroupById({ group: 'g-1' }, groups).value.group, 'g-1');
+  assert.match(m.widgetGroupById({ group: 'Dup' }, groups).error, /2 groups are called Dup/);
+  assert.equal(m.widgetGroupById({ group: '' }, groups).value.group, '');
+  assert.equal(m.widgetGroupById({ zone: 'left' }, groups).value.zone, 'left');
+});

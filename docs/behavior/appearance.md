@@ -138,7 +138,7 @@ Storage: the look lives in `bar.powerbarAppearance` of shell.json: `all` (values
 
 - **LOOK-54** A bare-string `powerbarForeground` is deleted by migration and stores nothing (LOOK-19). A `powerbarForeground` map keeps only its `light` and `dark` entries. Code: AppearanceModel.fromLegacy.
 
-- **LOOK-55** At startup, once Powerbar has listed both theme folders (`/usr/share/omarchy/themes`, `~/.config/omarchy/themes`; if either listing fails nothing is pruned), values kept for themes no longer installed are deleted from `powerbarAppearance.themes`; the current theme is always kept. Code: Bar.qml installedThemesProc, pruneAppearanceThemes; AppearanceModel.pruneThemes.
+- **LOOK-55** At startup, once Powerbar has listed both theme folders (`/usr/share/omarchy/themes`, `~/.config/omarchy/themes`; if either listing fails nothing is pruned), values kept for themes no longer installed are deleted from `powerbarAppearance.themes`, always from a fresh listing (a theme installed while the shell runs keeps its values, INTEG-36); the current theme is always kept. Code: Bar.qml installedThemesProc, pruneAppearanceThemes; AppearanceModel.pruneThemes.
 
 ## Bar auto-hide
 

@@ -184,3 +184,11 @@ test('preferencesPage counts from 1 and clamps to the pages there are', () => {
   assert.equal(model.pageIndex(0, 3), 0);
   assert.equal(model.pageIndex(-2, 3), 0);
 });
+
+test('a panel hotkey by position opens the copy it counted when a widget is on the bar twice', () => {
+  const a = { name: 'a', width: 20, height: 20, visible: true }, b = { name: 'b', width: 20, height: 20, visible: true };
+  const rows = [{ slot: a, instance: 'pw-a', screenName: 'eDP-1', opened: false }, { slot: b, instance: 'pw-b', screenName: 'eDP-1', opened: false }];
+  assert.equal(barModel.pickPanelSlot(rows, 'eDP-1', 'pw-b').name, 'b');
+  assert.equal(barModel.pickPanelSlot(rows, 'eDP-1', 'pw-a').name, 'a');
+  assert.equal(barModel.pickPanelSlot(rows, 'eDP-1', 'gone').name, barModel.pickPanelSlot(rows, 'eDP-1').name);
+});

@@ -789,9 +789,18 @@ Item {
     writeConfig(function(config) { if (config.bar) AppearanceModel.migrate(config.bar, theme) })
   }
   property var installedThemes: []
+  // Themes come and go while the shell runs (omarchy-theme-set applies a new
+  // one without a restart), so the list is read again before every prune;
+  // pruning from a list read at startup would drop a theme installed since.
+  property bool themesAgain: false
+  function refreshThemes() {
+    if (installedThemesProc.running) themesAgain = true
+    else installedThemesProc.running = true
+  }
   Process {
     id: installedThemesProc
     running: true
+    onExited: if (root.themesAgain) { root.themesAgain = false; Qt.callLater(root.refreshThemes) }
     command: ["bash", "-c", "ls -1 \"${OMARCHY_PATH:-/usr/share/omarchy}/themes\" \"$HOME/.config/omarchy/themes\" 2>/dev/null"]
     stdout: StdioCollector {
       onStreamFinished: {
@@ -2005,7 +2014,9 @@ Item {
 
   onBarConfigChanged: {
     if (AppearanceModel.legacyPresent(barConfig)) Qt.callLater(healAppearance)
-    if (installedThemes.length) Qt.callLater(pruneAppearanceThemes)
+    // Only when the last list says a theme went: then read it again first.
+    if (installedThemes.length && AppearanceModel.hasStaleThemes(barConfig, installedThemes.concat(themeName ? [themeName] : [])))
+      Qt.callLater(refreshThemes)
     // A config from the host while edits wait to be written: show the edits
     // on top of it rather than the host's config without them.
     if (!applyingQueuedEdits && queuedConfigEdits.length) {
@@ -2042,9 +2053,11 @@ Item {
     var slots = []
     for (var i = 0; i < entries.length; i++) {
       var id = entryId(entries[i])
+      // A widget on the bar twice is told apart by its instance.
+      var key = entries[i] && typeof entries[i] === "object" ? entries[i].powerbarInstance : ""
       for (var j = 0; j < moduleSlots.length; j++) {
         var slot = moduleSlots[j]
-        if (!slot || slot.region !== region || slot.moduleName !== id) continue
+        if (!slot || slot.region !== region || (key ? slot.instanceKey !== key : slot.moduleName !== id)) continue
         if (window && !sameWindow(slotWindow(slot), window)) continue
         var item = slot.activeItem
         if (!item || item.visible !== true || slot.visible !== true || slot.width <= 0 || slot.height <= 0) continue
@@ -2065,10 +2078,15 @@ Item {
   // Counting any bar surface is enough: every monitor lays its bar out from the
   // one layout, and summoning the id routes through pickPanelSlot, which opens
   // the focused monitor's copy whichever surface was counted.
+  // The host turns the answer into a summon by id; panelPick tells that
+  // summon which copy was meant when the widget is on the bar twice.
+  property var panelPick: null
   function panelWidgetIdAt(region, index) {
     var slots = panelNavigationSlots(String(region || ""), null)
     var slot = slots[Math.round(Number(index)) - 1]
-    return slot ? String(slot.moduleName || "") : ""
+    if (!slot) return ""
+    panelPick = { id: String(slot.moduleName || ""), instance: slot.instanceKey, at: Date.now() }
+    return String(slot.moduleName || "")
   }
 
   function switchPanelFrom(owner, direction) {
@@ -2183,11 +2201,14 @@ Item {
       if (slot.moduleName !== id) continue
       var item = slot.activeItem
       if (typeof item.open !== "function" || typeof item.close !== "function" || item.opened === undefined) continue
-      candidates.push({ slot: slot, screenName: slotScreenName(slot), opened: item.opened === true })
+      candidates.push({ slot: slot, instance: slot.instanceKey, screenName: slotScreenName(slot), opened: item.opened === true })
     }
+    // Kept for a second, not used up: the host asks whether it is open, then
+    // summons or hides it, and both must mean the same copy.
+    var pick = panelPick && panelPick.id === id && Date.now() - panelPick.at < 1000 ? panelPick.instance : ""
     // One copy per monitor, plus a zero-size placeholder for anchored center
     // modules. See BarModel.pickPanelSlot for which one a hotkey acts on.
-    var chosen = BarModel.pickPanelSlot(candidates, focusedScreenName())
+    var chosen = BarModel.pickPanelSlot(candidates, focusedScreenName(), pick)
     return chosen ? chosen.activeItem : null
   }
 
@@ -3482,7 +3503,9 @@ Item {
 
     // The keyboard: a keyboard-opened drawer's, or the keyboard mode's cursor
     // (not while a panel it opened has the keys).
-    readonly property bool keysHere: root.barKeys.heldBy(barWindow) && !root.barKeys.suspended
+    // Not during a hand-off either: the keys go to whatever the press opened
+    // while the mode waits to see what it was (BarKeys.here).
+    readonly property bool keysHere: root.barKeys.heldBy(barWindow) && !root.barKeys.suspended && !root.barKeys.handOff
     // As Omarchy's keyboard panels do: Exclusive takes the keyboard, then
     // OnDemand keeps it. Exclusive alone would send every click to the bar,
     // so the dismiss layer below (under the pointer everywhere off the bar)

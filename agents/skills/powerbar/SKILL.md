@@ -62,7 +62,7 @@ omarchy-shell powerbar help >/dev/null && echo running          # answers only w
 | `get <setting>` | one setting's current value (JSON) |
 | `widgets` | each widget: `id`, `instance`, `name`, `zone`, `index`, `visibility`, `group`, `centered`, `activityPeek`, `badgeProperty`, `urgentProperty`, `settings` |
 | `groups` | each group with all its fields and `members` (`instance`, `id`) |
-| `shortcuts` | `{ready, shortcuts: [{target, name, keys, source, fallback, positional, ready}]}`; `source` says who binds it (omarchy, yours, powerbar…) |
+| `shortcuts` | `{ready, shortcuts: [{target, name, keys, source, fallback, positional, ready, live}]}`; `source` says who binds it (omarchy, yours, powerbar…); for yours, `live` says Hyprland really has it bound |
 | `managedStatus` / `drawerStatus` / `popupStatus` / `keysStatus` | On demand widgets, the open drawer, the open panel, the keyboard mode |
 | `help` | every function, with what it does |
 
@@ -172,6 +172,11 @@ omarchy-shell powerbar reset shortcut.widget:omarchy.audio         # back to Oma
 A shortcut needs Super, Ctrl or Alt (or is an F-key). Keys another bind holds
 are refused with its name: `error: … is taken by Audio; …`. Take them only if
 the user agrees: `'{"keys":"SUPER + CTRL + A","replace":true}'`.
+
+`set` answers `ok` once the change is queued; the write to `bindings.lua`
+and Hyprland's reload follow. Check with `shortcuts` (`live: true`) before
+telling the user it works. If Hyprland refused it or the file couldn't be
+written, the setting is put back and `live` stays false.
 
 ## Actions
 

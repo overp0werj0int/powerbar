@@ -65,11 +65,16 @@ Item {
 
   function save(target, keys) { write(Shortcuts.assign(config, target, keys)) }
   function restore(target) { write(Shortcuts.restore(config, target)) }
+  // What powerbarShortcuts held before the write in flight: put back when
+  // Hyprland refuses the block or the file can't be written, so the saved
+  // shortcuts always match the bound ones.
+  property var previous: undefined
   function write(next) {
     error = ""
+    previous = Object.keys(config).length ? JSON.parse(JSON.stringify(config)) : undefined
     preferences.setOption("powerbarShortcuts", Object.keys(next).length ? next : undefined)
     busy = true
-    applyProc.command = ["bash", "-c", applyScript, "powerbar", Shortcuts.render(next, defaults, names(next)),
+    applyProc.command = ["bash", applyScript, Shortcuts.render(next, defaults, names(next)),
       Shortcuts.BEGIN, Shortcuts.END, Shortcuts.OLD_START, Shortcuts.OLD_END]
     applyProc.running = true
   }
@@ -90,11 +95,20 @@ Item {
   readonly property var staleGroups: Object.keys(config).filter(function(t) {
     return t.indexOf("group:") === 0 && !(bar.groups || []).some(function(g) { return "group:" + g.id === t })
   })
-  onStaleGroupsChanged: if (staleGroups.length && !busy) Qt.callLater(function() {
-    var next = store.config
-    store.staleGroups.forEach(function(t) { next = Shortcuts.restore(next, t) })
-    store.write(next)
-  })
+  onStaleGroupsChanged: pruneStaleGroups()
+  // Also once a write in flight is done: a group dissolved meanwhile.
+  onBusyChanged: if (!busy) pruneStaleGroups()
+  // Not again after a write that failed (error set): a refusal would put the
+  // stale shortcut back and this would try forever; the next change retries.
+  function pruneStaleGroups() {
+    if (!staleGroups.length || busy || error) return
+    Qt.callLater(function() {
+      if (!store.staleGroups.length || store.busy) return
+      var next = store.config
+      store.staleGroups.forEach(function(t) { next = Shortcuts.restore(next, t) })
+      store.write(next)
+    })
+  }
 
   // Hyprland's binds (plain text: its JSON drops code: keys), then every
   // binding file in load order: Omarchy's defaults, then the user's.
@@ -129,57 +143,24 @@ Item {
     }
   }
 
-  // Puts the block ($1; "" removes it) into bindings.lua between its markers
-  // ($2, $3), or at the end the first time, leaving the rest of the file as it
-  // is on disk now. Removes the loader of the old powerbar.lua ($4..$5 in
-  // hyprland.lua, after a backup) and that file. Then Hyprland reloads; a file
-  // it reports a new error in is put back as it was.
-  readonly property string applyScript: `
-    c=\${POWERBAR_HYPR_DIR:-\${XDG_CONFIG_HOME:-$HOME/.config}/hypr}; f="$c/bindings.lua"; main="$c/hyprland.lua"
-    mkdir -p "$c"; [ -e "$f" ] || : > "$f"
-    prev=$(mktemp); cp "$f" "$prev"
-    blockf=$(mktemp); printf '%s\n' "$1" > "$blockf"
-    next=$(mktemp)
-    awk -v b="$2" -v e="$3" -v bf="$blockf" -v has="\${1:+1}" '
-      $0 == b { skip = 1; if (has && !done) { while ((getline l < bf) > 0) print l; done = 1 }; next }
-      skip { if ($0 == e) skip = 0; next }
-      { print }' "$f" > "$next"
-    if [ -n "$1" ] && ! grep -qxF -- "$2" "$f"; then
-      [ -s "$next" ] && printf '\n' >> "$next"
-      cat "$blockf" >> "$next"
-    fi
-    cat "$next" > "$f"
-    rm -f "$blockf" "$next"
-    if [ -f "$main" ] && grep -qxF -- "$4" "$main"; then
-      cp "$main" "$main.bak.$(date +%Y%m%d%H%M%S)-powerbar"
-      old=$(mktemp)
-      awk -v b="$4" -v e="$5" '$0 == b { skip = 1; next } skip { if ($0 == e) skip = 0; next } { print }' "$main" > "$old" && cat "$old" > "$main"
-      rm -f "$old"
-    fi
-    rm -f "$c/powerbar.lua"
-    before=$(hyprctl configerrors 2>/dev/null)
-    hyprctl reload config-only >/dev/null 2>&1
-    sleep 0.3
-    after=$(hyprctl configerrors 2>/dev/null)
-    if [ "$after" != "$before" ] && [ -n "$(printf '%s' "$after" | tr -d '[:space:]')" ]; then
-      cat "$prev" > "$f"
-      hyprctl reload config-only >/dev/null 2>&1
-      rm -f "$prev"
-      echo "error $(printf '%s' "$after" | head -1)"
-      exit 1
-    fi
-    rm -f "$prev"
-    echo ok`
+  // ShortcutApply.sh puts the block in bindings.lua between its markers, in
+  // one step, only when the markers are whole; Hyprland then reloads and a
+  // new config error puts the file back.
+  readonly property string applyScript: decodeURIComponent(Qt.resolvedUrl("ShortcutApply.sh").toString().replace(/^file:\/\//, ""))
   Process {
     id: applyProc
     stdout: StdioCollector {
       onStreamFinished: {
         var line = text.trim().split("\n").pop() || ""
         if (line.indexOf("error") === 0) store.error = "Hyprland refused the shortcut, so nothing changed: " + line.slice(6)
+        else if (line.indexOf("fail") === 0) store.error = "Could not update Hyprland's shortcuts, so nothing changed: " + line.slice(5)
       }
     }
     onExited: function(code) {
-      if (code !== 0 && !store.error) store.error = "Could not update Hyprland's shortcuts. Check that ~/.config/hypr is writable."
+      if (code !== 0) {
+        if (!store.error) store.error = "Could not update Hyprland's shortcuts, so nothing changed."
+        store.preferences.setOption("powerbarShortcuts", store.previous)
+      }
       store.busy = false
       store.refresh()
     }
