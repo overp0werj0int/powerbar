@@ -65,8 +65,8 @@ part of them works from the keyboard.
   show on the bar itself. The tiles are Style and position (a picture of your
   screen with the bar in its style on its edge, the style and edge choices, and
   the widget pinned to the screen center), Size (large bar and widget spacing), Shape (rounding and borders), Surface
-  (opacity, blur, readable over windows), Shadow, Behavior (autohide and
-  animations) and On demand. They are laid out like your tiled windows: twice
+  (opacity, blur, text and icons), Shadow, Behavior (autohide, readable over
+  windows and animations), On demand and Keyboard. They are laid out like your tiled windows: twice
   Hyprland's inner gap apart, with its corner rounding, in 12, 6 or 1 columns
   as the window narrows. Fonts and colors follow Omarchy.
 
@@ -79,7 +79,7 @@ follows keyboard focus.
 | --- | --- |
 | Anywhere | `1`–`3` or Ctrl+`1`–`3` switch pages, Ctrl+Tab cycles them, Tab / Shift+Tab move between controls, Esc closes |
 | Forms | `j` / `k` or Up / Down move between controls, `h` / `l` or Left / Right adjust (Shift for larger steps), Space / Enter toggle or choose |
-| Bar page | Tab / Shift+Tab jump to the next or previous tile; `r` twice resets the focused tile to the theme |
+| Bar page | Tab / Shift+Tab jump to the next or previous tile; in Shape, Surface and Shadow the first stop is Theme / All themes / This theme (`h` / `l` move, Space chooses) |
 | Sliders | Home / End for the ends, Backspace for the default, Enter applies now, Esc undoes a value not yet applied |
 | Layout shelves | `h` `j` `k` `l` move; Space picks up the widget, then `h` / `l` move it along and across zones and `j` / `k` or Tab change its shelf; Space or Enter drops it, Esc puts it back; `x` hides or restores; Enter goes to its settings (Esc comes back); Tab jumps to the next tile; `g` edits a group |
 | Groups shelf | `h` / `l` choose, `n` makes a group, `x` twice dissolves it, Enter goes to its icon |
@@ -342,26 +342,77 @@ Text and icons keep their size; widgets gain room around them and their
 highlights grow with the bar. Drawers and the Layout
 page's On the bar shelf follow the same thickness.
 
-The **Shape**, **Surface** and **Shadow** tiles apply one set of controls to the
-full bar, main islands, and extended islands, including group drawers: borders
-on/off and their thickness (0.5–3 px), rounding (square up to a full pill at the
-bar's thickness), blur on/off, background opacity (0–100% in 5% steps), shadow
-on/off, softness (2–24 px) and strength (5–60%). **Text and icons** (`powerbarForeground`) is
-the theme's colours by default, or one fixed **Light** or **Dark** colour (the
-theme's own bar text and background, whichever is lighter or darker) for every
-Powerbar surface: the bar, drawers and menu-style groups. Powerbar never picks
-it from the wallpaper, even with Omarchy's transparent bar on: it draws a
-surface behind every widget and cannot know what shows through it. Opacity works independently of blur. Blur strength
-follows the desktop's Hyprland settings. **Readable over windows** (on by
-default, `powerbarReadableOverlay`) keeps surfaces that lie over windows, which
-means every drawer and the bar itself while it autohides, at least 88% opaque
-unless blur is on, so page text never shows through widgets.
+### Theme or yours
 
-Shared effect keys use `powerbarBlur`, `powerbarBackgroundOpacity`, `powerbarShadow`,
-`powerbarShadowSize`, and `powerbarShadowOpacity`. Existing main-bar settings supply
-the initial appearance; old extended-island overrides are ignored. Legacy opacity
-that was inactive with blur off does not suddenly make the bar translucent.
-Reset appearance clears both the shared settings and old per-surface fallbacks.
+Powerbar follows your theme until you change something. The **Shape**,
+**Surface** and **Shadow** tiles each choose, in their header, what they follow
+in the theme you're on:
+
+- **Theme**: the theme's values. Its controls dim and show what the theme
+  gives. Rounding is Hyprland's `decoration:rounding`, borders are the theme's,
+  opacity is the theme's own bar background, and blur and shadow are off, as on
+  Omarchy's bar. A theme can ship its own Powerbar look (below), which comes first.
+- **All themes**: your values, shared by every theme that hasn't chosen
+  otherwise. Changing one here changes it for all of them.
+- **This theme**: your values for this theme only, ahead of the shared ones.
+
+A value you haven't set falls through, key by key: This theme, then All themes,
+then the theme. Switching a tile's choice keeps every stored value, so picking
+a choice again brings its values back, and switching themes swaps sets at once
+without writing anything. A theme you've never customised follows your shared
+values where you have them and its own otherwise. The tile's hint under the
+header says where its values come from.
+
+The tiles cover borders on/off and their thickness (0.5–3 px), rounding (square
+up to a full pill at the bar's thickness), background opacity (0–100% in 5%
+steps), blur on/off, shadow on/off, softness (2–24 px) and strength (5–60%),
+for the full bar, main islands and extended islands, group drawers included.
+**Text and icons** is the theme's colours, or one fixed **Light** or **Dark**
+colour (the theme's own bar text and background, whichever is lighter or
+darker), and is always kept per theme: a dark colour chosen in a light theme
+would blank the bar in a dark one. Powerbar never picks it from the wallpaper,
+even with Omarchy's transparent bar on: it draws a surface behind every widget
+and cannot know what shows through it. Blur strength follows the desktop's
+Hyprland settings. **Readable over windows** (Behavior, on by default,
+`powerbarReadableOverlay`) keeps surfaces that lie over windows, which means
+every drawer and the bar itself while it autohides, at least 88% opaque unless
+blur is on, so page text never shows through widgets.
+
+Everything is stored in `bar.powerbarAppearance` in `shell.json`, and only what
+you set: `all` holds the shared values, `themes.<name>` a theme's choices
+(`"use": "theme" | "all" | "this"`), its own values and its text colour.
+Settings from earlier versions (the flat `powerbarIslandRounding`,
+`powerbarBlur`, `powerbarShadow…` keys and the older per-surface ones) move into
+`all` the first time Powerbar loads, so the bar looks the same. What is kept for
+a theme that is no longer installed is dropped.
+
+#### A theme's own Powerbar look
+
+A theme can ship `powerbar.toml`, and you can add or change one for any theme
+with Omarchy's overlay folder (`~/.config/omarchy/themes/<name>/powerbar.toml`)
+or for every theme with a template in `~/.config/omarchy/themed/`. Powerbar
+reads it from the applied theme (`~/.local/state/omarchy/current/theme/`). Every
+key is optional; whatever it leaves out comes from Omarchy and Hyprland:
+
+```toml
+[shape]
+rounding = 12        # stored units, as the slider
+borders = true
+border-width = 1
+
+[surface]
+opacity = 85         # percent
+blur = true
+text = "light"       # theme | light | dark
+
+[shadow]
+enabled = true
+softness = 10
+strength = 30
+```
+
+On a tile set to Theme, the file's values apply. On All themes or This theme
+your values win, and the tile's hint says when the theme has its own look.
 
 Backdrop blur needs these Powerbar-only rules in your Hyprland Lua configuration
 (already installed on this development machine in `~/.config/hypr/looknfeel.lua`):
@@ -435,8 +486,7 @@ changing values can keep a widget visible continuously. Powerbar adds no polling
 Widgets without exposed presentation signals still work in the drawer.
 
 Custom border thickness and corner rounding have sliders, and the Shape,
-Surface and Shadow tiles each have a Reset to the theme, shown only while one of
-their settings is set. Sliders keep a draft while you work them and apply it to the bar
+Surface and Shadow tiles return to the theme with their Theme choice. Sliders keep a draft while you work them and apply it to the bar
 once it settles (on release, or after a short pause for keys and the wheel),
 and their ranges stop where more stops looking different: rounding tops out at
 a full pill for the bar's thickness. Bar size uniformly scales icons, text, and controls, including third-party

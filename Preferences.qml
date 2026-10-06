@@ -165,14 +165,62 @@ Item {
     status = result === false ? "Could not save. Check that shell.json is writable." : ""
   }
   readonly property string themeName: bar ? bar.themeName : ""
-  function setForeground(value) {
+  // Appearance scopes (AppearanceModel): what each tile follows in the current
+  // theme, the resolved values, and writes to the scope the tile follows.
+  readonly property var look: bar ? bar.appearance : null
+  function scopeOf(tile) { return look ? look.scopes[tile] : "theme" }
+  function lookValue(key) { return look ? look.values[key] : undefined }
+  function writeLook(mutator) {
     if (!bar || !bar.shell) return
     var theme = themeName
     var result = bar.writeConfig(function(config) {
       if (!config.bar) config.bar = {}
-      AppearanceModel.setForeground(config.bar, theme, value)
+      mutator(config.bar, theme)
     })
     status = result === false ? "Could not save. Check that shell.json is writable." : ""
+  }
+  function setScope(tile, scope) { writeLook(function(b, theme) { AppearanceModel.setScope(b, theme, tile, scope) }) }
+  function setLook(tile, key, value) { writeLook(function(b, theme) { AppearanceModel.setValue(b, theme, tile, key, value) }) }
+  function setText(value) { writeLook(function(b, theme) { AppearanceModel.setText(b, theme, value) }) }
+  // The line under a tile's header: where its values come from, or what a
+  // change there reaches.
+  function scopeHint(tile) {
+    if (!look) return ""
+    var theme = themeName || "this theme", own = !!look.look[tile]
+    var scope = look.scopes[tile]
+    // One line in a tile a third of the card wide: the page must not scroll.
+    if (scope === "theme") {
+      if (own) return "From " + theme + "'s Powerbar look."
+      return ({ shape: "From " + theme + " and Hyprland.", surface: "From " + theme + "'s bar.",
+        shadow: "Off, as on Omarchy's bar." })[tile]
+    }
+    if (scope === "all") return own ? theme + " has its own look; this is shared." : "Shared by every theme without its own."
+    return "Only for " + theme + "."
+  }
+  component ScopeChoice: ButtonGroup {
+    property string tile: ""
+    anchors.verticalCenter: parent ? parent.verticalCenter : undefined
+    options: [{ value: "theme", label: "Theme" }, { value: "all", label: "All themes" }, { value: "this", label: "This theme" }]
+    value: prefs.scopeOf(tile)
+    foreground: Color.popups.text
+    background: "transparent"
+    fontSize: Style.font.caption
+    Accessible.name: tile.charAt(0).toUpperCase() + tile.slice(1) + " values"
+    onChanged: function(value) { prefs.setScope(tile, value) }
+  }
+  component ScopeHint: Text {
+    property string tile: ""
+    text: prefs.scopeHint(tile)
+    textFormat: Text.PlainText
+    color: Qt.alpha(Color.popups.text, 0.55)
+    font.family: Style.font.family
+    font.pixelSize: Style.font.caption
+    elide: Text.ElideRight
+    Accessible.name: text
+    Layout.fillWidth: true
+    Layout.leftMargin: Style.spacing.rowPaddingX
+    Layout.rightMargin: Style.spacing.rowPaddingX
+    Layout.bottomMargin: Style.space(2)
   }
   function setBarStyle(value) {
     if (!bar || !bar.shell) return
@@ -198,9 +246,7 @@ Item {
       }
     }
   }
-  function resetOptions(operation) {
-    if (bar && bar.shell) bar.writeConfig(function(config) { if (config.bar) operation(config.bar) })
-  }
+
   Connections {
     target: prefs.bar
     ignoreUnknownSignals: true
@@ -605,28 +651,32 @@ Item {
                 }
               }
               PrefsTile {
+                id: shapeTile
+                readonly property bool editable: prefs.scopeOf("shape") !== "theme"
                 title: "Shape"
                 span12: 4; span6: 3
-                resettable: true
-                changed: AppearanceModel.customized(prefs.config, "shape", prefs.themeName)
                 animate: prefs.motion
-                onReset: prefs.resetOptions(function(bar) { AppearanceModel.reset(bar, "shape", prefs.themeName) })
+                ScopeChoice { parent: shapeTile.headerSlot; tile: "shape" }
+                ScopeHint { tile: "shape" }
                 PrefsSlider {
                   readonly property real themeRounding: Style.cornerRadius / Style.spacing.scale
                   compact: true
+                  enabled: shapeTile.editable
                   label: "Corner rounding"
                   minimum: 0; maximum: prefs.bar ? prefs.bar.roundingMax : 16; stepSize: 1
                   defaultValue: Math.min(maximum, Math.round(themeRounding))
-                  value: typeof prefs.config.powerbarIslandRounding === "number" ? prefs.config.powerbarIslandRounding : themeRounding
+                  value: typeof prefs.lookValue("rounding") === "number" ? prefs.lookValue("rounding") : themeRounding
                   formatter: function(v) { return v === 0 ? "Square" : v >= maximum ? "Pill" : "" }
                   animate: prefs.motion
-                  onEdited: function(v) { prefs.setOption("powerbarIslandRounding", v) }
+                  onEdited: function(v) { prefs.setLook("shape", "rounding", v) }
                 }
                 PrefsToggle {
                   compact: true
                   label: "Borders"
-                  checked: prefs.config.powerbarIslandBorders !== false
-                  onToggled: function(checked) { prefs.setOption("powerbarIslandBorders", checked) }
+                  enabled: shapeTile.editable
+                  opacity: enabled ? 1 : 0.45
+                  checked: prefs.lookValue("borders") !== false
+                  onToggled: function(checked) { prefs.setLook("shape", "borders", checked) }
                 }
                 PrefsSlider {
                   readonly property real themeWidth: prefs.bar ? Border.top(prefs.bar.themeIslandBorder) / Style.space(1) : 1
@@ -634,73 +684,78 @@ Item {
                   label: "Border thickness"
                   minimum: prefs.ranges.borderWidth.min; maximum: prefs.ranges.borderWidth.max; stepSize: prefs.ranges.borderWidth.step
                   defaultValue: themeWidth
-                  enabled: prefs.config.powerbarIslandBorders !== false
-                  value: AppearanceModel.clampTo(prefs.ranges.borderWidth, prefs.config.powerbarIslandBorderWidth, themeWidth)
+                  enabled: shapeTile.editable && prefs.lookValue("borders") !== false
+                  value: AppearanceModel.clampTo(prefs.ranges.borderWidth, prefs.lookValue("borderWidth"), themeWidth)
                   formatter: function(v) { return v === prefs.ranges.borderWidth.min ? "Hairline" : "" }
                   animate: prefs.motion
-                  onEdited: function(v) { prefs.setOption("powerbarIslandBorderWidth", v) }
+                  onEdited: function(v) { prefs.setLook("shape", "borderWidth", v) }
                 }
               }
               PrefsTile {
+                id: surfaceTile
+                readonly property bool editable: prefs.scopeOf("surface") !== "theme"
                 title: "Surface"
                 span12: 4; span6: 3
-                resettable: true
-                changed: AppearanceModel.customized(prefs.config, "surface", prefs.themeName)
                 animate: prefs.motion
-                onReset: prefs.resetOptions(function(bar) { AppearanceModel.reset(bar, "surface", prefs.themeName) })
+                ScopeChoice { parent: surfaceTile.headerSlot; tile: "surface" }
+                ScopeHint { tile: "surface" }
                 PrefsSlider {
                   compact: true
+                  enabled: surfaceTile.editable
                   label: "Background opacity"
                   unit: "%"
                   minimum: prefs.ranges.backgroundOpacity.min; maximum: prefs.ranges.backgroundOpacity.max; stepSize: prefs.ranges.backgroundOpacity.step
                   defaultValue: prefs.ranges.backgroundOpacity.fallback
-                  value: prefs.bar ? prefs.bar.surfaceEffects.backgroundOpacity * 100 : 100
+                  value: prefs.bar ? Math.round(prefs.bar.surfaceEffects.backgroundOpacity * 100) : 100
                   formatter: function(v) { return v === 0 ? "Clear" : v === 100 ? "Opaque" : "" }
                   animate: prefs.motion
-                  onEdited: function(v) { prefs.setOption("powerbarBackgroundOpacity", v) }
+                  onEdited: function(v) { prefs.setLook("surface", "opacity", v) }
                 }
                 PrefsToggle {
                   compact: true
                   label: "Background blur"
+                  enabled: surfaceTile.editable
+                  opacity: enabled ? 1 : 0.45
                   checked: prefs.bar ? prefs.bar.surfaceEffects.blur : false
-                  onToggled: function(checked) { prefs.setOption("powerbarBlur", checked) }
+                  onToggled: function(checked) { prefs.setLook("surface", "blur", checked) }
                 }
+                // Kept per theme in every scope: a light or dark choice can't be
+                // shared between light and dark themes.
                 PrefsChoice {
                   compact: true
-                  stacked: true
                   label: "Text and icons"
+                  description: "Kept per theme"
                   options: [{ value: "theme", label: "Theme" }, { value: "light", label: "Light" }, { value: "dark", label: "Dark" }]
                   value: prefs.bar ? prefs.bar.foregroundChoice : "theme"
-                  // Kept for the current theme only (AppearanceModel.setForeground).
-                  onChosen: function(value) { prefs.setForeground(value) }
-                }
-                PrefsToggle {
-                  compact: true
-                  label: "Readable over windows"
-                  checked: prefs.bar ? prefs.bar.surfaceEffects.readableOverlay : true
-                  onToggled: function(checked) { prefs.setOption("powerbarReadableOverlay", checked) }
+                  onChosen: function(value) { prefs.setText(value) }
                 }
               }
               PrefsTile {
                 id: shadowTile
+                readonly property bool editable: prefs.scopeOf("shadow") !== "theme"
+                readonly property bool shadowOn: !!prefs.bar && prefs.bar.surfaceEffects.shadow
                 title: "Shadow"
                 span12: 4; span6: 3
-                switchable: true
-                switchChecked: !!prefs.bar && prefs.bar.surfaceEffects.shadow
-                onSwitched: function(checked) { prefs.setOption("powerbarShadow", checked) }
-                resettable: true
-                changed: AppearanceModel.customized(prefs.config, "shadow", prefs.themeName)
                 animate: prefs.motion
-                onReset: prefs.resetOptions(function(bar) { AppearanceModel.reset(bar, "shadow", prefs.themeName) })
+                ScopeChoice { parent: shadowTile.headerSlot; tile: "shadow" }
+                ScopeHint { tile: "shadow" }
+                PrefsToggle {
+                  compact: true
+                  label: "Shadow"
+                  enabled: shadowTile.editable
+                  opacity: enabled ? 1 : 0.45
+                  checked: shadowTile.shadowOn
+                  onToggled: function(checked) { prefs.setLook("shadow", "enabled", checked) }
+                }
                 PrefsSlider {
                   compact: true
                   label: "Softness"
                   minimum: prefs.ranges.shadowSize.min; maximum: prefs.ranges.shadowSize.max; stepSize: prefs.ranges.shadowSize.step
                   defaultValue: prefs.ranges.shadowSize.fallback
-                  enabled: shadowTile.switchChecked
+                  enabled: shadowTile.editable && shadowTile.shadowOn
                   value: prefs.bar ? prefs.bar.surfaceEffects.shadowSize : prefs.ranges.shadowSize.fallback
                   animate: prefs.motion
-                  onEdited: function(v) { prefs.setOption("powerbarShadowSize", v) }
+                  onEdited: function(v) { prefs.setLook("shadow", "softness", v) }
                 }
                 PrefsSlider {
                   compact: true
@@ -708,10 +763,10 @@ Item {
                   unit: "%"
                   minimum: prefs.ranges.shadowOpacity.min; maximum: prefs.ranges.shadowOpacity.max; stepSize: prefs.ranges.shadowOpacity.step
                   defaultValue: prefs.ranges.shadowOpacity.fallback
-                  enabled: shadowTile.switchChecked
+                  enabled: shadowTile.editable && shadowTile.shadowOn
                   value: prefs.bar ? Math.round(prefs.bar.surfaceEffects.shadowOpacity * 100) : prefs.ranges.shadowOpacity.fallback
                   animate: prefs.motion
-                  onEdited: function(v) { prefs.setOption("powerbarShadowOpacity", v) }
+                  onEdited: function(v) { prefs.setLook("shadow", "strength", v) }
                 }
               }
               PrefsTile {
@@ -734,6 +789,14 @@ Item {
                   Behavior on opacity { enabled: prefs.motion; NumberAnimation { duration: 120 } }
                   checked: prefs.config.powerbarAutoHideActivity !== false
                   onToggled: function(checked) { prefs.setOption("powerbarAutoHideActivity", checked) }
+                }
+                // Powerbar's safety minimum for surfaces over windows, not a theme
+                // value, so it stays outside the appearance scopes.
+                PrefsToggle {
+                  compact: true
+                  label: "Readable over windows"
+                  checked: prefs.bar ? prefs.bar.surfaceEffects.readableOverlay : true
+                  onToggled: function(checked) { prefs.setOption("powerbarReadableOverlay", checked) }
                 }
                 PrefsToggle {
                   compact: true

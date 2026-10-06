@@ -702,7 +702,51 @@ Item {
   // transparent bar guesses a colour from the wallpaper; Powerbar draws a
   // surface in every style and cannot know what shows through it, so it never
   // guesses (AppearanceModel.foreground).
-  readonly property string foregroundChoice: AppearanceModel.foreground(barConfig, themeName)
+  readonly property string foregroundChoice: AppearanceModel.foreground(appearanceConfig, themeName)
+  // Shape, Surface and Shadow follow the theme, the user's values for every
+  // theme, or the user's values for this theme (AppearanceModel, "scopes").
+  // The theme's part is its powerbar.toml where it ships one, then Omarchy's.
+  property var themeLook: ({})
+  FileView {
+    id: themeLookFile
+    path: root.stateHome + "/omarchy/current/theme/powerbar.toml"
+    watchChanges: true
+    printErrors: false
+    onLoaded: root.themeLook = AppearanceModel.parseLook(text())
+    onLoadFailed: root.themeLook = ({})
+    onFileChanged: reload()
+  }
+  onThemeNameChanged: themeLookFile.reload()
+  readonly property var appearance: AppearanceModel.resolve(AppearanceModel.appearanceOf(barConfig), themeName, themeLook)
+  // The bar's config with the resolved values in the keys the drawing reads.
+  readonly property var appearanceConfig: AppearanceModel.flatten(barConfig, themeName, themeLook)
+  // Earlier versions' flat keys move into powerbarAppearance once, and
+  // themes no longer installed lose what was kept for them.
+  function healAppearance() {
+    if (!canWriteConfig() || !AppearanceModel.legacyPresent(barConfig)) return
+    writeConfig(function(config) { if (config.bar) AppearanceModel.migrate(config.bar) })
+  }
+  property var installedThemes: []
+  Process {
+    id: installedThemesProc
+    running: true
+    command: ["bash", "-c", "ls -1 \"${OMARCHY_PATH:-/usr/share/omarchy}/themes\" \"$HOME/.config/omarchy/themes\" 2>/dev/null"]
+    stdout: StdioCollector {
+      onStreamFinished: {
+        var lines = text.split("\n").map(function(l) { return l.trim() })
+        // Both folders listed (ls heads each with "path:"), or nothing is
+        // pruned: a partial list would drop themes that are still there.
+        if (lines.filter(function(l) { return l.slice(-1) === ":" }).length !== 2) return
+        root.installedThemes = lines.filter(function(l) { return l && l.slice(-1) !== ":" })
+        root.pruneAppearanceThemes()
+      }
+    }
+  }
+  function pruneAppearanceThemes() {
+    var keep = installedThemes.concat(themeName ? [themeName] : [])
+    if (!installedThemes.length || !canWriteConfig() || !AppearanceModel.hasStaleThemes(barConfig, keep)) return
+    writeConfig(function(config) { if (config.bar) AppearanceModel.pruneThemes(config.bar, keep) })
+  }
   // The current Omarchy theme, which a Light or Dark choice belongs to. A theme
   // switch replaces the file, so it is also read again when the colours change.
   property string themeName: ""
@@ -1690,7 +1734,7 @@ Item {
     if (activePopout === owner) activePopout = null
   }
 
-  readonly property var surfaceEffects: AppearanceModel.effects(barConfig)
+  readonly property var surfaceEffects: AppearanceModel.effects(appearanceConfig, Color.bar.background.a)
   readonly property var mainEffects: surfaceEffects
   readonly property var extendedEffects: surfaceEffects
   // Drawers always lie over windows, and so does a bar that autohides; those
@@ -1817,8 +1861,8 @@ Item {
   readonly property int barExtent: Math.ceil(renderedBarSize + (flat ? 0 : edgeGap * 2))
   readonly property real widgetSpacing: Style.space(AppearanceModel.clampTo(AppearanceModel.ranges.spacing, barConfig.powerbarSpacing))
   readonly property var themeIslandBorder: Border.surfaceSpec("popups", "border", Color.popups.border, 1)
-  readonly property real islandRounding: roundingFor(barConfig)
-  readonly property var islandBorder: borderFor(barConfig)
+  readonly property real islandRounding: roundingFor(appearanceConfig)
+  readonly property var islandBorder: borderFor(appearanceConfig)
   // Surface geometry for a bar config.
   // Rounding stops at a full pill: past half the bar's thickness corners look
   // the same, and nested highlights would round past their cells.
@@ -1891,6 +1935,8 @@ Item {
   }
 
   onBarConfigChanged: {
+    if (AppearanceModel.legacyPresent(barConfig)) Qt.callLater(healAppearance)
+    if (installedThemes.length) Qt.callLater(pruneAppearanceThemes)
     // A config from the host while edits wait to be written: show the edits
     // on top of it rather than the host's config without them.
     if (!applyingQueuedEdits && queuedConfigEdits.length) {
@@ -2630,8 +2676,8 @@ Item {
 
   onRequestedTransparentChanged: scheduleTransparentForegroundRefresh()
   onPositionChanged: { closeManagedDrawer(); scheduleTransparentForegroundRefresh() }
-  onThemeForegroundChanged: { themeNameFile.reload(); scheduleTransparentForegroundRefresh() }
-  onThemeContrastForegroundChanged: { themeNameFile.reload(); scheduleTransparentForegroundRefresh() }
+  onThemeForegroundChanged: { themeNameFile.reload(); themeLookFile.reload(); scheduleTransparentForegroundRefresh() }
+  onThemeContrastForegroundChanged: { themeNameFile.reload(); themeLookFile.reload(); scheduleTransparentForegroundRefresh() }
 
   Timer {
     id: transparentForegroundTimer
@@ -2662,7 +2708,9 @@ Item {
     path: root.stateHome + "/omarchy/current"
     watchChanges: true
     printErrors: false
-    onFileChanged: root.scheduleTransparentForegroundRefresh()
+    // A theme applied again (an overlay changed) keeps its name and colours:
+    // its powerbar.toml is read again here.
+    onFileChanged: { root.scheduleTransparentForegroundRefresh(); themeLookFile.reload() }
   }
 
   function runProcess(process) {
