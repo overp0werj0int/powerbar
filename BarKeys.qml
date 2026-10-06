@@ -218,7 +218,7 @@ Item {
       // Still out of view (another moment holds the room): its zone's
       // drawer, when it has a place there.
       pending = null
-      if (inZoneDrawer(p.seek)) openZoneDrawer(p.seek.region, p.seek.instanceKey)
+      if (inZoneDrawer(p.seek)) openInZoneDrawer(p.seek, p.member)
       return
     }
     if (w.inlineZone === p.token) {
@@ -519,9 +519,7 @@ Item {
       openDots(target.inlineToken, 1, target.instanceKey)
       if (pending) pending.member = member
     } else if (how === "drawer") {
-      var near = stops().find(function(st) { return st.zone === target.region })
-      if (near) cursor = near.item
-      openZoneDrawer(target.region, target.instanceKey)
+      openInZoneDrawer(target, member)
     } else {
       // Out of the way of another zone's expansion: close it, and land once
       // the widget is back.
@@ -529,6 +527,23 @@ Item {
       pending = { seek: target, member: member, tries: 0 }
       landRetry.restart()
     }
+  }
+  // A widget in its zone's drawer; a group there opens its own drawer from
+  // its row, at the member if one was found. The bar's cursor waits on the
+  // zone's dots.
+  function openInZoneDrawer(target, member) {
+    var w = window
+    var dots = (w.foldHandles || []).find(function(h) { return h && h.zone === target.region && seen(h) })
+    var near = stops().find(function(st) { return st.zone === target.region })
+    if (dots || near) cursor = dots || near.item
+    openZoneDrawer(target.region, target.instanceKey)
+    if (target.groupHeader && drawer) Qt.callLater(function() { openFoldedGroup(target, member) })
+  }
+  function openFoldedGroup(header, member) {
+    var d = drawer, id = header.entry.powerbarGroupId
+    if (!d || !header.drawerHost) return
+    d.openGroup(id, header, true)
+    if (d.opened && d.groupId === id) adoptDrawer(d, member ? member.instanceKey : "")
   }
   // The cursor on a widget the search brought in; for a member, its group's
   // drawer opens at it (unless already open there).
