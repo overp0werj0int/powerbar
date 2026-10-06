@@ -126,11 +126,13 @@ function legend(position, state, drawers) {
   var arrows = { Up: "↑", Down: "↓", Left: "←", Right: "→" }
   var alongKeys = map.vertical ? "↑ ↓" : "← →"
   if (state === "search") return [
-    { keys: "Tab", label: "Next match" }, { keys: "Enter", label: "Open" }, { keys: "Esc", label: "Stop finding" }
+    { keys: "Tab", label: "Next match" }, { keys: "Enter", label: "Open" }, { keys: "Esc", label: "Stop finding" },
+    { keys: "Esc Esc", label: "Leave" }
   ]
   if (state === "drawer") return [
     { keys: map.vertical ? alongKeys : arrows[map.into[0]] + " " + arrows[map.out[0]], label: "Move" },
-    { keys: "Enter", label: "Open" }, { keys: map.vertical ? arrows[map.out[0]] + " Esc" : "Esc", label: "Back" }
+    { keys: "Enter", label: "Open" }, { keys: map.vertical ? arrows[map.out[0]] + " Esc" : "Esc", label: "Back" },
+    { keys: "Esc Esc", label: "Leave" }
   ]
   return [
     { keys: alongKeys, label: "Move" }, { keys: arrows[map.into[0]], label: drawers ? "Into a group or drawer" : "Into a group" },

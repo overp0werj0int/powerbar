@@ -292,7 +292,11 @@ every edge:
 - The Powerbar button is the last stop: Enter opens Preferences.
 - `?` lists the shortcut of every widget and group on the bar.
 - Esc closes the innermost thing first: the search, a drawer, a panel, then
-  the cursor. A click off the bar leaves too, and moving the pointer over the
+  the cursor. Esc twice quickly (within 400 ms) ends everything from any depth:
+  the panel, the drawer, the search and the mode, and the keys go back to your
+  window; a panel's own Esc counts as the first. After the mode ends on Esc the
+  bar keeps the keys for 400 ms, so a reflexive extra Esc never reaches the
+  window underneath. Super+B again also ends everything, an open panel included. A click off the bar leaves too, and moving the pointer over the
   bar moves the cursor with it.
 
 A name card beside the cursor shows the widget's name and shortcut, and a
