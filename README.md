@@ -318,6 +318,12 @@ without overshoot. Widget spacing and island size share a 120 ms ease-out
 resize, keeping icons inside the island while neighbours move into or out of the
 row. An autohiding bar slides out over 180 ms and away over 130 ms. Once one
 bar tooltip has shown, its neighbours show without the usual delay.
+
+Every widget has a tooltip: one that brings none of its own is named, with its
+shortcut. A tooltip sits out from the bar beside what it names and never covers
+an open drawer or menu: a drawer's widgets put theirs outside the drawer, and a
+bar widget beside an open drawer puts its tooltip past it. A named menu's rows
+show their widget's own tooltip (a status, a level), since the row shows the name.
 Widgets leave the main bar before opening begins and return after closing finishes.
 Moving between zones replays the opening animation at the new zone.
 Widgets control their own icon and status animations.

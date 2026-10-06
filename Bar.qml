@@ -23,6 +23,7 @@ import "ZoneOrderModel.js" as ZoneOrderModel
 import "GlyphModel.js" as GlyphModel
 import "ShortcutModel.js" as ShortcutModel
 import "BarKeysModel.js" as KeysModel
+import "TooltipModel.js" as TooltipModel
 
 Item {
   id: root
@@ -502,6 +503,10 @@ Item {
   // A destroyed slot's records go with it, so nothing later reads the dead slot.
   function forgetSlotTargets(slot) {
     targetSlots = targetSlots.filter(function(record) { return record.slot !== slot })
+  }
+  function itemWithin(item, ancestor) {
+    for (var p = item; p; p = p.parent) if (p === ancestor) return true
+    return false
   }
   function resolveTargetSlot(target) {
     if (!target || target.powerbarPlaceholder === true) return null
@@ -2672,6 +2677,13 @@ Item {
     // (it hovers disabled items); it shows no tooltip.
     var owner = resolveTargetSlot(target)
     var unseen = !!owner && !owner.drawerHost && !owner.mainVisible
+    // A widget that brings no tooltip of its own is named, with its shortcut,
+    // as the keyboard cursor names it. Groups keep their own setting, and a
+    // compound (workspaces, the tray) is several things, not one name.
+    if (!text && owner && !owner.groupHeader && owner.compoundTargets.length < 2 && !(owner.drawerHost && owner.drawerHost.labelled)) {
+      var keysLabel = shortcutLabel("widget:" + owner.moduleName)
+      text = slotName(owner) + (keysLabel ? "   " + keysLabel : "")
+    }
     if (unseen || !targetTooltipHovered(target) || !text) {
       tooltipRequest += 1
       return
@@ -3285,6 +3297,12 @@ Item {
     // A tooltip shown while the bar slides (the keyboard mode's name card on an
     // autohidden bar) was placed where the bar was: it follows the bar in.
     onAutoHideOffsetChanged: if (tooltipWindow.visible) tooltipAnchor.updateAnchor()
+    // A drawer opening or closing under a tooltip moves it clear.
+    Connections {
+      target: drawer
+      function onOpenedChanged() { if (tooltipWindow.visible) tooltipAnchor.updateAnchor() }
+      function onSteppedAsideChanged() { if (tooltipWindow.visible) tooltipAnchor.updateAnchor() }
+    }
     // Sliding out answers the pointer, so it is a touch slower than sliding
     // away; tucked islands move on the strip's exact curve so they cancel out.
     readonly property int autoHideMotionMs: autoHideShown ? 180 : 130
@@ -3704,28 +3722,19 @@ Item {
         rect.width: 1
         rect.height: 1
 
+        // Out from the bar beside the target, never over an open drawer or
+        // menu (TooltipModel).
         onAnchoring: {
           var target = root.tooltipTarget
           if (!root.targetBelongsToWindow(target, barWindow)) return
-
-          var popupWidth = tooltipWindow.implicitWidth / root.barScale
-          var popupHeight = tooltipWindow.implicitHeight / root.barScale
-          var localX = target.width / 2 - popupWidth / 2
-          var localY = target.height + 6
-
-          if (root.position === "bottom") {
-            localY = -popupHeight - 6
-          } else if (root.position === "left") {
-            localX = target.width + 6
-            localY = target.height / 2 - popupHeight / 2
-          } else if (root.position === "right") {
-            localX = -popupWidth - 6
-            localY = target.height / 2 - popupHeight / 2
-          }
-
-          var point = barWindow.contentItem.mapFromItem(target, localX, localY)
-          tooltipAnchor.rect.x = Math.round(point.x)
-          tooltipAnchor.rect.y = Math.round(point.y)
+          var box = barWindow.contentItem.mapFromItem(target, 0, 0, target.width, target.height)
+          var open = drawer.opened && !drawer.steppedAside
+          var at = TooltipModel.place(root.position, { x: box.x, y: box.y, width: box.width, height: box.height },
+            { width: tooltipWindow.implicitWidth, height: tooltipWindow.implicitHeight }, 6 * root.barScale,
+            open ? { x: drawer.x, y: drawer.y, width: drawer.width, height: drawer.height, vertical: drawer.stripVertical } : null,
+            open && root.itemWithin(target, drawer), { width: barWindow.width, height: barWindow.height })
+          tooltipAnchor.rect.x = Math.round(at.x)
+          tooltipAnchor.rect.y = Math.round(at.y)
         }
       }
 

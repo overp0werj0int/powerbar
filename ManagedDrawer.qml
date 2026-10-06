@@ -513,6 +513,22 @@ Item {
             HoverHandler {
               id: memberHover
               enabled: drawer.opened && !bar.barDragSource
+              // A menu row shows its name already; it shows the widget's own
+              // tooltip (a volume, a status), which the row's pointer would
+              // otherwise keep from the widget.
+              onHoveredChanged: {
+                if (!drawer.namedMenu) return
+                if (!hovered) { bar.hideTooltip(mount); return }
+                var text = mount.ownTooltip()
+                // Once the row's hover has reached tooltipHovered.
+                if (text && text !== mount.title) Qt.callLater(function() { if (memberHover.hovered) bar.showTooltip(mount, text) })
+              }
+            }
+            readonly property bool tooltipHovered: memberHover.hovered && drawer.opened
+            function ownTooltip() {
+              var targets = modelData ? modelData.slotTargets || [] : []
+              for (var i = 0; i < targets.length; i++) if (targets[i] && targets[i].tooltipText) return String(targets[i].tooltipText)
+              return ""
             }
             // The member's highlight: the whole row in a menu; its cell in a strip,
             // centred on the slot, like on the bar.
