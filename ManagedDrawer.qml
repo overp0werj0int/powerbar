@@ -383,7 +383,12 @@ Item {
     case Qt.Key_Tab: navigate(event.modifiers & Qt.ShiftModifier ? -1 : 1); break
     case Qt.Key_Backtab: case Qt.Key_Left: case Qt.Key_Up: navigate(-1); break
     case Qt.Key_Right: case Qt.Key_Down: navigate(1); break
-    case Qt.Key_Return: case Qt.Key_Enter: case Qt.Key_Space: if (slots[cursor]) slots[cursor].activate(); break
+    case Qt.Key_Return: case Qt.Key_Enter: case Qt.Key_Space: {
+      var press = Model.pressAction(keyboardMode, cursorActive, slots.length)
+      if (press === "select") navigate(1)
+      else if (press === "activate" && slots[cursor]) slots[cursor].activate()
+      break
+    }
     default: return
     }
     event.accepted = true
