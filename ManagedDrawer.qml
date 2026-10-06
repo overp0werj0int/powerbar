@@ -36,7 +36,35 @@ Item {
       easing.bezierCurve: [0.23, 1, 0.32, 1, 1, 1]
     }
   }
-  opacity: Math.max(0, Math.min(1, reveal))
+  opacity: Math.max(0, Math.min(1, reveal)) * asideOpacity
+  // A member's panel open: the drawer steps aside (fades out and leaves the
+  // bar's input region) and the panel opens at the bar's edge, as a bar
+  // widget's would, instead of below the drawer. It stays open underneath,
+  // since the panel is anchored to the member. Once the panel closes it comes
+  // back for the keyboard, and closes for the pointer: the panel was the last
+  // stop. The grace lets one member's panel hand over to another's.
+  readonly property bool memberPanelOpen: slots.some(function(slot) { return slot.panelOpen })
+  property bool steppedAside: false
+  onMemberPanelOpenChanged: {
+    if (memberPanelOpen) { asideEnd.stop(); steppedAside = opened }
+    else if (steppedAside) asideEnd.restart()
+  }
+  Timer { id: asideEnd; interval: 150; onTriggered: drawer.asideCheck() }
+  // For the keyboard it comes back once no panel at all is open (Tab in a
+  // panel moves on to the next widget's, which may be outside the drawer).
+  function asideCheck() {
+    if (!steppedAside || memberPanelOpen) return
+    var keys = keyboardMode || barKeysHeld
+    if (keys && bar.activePopout) return
+    steppedAside = false
+    if (opened && !keys) close("immediate")
+  }
+  Connections {
+    target: drawer.bar
+    function onActivePopoutChanged() { if (drawer.steppedAside && !asideEnd.running) asideEnd.restart() }
+  }
+  property real asideOpacity: steppedAside ? 0 : 1
+  Behavior on asideOpacity { enabled: bar.animationsEnabled && drawer.opened; NumberAnimation { duration: 110; easing.type: Easing.OutCubic } }
   // Grows out of the icon that opened it (the source cell's centre on the
   // drawer's near edge) from 94%; nothing appears from nothing.
   readonly property real originAlong: sourceCell ? (sourceCell.start + sourceCell.end) / 2 - axisPosition
@@ -52,6 +80,7 @@ Item {
     grabReady = false
     if (opened) grabDelay.restart()
     else grabDelay.stop()
+    if (!opened) { asideEnd.stop(); steppedAside = false }
   }
   Timer { id: grabDelay; interval: 250; onTriggered: drawer.grabReady = drawer.opened }
   property string zone: ""

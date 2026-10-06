@@ -574,7 +574,7 @@ Item {
     }
     function drawerStatus(): string {
       var drawer = root.managedOwner
-      return JSON.stringify(drawer ? { opened: drawer.opened, zone: drawer.zone, groupId: drawer.groupId, memberDisplay: drawer.memberDisplay, stripVertical: drawer.stripVertical, surfaceRole: drawer.surfaceRole, surfaceRadius: drawer.surfaceRadius, themeRadius: Style.cornerRadius, crossLength: drawer.crossLength, desiredCross: drawer.desiredCross, reveal: drawer.reveal, width: drawer.width, height: drawer.height, entered: drawer.entered, sourceHovered: drawer.sourceHovered, hovered: drawer.containsMouse, keyboard: drawer.keyboardMode, cursor: drawer.cursor, selectionVisible: drawer.selectionVisible, focused: drawer.activeFocus, ids: drawer.slots.map(function(s) { return s.moduleName }), count: drawer.slots.length } : { opened: false })
+      return JSON.stringify(drawer ? { opened: drawer.opened, aside: drawer.steppedAside, opacity: Math.round(drawer.opacity * 100) / 100, zone: drawer.zone, groupId: drawer.groupId, memberDisplay: drawer.memberDisplay, stripVertical: drawer.stripVertical, surfaceRole: drawer.surfaceRole, surfaceRadius: drawer.surfaceRadius, themeRadius: Style.cornerRadius, crossLength: drawer.crossLength, desiredCross: drawer.desiredCross, reveal: drawer.reveal, width: drawer.width, height: drawer.height, entered: drawer.entered, sourceHovered: drawer.sourceHovered, hovered: drawer.containsMouse, keyboard: drawer.keyboardMode, cursor: drawer.cursor, selectionVisible: drawer.selectionVisible, focused: drawer.activeFocus, ids: drawer.slots.map(function(s) { return s.moduleName }), count: drawer.slots.length } : { opened: false })
     }
     function managedStatus(): string {
       return JSON.stringify(root.moduleSlots.filter(function(s) { return s.managed }).map(function(s) {
@@ -1640,8 +1640,10 @@ Item {
   function placeWidgetPopups(owner) {
     // KeyboardPanel measures its distance from the whole layer surface.
     // Our layer includes transparent drawer/shadow space, so compensate its
-    // gap using the visible source surface. PopupCard uses item anchors and
-    // must keep its existing positioning.
+    // gap to open at the bar's edge, as Omarchy's bar does. A panel from a
+    // drawer member opens there too: the drawer steps aside for it
+    // (ManagedDrawer.steppedAside). PopupCard uses item anchors and must keep
+    // its existing positioning.
     var seen = []
     function visit(item) {
       if (!item || seen.indexOf(item) !== -1) return
@@ -1657,12 +1659,7 @@ Item {
             item.gap = Qt.binding(function() {
               var host = item.anchorWindow
               if (!host) return Style.gapsOut + record.gapOffset
-              var sourceDrawer = null
-              for (var parent = item.anchorItem; parent; parent = parent.parent) {
-                if (parent === host.managedDrawer) { sourceDrawer = parent; break }
-              }
-              var edge = root.barExtent + (sourceDrawer ? sourceDrawer.gap + sourceDrawer.crossLength : 0)
-              return Style.gapsOut + record.gapOffset + edge - (root.vertical ? host.width : host.height)
+              return Style.gapsOut + record.gapOffset + root.barExtent - (root.vertical ? host.width : host.height)
             })
           }
         }
@@ -3393,10 +3390,11 @@ Item {
         item: autoHideStrip
         intersection: Intersection.Combine
       }
+      // A drawer stepped aside for a member's panel takes no clicks.
       Region {
         x: drawer.x; y: drawer.y
-        width: drawer.opened ? drawer.width : 0
-        height: drawer.opened ? drawer.height : 0
+        width: drawer.opened && !drawer.steppedAside ? drawer.width : 0
+        height: drawer.opened && !drawer.steppedAside ? drawer.height : 0
         intersection: Intersection.Combine
       }
     }
