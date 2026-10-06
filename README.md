@@ -107,7 +107,7 @@ whose original copyright and MIT license notice are preserved in
 <tr>
 <td width="33%"><a href="screenshots/keys-search.jpg"><img src="screenshots/keys-search.jpg" alt="Typing /sess opens the AI group with the cursor on Session Browser"></a><br><sub><code>/sess</code> opens the group and lands on the row</sub></td>
 <td width="33%"><a href="screenshots/keys-walk.jpg"><img src="screenshots/keys-walk.jpg" alt="The arrows walk the open menu, the name card follows"></a><br><sub>Arrows walk the menu; the name card follows</sub></td>
-<td width="33%"><a href="screenshots/keys-sheet.jpg"><img src="screenshots/keys-sheet.jpg" alt="The ? sheet lists every shortcut, on a large side bar"></a><br><sub><code>?</code> lists every shortcut; large bar on the right edge</sub></td>
+<td width="33%"><a href="screenshots/keys-sheet.jpg"><img src="screenshots/keys-sheet.jpg" alt="The ? sheet lists every shortcut as keycaps"></a><br><sub><code>?</code> lists every shortcut as keycaps</sub></td>
 </tr>
 </table>
 
