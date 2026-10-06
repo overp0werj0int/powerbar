@@ -3378,8 +3378,7 @@ Item {
 
     // While the keyboard mode is on this bar, it alone decides: a drawer it
     // entered must not hold the keys while a panel it opened has them.
-    readonly property int keyboardFocusMode: root.barKeys.absorbingOn(barWindow) ? WlrKeyboardFocus.Exclusive
-      : root.barKeys.heldBy(barWindow)
+    readonly property int keyboardFocusMode: root.barKeys.heldBy(barWindow)
       ? (keysHere ? (keysFocusPrimed ? WlrKeyboardFocus.OnDemand : WlrKeyboardFocus.Exclusive) : WlrKeyboardFocus.None)
       : drawer.opened && drawer.keyboardMode ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
     WlrLayershell.keyboardFocus: keyboardFocusMode
