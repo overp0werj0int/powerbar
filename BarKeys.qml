@@ -140,6 +140,7 @@ Item {
     bar.hideCard()
     active = false
     searching = false; query = ""; sheet = false; pending = null
+    dropQueued()
     cursor = null
     window = null
   }
@@ -214,11 +215,14 @@ Item {
     if (!p || !w) return
     if (p.seek) {
       if (seen(p.seek)) { pending = null; landOn(p.seek, p.member); if (p.open) openMatch(); return }
-      if (++p.tries < 60) { landRetry.restart(); return }
+      // The expansion could not fit (the bar gave up on it): the zone's
+      // drawer, as for the pointer.
+      var refused = p.token && w.inlineRequest !== p.token && w.inlineZone !== p.token
+      if (!refused && ++p.tries < 60) { landRetry.restart(); return }
       // Still out of view (another moment holds the room): its zone's
       // drawer, when it has a place there.
       pending = null
-      if (inZoneDrawer(p.seek)) openInZoneDrawer(p.seek, p.member)
+      if (inZoneDrawer(p.seek)) { openInZoneDrawer(p.seek, p.member); if (p.open && drawer) openMatch() }
       return
     }
     if (w.inlineZone === p.token) {
@@ -230,9 +234,9 @@ Item {
       pending = null
       if (!shown.length) return
       if (!pick) pick = p.dir < 0 ? shown[shown.length - 1] : shown[0]
-      if (p.member) landOn(pick.item, p.member)
-      else { cursor = pick.item; showCard() }
-      if (p.open) openMatch()
+      cursor = pick.item
+      showCard()
+      if (p.open) openCursor()
       return
     }
     // The zone could not open in the bar: its drawer took the widgets.
@@ -464,15 +468,16 @@ Item {
   }
   function startSearch() { searching = true; query = ""; matchIndex = 0; matchCount = 0; sheet = false }
   function searchKey(name) {
-    if (name === "Escape") { searching = false; query = ""; return true }
+    if (name === "Escape") { searching = false; query = ""; dropQueued(); return true }
     if (name === "Enter") { searching = false; query = ""; openMatch(); return true }
-    if (name === "Tab") { reveal(matchIndex + 1); return true }
-    if (name === "Backtab") { reveal(matchIndex - 1); return true }
+    if (name === "Tab") { reveal(matchIndex + 1, true); return true }
+    if (name === "Backtab") { reveal(matchIndex - 1, true); return true }
     // An arrow, Home or End ends the search where it is and does its usual
     // job (↓ on a top bar goes into the group found).
     if (["Up", "Down", "Left", "Right", "Home", "End"].indexOf(name) >= 0) {
       searching = false
       query = ""
+      dropQueued()
       return false
     }
     if (name === "Backspace") { query = query.slice(0, -1); reveal(0); return true }
@@ -485,18 +490,42 @@ Item {
   // Enter on a match opens it: a member in its group's drawer, a widget behind
   // dots once they have opened, or what the cursor is on.
   function openMatch() {
+    if (queued) flushQueued()
     var d = drawer
     if (d && !previewing && d.cursorActive && d.slots[d.cursor]) { activate(d.slots[d.cursor]); return }
     if (pending) { pending.open = true; return }
     openCursor()
   }
   // Put the cursor on a match, opening the way to it.
-  function reveal(which) {
+  // Typing moves the cursor at once to a match already on the bar; anything
+  // that changes the bar (dots opening, another zone closing, a drawer) waits
+  // for a pause, as the pointer's dots wait for intent, so the bar doesn't
+  // flicker through each letter's match. Tab and Enter act at once.
+  function reveal(which, now) {
     var list = catalogue(), found = KeysModel.matches(list.map(function(c) { return c.text }), query)
     matchCount = found.length
+    queued = null
+    revealPause.stop()
     if (!found.length) { matchIndex = 0; return }
     matchIndex = ((which % found.length) + found.length) % found.length
-    bringIn(list[found[matchIndex]].slot)
+    var slot = list[found[matchIndex]].slot
+    if (now || onBarNow(slot)) { bringIn(slot); return }
+    queued = slot
+    revealPause.restart()
+  }
+  property var queued: null
+  Timer { id: revealPause; interval: 150; onTriggered: keys.flushQueued() }
+  function flushQueued() {
+    var slot = queued
+    queued = null
+    revealPause.stop()
+    if (slot && active) bringIn(slot)
+  }
+  function dropQueued() { queued = null; revealPause.stop() }
+  // On the bar now, or a member of a group whose icon is.
+  function onBarNow(slot) {
+    var target = slot.memberGroup ? headerOf(slot) : slot
+    return !!target && seen(target)
   }
   // A member comes in through its group's icon.
   function headerOf(member) {
@@ -506,30 +535,35 @@ Item {
   function inZoneDrawer(slot) {
     return !!slot.drawerHost || (!slot.isPrefsButton && bar.managedSlots(slot.region, window).indexOf(slot) >= 0)
   }
+  // Brings a found widget into view the way the pointer would (route), then
+  // lands on it once it is seen.
   function bringIn(slot) {
     var member = slot.memberGroup ? slot : null, target = member ? headerOf(member) : slot
     if (!target) return
     pending = null
-    var how = KeysModel.route({ onBar: seen(target), behindDots: !!target.inlineCandidate, inDrawer: inZoneDrawer(target) })
     var w = window
+    var how = KeysModel.route({ onBar: seen(target), inline: bar.onDemandInline, behindDots: !!target.inlineCandidate,
+      folded: !!target.fitFolded, inDrawer: inZoneDrawer(target) })
     if (how === "put") { landOn(target, member); return }
     closeDrawer(false)
+    if (how === "drawer") { openInZoneDrawer(target, member); return }
+    var token = ""
     if (how === "dots") {
-      if (w.inlineZone && w.inlineZone !== target.inlineToken) w.inlineAsk("")
-      var handle = (w.foldHandles || []).find(function(h) { return h && h.inlineToken === target.inlineToken && h.shown })
+      // Its zone's dots open in place, as hovering them does: another zone's
+      // expansion gives way, and the cursor waits on the dots.
+      token = target.inlineToken
+      if (w.inlineZone && w.inlineZone !== token) w.inlineAsk("")
+      var handle = (w.foldHandles || []).find(function(h) { return h && h.inlineToken === token && seen(h) })
       if (handle) cursor = handle
-      openDots(target.inlineToken, 1, target.instanceKey)
-      if (pending) pending.member = member
-    } else if (how === "drawer") {
-      openInZoneDrawer(target, member)
-    } else {
-      // Out of the way of another zone's expansion: close it, and land once
-      // the widget is back.
-      if (w.inlineZone || w.inlineRequest) w.inlineCollapseNow()
-      pending = { seek: target, member: member, tries: 0 }
-      landRetry.restart()
+      w.inlineEnter(token, true)
+    } else if (w.inlineZone || w.inlineRequest) {
+      // Out of the way of another zone's expansion: that closes.
+      w.inlineCollapseNow()
     }
+    pending = { seek: target, member: member, token: token, tries: 0 }
+    Qt.callLater(checkPending)
   }
+
   // A widget in its zone's drawer; a group there opens its own drawer from
   // its row, at the member if one was found. The bar's cursor waits on the
   // zone's dots.

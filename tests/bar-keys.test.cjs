@@ -124,11 +124,18 @@ test('a member reads its group name first', () => {
   assert.equal(keys.searchText('ScratchPeek', ''), 'ScratchPeek');
 });
 
-test('a found widget comes into view the way it is hidden', () => {
-  assert.equal(keys.route({ onBar: true, behindDots: false, inDrawer: false }), 'put');
-  assert.equal(keys.route({ onBar: false, behindDots: true, inDrawer: true }), 'dots', 'the bar\'s own expansion first');
-  assert.equal(keys.route({ onBar: false, behindDots: false, inDrawer: true }), 'drawer', 'folded off, or drawer mode');
-  assert.equal(keys.route({ onBar: false, behindDots: false, inDrawer: false }), 'clear', 'gave way to another zone');
+test('a found widget comes into view the way the pointer would bring it', () => {
+  const at = (w) => keys.route(Object.assign({ onBar: false, inline: false, behindDots: false, folded: false, inDrawer: false }, w));
+  assert.equal(at({ onBar: true, inline: true }), 'put');
+  // In the bar: the zone's dots expand it in place, for on-demand and folded widgets alike.
+  assert.equal(at({ inline: true, behindDots: true, inDrawer: true }), 'dots');
+  assert.equal(at({ inline: true, folded: true, inDrawer: true }), 'dots', 'folded off for lack of room');
+  // In a drawer: the zone's drawer.
+  assert.equal(at({ folded: true, inDrawer: true }), 'drawer');
+  assert.equal(at({ inDrawer: true }), 'drawer');
+  // Out of the way of another zone's expansion, in either mode.
+  assert.equal(at({ inline: true }), 'clear');
+  assert.equal(at({}), 'clear');
 });
 
 test('the key strip names the keys of the edge', () => {
