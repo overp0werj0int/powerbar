@@ -156,3 +156,11 @@ test('the keyboard mode starts on the focused monitor, never on another one it c
   assert.equal(keys.startScreen(['DP-1', 'eDP-1'], ''), 0);
   assert.equal(keys.startScreen([], 'eDP-1'), -1);
 });
+
+test('on a named menu row the name card says what hovering says: the widget\'s own status', () => {
+  assert.equal(keys.cardText('Microphone', 'Microphone muted', '', true), 'Microphone muted');
+  assert.equal(keys.cardText('Audio', 'Volume 40%', 'Super Ctrl A', true), 'Volume 40%   Super Ctrl A');
+  assert.equal(keys.cardText('Agents', '', '', true), 'Agents', 'no tooltip of its own: the name');
+  assert.equal(keys.cardText('Clock', 'Clock', 'Super Ctrl Alt D', true), 'Clock   Super Ctrl Alt D');
+  assert.equal(keys.cardText('Clock', 'Tuesday', 'Super Ctrl Alt D', false), 'Clock   Super Ctrl Alt D', 'on the bar: the name');
+});
