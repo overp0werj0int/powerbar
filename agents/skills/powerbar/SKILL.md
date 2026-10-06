@@ -212,6 +212,11 @@ prefer `reset <setting>` for single Powerbar settings.
 
 ## When something looks wrong
 
+- A widget's button does nothing or its panel never loads, and the plugin
+  has a background service (`kinds` include `service`): Omarchy gives widgets
+  on any replacement bar no access to their service (README, Known
+  limitations, with the Omarchy issues). Not fixable from Powerbar; offer the
+  widget's own shortcut or command, or `omarchy bar reset` for the stock bar.
 - `error: the shell gives Powerbar no way to save its settings`: the shell
   is not Omarchy's or is starting; wait and retry once.
 - `error: not while Preferences are open`: `closePreferences` first.

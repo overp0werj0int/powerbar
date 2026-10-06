@@ -225,6 +225,7 @@ Setting names are those of Preferences. `set` of `style` also drops `powerbarIsl
 - **INTEG-103** If the write fails the bar shows the host's config again and Preferences' footer reads `Could not save. Check that shell.json is writable.`
 - **INTEG-139** On shutdown queued edits are flushed.
 - **INTEG-141** Failures that change what the user sees are logged to the shell log with a `powerbar:` prefix: a config write the shell refused (the bar shows the saved config again), a drop that failed (the widget stays where it was), an unreadable widget face cache, shortcuts not written (with the exit status), and the registry heal (INTEG-31). Code: Bar.qml flushConfigWrites(), ShortcutStore.qml applyProc
+- **INTEG-142** A widget hosted by Powerbar gets Omarchy's service-less entry facade, as under any third-party bar: `bar.shell.serviceFor(<its own id>)` returns null, so a `bar-widget` + `service` plugin's button and panel do nothing while its service runs. Omarchy's design since #9618, not Powerbar's; README Known limitations links the open issues (#11051, #11713, #11796, #12648, #13289, #14101) and PRs (#11970, #13194, #12260). Code: Omarchy shell.qml pluginShellForBarEntry; Powerbar does not override it.
 
 ---
 
