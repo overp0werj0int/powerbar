@@ -5,179 +5,170 @@ Drag and drop on the live bar, into drawers and onto zone dots. The bar controll
 ## Sources
 
 - `DragModel.js`: movement logic and decision functions
-- `HighlightModel.js`: highlight geometry
+- `HighlightModel.js`: ink measurement of a widget's painted content (`inkRect`); its `pill()` has tests but no caller
 - `DropOutline.qml`: drop target preview outline
-- `HoverHighlight.qml`: hover and selection highlighting
+- `HoverHighlight.qml`: hover and selection fill
+- `CellModel.js`: gap and highlight geometry, `dragDuration`
+- `ManagedDrawer.qml`: drawer rows as drag sources and drop surfaces
 - `tests/drag-preview.test.cjs`: test cases for DragModel
 - `tests/highlight.test.cjs`: test cases for HighlightModel
 - `Bar.qml`: drag capture, movement, settlement, and configuration (Code: beginIconDrag, updateIconDrag, finishIconDrag, dragSettleDuration)
 
 ## Drag initiation
 
-- **DRAG-1** A drag begins when pointer movement exceeds dragThreshold (Style.space(4)) before release; the gesture is captured at that point.
+- **DRAG-1** Pressing a widget or group icon with the left button and moving the pointer so that |dx| + |dy| >= 4 px (`Style.space(4)`) starts a drag; the cursor becomes a closed hand. Releasing earlier is a click. Needs a writable shell config (`mutateShellConfig`); otherwise icons do not drag. Code: Bar.qml `modulePointer.onPositionChanged`, `beginIconDrag()`
 
-- **DRAG-2** The bar controller captures the dragged widget's visual presentation (icon image) from the source widget and keeps the source slot visible until the image is ready.
+- **DRAG-2** The dragged icon's image is grabbed from the widget when the drag starts. Until that image is ready no gap opens and the source slot stays where it is (`dragPreview.ready`). A drawer row that shows the widget with its name drags the widget alone; a row without one drags its whole cell.
 
-- **DRAG-3** The original grab point on the source icon is preserved: the image follows the pointer with the same offset from source grab to image centre that the pointer had from drag initiation.
+- **DRAG-3** The image keeps the grab point: it sits under the pointer at the same offset the pointer had inside the icon when pressed.
 
-- **DRAG-4** If keyboard mode is active (Super+B entered) when drag begins, keyboard mode ends: the cursor and keyboard focus are released.
+- **DRAG-4** Starting a drag while an open drawer is in its own keyboard mode turns that drawer's keyboard cursor off; the drawer stays open. Nothing in `BarKeys.qml` reacts to a drag, so the bar's keyboard mode (keyboard.md) carries on. (unverified at runtime)
 
-- **DRAG-5** If a group's drawer is open and the drag starts on a group member or starts while hovering the group, the group's drawer closes.
+- **DRAG-5** Dragging a group icon whose own drawer is open closes that drawer at once. Dragging one of its members does not (DRAG-33).
 
 ## Drag movement and preview
 
-- **DRAG-6** As the pointer moves during drag, a preview gap opens at the target location showing where the widget will land; the gap closes around the widget's slot and animates along the bar's axis (width on horizontal bars, height on vertical bars).
+- **DRAG-6** While the image is ready, the drop target under the pointer opens a gap along the bar's axis (width on a horizontal bar, height on a vertical one) before or after the target cell, and the dragged widget's slot hides. Nothing is reordered in the saved layout yet (DRAG-59).
 
-- **DRAG-7** The preview gap size is the source widget's landing extent (length along the bar); if no landing extent is recorded, the gap width is max(bar size, image width / bar scale) + gutter for horizontal bars, and max(bar size, image height / bar scale) + gutter for vertical bars.
+- **DRAG-7** The gap is the dragged widget's own landing extent (`dragLandingExtent`: its cell plus a gutter in Equal slots, its glyph plus a gap in Equal gaps; see layout-zones.md). Without one it is max(bar size, image size / bar scale) + gutter.
 
-- **DRAG-8** The gap animates to its new size with sine ease (Easing.InOutSine); duration ranges from 150 ms to 260 ms depending on gap size and icon width.
+- **DRAG-8** Neighbours make way over `150 * sqrt(gap / iconGap)` ms, clamped to 150..260 ms, with a sine in-out ease (see DRAG-67). With animations off (`powerbarAnimations: false`) slots move at once and there is no settle glide (DRAG-35).
 
-- **DRAG-9** The preview gap fades in as it opens, proportional to its opening: opacity starts at gapLength / fullGap and rises to 1 when fully open.
+- **DRAG-10** The side of the gap (before or after a cell) flips only when the probe point crosses that cell's centre by more than the 3 px dead zone (`Style.space(3)`): with no earlier decision after = probe > centre; once after, it stays after while probe >= centre - 3; once before, it flips to after only when probe > centre + 3. Code: DragModel.afterCentre()
 
-- **DRAG-10** When a preview gap appears before or after a cell, the decision holds within a 3 px dead zone; the gap does not flip sides until the pointer's centre crosses the target cell's centre by more than the dead zone (3 px).
+- **DRAG-11** Drawers (zone and group), menus and empty zones use the same preview rules as the bar: before, after, into, or hidden, decided by `DragModel.slot()` and `endGap()`.
 
-- **DRAG-11** The same preview policy applies to dragging in drawers and empty islands as on the bar: before/after/into/hidden are determined identically.
+- **DRAG-12** The dragged widget's own slot hides. While the pointer is still over its original spot (`self`) the slot keeps its width/height so neighbours do not jump.
 
-- **DRAG-12** The dragged icon leaves its source slot and the slot appears hidden; if the source remains under the pointer (holdSpace=true), the slot retains its width/height to avoid neighbors jumping.
+- **DRAG-13** A group icon makes way for a dragged icon like any other icon: a gap opens before or after it. No preview appears before the image is ready.
 
-- **DRAG-13** A group icon makes way for a dragged icon like any other widget; no preview appears before the drag gesture is captured (ready=false).
+- **DRAG-14** A widget dragged from a drawer (a zone drawer or a group drawer) onto a group icon on the bar is dropped into that group: the icon shows the "into" state (no gap) and the widget becomes a member (it leaves any group it was in). A widget dragged from the bar onto a group icon gets a gap beside it instead (DRAG-31).
 
-- **DRAG-14** A group icon can be a drop target for a widget dragged out of its drawer; when into=true, the slot shows the "into" state (not before/after).
+- **DRAG-15** A widget (not a group icon, not a drawer member) held over a group icon on the bar for 400 ms (`springOpen`) opens that group's drawer without entering it. The drawer stays while the pointer is on the icon, on the drawer, or on the path between them (reach = drawer gap + bar extent + `Style.space(8)`, side margin `Style.space(12)`); once the pointer is on none of them it closes after 450 ms (`springClose`).
 
-- **DRAG-15** When dragging over a group icon on the main bar, after 400 ms (springOpen timer) the group's drawer opens if the pointer continues resting on the icon or is on the group icon, its drawer, or within a spring path zone; leaving both the icon and the spring path starts a 450 ms close grace (springClose timer).
+- **DRAG-16** A widget (not a drawer member) held over a zone's dots (`handle`) for 400 ms (`springHandle`) opens the zone: inline expansion when `powerbarOnDemand` is `inline` (its drawer if the zone cannot expand), else the zone's drawer, not entered. A spring-opened drawer closes 450 ms after the pointer leaves it as in DRAG-15.
 
-- **DRAG-16** When dragging over a zone's fold handle (dots/end fold marker) on the main bar, after 400 ms (springHandle timer) the zone opens: inline expansion if onDemandInline is true, or its drawer, and the spring-opened drawer closes on exit after the spring grace.
+- **DRAG-17** Where the widget will land, a 1 px outline of its cell (colour: the bar foreground at 45 % alpha, corner radius = the highlight radius) is drawn inside the open gap, on whole pixels, one pixel inside the gap's edges. It shows in every drop surface: bar zones, drawer strips, menu rows. It is visible only while the gap is longer than 1 px. Code: DropOutline.qml
 
-- **DRAG-17** The drop outline (`DropOutline.qml`) is drawn at each drop surface (zones, drawers, menus) and shows a cell outline inside the open gap; the outline is kept one pixel inside the gap boundary and positioned on whole pixels.
+- **DRAG-18** When the drop lands On demand (on the dots, inside an inline run, in a zone drawer) the outline holds a dots glyph (`󰇘` on a horizontal bar, `󰇙` on a vertical one, 45 % alpha) instead of being empty.
 
-- **DRAG-18** For on-demand (managed) zones, the drop outline shows dots (󰇙 or 󰇘 characters depending on orientation) instead of a full cell outline, indicating the widget will be placed on demand.
+- **DRAG-19** The outline fades in with the gap: opacity = min(1, gapLength / full gap).
 
-- **DRAG-19** The drop outline's opacity fades with the gap: opacity = min(1, gapLength / max(1, fullGap)).
+- **DRAG-20** Hover and selection draw a soft rounded fill behind an item (`HoverHighlight`); its opacity animates over 90 ms (OutCubic). Colours and shape: see appearance.md.
 
-- **DRAG-20** Hover highlighting (`HoverHighlight.qml`) shows a soft rounded fill behind hovered items; opacity animates with 90 ms ease-out (Easing.OutCubic) when hover state changes.
-
-- **DRAG-21** Where two lit highlights overlap (equal gaps), the older one fades to 0.45 opacity so the eye follows the newer action; the newer one draws on top (z=1).
+- **DRAG-21** Where two lit highlights overlap (Equal gaps) the older fades to 45 % opacity and the newer draws on top.
 
 ## Drop resolution
 
-- **DRAG-22** The drop target is resolved per pointer position: (1) dragged widget's painted centre if source has ink measured along the bar's axis, else (2) pointer position itself; then hit-test against all visible candidate slots.
+- **DRAG-22** The drop target is found from the dragged widget's painted centre along the bar's axis (the pointer position corrected by the widget's measured ink), falling back to the pointer itself; the first visible slot under either point wins, else the nearest slot of the zone under the pointer, else the zone's end. Widgets yielded to an expansion or in a hidden zone take no drops.
 
-- **DRAG-23** A release that drifts up to 60% of bar size (0.6 * barSize) off the bar's inner edge still lands on the bar, unless an open drawer is closer.
+- **DRAG-23** A release up to 0.6 x bar size beyond the bar's inner edge (away from the screen edge) still lands on the bar, unless it is over an open drawer.
 
-- **DRAG-24** Dragging into an open managed drawer (zone or group) sets the widget to Managed visibility and places it in that drawer's zone or group.
+- **DRAG-24** Dropping on an open zone drawer (on a row, or on its empty area) saves the widget with `powerbarVisibility: "managed"` in that drawer's zone (appended to the zone's end when dropped on empty drawer area). Dropping on a group drawer makes it a member of that group (membership only).
 
-- **DRAG-25** Dragging onto the main bar (outside all drawers) sets the widget to Always shown and places it in the targeted zone.
+- **DRAG-25** Dropping on the bar saves the widget with `powerbarVisibility: "shown"`, written explicitly even though shown is the default for a widget with no saved value, and places it before or after the slot under it. A group icon dragged to the bar keeps its group's visibility the same way. Code: Bar.qml `dropAt()`, `BarModel.moveInstanceInConfig()`
 
-- **DRAG-26** Dragging onto an empty zone (no visible widgets) creates a gap at the zone's end; dropping there sets the widget Always shown in that zone.
+- **DRAG-26** Dropping on a zone where nothing is under the pointer lands next to the nearest widget of that zone (`BarModel.nearestDropTarget`), or at the end of the zone, saved `"shown"`, when it has none.
 
-- **DRAG-27** Dragging into a group's drawer causes the widget to join (or move within) that group; the drawer remains open after the drop and closes after exit grace.
+- **DRAG-27** After a drop into a group's drawer or a zone's drawer the drawer stays open (it counts as entered) and closes after the exit grace once the pointer leaves (on-demand-drawers.md).
 
-- **DRAG-28** Dragging onto a zone's fold handle (dots) places the widget in that zone's managed widgets; the widget is positioned at the end of the on-demand run on that side of the centre (for the centre zone's two dot pairs, each side expands on its own).
+- **DRAG-28** Dropping on a zone's dots saves `"managed"`: with the dots at the zone's start the widget goes before the zone's first other entry; with dots at the end, to the end of the zone's list. Each side of the centre zone's two dots takes its own.
 
-- **DRAG-29** Dragging onto the zone's dots and resting 400 ms opens that zone (inline or drawer, by on-demand display mode).
+- **DRAG-29** Resting on the dots for 400 ms opens the zone (DRAG-16).
 
-- **DRAG-30** Dragging inside an inline expansion's run places the widget as Managed; where shown widgets meet the expansion it lands Always shown (at the visible/managed boundary).
+- **DRAG-30** Dropping inside an inline expansion's run saves `"managed"`; dropping where the shown widgets meet the expansion saves `"shown"` (the gap joins the run of the widget under the pointer). Code: ZoneOrderModel.landsOnDemand()
 
-- **DRAG-31** Dragging a widget beside a group icon places it next to the group on the main bar (not inside the group).
+- **DRAG-31** Dropping on a widget row beside a group icon on the bar places the widget next to the group, not in it: it takes the group's place and the group re-anchors in front of it.
 
-- **DRAG-32** Dragging outside valid surfaces (bar, drawers, dots) cancels the drag without a config change and glides the image back to the source.
+- **DRAG-32** Releasing outside the bar and drawers, or back over the icon's own spot, changes nothing in the config; the image glides back to the source slot (DRAG-42).
 
-- **DRAG-33** When a drag starts in a drawer or group drawer, the drawer stays open (managed owner enters=true) and remains open after the drop, closing only after the exit grace when the pointer leaves.
+- **DRAG-33** A drag that starts on a drawer row leaves the drawer open throughout (drawers hold while `dragMotionActive`) and, after a drop into a drawer, as in DRAG-27.
 
-- **DRAG-34** Tooltip is hidden when drag begins (hideTooltip called on source's activeItem).
+- **DRAG-34** The widget's tooltip hides when a drag begins.
 
 ## Drag settlement and animation
 
-- **DRAG-35** On release, the captured image stays visible and glides to its target over 180 ms (dragSettleDuration); the glide follows the dragged widget's slot if the slot is moving.
+- **DRAG-35** On release the image stays visible and glides to its target over 180 ms (`dragSettleDuration`, OutCubic), following the target slot frame by frame if it is still moving. With animations off there is no glide.
 
-- **DRAG-36** For main-bar gaps and group icon targets, the image glides into the open preview gap first with the gap still drawn, then commits; commit rebuilds every slot synchronously.
+- **DRAG-36** Drops with an open gap to aim at (a bar gap beside a slot that is not the clock, a group icon, a drawer gap) glide into the open gap with the gap still drawn, then commit; the commit rebuilds every slot in one frame, swapping gap and slot.
 
-- **DRAG-37** For managed-drawer drops and zone dots, the commit happens first, then the image glides from release point to the widget's new slot, following it frame by frame.
+- **DRAG-37** Drops with no gap to aim at (a zone's end, the dots, beside the clock/centre anchor) commit first, then the image glides from the release point to the widget's new slot.
 
-- **DRAG-38** A widget whose new home is not visible (in a hidden zone or inside a group) glides into and fades over its group icon (if in a group), or fades in place (if no visible home).
+- **DRAG-38** A widget whose new home is not visible glides into its group icon and fades there when it joined a group, or fades where released when it has no visible home.
 
-- **DRAG-39** The image settlement animation uses DragModel.settleFrame: it interpolates position from release point (barDragSettleFromX/Y) to target with opacity 1 and scale 1; when fading, opacity = 1 - progress and scale = 1 - 0.4 * progress.
+- **DRAG-39** Settle frames interpolate from the release point to the target (`DragModel.settleFrame`): opacity 1 and scale 1; when fading, opacity = 1 - p and scale = 1 - 0.4 p.
 
-- **DRAG-40** After the settle animation ends (180 ms), if the image is fading (no visible home), it disappears and drag is cleared; otherwise a correction glide begins.
+- **DRAG-40** After the 180 ms glide, a fading image disappears and the drag state clears; a glide that committed first also ends there.
 
-- **DRAG-41** If correction is needed (the image has already landed but not at the committed slot), a second 90 ms glide (dragSettleCorrectionDuration) covers the offset; this keeps the image frozen where it landed between settlement and correction.
+- **DRAG-41** After a glide-then-commit drop, if the committed slot is 2 px or more from where the image landed, a 90 ms correction glide (`dragSettleCorrectionDuration`) follows, the image staying frozen where it landed in between; less than 2 px ends at once.
 
-- **DRAG-42** A cancelled drag (pointer released outside valid surfaces or escape) glides back to the source and animates with the same 180 ms ease, fading out as the source regains its space.
+- **DRAG-42** A cancelled drag (DRAG-32) glides back to the source over the same 180 ms as the source regains its space. There is no Escape binding for a drag.
 
 ## Preview gap mechanics
 
-- **DRAG-43** The preview gap's position is determined by DragModel.slot: given a drag state (sourceKey, sourceSurface, targetKey, targetSurface, after) and a slot (key, surface), the slot is hidden if it is the source, shows before/after the target, holds space if source, or shows into state for groups.
+- **DRAG-43** A slot's state comes from `DragModel.slot(state, key, surface)`: hidden if it is the source on the source surface; before or after if it is the target (not hidden); `holdSpace` for the source while `self`; `into` for a group icon that takes the drop. Nothing shows while `ready` is false.
 
-- **DRAG-44** An end gap (no targetKey, matching surface) is drawn at a zone's or drawer's end when the preview is ready; determined by DragModel.endGap.
+- **DRAG-44** An end gap (no target key) opens at the end of the zone or drawer whose surface is the target, when ready. Code: DragModel.endGap()
 
-- **DRAG-45** The preview gap is kept one pixel inside the drop outline's boundary; on horizontal bars it is gapStart + min(landingOffset, max(0, gapLength - along - 1)) for offset >= 0, else centered; on vertical bars the same logic applies vertically.
-
-- **DRAG-46** All drag gap and inset transitions (slot width/height changes and inset animations) share sine ease (Easing.InOutSine, dragMotionEasing) with duration calculated per DRAG-67 (150–260 ms).
+- **DRAG-45** The gap sits inside the outline's boundary by 1 px: the outline starts at gapStart + min(landingOffset, max(0, gapLength - cellAlong - 1)) when a landing offset is given (named menus), else centred in the gap.
 
 ## Drag constraints and special cases
 
-- **DRAG-47** Groups do not nest: a group icon has no drop surface inside any group drawer.
+- **DRAG-47** Groups do not nest: a group icon has no drop surface in a group drawer.
 
-- **DRAG-48** A group icon beside another group icon reorders the groups; dropping it into a managed drawer makes the whole group Managed.
+- **DRAG-48** A group icon dropped beside another group icon reorders the groups; dropped on a zone drawer or the dots it becomes On demand (the group's visibility `"managed"`); dropped on the bar `"shown"`.
 
-- **DRAG-49** A widget dragged out of a drawer cannot open another group's drawer; for it, a group icon is a container it drops into (after 400 ms spring wait).
+- **DRAG-49** A widget dragged from a drawer never spring-opens another group's drawer; the group icon is a drop-into target for it (DRAG-14).
 
-- **DRAG-50** A group's own drawer (owned by the icon being moved) closes immediately when drag starts on a member of that group.
+- **DRAG-50** See DRAG-5.
 
-- **DRAG-51** A drawer held open by keepDrawerThroughEdit=true stays open after the drop and closes after dismissDelay: entryGrace seconds (default 1 s, max 15 s) if not yet entered, or exitGrace seconds (default 1 s, max 15 s) if entered. Code: ManagedModel.dismissDelay()
+- **DRAG-51** Drawer lifetime after a drop: on-demand-drawers.md (entry grace default 1 s, exit grace default 1 s, each 1..15 s; `ManagedModel.dismissDelay()`).
 
-- **DRAG-52** The dragged widget's presentation (how it displays: native icon, name, or both) follows the target group's member display style while dragging over that group's drawer; the ghost shows the appropriate form.
+- **DRAG-52** The ghost takes the style of the group drawer under it: native icon, name, or both (the group's `memberDisplay`).
 
-- **DRAG-53** Dragging a member from one group drawer onto another group icon transfers membership; the member takes the target group's display style.
+- **DRAG-54** A released icon settles on its own drawer cell if shown, else its own bar slot if shown, else the group icon that now contains it (fading), else fades where released. Code: DragModel.settleTarget()
 
-- **DRAG-54** A released icon settles by preferring its own drawer cell if it exists and is shown (not hidden), else its own main-bar slot if shown, else the group icon now containing it (with fade), else fades where it was released.
+- **DRAG-55** Every drop writes the visibility it implies: bar and "shown" spots `"shown"`, drawer, dots and on-demand run spots `"managed"`, group drawers membership only. A drop never writes `"hidden"`.
 
-- **DRAG-55** The source slot's visibility mode (Always shown, Managed, Hidden) is preserved unless the drop explicitly changes it (on main bar → Always shown, in drawer → Managed, in group → membership only).
+- **DRAG-57** The clock (centre anchor) stays centred: a gap beside it opens in the neighbouring list, not in its own slot, and a drop beside it commits first (DRAG-37).
 
-- **DRAG-56** When a widget is moved from an inline expansion to another location, the expansion's run updates and the zone may collapse if no longer needed.
+- **DRAG-58** The bar applies the edit to its own copy of the config at once and writes shell.json once, after the drag, glide and settle have finished (`configWriteSettled`); a bar move (DRAG-74) also holds writes.
 
-- **DRAG-57** The center anchor opens its gap in the neighboring list so the anchored icon stays centered during layout changes from drag commits.
+- **DRAG-59** shell.json is unchanged while the pointer is down; the cue is the gap and the moving image only.
 
-- **DRAG-58** Drag layout changes are queued and applied once drag, glide, and settlement are complete (configWriteSettled = !barDragSource && !barDragSettling).
+- **DRAG-60** The drag image is drawn by an overlay-layer surface (`omarchy-bar-drag-ghost`, all edges) with an empty input region, so it sits under the pointer without taking the mouse grab.
 
-- **DRAG-59** No widget model is reordered during the drag gesture; the moving icon and opening space provide the reorder cue visually; reordering happens on commit.
+- **DRAG-61** The image is the widget's own look. Over a group drawer whose members show their names (`memberDisplay` name or both) it is drawn as a labelled row (name, or icon plus name) in the menu's shape.
 
-- **DRAG-60** The drag ghost panel (DragGhostPanel) is an overlay on the screen over all other content (WlrLayer.Overlay) and sits under the cursor without stealing the mouse grab; its input region is empty (mask: Region {}).
-
-- **DRAG-61** The drag ghost shows a labelled row when the target is a group drawer with member display "name" or "both"; otherwise it shows the native icon image.
-
-- **DRAG-62** If dragging from a labeled menu row (row.labelled && row.showNative), the landing shows the native image, not the label.
+- **DRAG-62** A drawer row that has a label and a native widget drags (and lands as) the native image only; the label is added by the target's style.
 
 ## Highlight geometry
 
-- **DRAG-63** A hover highlight (pill) has thickness equal to the bar size minus a small inset (theme-defined); its length follows the widget's visible painted content (icon or text), never shorter than it is thick.
+- **DRAG-63** A hover fill or the drop outline's cell is `thickness` across the bar, thickness = bar size - 2 x inset with inset = min(3, (bar size - 16) / 2) px; its length along the bar is the widget's cell (CellModel.cellLength): square for an icon, ink + 2 x air for text. See layout-zones.md.
 
-- **DRAG-64** Icon-only widgets get a square highlight (length = thickness); text and multi-element widgets get a pill (length = ink + 2*pad).
+- **DRAG-65** The highlight's corner radius is min(thickness / 2, island rounding - inset) (`CellModel.radius`, floor 0).
 
-- **DRAG-65** The highlight's corner radius is the minimum of (1) requested rounding (theme), (2) half the thickness, and (3) the island's rounding, nested inside the island.
+## Configuration
 
-- **DRAG-66** The highlight stays inside its lane (island or bar edge inset) by shifting first, then shrinking if needed.
+- **DRAG-67** Drag motion: `CellModel.dragDuration(gap, icon)` = round(clamp(150 x sqrt(gap / icon), 150, 260)) ms.
 
-## Configuration and IPC
+- **DRAG-68** Settle glide 180 ms; correction glide 90 ms.
 
-- **DRAG-67** Drag motion duration (gap and inset transitions) is calculated by CellModel.dragDuration: 150 * sqrt(gap/icon), clamped to 150–260 ms range. Code: CellModel.dragDuration(gap, icon)
+- **DRAG-69** Dead zone for gap side changes: 3 px.
 
-- **DRAG-68** Drag settle duration (image glide to target) is 180 ms (dragSettleDuration); correction glide is 90 ms (dragSettleCorrectionDuration).
+- **DRAG-70** Spring open (group drawer, zone dots): 400 ms. Spring close grace: 450 ms (DRAG-71).
 
-- **DRAG-69** Dead zone for gap side changes is 3 px (dragDeadZone = Style.space(3)).
+- **DRAG-72** Group spring path: see DRAG-15.
 
-- **DRAG-70** Spring open timer (group drawer and zone reveal on drag rest) is 400 ms (springOpen.interval).
+- **DRAG-73** Drag is pointer only; there are no keyboard bindings for it (the keyboard mode's keys are in keyboard.md).
 
-- **DRAG-71** Spring close grace timer (drawer dismiss after leaving) is 450 ms (springClose.interval).
-
-- **DRAG-72** Group spring path extends beyond the drawer: reach = drawer.gap + barExtent + Style.space(8), margin = Style.space(12). Code: Bar.qml onSpringPath()
-
-- **DRAG-73** The drag gesture is not user-configurable; key bindings for drag interaction (if any) are not implemented; drag is always pointer-driven.
+- **DRAG-74** Pressing and holding the clock's (centre anchor) empty area for 200 ms, or pressing it and moving 4 px, lifts the bar: an indicator shows on each screen edge, the one nearest the pointer (by the screen's diagonals) lights, and releasing writes `bar.position` to that edge (nothing if it is the current edge). Code: Bar.qml `CenterGestureArea`, `nearestScreenEdge()`; position: layout-zones.md ZONE-38.
 
 ## Doc drift
 
-None. CONTEXT.md describes the architecture accurately with correct timing values (180 ms settle, 90 ms correction, 150–260 ms ease range, 400 ms spring, 3 px dead zone). README.md describes Preferences Layout drag as a separate concern.
+None found: CONTEXT.md (lines 73, 111) says main-bar drops set Always shown and drawer drops set Managed, as the code does.
 
 ## Open questions
 
-None at this time. All behaviors are derived from code and tests without ambiguity.
+- `HighlightModel.pill()` (and DRAG-63..66's old wording) is not called anywhere; the bar's highlight comes from CellModel. Remove it or keep it as test-only?
+- DRAG-4: should a bar drag end the bar's keyboard mode? Today it does not.

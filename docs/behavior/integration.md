@@ -1,183 +1,238 @@
 # Integration behaviors
 
-Powerbar integrates with the Omarchy shell runtime, configuration system, and multi-monitor desktop. This area covers startup initialization, configuration healing and validation, widget registry healing, bar-off toggle, IPC endpoints, multi-monitor support, and compatibility with Omarchy bar commands and config keys.
+How Powerbar meets the Omarchy shell: manifest, startup, `shell.json` keys,
+config healing, the registry heal, compatibility with Omarchy's own bar
+commands, the whole `omarchy-shell powerbar` command line (IPC), and several
+monitors. Observable through the screen, `~/.config/omarchy/shell.json`, and
+command output. Removed IDs (internal plumbing with nothing to observe) are
+not reused.
 
-**Sources:** Bar.qml (540–589, 2860–2869, 603–628, 745–769, 1975–1980), PluginApiSync.qml, GeometryObserver.qml, CaptureQueue.qml, OmarchyIcons.js, manifest.json, tests/startup-probe.cjs, README.md ("Module catalogue", "Custom user modules", "Bar properties available to widgets", "Known limitations"), stock bar `/usr/share/omarchy/shell/plugins/bar/Bar.qml`, `/usr/share/omarchy/bin/omarchy-bar`, `/usr/share/omarchy/bin/omarchy-toggle-bar`.
+**Sources:** Bar.qml (IpcHandler `powerbar` at 561, `omarchy.bar` at 2906;
+`ensureInstanceIds`, `checkRegistry`, `healAppearance`, `pruneGroupMembers`),
+BarCli.qml, CliModel.js, BarModel.js `options()`, ManagedModel.js
+`healVisibility()`, AppearanceModel.js, GroupsModel.js, manifest.json,
+tests/cli.test.cjs; stock `/usr/share/omarchy/bin/omarchy-bar`,
+`omarchy-toggle-bar`, `omarchy-shell-config`.
 
 ## Plugin manifest
 
-- **INTEG-1** The plugin manifest declares `schemaVersion: 1`, `id: "p0werj0int.powerbar"`, `name: "Powerbar"`, `version: "1.0.0"`, author `"p0werj0int"`, license `"MIT"`, description `"Status bar with widgets"`, `kinds: ["bar"]`, and `entryPoints.bar: "Bar.qml"`.
-- **INTEG-2** The manifest declares `omarchy.clonedFrom: "omarchy.bar"` to record that this bar is a clone of the built-in bar.
+- **INTEG-1** `manifest.json` declares `schemaVersion: 1`, `id: "p0werj0int.powerbar"`, `name: "Powerbar"`, `version: "1.0.0"`, author `p0werj0int`, license `MIT`, description `Status bar with widgets`, `kinds: ["bar"]`, `entryPoints.bar: "Bar.qml"`.
+- **INTEG-2** The manifest declares `omarchy.clonedFrom: "omarchy.bar"`.
 
-## Startup and initialization
+## Startup
 
-- **INTEG-3** On plugin load, the bar reads its config from the `barConfig` property injected by the host shell (loaded from `~/.config/omarchy/shell.json` or `config/omarchy/shell.json` if the user has no file). Until injected, `barConfig` is an empty object `{}`.
-- **INTEG-4** If `barConfig` is not a plain object or is falsy, the bar uses `fallbackBarConfig` (position: "top", transparent: false, centerAnchor: "omarchy.clock", layout: { left: [], center: [], right: [] }).
-- **INTEG-5** After `Component.onCompleted`, the bar calls `applyBarConfig()` to apply the configuration and restarts the registry check timer (`registryCheck`).
-- **INTEG-6** The bar injects a `bar` property (exposing theme colors, position, vertical, barSize, and methods like `run()`, `showTooltip()`, `requestPopout()`), along with `moduleName` and `settings`, into each instance of custom QML widgets and command widgets.
-- **INTEG-7** When injected by the host, `pluginRegistry` (read-only registry view) is present for third-party full bars; the built-in bar declares it but does not otherwise use it.
+- **INTEG-3** The bar draws from the `bar:` subtree of `~/.config/omarchy/shell.json`, which the host injects as `barConfig` on every reload; Powerbar changes the file only through the host's `mutateShellConfig` (INTEG-101..103). Until injected, `barConfig` is `{}`.
+- **INTEG-4** If `barConfig` is not a plain object the bar uses `{position: "top", transparent: false, centerAnchor: "omarchy.clock", layout: {left: [], center: [], right: []}}`. Code: `fallbackBarConfig`.
+- **INTEG-5** On load `applyBarConfig()` runs and the registry check timer starts (INTEG-29). Code: `Component.onCompleted`.
+- **INTEG-6** Command and QML widgets are given `bar`, `moduleName` and `settings` (INTEG-95).
+- **INTEG-65** One bar window per screen in `Quickshell.screens`; each has its own keyboard handler and drawer. Code: `Variants { model: Quickshell.screens }`.
 
-## Config file and shell.json keys
+## shell.json keys
 
-- **INTEG-8** The bar config persists under the `bar:` subtree of `~/.config/omarchy/shell.json`. All `bar.*` config keys are read from `barConfig` (injected by the host on each reload). The bar never directly reads shell.json; the host owns file IO.
-- **INTEG-9** `barConfig.position` specifies the bar position; valid values are `"top"`, `"bottom"`, `"left"`, `"right"`. Default is `"top"`.
-- **INTEG-10** `barConfig.transparent` (boolean, default false) makes the bar background fully transparent (no theme background color).
-- **INTEG-11** `barConfig.centerAnchor` (string, default "omarchy.clock") specifies which widget is anchored to the center if the bar is wider than needed.
-- **INTEG-12** `barConfig.layout` (object with keys "left", "center", "right", each an array) specifies widget order in each zone. Invalid or missing zones are treated as empty arrays.
-- **INTEG-13** `barConfig.powerbarAutoHide` (boolean, default false) enables auto-hiding of always-shown widgets when no activity is detected.
-- **INTEG-14** `barConfig.powerbarAutoHideActivity` (boolean, default true) enables auto-hiding in response to activity events when auto-hide is on.
-- **INTEG-15** `barConfig.powerbarOnDemand` (enum: "drawer" or "inline", default "drawer") controls whether on-demand (managed) widgets appear in a drawer or inline expansion.
-- **INTEG-16** `barConfig.powerbarManagedRevealSeconds` (number, default 2.5, clamped to 1–60) controls the managed drawer reveal animation duration in seconds.
-- **INTEG-17** `barConfig.powerbarManagedEntryGraceSeconds` (number, default 1, clamped to 1–15) controls the managed drawer entry hold time in seconds.
-- **INTEG-18** `barConfig.powerbarManagedExitGraceSeconds` (number, default 1, clamped to 1–15) controls the managed drawer exit hold time in seconds.
-- **INTEG-19** `barConfig.powerbarKeyLegend` (boolean, default true) shows the key legend in keyboard mode.
-- **INTEG-20** `barConfig.powerbarDotsBadge` (boolean, default true) shows activity badges on zone dots.
-- **INTEG-21** `barConfig.powerbarAnimations` (boolean, default true) enables animations when false.
-- **INTEG-22** `barConfig.powerbarLargeBar` (boolean, default false) increases bar height by 12 pixels.
-- **INTEG-23** `barConfig.powerbarSpacingMode` (enum: "gaps" or "slots", default "slots") controls whether widgets are separated by fixed gaps or elastic slots.
-- **INTEG-24** `barConfig.powerbarSpacing` (number) controls the spacing scale passed to `Style.space()`.
-- **INTEG-25** `barConfig.powerbarAppearance` (object) stores appearance overrides (shape/surface/shadow/blur/backdrop per theme). Default is absent; appearance falls back to theme tokens.
-- **INTEG-26** `barConfig.powerbarGroups` (object) stores group definitions (names, membership, order). Default is absent; invalid group members are pruned.
+Defaults are what a config that never set the key gets (`BarModel.options()`,
+`AppearanceModel.ranges`, `ManagedModel.seconds()` calls). Nothing here is
+written back by merely starting Powerbar. Each key also has a CLI setting
+name (INTEG-121).
 
-## Widget registry healing
+- **INTEG-9** `bar.position` is `top`, `bottom`, `left` or `right`; anything else is read as `top`. Default `top`. Code: `normalizePosition`.
+- **INTEG-10** `bar.transparent: true` (Omarchy's own key) clears the bar's surface in every style and Theme text takes the wallpaper-derived colour Omarchy computes; drawers keep their surface; an auto-hiding bar keeps its readable minimum (see appearance.md). Default `false`.
+- **INTEG-11** `bar.centerAnchor` is the plugin id kept at the centre of the centre zone. Default none (`""`; `omarchy.clock` only in the INTEG-4 fallback).
+- **INTEG-12** `bar.layout` has `left`, `center`, `right` arrays; a missing or non-array zone is treated as empty.
+- **INTEG-13** `bar.powerbarAutoHide` (bool, default `false`) auto-hides the bar.
+- **INTEG-14** `bar.powerbarAutoHideActivity` (bool, default `true`; only `false` turns it off) lets activity reveal an auto-hidden bar.
+- **INTEG-15** `bar.powerbarOnDemand` is `drawer` or `inline` (only the exact string `inline` selects inline; default `drawer`).
+- **INTEG-16** `bar.powerbarManagedRevealSeconds`: how long an activity reveal lasts, default 2.5 s, clamped 1 to 60 (non-numbers give the default). Behavior in on-demand-drawers.md.
+- **INTEG-17** `bar.powerbarManagedEntryGraceSeconds`: default 1 s, clamped 1 to 15.
+- **INTEG-18** `bar.powerbarManagedExitGraceSeconds`: default 1 s, clamped 1 to 15 (also the inline collapse delay).
+- **INTEG-19** `bar.powerbarKeyLegend` (bool, default `true`; only `false` hides it) shows the key legend in the keyboard mode.
+- **INTEG-20** `bar.powerbarDotsBadge` (bool, default `true`; only `false` hides) shows badges on the zone dots.
+- **INTEG-21** `bar.powerbarAnimations` (bool, default `true`; only `false` turns animations off).
+- **INTEG-22** `bar.powerbarLargeBar` (bool, default `false`) makes the bar thicker by `2 x Style.space(6)` over the theme's size. Code: `barSizeFor`.
+- **INTEG-23** `bar.powerbarSpacingMode` is `slots` or `gaps` (only the exact string `gaps` selects gaps; default `slots`).
+- **INTEG-24** `bar.powerbarSpacing`: number 0 to 16 in steps of 1, default 4, clamped. Code: `AppearanceModel.ranges.spacing`.
+- **INTEG-25** `bar.powerbarAppearance` holds shape/surface/shadow values per scope and theme (appearance.md); absent means the theme's own.
+- **INTEG-26** `bar.powerbarGroups` holds the groups (groups.md); members no longer in the layout are dropped (INTEG-40).
+- **INTEG-109** `bar.powerbarStyle` is `flat`, `floating` or `islands`; absent: `islands` if the older `powerbarIslands` is `true`, else `flat`. Choosing a style removes `powerbarIslands`.
+- **INTEG-110** `bar.powerbarReadableOverlay` (bool, default `true`; only `false` turns it off).
+- **INTEG-111** `bar.powerbarVisibilityDefault: "shown"` is the marker for a config on the current visibility rule (INTEG-112). A widget entry's `powerbarVisibility` is `shown`, `managed` or `hidden`.
 
-- **INTEG-27** When the bar switches to a different bar plugin (or on first install), the Omarchy shell's widget registry copy can point at components the shell has since rebuilt and destroyed, leaving every widget as a placeholder until healing.
-- **INTEG-28** `registryStale()` returns true if any registered widget lacks a component (id has `component: undefined` or `component: null`).
-- **INTEG-29** On initialization and whenever `barWidgetRegistry.revision` changes or the registry is injected, the bar starts a 2500 ms debounce timer (`registryCheck`).
-- **INTEG-30** When the timer fires, `checkRegistry()` is called. If the registry is stale and less than 60000 ms (60s) has elapsed since the last rescan, no action is taken (guard prevents repeated rescans within 60s).
-- **INTEG-31** If the registry is stale and the 60s guard has elapsed, the bar writes the current timestamp to a file at `$XDG_RUNTIME_DIR/powerbar-registry-rescan` (or `/tmp/powerbar-registry-rescan` if `XDG_RUNTIME_DIR` is unset), logs "powerbar: widget registry is stale after a bar switch; asking the shell to rescan plugins", and calls `omarchy-shell shell rescanPlugins` (a shell command that reloads all plugins, including Powerbar).
-- **INTEG-32** The registry rescan guard file is a runtime file so the limit survives bar reloads but resets on shell restart.
+## Config healing
 
-## Config healing and cleanup
+- **INTEG-112** A widget with no saved `powerbarVisibility` is On the bar, third-party widgets included (as on Omarchy's bar); a widget whose registry entry is not loaded yet is "pending" and the Powerbar CLI reports it as `shown`. Code: `ManagedModel.mode`; `BarCli.liveMode`.
+- **INTEG-113** One-time heal (`healVisibility`), written in the same config write that first assigns `powerbarInstance` ids: on a config Powerbar already ran on (any `powerbar*` bar key, or any entry with `powerbarInstance`) that has no `powerbarVisibilityDefault: "shown"`, each entry that is not from Omarchy (command or QML module, or a plugin whose registry metadata is not first-party, or by id not starting `omarchy.` while the registry has not loaded it) and has no saved `powerbarVisibility` gets `"managed"`, so it stays On demand as before; then the marker `powerbarVisibilityDefault: "shown"` is written. A fresh config (no `powerbar*` key, no instance id) gets only the marker; a marked config is left alone. Code: `Bar.ensureInstanceIds`, `ManagedModel.healVisibility`.
+- **INTEG-114** Every layout entry gets a unique `powerbarInstance` key (`pw-<time>-<random>`); entries with a missing or duplicated key are re-keyed in one write. Code: `ensureInstanceIds`.
+- **INTEG-115** A widget with nothing to show (no updates, Bluetooth off, empty tray) hides, as on Omarchy's bar, unless it was put On the bar by choice (explicit `powerbarVisibility: "shown"`) or is On demand, where it keeps a fallback icon. Code: `ManagedModel.placeholder`.
+- **INTEG-33** When the theme name changes (`~/.local/state/omarchy/current/theme.name`), `healAppearance()` runs.
+- **INTEG-34** `healAppearance()` does nothing unless the bar can write config, the theme name is known, and `AppearanceModel.legacyPresent(barConfig)` is true (any of `powerbarForeground`, `powerbar[Main]IslandRounding/IslandBorders/IslandBorderWidth/Blur/BackgroundOpacity/Shadow/ShadowSize/ShadowOpacity`, `powerbarMainReadableOverlay`, `powerbarExtendedReadableOverlay`).
+- **INTEG-35** When it runs, those flat keys are removed and their values move into `powerbarAppearance` as the current theme's own values; other themes start on Theme. Code: `AppearanceModel.migrate`.
+- **INTEG-36** `pruneAppearanceThemes()` removes `powerbarAppearance.themes.<name>` entries for themes not installed (not in `$OMARCHY_PATH/themes` or `~/.config/omarchy/themes`, and not the current theme); empty containers go too. It does nothing until both folders were listed, so a partial list never prunes.
+- **INTEG-37** `healAppearance` is also scheduled whenever a `barConfig` arrives with legacy keys; **INTEG-38** `pruneAppearanceThemes` whenever a `barConfig` arrives once the theme list is known, and when the list is read.
+- **INTEG-40** When a `barConfig` arrives and a group lists a member (instance key) not in the layout (widget uninstalled), `pruneGroupMembers()` writes `powerbarGroups` back without those members. Skipped while the bar cannot write or edits are queued. `group:`-prefixed members are not dangling. Nothing asks the user. Code: `GroupsModel.danglingMembers`.
 
-- **INTEG-33** When the theme name changes, the bar calls `healAppearance()` to clean up legacy appearance config.
-- **INTEG-34** `healAppearance()` is a no-op if the bar cannot write config, the theme name is not set, or `AppearanceModel.legacyPresent(barConfig)` returns false.
-- **INTEG-35** If appearance config healing is needed, the bar calls `writeConfig()` and logs "powerbar: healing appearance config" (once per theme transition), then schedules `pruneAppearanceThemes()`.
-- **INTEG-36** `pruneAppearanceThemes()` removes unused theme entries from the appearance config. It is a no-op if no themes are installed, the bar cannot write config, or no stale themes are detected.
-- **INTEG-37** When the bar config is applied at startup or when injected, if `AppearanceModel.legacyPresent(barConfig)` returns true, `healAppearance()` is scheduled via `Qt.callLater()`.
-- **INTEG-38** When installed themes change, `pruneAppearanceThemes()` is scheduled via `Qt.callLater()` if theme entries are present.
-- **INTEG-39** When `moduleSlots` changes, `prunePluginBarApis()` is scheduled via `Qt.callLater()` to remove API references for widgets no longer in the layout.
-- **INTEG-40** When the bar config is applied at startup, if `GroupsModel.danglingMembers(barConfig)` returns true (group members reference widgets not in the layout), the bar schedules `pruneGroupMembers()` via `Qt.callLater()`.
-- **INTEG-41** `pruneGroupMembers()` calls `writeConfig()` with a function that updates `config.bar.powerbarGroups` to remove dangling members.
+## Widget registry heal
 
-## Bar-off toggle integration
-
-- **INTEG-42** The bar reads the `bar-off` flag from the Omarchy runtime toggles directory (watched by `FileView`). When the flag is set, `barOffFlag` property becomes true.
-- **INTEG-43** `barHidden` is computed as `barOffFlag && !barKeysItem.active`. When the bar is hidden by the flag but not by keyboard mode, all bar panels park off-screen without an exclusion zone.
-- **INTEG-44** The stock bar shell command `omarchy toggle bar [toggle|on|off]` sets/unsets the flag. To handle flag changes that arrive in quick succession (which can strand the bar off-screen), Powerbar receives the `omarchy.bar syncHidden()` IPC call from the shell.
-- **INTEG-45** When `omarchy.bar syncHidden()` is called, `barHiddenProbe.running` is set to true to re-read the flag even if the FileView watch has gone quiet.
-
-## IPC endpoints (omarchy-shell powerbar <fn>)
-
-The bar publishes these IPC endpoints for shell commands `omarchy-shell powerbar <fn>`:
-
-### Control endpoints
-
-- **INTEG-46** `preferences()` — Opens the Preferences window on the focused screen (or the first screen if no focused screen is found). Reads `root.focusedScreenName()` to find the screen.
-- **INTEG-47** `closePreferences()` — Closes the Preferences window.
-- **INTEG-48** `preferencesPage(page: int)` — Opens Preferences and switches to the specified page (1-indexed). If General (page 3) or Appearance (page 4) is requested, they open the combined Bar page (page index clamped to available pages). Uses `preferencesPane.pages.length` to find the max page.
-- **INTEG-49** `managed(zone: string)` — Opens the managed drawer for the specified zone (e.g., "left", "center", "right") on the focused screen's bar.
-- **INTEG-50** `closeManaged()` — Closes the open managed drawer.
-- **INTEG-51** `keys()` — Toggles keyboard mode (same as Super+B by default).
-- **INTEG-52** `group(id: string)` — Opens the drawer for the group with the specified id on the focused screen's bar. Searches `moduleSlots` for a group header entry matching the id and the focused screen name, then opens its drawer.
-- **INTEG-53** `toggleGroup(id: string)` — Opens the group drawer if not open, or closes it if it is open and is showing the specified group. Returns the bar to the cursor if closing a panel.
-- **INTEG-54** `groupsPreferences()` — Opens Preferences and sets the page to 2, which opens the Bar page (not Groups; should be page 1). Code: `preferencesPane.page = 2`.
-
-### Status endpoints (return JSON strings)
-
-- **INTEG-55** `keysStatus()` — Returns a JSON string of the result of `root.barKeys.status()`, containing keyboard mode state (current cursor, active stops, search results, name card visibility, etc.).
-- **INTEG-56** `drawerStatus()` — Returns a JSON string describing the open managed drawer (or `{"opened": false}` if none). When open, includes: `opened`, `aside` (shifted aside), `opacity`, `zone`, `groupId`, `memberDisplay`, `stripVertical`, `surfaceRole`, `surfaceRadius`, `themeRadius`, `crossLength`, `desiredCross`, `reveal`, `width`, `height`, `entered`, `sourceHovered`, `hovered`, `keyboard`, `cursor`, `selectionVisible`, `focused`, `ids` (array of module names), `count`.
-- **INTEG-57** `managedStatus()` — Returns a JSON array of on-demand widgets, each with: `id`, `key` (instance key), `zone`, `revealed` (activity visible), `mainVisible`, `inDrawer`, `panelOpen`, `observing` (activity target count).
-- **INTEG-58** `popupStatus()` — Returns a JSON array of open widget panels, each with: `position` (bar position), `x`, `y`, `width`, `height`, `screenWidth`, `screenHeight`, `gap`, `barExtent`.
-
-## Plugin API sync (PluginApiSync.qml)
-
-- **INTEG-59** `PluginApiSync` distributes `layoutConfig` and click targets to each plugin's API instance on demand. It stores a map of plugin IDs to `clickTargets` arrays and updates each API's `clickTargets` property whenever targets change or are added.
-- **INTEG-60** When a widget's `popout` property changes (which panel is open), `updatePopout(api)` is called for each plugin API. If Powerbar owns the popout, `api.activePopout` is set to the popout object; if a foreign popout is open, `api.foreignPopoutMarker` is set; otherwise it is null.
-- **INTEG-61** When `layoutJSON` property changes, every plugin API's `layoutConfig` property is updated by parsing the new JSON.
-- **INTEG-62** `addTarget(id, target)` appends a target (e.g. a click-accepting item) to the targets list for a plugin id if not already present, and updates the API immediately if it is registered.
-- **INTEG-63** `removeTarget(id, target)` removes a target from the list for a plugin id and updates the API. If the list becomes empty, the entire entry is deleted.
-- **INTEG-64** `forget(id)` deletes all targets for a plugin id (called when a plugin is unloaded).
-
-## Multi-monitor support
-
-- **INTEG-65** The bar creates one panel instance per screen in `Quickshell.screens` using `Variants { model: Quickshell.screens }`. Each screen gets its own bar and keyboard handler.
-- **INTEG-66** `focusedScreenName()` returns the screen name of the Hyprland focused monitor, or an empty string if no monitor is focused.
-- **INTEG-67** IPC calls to `preferences()`, `managed()`, `group()`, and `toggleGroup()` target the focused screen. If no focused screen is found, they fall back to the first screen.
-- **INTEG-68** `captureWidgetImages(screen, done, keys, valid)` captures live widget images for the specified screen only. Jobs are keyed by screen name + instance key, and only widgets on that screen are included.
-- **INTEG-69** When initializing or capturing images, if `Quickshell.screens.length > 0`, the bar uses the first screen for default operations.
-- **INTEG-70** `sameWindow(left, right)` checks whether two items share the same screen (by comparing `screen.name` properties).
-
-## Geometry observer (GeometryObserver.qml)
-
-- **INTEG-71** `GeometryObserver` watches an item's geometry and that of all its ancestors (including transforms) for changes. It connects to 13 signals: `xChanged`, `yChanged`, `visibleChanged`, `widthChanged`, `heightChanged`, `scaleChanged`, `xScaleChanged`, `yScaleChanged`, `angleChanged`, `originChanged`, `rotationChanged`, `contentXChanged`, `contentYChanged`, and `parentChanged`.
-- **INTEG-72** Geometry changes are collected into one deferred notification (via `Qt.callLater()`) per layout pass. When the `changed()` signal fires, both the target item and its ancestors' geometries are current.
-- **INTEG-73** On destruction, all signal connections are disconnected and the chain is cleared.
-
-## Capture queue (CaptureQueue.qml)
-
-- **INTEG-74** `CaptureQueue` serializes GPU image readbacks with a bounded queue (`limit` property, default 2). It ensures at most 2 readbacks are in flight at once.
-- **INTEG-75** `enqueue(jobs)` queues an array of capture jobs. Each job receives a unique `serial` number and is added to `pending`. The queue is pumped immediately.
-- **INTEG-76** A job is `current` (active) if its serial matches the latest recorded serial for its key and its validity guard (if present) returns true.
-- **INTEG-77** `start(job)` calls `job.prepare()` if defined; if it returns false, the job is abandoned. Otherwise, `job.item.grabToImage()` is called to capture the item. If grabbed, the result is passed to `job.accept()` only if the job is still current.
-- **INTEG-78** When a readback completes (or fails), `finish(job, result)` is called. The in-flight count is decremented, and the queue is pumped via `Qt.callLater()`.
-- **INTEG-79** Multiple `enqueue()` calls to the same job key replace the previous job without executing it (deduplication by key).
+- **INTEG-27** After a bar switch (or first install) the shell's per-bar registry copy can hold widgets whose component was destroyed, leaving every widget a placeholder.
+- **INTEG-28** The registry is stale if any registered widget has no component. Code: `registryStale()`.
+- **INTEG-29** 2500 ms after the registry is injected or its `revision` changes (and at load), `checkRegistry()` runs.
+- **INTEG-30** If stale and the stamp file holds a time less than 60 000 ms ago, nothing happens.
+- **INTEG-31** If stale and the guard has passed, it writes the time to `$XDG_RUNTIME_DIR/powerbar-registry-rescan` (`/tmp/...` if unset), logs `powerbar: widget registry is stale after a bar switch; asking the shell to rescan plugins`, and runs `omarchy-shell shell rescanPlugins`.
+- **INTEG-32** The guard is a runtime file, so it survives the rescan's plugin reload and resets on reboot.
 
 ## Omarchy bar compatibility
 
-- **INTEG-80** Powerbar honours the `omarchy.bar` stock bar's `syncHidden()` IPC endpoint to stay synchronized with the bar-off flag.
-- **INTEG-81** Powerbar does NOT expose or respond to the stock bar's `move`, `put`, `set` IPC endpoints (for widget layout edits). Widget layout is managed entirely through Preferences and drag-and-drop, not through shell commands.
-- **INTEG-82** The `omarchy bar` command (position, transparent, use, reset, defaults, put, move, set) is processed by the Omarchy shell and writes to `shell.json`. Powerbar reads these changes when the host re-injects `barConfig` after shell.json is reloaded.
-- **INTEG-83** `omarchy bar position` updates the `bar.position` key in shell.json. Powerbar re-renders when barConfig is re-injected.
-- **INTEG-84** `omarchy bar transparent` updates the `bar.transparent` key in shell.json.
-- **INTEG-85** `omarchy bar use <id>` switches to a different bar plugin by updating shell.json. Powerbar is replaced by the other bar in this case (no cross-bar compatibility).
-- **INTEG-86** `omarchy bar reset` restores the stock Omarchy bar.
-- **INTEG-87** `omarchy bar defaults` restores the default layout and disables customizations.
-- **INTEG-88** `omarchy bar put <id> [placement]` puts a widget on the bar. Powerbar reads the new layout from barConfig when injected; if it is invalid or refers to unregistered widgets, fallback zones are used.
-- **INTEG-89** `omarchy bar move <id> [placement]` moves a widget. Powerbar does not directly process this command but reads the updated layout from barConfig.
-- **INTEG-90** `omarchy bar set <id> <key> <value>` sets a per-widget option. Powerbar reads this via barConfig but does not offer a corresponding IPC endpoint; the user must use the Preferences UI or shell commands.
+Omarchy's commands edit `shell.json` (or ask the host shell) and Powerbar
+follows the re-injected `barConfig`; none reaches Powerbar's IPC.
+
+- **INTEG-42** The flag file `~/.local/state/omarchy/toggles/bar-off` means the bar is off; a watch on the `toggles` directory re-reads it.
+- **INTEG-43** With the flag set, the bar parks just past its screen edge with no reserved space; while the keyboard mode is active the bar shows anyway and the flag is untouched. Code: `barHidden`.
+- **INTEG-44** `omarchy toggle bar [toggle|on|off]` flips the flag, then calls `omarchy-shell -q omarchy.bar syncHidden`.
+- **INTEG-45** `omarchy.bar syncHidden` (IPC target `omarchy.bar`, no output) re-reads the flag at once, even if the directory watch went quiet, so a quick on/off pair cannot strand the bar off screen.
+- **INTEG-116** While `bar.powerbarAutoHide` is on, `omarchy toggle bar` does not hide the bar: the flag reads as off again and the bar slides out as at its edge, held while the toggle's key (or any modifier if the bind is not found) is down, up to 60 s, and slides away the usual delay after release (a tap: at once). Code: `revealFromToggle`.
+- **INTEG-80** `omarchy bar position <top|bottom|left|right>` writes `bar.position`; the bar moves.
+- **INTEG-84** `omarchy bar transparent <true|false|toggle>` writes `bar.transparent` (toggle: `!= true`); the bar clears or fills (INTEG-10). Omarchy's menu Transparency and the shell's `toggleBarTransparency` do the same. Choosing an opacity in Preferences ends the transparency and the slider shows Clear while it is on.
+- **INTEG-85** `omarchy bar use <id>` sets `bar.id`; `use omarchy.bar`, `use default`, `use built-in` and `omarchy bar reset` remove `bar.id` (Powerbar is replaced by that bar). An unknown id: `omarchy bar: <id> is not a known bar option; run 'omarchy plugin list'` (Omarchy's text).
+- **INTEG-87** `omarchy bar defaults` replaces the whole `bar` object with Omarchy's default (position, transparent, layout, centerAnchor; no `bar.id`), so Powerbar's `powerbar*` keys and groups go and the stock bar becomes active; installed dropbox and tailscale widgets are re-added after `omarchy.workspaces`/`omarchy.tray`.
+- **INTEG-88** `omarchy bar put <id> [section] [--before|--after <id>]` has the shell place the widget (`putBarWidget`); a widget already on the bar stays. Powerbar shows it on the next injection with a `powerbarInstance` (INTEG-114) and no saved visibility, so On the bar (INTEG-112).
+- **INTEG-89** `omarchy bar move <id> ...` has the shell move the widget (`moveBarWidget`); Powerbar follows the new layout.
+- **INTEG-90** `omarchy bar set <id> <key> <value>` has the shell set the entry's option (`setBarWidget`); Powerbar's own `powerbar*` entry keys are untouched. Powerbar's equivalent is INTEG-131.
+- **INTEG-81** Powerbar has no `put`, `move` or `set` function of its own; its own placement commands are `setWidget` (INTEG-131).
 
 ## Custom widget modules
 
-- **INTEG-91** Custom widget modules are defined in shell.json under `bar.layout.<zone>` entries with arbitrary `id` values (not namespaced). Each entry must have a `type` field: `"command"` for shell-executed output or `"qml"` for a custom QML widget.
-- **INTEG-92** Command modules have `type: "command"`, `exec: "/path/to/script"` (supports `~` for home), `interval: <seconds>` (refresh rate), `tooltip`, and `onClick` (shell command). They may output plain text or Waybar-style JSON (`{"text":"…","tooltip":"…","class":"…"}`).
-- **INTEG-93** QML modules have `type: "qml"` and an optional `source` path (defaults to `~/.config/omarchy/bar/modules/<id>.qml`). They are loaded as `Item` components and receive `bar`, `moduleName`, and `settings` properties injected.
-- **INTEG-94** Custom QML widgets must define `implicitWidth` and `implicitHeight`. The bar sets the height to `bar.barSize` (26 for horizontal, 38 with large bar) and lets width be determined by the widget.
-- **INTEG-95** The `bar` property injected into custom widgets exposes: `foreground`, `background`, `urgent` (theme colors), `fontFamily`, `position`, `vertical`, `barSize`, `run(command)`, `shellQuote(value)`, `showTooltip(target, text)`, `hideTooltip(target)`, `requestPopout(owner)`, `releasePopout(owner)`.
-- **INTEG-96** Custom widgets are loaded dynamically via the registry. If a widget is unregistered or its component is not available (after a bar switch), it shows as a placeholder until the registry is healed and the shell resumes.
+- **INTEG-91** Entries in `bar.layout.<zone>` with a non-plugin `id` are custom modules; each needs `type`: `command` or `qml`.
+- **INTEG-92** `command` modules take `exec` (`~` expands), `interval` seconds, `tooltip`, `onClick`; output is plain text or Waybar-style JSON `{"text","tooltip","class"}`.
+- **INTEG-93** `qml` modules take optional `source` (default `~/.config/omarchy/bar/modules/<id>.qml`), are loaded as an `Item`, and receive `bar`, `moduleName`, `settings`.
+- **INTEG-94** A QML module defines `implicitWidth` and `implicitHeight`; the bar sets its height to the bar size.
+- **INTEG-95** The injected `bar` exposes `foreground`, `background`, `urgent`, `fontFamily`, `position`, `vertical`, `barSize`, `run(cmd)`, `shellQuote(v)`, `showTooltip(target, text)`, `hideTooltip(target)`, `requestPopout(owner)`, `releasePopout(owner)`.
+- **INTEG-96** A widget whose component is not available draws as a placeholder until the registry heal (INTEG-27..32) hands it one.
 
-## Icon generation and Omarchy integration
+## Command line: `omarchy-shell powerbar <function> [args]`
 
-- **INTEG-97** `OmarchyIcons.js` is a generated file (by `tools/omarchy-icons.py`) containing two arrays: `logos` (Omarchy-specific icons from its font) and `glyphs` (Nerd Font icons used in Omarchy). Each glyph records its codepoint, Nerd Font name, and use count.
-- **INTEG-98** The icon data is read-only and used by widgets to display themed icons. It is regenerated from the Omarchy installation and active fonts whenever the icon tool runs.
+`omarchy shell powerbar ...` is the same. Omarchy offers no way for a plugin
+to add an `omarchy` subcommand, so this is the surface. Function names are
+case-sensitive. Arguments are plain strings; a JSON value is the one argument
+after the setting or widget (quote it for the shell). `help` lists every
+function; a test keeps `help` and the IpcHandler in step (the same 31 names).
+Code: Bar.qml IpcHandler; BarCli.qml; CliModel.js.
 
-## PluginApiSync layout distribution
+### Answers
 
-- **INTEG-99** When `layoutConfig` changes (via a config edit, bar reload, or layout reorder), `PluginApiSync` parses the JSON and distributes the new config to all registered plugin APIs via their `layoutConfig` property.
-- **INTEG-100** Each plugin API receives a copy of the layout, allowing it to query and validate widget placement independently.
+- **INTEG-117** Functions that write answer `ok`, or `error: <reason>` (a failure is text, not an exit code, since IPC returns the string). `get`, `status` and listings answer JSON on one line.
+- **INTEG-118** A write is validated whole first and then queued exactly as Preferences queues it (300 ms debounce, INTEG-101), so what the CLI changes shows on the bar and in an open Preferences at once, and `ok` means queued, not yet on disk.
+- **INTEG-119** If the shell gives Powerbar no way to save, every write answers `error: the shell gives Powerbar no way to save its settings` (checked after the setting name is found, before the value). If the write is refused when queued: `error: Could not save. Check that shell.json is writable.`
+
+### Setting values
+
+- **INTEG-120** A value is parsed as JSON when it parses (`true`, `12`, `"inline"`, `{...}`), else taken as text (`inline`, `SUPER + B`); an empty argument is the empty text. A switch also takes `on` or `off`.
+- **INTEG-121** A setting is named by its CLI name or by its `shell.json` key (`autoHide` or `powerbarAutoHide`); `shortcut.<target>` names a shortcut. Unknown: `error: no setting <name>; omarchy-shell powerbar settings lists them`.
+
+Settings (`settings` lists them as JSON `{name, type, key, values|min,max,step}`;
+`key` is `bar.<key>`, or `bar.powerbarAppearance` for the appearance ones, or
+`bar.powerbarShortcuts` for `shortcut.<target>`). `get` answers the value the
+bar uses now, the stored value or its default:
+
+| Name | Type, values | shell.json key | Default |
+|---|---|---|---|
+| `position` | choice top, bottom, left, right | `position` | top |
+| `transparent` | bool | `transparent` | false |
+| `centerAnchor` | text (plugin id, `""` for none) | `centerAnchor` | `""` |
+| `style` | choice flat, floating, islands | `powerbarStyle` | flat |
+| `largeBar` | bool | `powerbarLargeBar` | false |
+| `spacingMode` | choice slots, gaps | `powerbarSpacingMode` | slots |
+| `spacing` | number 0 to 16, step 1 | `powerbarSpacing` | 4 |
+| `autoHide` | bool | `powerbarAutoHide` | false |
+| `autoHideActivity` | bool | `powerbarAutoHideActivity` | true |
+| `readableOverlay` | bool | `powerbarReadableOverlay` | true |
+| `animations` | bool | `powerbarAnimations` | true |
+| `onDemand` | choice drawer, inline | `powerbarOnDemand` | drawer |
+| `dotsBadge` | bool | `powerbarDotsBadge` | true |
+| `keyLegend` | bool | `powerbarKeyLegend` | true |
+| `revealSeconds` | number 1 to 60 | `powerbarManagedRevealSeconds` | 2.5 |
+| `entryGraceSeconds` | number 1 to 15 | `powerbarManagedEntryGraceSeconds` | 1 |
+| `exitGraceSeconds` | number 1 to 15 | `powerbarManagedExitGraceSeconds` | 1 |
+| `shape.scope`, `surface.scope`, `shadow.scope` | choice theme, all, this | `powerbarAppearance` | `all` when shared values exist for the tile, else `theme` |
+| `shape.rounding` | number 0 to the bar's pill limit (`ceil(barSize / 2 / spacing scale)`, so it depends on thickness), step 1 | `powerbarAppearance` | theme's corner radius |
+| `shape.borders` | bool | `powerbarAppearance` | true |
+| `shape.borderWidth` | number 0.5 to 3, step 0.5 | `powerbarAppearance` | theme's border width |
+| `surface.opacity` | number 0 to 100, step 5 | `powerbarAppearance` | theme's bar background alpha (100 if none) |
+| `surface.blur` | bool | `powerbarAppearance` | false |
+| `surface.text` | choice theme, light, dark | `powerbarAppearance` | theme |
+| `shadow.enabled` | bool | `powerbarAppearance` | false |
+| `shadow.softness` | number 2 to 24, step 1 | `powerbarAppearance` | 16 |
+| `shadow.strength` | number 5 to 60, step 5 | `powerbarAppearance` | 30 |
+| `shortcut.bar:keys`, `shortcut.group:<id>`, `shortcut.widget:<plugin id>` | keys text | `powerbarShortcuts` | see INTEG-125 |
+
+Setting names are those of Preferences. `set` of `style` also drops `powerbarIslands`.
+
+### Functions
+
+- **INTEG-122** `status` answers JSON `{bar, version, theme, settings: {<name>: value}, widgets, groups, shortcuts, runtime}`; `runtime` is `{barOff, hidden, held, screens: [{screen, shown, peeking}], keys, drawer: {zone, group} | null, preferences: {open, page}}` (`page` is `Layout`, `Groups` or `Bar` while open, else `""`).
+- **INTEG-123** `get <setting>` answers the value as JSON (`"top"`, `true`, `4`; a shortcut: INTEG-125).
+- **INTEG-126** `set <setting> <value>` writes the setting: bar options through `bar.<key>`; `style` through the style writer; appearance tiles through Preferences' scope and look writers. Answers `ok` or one of these errors:
+  - `error: <name> is true or false` (switch), `error: <name> is one of <a, b, c>` (choice), `error: <name> is a text value`, `error: <name> is a number`, `error: <name> is from <min> to <max>`, `error: <name> moves in steps of <step>` (a numeric string such as `"4"` quoted is not a number).
+  - appearance look settings while the tile follows the theme: `error: <tile> follows the theme; set <tile>.scope to all or this first`.
+  - `scope` and `surface.text` before the theme is known: `error: the current theme is not known yet`.
+- **INTEG-127** `reset <setting>` returns it to its default: a bar option's key is deleted from `shell.json`; `style` deletes `powerbarStyle` and `powerbarIslands`; a scope returns to its default scope; a look value is deleted from the scope the tile follows (when the tile follows the theme: `ok`, nothing changes); `surface.text` returns to `theme`; a shortcut returns to its default (INTEG-125). Same unknown-setting and cannot-save errors.
+- **INTEG-128** `toggle <setting>` flips a bool setting (`true` becomes `false`, anything else becomes `true`); other types: `error: <name> is not a switch`.
+- **INTEG-129** `settings` answers the table above as a JSON array plus the entry `{name: "shortcut.<target>", type: "shortcut", key: "bar.powerbarShortcuts", targets: ["bar:keys", "group:<id>", "widget:<plugin id>"]}`.
+- **INTEG-130** `widgets` answers a JSON array, one per layout entry in layout order: `{id, instance, name, zone, index, visibility, group, centered, activityPeek, badgeProperty, urgentProperty, settings}`; `visibility` is `shown`, `managed` or `hidden` (as drawn now); `group` is the group id or `""`; `centered` is true for the centre widget named by `centerAnchor`; `settings` holds the entry's own options (everything except `id` and `powerbar*` keys).
+- **INTEG-131** `setWidget <widget> <json>` takes a widget by instance key, or by plugin id when only one is on the bar, and a JSON object with any of `zone` (`left`|`center`|`right`), `visibility` (`shown`|`managed`|`hidden`), `before` (a widget selector, or `""` for the zone's end), `group` (a group id or `""` for none), `activityPeek` (bool), `badgeProperty`, `urgentProperty` (property names, `""` for the default), `centered` (bool). The change lands whole or not at all. A widget that only changes visibility keeps its place; naming `before` or another `zone` moves it (a neighbour brings it to that zone; no neighbour: the zone's end). Errors:
+  - `error: name a widget by its id or instance`, `error: no widget <sel> in the layout`, `error: <sel> is on the bar <n> times; name one instance: <key>, <key>`
+  - `error: a widget change is a JSON object such as {"visibility":"managed"}`, `error: unknown field <f>; fields are zone, visibility, before, group, activityPeek, badgeProperty, urgentProperty, centered`
+  - `error: zone is one of left, center, right`, `error: visibility is one of shown, managed, hidden`, `error: before names a widget, or "" for the zone's end`, `error: group is a group's id, or "" for none`, `error: activityPeek is true or false` (same for `centered`), `error: badgeProperty is a property name, or "" for the default` (same for `urgentProperty`), `error: <value> is not a property name`
+  - `error: a widget can't go before itself`, `error: before names a widget in the <zone> zone, not <zone>`
+  - `error: centered is for a widget on the bar in the center zone`; `centered: false` on the anchor clears `centerAnchor`.
+- **INTEG-132** `groups` answers a JSON array: `{id, label, icon, iconFont, iconImage, iconTint, zone, before, visibility, face, tooltip (bool, or null if unset), badge, badgeMode, orientation, memberDisplay, members: [{instance, id}]}`.
+- **INTEG-133** `newGroup <name>` makes a group named by the trimmed name (at most 80 characters; empty gives `New group`) and answers `{"id":"g-<time>-<random>"}`.
+- **INTEG-134** `setGroup <group> <json>` takes a group by id, or by name when unique, and an object with any of `label`, `icon`, `iconFont`, `iconImage`, `iconTint`, `zone`, `before`, `visibility`, `face`, `tooltip`, `badge`, `badgeMode`, `orientation`, `memberDisplay`, `members` (widget selectors; leavers go first, the rest are appended in the order given). Choices: `visibility` shown|managed|hidden; `face` glyph|text|both; `badgeMode` sum|members; `orientation` auto|horizontal|vertical; `memberDisplay` native|name|both; `iconTint` text|own; `iconFont` omarchy or `""`. Errors:
+  - `error: no group <sel>`, `error: <n> groups are called <sel>; name one by id: <id>, <id>`
+  - `error: a group change is a JSON object such as {"label":"Media"}`, `error: unknown field <f>; fields are <list>`
+  - `error: <field> is one of <choices>`, `error: tooltip is true or false` (same for `badge`), `error: label is a name`, `error: <icon|iconImage> is a glyph or an image path`, `error: zone is one of left, center, right`, `error: before names a widget, or "" for the zone's end`, `error: members is a list of widgets, by id or instance`, `error: iconFont goes with icon`
+  - `error: before names a widget in the <zone> zone` (neighbour outside the group's zone); a member selector fails as in `setWidget`.
+- **INTEG-135** `removeGroup <group>` dissolves the group (its widgets stay); selector errors as `setGroup`.
+- **INTEG-125** `shortcuts` answers `{ready, shortcuts: [{target, name, keys, source, fallback, positional, ready}]}` for `bar:keys` (always listed), every group, every widget id and any other target in `powerbarShortcuts`, keeping only those that hold keys, have a positional bind or have a source; it then re-reads Hyprland, so the next answer is current. `get shortcut.<target>` answers that one object. `set shortcut.<target> <keys>` takes keys like `SUPER + B`, `""` for none (Omarchy's own bind goes too), or `{"keys":"...","replace":true}` to take keys another bind holds; `reset shortcut.<target>` restores the default. Errors:
+  - `error: a shortcut is keys such as "SUPER + B", "" for none, or {"keys": "…", "replace": true}`
+  - `error: no group <id>`, `error: a shortcut target is bar:keys, group:<id> or widget:<plugin id>`
+  - `error: a shortcut change is still being applied; try again in a moment`, `error: reading Hyprland's shortcuts; try again in a moment` (first use; retry)
+  - keys Hyprland cannot bind: the text from `ShortcutModel.bindable`.
+  - taken: `error: <keys> is taken by <description>[, ...]; to take it anyway: omarchy-shell powerbar set shortcut.<target> '{"keys":"<keys>","replace":true}'`.
+- **INTEG-136** `show`: if the bar is switched off (`bar-off`), runs `omarchy-toggle-bar off` (it comes back); if `autoHide` is on, holds the bar out until `hide` (as the pointer at its edge). `hide`: if `autoHide` is on, lets the bar slide away; otherwise, if the bar is not off, runs `omarchy-toggle-bar on`. Both answer `ok` at once. Turning `autoHide` off releases the hold.
+- **INTEG-137** `keysOn` starts the keyboard mode on the focused monitor's bar (`ok` if already on); `error: not while Preferences are open` or `error: no bar to put the cursor on` when it cannot. `keysOff` ends it (`ok` always). `keys` toggles it (no answer). `keysStatus` answers its state as JSON (keyboard.md).
+- **INTEG-138** `help` answers a JSON array of `{call: "omarchy-shell powerbar <fn> <args>", does: "<text>"}`, one per function above.
+
+### Panels and drawers
+
+- **INTEG-46** `preferences` opens Preferences on the focused monitor, or on the first screen when none is focused. `closePreferences` closes it.
+- **INTEG-48** `preferencesPage <n>` opens Preferences (if closed) at page `n`: 1 Layout, 2 Groups, 3 Bar; `n` above 3 opens Bar; 0 or negative changes nothing (the window still opens). Code: `setPage(min(n, pages) - 1)` ignores an index below 0.
+- **INTEG-54** `groupsPreferences` opens Preferences at Groups (page 2).
+- **INTEG-49** `managed <left|center|right>` opens that zone's On demand drawer for the keyboard on the focused monitor's bar; any other zone, or a monitor with no such bar, does nothing and answers nothing. `closeManaged` closes the open drawer or group menu.
+- **INTEG-52** `group <id>` opens that group's drawer on the focused monitor's bar for the keyboard; nothing happens if the id or monitor is unknown. `toggleGroup <id>` closes it when that group's drawer is open, else opens it.
+- **INTEG-56** `drawerStatus` answers `{"opened": false}` with no drawer, else JSON with `opened`, `aside`, `opacity`, `zone`, `groupId`, `memberDisplay`, `stripVertical`, `surfaceRole`, `surfaceRadius`, `themeRadius`, `crossLength`, `desiredCross`, `reveal`, `width`, `height`, `entered`, `sourceHovered`, `hovered`, `keyboard`, `cursor`, `selectionVisible`, `focused`, `ids`, `count`.
+- **INTEG-57** `managedStatus` answers an array of On demand widgets: `{id, key, zone, revealed, mainVisible, inDrawer, panelOpen, observing}`.
+- **INTEG-58** `popupStatus` answers an array of open widget panels: `{position, x, y, width, height, screenWidth, screenHeight, gap, barExtent}`; `[]` when none.
+
+## Multi-monitor
+
+- **INTEG-66** The focused monitor is Hyprland's; with none, `focusedScreenName()` is `""`.
+- **INTEG-67** `preferences` (and so `preferencesPage`, `groupsPreferences`) fall back to the first screen when no monitor matches; `managed`, `group` and `toggleGroup` do not (INTEG-49, 52).
+- **INTEG-68** A widget's image for the drawer and name card is captured on its own screen's bar only.
 
 ## Config write flow
 
-- **INTEG-101** When the user edits config via Preferences or drags widgets, the bar collects edits into a queue (`queuedConfigEdits`). Edits are not immediately written; instead, a debounce timer waits for a quiet period.
-- **INTEG-102** Once quiet, the bar calls `writeConfig(fn)`, which reads the current shell.json, applies the function `fn(config)` to edit the in-memory copy, and persists it. The host shell reloads the file and re-injects `barConfig`.
-- **INTEG-103** Config edits show in the UI immediately (optimistically); they are reverted if the write fails.
-
-## Startup sequence
-
-- **INTEG-104** On plugin load: manifest is validated, Bar.qml is instantiated, properties are initialized to fallback values.
-- **INTEG-105** The host shell injects `barConfig`, `barWidgetRegistry`, and `shell` properties.
-- **INTEG-106** `Component.onCompleted` fires: `applyBarConfig()` is called (applies barConfig, checks for healing needs, schedules startup tasks), and the registry check timer is restarted.
-- **INTEG-107** The bar creates one BarPanel per screen (via Variants + model: Quickshell.screens).
-- **INTEG-108** Preferences and keyboard mode are initialized on demand.
+- **INTEG-101** Edits from Preferences, drags and the CLI are queued; 300 ms after the last (waiting for in-flight settles) they are applied in one `shell.mutateShellConfig`, and the host reloads the file and injects `barConfig` again.
+- **INTEG-102** Until then the bar shows the queued edits on top of the host's config; a `barConfig` arriving meanwhile does not undo them.
+- **INTEG-103** If the write fails the bar shows the host's config again and Preferences' footer reads `Could not save. Check that shell.json is writable.`
+- **INTEG-139** On shutdown queued edits are flushed.
 
 ---
 
 ## Doc drift
 
-(No items found; README.md and observed behavior align on bar properties, limitations, and animation defaults.)
+- README.md "Command line" (being rewritten): check that its function list equals `help` (31 functions, INTEG-138) and that groupsPreferences opens Groups, not Bar (Bar.qml:595 `setPage(1)`; the earlier draft of this file said Bar).
+- Bar.qml:642 comment says "the 30 s guard"; the code guard is 60 000 ms (Bar.qml:653 `< 60000`).
 
 ## Open questions
 
-- INTEG-Q1: Does `barWidgetRegistry.revision` change whenever a plugin is dynamically reloaded, or only on shell startup? The code connects to `onRevisionChanged` but does not document when the shell increments it.
-- INTEG-Q2: When `AppearanceModel.legacyPresent(barConfig)` or `GroupsModel.danglingMembers(barConfig)` return true, what exact edits are made by `healAppearance()` and `pruneGroupMembers()`? The code calls `writeConfig()` but the exact transformation is in AppearanceModel and GroupsModel (outside this area).
-- INTEG-Q3: Does the bar survive a rapid bar-switch (switching plugins twice in succession)? The 60s guard prevents rescan storms, but concurrent registry changes are not fully characterized.
+- INTEG-Q1: when does the host bump `barWidgetRegistry.revision`? The shell, not Powerbar, decides; Powerbar only re-checks 2.5 s after any change.
+- INTEG-Q2 (answered): the heals' edits are `AppearanceModel.migrate` (INTEG-35), `pruneThemes` (INTEG-36) and `GroupsModel.groups` (INTEG-40).
+- INTEG-Q3: `preferencesPage 0` / negative opens the window but keeps the last page; probably should clamp to page 1 (bug candidate, Preferences.qml:102 `setPage` returns for index below 0).

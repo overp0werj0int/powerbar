@@ -1,177 +1,185 @@
-# Keyboard: Super+B cursor navigation, fuzzy search, key legend, and shortcuts
+# Keyboard: cursor navigation, fuzzy search, key strip, and shortcuts
 
-The bar works from the keyboard with a cursor on stops (widgets, group icons, zone dots, the prefs button). The shortcut is bound via Preferences → Bar → Keyboard, default Super+B, which runs `omarchy-shell powerbar keys`. Keys adapt to the bar's edge: along-the-bar keys move the cursor, the into-key (↓ on top, ← on right) enters groups and drawers. Search (`/`) finds widgets by name (fzy ranking). A name card names the cursor. A key strip (`?`) shows all shortcuts. Esc steps back through drawer, search, mode. Esc twice (within 400 ms) leaves instantly from any depth.
+The bar works from the keyboard with a cursor on stops (widgets, group icons, zone dots, the Preferences button). Nothing is bound to the keyboard mode by default: `omarchy-shell powerbar keys` toggles it, and Preferences → Bar → Keyboard offers SUPER + B for it (faded, tagged "Suggested") but binds nothing until the user accepts (KEYS-66). Keys are named by direction relative to the bar: along-the-bar keys move the cursor, the into-key (↓ on a top bar) goes into groups and drawers. Search (`/`) finds widgets by name. A name card names the cursor, a key strip lists the keys, `?` lists every shortcut. Esc steps back one level; Esc twice within 400 ms leaves from any depth.
 
 **Sources:**
-- BarKeysModel.js: keyboard intent rules, cursor movement, search ranking (fuzzy), key legend, route to widget (how search brings it into view)
-- BarKeys.qml: mode state, stops list, drawer handling, search state, name card, panel handoff, keyboard focus, pointer takeover
-- ShortcutModel.js: parsing, formatting, rendering shortcut binds, conflict detection
-- Bar.qml: IPC functions, config keys, managed drawer opening
-- tests/bar-keys.test.cjs: all movement, search, legend behaviors
-- tests/shortcuts.test.cjs: shortcut format, conflicts, rendering, recording
+- BarKeysModel.js: keymap per edge, intents, step, zoneStep, fuzzy search, route, legend
+- BarKeys.qml: mode state, stops, drawers, search, name card, hand-off, pointer takeover
+- Bar.qml: IPC `keys`/`keysStatus`, key catcher, dismiss layer, key strip window (`keysStrip`), focus priming
+- BarCli.qml: `keysOn`, `keysOff`
+- ShortcutModel.js, ShortcutStore.qml, ShortcutRow.qml: shortcut parsing, recording, writing `bindings.lua`
+- tests/bar-keys.test.cjs, tests/shortcuts.test.cjs
+
+The CLI as a whole (`status`, `shortcuts`, `help`, error format) is integration.md's; only what it does to the keyboard mode is here.
 
 ## Keyboard mode: entry and exit
 
-- **KEYS-1** Entering: `omarchy-shell powerbar keys` toggles the mode on the focused monitor. On entry, the cursor lands on the widget whose panel is open (if any), else the configured center anchor widget, else the middle stop (if any exist), else null. Stops list includes only widgets/groups on the bar, zone dots, and the prefs button, all visible and not folded or in another zone's drawer. On entry, bar refreshes its shortcut store and shows a name card beside the cursor. Exit restores no keyboard focus guarantee (it is on work, not the bar).
+- **KEYS-1** `omarchy-shell powerbar keys` while the mode is off enters it on the focused monitor's bar (the first bar if none matches the focused monitor). Nothing happens while Preferences is open. On entry the cursor lands on, in order: the stop whose panel is open, the centre anchor (the clock), the middle stop of the list, or nowhere if there are no stops. The shortcut store is re-read and the name card shows at once. Stops are, in bar order: widgets and group icons that are on the bar and not in a drawer, folded or yielded, zone dots that are shown, and the Preferences button. Code: BarKeys.enter(), stops(), seen()
 
-- **KEYS-2** Leaving: `omarchy-shell powerbar keys` again (toggle), or Esc twice within 400 ms, or Super+B (the bound shortcut), or a click outside the bar area, or a foreign window/layer opens (not a Powerbar or Omarchy bar/panel surface). Leaving closes any open drawer and turns off inline expansion (zone collapses). Hide card, drop any pending (queued) search action.
+- **KEYS-2** The mode ends on: `keys` again; `keysOff`; Esc at bar level (Esc at an inner level steps back first, KEYS-38); two Esc within 400 ms; a click anywhere outside the bar and its open drawer while the bar holds the keys (a dismiss layer covers the rest of the screen and the click is not passed on); a window or a layer that is not Powerbar's or one of Omarchy's own bar surfaces opening (checked 150 ms after the event, and only if no registered panel is open); Enter on the Preferences button (the mode ends first, then Preferences opens). Leaving closes an open panel the cursor opened, closes any drawer, folds an inline expansion, hides the card and drops a pending search reveal.
 
-- **KEYS-3** Panel hands off keyboard: once Enter opens a widget, `handOff` flag rises for 400 ms. A registered panel (Omarchy's KeyboardPanel, PopupCard) takes the keys back when suspended; an unregistered window or layer leaves the mode. A toggle (no open) returns keyboard to bar once the 400 ms hand-off waits (or instantly if the panel closes faster). Name card and key strip hide during hand-off.
+- **KEYS-3** Enter or Space on a widget opens it like a click and the bar lets go of the keyboard for 400 ms (`handOff`). If the widget opened a registered panel (Omarchy's KeyboardPanel, PopupCard) the mode is suspended (KEYS-4); if a window or layer of its own opened, the mode ends (KEYS-2); if nothing opened (a toggle), the bar takes the keys back after the 400 ms and shows the card again. The card is hidden while the hand-off lasts.
 
-- **KEYS-4** Suspended: mode stays active but keys go to an open panel. Esc in the panel closes it and resumes bar keys (shows card, refocuses). Return from suspension shows card and refocuses.
+- **KEYS-4** Suspended (a registered panel the cursor opened is open): keys go to the panel; a panel drawn as a popup of the bar that did not take the keys ignores every key but Esc, which closes it. When it closes the mode resumes: card shown, keys back on the cursor or the drawer it came from, and an Esc within 400 ms of the close counts as the second of a double Esc (KEYS-39).
 
-- **KEYS-5** Mode active but not here: `active && suspended || !suspended && !handOff` but either one kills keyboard input. Input only accepted when `here: active && !suspended && !handOff` is true.
+- **KEYS-5** The bar reads keys only while `here`: active, not suspended, not in a hand-off. In every other state the mode is on but keys are not interpreted by it.
 
 ## Cursor movement
 
-- **KEYS-6** Along-the-bar movement: keys Left/Right (or h/l on top/bottom bar) and Up/Down (or h/l on left/right bar) move the cursor by one stop. The cursor must move to a valid stop: unseen (hidden, folded, in drawer) stops are skipped. Cursor stops at bar ends (no wrap).
+- **KEYS-6** Along keys move the cursor one stop; at either end it stays (no wrap). Horizontal bar: Left/h = previous, Right/l = next. Vertical bar: Up/k = previous, Down/j = next. Keys the bar does not use are swallowed (they do not reach the window). Code: BarKeysModel.keymap(), step()
 
-- **KEYS-7** Zone jumping: Tab moves to the next zone's first stop (forward); Shift+Tab or Backtab moves to the previous zone's last stop (backward); wraps around all zones. Returns -1 if no zone has stops; cursor is not moved.
+- **KEYS-7** Tab goes to the first stop of the next zone that has stops; Shift+Tab (Backtab) to the last stop of the previous one; both wrap round left, centre, right. With stops in one zone only, they land on that zone's first or last stop.
 
-- **KEYS-8** Home and End: Home moves cursor to the first stop; End to the last. Both ignore zone boundaries.
+- **KEYS-8** Home moves to the first stop, End to the last, whatever the zone.
 
-- **KEYS-9** Cursor position after bar changes: if the cursor's stop is deleted (widget hidden, on-demand folded, drawer closed), the cursor lands on the first stop of its zone. If the zone has no more stops, no move (cursor becomes unanchored). On a move, if the zone changed (inline expansion started/stopped, another zone expanded/collapsed), the current inlineZone for that stop updates.
+- **KEYS-9** If the cursor's stop disappears (hidden, folded, yielded, its drawer or dots changed), the next movement starts from the first stop of the cursor's zone. The cursor is not moved by the disappearance itself.
 
 ## Into key: entering groups and drawers
 
-- **KEYS-10** Group drawer entry: when the cursor is on a group icon, the into-key (Down on top, Up on bottom, Left on right, Right on left) opens the group's managed drawer. The cursor enters at member 0. Bar holds focus at a KeyCatcher element; drawer takes activeFocus.
+- **KEYS-10** On a group icon, the into-key (top bar: Down or j; bottom: Up or k; right bar: Left or h; left bar: Right or l) opens the group's drawer entered at its first member. The bar's key catcher keeps the window focus; the drawer takes the keys.
 
-- **KEYS-11** Zone drawer entry (drawer mode): when on-demand is "drawer" and the cursor is on a widget in a zone with managed members, the into-key opens the zone's managed drawer. The cursor enters at member 0, and bar holds focus on the zone's dots (if visible, else the zone's first stop).
+- **KEYS-11** In drawer mode (`powerbarOnDemand` = `drawer`) the into-key on any widget of a zone that has on-demand widgets opens that zone's drawer entered at its first row; on the zone's dots it does the same. The bar cursor stays where it was.
 
-- **KEYS-12** Zone dots inline expansion (inline mode): when on-demand is "inline" and the cursor lands on a zone's FoldHandle (dots), if the zone has managed members, calling openDots() with dir (1 or -1 for the arrow direction) requests the zone to expand. A pending state tracks the expansion; widgets are checked for visibility every 25 ms up to 20 frames (500 ms). Once shown, the cursor lands on the first widget that appeared in the dir direction. If the zone cannot fit in the bar (another zone must yield), it opens the zone's drawer instead.
+- **KEYS-12** In inline mode (`inline`), landing the cursor on a zone's dots asks the zone to expand in place (the way hovering does). The widgets are checked every 25 ms, up to 20 times (500 ms); the cursor then lands on the first widget that appeared in the direction it was moving. If the zone cannot fit, its drawer opens entered instead. The into-key on dots in inline mode does nothing.
 
-- **KEYS-13** Out key: when in a drawer, the into-key (Left on vertical bars, Up/Down on horizontal) or Escape closes the drawer and refocuses the bar at the zone's dots (or first stop of that zone if dots not visible). From the first member of a drawer on a horizontal bar, the into-key goes back without moving.
+- **KEYS-13** In a drawer the out-key (top: Up/k; bottom: Down/j; right: Right/l; left: Left/h) or Esc closes it and returns to the bar with the cursor where it was (on the group icon or the widget or dots it came from); on a top or bottom bar the out-key first walks back up the rows and closes the drawer only from the first row. Code: BarKeysModel.drawerIntent()
 
 ## Drawer navigation
 
-- **KEYS-14** Member walking: Up/Down (j/k on vertical bars, Left/Right on horizontal) move to adjacent members. Out of bounds is ignored (cursor does not leave the drawer's member range).
+- **KEYS-14** In a drawer on a top or bottom bar the rows run away from the bar: the into-key moves to the next row, the out-key to the previous one (closing the drawer from row 0). On a side bar the rows run along the bar: the along keys (Up/k, Down/j) walk the rows, the out-key closes the drawer, and the into-key does nothing. Moving past the last or first row does nothing.
 
-- **KEYS-15** Drawer column/row movement: on a horizontal bar's drawer (members are rows), Left/Right (h/l) run along the bar (call backMove: they close the drawer first, then move the bar cursor). On a vertical bar's drawer, Left/Right are no-op.
+- **KEYS-15** In a drawer on a top or bottom bar, the along keys (Left/h, Right/l) close the drawer and move the bar cursor one stop in that direction. On a side bar they are not used in a drawer.
 
-- **KEYS-16** Tab in drawer: Tab moves to the next zone's stop (closes drawer first, jumps cursor). Backtab goes to the previous zone.
+- **KEYS-16** Tab and Shift+Tab in a drawer close it and jump to the next or previous zone as in KEYS-7.
 
-- **KEYS-17** Enter in drawer: opens the drawer's current member and sets the handOff flag.
+- **KEYS-17** Enter or Space in a drawer opens the current row's widget, with the same hand-off as KEYS-3.
 
-- **KEYS-18** Escape in drawer (on a row): Up from the first row goes back and closes the drawer. Any other Escape also closes.
+- **KEYS-18** Esc in a drawer closes it (cursor back on the bar, KEYS-13); a second Esc within 400 ms ends the mode.
 
-- **KEYS-19** Drawer stays open if panel opens: After Enter on a member, if the panel is a registered panel (suspended), the drawer stays open and the bar holds keys. Esc in the panel closes it and returns focus to the drawer.
+- **KEYS-19** When the opened member shows a registered panel the drawer steps aside and the mode is suspended; Esc in the panel closes it and the keys return to the drawer with the card on the current row.
 
-- **KEYS-20** Drawer preview on key release: once the key is released and no drawer is open yet, a 100 ms timer opens the group drawer in preview mode. During a held key sweeping past multiple stops, no drawer flashes.
+- **KEYS-20** Preview: after a non-repeating key is released with the cursor on a group icon (or, in drawer mode, on zone dots) and no drawer open, a 100 ms timer opens the drawer unfolded beside the icon but not entered; any key pressed first cancels it, so a held key sweeping across stops never flashes drawers. In a preview the name card is hidden and the pointer may take over (KEYS-47).
 
 ## Search: fuzzy name matching and navigation
 
-- **KEYS-21** Starting search: `/` (forward slash) starts search with an empty query. Focus stays with the bar; no drawer closes; key legend switches to search legend.
+- **KEYS-21** `/` starts a search with an empty query (from a drawer it closes the drawer first). The key strip shows a "Find" box with a caret and, under an empty query, "Type part of a name"; the shortcut sheet closes. The strip shows for a search even when `powerbarKeyLegend` is false.
 
-- **KEYS-22** Search character input: each character appends to the query; Space appends a word separator. Backspace removes the last character. After ~150 ms of pause in typing, the search brings a match into view.
+- **KEYS-22** Each typed character (h, j, k, l included) appends to the query, Space appends a space, Backspace removes one; each edit resets the match to the first and brings it into view. The strip reads "N of M", "1 match", or "No widget named that" (urgent colour) when nothing matches.
 
-- **KEYS-23** Tab in search: moves to the next match (matchIndex cycles modulo found.length). Does not end search. Acts immediately without revealPause delay.
+- **KEYS-23** Tab in search goes to the next match, Shift+Tab to the previous (wrapping), acting at once.
 
-- **KEYS-24** Enter in search: opens the current match. If it is a member in the drawer, activates it. If it is behind dots or in a drawer, brings it into view first, then opens it. If on bar, opens the widget.
+- **KEYS-24** Enter in search ends the search and opens the match: a member through its group's drawer, a widget behind dots or in a drawer once it has come into view, or the cursor's stop. Code: BarKeys.openMatch()
 
-- **KEYS-25** Search rank: each word (separated by spaces) must match separately, in any order, fuzzily (fzy algorithm: gaps cost more than consecutive matches, word starts and capitals bonus higher). A member matches its group name first ("ai local laya" matches "ai a"). A single letter or first word of a space-separated query must start a word; later words only need to appear in order. Exact match (entire query = widget name) ranks first. Bar order breaks ties. Empty query returns no matches.
+- **KEYS-25** Ranking (fzy): each space-separated word must match on its own letters, in order, with gaps allowed, using letters no earlier word used. The first word (when it has two or more letters) may match anywhere in the text; a single-letter first word, and every later word, must start at a word start or a capital. Consecutive letters score highest (1), then a word start (0.9 at the text start, 0.8 after a separator, 0.7 at a capital), gaps cost 0.01 inside and 0.005 outside. Best total score first; ties in bar order. An empty query matches nothing. Code: BarKeysModel.matches(), fuzzy()
 
-- **KEYS-26** Search brings into view the way a pointer would: if the match is on the bar (visible, inline, not folded), lands on it (put). If it is behind dots in inline mode, dots open in place (zone expands, cursor waits on the dots). If it is folded or in a drawer, zone drawer opens and the match lands there. If another zone is expanded, that closes first (clear). Once the zone opens or drawer opens, the cursor lands on the match once it is visible (checked every 25 ms, up to 60 tries = 1.5 s).
+- **KEYS-26** A match comes into view the way the pointer would bring it: on the bar → the cursor lands on it; in inline mode behind its zone's dots or folded → the dots open in place (another zone's expansion closes) and the cursor waits on the dots, then lands on the widget; in drawer mode in its zone's drawer → the drawer opens entered at it; a member lands in its group's drawer at its row; otherwise (yielded to another zone's expansion) that expansion closes first. Landing is checked every 25 ms up to 60 times (1.5 s); an expansion that cannot fit falls back to the zone's drawer. Code: BarKeysModel.route(), BarKeys.bringIn()
 
-- **KEYS-27** Typing pauses the reveal: typing does not open a zone immediately (it waits up to 150 ms for more typing). Tab and Enter act at once. A match already on bar (not behind dots) acts at once. Once revealed, the cursor moves to it and its zone (or drawer) stays open.
+- **KEYS-27** Typing waits: a match already on the bar is taken at once, but a match that needs the bar to change (dots, drawer, closing another zone) is queued for 150 ms of no typing. Tab and Enter never wait.
 
-- **KEYS-28** Arrow in search ends search and moves: pressing Up/Down/Left/Right/Home/End ends the search (searching = false, query = "") and performs its normal cursor movement. On a top bar, ↓ in search enters the group found (its into key).
+- **KEYS-28** An arrow, Home or End in search ends it (query cleared) and does its usual job; on a top bar Down after a group match goes into that group.
 
-- **KEYS-29** Escape in search: ends search. If a panel was open when search started, Esc only closes search, not the panel.
+- **KEYS-29** Esc in search ends it and clears the query; the cursor stays where the last match put it. A second Esc within 400 ms ends the mode.
 
-- **KEYS-30** Search with members: search text is "<group name> <member name>" for members. /ai a finds all AI group members whose name starts with "a". /ai u finds the AI group but also members.
+- **KEYS-30** A member's search text is "<group name> <member name>"; "ai a" finds the AI group's members whose names start with a, and not the AI group itself (its text has no second a to use).
 
 ## Search catalogue
 
-- **KEYS-31** Everything searchable is every visible widget and group, plus the prefs button. Hidden widgets have no slot so are not found. Members are found by group name too. Widgets in drawers, behind dots, or folded off are all found (search brings them into view). Bar order sets tie-breaking rank.
+- **KEYS-31** The catalogue is every widget and group icon the bar holds a slot for (on the bar, behind dots, in a drawer, folded, yielded) plus the Preferences button ("Powerbar preferences"); members are found through their group name too. Hidden widgets have no slot and are not found. Zone dots are not searchable.
 
-## Key legend: shortcut reference
+## Key strip and shortcut sheet
 
-- **KEYS-32** Legend toggle: `?` shows the key legend. Legend shows keys for bar mode (Move, Into, Next zone, Open, Find, Shortcuts, Leave), with a line per action. Pressing `?` again or Escape closes it. Legend adapts based on whether drawers mode is active.
+- **KEYS-32** While the mode is active and not suspended, a strip at the screen edge opposite the bar (24 px in) lists the keys for the current level, unless `powerbarKeyLegend` is false (default true; Preferences → Bar → Keyboard → Key legend). The strip is hidden while the bar is sliding. Bar level: Move (← → or ↑ ↓), Into (the into arrow) "Into a group", Tab "Next zone", Enter "Open", / "Find", ? "Shortcuts", Esc "Leave". Code: BarKeysModel.legend()
 
-- **KEYS-33** Legend in drawer: when in a drawer and `?` is pressed, legend shows drawer actions (Move, Open, Back/Leave, quick double Esc).
+- **KEYS-33** Drawer level: Move, Enter "Open", Back (Esc; on a side bar the out arrow and Esc), Esc Esc "Leave". For a top or bottom bar, Move shows the into and out arrows (↓ ↑ on top).
 
-- **KEYS-34** Legend in search: search legend shows Tab (Next match), Enter (Open), Esc (Stop finding), Esc Esc (Leave).
+- **KEYS-34** Search level: Tab "Next match", Enter "Open", Esc "Stop finding", Esc Esc "Leave".
 
-- **KEYS-35** Legend arrows adapt to edge: on a top bar, the into-arrow is ↓ and out is ↑. On a right bar, into is ← and out is →. Legend names the arrows, not the key names (hjkl is not shown, arrows are).
+- **KEYS-35** The arrows are named by the edge: top bar into = ↓, out = ↑; bottom into = ↑; right bar into = ←, out = →; left bar into = →. hjkl never appear on the strip.
 
-- **KEYS-36** Legend with drawers mode: if on-demand is "drawer" and there are managed members in the cursor's zone, legend shows "Into a group or drawer" (parameter drawers=true).
+- **KEYS-36** In drawer mode (`powerbarOnDemand` = `drawer`) the bar-level label is "Into a group or drawer"; in inline mode "Into a group".
 
-- **KEYS-37** Legend always shows twice-Esc: both bar and drawer legends list "Esc Esc" as "Leave" (quick double press within 400 ms).
+- **KEYS-37** The double Esc is listed on the drawer and search strips only, as "Esc Esc" "Leave"; the bar-level strip lists a single Esc "Leave".
+
+- **KEYS-70** `?` shows the shortcut sheet in the strip: "Shortcuts" and two columns, widget or group name and its shortcut, for every catalogue entry that has one; with none, "No widget on this bar has a shortcut yet. Set them in Preferences → Layout." It shows even when the key legend is off. `?` or Esc closes it; any other key closes it and then does its usual job.
 
 ## Double Escape (quick exit)
 
-- **KEYS-38** Double Escape rule: pressing Esc twice within 400 ms ends everything: closes any open panel, closes any drawer, ends search, and leaves the mode. Single Esc only closes the innermost: search first, then drawer, then mode.
+- **KEYS-38** Every Esc is timed: an Esc less than 400 ms after the previous Esc leaves the mode, whatever the depth (closing any open panel, drawer and search). A lone Esc closes the innermost level: search first, then the open sheet, then the drawer, then the mode.
 
-- **KEYS-39** Panel Escape counts as first: once a panel closes, a following Esc within 400 ms is the second, so the next Esc starts the counter fresh.
+- **KEYS-39** A registered panel's own Esc counts as the first: when it closes, an Esc within 400 ms leaves the mode too.
 
 ## Name card
 
-- **KEYS-40** Card shows cursor name and shortcut: when the keyboard mode is active and the cursor is not on an opens-drawer item (group, dots, prefs), a name card shows the cursor's widget name and any shortcut.
+- **KEYS-40** When the mode is `here` and the cursor is on a widget, the card beside it reads "<name>" or "<name>   <shortcut>" (three spaces; the shortcut as keycaps text such as "Super Ctrl A"). The Preferences button's card is "Powerbar preferences".
 
-- **KEYS-41** Card in drawer: when in a drawer and not previewing, the card shows the drawer's current member. Bar uses the drawer's cellAt(cursor) as target; the card names the member and its shortcut.
+- **KEYS-41** In an entered drawer the card names the current row's widget (and its shortcut) instead of the cursor.
 
-- **KEYS-42** Card update triggers: card refreshes when the cursor changes, drawer cursor changes, drawer is no longer stepped-aside, or the shortcut store updates (shortcut label for this target changes).
+- **KEYS-42** The card refreshes when the cursor moves, when the drawer's row changes, when the drawer is no longer stepped aside, and when the shortcut store changes.
 
-- **KEYS-43** Card hides: when leaving mode, in a panel, or on a drawer-opening item (group, dots, prefs). Bar hides it with bar.hideCard().
+- **KEYS-43** The card is hidden on group icons and on zone dots in drawer mode (they open a drawer), on a drawer preview, while suspended or handing off, and when the mode ends.
 
-- **KEYS-44** Card target belongs to window: the card shows only if its target item belongs to the keyboard's window (checked by bar.targetBelongsToWindow). If not, bar.hideCard().
+- **KEYS-44** The card shows only for a target that belongs to the keyboard's window (`keysStatus.card.belongs`); on other monitors' bars it is hidden.
 
 ## Pointer takeover
 
-- **KEYS-45** Pointer over bar takes cursor: while keyboard mode is active (here = true), moving the pointer onto a visible stop moves the keyboard cursor to that stop. A pointer that moved (not just re-reported at the same spot) triggers takeover. The bar's lastPointer tracks the pointer position when mode started; a sub-1px move is ignored (jitter filter).
+- **KEYS-45** While the mode is `here`, moving the pointer onto a stop moves the cursor there. Only a real move counts: the pointer's position when the mode began, and a re-report of the same point, are ignored (under 1 px).
 
-- **KEYS-46** Pointer takeover closes drawer and updates card: when takeover moves the cursor, the drawer closes (if open) and the card updates to show the new cursor.
+- **KEYS-46** A takeover closes any open drawer and moves the card to the new stop.
 
-- **KEYS-47** Pointer in drawer preview does not takeover: while previewing (drawer unfolded beside an icon but not entered), pointer on other stops does not move the keyboard cursor.
+- **KEYS-47** In an entered drawer the pointer does not take over; in a drawer preview (not entered) it does.
 
 ## IPC and configuration
 
-- **KEYS-48** `omarchy-shell powerbar keys`: toggles the keyboard mode on the focused monitor's bar. If no bar on focused monitor, no-op.
+- **KEYS-48** `omarchy-shell powerbar keys` toggles the mode on the focused monitor's bar (nothing while Preferences is open). `keysOn` starts it and answers `ok`, or `error: not while Preferences are open`, or `error: no bar to put the cursor on`; `keysOff` ends it and answers `ok` whether or not it was on. `status` reports it as `runtime.keys`. Other CLI behavior: integration.md. Code: BarCli.keysOn(), keysOff()
 
-- **KEYS-49** `omarchy-shell powerbar keysStatus`: returns JSON of the cursor's state: { active, suspended, screen (name), cursor (name or "dots:<token>"), kind ("widget", "group", "dots", "prefs"), zone, cursorState (managed, inlineShown, activity, hovered, token for the cursor's widget), stops (names of all stops), drawer (group id, zone, previewing, cursor index, member name), searching, query, matches (count), sheet, handOff, foreign (last layer/window that opened), inline (zone name), barHidden, windowActive, drawerFocused, pointer (hovered, x, y), card (shown, text, mine, belongs), focused }. 
+- **KEYS-49** `omarchy-shell powerbar keysStatus` returns JSON: `active`, `suspended`, `screen` (monitor name), `cursor` (the name, or `dots:<token>`), `kind` (widget, group, dots, prefs), `zone`, `cursorState` (`managed`, `inlineShown`, `activity`, `hovered`, `token`; null on dots and prefs), `stops` (names in bar order, empty when inactive), `drawer` (null, or `group`, `zone`, `previewing`, `aside`, `cursor`, `member`), `searching`, `query`, `matches`, `sheet`, `handOff`, `foreign` (the last foreign window or layer event), `inline` (expanded zone), `barHidden`, `windowActive`, `drawerFocused`, `pointer` (`hovered`, `x`, `y`), `card` (`shown`, `text`, `mine`, `belongs`), `focused`.
 
-- **KEYS-50** `omarchy-shell powerbar managed <zone>`: opens the managed drawer for a zone (left, center, right). Sets the cursor on the zone's dots (if visible), else the zone's first stop, and enters the drawer. Used by drawer mode (when on-demand is "drawer" and the bar keyboard cursor enters a zone with managed members).
+- **KEYS-50** Opening a zone's drawer from the command line (`managed <zone>`) is integration.md's (INTEG-49).
 
-- **KEYS-51** `powerbarKeyLegend` config: boolean (default true). When false, the key strip does not appear (legend toggle still works, just no strip). Checked by keys.bar.keyLegend; when false, KeyLegend and KeyCatcher are still present but hidden.
+- **KEYS-51** `powerbarKeyLegend` (default true) shows the key strip. When false the strip still appears for a search and for the shortcut sheet.
 
-- **KEYS-52** `powerbarOnDemand` config: "inline" or "drawer" (default "drawer"). Governs how zone dots enter: "drawer" opens the zone's managed drawer; "inline" expands the zone in place behind its dots.
+- **KEYS-52** `powerbarOnDemand` (`drawer` by default, or `inline`) decides what the dots and the into-key do (KEYS-11, KEYS-12).
 
-- **KEYS-53** `powerbarShortcuts` in shell.json: object mapping target ("widget:<id>" or "group:<id>" or "bar:keys") to a Hyprland key string ("SUPER + CTRL + A"). An empty string removes a shortcut (uses Omarchy's or none). Changes are rendered into ~/.config/hypr/bindings.lua in the marked Powerbar block. The block is rewritten on every change; keys it takes are unbound first, as are Omarchy shortcuts it moves or removes.
+- **KEYS-53** `powerbarShortcuts` in `bar` of shell.json maps a target (`widget:<plugin id>`, `group:<id>`, `bar:keys`) to a Hyprland key string such as `"SUPER + CTRL + A"`; `""` removes the shortcut (Omarchy's own too). Every change rewrites a marked block in `~/.config/hypr/bindings.lua` (from `-- >>> powerbar: widget, group and bar shortcuts (written by Powerbar Preferences)` to `-- <<< powerbar`; the rest of the file is untouched) and reloads Hyprland (`hyprctl reload config-only`). If Hyprland reports a new config error, the file is put back and Preferences' footer says "Hyprland refused the shortcut, so nothing changed: …". A group's shortcut goes when the group does.
 
-- **KEYS-54** Shortcut recording: in Preferences, Enter or clicking a shortcut field enters an empty submap (powerbar-record), stopping Hyprland's own shortcuts for 15 seconds. Every key press (no modifiers alone) is converted to a Hyprland key string via qt key code, modifiers, and scan code. A shortcut needs Super, Ctrl or Alt, unless it is an F-key (F1–F12 allowed without modifiers). Space records a key, Escape cancels.
+- **KEYS-54** Recording (Preferences): Enter, Space or a click on a shortcut row (not while it is unavailable or Saving) puts Hyprland in the empty submap `powerbar-record` (15 s watchdog) and the tag reads "Press the keys"; the modifiers held show as keycaps. A plain Esc cancels. A combination needs Super, Ctrl or Alt unless it is an F key, else the tag says "Add Super, Ctrl or Alt"; an unmappable key says "Powerbar can't bind that key". If the keys are already bound to something else, the row names it and asks: Enter ("Take over") gives them to this target, Esc keeps them where they were; otherwise the shortcut is saved at once. Losing focus cancels. Code: ShortcutRow.qml, ShortcutModel.fromKeyEvent()
+
+- **KEYS-66** No shortcut for the keyboard mode exists until the user sets one. The `bar:keys` row in Preferences → Bar → Keyboard ("Bar keyboard") shows SUPER + B faded, tagged "Suggested", with the hints Enter "Use Super B" and Space "Choose others". Enter takes it (clashes are checked as in KEYS-54); until then no `bar:keys` entry is in `powerbarShortcuts` and no bind is in `bindings.lua`. The bound command is `omarchy-shell powerbar keys` (a toggle).
+
+- **KEYS-67** On a shortcut row, x or Delete removes a shortcut (a Powerbar-only one is dropped; one from Omarchy or the user's Hyprland files is written as removed, tag "None, <keys> removed"); Backspace restores Omarchy's own (visible while source is yours or removed).
+
+- **KEYS-68** While the mode is on, the bar is held out as the pointer holds it: an autohidden bar stays shown, and a bar switched off with `omarchy toggle bar` is drawn until the mode ends.
+
+- **KEYS-69** The stop under the cursor is drawn with the hover highlight and a 1.5 px accent ring (widgets, dots and the Preferences button alike).
 
 ## Shortcuts: parsing and rendering
 
-- **KEYS-55** Shortcut string format: Hyprland's spelling: modifiers in order (SUPER, CTRL, ALT, SHIFT, MOD5) separated by " + ", then the key (letter A–Z, digit via code, F1–F12, named key like SPACE RETURN TAB, or XF86... function key). `normalize()` sorts modifiers to one canonical order. `same()` compares normalized strings.
+- **KEYS-55** A shortcut is Hyprland's spelling: modifiers in the order SUPER, CTRL, ALT, SHIFT, MOD5, joined by " + ", then the key (a letter, F1..F12, a name such as SPACE or RETURN, `code:N`, XF86...). `normalize()` puts any spelling in that order; `same()` compares normalised.
 
-- **KEYS-56** Shortcut labels: `label()` or `caps()` converts a shortcut string to a display list: ["Super", "Ctrl", "A"]. Keys display as "A" (letters), "Space" (SPACE), "Esc" (ESCAPE), "1" etc. (codes: code:10 becomes "1"), "F5" etc., or "XF86..." name. Scan codes are preferred over ASCII values (code:19 from Qt key 0x30 = "0").
+- **KEYS-56** Labels split a shortcut into keycaps: ["Super", "Ctrl", "A"]; SPACE = "Space", RETURN = "Enter", ESCAPE = "Esc", `code:10` to `code:19` = "1".."0", the layout's punctuation, F keys as is, XF86 names without the prefix.
 
-- **KEYS-57** Widget shortcut sources: a widget shows Omarchy's shortcut (if live), one from the user's Hyprland config files, one set in Powerbar Preferences, or a positional shortcut (Super+Ctrl+1–9 by right-zone panel index), or "none". `effective()` returns { keys, source ("omarchy", "config", "yours", "removed", "none"), fallback (Omarchy's if the widget has one) }.
+- **KEYS-57** A widget's shortcut shows its source: `omarchy` (Omarchy's bind is live; tag "Omarchy's"), `config` ("Your Hyprland's"), `yours` (set in Powerbar), `removed` (taken away, with the fallback shown), or `none`. A widget also answers to Omarchy's positional shortcut for its place among the right zone's panels (Super+Ctrl+1..9), shown as "By its place". `effective()` returns `{ keys, source, fallback }`.
 
-- **KEYS-58** Shortcut conflicts: `conflicts()` lists Hyprland's binds and Powerbar's other shortcuts that claim these keys. Does not count binds in other submaps (e.g., powerbar-record). Powerbar's block keys (parsed by blockKeys()) are excluded so they are not named as "already set".
+- **KEYS-58** `conflicts()` lists what else answers these keys: Hyprland's live binds (outside submaps, and not Powerbar's own block) and other Powerbar shortcuts.
 
-- **KEYS-59** Shortcut assignment: `assign()` sets a shortcut, taking it from any other Powerbar shortcut that held it. `restore()` drops the entry, reverting to Omarchy's or none. A key string "" removes the shortcut.
+- **KEYS-59** `assign()` gives keys to a target and takes them from any other Powerbar shortcut that held them; `restore()` drops a target's entry.
 
-- **KEYS-60** Shortcut rendering: `render()` writes the marked Lua block for ~/.config/hypr/bindings.lua. For each shortcut: unbind the previous Omarchy shortcut (if changed), unbind the new keys (in case another target held them), then o.bind() with the name and command. Widgets run `omarchy-shell shell toggle <id>`; groups run `omarchy-shell powerbar toggleGroup <id>`; "bar:keys" runs `omarchy-shell powerbar keys`.
+- **KEYS-60** `render()` writes, per target in alphabetical order: `hl.unbind` of Omarchy's old keys if they changed, `hl.unbind` of the new keys, then `o.bind(keys, name, command)`. Commands: widget `omarchy-shell shell toggle <id>`; group `omarchy-shell powerbar toggleGroup <id>`; `bar:keys` `omarchy-shell powerbar keys`. The names are "Powerbar keyboard", "<group label> group", the widget's title (what Super+K lists). No binds renders no block.
 
-- **KEYS-61** Omarchy's defaults and user config: `parseDefaults()` reads Omarchy's default binds from Lua and `hyprctl binds`, extracting widgets by id and by position (Super+Ctrl+1–9 ranges). `readDefaults([{text, origin}])` merges files in load order, later files overriding earlier for the same widget id. User config files (origin: "config") win over Omarchy's (origin: "omarchy").
+- **KEYS-61** Omarchy's own widget shortcuts are read from `$OMARCHY_PATH/default/hypr/bindings/*.lua`, then the user's `~/.config/hypr/*.lua` (not `powerbar.lua`, Powerbar's block stripped), in load order; a later file's bind for the same widget id wins. `omarchy-shell shell toggle <id>` binds are by id; `togglePanelAt <section> N` ranges are by place.
 
-- **KEYS-62** Backward compatibility: Before Oct 2026, shortcuts lived in ~/.config/hypr/powerbar.lua, loaded from hyprland.lua. The render block includes old markers (OLD_START, OLD_END); a new write removes both files and writes only the new block.
-
-## Bar keyboard mode status
-
-- **KEYS-63** Status structure: `keysStatus()` returns a JSON object with all state for tests and debugging. Keys are: active (boolean), suspended (boolean), screen (string, focused monitor name), cursor (widget name or "dots:<inlineToken>"), kind ("widget", "group", "dots", "prefs", empty), zone ("left", "center", "right", empty), cursorState (null if on dots/prefs, else { managed, inlineShown, activity, hovered, token }), stops (array of names), drawer (null or { group, zone, previewing, aside, cursor, member }), searching (boolean), query (string), matches (number), sheet (boolean), handOff (boolean), foreign (string, last layer/window that triggered foreign check), inline (zone name or empty), barHidden (boolean), windowActive (boolean), drawerFocused (boolean), pointer ({ hovered, x, y } or null), card ({ shown, text, mine, belongs }), focused (boolean, bar has focus).
+- **KEYS-62** Before October 2026 shortcuts lived in `~/.config/hypr/powerbar.lua`, loaded from `hyprland.lua` by a `-- >>> powerbar >>>` block. Any write removes that loader (after a `hyprland.lua.bak.<date>-powerbar` backup) and the file, and writes the new block.
 
 ## Focus and refocus
 
-- **KEYS-64** Focus guarantee: the keyboard must always have a landing place. If neither the bar's KeyCatcher nor the drawer has activeFocus, a refocus timer (60 ms) tries again. Focus attempts: first the drawer (if open and not previewing), then the bar's KeyCatcher.
+- **KEYS-64** The bar window takes exclusive keyboard focus while the mode is `here`. If the window is still not active after 200 ms (a closing panel can hand focus elsewhere), the bar drops to on-demand focus for 50 ms and asks again, up to 6 times.
 
-- **KEYS-65** Focus recovery: if neither has focus during mode, a 60 ms refocus timer tries again.
+- **KEYS-65** Within the mode, if neither the bar's key catcher nor an entered drawer has focus, a 60 ms timer gives it back (the drawer if open and entered, else the bar).
 
 ## Doc drift
 
-None; README and code agree on keyboard behavior.
+None found against README.md (its Keyboard mode section matches).
 
 ## Open questions
 
-None; code is clear.
+- A drag with the pointer (drag-edit.md) does not end the keyboard mode; pointer takeover moves the cursor but the mode stays on. Intended?

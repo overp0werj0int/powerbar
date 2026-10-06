@@ -1,192 +1,129 @@
-# On-demand drawers
+# On-demand widgets and drawers
 
-Managed widgets hide at rest and reveal temporarily on activity or on-demand interaction. The drawer surface offers them from the pointer and keyboard, and inline expansion (on supported bar edges) shows managed widgets in-place when the pointer rests on zone dots.
+An On demand widget (saved as `powerbarVisibility: "managed"`, "Managed" in code and CONTEXT.md) is hidden at rest. It appears on the bar for a moment when it has activity, and is reached through its zone's drawer (the default) or an inline expansion of the zone (`powerbarOnDemand: "inline"`). Group drawers and menus: groups.md. Drag and drop into drawers and onto dots: drag-edit.md. Zone fit and the dots: layout-zones.md. Keyboard mode: keyboard.md. The shell.json keys and the CLI: integration.md.
 
-**Sources:** ManagedModel.js, InlineQueue.js, ManagedDrawer.qml, ActivityObserver.qml, RetainedList.qml, RetainedStore.qml, TargetOwnerObserver.qml, Bar.qml (grep: managed, activity, reveal, inline, drawer), tests/managed.test.cjs, tests/inline-queue.test.cjs, tests/fixtures/ManagedWidget.qml, docs/managed-widgets.md, README.md section "Managed drawers and activity".
+**Sources:** ManagedModel.js, InlineQueue.js, ManagedDrawer.qml, ActivityObserver.qml, Bar.qml (grep: managed, activity, reveal, inline, drawer, peek, placeholder), BarModel.js (`options()`), tests/managed.test.cjs, tests/inline-queue.test.cjs, tests/clean-defaults.test.cjs, CONTEXT.md.
 
-## Managed widget modes
+## Visibility modes and the default
 
-Widgets in the main bar can be Always shown, Managed (hidden until revealed), or Always hidden. Managed widgets reserve no main-bar space until activity or interaction opens them.
+Each layout entry has one visibility mode: `"shown"` (Always shown, "On the bar" in Preferences), `"managed"` (On demand) or `"hidden"` (Always hidden). The mode is independent of the zone.
 
-- **DEMAND-1** Widgets with `powerbarVisibility` = `"shown"`, `"managed"`, or `"hidden"` use that explicit choice. Without it, undiscovered widgets remain `"pending"` until the registry provides metadata. First-party system widgets default to `"shown"`; third-party custom widgets default to `"managed"`.
-- **DEMAND-2** Moving a widget between visibility modes does not reset its zone or other settings.
-- **DEMAND-3** Managed widgets remain operational while hidden so Powerbar can observe their activity; hiding must not stop their services or reset state.
-- **DEMAND-4** Widgets moving to Always shown end any active reveal timer and remain visible. Widgets moving to Always hidden cancel any active reveal immediately. Moving zones preserves an active reveal's remaining time.
+- **DEMAND-1** An entry with `powerbarVisibility` of `"shown"`, `"managed"` or `"hidden"` uses it. Without one, the widget is shown (DEMAND-82). A widget the registry has not described yet is drawn nowhere ("pending") until it is; command and QML-module entries count as known at once. Code: `ManagedModel.mode()`.
+- **DEMAND-2** Changing a widget's visibility (Preferences, drag, `setWidget`) rewrites only `powerbarVisibility` (plus zone and place when the change is a move); its settings and `powerbarInstance` are kept. Code: `PreferencesModel.move()`.
+- **DEMAND-3** An On demand widget stays loaded while it is off the bar, so its activity can be observed (`managedStatus` shows `observing` > 0). An Always hidden widget is removed from the rendered layout: it has no slot, is never loaded, and is in no drawer. Code: `Bar.normalizeLayout()`.
+- **DEMAND-4** Setting a widget to Always shown or Always hidden ends any activity reveal at once (shown: it is simply visible; hidden: it is gone). Moving an On demand widget to another zone keeps its remaining reveal time (the deadline belongs to its `powerbarInstance`, DEMAND-76).
+- **DEMAND-82** Default: an entry with no saved `powerbarVisibility` is Always shown, whoever supplies the widget (Omarchy, a plugin, a command or QML module), as on Omarchy's bar. Nothing writes this default back into the layout. Code: `ManagedModel.mode()`; the CLI reports it (integration.md INTEG-112).
+- **DEMAND-83** Legacy configs: a config Powerbar ran on before this default (it has any `powerbar*` key under `bar`, or an entry with `powerbarInstance`) and that lacks `bar.powerbarVisibilityDefault: "shown"` keeps the old rule until healed: an entry with no saved visibility and not from Omarchy is On demand, an Omarchy entry is Always shown. A fresh config (no `powerbar*` key, no instance id) never follows the old rule. Code: `ManagedModel.legacyDefaults()`.
+- **DEMAND-84** Heal, as the user sees it: on the first run of the current version the config is rewritten once. On a legacy config every not-from-Omarchy entry with no saved visibility gets `powerbarVisibility: "managed"`, so what is on the bar and what is in the drawers does not change; entries with a saved visibility and Omarchy's own widgets are untouched. On a fresh config only the marker is written. Both end with `bar.powerbarVisibilityDefault: "shown"`; a marked config is never healed again, and a widget added later without a visibility is Always shown. Mechanics: integration.md INTEG-113. Code: `ManagedModel.healVisibility()`, `Bar.ensureInstanceIds()`.
+
+## Empty widgets: the placeholder rule
+
+- **DEMAND-85** A widget with nothing to show (no updates pending, Bluetooth off, an empty tray) hides itself, as on Omarchy's bar, unless the user placed it. It keeps a fallback icon in its place when its mode is On demand (the drawer needs something to show), or when its saved `powerbarVisibility` is explicitly `"shown"`. A widget with no saved visibility (the default, DEMAND-82) and an Always hidden one keep no fallback. Placing a widget through Preferences, drag or `setWidget` always saves a visibility, so it then keeps a fallback. Code: `ManagedModel.placeholder()`, Bar.qml slot `needsPlaceholder`.
+- **DEMAND-86** The fallback is a bar-sized button with the widget's stock icon (`PreferencesModel.icon`) and the tooltip "<name> is inactive. Click to open it." (or "... Click to set it up." when nothing can be activated). A click does what a click on the widget would: presses its own button even while hidden (the Omarchy update widget runs `omarchy-update`), else calls its `toggle()` or `open()`, else opens Preferences. The widget counts as empty when it has no item, or its item is invisible, fully transparent or zero-sized.
 
 ## Activity reveal
 
-When a managed widget emits activity, it appears in its zone on the main bar for a configured duration, then collapses without leaving a gap.
+When an On demand widget has activity it appears in its zone for `powerbarManagedRevealSeconds` (default 2.5, clamped 1 to 60), then collapses without leaving a gap.
 
-- **DEMAND-5** Activity is detected through widget property-change signals on `powerbarActivityRevision`, `powerbarIcon`, `powerbarValue`, `icon`, `iconText`, `text`, `displayValue`, or `value`, or through an explicit `powerbarActivity()` signal emission. Initial widget state establishes a baseline (does not count as activity).
-- **DEMAND-6** Only public presentation values trigger activity: icon, icon text, text, numeric value, or display value changes. Visibility, geometry, opacity, and theme color changes do not count. An explicit `powerbarActivity()` signal qualifies even if the resulting icon/value matches the previous one.
-- **DEMAND-7** Repeated identical values do not trigger activity. A changed icon or displayed value qualifies; a changing numeric reading qualifies.
-- **DEMAND-8** Activity deadline is `now + managedRevealSeconds` (default 2.5 seconds from shell.json `powerbarManagedRevealSeconds`, 1–60 range). The deadline extends from the most recent activity event: another qualifying event restarts it. Repeated events never queue intervals; the deadline is always measured from the current time, not accumulated.
-- **DEMAND-9** A widget's activity does not reorder its zone. It keeps its configured place among the zone's widgets.
-- **DEMAND-10** The bar's layout changes (opening the drawer, moving a widget, changing theme/size), shell startup, and widget loading do not themselves count as activity.
-- **DEMAND-11** At the reveal deadline, the widget collapses (hides) without leaving a gap. If the pointer is on the widget or its menu/panel is open, dismissal is deferred until the interaction ends.
-- **DEMAND-12** For a managed group (all members are Managed), one member's activity reveals the group header in the zone. The group header's activity deadline extends from the most recent member activity.
-- **DEMAND-13** Clock-driven widgets (e.g. `omarchy.clock`) never count as activity for an autohidden bar and never cause it to peek.
+- **DEMAND-5** Activity is a change of `powerbarActivityRevision`, `powerbarIcon`, `powerbarValue`, `icon`, `iconText`, `text`, `displayValue` or `value` (string, number or boolean) on the widget's root or one of its bar buttons, or an emitted `powerbarActivity()` signal. The first values after a widget loads set the baseline and are not activity. Code: `ManagedModel.snapshot()`, ActivityObserver.qml.
+- **DEMAND-6** Visibility, geometry, opacity, width and theme colour changes are not activity. A `powerbarActivity()` signal counts even when the icon or value ends up the same.
+- **DEMAND-7** A repeated identical value is not activity; a changed icon, text or number is.
+- **DEMAND-8** Each qualifying event sets the deadline to now plus the reveal duration, so a later event extends it from that moment; events never queue. A widget that changes more often than the duration stays out.
+- **DEMAND-9** A revealed widget keeps its configured place among the zone's widgets; activity never reorders the zone.
+- **DEMAND-10** Moving a widget, changing the layout, theme or size, opening a drawer, shell start and widget load are not activity (events during a layout rebuild are dropped).
+- **DEMAND-11** At the deadline the widget collapses, unless the pointer is on it or a panel of it is open; it then stays until that ends. Drawer visibility does not extend the deadline.
+- **DEMAND-12** For a group whose own visibility is On demand, activity in any member reveals the group icon in its zone for the same duration (group deadline `group:<id>`); the member itself is never on the bar. Code: `Bar.reportActivity()`.
+- **DEMAND-13** The clock (`omarchy.clock`) never makes an autohidden bar slide out (DEMAND-14); as an On demand widget it still reveals itself. Code: `ManagedModel.quietActivity()`.
 
-## Auto-hide bar activity peek
+## Autohide activity peek
 
-When a managed widget shows activity while the bar is hidden, the bar briefly slides out to show the widget's zone.
+- **DEMAND-14** On an autohidden bar (`powerbarAutoHide`), a widget's activity slides the bar out for the reveal duration and highlights the widget as if hovered: just that zone's island on Islands, the whole bar on Flat and Floating. A group member highlights its group icon, in the group's zone. It needs `powerbarAutoHideActivity` (default true; Bar > Behavior "Show on widget activity") and does not happen for a widget with `powerbarActivityPeek: false` or for the clock. With the bar switched off (`bar-off`) nothing slides out. Code: `Bar.autoHidePeek()`, `ManagedModel.peeksOnActivity()`.
+- **DEMAND-15** No peek for 6 s after the shell starts and for 6 s after each bar config change, so widgets loading their first values do not slide the bar out.
+- **DEMAND-16** Further activity while a peek runs restarts the peek timer; on Islands several zones can peek together, and all slide back when the timer ends.
 
-- **DEMAND-14** Activity peeks if the widget entry allows it (not opted out via `powerbarActivityPeek: false`) and the widget is not clock-driven. The bar slides out the widget's zone (islands mode) or the whole bar (continuous), highlighting the widget for the activity duration (default 2.5 seconds). A group member's activity highlights the group header in that zone.
-- **DEMAND-15** Activity peeks are suppressed for 6 seconds after shell startup and after config change, so the bar does not slide out during initialization.
-- **DEMAND-16** If the bar is already sliding out for another reason, activity peeks do not start another.
+## Zone drawer: opening and closing by pointer
 
-## Hover drawer
+In the default drawer mode a zone's On demand widgets (and widgets folded off the bar for lack of room, listed first) open in a drawer beside the bar.
 
-Hovering a zone containing managed widgets (or a zone with a handle when all are hidden) opens a floating drawer at the bar's edge.
-
-- **DEMAND-17** Entering a zone containing managed widgets opens its drawer immediately and cancels any dismissal timer. The drawer contains all managed widgets in that zone, including those currently under an activity reveal.
-- **DEMAND-18** Always hidden widgets do not appear in the drawer. A zone with only hidden managed widgets shows a small handle for hover discovery.
-- **DEMAND-19** Leaving the zone starts an entry grace (default 1 second, `powerbarManagedEntryGraceSeconds`). Re-entering the zone or the drawer within that grace cancels dismissal.
-- **DEMAND-20** Entering the drawer cancels pending dismissal and keeps it open.
-- **DEMAND-21** Leaving the drawer starts a 1-second exit grace (default `powerbarManagedExitGraceSeconds`). Re-entering before expiry cancels dismissal. Grace expires with the pointer outside both surfaces and the drawer closes.
-- **DEMAND-22** Drawer dismissal is suspended while the pointer is on the source zone, the drawer, or any interaction (drag, keyboard, widget panel) is held.
-- **DEMAND-23** The entry grace default is 1 second (`powerbarManagedEntryGraceSeconds`, 1–15 range). The exit grace default is 1 second (`powerbarManagedExitGraceSeconds`, 1–15 range). These are shell.json keys; Preferences does not show them.
-- **DEMAND-24** Hovering a different zone directly switches its drawer with no intermediate close; the previous zone's timers are cleared.
-- **DEMAND-25** Escape, outside click, or host dismissal closes the drawer and releases any focus and temporary holds.
-- **DEMAND-26** Only one drawer is open across the bar at a time.
-- **DEMAND-27** Closing the bar, opening Preferences, or changing the bar edge closes the drawer.
+- **DEMAND-17** Pointing at any visible widget of a zone, or at its dots or drawer button, opens that zone's drawer at once (no delay) when the zone has On demand or folded widgets; nothing opens for a zone without them. The drawer holds the zone's On demand widgets in order, including ones currently under an activity reveal. Hover does not take keyboard focus.
+- **DEMAND-18** Always hidden widgets are not in the drawer (DEMAND-3). A zone with On demand widgets but no widget on the bar shows a bar-sized 󰇘 button (tooltip "Left drawer", "Center drawer" or "Right drawer") in the middle of the zone; hovering or pressing it opens the drawer. Pressing the dots of a zone with folded widgets opens it without keyboard focus.
+- **DEMAND-19** While the pointer is on the source (a zone widget or the dots) or on the drawer, no close timer runs. Leaving the source before ever entering the drawer starts a close timer of `powerbarManagedEntryGraceSeconds` (default 1 s, clamped 1 to 15); coming back to the source or entering the drawer cancels it.
+- **DEMAND-20** Entering the drawer cancels pending dismissal; the drawer is then "entered" until it closes.
+- **DEMAND-21** Once the drawer has been entered, leaving both source and drawer starts `powerbarManagedExitGraceSeconds` (default 1 s, clamped 1 to 15). Re-entering cancels it and the next leave restarts it from the full time; the timer is one-shot and never stacks. Expiry closes the drawer. Code: `ManagedModel.dismissDelay()` (0 means no timer runs).
+- **DEMAND-22** No close timer runs while the pointer is on the source or drawer, a keyboard drawer is held, a widget panel is open from it, or a drag is moving.
+- **DEMAND-23** The three timings are shell.json keys only (`powerbarManagedRevealSeconds` 2.5, `powerbarManagedEntryGraceSeconds` 1, `powerbarManagedExitGraceSeconds` 1); Preferences neither shows nor writes them. A missing or non-number value gives the default.
+- **DEMAND-24** Pointing at another zone with On demand widgets switches the drawer to that zone in place (a fresh open animation, no close in between); the previous zone's timers are dropped.
+- **DEMAND-25** Escape closes a drawer. A click outside closes only a drawer opened for the keyboard or pinned by a click (hover drawers take no clicks and no focus grab). After a close that was not a timeout, the same zone does not reopen until the pointer has left it and come back.
+- **DEMAND-26** One drawer is open across the bar at a time; opening one closes any other, on any monitor.
+- **DEMAND-27** Hiding the bar, opening Preferences, changing the bar edge, switching the on-demand display and editing groups (unless a drop keeps it open) close the drawer at once. Pressing a bar widget closes the drawer first, then performs the press. A pointer drag ends keyboard use of the drawer.
+- **DEMAND-87** Default on-demand display: `powerbarOnDemand` is `"drawer"`; only the exact value `"inline"` selects inline expansion. Code: `BarModel.options().onDemand`.
+- **DEMAND-88** Drawers open with a 160 ms ease-out from 94 % scale and close in 110 ms; with animations off (`powerbarAnimations: false`) they appear and vanish at once.
 
 ## Drawer geometry and appearance
 
-The managed drawer is an overlay; opening it does not move application windows or reserve workspace.
+- **DEMAND-28** A drawer is always drawn as an island, whatever the bar style: island border and rounding (at most half the bar's thickness), the extended surface colour and effects, bar-scaled widgets, and it floats one bar gap from the bar (a Flat bar adds the gap itself). It is an overlay: windows do not move and no space is reserved. Code: ManagedDrawer.qml:91-92.
+- **DEMAND-29** It opens toward the desktop: below a top bar, above a bottom bar, right of a left bar, left of a right bar. On a side bar it is vertical.
+- **DEMAND-30** A zone drawer has no source icon, so it lines up with the island's outer end: the island's start for Left, its end for Right, centred for Center. Without islands the "island" is the screen width minus one bar gap each side.
+- **DEMAND-31** Its length fits its contents but at most the screen axis minus two bar gaps; beyond that it scrolls along its axis, with a scroll bar only while it overflows. It stays on its source monitor.
+- **DEMAND-32** A closed drawer takes no pointer input: only the open (and not stepped-aside) drawer rectangle is in the bar window's input region.
+- **DEMAND-68** A strip drawer with a source icon (a group's, groups.md GROUP-34) is centred on the icon's cell, kept one bar gap from both screen edges, and an end within half a highlight (16 px on a 38 px bar) of the zone island's end snaps onto it. Code: `ManagedModel.placeStrip()`.
+- **DEMAND-70** Strips and menus never come closer than one bar gap to a screen edge. Menu width, rows and placement: groups.md GROUP-96 to GROUP-98.
 
-- **DEMAND-28** The drawer uses the bar's background, island border settings, corner rounding, and proportional widget scale; it works in continuous, transparent, or Islands mode.
-- **DEMAND-29** The drawer opens toward the desktop: below on top edge, above on bottom, to the right on left, to the left on right. On vertical bars, it runs parallel to the bar.
-- **DEMAND-30** A zone drawer's contents are aligned to that zone's island (or a placeholder for inline expansion). For a group drawer (a group menu), the drawer aligns to the group header's cell within the zone.
-- **DEMAND-31** The drawer is positioned to fit on the monitor of its source zone. Contents fit to their measured size up to the available extent; overflow scrolls along the drawer orientation. Scrollbars appear as needed (horizontal for island strips, vertical for vertical strips or menus).
-- **DEMAND-32** The drawer clips its extended region; the closed drawer area is transparent and click-through.
+## Inline expansion
 
-## Group drawers (menus)
+In inline mode a zone's On demand widgets wait behind its dots (shared with folded widgets; a count badge shows if `powerbarDotsBadge`, default true) and expand in place as a zone-fit moment: neighbours yield (layout-zones.md). Hovering a visible widget opens nothing. The keyboard (`managed <zone>`) and the fallback below always use the drawer.
 
-A group with member names (`memberDisplay: "name"` or `"both"`) opens as a vertical menu. Otherwise it opens as a strip (island).
-
-- **DEMAND-33** Menu rows show icons and names; rows without an icon start their name at the icon edge so all names share one left edge. Values (e.g. battery %) are right-aligned. Menu width fits its widest content plus 2 × inset, at least 128 px (4 cells), at most 320 px (longer names elide).
-- **DEMAND-34** Menu rows are highlight cells thick (cell height varies with bar size; ~32 px on a 38 px bar) and spaced 1 inset apart (3 px on a 38 px bar).
-- **DEMAND-35** Menu rows anchor their first row's start to the group icon's start and flip horizontally when near the screen edge. On vertical bars, the first row's centre is level with the group icon's centre; the last row flips toward the bottom edge if near it.
-
-## Inline expansion (on-demand zones)
-
-On supported bar edges (top and bottom), a zone can expand inline when the pointer rests on its dots. Inline expansion shows managed widgets in the zone's normal position, as if Always shown, while the zone is expanded. When it collapses, the widgets hide again.
-
-- **DEMAND-36** Hovering a zone's dots initiates inline expansion: pointer intent (default 90 ms) must elapse before the zone opens. A swipe across dots opens nothing.
-- **DEMAND-37** The zone expands if its hidden widgets fit beside every other moment running now. If they do not fit, the drawer opens instead.
-- **DEMAND-38** Switching zones collapses the open zone at once and begins a settle timer (default 170 ms with animations, 0 ms without). The next zone opens only after the timer expires, so two zones never animate together.
-- **DEMAND-39** Clicking the dots (no hover intent delay) opens the zone immediately if it fits, or skips to the drawer if it does not.
-- **DEMAND-40** While a zone is expanded inline, hovering its dots does not open the drawer (the handle shows but is not hoverable). Clicking the dots closes the expansion (not the drawer).
-- **DEMAND-41** The expansion releases center-section reveal holds (used for center activity peek) and waits for the zone's settle timer before proceeding.
-- **DEMAND-42** Opening another zone releases the held reveal. Asking for the centre zone keeps its hold.
-- **DEMAND-43** The zone stays open while the pointer is on its dots, on the expanded widgets, during a drag, or while keyboard interaction is held there. It collapses after the exit grace (default 1 second) once all interactions end.
-- **DEMAND-44** Turning off inline mode (via `powerbarOnDemand` config) collapses the zone immediately.
-- **DEMAND-45** Hiding the bar collapses the zone immediately.
+- **DEMAND-36** The pointer must rest on the dots for 90 ms before a zone is asked for; leaving sooner (a swipe) asks for nothing.
+- **DEMAND-37** The request is measured against every other moment running now. If the zone's hidden widgets fit, it expands; if not, nothing expands and the zone's drawer opens instead (as by hover, without keyboard focus; its source is the dots, not a widget).
+- **DEMAND-38** When the request changes while a zone is expanded, the open zone collapses at once and the next opens only after a settle time of 170 ms (0 with animations off), so two zones never animate together. Opening a zone other than the centre first releases a held centre reveal and waits the same settle time.
+- **DEMAND-39** Pressing the dots skips the 90 ms intent (the settle time still applies); a zone that cannot fit opens its drawer.
+- **DEMAND-40** While a zone is expanded its dots are gone (they show only while something waits behind them), so nothing opens a drawer over it. Pointing at a widget of another zone collapses the expanded one at once.
+- **DEMAND-43** An expansion stays while the pointer is on its dots or any widget of the zone, a drag is in the zone, the keyboard mode holds the zone, a group drawer is open, or a panel is open from the zone. When all of that ends it collapses after `powerbarManagedExitGraceSeconds` (default 1 s).
+- **DEMAND-44** Switching the on-demand display collapses the expansion and closes any drawer at once. Hiding the bar collapses it at once. Opening a zone drawer (keyboard, IPC, fallback) collapses it.
 
 ## Keyboard drawer entry
 
-Drawers can be opened from the keyboard without pointer hovering.
+- **DEMAND-46** `omarchy-shell powerbar managed <left|center|right>` opens that zone's drawer on the focused monitor, for the keyboard: the drawer takes focus and no member is selected yet. Nothing happens for a zone with no On demand widgets (integration.md INTEG-49).
+- **DEMAND-47** Tab, Right and Down move to the next member; Shift+Tab, Left and Up to the previous. The first press shows the cursor (on the first member for next, the last for previous); later presses wrap around.
+- **DEMAND-48** Enter or Space presses the member under the cursor (member 0 if the cursor is not shown yet); Escape closes the drawer. A drawer opened from the bar's keyboard cursor: keyboard.md KEYS-10, KEYS-20.
+- **DEMAND-49** Hovering a member highlights it without moving the keyboard cursor.
+- **DEMAND-50** A keyboard drawer has no close timer; it stays until Escape, an outside click, or a close from the bar.
 
-- **DEMAND-46** Calling `omarchy-shell powerbar managed left` (also `center`, `right`) opens that zone's drawer in keyboard mode. The drawer takes focus, and keyboard shortcuts do not pass through.
-- **DEMAND-47** Tab/Shift+Tab or Left/Right/Up/Down arrows navigate widgets. The first navigation activates cursor selection; subsequent presses move the cursor. Entering a drawer without prior navigation readies the cursor but does not select (prevents opening a widget's panel on the first keystroke).
-- **DEMAND-48** Enter/Space activates the cursor-selected widget. Escape dismisses the drawer and returns focus to the original context.
-- **DEMAND-49** Hovering the drawer does not move the cursor, and reopening from the bar's keyboard cursor does not steal its focus (the cursor stays on the bar).
-- **DEMAND-50** Pointer dismissal timers (entry and exit graces) are suspended during keyboard interaction; the drawer stays open until Escape is pressed or focus is lost.
+## Member panels from a drawer
 
-## Widget panels from the drawer
+- **DEMAND-51** A widget panel opened from a drawer member (menu or popout) places at the bar's edge as on the bar; the drawer fades out (110 ms) and takes no input while it is open.
+- **DEMAND-52** When the last member panel closes, a pointer-opened drawer closes; a keyboard drawer returns once no panel at all is open, with its cursor on the same member.
+- **DEMAND-53** A 150 ms grace after a panel closes lets one member's panel hand over to another's without the drawer returning and leaving.
 
-A widget menu or popout opened from a drawer positions at the bar edge and the drawer steps aside.
+## Dragging
 
-- **DEMAND-51** A widget panel (group member menu, zone drawer, or third-party popout) opened from a drawer places at the bar's edge, as on the main bar. The drawer fades and takes no further input while the panel is open.
-- **DEMAND-52** Once the panel closes, the drawer closes if it was opened by pointer (the panel was the last interaction stop); if opened by keyboard, the drawer returns with cursor selection on the same widget once no panel is open.
-- **DEMAND-53** A handover grace (150 ms) allows one member's panel to close and another's to open without the drawer re-entering and leaving.
+Drops into, out of and between drawers and onto dots: drag-edit.md (DRAG-16, DRAG-24, DRAG-25, DRAG-28, DRAG-29, DRAG-51).
 
-## Dragging to the managed drawer
+- **DEMAND-58** A drag that starts on a drawer row is driven by that row. While it runs the drawer keeps presenting and keeps its rows, whatever closes it or changes its members; when it ends the drawer reconciles with its real state (open or closing). Code: ManagedDrawer.qml `dragMount`.
 
-Managed widgets can be moved via drag-and-drop into and out of the drawer.
+## Identity and session state
 
-- **DEMAND-54** Dragging a widget into an open managed drawer places it in that zone as Managed, preserving its order among the zone's widgets. Dropping a group icon into the drawer makes the entire group Managed.
-- **DEMAND-55** Dragging a widget from the drawer back to the main bar makes it Always shown.
-- **DEMAND-56** Dragging from one zone's managed drawer to another zone swaps zones for that widget (via the drawer or inline expansion).
-- **DEMAND-57** A zone's dots are a drop target. An icon dragged from one zone's drawer can drop directly onto another zone's dots to move it there, even while the source drawer is open.
-- **DEMAND-58** A drag that started on one of the drawer's rows is driven by a handler on that row. While the drag runs, the drawer keeps presenting and keeps its rows, whatever closes it or changes its members; destroying that row would leave the drag without its release.
-- **DEMAND-59** During a drag into an open managed drawer, on-demand gaps show dots and the drawer extends its row spacing to show landing positions.
+- **DEMAND-75** Each layout entry gets a stable `powerbarInstance` (`pw-<base-36 time>-<random>`) once; a duplicate gets a new one. It is saved and survives moves.
+- **DEMAND-76** Activity deadlines are kept per `powerbarInstance` in memory only, so an entry's reveal follows it across monitors and layout changes and is lost on restart.
+- **DEMAND-80** Whether a drawer is open, its zone, cursor, keyboard mode and every hover timer are session state: nothing is written to shell.json or powerbar.toml.
+- **DEMAND-81** What is saved is the user's choices: zone, place and visibility per entry, and the optional timing keys above.
 
-## Drawer dismissal and activity interaction
+## Retired IDs
 
-The drawer manages dismissal delays based on pointer proximity and user interaction.
-
-- **DEMAND-60** Dismissal delay is computed from: if hovering the source zone, pointer (on drawer, or interacting), or holding an interaction, dismiss at once (delay 0). If entered the drawer before leaving it (not the entry grace), use exit grace. If entered the entry grace, use exit grace. Otherwise use entry grace.
-- **DEMAND-61** Entry grace (default 1 second, `powerbarManagedEntryGraceSeconds`) starts when the pointer leaves the source zone. Exit grace (default 1 second, `powerbarManagedExitGraceSeconds`) starts when the pointer leaves the drawer. Re-entry resets the timer to the full duration.
-- **DEMAND-62** The dismissal timer is a one-shot; reaching its deadline closes the drawer. A fresh hover or entry restarts it. The timer never stacks or queues intervals.
-
-## Activity snapshot and change detection
-
-Powerbar detects activity by comparing widget presentation snapshots.
-
-- **DEMAND-63** A snapshot captures these public properties (if present): `powerbarActivityRevision`, `powerbarIcon`, `powerbarValue`, `icon`, `iconText`, `text`, `displayValue`, `value`. Only string, number, and boolean values are included.
-- **DEMAND-64** A property is observed only if it exists on the target. Snapshots ignore undefined or missing properties.
-- **DEMAND-65** Changes to visibility, geometry, opacity, or width do not affect the snapshot and do not trigger activity.
-
-## Managed widget modes and visibility model
-
-The mode function determines initial visibility based on whether the widget is discovered and first-party.
-
-- **DEMAND-66** Explicitly configured `powerbarVisibility` values (`"shown"`, `"managed"`, `"hidden"`) always win. Undiscovered widgets (metadata missing) remain in `"pending"` mode until discovered.
-- **DEMAND-67** For discovered widgets: first-party system widgets default to `"shown"`. Third-party or user-cloned widgets default to `"managed"`.
-
-## Drawer position calculation
-
-Managed drawer and menu positioning follows the bar's zone alignment and screen constraints.
-
-- **DEMAND-68** Strip positioning (for islands): the strip centers on the source widget's cell, stays at least one bar gap from the screen edges, and snaps its end to the zone island within half a highlight (16 px). For managed drawers (no source widget), strips align to the zone island's outer end (left edge for left zone, right edge for right zone, centre for centre).
-- **DEMAND-69** Menu positioning (for named groups): the first row starts where the source icon cell starts and flips horizontally when it would exceed the screen's opposite edge by more than the inset (3 px). On vertical bars, the first row's centre is level with the source's centre; the last row's centre is level with the source's centre when flipped toward the opposite edge.
-- **DEMAND-70** Both strips and menus clamp their position to stay a bar gap from the screen edges (minimum spacing).
-
-## Drag source from drawer
-
-A drag initiated within the drawer identifies itself for drop handling.
-
-- **DEMAND-71** A drag from within a managed drawer identifies its zone (`managed:<zone>` surface) or group (`group:<id>` surface).
-- **DEMAND-72** During drag preview, the dragged row's handle (if any) is visible and usable.
-
-## Slot retention during drag
-
-The drawer retains widget presentations while a drag is in motion.
-
-- **DEMAND-73** If a drag started on a drawer row, the drawer and its rows persist until the drag ends. Closing the drawer (by timeout or interaction) does not remove rows if `dragMount` is set.
-- **DEMAND-74** Once the drag ends and `dragMount` is released, the drawer reconciles its row visibility based on the drawer's current state (open/closed).
-
-## Instance identity and activity sharing
-
-Widgets maintain stable identities so activity deadlines and state persist across configuration changes.
-
-- **DEMAND-75** Each layout entry gets a stable `powerbarInstance` identity (format `pw-<timestamp>-<random>`) assigned once and persisted. Duplicate plugin instances on moves receive different identities.
-- **DEMAND-76** Activity deadlines are keyed by `powerbarInstance`, so a widget's reveal state follows its identity across monitor changes and configuration updates. Deadlines are never persisted (session state only).
-
-## Managed drawer opening modes
-
-The drawer can open through hover, keyboard, or drawer-open fallback.
-
-- **DEMAND-77** A zone drawer opens through hover (pointer on dots), keyboard entry (`omarchy-shell powerbar managed <zone>`), or inline fallback (attempting to expand inline when it doesn't fit). All three modes are distinct; clicking the dots (with no hover delay) is inline-fast, not hover entry.
-- **DEMAND-78** Hover opening does not acquire keyboard focus. Keyboard opening (or reopening in keyboard mode after a panel) acquires focus.
-- **DEMAND-79** When inline expansion determines the zone doesn't fit and opens the drawer instead, the drawer's source is the dot handle, not a widget cell.
-
-## Drawer state and configuration
-
-The drawer tracks internal state separately from user preferences.
-
-- **DEMAND-80** The drawer's open/closed state, zone, group, cursor position, keyboard mode, and hover timers are session state only; they are not persisted to shell.json or powerbar.toml.
-- **DEMAND-81** Explicit user choices (placement, visibility mode, zone for each widget) are persisted. Reveal timings and hover-delay configuration keys are set via shell.json `powerbar*Seconds` keys and survive restart but are not written by Preferences.
+DEMAND-33, 34, 35, 69 moved to groups.md (GROUP-96 to GROUP-98). DEMAND-54, 55, 56, 57, 59, 71, 72 moved to drag-edit.md. DEMAND-41, 42, 45, 60, 61, 62, 63, 64, 65, 66, 67, 73, 74, 77, 78, 79 were merged into the entries above (DEMAND-5, 6, 19, 21, 37, 38, 44, 46, 58, 82) or removed because no code supports them.
 
 ## Doc drift
 
-| File | Line | Claim | Code says |
-| --- | --- | --- | --- |
-| README.md | 475–476 | "After leaving the source zone, you have 5 seconds to enter the drawer; after leaving the drawer, it closes after 3 seconds." | `powerbarManagedEntryGraceSeconds` and `powerbarManagedExitGraceSeconds` default to 1 second each (range 1–15 in Bar.qml). Grace periods are computed by `dismissDelay()` in ManagedModel.js and depend on pointer position, not 5/3 seconds. |
-| README.md | 481 | "Managed widgets sliders configure activity, entry, and exit durations (10/5/3 seconds)." | Code defaults are 2.5 seconds (activity reveal), 1 second (entry grace), 1 second (exit grace). No Preferences sliders found in Preferences.qml/PreferencesModel.js for these durations; DEMAND-23 confirms the keys are shell.json only, not shown in UI. |
+| File | Claim | Code |
+| --- | --- | --- |
+| README.md ("Managed drawers and activity") | After leaving the zone "you have 5 seconds to enter the drawer; after leaving the drawer, it closes after 3 seconds" | 1 s and 1 s (Bar.qml:382-383; `ManagedModel.dismissDelay()`) |
+| README.md (same section) | "General's Managed widgets sliders configure activity, entry, and exit durations (10/5/3 seconds)" | No such sliders; defaults 2.5 / 1 / 1 s, shell.json keys only (Bar.qml:376-383, comment "Preferences no longer offers it") |
+| docs/design/managed-widgets.md:20, 136 | New custom widgets default to Managed; system widgets "Proposed" shown | Every widget without a saved visibility is shown (ManagedModel.js:13-19) |
+| docs/design/managed-widgets.md:61, 66, 68, 132-133 | 5-second entry and exit grace | 1 s each (Bar.qml:382-383) |
+| docs/design/managed-widgets.md:142 | Sliders persist, defaults 10/5/3 | Not offered; 2.5 / 1 / 1 (Bar.qml:381-383) |
+| docs/design/managed-widgets.md:72 | Escape, outside click or host dismissal closes the drawer | Outside click closes only keyboard or pinned drawers (Bar.qml:3536-3540) |
+| docs/design/managed-widgets.md:82 | Drawer follows a continuous, transparent or Islands bar | Always island-styled (ManagedDrawer.qml:91-92) |
 
 ## Open questions
 
-(None: all answered from code.)
+- None open. Possible bug: in a drawer opened by `managed <zone>`, Enter or Space presses member 0 even when no cursor is shown yet (ManagedDrawer.qml:386, `slots[cursor]` without `cursorActive`), although the cursor-less open is meant to stop a first keystroke opening a panel.

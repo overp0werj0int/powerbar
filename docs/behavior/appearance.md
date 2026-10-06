@@ -1,312 +1,307 @@
 # Appearance
 
-Powerbar's appearance covers theme tokens, surface effects (blur, shadow, opacity), islands' looks, tooltips' appearance, the bar's auto-hide visibility, and scope choices (Theme / Everywhere / Just here). Users control these in Preferences > Bar page tiles (Shape, Surface, Shadow, Behavior > Readable over windows, Animations). Everything except text and icons is stored in `bar.powerbarAppearance` in shell.json; earlier versions' flat keys migrate once per theme.
+How Powerbar looks and when it shows: surface (opacity, blur, readable minimum), Omarchy's transparent bar, island shape (rounding, borders), shadow, text and icon colour, appearance scopes (Theme / Everywhere / Just here), a theme's `powerbar.toml`, tooltips, animations, and bar auto-hide. Controls are in Preferences > Bar (tiles Shape, Surface, Shadow, Behavior); what the controls do on the page is in preferences.md ("Bar appearance and behavior", "Appearance scopes"), and the CLI names (`shape.rounding`, `surface.opacity`, `shadow.scope`, `transparent`, `autoHide`, `show`, `hide`) are in integration.md.
 
-**Sources:** AppearanceModel.js, RenderModel.js, TooltipModel.js, EffectSurface.qml, BarBackdrop.qml, BarFace.qml, TintedImage.qml, WidgetIcon.qml, Bar.qml (grep: autoHide, powerbarAutoHide, powerbarStyle, powerbarLargeBar, powerbarAnimations, theme/appearance/surface/effects/shadow), tests/appearance.test.cjs, tests/render.test.cjs, tests/tooltip-model.test.cjs, README.md "Shadows and backdrop blur" and "Theme or yours" sections, powerbar.toml parsing.
+Storage: the look lives in `bar.powerbarAppearance` of shell.json: `all` (values shared by every theme) and `themes.<theme>` (values for one theme, plus that theme's `text`), each tile holding `use` (`this` or `all`; absent means the default scope) and its values: shape `{ rounding, borders, borderWidth }`, surface `{ opacity, blur }`, shadow `{ enabled, softness, strength }`. Behaviour switches stay flat in `bar`: `powerbarAutoHide`, `powerbarAutoHideActivity`, `powerbarReadableOverlay`, `powerbarAnimations`, `powerbarLargeBar` (layout-zones.md), and Omarchy's own `transparent`. Keys from earlier versions are migrated (see Legacy migration).
 
-## Surface Effects (Blur, Opacity, Shadow)
+**Sources:** AppearanceModel.js, RenderModel.js (captureDelta), TooltipModel.js, EffectSurface.qml, BarBackdrop.qml, BarFace.qml, TintedImage.qml, WidgetIcon.qml, Bar.qml (grep: autoHide, barOpacity, surfaceEffects, overlayStyled, tooltip, themeLook, barForeground, transparent, namespace), Preferences.qml (Shape, Surface, Shadow, Behavior tiles; scopeHint), tests/appearance.test.cjs, tests/render.test.cjs, tests/tooltip-model.test.cjs, tests/clean-defaults.test.cjs.
 
-- **LOOK-1** Given shell.json has `powerbarBackgroundOpacity` set to a number, when the bar draws, background opacity is clamped to 0–100% (5% steps): 0→0, 50→0.5, 100→1, 140→1, negatives→0 (AppearanceModel.ranges.backgroundOpacity, AppearanceModel.clampTo).
+## Surface effects (opacity, blur, shadow)
 
-- **LOOK-2** Given shell.json has `powerbarBlur` true or false, when the bar draws with transparent or floating surfaces, blur is on/off (AppearanceModel.effects, used in EffectSurface.qml layer.enabled).
+- **LOOK-1** The bar's surface opacity is the value of Surface > "Background opacity" (stored `opacity`, 0 to 100): it is clamped to 0 to 100 and drawn as a fraction (0 gives 0, 50 gives 0.5, 100 or 140 gives 1, a negative gives 0; no step snapping on read; the slider moves in 5% steps and shows "Clear" at 0, "Opaque" at 100). The default, with nothing chosen and no theme value, is the theme's own bar background alpha (LOOK-9), else 100. Code: AppearanceModel.effects, ranges.backgroundOpacity.
 
-- **LOOK-3** Given shell.json has `powerbarShadow` true/false, when the bar draws, a shadow is painted locally around islands and drawers (EffectSurface.qml RectangularShadow with visible: surface.shadowEnabled).
+- **LOOK-2** Surface > "Background blur" (stored `blur`, true only when exactly true; default off) puts the bar's layer on the Hyprland namespace `powerbar` (blurred by the user's layer rule, see LOOK-125); off, the namespace is `powerbar-clear`. Changing it hides the bar window for 60 ms with the layout frozen so the new namespace maps; widgets keep their sizes meanwhile. Code: AppearanceModel.effects; Bar.qml WlrLayershell.namespace, blurRemap.
 
-- **LOOK-4** Given shell.json has `powerbarShadowSize` set to a number, when the bar draws, shadow blur is clamped to 2–24 px (AppearanceModel.ranges.shadowSize): 0→2 px, 16→16 px (default), 30→24 px.
+- **LOOK-3** Shadow > "Shadow" (stored `enabled`, default off) paints a shadow behind the flat strip, the floating surface, each island, drawers, and the tooltip, name card and key legend when their look follows Powerbar's (LOOK-91). Code: EffectSurface.qml RectangularShadow; Bar.qml shadowEnabled, overlayShadow.
 
-- **LOOK-5** Given shell.json has `powerbarShadowOpacity` set to a number, when the bar draws, shadow strength is clamped to 5–60% (AppearanceModel.ranges.shadowOpacity): 0→0.05, 30→0.3 (default), 70→0.6.
+- **LOOK-4** Shadow > "Softness" (stored `softness`) is clamped to 2 to 24 px, 16 by default (0 gives 2, 30 gives 24). Code: AppearanceModel.ranges.shadowSize.
 
-- **LOOK-6** Given shell.json has `powerbarReadableOverlay` unset or false, and drawers or an autohidden bar draws over windows with opacity under 88%, then text remains readable over opaque backgrounds behind it (AppearanceModel.overlayOpacity returns Math.max(opacity, 0.88) when readableOverlay !== false && !blur).
+- **LOOK-5** Shadow > "Strength" (stored `strength`) is clamped to 5 to 60 percent, 30 by default (0 gives 0.05, 70 gives 0.6). Code: AppearanceModel.ranges.shadowOpacity.
 
-- **LOOK-7** Given shell.json has `powerbarReadableOverlay` false, when a drawer or autohidden bar draws with opacity under 88% and blur is off, readable overlay is disabled: opacity is used as set (AppearanceModel.overlayOpacity, Bar.qml overlaySurfaceColor).
+- **LOOK-6** Readable minimum: with `powerbarReadableOverlay` unset or true (Behavior > "Readable over windows", default on) and blur off, surfaces that lie over windows are at least 88% opaque: drawers, the tooltip, name card and key legend when styled by Powerbar, and the bar itself while it autohides. An opacity of 50 is drawn as 0.88 there, 95 stays 0.95. The always-visible bar is not raised. Code: AppearanceModel.overlayOpacity, barOpacity; Bar.qml overlaySurfaceColor.
 
-- **LOOK-8** Given blur is on, when a drawer or autohidden bar draws, readable overlay does not raise opacity: the set opacity is used (AppearanceModel.overlayOpacity returns opacity when blur is true).
+- **LOOK-7** With `powerbarReadableOverlay: false` those surfaces use the chosen opacity as it is. The setting is not part of the appearance scopes: it is one flat key for every theme. Code: AppearanceModel.overlayOpacity (`readableOverlay !== false`).
 
-- **LOOK-9** Given no opacity is set and the theme provides `background.a` (alpha), the bar uses the theme's own background opacity (AppearanceModel.effects with themeOpacity fallback).
+- **LOOK-8** With blur on, the readable minimum does not apply: the chosen opacity is used, since the blur keeps text readable. Code: AppearanceModel.overlayOpacity.
 
-## Island Shape (Rounding, Borders)
+- **LOOK-9** With no opacity chosen in any scope, the bar uses the alpha of the theme's own bar background (Omarchy's `[bar] background`), rounded to a whole percent: a theme with a see-through bar background draws see-through. Code: AppearanceModel.effects(config, Color.bar.background.a).
 
-- **LOOK-10** Given shell.json has `powerbarIslandRounding` set to a number, when islands draw, rounding is not clamped to a maximum: any stored value is used (AppearanceModel.ranges.rounding has no max field, roundingMax computes the slider's top as bar thickness / 2 / spacing scale, min 1, but stored values may exceed it).
+## Transparent bar (Omarchy's `bar.transparent`)
 
-- **LOOK-11** Given a bar of thickness 38 px and spacing scale 1, when Preferences' rounding slider is shown, its maximum is 19 (half the bar thickness; roundingMax(38, 1) → 19).
+- **LOOK-129** `bar.transparent: true` (set by `omarchy bar transparent`, Omarchy's menu Transparency, the shell's toggle, or a double-click on empty bar space, LOOK-133) clears the bar's own surface to opacity 0 in every style (the flat strip, the floating surface, each island). Drawers, tooltips and the key legend keep their surface: the flag is the bar's. The surface clears once Omarchy's `omarchy-bar-text-color` has answered (a 120 ms debounce plus the command), not at the instant the flag is written. Code: AppearanceModel.barOpacity; Bar.qml setRequestedTransparency, transparentForegroundProc.
 
-- **LOOK-12** Given a bar of thickness 27 px (odd) and spacing scale 1, when the slider's top is computed, it rounds up so a full pill is reachable (roundingMax(27, 1) → 14; rounded 27 / 2 = 13.5 → 14).
+- **LOOK-130** While the bar's surface is fully clear and Surface > "Text and icons" is Theme, text and icons take the colour `omarchy-bar-text-color <position> <bar size> <theme text> <theme background>` reads from the wallpaper behind the bar, as on Omarchy's own bar; a Light or Dark choice wins, and so does a surface that is not fully clear. The command re-runs when the position, theme colours or `bar.transparent` change. Code: AppearanceModel.wallpaperText; Bar.qml barForeground, refreshTransparentForeground.
 
-- **LOOK-13** Given a bar of thickness 42 px and spacing scale 1.25, when the slider's top is computed, it divides by the spacing scale (roundingMax(42, 1.25) → 17; 42 / 2 / 1.25 = 16.8 → 17).
+- **LOOK-131** An autohidden bar keeps its readable minimum even when transparent: base opacity 0 is raised to 0.88 (not with blur on, or Readable over windows off, where it stays 0). The wallpaper text colour then does not apply (the surface is not clear). Code: AppearanceModel.barOpacity.
 
-- **LOOK-14** Given shell.json has `powerbarIslandBorders` true, when islands draw, borders are shown with the border width set (AppearanceModel effects and flatKeys).
+- **LOOK-132** Preferences' Surface > "Background opacity" slider shows 0 ("Clear") while `bar.transparent` is true. Moving it writes the opacity and deletes `bar.transparent`, ending the transparency. Code: Preferences.qml setLook; slider value.
 
-- **LOOK-15** Given shell.json has `powerbarIslandBorders` false or unset, when islands draw, borders are hidden (AppearanceModel).
+- **LOOK-133** Double-clicking empty bar space (not on a widget) toggles `bar.transparent` in shell.json. A hold or drag on empty space moves the bar instead (layout-zones.md ZONE-38). Code: Bar.qml CenterGestureArea onDoubleClicked, toggleTransparency.
 
-- **LOOK-16** Given shell.json has `powerbarIslandBorderWidth` set to a number, when borders draw, thickness is clamped to 0.5–3 px (AppearanceModel.ranges.borderWidth): 0→0.5 px, 1→1 px (default), 4→3 px.
+- **LOOK-134** Turning transparency off returns the surface and text to the theme's at once: the text colour changes without its 420 ms crossfade while the switch settles. Code: Bar.qml setRequestedTransparency (foregroundAnimationEnabled).
 
-- **LOOK-17** Given a side bar with vertical islands, when islands draw, rounding and border width apply as on a horizontal bar: vertical islands use the same shape (AppearanceModel, used in Bar.qml roundingFor/borderFor).
+## Island shape (rounding, borders)
 
-## Text and Icons Colour
+- **LOOK-10** Shape > "Corner rounding" (stored `rounding`, in units scaled by the theme's spacing scale, minimum 0) has no stored maximum, but the drawn radius is capped at half the bar's thickness in px (a full pill): any larger value looks the same. With nothing chosen the theme's corner radius (`Style.cornerRadius`) is used. Code: Bar.qml roundingFor; AppearanceModel.ranges.rounding.
 
-- **LOOK-18** Given shell.json has no `powerbarForeground` set, when the bar draws text and icons, the theme's own colours are used (AppearanceModel.foreground returns "theme" as default).
+- **LOOK-11** On a 38 px (large) bar at spacing scale 1 the rounding slider tops out at 19, the full pill; at its top it reads "Pill", at 0 "Square". Code: AppearanceModel.roundingMax(38, 1) = 19.
 
-- **LOOK-19** Given shell.json has `powerbarForeground` as a bare string (legacy), when a theme is active, the choice is ignored: text and icons use the theme's colours (AppearanceModel.foreground checks `isMap(v)` and returns "theme" for non-object values).
+- **LOOK-12** On the standard 26 px bar the slider tops out at 13; an odd thickness rounds up so a pill stays reachable (27 gives 14). Code: roundingMax(26, 1) = 13, roundingMax(27, 1) = 14.
 
-- **LOOK-20** Given shell.json has `powerbarForeground: { "osaka-jade": "dark" }` and "osaka-jade" is the active theme, when the bar draws, text and icons use the theme's dark colour (AppearanceModel.foreground returns the per-theme choice).
+- **LOOK-13** The top divides by the spacing scale: 42 px at scale 1.25 gives 17 (42 / 2 / 1.25 = 16.8, rounded up). Code: roundingMax(42, 1.25) = 17.
 
-- **LOOK-21** Given shell.json has `powerbarForeground: { "osaka-jade": "light" }` and the bar draws, when text and icons are drawn, they use the theme's light colour (AppearanceModel.foreground returns "light" or "dark" from the per-theme map).
+- **LOOK-14** Shape > "Borders" (stored `borders`) is on unless exactly false: islands, the floating surface, drawers and (when styled) tooltips draw the theme's popups border, or, when "Border thickness" is set, a border of that width. Code: Bar.qml borderFor.
 
-- **LOOK-22** Given shell.json has `powerbarForeground: { "osaka-jade": "invalid" }`, when "osaka-jade" is active, text and icons use the theme's colours (AppearanceModel.foreground checks value === "light" || value === "dark" and defaults to "theme").
+- **LOOK-15** With `borders` false no border is drawn and "Border thickness" is disabled. Unset is not false: with nothing chosen the theme's own border shows. The flat strip never draws a border. Code: Bar.qml borderFor (`powerbarIslandBorders === false` gives Border.none).
 
-- **LOOK-23** Given a theme with light text and dark background, when AppearanceModel.textPair computes the light/dark pair from two colours, luminance is calculated via sRGB conversion and coefficients (0.2126·R + 0.7152·G + 0.0722·B): the brighter colour becomes "light", the darker becomes "dark".
+- **LOOK-16** Shape > "Border thickness" (stored `borderWidth`) is clamped to 0.5 to 3 px in steps of 0.5; 0 gives 0.5 ("Hairline"), 4 gives 3, a non-number reads as 1. With none chosen the theme's border width is used. Code: AppearanceModel.ranges.borderWidth; Bar.qml borderFor.
 
-- **LOOK-24** Given text and icons are set to "light" or "dark" in Preferences, when the bar switches themes, the same colour is used in each theme: the choice belongs to the theme it was made in and follows the per-theme map (AppearanceModel, shell.json `powerbarForeground` is per-theme).
+- **LOOK-17** Rounding and border settings apply the same way on a side bar: vertical islands use the same radius (capped at half the 28 px bar width) and border. Code: Bar.qml roundingFor, borderFor.
 
-- **LOOK-25** Given the bar's text color is changed in Preferences, when the bar redraws, text and icons colour animates over 420 ms with InOutCubic easing (Bar.qml Behavior on barForeground).
+## Text and icons colour
 
-- **LOOK-26** Given a theme holds no `powerbarForeground` entry for itself and Preferences' Surface > Text and icons shows the theme's default, when the user picks "dark", the choice is stored per theme (AppearanceModel.setText).
+- **LOOK-18** With no choice, text and icons use the theme's colours (Omarchy's `[bar] text`). Surface > "Text and icons" offers Theme, Light and Dark. Code: AppearanceModel.foreground, Bar.qml textOn.
 
-## Appearance Scopes (Theme / Everywhere / Just here)
+- **LOOK-19** A bare-string `powerbarForeground` from the earliest versions names no theme and applies nowhere; migration drops it. Code: AppearanceModel.foreground, fromLegacy.
 
-- **LOOK-27** Given no user appearance values are set and Preferences' Shape, Surface or Shadow tile is open, when the tile header is shown, "Theme" is selected and controls show the theme's values (AppearanceModel.scopeOf returns "theme" as default when no all and no own values exist).
+- **LOOK-20** A "Dark" choice made in theme A is stored as `powerbarAppearance.themes.A.text: "dark"` and draws the darker of the theme's two colours (bar text and background) in A only. Other themes keep their own colours. Code: AppearanceModel.setText, resolve.
 
-- **LOOK-28** Given the user has set values in Preferences' Surface > Everywhere (shared), when another theme is switched to that has not been customised, Surface follows the shared values (AppearanceModel.scopeOf: if all is filled, scope is "all"; AppearanceModel.resolve checks "all" values in the lookup chain).
+- **LOOK-21** "Light" likewise draws the lighter of the theme's two colours. Code: AppearanceModel.textPair.
 
-- **LOOK-29** Given Preferences' Shape > Everywhere is picked the first time with rounding unset on the bar, when the first pick shares the currently shown values, the shown rounding is recorded in the shared set (AppearanceModel.setScope seeds the "all" set with resolve().values).
+- **LOOK-22** A stored `text` other than `light` or `dark` reads as Theme. Code: AppearanceModel.resolve.
 
-- **LOOK-30** Given the user has set rounding to 10 in Preferences' Shape > Everywhere and switches to another theme, when the new theme draws, its islands use rounding 10 (AppearanceModel: every theme's scope defaults to "all" when shared values exist).
+- **LOOK-23** Light and dark are the theme's own pair (bar text and bar background) sorted by relative luminance (0.2126 R + 0.7152 G + 0.0722 B after sRGB linearisation): the brighter is Light, the darker Dark, whichever of the two is the text. Code: AppearanceModel.luminance, textPair.
 
-- **LOOK-31** Given Preferences' Shape > Just here is picked in theme A with custom rounding, when theme B is switched to, theme B's Shape still shows "Theme" and draws the theme's rounding (AppearanceModel.scopeOf, resolve: per-theme "this" is independent of other themes).
+- **LOOK-24** The choice belongs to the theme it was made in: switching themes shows that theme's own choice (default Theme), so a Light choice made for a dark theme never follows you into a light one. It is stored per theme in every scope. Code: AppearanceModel.resolve (`own.text`).
 
-- **LOOK-32** Given Preferences' Surface > Just here sets opacity to 70 and "Everywhere" is then chosen, when "Everywhere" is chosen the first time, opacity 70 is recorded in the shared set (AppearanceModel.setScope seeds from resolve().values, the currently shown).
+- **LOOK-26** Choosing Theme in "Text and icons" removes the stored `text` for the current theme; the theme's own `powerbar.toml` `[surface] text` (if any) then applies, else the theme's colours. Code: AppearanceModel.setText, resolve.
 
-- **LOOK-33** Given the user has switched Shape from "Everywhere" to "Theme", when the tile is switched back to "Everywhere", the earlier shared values are still there and shown (AppearanceModel.setValue/setScope keep stored values; switching scope does not erase them; unmatched scopes stay stored).
+## Appearance scopes (Theme / Everywhere / Just here)
 
-- **LOOK-34** Given Preferences' Surface > Just here holds opacity 40 and "Everywhere" holds 70, when "Just here" is shown on a theme, opacity 40 is shown; switching to another theme shows 70 ("Everywhere"); switching back shows 40 again (AppearanceModel.resolve: lookup chain is ["this", own], ["all", shared], ["file", theme]; setScope keeps every value).
+- **LOOK-27** Shape, Surface and Shadow each have a scope selector. With no user values stored, every tile reads "Theme": its controls are disabled and show the theme's values (from its `powerbar.toml`, else Omarchy's and Hyprland's), with the hint "Using <theme>'s look." (or "Using <theme>'s Powerbar look." when the theme file sets values for that tile). Code: AppearanceModel.scopeOf, resolve; Preferences.qml scopeHint.
 
-- **LOOK-35** Given a tile follows "Everywhere", when its controls are changed in Preferences, the shared set is updated; every theme not customised to "Just here" shows the new value (AppearanceModel.setValue updates a.all[tile][key]).
+- **LOOK-28** Once a tile holds shared ("Everywhere") values, every theme that has not chosen a scope for that tile follows Everywhere, and the hint reads "Yours, in every theme that has no own choice." (or "Yours everywhere; <theme> has its own look." when the theme file sets that tile). Code: AppearanceModel.defaultScope.
 
-- **LOOK-36** Given a tile has no user values and "Theme" is shown, when a control is adjusted in Preferences, the write goes nowhere: nothing is stored and the bar is not redrawn (AppearanceModel.setValue checks scope and returns early if scope is "theme").
+- **LOOK-29** The first pick of Everywhere for a tile shares what the tile shows at that moment: the shown values (including ones from the theme's file) are copied into the shared set, so nothing changes on screen. Code: AppearanceModel.setScope.
 
-## A Theme's powerbar.toml
+- **LOOK-30** With rounding 10 set under Everywhere, switching to a theme that has no own choice for Shape draws that theme's islands with rounding 10. Code: AppearanceModel.scopeOf.
 
-- **LOOK-37** Given a theme ships `powerbar.toml` in its install folder (`/usr/share/omarchy/themes/<name>/powerbar.toml`), when Powerbar loads that theme, the file is read and its values apply to tiles set to "Theme" (Bar.qml themeLookFile reads from `stateHome/omarchy/current/theme/powerbar.toml`; AppearanceModel.resolve includes l[tile] in the lookup chain).
+- **LOOK-31** Just here keeps values for the current theme only: after picking Just here in theme A with its own rounding, theme B (no choice of its own) shows Theme if nothing is shared, or Everywhere if shared values exist; never A's values. The hint reads "Yours, only while <theme> is on." Code: AppearanceModel.resolve.
 
-- **LOOK-38** Given a user overlay folder exists (`~/.config/omarchy/themes/<name>/powerbar.toml`), when that theme is active, Powerbar reads the overlay file instead of the theme's shipped one (FileView path uses the overlay first via `current/theme/` symlink).
+- **LOOK-32** The first pick of Everywhere seeds the shared set from what the tile shows: with Just here opacity at 70, picking Everywhere makes 70 the shared opacity. Code: AppearanceModel.setScope.
 
-- **LOOK-39** Given a template (`~/.config/omarchy/themed/powerbar.toml`) exists, when a new theme is switched to with no shipped or overlay file, the template is not read; only shipped and overlay files apply (AppearanceModel, documented in README but only shipped and overlay paths are used).
+- **LOOK-33** Switching a tile's scope never erases stored values: Everywhere, Theme and back shows the earlier shared values again. Code: AppearanceModel.setScope, setValue.
 
-- **LOOK-40** Given a powerbar.toml file holds `[shape] rounding = 12 borders = true border-width = 1.5`, when parsed, rounding is 12, borders is true, border-width is 1.5; unknown values are ignored (AppearanceModel.parseLook, lookKeys object).
+- **LOOK-34** Lookup is key by key down the chain for the chosen scope: Just here, then Everywhere, then the theme's file. With Just here opacity 40 and Everywhere opacity 70, the theme in question shows 40, another theme on Everywhere shows 70, and returning shows 40. A key Just here lacks shows its Everywhere value. Code: AppearanceModel.resolve.
 
-- **LOOK-41** Given a file holds `[surface] opacity = 85 blur = true text = "dark"`, when parsed, opacity 85, blur true, text "dark" are extracted (AppearanceModel.parseLook matches boolean and number values).
+- **LOOK-35** Changing a control while a tile follows Everywhere writes the shared value; every theme not on Just here for that tile shows it. Code: AppearanceModel.setValue.
 
-- **LOOK-42** Given a file holds `[shadow] enabled = false softness = 10 strength = 30`, when parsed, enabled false, softness 10, strength 30 are set (AppearanceModel.parseLook, shadow section maps enabled/softness/strength).
+- **LOOK-36** While a tile follows Theme its controls are disabled; a write to it (for example from the CLI) changes nothing. Code: AppearanceModel.setValue (returns for scope "theme").
 
-- **LOOK-43** Given a file holds `[surface] text = "theme"`, when parsed, text is set to "theme" (AppearanceModel.parseLook: text !== "light" && text !== "dark" && text !== "theme" is checked; "theme" is valid).
+## A theme's powerbar.toml
 
-- **LOOK-44** Given a file holds `[surface] text = "purple"` or `blur = maybe`, when parsed, those lines are skipped: only known string values are accepted (AppearanceModel.parseLook tests value against "light" | "dark" | "theme" for text, "true" | "false" for booleans).
+- **LOOK-37** Powerbar reads one file, `~/.local/state/omarchy/current/theme/powerbar.toml`, reloads it when it changes or the theme changes, and applies its values to tiles on Theme (and as the last link of Everywhere and Just here, LOOK-34). No file means no theme values. Code: Bar.qml themeLookFile, themeLook.
 
-- **LOOK-45** Given a file holds lines with `# comment` or `## comment`, when parsed, comments are stripped and the line is processed (AppearanceModel.parseLook: `.replace(/\s+#.*$/, "")` removes inline comments, `/^#/` removes full-line comments).
+- **LOOK-38** Omarchy builds that folder from the theme's shipped files, then copies the user's overlay (`~/.config/omarchy/themes/<name>/*`) over them, so an overlay `powerbar.toml` replaces the shipped one as a whole file; Powerbar sees only the result. Code: omarchy-theme-set (cp of the theme, then of the user overlay).
 
-- **LOOK-46** Given a file holds `[unknown] key = 1` or `[shape] unknown = 2`, when parsed, unknown sections and keys are skipped (AppearanceModel.parseLook checks lookKeys[section] and key mapping).
+- **LOOK-39** Powerbar ships no template: `powerbar.toml` is whatever file lands in the current theme folder. Code: Bar.qml themeLookFile.
 
-- **LOOK-47** Given a file is empty or holds only whitespace and comments, when parsed, an empty object is returned (AppearanceModel.parseLook returns `{}`).
+- **LOOK-40** `[shape]` takes `rounding`, `borders`, `border-width`: `rounding = 12`, `borders = true`, `border-width = 1.5` give rounding 12, borders true, border width 1.5. Key and section names are case-insensitive. Code: AppearanceModel.parseLook, lookKeys.
 
-## Legacy Migration
+- **LOOK-41** `[surface]` takes `opacity`, `blur`, `text`: `opacity = 85`, `blur = true`, `text = "dark"` give 85, true, "dark" (percent, boolean, string). Code: parseLook.
 
-- **LOOK-48** Given shell.json holds older flat keys (`powerbarIslandRounding`, `powerbarBackgroundOpacity`, `powerbarShadow`, etc.) and no `powerbarAppearance`, when the theme name is known and Preferences opens, migration runs once per theme (Bar.qml healAppearance, AppearanceModel.migrate).
+- **LOOK-42** `[shadow]` takes `enabled`, `softness`, `strength`. Code: parseLook.
 
-- **LOOK-49** Given shell.json holds `powerbarMainBlur: true` and `powerbarMainBackgroundOpacity: 13`, when the bar draws and no unified `powerbarBackgroundOpacity` is set, background opacity is 0.13 (AppearanceModel.effects: main surface's blur setting implies 80% opacity in legacy; unified key overrides).
+- **LOOK-43** `text` accepts exactly `"light"`, `"dark"` or `"theme"` (double or single quotes). Code: parseLook.
 
-- **LOOK-50** Given shell.json holds `powerbarExtendedShadow: false` and no unified `powerbarShadow`, when the bar draws, shadow is off (AppearanceModel.effects: unified key is checked first, then main, then legacy defaults).
+- **LOOK-44** A line with another `text` value, or a value that is not a number, `true`/`false` or a quoted string (such as `blur = maybe`), is skipped; other lines still apply. Only `text` is checked per key: a wrong-typed `rounding = "x"` is stored and then ignored by the bar. Code: parseLook.
 
-- **LOOK-51** Given earlier versions' flat keys exist and are migrated, the keys are moved into `bar.powerbarAppearance.themes[<current-theme>]` with `"use": "this"`, and the flat keys are deleted from the bar section (AppearanceModel.migrate, legacyKeys).
+- **LOOK-45** Full-line comments (`#`) and trailing comments (whitespace then `#` to the line end) are stripped before parsing. Code: parseLook.
 
-- **LOOK-52** Given a theme's appearance has been migrated and other themes have no custom settings, when they are switched to, they start on "Theme" scope (AppearanceModel.migrate creates entries only for the current theme; others default to "theme" scope).
+- **LOOK-46** Unknown sections and unknown keys (including `borderWidth` camelCase) are ignored. Code: parseLook.
 
-- **LOOK-53** Given earlier versions' per-surface keys like `powerbarMainShadow` and `powerbarExtendedShadow` coexist, when the bar draws, the unified `powerbarShadow` is checked first, then the per-surface ones are ignored (AppearanceModel.effects value function).
+- **LOOK-47** An empty file, or one with only comments and whitespace, gives no values. Code: parseLook returns `{}`.
 
-- **LOOK-54** Given shell.json has `powerbarForeground` as a bare string (not a per-theme map), when migrated, the entry is removed and no foreground value is stored (AppearanceModel.migrate: non-map values are dropped; fromLegacy skips bare strings).
+## Legacy migration
 
-- **LOOK-55** Given themes are uninstalled from the system, when Powerbar next starts, appearance values kept for missing themes are dropped (AppearanceModel.pruneThemes, called from installedThemesProc.onStreamFinished in Bar.qml).
+- **LOOK-48** When shell.json holds flat keys from earlier versions (`powerbarIslandRounding`, `powerbarIslandBorders`, `powerbarIslandBorderWidth`, `powerbarBlur`, `powerbarBackgroundOpacity`, `powerbarShadow`, `powerbarShadowSize`, `powerbarShadowOpacity`, their `powerbarMain*` forms, or a `powerbarForeground` map) and a theme name is known, one config write moves them into `powerbarAppearance`; it waits for the theme name, and runs once. Until it is written the bar draws the same from the old keys. Code: Bar.qml healAppearance; AppearanceModel.migrate.
 
-## Bar Auto-Hide Visibility
+- **LOOK-49** Old `powerbarMainBlur: true` with `powerbarMainBackgroundOpacity: 13` and no `powerbarBackgroundOpacity` draws opacity 0.13; `powerbarMainBlur: true` alone draws 0.80; `powerbarMainBlur: false` with an opacity of 13 draws 1 (the opacity was ignored without blur). Code: AppearanceModel.effects.
 
-- **LOOK-56** Given shell.json has `powerbarAutoHide: true`, when the bar is running, the bar reserves no window space and parks off-screen past its edge (Bar.qml autoHide property, barWindow.exclusiveZone = 0).
+- **LOOK-50** For each setting the unified key wins, then its `powerbarMain` form; `powerbarExtended*` keys are never read: `powerbarMainShadow: true` draws a shadow, `powerbarExtendedShadow: true` alone does not. Code: AppearanceModel.effects value().
 
-- **LOOK-57** Given the bar is autohidden and the pointer moves to the screen edge where the bar is parked, when the pointer enters the activation zone, the bar slides out over windows in 180 ms and stays visible while the pointer is over the bar (Bar.qml autoHideRevealed, autoHideOffset animation, autoHideDelay timer 400 ms).
+- **LOOK-51** Migration writes the old values as the current theme's own (`themes.<theme>.<tile>` with `use: "this"`) and deletes the flat keys and the `powerbarMainReadableOverlay` and `powerbarExtendedReadableOverlay` keys; `powerbarReadableOverlay` stays. A `powerbarForeground` map becomes `themes.<theme>.text` entries. Code: AppearanceModel.migrate, fromLegacy.
 
-- **LOOK-58** Given the bar is autohidden and visible while hovered, when the pointer leaves the bar and drawer, after 400 ms with no activity the bar slides away in 130 ms (Bar.qml autoHideDelay timer 400 ms, autoHideMotionMs 130).
+- **LOOK-52** Every other theme starts on Theme; nothing becomes shared on its own. Code: AppearanceModel.fromLegacy.
 
-- **LOOK-59** Given a drawer is open while the bar is autohidden, when the drawer is open or the pointer hovers it, the bar stays visible (Bar.qml barWindow.autoHideRevealed, autoHideHeld).
+- **LOOK-53** See LOOK-50 for key precedence.
 
-- **LOOK-60** Given a widget panel is open from a bar icon while autohidden, the bar stays visible while the panel is open (Bar.qml autoHideHeld includes activePopout check).
+- **LOOK-54** A bare-string `powerbarForeground` is deleted by migration and stores nothing (LOOK-19). A `powerbarForeground` map keeps only its `light` and `dark` entries. Code: AppearanceModel.fromLegacy.
 
-- **LOOK-61** Given Preferences is open, when the bar is autohidden, the bar stays visible (Bar.qml barWindow.autoHideHeld includes preferencesOpen).
+- **LOOK-55** At startup, once Powerbar has listed both theme folders (`/usr/share/omarchy/themes`, `~/.config/omarchy/themes`; if either listing fails nothing is pruned), values kept for themes no longer installed are deleted from `powerbarAppearance.themes`; the current theme is always kept. Code: Bar.qml installedThemesProc, pruneAppearanceThemes; AppearanceModel.pruneThemes.
 
-- **LOOK-62** Given the bar is autohidden and a drag is happening on the bar, when the drag is active, the bar stays visible (Bar.qml autoHideHeld check).
+## Bar auto-hide
 
-- **LOOK-63** Given the bar is autohidden and `powerbarAutoHideActivity: true` (on by default), when a visible widget changes icon, value or other signal on the watched list, the bar's island for that widget slides out for 2.5 seconds (ManagedModel.activityPeek, autoHidePeekMs).
+- **LOOK-56** `powerbarAutoHide: true` (Preferences > Behavior > Autohide; default off) makes the bar reserve no screen space and park past its edge, sliding out over windows; a 2 px strip at the edge stays to catch the pointer. Code: Bar.qml exclusiveZone, autoHideActive, autoHideEdge.
 
-- **LOOK-64** Given the bar is autohidden, activity peeks the bar, and the widget's activity is cleared within 2.5 seconds, the bar slides back in at the same time the peek ends (Bar.qml autoHidePeek, peekEnd timer).
+- **LOOK-57** Pointer on the 2 px edge strip, or on the bar, slides it out at once, over 180 ms (ease-out, instant with Animations off), and it stays while held (LOOK-59 to LOOK-62). Code: Bar.qml autoHideHeld, autoHideMotionMs.
 
-- **LOOK-65** Given `powerbarAutoHideActivity: false`, when a widget's activity fires, the bar does not peek out: only pointer entry reveals it (Bar.qml autoHideActivity guard in autoHidePeek).
+- **LOOK-58** When nothing holds it any more, the bar waits 400 ms, then slides away over 130 ms. Pointer coming back within the 400 ms keeps it. Code: Bar.qml autoHideDelay (400 ms), autoHideMotionMs.
 
-- **LOOK-66** Given a widget has `powerbarActivityPeek: false` set in its layout entry, when that widget's value changes and the bar is autohidden, the bar does not peek for activity (ManagedModel.peeksOnActivity checks entry.powerbarActivityPeek).
+- **LOOK-59** The bar stays out while the pointer is on the bar window, the edge strip, or an open drawer. Code: Bar.qml autoHideHeld (windowHover, edgeHover, drawer.opened).
 
-- **LOOK-67** Given the bar is autohidden and hovered or dragged, when the on-screen 2 px strip at the bar's edge is clicked, the bar slides out (Bar.qml edgeHover, barWindow.autoHideRevealed).
+- **LOOK-60** It also stays out while a widget panel from this bar's window is open. Code: autoHideHeld (activePopout).
 
-- **LOOK-68** Given the bar is autohidden and `powerbarAutoHide: true` in shell.json, when a file `$HOME/.local/state/omarchy/toggles/bar-off` exists, the bar is hidden and parked (Bar.qml barOffFlag check).
+- **LOOK-61** It stays out while Preferences is open, the keyboard mode holds this bar, and while `omarchy-shell powerbar show` holds it (integration.md, CLI). Code: autoHideHeld (preferencesOpen, barKeys.heldBy, cliShown).
 
-- **LOOK-69** Given the `bar-off` flag exists and Omarchy's toggle `omarchy toggle bar` is used (Super+Shift+Space), when the toggle key is held, the bar slides out and stays out while the key is held (Bar.qml revealFromToggle on key down, autoHideDelay 400 ms on key up).
+- **LOOK-62** It stays out during a widget drag, its settle, and a bar-move drag (layout-zones.md ZONE-38). Code: autoHideHeld (barDragSource, barDragSettling, barMoveActive).
 
-- **LOOK-70** Given the bar is toggled out with Super+Shift+Space, when the key is released after 400 ms with no pointer activity, the bar slides back in (Bar.qml autoHideDelay timer fires after 400 ms with autoHideHeld false).
+- **LOOK-63** With `powerbarAutoHideActivity` (Preferences > Behavior > "Show on widget activity", default on), a change in a widget's `text`, `icon`, `iconText`, `value`, `displayValue`, `powerbarIcon`, `powerbarValue`, `powerbarActivityRevision` (or its `powerbarActivity()` signal) slides the bar out and highlights that widget (or its group's icon); on an islands bar only that widget's island slides out and the others stay tucked, on flat and floating bars the whole bar slides out. It stays `powerbarManagedRevealSeconds` (default 2.5 s, 1 to 60) and each further activity restarts that time. Peeks are ignored for 6 s after the bar (re)builds or the layout changes, so loading values do not flash it. Code: Bar.qml autoHidePeek, peek(), peekQuietUntil; ManagedModel.snapshot.
 
-- **LOOK-71** Given Omarchy's toggle for `bar` is used and the bar is autohidden, when the toggle key is no longer down, the flag is not changed: the bar's hide state is independent (Bar.qml revealFromToggle does not write bar-off).
+- **LOOK-64** When the peek time ends with nothing else holding the bar, it slides away over 130 ms. Code: Bar.qml peekEnd, autoHideMotionMs.
 
-## Widget Capture for Preferences Display
+- **LOOK-65** With `powerbarAutoHideActivity: false` activity never slides the bar out; only the pointer, drawers and the other holds do. Code: Bar.qml autoHidePeek, ActivityObserver enabledForActivity.
 
-- **LOOK-72** Given a widget is loaded on the bar and Preferences' Layout page shows that widget, when the preview renders, it is a live capture of the widget in the bar's current style (Bar.qml captureWidgetImages, CaptureQueue).
+- **LOOK-66** A layout entry with `powerbarActivityPeek: false` (Layout page "Show on activity" off) does not peek the bar; the clock (`omarchy.clock`) never does, whatever the entry says. Code: ManagedModel.peeksOnActivity, quietWidgets.
 
-- **LOOK-73** Given a widget is hidden or unloaded while Powerbar is running, when Preferences shows it, the last rendered image Powerbar captured is shown from cache (`~/.cache/powerbar/widgets/<key>.png`) (Bar.qml widgetImageFile, WidgetIcon cachedUrl).
+- **LOOK-67** Hovering the 2 px edge strip reveals the bar; leaving it (and the bar) hides it after LOOK-58's delay. Clicking is not needed. Code: Bar.qml autoHideStrip, edgeHover.
 
-- **LOOK-74** Given a widget has no cached image and is not loaded, when Preferences shows it, the widget's own glyph is shown (WidgetIcon fallback to glyph).
+- **LOOK-68** On an autohidden bar, when Omarchy's `bar-off` flag (`~/.local/state/omarchy/toggles/bar-off`, set by `omarchy toggle bar`, Super+Shift+Space) appears, Powerbar clears the flag at once (`omarchy-toggle bar-off off`) and slides the bar out instead of hiding it. Without autohide the flag hides the bar (integration.md, "Bar-off toggle integration"). Code: Bar.qml barHiddenProbe, revealFromToggle.
 
-- **LOOK-75** Given a widget has no glyph, when Preferences shows it, a stock fallback icon is shown (WidgetIcon fallback tree).
+- **LOOK-69** The bar then stays out while the toggle's key is held: Powerbar asks Hyprland every 50 ms whether the bind's key (the bind described "Toggle top bar", else any modifier key) is down, for at most a minute. Code: Bar.qml toggleKeyWatch, toggleHeld.
 
-- **LOOK-76** Given a large bar is active (`powerbarLargeBar: true`), when widget icons are captured in Preferences, they are grabbed at twice their displayed size and trimmed to remove the lip above and below (WidgetIcon savedScale, trimY calculation).
+- **LOOK-70** After the key is released, the bar slides away 400 ms later (LOOK-58) unless the pointer or another hold keeps it. Code: autoHideHeld (toggleHeld) then autoHideDelay.
 
-- **LOOK-77** Given a widget was captured on a vertical bar before Powerbar added vertical capture, when Preferences shows its cached image on a horizontal bar now, the image is not shown and the glyph is used instead (WidgetIcon cacheUsable check for image height ≤ 1 px of horizontal bar size).
+- **LOOK-71** The toggle leaves nothing set: the `bar-off` flag is off again after it. Code: Bar.qml revealFromToggle.
 
-## Widget Glyphs (Icons)
+## Widget previews in Preferences
 
-- **LOOK-78** Given a widget draws a font glyph on the bar, when Preferences opens, the glyph is read from the bar's rendering and cached in `~/.cache/powerbar/glyphs.json` per widget (Bar.qml glyphButtons, takeWidgetGlyphs).
+- **LOOK-72** While a widget is loaded on a horizontal bar, Preferences shows a live image of it at the bar's own look; Preferences never captures a side bar. Code: Bar.qml captureWidgetImages; WidgetIcon.qml live.
 
-- **LOOK-79** Given a cached glyph is available and a widget is hidden or unloaded, when Preferences shows that widget, the cached glyph is displayed (Bar.qml recordFace, faceOf).
+- **LOOK-73** A widget not loaded shows the last image Powerbar saved: `~/.cache/powerbar/widgets/<key>.png` (`$XDG_CACHE_HOME` honoured). Code: Bar.qml widgetImageFile; WidgetIcon cachedUrl.
 
-## Tooltip Placement and Appearance
+- **LOOK-74** With neither, the widget's own glyph is shown (in its own font); with no recorded glyph, a stock glyph for its widget id. Code: Preferences.qml icon(); PreferencesModel.icon.
 
-- **LOOK-80** Given a widget is hovered on the bar and a tooltip is shown, when the bar is at the top edge, the tooltip is placed below the icon, centered horizontally on the icon (TooltipModel.place: position="top", tooltip is placed away from the bar, centred).
+- **LOOK-75** A group shows its own face (glyph in the accent colour, or its image), never a capture. Code: WidgetIcon groupFace.
 
-- **LOOK-81** Given a bottom bar and hovered icon, when the tooltip is shown, it is placed above the icon (TooltipModel away function: position="bottom", tooltip.y = icon.y - tooltip.height - gap).
+- **LOOK-76** On a large bar images are grabbed at twice their size and the 6 px lip above and below is trimmed, so the widget shows alone at either bar size. Code: WidgetIcon savedScale, trimY.
 
-- **LOOK-82** Given a left bar and hovered icon, when the tooltip is shown, it is placed to the right of the icon, centered vertically (TooltipModel away: position="left", x = icon.x + icon.width + gap).
+- **LOOK-77** A saved image whose height is not that of a horizontal bar (26 px, or 38 px on the large bar, within 1 px) is ignored and the glyph shown. Code: WidgetIcon cacheUsable.
 
-- **LOOK-83** Given a right bar, when the tooltip is shown, it is placed to the left of the icon, centered vertically on the target (TooltipModel away: position="right", x = icon.x - tooltip.width - gap).
+- **LOOK-78** Glyphs the bar draws are read when Preferences opens and cached in `~/.cache/powerbar/glyphs.json` per widget; see preferences.md PREFS-4. Code: Bar.qml glyphButtons, widgetGlyphFile.
 
-- **LOOK-84** Given a drawer's icon is hovered while an open managed drawer sits beside the bar, when the tooltip is shown, it is placed outside the drawer, not over the drawer's body (TooltipModel overlaps check, place: inDrawer=true, drawer=open).
+- **LOOK-79** A hidden or unloaded widget shows its cached glyph. Code: Bar.qml faceOf.
 
-- **LOOK-85** Given a top bar with a vertical menu open and a menu row item is hovered, when the tooltip is shown, it is placed beside the menu (right of it if there is room, else left), level with the hovered row (TooltipModel: drawer.vertical=true, barVertical=false, places tooltip beside menu).
+## Tooltips
 
-- **LOOK-86** Given a top bar with a vertical menu and no room on the right of the menu within the screen width, when the tooltip is placed, it is placed on the left of the menu, never slid back over it (TooltipModel overlaps check with bounds).
+- **LOOK-80** On a top bar a tooltip sits below the hovered widget, centred on it, 6 px away. Code: TooltipModel.place (position "top").
 
-- **LOOK-87** Given a right bar with a horizontal drawer strip opening to the left, when a strip item is hovered, the tooltip is placed outside the strip (left of it), level with the item (TooltipModel: barVertical=true, drawer.vertical=false).
+- **LOOK-81** On a bottom bar it sits above, centred. Code: TooltipModel.away.
 
-- **LOOK-88** Given the bar is vertical and a top bar widget has an open drawer beside the bar, when a bar icon not in the drawer is hovered, if the tooltip would overlap the drawer, it is moved past the drawer (TooltipModel place: overlaps check and away past drawer).
+- **LOOK-82** On a left bar it sits to the right, level with the widget. Code: TooltipModel.away.
 
-- **LOOK-89** Given a tooltip is to be shown, when the gap between tooltip and its anchor (icon or drawer) is set, the default is 6 px (TooltipModel place gap parameter default in Bar.qml).
+- **LOOK-83** On a right bar it sits to the left, level with the widget. Code: TooltipModel.away.
 
-- **LOOK-90** Tooltip position is calculated in bar window coordinates; overlays such as tooltips apply their border and shadow in screen pixels (Bar.qml overlayShadowPad, overlayBorder scale).
+- **LOOK-84** On the bar beside an open drawer, a tooltip that would overlap the drawer is moved past the drawer (away from the bar). Code: TooltipModel.place (overlaps).
 
-- **LOOK-91** Given Preferences' Appearance > Surface tile follows "Theme", when a theme ships powerbar.toml with shape/surface/shadow settings, tooltips and the key legend draw with those shapes and effects (Bar.qml overlayStyled tracks appearance scopes and look; TooltipModel place is called with styled overlay geometry).
+- **LOOK-85** For a row of a menu (a group showing names) under a top or bottom bar, the tooltip sits beside the menu, to its right, level with the row. Code: TooltipModel.place (drawer.vertical).
 
-- **LOOK-92** Given Preferences' Surface > Just here or Everywhere is chosen, when tooltips are shown, they draw with the user's shape, surface and shadow settings; the hint says "Your values" (Bar.qml overlayStyled.surface, appearance scopes, Preferences).
+- **LOOK-86** If the menu's right side has no room in the window, the tooltip goes to its left. Code: TooltipModel.place (bounds).
 
-- **LOOK-93** Given a tooltip is hovered briefly, when it is first shown after another tooltip faded, there is no delay: the second tooltip appears at once (Bar.qml tooltips share a single entry point; once one has shown, the delay is skipped; README "Once one bar tooltip has shown…").
+- **LOOK-87** For an item in a strip (a horizontal drawer) beside a vertical bar, the tooltip sits out from the bar past the strip, level with the item: left of a strip on a right bar, right of one on a left bar. Code: TooltipModel.place (strip).
 
-## Large Bar
+- **LOOK-88** For an item in a strip under a horizontal bar, the tooltip sits past the strip, away from the bar, centred on the item. Code: TooltipModel.place.
 
-- **LOOK-94** Given shell.json has `powerbarLargeBar: true`, when the bar is drawn, it is 12 px thicker than the standard size: 6 px lip above and below each widget (Bar.qml largeBarLip = Style.space(6); barSizeFor adds lip*2).
+- **LOOK-89** The gap between a tooltip and what it sits beside is 6 px. Code: Bar.qml (`6 * barScale`).
 
-- **LOOK-95** Given a large bar is active, when Preferences' Layout page shows the bar's On the bar shelf, the shelf's bar preview is drawn at the large bar's thickness with the lip (Preferences barFace uses bar.largeBar).
+- **LOOK-91** The tooltip, the keyboard name card and the key legend are one look: while a tile (Shape, Surface, Shadow) follows Theme and the theme's file sets nothing for it, that part is Omarchy's own for tooltips and popups (its tooltip colours, corner radius and border, no Powerbar shadow); once the tile is the user's (Everywhere, Just here) or the theme's file sets it, that part is the bar's: surface colour at the overlay opacity (LOOK-6), the bar's text colour, island rounding (a pill at most), island border, and the shadow if on. Shape, Surface and Shadow are decided independently. Code: Bar.qml overlayStyled, tooltipBubble.
 
-- **LOOK-96** Given a large bar is active and drawers open, when drawers are drawn, they use the same thickness as the main bar including the lip (Bar.qml barSizeFor used for drawer height).
+- **LOOK-92** A tooltip is not shown while the bar is sliding out, for a widget that is hidden, folded or yielded (Qt still hovers it); it hides within 100 ms of the pointer leaving. Code: Bar.qml tooltipWindow (visible: !sliding), showTooltip, hover poll timer.
 
-- **LOOK-97** Given a large bar is active, when widget icons are shown, they keep their normal size; the extra space around them is white space (Bar.qml: "Widgets keep their own size and gain room around them").
+- **LOOK-93** A tooltip shows 400 ms after the pointer rests on a widget; when another tooltip was shown and cleared within the last 800 ms it shows after about 1 ms. The warm state is one global timer, not per widget. A widget with no tooltip of its own is named with its shortcut, as the keyboard cursor's name card names it (compounds such as workspaces and the tray, and groups, keep their own). Code: Bar.qml showTooltip, tooltipWarmUntil, tooltipTimer.
 
-- **LOOK-98** Given a large bar is active and widget images are captured in Preferences, they are grabbed with the lip trimmed out so the widget shows alone at either bar size (WidgetIcon: captured at twice size with lip trimmed).
+## Large bar
+
+- **LOOK-94** `powerbarLargeBar: true` makes the bar 12 px thicker, a 6 px lip above and below each widget (26 to 38 px, 28 to 40 px vertical). Details in layout-zones.md ZONE-23. Code: Bar.qml largeBarLip, barSizeFor.
+
+- **LOOK-95** With the large bar on, Preferences' bar shelves draw at the large thickness. Code: LayoutEditor.qml barThickness (barSizeFor).
+
+- **LOOK-96** Drawers have the same thickness as the bar, lip included. Code: ManagedDrawer.qml thickness (bar.renderedBarSize).
+
+- **LOOK-97** Widget icons keep their own size on a large bar; the extra room is space around them. Code: Bar.qml largeBar comment, cellTokens.
+
+- **LOOK-98** Previews of widgets grabbed on a large bar are trimmed of the lip (LOOK-76). Code: WidgetIcon.
 
 ## Animations
 
-- **LOOK-99** Given shell.json has `powerbarAnimations: true` (on by default) or is unset, when the bar redraws after a change, visual transitions use animations: islands ease to new sizes, drawers grow/shrink, spacing animates (Bar.qml animationsEnabled, many Behavior statements).
+- **LOOK-99** With `powerbarAnimations` unset or true (Behavior > Animations, default on), changes animate: islands and cells resize, drawers grow and shrink, the center slides (layout-zones.md ZONE-70), the bar slides in auto-hide, colours cross-fade. Code: Bar.qml animationsEnabled.
 
-- **LOOK-100** Given `powerbarAnimations: false`, when the bar makes visual changes, all transitions are instant (Bar.qml: enabled: root.animationsEnabled on Behavior elements).
+- **LOOK-100** With `powerbarAnimations: false` every change lands in one frame and nothing animates, except the text and icon colour crossfade (LOOK-106). Code: Bar.qml `enabled: root.animationsEnabled` on Behaviors.
 
-- **LOOK-101** Given a drawer opens and animationsEnabled is true, the drawer grows out of its edge over 160 ms (README, Bar.qml: drawer animation 160 ms strong ease-out).
+- **LOOK-101** A drawer opens over 160 ms and grows from scale 0.94 to 1 (strong ease-out, cubic-bezier 0.23, 1, 0.32, 1). Code: ManagedDrawer.qml reveal, xScale.
 
-- **LOOK-102** Given a drawer closes with animations on, it closes over 110 ms (README: "drawers…close over 110 ms…strong ease-out without overshoot").
+- **LOOK-102** A drawer closes over 110 ms with the same ease-out. Code: ManagedDrawer.qml reveal.
 
-- **LOOK-103** Given widget spacing or island size changes with animations on, they resize over 120 ms with ease-out (README: "120 ms ease-out resize").
+- **LOOK-103** A widget's cell resizes over 120 ms (slot motion) when its width changes and no drag is running. Code: Bar.qml slot motionDuration.
 
-- **LOOK-104** Given an autohidden bar is revealed by pointer entry with animations on, it slides out over 180 ms (Bar.qml autoHideMotionMs: 180 when autoHideShown).
+- **LOOK-104** An autohidden bar slides out over 180 ms (ease-out). Code: Bar.qml autoHideMotionMs.
 
-- **LOOK-105** Given an autohidden bar is dismissed after pointer leaves with animations on, it slides away over 130 ms (Bar.qml autoHideMotionMs: 130 when not autoHideShown).
+- **LOOK-105** An autohidden bar slides away over 130 ms. Code: Bar.qml autoHideMotionMs.
 
-- **LOOK-106** Given the foreground colour changes (text and icons) with animations on, the colour animates over 420 ms with InOutCubic easing (Bar.qml Behavior on barForeground).
+- **LOOK-106** When the text colour changes (theme switch, Light or Dark choice) it crossfades over 420 ms, InOutCubic. This crossfade is not turned off by Animations: it runs with Animations off too. Code: Bar.qml `Behavior on barForeground` (enabled: foregroundAnimationEnabled).
 
-- **LOOK-107** Given the bar's background or urgent colour changes and animations are on, it animates over 420 ms with InOutCubic easing (Bar.qml Behavior on background/urgent).
+- **LOOK-107** The bar's background and urgent colours crossfade over 420 ms, InOutCubic, with Animations on. Code: Bar.qml Behavior on background / urgent.
 
-- **LOOK-108** Given a backdrop wallpaper fade is set in the Preferences background preview with animations on, it fades in over 160 ms (BarBackdrop.qml Behavior on opacity).
+- **LOOK-108** In Preferences' bar placement graphic the wallpaper fades in over 160 ms when it loads, with Animations on; off, it appears at once. Code: BarBackdrop.qml.
 
-## Capture Invalidation
+## Capture invalidation
 
-- **LOOK-109** Given a widget's captured presentation is being redisplayed and shell.json changes only `powerbarBackgroundOpacity`, when the capture delta is calculated, it returns empty list [] (does not re-render): only surface alpha should not invalidate (RenderModel.captureDelta: backgroundOpacity is deleted from both oldChrome and newChrome before comparison).
+- **LOOK-109** Changing only the bar's background opacity does not re-render widget previews. Code: RenderModel.captureDelta (returns `[]`).
 
-- **LOOK-110** Given a widget's presentation is captured and the bar theme changes or chrome settings change (e.g., bar style), when the capture delta is calculated, it returns null (re-render all): a theme change invalidates captures (RenderModel.captureDelta: theme !== theme returns null, not []).
+- **LOOK-110** Any other change in the bar chrome (theme, style, size, spacing, text colour) re-renders every preview. Code: RenderModel.captureDelta (returns `null`).
 
-- **LOOK-111** Given a widget's position or order on the bar changes, when the capture delta is calculated, the changed widget's key is returned as an array element so it is re-rendered at its new position (RenderModel.captureDelta: layout positions are indexed; changed keys are collected).
+- **LOOK-111** A changed layout re-renders only the widgets whose entry or index changed. Code: RenderModel.captureDelta.
 
-## Text on Images (BarFace, TintedImage)
+## Faces drawn in Preferences (BarFace, TintedImage)
 
-- **LOOK-112** Given a widget's face is an image saved in another theme's text colour, when the bar draws that face in a different theme, the image is redrawn: its shape is filled with the bar's current text colour (BarFace TintedImage with tint: face.recolour true, color: root.ink).
+- **LOOK-112** A widget image saved in another text colour is redrawn in the bar's current text colour: its shape filled with that colour. Code: LayoutEditor.qml (recolour: f.ink !== barInkHex); BarFace TintedImage tint.
 
-- **LOOK-113** Given an image is tinted, when it is drawn, the image's alpha channel masks the fill colour: soft edges are preserved (TintedImage MultiEffect with maskSource, maskThresholdMin 0.5, maskSpreadAtMin 1).
+- **LOOK-113** Tinting uses the image's alpha as a mask, so soft edges stay soft (threshold 0.5, spread 1). Code: TintedImage.qml.
 
-- **LOOK-114** Given a widget's face is text or a glyph in the bar's font, when drawn, the text uses the bar's current text colour (BarFace Text color: root.ink).
+- **LOOK-114** A text face is drawn in the bar's font and current text colour. Code: BarFace.qml.
 
-## Render Model Reconciliation
+## Bar backdrop (placement graphic)
 
-- **LOOK-115** Given a bar's layout model is replaced with new widget records while a visual holds snapshots (retained images, etc.), when lists are reconciled, widgets are moved, inserted or removed in place to match the new model without destroying visual state (RenderModel.reconcileLists keeps visual identity).
+- **LOOK-119** The placement graphic in Preferences' Bar tile shows the current wallpaper at the monitor's aspect ratio with the bar drawn on the chosen edge in the chosen style (flat: one strip, no gap or rounding; floating: one surface off the edges; islands: three surfaces), using the bar's real surface colour, opacity and island border, so they show as they will look; clicking an edge moves the bar there. Code: BarPlacement.qml, BarBackdrop.qml.
 
-- **LOOK-116** Given a widget is no longer in the new layout, when lists are reconciled, that widget is removed from its model and its item is parked to coordinate (0, 0) for cleanup (RenderModel.reconcileLists: item.parent = parking, item.x/y = 0).
+- **LOOK-120** The wallpaper is cropped to fill the graphic, top-aligned and horizontally centred (the placement graphic always passes position "top"). Code: BarBackdrop.qml, BarPlacement.qml.
 
-- **LOOK-117** Given the same widget is present in both old and new layouts at the same index, when lists are reconciled, nothing happens: the widget is not moved (RenderModel.reconcileLists: if model.get(at) === wanted[at] continue).
+- **LOOK-121** BarBackdrop aligns the image to the bottom when its `position` is bottom or right, and to the top otherwise; the placement graphic does not use this. Code: BarBackdrop.qml.
 
-- **LOOK-118** Given a widget is at a different index in the new layout, when lists are reconciled, it is moved to its new position; other widgets shift as needed (RenderModel.reconcileLists: model.move(from, at, 1) reorders in place).
+- **LOOK-122** The wallpaper fades in over 160 ms when ready (LOOK-108). Code: BarBackdrop.qml.
 
-## Bar Backdrop (Wallpaper Cropping)
+## Icon colour in Preferences (WidgetIcon)
 
-- **LOOK-119** Given Preferences' bar appearance shows a preview with a wallpaper behind it, when the preview is drawn, the BarBackdrop crops the wallpaper to the edge the bar sits on (BarBackdrop: verticalAlignment and horizontalAlignment position the image for each bar position).
+- **LOOK-123** A group's image icon drawn in Preferences is tinted to the text colour only when it was added as "Text colour"; otherwise it is drawn in its own colours (groups.md). Code: GroupFace.qml tint.
 
-- **LOOK-120** Given the bar is on the top edge and the wallpaper is landscape, when BarBackdrop aligns it, the image is top-aligned and horizontally centered (BarBackdrop: position="top" → AlignTop, AlignHCenter).
+- **LOOK-124** A group whose icon is a glyph shows it in the accent colour in Preferences' widget lists. Code: WidgetIcon groupFace.
 
-- **LOOK-121** Given the bar is on a side edge, when the wallpaper is cropped in BarBackdrop, its vertical alignment flips: bottom edge on the bar side (BarBackdrop: position="bottom" || position="right" → AlignBottom).
+## Hyprland layer rules
 
-- **LOOK-122** Given the wallpaper image is loading asynchronously in BarBackdrop, when it finishes loading, it fades in with a 160 ms animation if motionEnabled is true (BarBackdrop Image Behavior on opacity).
+- **LOOK-125** The bar's layer has namespace `powerbar` while blur is on (Surface > Background blur), `powerbar-clear` otherwise; the keyboard key legend uses `powerbar` when styled and blurred, `powerbar-keys` otherwise. The user's layer rules (README, "Backdrop blur": `^powerbar$` with `blur = true`, `blur_popups = true`, `ignore_alpha = 0.01`) are what actually blur, so blur needs them. Code: Bar.qml WlrLayershell.namespace.
 
-## Icon Recolouring (WidgetIcon)
+- **LOOK-126** `^powerbar-clear$` is for surfaces that must not blur (rule `blur = false`). Code: Bar.qml.
 
-- **LOOK-123** Given a group shows its icon and the icon is a custom image (not a glyph), when drawn, the image uses the theme's accent colour if it is a glyph-like icon or the colour it was saved in (WidgetIcon: custom images are not tinted; glyphs are recoloured).
-
-- **LOOK-124** Given a group icon is drawn with faceMode "glyph", when shown, it uses the bar's accent colour (WidgetIcon groupFace color: Color.accent).
-
-## Bar Window Layer Rules
-
-- **LOOK-125** Given Hyprland is configured with powerbar layer rules for blur (namespace = "^powerbar$" with blur = true), when the bar or its tooltips are drawn, backdrop blur from windows behind them is applied (Bar.qml uses namespace "powerbar" for blurred surfaces, documented in README Hyprland config).
-
-- **LOOK-126** Given a powerbar-clear namespace layer rule exists (blur = false), when a non-blurred surface is drawn, it clears the blur (README: dual namespace approach for Hyprland blur control).
-
-- **LOOK-127** Given blur is enabled and the bar switches from blurred to non-blurred, when the switch happens, the namespace is briefly remapped so Hyprland applies the new blur state immediately (Bar.qml surfaceNamespace, "Powerbar briefly remaps…").
-
-- **LOOK-128** Given the alpha threshold for blur is 0.01 (ignore_alpha), when the bar draws fully transparent pixels, Hyprland does not apply blur in those areas (Hyprland layer_rule: ignore_alpha = 0.01).
+- **LOOK-127** A blur change remaps the bar window (LOOK-2). Code: Bar.qml blurRemap.
 
 ---
 
 ## Doc drift
 
-- README states "Bar → Behavior offers **Animations** (enabled by default)" and lists animations durations. Code: appearanceModel has no animation durations; timing is in Bar.qml hardcoded (160 ms drawer open, 110 ms close, 120 ms resize, 180 ms reveal, 130 ms hide, 420 ms colour, 160 ms backdrop fade). The README is accurate; timing is not in the appearance model.
-- README "Large bar (`powerbarLargeBar`) makes the bar 12 px thicker…and doubles the islands' end padding" — testing confirms the 12 px thickness but end padding doubling is not found in the code.
-- README "Turn Animations off to make these changes immediate" and lists specific durations for each animation, but code has all hardcoded; there is no way to tune individual durations.
+- None found against the current README.md, CONTEXT.md and docs/design/*. The earlier draft listed three items (animation durations absent from AppearanceModel; "doubles the islands' end padding"; per-animation tuning). The first and third are not claims anyone makes in the current README; the second is no longer in README.md.
 
 ## Open questions
 
-- Does the colour transition on foreground change (420 ms InOutCubic, Bar.qml Behavior on barForeground) apply simultaneously to all text and icon elements, or is there per-element transition delay?
-- When a tooltip is shown for the second time in quick succession (< 400 ms), the README says "its neighbours show without the usual delay"—does this apply per-tooltip or is it a global state? Code shows single tooltipShown flag.
-- In WidgetIcon, is the `saved scale` (2 × device pixel ratio) applied to both live and cached images, or only cached?
-- Does `powerbarAnimations: false` affect tooltips' fade timing, or only bar surface transitions and drawer animations?
+- Answered from code: the 420 ms text-colour crossfade is one animation on `barForeground`, shared by every text and icon on the bar, so no element lags another. A tooltip has no fade: Animations does not change tooltip timing (400 ms delay, 800 ms warm window). Saved previews are divided by `2 * devicePixelRatio` to get their display size; live previews use their own size.
+- Possible bug, for the owner: the text colour crossfade is not gated by `powerbarAnimations` (Bar.qml:839 uses `foregroundAnimationEnabled`, while background and urgent at :840-841 use `animationsEnabled`), against the design's "one switch" rule (docs/design/spacing.md, "Motion").
+- A `bar.transparent` write clears the surface only after `omarchy-bar-text-color` returns a colour (Bar.qml:2761-2768); if that command is missing or fails, `transparent` stays false and the surface stays opaque although the flag is set. Intended?

@@ -1,228 +1,132 @@
 # Groups
 
-Groups are named, ordered collections of existing widget instances on the bar. Each group has its own icon (a glyph, user image, or Omarchy logo), display mode (icon only, name only, or both), zone, visibility mode, and drawer showing its members with their widget's own presentation. Groups are stored in `bar.powerbarGroups`, reference widget instances by their stable `powerbarInstance` keys, and do not change widget settings, visibility modes, service enablement, or layout positions; membership overrides main-bar visibility only.
-
-**Sources:** GroupsModel.js, GroupBadgeModel.js, GlyphModel.js, GroupFace.qml, Bar.qml (grep group, powerbarGroup), ManagedDrawer.qml, tests/groups.test.cjs, tests/group-badges.test.cjs, tests/glyph.test.cjs, README.md (Groups section), docs/groups.md, CONTEXT.md.
-
-## Group lifecycle
-
-- **GROUP-1** Given a valid group ID (a non-empty string), a group label, when creating a group with `GroupsModel.create(config, id, label)`, then the group is added to `bar.powerbarGroups` with default icon (󰉋, the "Group" glyph), section "right", visibility "shown", face "glyph", empty items list, and `badge: true`, `badgeMode: "sum"`, `orientation: "auto"`, `memberDisplay: "native"`. Label is trimmed and capped at 80 characters. Returns true; false if the ID is empty, already exists, or the config has no bar.
-
-- **GROUP-2** Given a valid group ID, when deleting a group with `GroupsModel.remove(config, id)`, then the group is removed from `bar.powerbarGroups` and its members lose their group membership (stored separately in group.items). Returns true; false if the group does not exist.
-
-- **GROUP-3** When a widget is uninstalled since being grouped, `GroupsModel.groups()` drops the dangling member from the group's items list automatically, without removing the group. `GroupsModel.danglingMembers()` counts uninstalled members; the bar writes the cleaned list once when loading config.
-
-- **GROUP-4** When there is no layout (a config still loading), `GroupsModel.groups()` keeps all members even if their keys are not yet in the layout. `danglingMembers()` returns 0.
-
-- **GROUP-5** A group with no members remains in the list and renders as an icon on the bar. Rendering the group draws only the icon, never the empty drawer.
-
-## Group membership
-
-- **GROUP-6** Given a widget instance key (a powerbarInstance not starting with "group:"), when assigning it to a group with `GroupsModel.assign(config, key, id, before)`, then the widget is added to the group's items list at the position of the `before` key, or at the end if `before` is not in items or empty. It is removed from all other groups first. Returns true; false if the group ID is invalid, the key does not exist in layout, the key is a group pseudo-key, or `before === key`.
-
-- **GROUP-7** When a member is assigned to a group, the widget stays in its layout entry, retains its saved visibility mode ("shown" or "managed"), settings, and service enablement. Widget visibility is overridden only by group membership; the widget is not drawn on the main bar while in a group (its location on the bar is replaced by the group icon).
-
-- **GROUP-8** Transferring a member to a different group uses the same `assign()` call. The member is removed from the old group and added to the new one, preserving order relative to the `before` key.
-
-- **GROUP-9** When assigning a member to an empty string or passing no group ID (null destination), `GroupsModel.assign(config, key, "", void)` or `assign(config, key, id, before)` where `id` is falsy removes it from all groups. Returns true if it was grouped, false otherwise.
-
-- **GROUP-10** A widget instance can belong to only one group at a time. Assigning it to a new group removes it from its old group.
-
-- **GROUP-11** When a group is deleted, its members are not deleted from the layout and do not lose their settings or service enablement.
-
-## Group icons and display
-
-- **GROUP-12** A group's `face` property is "glyph" (icon only), "text" (name only), or "both" (icon and name). Defaults to "glyph". The bar draws face types that need runs (images or "both" with a non-bar-font icon) using GroupFace.qml; plain text buttons draw a single string.
-
-- **GROUP-13** A group's `icon` property is a Unicode glyph (e.g., "󰉋"). When a new icon is chosen (via `GroupsModel.edit(config, id, { icon: glyph })`), any prior custom image or font is cleared; the glyph keeps the font it was chosen in via `iconFont`. Returns true if the edit succeeds; false if the group ID is invalid.
-
-- **GROUP-14** A group's `iconFont` is preserved when set and defaults to the font of the icon in the stock list (empty for most, "omarchy" for the logo U+E900). An icon saved before fonts were tracked falls back to the stock list's font. `GroupsModel.groupIconFont(group)` returns the effective font.
-
-- **GROUP-15** A group can use a custom image (SVG or PNG) via `iconImage`, a file path in `~/.local/share/powerbar/icons/`. When set, it overrides the icon glyph. The image is drawn tinted in the bar's text colour unless `iconTint` is "own" (drawn in its own colours). Setting a new glyph icon clears `iconImage` and `iconTint`.
-
-- **GROUP-16** `GroupsModel.faceRuns(group, face)` returns an array of runs: for "glyph", one run with the icon (a text glyph in its font, or an image); for "text", one run with the label in the bar's font; for "both", the icon run, a space gap run (accounting for glyph ink overhang), and the name run. An empty face mode falls back to the group's own face setting.
-
-- **GROUP-17** `GroupsModel.needsRuns(group, face)` returns true if the face must be drawn as runs (because it has an image or is "both" with a non-bar icon font). The bar uses this to choose between a text button and GroupFace.qml.
-
-- **GROUP-18** A group's `tooltip` property (boolean, defaults to undefined). When true, the group shows a tooltip with its name and shortcut. Omitted unless explicitly set.
-
-## Group badges and notifications
-
-- **GROUP-19** A group's `badge` property (boolean, defaults to true) controls whether a notification badge is shown. A badge counts or marks member activity using live properties on the widget root.
-
-- **GROUP-20** A group's `badgeMode` is "sum" (add member counts) or "members" (count how many members have activity). Defaults to "sum".
-
-- **GROUP-21** `GroupBadgeModel.sample(item, badgeOverride, urgentOverride)` reads one widget's badge and urgent state. It scans the widget's properties in order: `badgeOverride` (custom property name, or "none" to exclude), or the list `["unseenCount", "downCount", "updateCount", "badgeCount", "notificationCount", "unreadCount", "alertCount", "pendingCount", "count"]`. It returns the first numeric property > 0 (capped at 9999). Returns `{ count: 0, urgent: false }` if none found or `badgeOverride === "none"`.
-
-- **GROUP-22** Urgent state is determined by `urgentOverride` (custom property name), or by scanning `["hasUnseenPerson", "urgent", "isUrgent", "critical", "hasAlert", "severe"]` for a boolean. If the count came from "downCount" or "alertCount", urgent defaults to true. Defaults to false.
-
-- **GROUP-23** `GroupBadgeModel.aggregate(samples, mode)` combines member samples: in "sum" mode, adds counts and ORs urgency; in "members" mode, counts members with `count > 0` and ORs urgency. Ignores samples with count 0.
-
-- **GROUP-24** When the bar's `groupBadge(id, window)` is called, it gathers `GroupBadgeModel.sample()` for each group member from `groupSlots()`, then aggregates them with the group's `badgeMode`. Returns `{ count, urgent }`.
-
-- **GROUP-25** Badge properties are read reactively; no polling or extra widget instances. The bar watches widget properties and updates the badge when they change.
-
-## Group zones and placement
-
-- **GROUP-26** A group's `section` property is "left", "center", or "right". This determines which zone the group icon appears in on the bar. Defaults to "right".
-
-- **GROUP-27** A group's `before` property is the `powerbarInstance` key of a widget the group is positioned before in its zone. Empty means the group appears at the end of its zone. When the widget is moved away, the group reanchors to the next widget (or the zone end if there is none).
-
-- **GROUP-28** `GroupsModel.nextAnchor(config, section, key)` returns the `powerbarInstance` of the widget that follows the given key in the zone, or "" if it is last. Used before moving a widget to update the group's anchor.
-
-- **GROUP-29** `GroupsModel.reanchor(config, section, key, next)` updates all groups anchored on `key` in the zone to anchor on `next` instead. Returns true if any groups were reanchored; false if none were or if the group is already at the same position. Call after moving the anchor widget to keep groups in place.
-
-- **GROUP-30** `GroupsModel.moveHeader(config, id, section, beforeKey, relativeGroupId, after, visibility)` moves or reorders the group icon on the bar. If `relativeGroupId` is set, the group is placed relative to that group (before it if `after` is false, after it if true); otherwise it is placed at `beforeKey` in the zone. `visibility` must be "shown" or "managed". Returns true on success; false if the source or target group is invalid or parameters are malformed.
-
-- **GROUP-31** The group icon's position on the bar does not change its members' saved positions in the layout; it is a runtime rendering that groups members for display and interaction.
-
-## Group drawers
-
-- **GROUP-32** Each group has its own drawer showing its members. The drawer is opened by hovering or clicking the group icon, or via the keyboard/IPC. Only one extended drawer (group or zone) is open at a time.
-
-- **GROUP-33** The group drawer's member display mode is controlled by `memberDisplay`: "native" shows each member as the widget draws itself, "name" shows a list of member names only, "both" shows icon and name. Defaults to "native".
-
-- **GROUP-34** Icon-only drawers (memberDisplay "native" with memberDisplayLayout "icon", or memberDisplay "name") follow the bar's orientation (horizontal or vertical). Named menus (memberDisplay "name" or "both") always use a vertical menu with Powerbar's border, opacity, blur, and shadow, Omarchy's menu font, and the main theme's corner radius.
-
-- **GROUP-35** A group drawer's members are drawn in the order they were added to the group (stored in group.items), with no reordering by activity or visibility. Members are rendered using the drawer's display mode.
-
-- **GROUP-36** When hovering the group icon on the bar, the group drawer opens temporarily (the "hover" open). When clicking the group icon, the drawer pins open (the "click" open). Clicking again, pressing Escape, or clicking outside the drawer closes it.
-
-- **GROUP-37** A group drawer remains open while hovering its source icon. After leaving the icon, it stays open for up to 1 second (configurable via `powerbarManagedExitGraceSeconds`, range 1–15); re-entry cancels the countdown. A pinned drawer (opened with a click) does not auto-dismiss.
-
-- **GROUP-38** When a member's panel (a popup or menu) opens from the drawer, the drawer steps aside (fades and loses click-through). The drawer steps back when the panel closes. If the drawer was opened with a click, it remains open after the panel closes; if opened with a hover, it closes after 3 seconds.
-
-- **GROUP-39** `ManagedDrawer.openGroup(id, slot, keyboard)` opens the group drawer. If `keyboard` is true, the drawer is opened for keyboard navigation (no initial selection). The drawer is anchored to the group icon's location (`slot`).
-
-- **GROUP-40** `ManagedDrawer.groupId` holds the ID of the open group, or "" if a zone drawer is open. `groupConfig` provides the group's settings (from `bar.groups`).
-
-- **GROUP-41** `ManagedDrawer.slots` returns the drawable members when a group drawer is open: `bar.groupSlots(id, window).filter(...)` in the group's display order. These are live widget slots, not copies; dragging, clicking, and the widget's own state interact with the original.
-
-## Group rendering and interaction
-
-- **GROUP-42** `GroupsModel.render(layout, list)` is a helper that builds the rendered bar layout by inserting group icons into the layout at their saved positions (in the right zone, before the `before` widget). Each group icon is rendered as an entry with `id: "powerbar.group.<id>"`, `type: "group"`, `powerbarGroupId: id`, `powerbarInstance: "group:<id>"`, and `powerbarVisibility: group.visibility`. This is a runtime projection; the layout itself is not modified.
-
-- **GROUP-43** The bar renders group icons as buttons that open the group drawer. Icon-only groups show just the icon; groups with face "both" show the icon and name using GroupFace.qml.
-
-- **GROUP-44** When a group member draws a custom presentation (widget panel, context menu, popover), it uses the group drawer's display mode to show the member, not the main bar's view of the widget.
-
-## Group shortcuts
-
-- **GROUP-45** Each group can be assigned a shortcut key sequence (e.g., Super+A for Audio group). Shortcuts are stored in `powerbarShortcuts` and written to `~/.config/hypr/bindings.lua` in a marked block `-- >>> powerbar:` / `-- <<<`.
-
-- **GROUP-46** `omarchy-shell powerbar group <id>` opens the group drawer on the focused monitor, pinning it if it was already open. On the bar, the group icon is highlighted.
-
-- **GROUP-47** `omarchy-shell powerbar toggleGroup <id>` opens the group drawer if closed, or closes it if open. If a panel is open from a drawer member, the drawer stays open after the panel closes.
-
-- **GROUP-48** The keyboard shortcut (default Super+B in Preferences → Keyboard) enters keyboard mode on the bar cursor. Pressing the into-screen key (↓ on top bar) when the cursor is on a group icon opens the group drawer with keyboard focus; no member is selected until navigation begins. The same keys again exit the drawer.
-
-## Visibility and activity
-
-- **GROUP-49** A group's `visibility` property is "shown" (always on the bar), "managed" (revealed on member activity), or "hidden" (not on the bar). Defaults to "shown".
-
-- **GROUP-50** When a group member has activity (icon/value change, notification), and the group's visibility is "managed", the group icon is revealed on the bar for 2.5 seconds (the same duration as the autohide activity reveal). The activity also highlights the group icon as if hovered.
-
-- **GROUP-51** When the bar's autohide is on and a group member has activity, the bar slides out (or its activity island if using islands style) and the group icon is revealed and highlighted, then both slide away after 2.5 seconds.
-
-- **GROUP-52** If `powerbarAutoHideActivity` is false (Bar → Behavior → Show on widget activity off), managed group members do not trigger a reveal; the group stays hidden.
-
-- **GROUP-53** Explicitly hidden group members stay hidden even when grouped; they are not drawn in the group drawer or on the main bar.
-
-## Group configuration
-
-Groups are stored in `bar.powerbarGroups` array (shell.json). Each entry is an object:
-
-- **GROUP-54** `id` (string, required): unique group identifier.
-- **GROUP-55** `label` (string, required): group name, trimmed, up to 80 characters.
-- **GROUP-56** `icon` (string, required): Unicode glyph (e.g., "󰉋").
-- **GROUP-57** `iconFont` (string, optional): "omarchy" or omitted. Preserves the icon's font.
-- **GROUP-58** `iconImage` (string, optional): file path in ~/.local/share/powerbar/icons/. Overrides icon glyph. Omitted unless set.
-- **GROUP-59** `iconTint` (string, optional): "own" to draw the image in its own colours, otherwise omitted (tinted in bar text colour).
-- **GROUP-60** `section` (string): "left", "center", or "right". Defaults to "right".
-- **GROUP-61** `before` (string): powerbarInstance key of the widget this group precedes, or "" for end-of-zone. Defaults to "".
-- **GROUP-62** `visibility` (string): "shown", "managed", or "hidden". Defaults to "shown".
-- **GROUP-63** `face` (string): "glyph", "text", or "both". Defaults to "glyph".
-- **GROUP-64** `tooltip` (boolean, optional): show name and shortcut tooltip. Omitted unless set.
-- **GROUP-65** `badge` (boolean): whether to show notification badge. Defaults to true.
-- **GROUP-66** `badgeMode` (string): "sum" (add counts) or "members" (count members). Defaults to "sum".
-- **GROUP-67** `orientation` (string): "auto", "horizontal", or "vertical". Defaults to "auto". Used for icon-only drawers.
-- **GROUP-68** `items` (array of strings): ordered list of widget instance keys (powerbarInstance). Updated by drag and assignment operations.
-
-## Glyph detection
-
-GroupsModel and the icon picker use GlyphModel.js to extract meaningful icons from widget buttons:
-
-- **GROUP-69** `GlyphModel.glyphFrom(text)` returns the first Nerd Font private-use character in the text, or a short text label (1–3 characters) with letters (e.g., "EN", "AI"), or "". Bare numbers and long text are not glyphs.
-
-- **GROUP-70** `GlyphModel.pick(buttons)` selects the first visible button with a glyph, or the first hidden button if none is visible. Returns `{ glyph, font, size, parts }` where `parts` is the count of visible buttons with non-empty text (a compound like workspaces has multiple parts). Returns null if no button has a glyph.
-
-- **GROUP-71** `GlyphModel.merge(store, key, entry)` updates a glyph store (JSON in `~/.cache/powerbar/glyphs.json`), adding or updating an entry. Returns the same store if nothing changed (same glyph, font, size, and parts count).
-
-- **GROUP-72** `GlyphModel.forget(store, key)` removes a widget's stored glyph (when it stops drawing one).
-
-- **GROUP-73** `GlyphModel.prune(store, keys)` keeps only glyphs for widget instances still in the layout, dropping the rest.
-
-## Keyboard interaction
-
-- **GROUP-74** When the keyboard cursor is on a group icon, pressing the into-screen key (↓ on top bar, → on right bar, etc.) opens the group drawer. The first member is not highlighted until the user navigates.
-
-- **GROUP-75** In a group drawer opened from the keyboard, j / k (or Up / Down arrows) move between members. Space or Enter activates the member. The opposite key (↑ on top bar) returns to the cursor.
-
-- **GROUP-76** The "/" key in keyboard mode starts a search. Search matches members by their name and the group's name. Tab and Shift+Tab move between matches. ↓ (on top bar) opens a found group's drawer directly from the search.
-
-- **GROUP-77** `omarchy-shell powerbar keysStatus` returns JSON with keyboard mode state, including the cursor position and any open group drawer (groupId field).
-
-## Drag and drop
-
-- **GROUP-78** Dragging a widget onto a group icon adds it to the group (or reorders it if already a member), moving it to the end of the group's items list. The source slot stays visible; the icon glides to the group icon on release.
-
-- **GROUP-79** Resting a drag on a group icon for 400 ms opens the group drawer (the "spring open"). The drawer closes when the pointer leaves the icon or the drag is released.
-
-- **GROUP-80** Dropping a widget into an open group drawer adds or reorders it in the group's items list. The drop lands before the member or widget under the pointer, or at the end if over empty space.
-
-- **GROUP-81** Dragging a group member out of a drawer and dropping it on the main bar or a zone's dots removes it from the group. Visibility and settings are not changed.
-
-- **GROUP-82** Dragging a group member onto another group icon transfers it to the other group, removing it from the first.
-
-- **GROUP-83** Dragging a group icon (the header) can reorder it relative to other groups or move it to a different zone. The group's section and before properties are updated. Members are not reordered.
-
-## Configuration healing and cleanup
-
-- **GROUP-84** When loading configuration, if a member's instance key is not in the layout (a widget was uninstalled), the member is automatically dropped from the group. `GroupsModel.danglingMembers()` counts these; the bar writes the cleaned list once to shell.json.
-
-- **GROUP-85** Duplicate group IDs in the raw config are deduplicated: only the first is kept. Malformed entries (null, missing id, non-string id) are filtered out.
-
-- **GROUP-86** Unknown or invalid values in group properties are sanitized: unknown visibility / face / orientation / memberDisplay values are replaced with defaults; invalid types are coerced or rejected.
-
-- **GROUP-87** A group entry missing a required field (id, label, icon, section, items) gets a default; the group is still included in the list.
-
-## IPC and state queries
-
-- **GROUP-88** `omarchy-shell powerbar group <id>` (internal implementation `Bar.Keyboard.group(id)`) opens the group drawer on the focused monitor's bar. The group icon is highlighted and pinned open.
-
-- **GROUP-89** `omarchy-shell powerbar toggleGroup <id>` (internal `Bar.Keyboard.toggleGroup(id)`) toggles the group drawer: if the group is open, closes it; otherwise opens it.
-
-- **GROUP-90** `omarchy-shell powerbar groupsPreferences` (internal `Bar.Keyboard.groupsPreferences()`) opens Preferences on the focused monitor, with the Groups page (page 2) selected.
-
-- **GROUP-91** `omarchy-shell powerbar drawerStatus` returns JSON with drawer state: if a group drawer is open, `{ opened: true, groupId: "id", ... }`; if a zone drawer, `{ opened: true, zone: "left|center|right", ... }`.
-
-- **GROUP-92** `ManagedDrawer.drawerSource(drawer)` returns `"group:<id>"` if a group drawer is open, or `"managed:<zone>"` if a zone drawer.
-
-## Widget state during grouping
-
-- **GROUP-93** A grouped widget stays in its layout entry (the same zone, visibility, settings, instance key). The layout entry is not modified when the widget is grouped or ungrouped.
-
-- **GROUP-94** A widget's service enablement (whether it loads and runs) is not affected by grouping. If the widget is disabled globally, it remains disabled even if grouped.
-
-- **GROUP-95** A widget in a group is not drawn on the main bar; its space is not reserved. Only the group icon and its members' space (in the drawer) are drawn.
-
-- **GROUP-96** When a widget in a managed group is revealed on activity, the group's visibility mode does not change; only the group icon is revealed for 2.5 seconds.
+Groups are named, ordered collections of existing widget instances, shown on the bar as one icon (a glyph, your own image, or the Omarchy logo; icon, name or both). The icon opens a drawer (a strip of the members as they draw themselves) or, when members are shown by name, a vertical menu. Groups live in `bar.powerbarGroups`, refer to widgets by their `powerbarInstance` keys, and never change a widget's settings, visibility mode, zone, place or plugin enablement; membership only keeps the widget off the main bar. Drawer timing, the zone drawer and activity reveal: on-demand-drawers.md. Drag and drop: drag-edit.md. Keyboard: keyboard.md. The Groups page: preferences.md. CLI (`groups`, `newGroup`, `setGroup`, `removeGroup`): integration.md INTEG-132 to INTEG-135.
+
+**Sources:** GroupsModel.js, GroupBadgeModel.js, GlyphModel.js, GroupFace.qml, ManagedModel.js (menu geometry), ManagedDrawer.qml, Bar.qml (grep: group), tests/groups.test.cjs, tests/group-badges.test.cjs, tests/glyph.test.cjs, tests/managed.test.cjs, CONTEXT.md.
+
+## Lifecycle
+
+- **GROUP-1** `GroupsModel.create(config, id, label)` adds `{id, label, icon: "󰉋", section: "right", before: "", items: []}`; the label is `"New group"` when empty and is stored as given. It returns false for an empty or existing id, and creates `config.bar` if missing. Every other key reads as its default (GROUP-54 to GROUP-68). Labels are trimmed and cut to 80 characters by `edit()` (a blank label is ignored) and by the CLI.
+- **GROUP-2** `GroupsModel.remove(config, id)` deletes the group and its member list; it returns false for an unknown id. The widgets stay in the layout with their zone, visibility and settings, and reappear where they were.
+- **GROUP-3** A saved member whose widget is no longer in the layout (uninstalled) is left out of the group without any user action, and the cleaned list is written back once (integration.md INTEG-40). The group itself stays.
+- **GROUP-4** While no layout entry has a `powerbarInstance` yet (config still loading), every saved member is kept and nothing counts as dangling.
+- **GROUP-5** A group with no members still shows its icon; hovering or clicking it opens nothing, and a drawer whose last member leaves closes. Code: `ManagedDrawer.openZone`, `onSlotsChanged`.
+- **GROUP-11** Deleting a group deletes no widget (see GROUP-2).
+
+## Membership
+
+- **GROUP-6** `GroupsModel.assign(config, key, id, before)` puts the widget with `powerbarInstance` `key` into group `id`, before member `before`, or at the end when `before` is empty or not a member (the index is taken after the widget left its old place, so reordering inside a group works). It returns false for an unknown group id, a key not in the layout, a `group:` pseudo-key, or `before === key`.
+- **GROUP-7** A grouped widget keeps its layout entry (zone, place, saved visibility, settings) and stays loaded, but is not drawn on the main bar and takes no bar space: the group icon stands in. Members appear only in the group's drawer, never in a zone drawer.
+- **GROUP-8** A widget is in at most one group: assigning it to another group removes it from the first (members of the first keep their order). In the saved data, a key listed in two groups belongs to the earlier group.
+- **GROUP-9** `assign(config, key, "", ...)` (empty group id) removes the widget from every group; it returns true whenever the key exists in the layout, grouped or not.
+- **GROUP-10** Members are drawn in the order of `items`; activity, visibility and size never reorder them.
+- **GROUP-53** An Always hidden member has no slot, so it is in no drawer and not on the bar (on-demand-drawers.md DEMAND-3).
+- **GROUP-93** Grouping or ungrouping writes only `bar.powerbarGroups`; the layout entry is not touched.
+- **GROUP-94** A member's service enablement is unaffected by grouping or ungrouping (it stays loaded either way).
+- **GROUP-95** An ungrouped widget returns to the place its layout entry gives it; the group's space on the bar is the icon alone.
+
+## Face, icon and tooltip
+
+- **GROUP-12** `face` is `"glyph"` (icon only, the default), `"text"` (name only) or `"both"` (icon, two spaces, name). On a vertical bar every group draws its icon only; its name shows in the tooltip.
+- **GROUP-13** `edit(config, id, {icon})` with a new glyph replaces the icon whole: it sets `iconFont` only when the patch says `"omarchy"` and clears `iconImage`. Returns false for an unknown group id. `iconTint` is kept (it has no effect without an image).
+- **GROUP-14** `iconFont` is saved only as `"omarchy"` (the Omarchy logo, U+E900); otherwise `groupIconFont()` takes the font from the stock icon list for that glyph, or "" (the bar's font). A group saved before fonts were kept resolves the same way.
+- **GROUP-15** `iconImage` is a path (images chosen in the picker are copied to `~/.local/share/powerbar/icons/`). It replaces the glyph. It is drawn in the bar's text colour unless `iconTint` is `"own"`.
+- **GROUP-16** `faceRuns(group, face)` gives the pieces to draw: `glyph` is the icon (text in its font, or the image); `text` is the name in the bar's font; `both` is icon, a one-space gap, name. An empty `face` argument uses the group's own face.
+- **GROUP-17** `needsRuns(group, face)` is true for `both`, and for any face except `text` when the group has an image; those faces are drawn by GroupFace.qml. A plain glyph or name is one text button.
+- **GROUP-18** `tooltip` is unset, true or false. The tooltip is the group's name (no shortcut). Unset: shown only when the face is `glyph`; true: always; false: never; on a vertical bar with a non-glyph face it is always shown.
+
+## Badge
+
+- **GROUP-19** `badge` (default true) shows a count on the group icon's top-right corner while the total is above 0 and the icon is on the bar; the badge uses the urgent colour when any counted member is urgent, else the accent colour.
+- **GROUP-20** `badgeMode` `"sum"` (default) adds the members' counts; `"members"` counts how many members have a count above 0.
+- **GROUP-21** Per member, `GroupBadgeModel.sample()` takes the first numeric property above 0 of `unseenCount`, `downCount`, `updateCount`, `badgeCount`, `notificationCount`, `unreadCount`, `alertCount`, `pendingCount`, `count` on the widget root (floored, capped at 9999), or the entry's `powerbarBadgeProperty` alone; `"none"` or no match gives 0.
+- **GROUP-22** Urgent: the entry's `powerbarUrgentProperty` must be `true`; otherwise the first boolean among `hasUnseenPerson`, `urgent`, `isUrgent`, `critical`, `hasAlert`, `severe` decides; if none of those exist, a count that came from `downCount` or `alertCount` is urgent. Property names must be plain identifiers.
+- **GROUP-23** `aggregate(samples, mode)` adds counts (`sum`) or counts members with a count (`members`), and ORs urgency; members with count 0 are ignored.
+- **GROUP-24** The badge is the aggregate of the group's drawable members on that monitor's bar.
+- **GROUP-25** Badges are read from live properties; there is no polling and no second widget instance.
+
+## Zone and place
+
+- **GROUP-26** `section` is `left`, `center` or `right` (default `right`); changing it through `edit()` clears `before`.
+- **GROUP-27** `before` is the `powerbarInstance` of the widget the icon sits before; empty (or a key no longer in the zone) means the zone's end. When that widget leaves the zone, the icon stays in place by re-anchoring on the widget that followed it.
+- **GROUP-28** `nextAnchor(config, section, key)` is the key of the widget after `key` in the zone, or "".
+- **GROUP-29** `reanchor(config, section, key, next)` moves every icon of that zone anchored on `key` to `next`; false when none, or when `key` is still right before `next`.
+- **GROUP-30** `moveHeader(config, id, section, beforeKey, relativeGroupId, after, visibility)` places the icon: next to another group's icon (before it, or after it when `after`), else before `beforeKey` in `section`, else at the zone's end. It sets the icon's visibility (`shown` or `managed` only). It returns false for an unknown group, a missing target group or `beforeKey`, itself as target, or another visibility value.
+- **GROUP-31** Moving the icon changes no member's saved position.
+- **GROUP-42** The bar draws each group whose visibility is not `hidden` in its zone before its anchor widget (at the zone's end if there is none); the layout itself is unchanged. Code: `GroupsModel.render()`.
+- **GROUP-49** `visibility` is `shown` (default; the icon is always on the bar), `managed` (On demand: the icon is hidden at rest, reachable from the zone's drawer or dots like any On demand widget) or `hidden` (no icon on the bar at all; its members stay off the main bar).
+- **GROUP-50** For a `managed` group, activity in any member reveals its icon in the zone for the reveal duration (on-demand-drawers.md DEMAND-12).
+- **GROUP-51** On an autohidden bar that activity also slides the bar (or the zone's island) out and highlights the icon as if hovered (DEMAND-14), then both slide back.
+- **GROUP-52** With `powerbarAutoHideActivity` false the autohidden bar does not slide out for member activity; a `managed` group's icon is still revealed on a visible bar.
+- **GROUP-96** Rows and width of a menu: each row is one highlight-cell thick (32 px on a 38 px bar), rows sit one inset apart (3 px) with one inset of padding on every side. A row's name starts after the icon cell when the row shows an icon (`memberDisplay: "both"` and the member draws a glyph), otherwise at the icon edge, so all names share one left edge; a value the widget draws as text (battery %) is right-aligned one air from the row's end. The width fits the widest row plus two insets, at least four cells (128 px on a 38 px bar) and at most 320 px; longer names are cut with an ellipsis. Code: `ManagedModel.menuWidth()`, `menuLabelStart()`.
+- **GROUP-97** A menu row takes the pointer whole: a click anywhere on it presses the member, a right click presses it as a right click, the wheel is passed to the widget, and a drag anywhere on the row drags the member.
+- **GROUP-98** Menu placement: under a horizontal bar the first row starts where the icon's cell starts (shifted back by one inset); near the screen's far edge the menu flips so its last row ends one inset past where the cell ends. Beside a vertical bar the first row's centre is level with the icon's centre, and near the bottom the last row's. Never closer than one bar gap to a screen edge. Code: `ManagedModel.placeMenu()`.
+
+## Drawer and menu
+
+- **GROUP-32** Pointing at a group icon opens its drawer or menu at once (a hover drawer: no keyboard focus, same grace timers as a zone drawer). One drawer is open at a time.
+- **GROUP-33** `memberDisplay`: `native` (default) shows each member as it draws itself in a strip; `name` shows a menu of names only; `both` a menu of icon and name (and value).
+- **GROUP-34** `native` groups open a strip along the bar (vertical beside a side bar). `name` and `both` groups always open a vertical menu, with the island border, opacity, blur and shadow, Omarchy's menu font and text colour, and the island radius. The `orientation` setting (`auto`, `horizontal`, `vertical`) is saved but changes nothing today.
+- **GROUP-35** Members appear in `items` order; each is the live widget, so its own clicks, wheel and panels work.
+- **GROUP-36** A left click on the icon opens the drawer pinned (keyboard mode: it takes focus and has no close timer); a second click, Escape or a click outside closes it. A hover drawer closes by the grace timers. A right click on the icon opens Preferences on the Groups page with that group selected.
+- **GROUP-37** After the pointer leaves a hover drawer's icon without entering the drawer it closes after `powerbarManagedEntryGraceSeconds` (default 1 s); after entering and leaving the drawer, after `powerbarManagedExitGraceSeconds` (1 s). Both range 1 to 15. Re-entry cancels.
+- **GROUP-38** When a member's panel opens from the drawer, the drawer fades aside; when the panel closes, a hover-opened drawer closes 150 ms later and a pinned one comes back (on-demand-drawers.md DEMAND-51 to DEMAND-53).
+- **GROUP-39** Opening a group's drawer with no member (IPC, click) opens nothing; opening it for the keyboard (click, `group`, `toggleGroup`, the keyboard mode) selects no member until the first navigation key.
+- **GROUP-40** Opening a group's drawer closes a zone drawer, and the reverse.
+- **GROUP-41** A group's drawer lists only members that have a slot on the same bar window, in `items` order.
+- **GROUP-43** The icon is a button: left press toggles the pinned drawer, right press opens Preferences. Dropping or dragging: drag-edit.md.
+- **GROUP-44** Starting a pointer drag on the group's own icon closes its drawer (drag-edit.md DRAG-5, DRAG-50).
+
+## Shortcuts
+
+- **GROUP-45** A group can have a shortcut (`powerbarShortcuts["group:<id>"]`, default none). It is a bind in the marked Powerbar block of `~/.config/hypr/bindings.lua` that runs `omarchy-shell powerbar toggleGroup <id>`. Recording, rendering and conflicts: keyboard.md KEYS-53 to KEYS-60; CLI: integration.md INTEG-125.
+- **GROUP-46** `omarchy-shell powerbar group <id>` opens that group's drawer for the keyboard on the focused monitor's bar; unknown id or monitor: nothing happens.
+- **GROUP-47** `omarchy-shell powerbar toggleGroup <id>` closes the drawer when that group's is open, else does what `group <id>` does.
+
+## Keyboard
+
+- **GROUP-48** In the bar's keyboard mode the into-screen key on a group icon opens its drawer with keyboard focus, no member selected; the same key (or Escape) leaves it. Keys, preview on key release, search and the name card: keyboard.md KEYS-10, KEYS-20, KEYS-25 to KEYS-31.
+- **GROUP-74** to **GROUP-77** moved to keyboard.md (retired).
+
+## Saved fields (`bar.powerbarGroups`)
+
+Each entry is read through `GroupsModel.groups()`, so a missing or invalid value reads as its default.
+
+- **GROUP-54** `id` (string, required): unique; later duplicates, entries that are not objects and entries without a string id are dropped.
+- **GROUP-55** `label`: name (default "Group" when empty).
+- **GROUP-56** `icon`: glyph (default "󰉋").
+- **GROUP-57** `iconFont`: `"omarchy"` or absent.
+- **GROUP-58** `iconImage`: image path or absent.
+- **GROUP-59** `iconTint`: `"own"` or absent (text colour).
+- **GROUP-60** `section`: `left`, `center`, `right` (default `right`).
+- **GROUP-61** `before`: anchor key (default "").
+- **GROUP-62** `visibility`: `shown` (default), `managed`, `hidden`.
+- **GROUP-63** `face`: `glyph` (default), `text`, `both`.
+- **GROUP-64** `tooltip`: boolean or absent.
+- **GROUP-65** `badge`: boolean (default true; only an explicit false turns it off).
+- **GROUP-66** `badgeMode`: `sum` (default) or `members`.
+- **GROUP-67** `orientation`: `auto` (default), `horizontal`, `vertical`; no effect (GROUP-34).
+- **GROUP-68** `items`: ordered `powerbarInstance` keys; non-strings, empty strings, `group:` keys, duplicates, keys already in an earlier group and keys no longer in the layout are dropped (GROUP-3, GROUP-8).
+- **GROUP-85** Unknown values of `visibility`, `face`, `section`, `badgeMode`, `orientation` and `memberDisplay` read as their defaults (GROUP-54 to GROUP-68), and the CLI refuses them (integration.md INTEG-134).
+- **GROUP-69** `memberDisplay`: `native` (default), `name`, `both`.
+
+## Glyph detection (for the icon picker's "On your bar" source)
+
+- **GROUP-70** `GlyphModel.glyphFrom(text)` is the first private-use (Nerd Font) character of a button's text, else the text itself when it is 1 to 3 non-space characters that include a letter ("EN"), else "". Numbers, long text and values are not glyphs.
+- **GROUP-71** `GlyphModel.pick(buttons)` takes the first visible button with a glyph, else the first hidden one; `parts` is the number of visible buttons with text (more than one is a compound such as workspaces). No glyph gives null.
+- **GROUP-72** The glyph store (`~/.cache/powerbar/glyphs.json`) keeps the last glyph seen per instance, so a hidden widget keeps its picture: `merge()` returns the same store when glyph, font, size and parts are unchanged; `forget()` drops a widget that stops drawing a glyph.
+- **GROUP-73** `prune()` keeps only instances still in the layout.
+
+## Retired IDs
+
+GROUP-78 to GROUP-83 (dragging) moved to drag-edit.md (DRAG-14, DRAG-15, DRAG-24, DRAG-27, DRAG-48, DRAG-53). GROUP-84 merged into GROUP-3; GROUP-86 and GROUP-87 into GROUP-85 and GROUP-54 to GROUP-68; GROUP-88 and GROUP-89 into GROUP-46 and GROUP-47; GROUP-90 to GROUP-92 into integration.md (INTEG-52, INTEG-54, INTEG-56); the old GROUP-96 into GROUP-50. GROUP-74 to GROUP-77 moved to keyboard.md (KEYS-10, KEYS-25 to KEYS-31, KEYS-49). The numbers GROUP-96 to GROUP-98 are new (menu geometry, moved from on-demand-drawers.md).
 
 ## Doc drift
 
-- No contradictions found between README.md, docs/CONTEXT.md and code for groups.
+- None found: README.md "Groups", docs/design/groups.md and CONTEXT.md "Group" agree with the code (README's `groupsPreferences` opens the Groups page, Bar.qml:595).
 
 ## Open questions
 
-- Icon picker's exact search algorithm and ranking are in IconSearch.js; refer to preferences.md (PREFS-46, PREFS-47) for search behavior.
-- Bar.qml's drag and drop behavior with group members; dragging from a drawer is mentioned but exact positioning rules were not visible in the source read.
+- Dead setting: `orientation` is stored, shown by the CLI and settable, but `ManagedModel.drawerVertical()` ignores it (tests/managed.test.cjs "groups with member names ..." asserts that). Either wire it or remove it.
+- Dead field in the old draft: `memberDisplayLayout` does not exist in code; removed.
+- Possible bug: `GroupsModel.edit()` replaces the icon but keeps `iconTint: "own"`, so a later picked image starts as "own" (GroupsModel.js:117-124, `iconTint` untouched when `icon` is set).
