@@ -1,4 +1,5 @@
 import QtQuick
+import Quickshell.Hyprland
 import qs.Commons
 import "BarKeysModel.js" as KeysModel
 
@@ -35,7 +36,14 @@ Item {
   property bool sheet: false
   // A panel opened from the cursor holds the keyboard; Esc in it comes back.
   readonly property bool suspended: active && !!bar.activePopout
-  readonly property bool here: active && !suspended
+  // Just after Enter on a widget the bar lets go of the keyboard while it
+  // sees what opens (handOff): a panel that registers with the bar
+  // (Omarchy's KeyboardPanel, PopupCard) is a step into the bar, and Esc in
+  // it comes back to the cursor; a window or layer of its own is a
+  // destination, so the mode ends and the keys stay there; nothing (a
+  // toggle) and the bar takes the keys back.
+  property bool handOff: false
+  readonly property bool here: active && !suspended && !handOff
   readonly property string position: bar.position
   readonly property bool cursorIsDots: !!cursor && cursor.isFoldHandle === true
   readonly property string zone: !cursor ? "" : cursorIsDots ? cursor.zone : cursor.isPrefsButton ? "right" : String(cursor.region || "")
@@ -51,7 +59,7 @@ Item {
       stops: active ? stops().map(function(s) { return s.kind === "dots" ? "dots:" + s.item.inlineToken : nameOf(s.item) }) : [],
       drawer: d ? { group: d.groupId, zone: d.zone, previewing: previewing, aside: d.steppedAside, cursor: d.cursorActive ? d.cursor : -1,
         member: d.cursorActive && d.slots[d.cursor] ? bar.slotName(d.slots[d.cursor]) : "" } : null,
-      searching: searching, query: query, matches: matchCount, sheet: sheet, inline: window ? window.inlineZone : "",
+      searching: searching, query: query, matches: matchCount, sheet: sheet, handOff: handOff, foreign: foreign, inline: window ? window.inlineZone : "",
       barHidden: bar.barHidden, windowActive: !!(window && window.keysWindowActive), drawerFocused: !!(drawer && drawer.activeFocus), pointer: window && window.barPointer ? { hovered: window.barPointer.hovered, x: Math.round(window.barPointer.point.position.x), y: Math.round(window.barPointer.point.position.y) } : null, card: { shown: bar.tooltipShown, text: bar.tooltipText, mine: bar.tooltipTarget === cursor, belongs: !!cursor && bar.targetBelongsToWindow(cursor, window) }, focused: !!(window && window.keyCatcher && window.keyCatcher.activeFocus) }
   }
   function heldBy(window) { return active && !!keys.window && bar.sameWindow(keys.window, window) }
@@ -121,6 +129,9 @@ Item {
   }
   function leave() {
     if (!active) return
+    handOff = false
+    handOffEnd.stop()
+    foreignCheck.stop()
     previewTimer.stop()
     closeDrawer(false)
     if (window && window.inlineZone) window.inlineAsk("")
@@ -203,7 +214,7 @@ Item {
       if (w.managedDrawer.opened) {
         adoptDrawer(w.managedDrawer, p.key)
         var d = w.managedDrawer
-        if (p.open && d.slots[d.cursor]) d.slots[d.cursor].activate()
+        if (p.open) activate(d.slots[d.cursor])
       }
     }
   }
@@ -280,6 +291,41 @@ Item {
   }
 
   // ---- opening ------------------------------------------------------------
+  // Opens a widget as a click does, letting go of the keyboard for whatever
+  // it opens (handOff above).
+  function activate(slot) {
+    if (!slot) return
+    bar.hideCard()
+    handOff = true
+    handOffEnd.restart()
+    slot.activate()
+  }
+  Timer { id: handOffEnd; interval: 400; onTriggered: { keys.handOff = false; if (keys.active && !keys.suspended) { keys.showCard(); keys.focusLater() } } }
+
+  // A window or layer that is not the bar's opens (from Enter, or any other
+  // way: a bind, a launcher): it is a destination, so the mode ends and leaves
+  // the keys there. A registered panel is not: it shows as activePopout.
+  // Surfaces that never take the keyboard don't count.
+  function passive(namespace) {
+    return /^powerbar/.test(namespace) || /^omarchy-(background|bar|bar-drag-ghost|bar-move-ghost|notifications|osd|keyboard-panel-dismiss|lock-preview)$/.test(namespace)
+  }
+  property string foreign: ""
+  Connections {
+    target: Hyprland
+    function onRawEvent(event) {
+      if (!keys.active || !event || !event.name) return
+      var name = String(event.name), data = String(event.data || "")
+      if (name === "openlayer" && !keys.passive(data) || name === "openwindow") {
+        keys.foreign = name + " " + data
+        foreignCheck.restart()
+      }
+    }
+  }
+  Timer {
+    id: foreignCheck
+    interval: 150
+    onTriggered: if (keys.active && !keys.bar.activePopout) keys.leave()
+  }
   function openCursor() {
     var item = cursor
     if (!item) return
@@ -287,8 +333,7 @@ Item {
     // Preferences takes the keyboard: the cursor leaves first.
     if (item.isPrefsButton) { leave(); item.activate(); return }
     if (item.isFoldHandle) { openDots(item.inlineToken, 1, ""); return }
-    bar.hideCard()
-    item.activate()
+    activate(item)
   }
 
   // ---- keys ---------------------------------------------------------------
@@ -310,9 +355,18 @@ Item {
     if (event.modifiers & (Qt.ControlModifier | Qt.AltModifier | Qt.MetaModifier)) return ""
     return event.text && event.text.length === 1 && event.text.charCodeAt(0) >= 32 ? event.text : ""
   }
+  // A panel opened from the cursor is open, but the keys stayed with the bar
+  // (a panel drawn as a popup of the bar, not a layer of its own): nothing
+  // moves under it, and Esc closes it, as it would from inside.
+  function panelKey(name) {
+    var popout = bar.activePopout
+    if (name === "Escape" && popout && typeof popout.close === "function") popout.close()
+    return true
+  }
   // A key on the bar. Returns whether it was used.
   function barKey(event) {
     var name = keyName(event)
+    if (name && active && suspended) return panelKey(name)
     if (!name || !here) return false
     previewTimer.stop()
     if (searching && searchKey(name)) return true
@@ -341,6 +395,7 @@ Item {
   // A key in a drawer opened from the cursor.
   function drawerKey(event) {
     var name = keyName(event), d = drawer
+    if (name && d && active && suspended) return panelKey(name)
     if (!name || !here || !d) return false
     if (searching && searchKey(name)) return true
     if (sheet) { sheet = false; if (name === "Escape" || name === "?") return true }
@@ -352,7 +407,7 @@ Item {
     } else if (it.back) closeDrawer(true)
     else if (it.backMove) { closeDrawer(true); moveBy(it.backMove) }
     else if (it.zone) { closeDrawer(true); zoneJump(it.zone) }
-    else if (it.open) { var slot = d.slots[d.cursor]; if (slot) slot.activate() }
+    else if (it.open) activate(d.slots[d.cursor])
     else if (it.find) { closeDrawer(true); startSearch() }
     else if (it.sheet) sheet = true
     return true
@@ -415,7 +470,7 @@ Item {
   // dots once they have opened, or what the cursor is on.
   function openMatch() {
     var d = drawer
-    if (d && !previewing && d.cursorActive && d.slots[d.cursor]) { bar.hideCard(); d.slots[d.cursor].activate(); return }
+    if (d && !previewing && d.cursorActive && d.slots[d.cursor]) { activate(d.slots[d.cursor]); return }
     if (pending) { pending.open = true; return }
     openCursor()
   }
