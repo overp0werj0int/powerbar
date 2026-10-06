@@ -205,4 +205,14 @@ function legend(position, state, drawers) {
   ]
 }
 
-if (typeof module !== "undefined") module.exports = { ZONES, keymap, barIntent, drawerIntent, step, zoneStep, fuzzy, matches, searchText, route, legend }
+// Which bar the keyboard mode starts on: the focused monitor's (screens: each
+// bar window's screen name, in order). Another monitor's bar is used only while
+// no monitor is known to be focused; a focused monitor without a bar gets
+// none, so the mode never starts out of sight. → an index, or -1.
+function startScreen(screens, focused) {
+  if (!screens || !screens.length) return -1
+  if (!focused) return 0
+  return screens.indexOf(focused)
+}
+
+if (typeof module !== "undefined") module.exports = { ZONES, keymap, barIntent, drawerIntent, step, zoneStep, fuzzy, matches, searchText, route, legend, startScreen }

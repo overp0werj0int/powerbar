@@ -149,3 +149,10 @@ test('the key strip names the keys of the edge', () => {
   assert.deepEqual(keys.legend('top', 'drawer')[3], { keys: 'Esc Esc', label: 'Leave' }, 'a quick double Esc leaves from any depth');
   assert.deepEqual(keys.legend('top', 'search')[3], { keys: 'Esc Esc', label: 'Leave' });
 });
+
+test('the keyboard mode starts on the focused monitor, never on another one it can not see', () => {
+  assert.equal(keys.startScreen(['DP-1', 'eDP-1'], 'eDP-1'), 1);
+  assert.equal(keys.startScreen(['DP-1', 'eDP-1'], 'HDMI-A-1'), -1);
+  assert.equal(keys.startScreen(['DP-1', 'eDP-1'], ''), 0);
+  assert.equal(keys.startScreen([], 'eDP-1'), -1);
+});
