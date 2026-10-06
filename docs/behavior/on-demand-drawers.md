@@ -57,7 +57,7 @@ In the default drawer mode a zone's On demand widgets (and widgets folded off th
 - **DEMAND-26** One drawer is open across the bar at a time; opening one closes any other, on any monitor.
 - **DEMAND-27** Hiding the bar, opening Preferences, changing the bar edge, switching the on-demand display and editing groups (unless a drop keeps it open) close the drawer at once. Pressing a bar widget closes the drawer first, then performs the press. A pointer drag ends keyboard use of the drawer.
 - **DEMAND-87** Default on-demand display: `powerbarOnDemand` is `"drawer"`; only the exact value `"inline"` selects inline expansion. Code: `BarModel.options().onDemand`.
-- **DEMAND-88** Drawers open with a 160 ms ease-out from 94 % scale and close in 110 ms; with animations off (`powerbarAnimations: false`) they appear and vanish at once.
+- **DEMAND-88** Drawers open with a 160 ms ease-out from 96 % scale and close in 110 ms; with animations off (`powerbarAnimations: false`) they appear and vanish at once.
 
 ## Drawer geometry and appearance
 

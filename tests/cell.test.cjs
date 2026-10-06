@@ -83,7 +83,7 @@ test('drag gap is the landing size; timing grows with it and is capped', () => {
   const icon = cell.place(k, 12, true), clock = cell.place(k, 107, false);
   assert.equal(cell.dragGap(k, icon), 35);
   assert.equal(cell.dragDuration(35, cell.iconGap(k)), 150);
-  assert.equal(cell.dragDuration(cell.dragGap(k, clock), cell.iconGap(k)), 260);
+  assert.equal(cell.dragDuration(cell.dragGap(k, clock), cell.iconGap(k)), 250);
   assert.equal(cell.dragDuration(10, 35), 150);
 });
 test('widths grow at once and shrink only after the hold', () => {

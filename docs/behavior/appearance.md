@@ -240,7 +240,7 @@ Storage: the look lives in `bar.powerbarAppearance` of shell.json: `all` (values
 
 - **LOOK-100** With `powerbarAnimations: false` every change lands in one frame and nothing animates, except the text and icon colour crossfade (LOOK-106). Code: Bar.qml `enabled: root.animationsEnabled` on Behaviors.
 
-- **LOOK-101** A drawer opens over 160 ms and grows from scale 0.94 to 1 (strong ease-out, cubic-bezier 0.23, 1, 0.32, 1). Code: ManagedDrawer.qml reveal, xScale.
+- **LOOK-101** A drawer opens over 160 ms and grows from scale 0.96 to 1 (strong ease-out, cubic-bezier 0.23, 1, 0.32, 1). Code: ManagedDrawer.qml reveal, xScale.
 
 - **LOOK-102** A drawer closes over 110 ms with the same ease-out. Code: ManagedDrawer.qml reveal.
 

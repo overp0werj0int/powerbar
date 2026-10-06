@@ -4093,7 +4093,7 @@ Item {
     Behavior on opacity {
       enabled: root.animationsEnabled
       SequentialAnimation {
-        PauseAnimation { duration: zoneHidden ? 0 : 150 }
+        PauseAnimation { duration: zoneHidden ? 0 : 120 }
         NumberAnimation { duration: zoneHidden ? 80 : 160; easing.type: Easing.OutCubic }
       }
     }
@@ -4119,7 +4119,7 @@ Item {
     Behavior on opacity {
       enabled: root.animationsEnabled
       SequentialAnimation {
-        PauseAnimation { duration: preferencesButton.zoneHidden ? 0 : 150 }
+        PauseAnimation { duration: preferencesButton.zoneHidden ? 0 : 120 }
         NumberAnimation { duration: preferencesButton.zoneHidden ? 80 : 160; easing.type: Easing.OutCubic }
       }
     }
@@ -5200,7 +5200,7 @@ Item {
       Behavior on opacity {
         enabled: root.animationsEnabled && !slot.drawerHost && (slot.fitMotion || slot.fitYielded || slot.fitFolded)
         SequentialAnimation {
-          PauseAnimation { duration: slot.fitYielded || slot.fitFolded ? 0 : 150 }
+          PauseAnimation { duration: slot.fitYielded || slot.fitFolded ? 0 : 120 }
           NumberAnimation { duration: slot.fitYielded ? 80 : slot.fitFolded ? 110 : 160; easing.type: Easing.OutCubic }
         }
       }
