@@ -602,10 +602,10 @@ Item {
   function sheetEntries() {
     var out = [], seenNames = {}
     catalogue().forEach(function(c) {
-      var keysLabel = bar.shortcutLabel(targetOf(c.slot)), name = c.name
-      if (!keysLabel || seenNames[name + keysLabel]) return
-      seenNames[name + keysLabel] = true
-      out.push({ name: name, keys: keysLabel })
+      var keys = bar.shortcutCaps(targetOf(c.slot)), name = c.name, seen = name + keys.join(" ")
+      if (!keys.length || seenNames[seen]) return
+      seenNames[seen] = true
+      out.push({ name: name, keys: keys })
     })
     return out
   }
@@ -623,11 +623,11 @@ Item {
     if (!target) { cardTarget = null; bar.hideCard(); return }
     var name = nameOf(slot)
     var shortcut = targetOf(slot)
-    var keysLabel = shortcut ? bar.shortcutLabel(shortcut) : ""
+    var keys = shortcut ? bar.shortcutCaps(shortcut) : []
     var menuRow = !!(here && d && d.namedMenu && target !== slot)
     var own = menuRow && typeof target.ownTooltip === "function" ? target.ownTooltip() : ""
     cardTarget = target
-    bar.showCard(target, KeysModel.cardText(name, own, keysLabel, menuRow))
+    bar.showCard(target, KeysModel.cardText(name, own, menuRow), keys)
   }
 
 
