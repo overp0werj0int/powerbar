@@ -716,8 +716,8 @@ Item {
     onLoadFailed: root.themeLook = ({})
     onFileChanged: reload()
   }
-  onThemeNameChanged: themeLookFile.reload()
-  readonly property var appearance: AppearanceModel.resolve(AppearanceModel.appearanceOf(barConfig), themeName, themeLook)
+  onThemeNameChanged: { themeLookFile.reload(); Qt.callLater(healAppearance) }
+  readonly property var appearance: AppearanceModel.resolve(AppearanceModel.appearanceOf(barConfig, themeName), themeName, themeLook)
   // The bar's config with the resolved values in the keys the drawing reads.
   readonly property var appearanceConfig: AppearanceModel.flatten(barConfig, themeName, themeLook)
   // Tooltips, the keyboard name card and the key legend. A tile they follow
@@ -740,9 +740,12 @@ Item {
   readonly property real overlayShadowPad: overlayShadow ? Math.ceil(surfaceEffects.shadowSize) : 0
   // Earlier versions' flat keys move into powerbarAppearance once, and
   // themes no longer installed lose what was kept for them.
+  // Earlier versions' values become the current theme's own, so migration
+  // waits until the theme is known.
   function healAppearance() {
-    if (!canWriteConfig() || !AppearanceModel.legacyPresent(barConfig)) return
-    writeConfig(function(config) { if (config.bar) AppearanceModel.migrate(config.bar) })
+    if (!canWriteConfig() || !themeName || !AppearanceModel.legacyPresent(barConfig)) return
+    var theme = themeName
+    writeConfig(function(config) { if (config.bar) AppearanceModel.migrate(config.bar, theme) })
   }
   property var installedThemes: []
   Process {

@@ -78,18 +78,39 @@ const user = { powerbarBackgroundOpacity: 100, powerbarBlur: false, powerbarExte
   powerbarMainBackgroundOpacity: 13, powerbarMainShadow: true, powerbarReadableOverlay: true, powerbarShadowOpacity: 25,
   powerbarShadowSize: 4, powerbarForeground: { 'quattrocento-light': 'dark' }, position: 'right' };
 
-test('migration moves flat keys into the shared set, so the bar looks the same', () => {
+test('migration makes earlier values the current theme\'s own; other themes start on Theme', () => {
   const bar = J(user);
   const before = J(model.effects(bar));
-  assert.equal(model.migrate(bar), true);
+  assert.equal(model.migrate(bar, ''), false, 'waits for the theme');
+  assert.equal(model.migrate(bar, 'waffle-cat'), true);
   assert.deepEqual(J(bar), { powerbarReadableOverlay: true, position: 'right', powerbarAppearance: {
-    all: { shape: { rounding: 8, borders: false, borderWidth: 0.5 }, surface: { opacity: 100, blur: false },
-      shadow: { enabled: true, softness: 4, strength: 25 } },
-    themes: { 'quattrocento-light': { text: 'dark' } } } });
-  assert.deepEqual(J(model.effects(model.flatten(bar, 'waffle-cat', {}))), before, 'same effects before and after');
-  assert.equal(model.migrate(bar), false, 'once');
-  // Before migrate() writes it, the bar reads the same values from the flat keys.
-  assert.deepEqual(J(model.appearanceOf(J(user))), J(bar.powerbarAppearance));
+    themes: {
+      'quattrocento-light': { text: 'dark' },
+      'waffle-cat': { shape: { use: 'this', rounding: 8, borders: false, borderWidth: 0.5 },
+        surface: { use: 'this', opacity: 100, blur: false },
+        shadow: { use: 'this', enabled: true, softness: 4, strength: 25 } } } } });
+  assert.deepEqual(J(model.effects(model.flatten(bar, 'waffle-cat', {}))), before, 'the theme on screen looks the same');
+  const other = model.resolve(bar.powerbarAppearance, 'nord', {});
+  assert.deepEqual(J(other.scopes), { shape: 'theme', surface: 'theme', shadow: 'theme' }, 'nothing is shared by itself');
+  assert.equal(model.migrate(bar, 'waffle-cat'), false, 'once');
+  assert.deepEqual(J(model.appearanceOf(J(user), 'waffle-cat')), J(bar.powerbarAppearance), 'read the same before it is written');
+});
+
+test('the first pick of All themes shares what the tile shows; later themes follow it', () => {
+  const bar = { powerbarAppearance: { themes: { lumon: { shape: { use: 'this', rounding: 10 } } } } };
+  model.setScope(bar, 'lumon', 'shape', 'all');
+  assert.deepEqual(J(bar.powerbarAppearance.all), { shape: { rounding: 10 } });
+  assert.equal(model.resolve(bar.powerbarAppearance, 'nord', {}).scopes.shape, 'all', 'All themes reaches every theme');
+  assert.equal(model.resolve(bar.powerbarAppearance, 'nord', {}).values.rounding, 10);
+  // From a theme's own Powerbar look too.
+  const fresh = {};
+  model.setScope(fresh, 'rose', 'shadow', 'all', { shadow: { enabled: true, softness: 9 } });
+  assert.deepEqual(J(fresh.powerbarAppearance.all), { shadow: { enabled: true, softness: 9 } });
+  // Picked with nothing to share: the tile follows the shared set, empty for now.
+  const empty = {};
+  model.setScope(empty, 'rose', 'surface', 'all');
+  assert.deepEqual(J(empty.powerbarAppearance), { themes: { rose: { surface: { use: 'all' } } } });
+  assert.equal(model.scopeOf(empty.powerbarAppearance, 'nord', 'surface'), 'theme');
 });
 
 test('a tile follows the theme by default, the shared set once it has values, and a theme its own choice', () => {

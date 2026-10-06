@@ -353,14 +353,15 @@ in the theme you're on:
   opacity is the theme's own bar background, and blur and shadow are off, as on
   Omarchy's bar. A theme can ship its own Powerbar look (below), which comes first.
 - **All themes**: your values, shared by every theme that hasn't chosen
-  otherwise. Changing one here changes it for all of them.
+  otherwise. Changing one here changes it for all of them. Picking it the first
+  time shares what the tile shows at that moment.
 - **This theme**: your values for this theme only, ahead of the shared ones.
 
 A value you haven't set falls through, key by key: This theme, then All themes,
 then the theme. Switching a tile's choice keeps every stored value, so picking
 a choice again brings its values back, and switching themes swaps sets at once
-without writing anything. A theme you've never customised follows your shared
-values where you have them and its own otherwise. The tile's hint under the
+without writing anything. Until you pick All themes, every theme follows its
+own values; after that, a theme you've never customised follows your shared ones. The tile's hint under the
 header says where its values come from.
 
 The tiles cover borders on/off and their thickness (0.5–3 px), rounding (square
@@ -382,8 +383,9 @@ Everything is stored in `bar.powerbarAppearance` in `shell.json`, and only what
 you set: `all` holds the shared values, `themes.<name>` a theme's choices
 (`"use": "theme" | "all" | "this"`), its own values and its text colour.
 Settings from earlier versions (the flat `powerbarIslandRounding`,
-`powerbarBlur`, `powerbarShadow…` keys and the older per-surface ones) move into
-`all` the first time Powerbar loads, so the bar looks the same. What is kept for
+`powerbarBlur`, `powerbarShadow…` keys and the older per-surface ones) become
+the This theme values of the theme on screen when Powerbar first loads, so it
+looks the same; other themes start on Theme. What is kept for
 a theme that is no longer installed is dropped.
 
 #### A theme's own Powerbar look

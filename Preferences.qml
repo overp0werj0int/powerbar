@@ -179,7 +179,10 @@ Item {
     })
     status = result === false ? "Could not save. Check that shell.json is writable." : ""
   }
-  function setScope(tile, scope) { writeLook(function(b, theme) { AppearanceModel.setScope(b, theme, tile, scope) }) }
+  function setScope(tile, scope) {
+    var look = bar ? bar.themeLook : ({})
+    writeLook(function(b, theme) { AppearanceModel.setScope(b, theme, tile, scope, look) })
+  }
   function setLook(tile, key, value) { writeLook(function(b, theme) { AppearanceModel.setValue(b, theme, tile, key, value) }) }
   function setText(value) { writeLook(function(b, theme) { AppearanceModel.setText(b, theme, value) }) }
   // The line under a tile's header: where its values come from, or what a
