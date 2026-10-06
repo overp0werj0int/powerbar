@@ -66,14 +66,14 @@ Item {
   property real asideOpacity: steppedAside ? 0 : 1
   Behavior on asideOpacity { enabled: bar.animationsEnabled && drawer.opened; NumberAnimation { duration: 110; easing.type: Easing.OutCubic } }
   // Grows out of the icon that opened it (the source cell's centre on the
-  // drawer's near edge) from 94%; nothing appears from nothing.
+  // drawer's near edge) from 96%; nothing appears from nothing.
   readonly property real originAlong: sourceCell ? (sourceCell.start + sourceCell.end) / 2 - axisPosition
     : zone === "left" ? 0 : zone === "right" ? paintedLength : paintedLength / 2
   transform: Scale {
     origin.x: bar.vertical ? (bar.position === "left" ? 0 : drawer.width) : drawer.originAlong
     origin.y: !bar.vertical ? (bar.position === "top" ? 0 : drawer.height) : drawer.originAlong
-    xScale: 0.94 + 0.06 * Math.max(0, drawer.reveal)
-    yScale: 0.94 + 0.06 * Math.max(0, drawer.reveal)
+    xScale: 0.96 + 0.04 * Math.max(0, drawer.reveal)
+    yScale: 0.96 + 0.04 * Math.max(0, drawer.reveal)
   }
   property bool grabReady: false
   onOpenedChanged: {

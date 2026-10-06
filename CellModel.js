@@ -101,7 +101,7 @@ function dragGap(k, p) { return p.extent }
 function iconGap(k) { return k.mode === "gaps" ? TYPICAL_GLYPH + k.gap : k.cell + k.gutter }
 function dragDuration(gap, icon) {
   var ratio = icon > 0 ? Math.max(0, gap) / icon : 1
-  return Math.round(Math.max(150, Math.min(260, 150 * Math.sqrt(ratio))))
+  return Math.round(Math.max(150, Math.min(250, 150 * Math.sqrt(ratio))))
 }
 
 // Width hold: a cell grows at once and shrinks only after it has been

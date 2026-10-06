@@ -428,10 +428,10 @@ Item {
             host: card
             onChanged: focusRing.follow()
           }
-          Behavior on x { enabled: focusRing.gliding && prefs.bar.animationsEnabled; NumberAnimation { duration: 140; easing.type: Easing.OutCubic } }
-          Behavior on y { enabled: focusRing.gliding && prefs.bar.animationsEnabled; NumberAnimation { duration: 140; easing.type: Easing.OutCubic } }
-          Behavior on width { enabled: focusRing.gliding && prefs.bar.animationsEnabled; NumberAnimation { duration: 140; easing.type: Easing.OutCubic } }
-          Behavior on height { enabled: focusRing.gliding && prefs.bar.animationsEnabled; NumberAnimation { duration: 140; easing.type: Easing.OutCubic } }
+          Behavior on x { enabled: focusRing.gliding && prefs.bar.animationsEnabled; NumberAnimation { duration: 120; easing.type: Easing.OutCubic } }
+          Behavior on y { enabled: focusRing.gliding && prefs.bar.animationsEnabled; NumberAnimation { duration: 120; easing.type: Easing.OutCubic } }
+          Behavior on width { enabled: focusRing.gliding && prefs.bar.animationsEnabled; NumberAnimation { duration: 120; easing.type: Easing.OutCubic } }
+          Behavior on height { enabled: focusRing.gliding && prefs.bar.animationsEnabled; NumberAnimation { duration: 120; easing.type: Easing.OutCubic } }
         }
       }
 
