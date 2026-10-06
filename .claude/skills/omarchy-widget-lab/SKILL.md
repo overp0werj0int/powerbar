@@ -109,6 +109,10 @@ wording; this is the outline.
   keep validation sections as the derivations behind the rules, and turn
   implementation steps into target-state instructions. Search the page for
   "today", "proposal" and "proposed" afterwards; none should remain.
+- **Amendments after a live check** ("drop the preview", "merge these"):
+  update the Decisions table with the date and reason and the memory; the
+  user's live verdict outranks the lab's metrics (references/process.md,
+  "After the lock").
 - **New scope after the spec is final** ("more cases we forgot"): run the
   whole process again for the new part (read code, collect assets, research,
   rules, edge cases, validation), but add it to the same page as a new
@@ -123,8 +127,13 @@ wording; this is the outline.
 
 When the user reports that something looks wrong, read their newest
 screenshot (`ls -t ~/Pictures/screenshot-*.png | head -1`) before changing
-anything, reproduce that state in a render, and verify the fix in the same
-state.
+anything, check the running shell is the build you think it is (its pid and
+start time against your last edit), reproduce that state in a render, and
+verify the fix in the same state.
+
+When the user locks an option on a condition ("make sure the real layout is
+symmetrical"), write the condition into Decisions as rules the build can be
+audited against, since a browser mock only approximates the QML layout.
 
 ## Principles
 

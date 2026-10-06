@@ -236,6 +236,134 @@ with `reference-final.html`):
   public), commit with the attribution trailer, `git switch -` back, and tell
   the user `git merge docs/<topic>-lab`.
 
+## After the lock: the live check amends the spec
+
+A locked lab is still a proposal until the user has used it on their desktop.
+The Preferences bento lab (October 2026) argued for a pinned bar preview with
+a measured "preview in view at 18 of 18 stops"; on the first live look the
+user removed it ("we can see our real bar changing anyway, and it takes
+update cycles") and merged two tiles' pictures into one. Lessons:
+
+- Before recommending a preview, ask whether the real thing is already on
+  screen while the user works. A metric that a preview stays visible
+  doesn't show the preview is needed.
+- Prefer one picture that carries several settings over a thumbnail per option.
+- Record live amendments in the Decisions table with the date and the
+  reason ("Dropped after the live check"), and say plainly when the
+  interactive mock still shows the first locked version. Update the project
+  memory in the same turn.
+- Implementation can move ahead of the page; don't rebuild the mock for every
+  amendment unless the user asks for it.
+
+The Layout lab (October 2026) added three more:
+
+- **Fidelity outranks the "no preview" rule when the page is an editor of
+  the bar.** The lab drew widgets on a plain shelf at a scaled size; after
+  the live check the user asked to "keep scale, rounding and theme exactly
+  as the real bar". Draw such rows with the bar's own geometry model and
+  tokens at 1:1, and wrap instead of shrinking.
+- **Live checks find adjacent bugs.** In the same pass the user hit a bar
+  that went blank after a theme switch (a global Light/Dark choice) and a
+  stacked widget overflowing its slot. Fix each on its own branch from
+  master (a git worktree keeps the feature branch checked out for the live
+  bar), fold the change into the feature branch only when the feature needs
+  it, and say so in both commit messages.
+- **A decision that is the user's goes to AskUserQuestion**, with the
+  recommended option first and each option's consequence for their own setup
+  ("your current Dark stays with the light theme"); then do exactly what the
+  chosen option promised, including any one-off config migration, with a
+  backup and a semantic diff.
+
+The Groups lab (October 2026) added these:
+
+- **Requirements arrive mid-lab; fold them in with numbers.** The user added
+  an icon picker ("glyphs, icons available to Omarchy and emojis"), then
+  search, then "paste your own icon with a drop area" while the page was
+  being built. For each, find what exists on the machine first (fonts, icon
+  themes, Omarchy's plugins and their data) and ask one scoping question
+  with counts and consequences ("10,610 glyphs, or the 284 Omarchy uses").
+  When the user asks for your recommendation, look for the platform's own
+  practice before inventing a rule: Omarchy had no written icon guideline,
+  but its sources showed exactly which icons it uses.
+- **The mock is not the alignment spec.** CSS approximates QML; the user saw
+  the web version as "a bit skewed" and locked the design on condition that
+  the real layout be symmetrical and evenly spaced. Turn that into stated
+  rules (equal halves, mirrored chrome, equal columns, fixed row heights) in
+  the Decisions table, build them, and audit them offscreen (column widths,
+  right edges, row heights, page height) before the live check.
+- **A live complaint can be a stale build.** "Completely botched" was a shell
+  started mid-edit running a first draft. Read the screenshot, then compare
+  the running shell's pid and start time with your last edit before touching
+  the code (see the UX skill, "Prove the restart happened").
+- **A request to remove UI can be a request for automation.** The lab drew
+  "Missing widget" rows with x to remove them; the user wanted Powerbar to
+  clean up uninstalled widgets itself. Record such amendments in Decisions
+  and mark the superseded edge case rather than deleting it.
+
+- **The live check can be yours.** When the user handed over ("can you test
+  it yourself in a real bar"), driving the real bar found three bugs every
+  offscreen check had passed: a tint that drew white (then a square), gaps
+  that depended on glyph overhang, and a search that lost a glyph's name.
+  Run the user's own scenario list (paste, a copied file, an emoji, a logo
+  beside a name, a light and a dark theme), screenshot the exact pixels,
+  and fix on a branch before reporting.
+
+The bar keys lab (October 2026, keyboard navigation) added these:
+
+- **A behaviour lab has no picture to compare, so measure the interaction.**
+  Write the rules once as a plain script (`nav.js`) that both the demo runs and
+  a node script measures: a breadth-first search over each scheme's keys gave
+  "keys to reach each of 36 widgets" (arrows median 9 / most 17, with Tab
+  3 / 7, by name 3 / 5). The numbers can't drift from the demo.
+- **Check the user's proposal against their own setup before building.** Their
+  bar was on the right edge, so "Up/Down enter a group" collided with the keys
+  that move along it, and their key repeat (`hyprctl getoption
+  input:repeat_rate`, 40/s after 250 ms) ruled out any fixed dwell for
+  "unfold on highlight". Present the result as a Keep / Change / Add table
+  with one reason per row, not as a rival design.
+- **Check every proposed shortcut against the live binds** (`hyprctl binds`,
+  plain text, since its JSON drops `code:` keys) and Omarchy's defaults; say
+  "free here and in stock Omarchy".
+- **Interactive demos get a hash hook** (`#drawer`, `#search`, `#top`) so the
+  one look can render several states; take each in its own screenshot run.
+
+Tooling that bit:
+
+- `collect_assets.py` and `screenshot.sh` need Pillow; when it isn't
+  installed run them through `uv run --with pillow python …` (copy
+  `screenshot.sh` and swap its `python3` for that) instead of installing
+  system packages.
+- **Private-use glyphs can vanish when a file is written.** Single BMP
+  private-use characters (U+E000–U+F8FF, Font Awesome glyphs such as
+  U+F028) came out as empty strings, while supplementary ones (Material,
+  U+F0000+) survived. In generated pages and QML, write glyphs as escapes
+  (`"\uf028"`, `"\u{f024b}"`) and grep the result for `""` where a glyph
+  belongs.
+- **Glyphs on any machine:** subset the fonts the page needs with
+  `uv run --with fonttools --with brotli` (pyftsubset to woff2: the glyphs
+  shown plus ASCII), publish them with the page, and keep them out of git
+  (`.gitignore`) as with `wall.jpg`.
+- **Render the real page too.** The rendering bench copies only top-level
+  `.qml`/`.js` files into its work dir, so generated data the plugin imports
+  belongs at the top level. A scratch copy of the bench with an extra
+  scenario step (open the picker, type a query, shoot) shows states the
+  stock scenarios don't reach; take each shot in its own step, since
+  `grabToImage` is asynchronous and a close in the same step wins.
+- The `#key=value` state hook works for local screenshots only; published
+  artifacts receive just a bare `#anchor`.
+
+## Building the Today baseline
+
+- Model Today from the code with the user's real captures; the offscreen
+  render of the real page is evidence, not the baseline. Plugins do not run
+  offscreen, so the render shows stand-in buttons and plugin ids instead of
+  names, and its widths are wrong (the bar row looked 26% scaled offscreen,
+  60-72% with real captures).
+- Read cell sizes from the bench (log the cells' x, width, fit) and the
+  rest from the code, and quote both in the findings with file and line.
+- Render the bench at the user's device pixel ratio when saved captures are
+  involved (`"dpr": 1.6` in the bench's screens file).
+
 ## When the user says the current code is not good enough
 
 Model new surfaces only from the locked rules on the page, not from the
