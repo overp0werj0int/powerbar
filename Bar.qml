@@ -3294,9 +3294,6 @@ Item {
     readonly property bool peeking: !!(peekZones.all || peekZones.left || peekZones.center || peekZones.right)
     readonly property bool autoHideShown: !autoHideActive || autoHideRevealed || peeking
     property real autoHideOffset: autoHideShown ? 0 : autoHideDistance
-    // A tooltip shown while the bar slides (the keyboard mode's name card on an
-    // autohidden bar) was placed where the bar was: it follows the bar in.
-    onAutoHideOffsetChanged: if (tooltipWindow.visible) tooltipAnchor.updateAnchor()
     // A drawer opening or closing under a tooltip moves it clear.
     Connections {
       target: drawer
@@ -3328,6 +3325,10 @@ Item {
       NumberAnimation { duration: barWindow.autoHideMotionMs; easing.type: Easing.OutCubic }
     }
     readonly property real autoHideEdge: 2
+    // Mapping a surface stalls the bar's frames for a moment, so the keyboard
+    // mode's own surfaces (the dismiss layer, the key legend) and any tooltip
+    // wait until the bar has slid out: the slide is what the eye is on.
+    readonly property bool sliding: autoHideOffset > 0.5
 
     ScreenMoveRemap {
       id: remapGuard
@@ -3547,7 +3548,7 @@ Item {
     PanelWindow {
       id: keysDismiss
       screen: barWindow.screen
-      visible: barWindow.keysHere
+      visible: barWindow.keysHere && !barWindow.sliding
       color: "transparent"
       exclusionMode: ExclusionMode.Ignore
       WlrLayershell.namespace: "powerbar-keys-dismiss"
@@ -3587,7 +3588,7 @@ Item {
       readonly property var keys: root.barKeys
       readonly property bool wanted: keys.heldBy(barWindow) && !keys.suspended && (root.keyLegend || keys.searching || keys.sheet)
       screen: barWindow.screen
-      visible: wanted
+      visible: wanted && !barWindow.sliding
       color: "transparent"
       exclusionMode: ExclusionMode.Ignore
       WlrLayershell.namespace: "powerbar-keys"
@@ -3708,7 +3709,7 @@ Item {
     PopupWindow {
       id: tooltipWindow
 
-      visible: root.tooltipShown && root.tooltipTarget !== null && root.tooltipText !== "" && root.targetBelongsToWindow(root.tooltipTarget, barWindow)
+      visible: root.tooltipShown && !barWindow.sliding && root.tooltipTarget !== null && root.tooltipText !== "" && root.targetBelongsToWindow(root.tooltipTarget, barWindow)
       color: "transparent"
       implicitWidth: Math.ceil(tooltipBubble.implicitWidth)
       implicitHeight: Math.ceil(tooltipBubble.implicitHeight)
