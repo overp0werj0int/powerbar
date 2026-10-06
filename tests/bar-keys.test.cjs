@@ -96,4 +96,6 @@ test('the key strip names the keys of the edge', () => {
   assert.equal(keys.legend('top', 'bar', true)[1].label, 'Into a group or drawer');
   assert.equal(keys.legend('top', 'drawer')[0].keys, '↓ ↑');
   assert.equal(keys.legend('right', 'drawer')[2].keys, '→ Esc');
+  assert.deepEqual(keys.legend('top', 'drawer')[3], { keys: 'Esc Esc', label: 'Leave' }, 'a quick double Esc leaves from any depth');
+  assert.deepEqual(keys.legend('top', 'search')[3], { keys: 'Esc Esc', label: 'Leave' });
 });
