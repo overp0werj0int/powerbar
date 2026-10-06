@@ -119,6 +119,18 @@ test('each word typed must match, and a member matches by its group name too', (
   assert.equal(keys.matches(names, 'ai')[0], 0, 'the group first');
 });
 
+test('a member reads its group name first', () => {
+  assert.equal(keys.searchText('Local Laya', 'AI'), 'AI Local Laya');
+  assert.equal(keys.searchText('ScratchPeek', ''), 'ScratchPeek');
+});
+
+test('a found widget comes into view the way it is hidden', () => {
+  assert.equal(keys.route({ onBar: true, behindDots: false, inDrawer: false }), 'put');
+  assert.equal(keys.route({ onBar: false, behindDots: true, inDrawer: true }), 'dots', 'the bar\'s own expansion first');
+  assert.equal(keys.route({ onBar: false, behindDots: false, inDrawer: true }), 'drawer', 'folded off, or drawer mode');
+  assert.equal(keys.route({ onBar: false, behindDots: false, inDrawer: false }), 'clear', 'gave way to another zone');
+});
+
 test('the key strip names the keys of the edge', () => {
   const right = keys.legend('right', 'bar');
   assert.equal(right[0].keys, '↑ ↓');

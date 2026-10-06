@@ -212,6 +212,15 @@ Item {
   function checkPending() {
     var p = pending, w = window
     if (!p || !w) return
+    if (p.seek) {
+      if (seen(p.seek)) { pending = null; landOn(p.seek, p.member); if (p.open) openMatch(); return }
+      if (++p.tries < 60) { landRetry.restart(); return }
+      // Still out of view (another moment holds the room): its zone's
+      // drawer, when it has a place there.
+      pending = null
+      if (inZoneDrawer(p.seek)) openZoneDrawer(p.seek.region, p.seek.instanceKey)
+      return
+    }
     if (w.inlineZone === p.token) {
       var shown = stops().filter(function(s) { return s.item.inlineShown && s.item.inlineToken === p.token })
       var pick = p.key ? shown.find(function(s) { return s.item.instanceKey === p.key }) : null
@@ -221,9 +230,9 @@ Item {
       pending = null
       if (!shown.length) return
       if (!pick) pick = p.dir < 0 ? shown[shown.length - 1] : shown[0]
-      cursor = pick.item
-      showCard()
-      if (p.open) openCursor()
+      if (p.member) landOn(pick.item, p.member)
+      else { cursor = pick.item; showCard() }
+      if (p.open) openMatch()
       return
     }
     // The zone could not open in the bar: its drawer took the widgets.
@@ -436,36 +445,19 @@ Item {
   }
 
   // ---- finding --------------------------------------------------------------
-  // Everything a search can reach: widgets and groups on the bar, the members
-  // of groups, and the widgets waiting behind dots. Hidden widgets are not on
-  // the bar, so there is nothing to put a cursor on.
+  // Everything a search can reach: every widget and group of this bar, from
+  // the bar's own store, wherever it is right now (on the bar, behind dots, in
+  // a drawer, folded off, or out of the way of another zone), plus the
+  // Powerbar button. Hidden widgets have no slot. A member is found by its
+  // group's name too ("ai a").
   function catalogue() {
-    var out = [], w = window
-    if (!w) return out
-    stops().forEach(function(s) {
-      if (s.kind === "widget" || s.kind === "prefs") out.push({ name: nameOf(s.item), slot: s.item, stop: s.item })
-      else if (s.kind === "group") {
-        out.push({ name: bar.slotName(s.item), slot: s.item, stop: s.item })
-        // A member is found by its group's name too ("ai a").
-        var groupName = bar.slotName(s.item)
-        bar.groupSlots(s.item.entry.powerbarGroupId, w).forEach(function(m) {
-          out.push({ name: bar.slotName(m), text: groupName + " " + bar.slotName(m), slot: m, stop: s.item, member: true })
-        })
-      }
+    var w = window
+    if (!w) return []
+    var out = (w.moduleItems || []).filter(function(s) { return !!s }).map(function(s) {
+      var name = bar.slotName(s)
+      return { name: name, text: KeysModel.searchText(name, s.memberGroup ? s.memberGroup.label : ""), slot: s }
     })
-    // Drawer mode: each zone's on-demand widgets, in its drawer.
-    if (!bar.onDemandInline) KeysModel.ZONES.forEach(function(z) {
-      bar.managedSlots(z, w).forEach(function(m) {
-        if (!out.some(function(c) { return c.slot === m })) out.push({ name: bar.slotName(m), slot: m, zone: z, behind: true })
-      })
-    })
-    // Inline mode: every widget waiting behind a zone's dots, whether the
-    // zone is folded, opening or open right now.
-    if (bar.onDemandInline) (w.moduleItems || []).forEach(function(m) {
-      if (!m || m.drawerHost || !(m.inlineCandidate || m.inlineShown)) return
-      if (out.some(function(c) { return c.slot === m })) return
-      out.push({ name: bar.slotName(m), slot: m, token: m.inlineToken, behind: true })
-    })
+    if (w.prefsButton) out.push({ name: nameOf(w.prefsButton), text: nameOf(w.prefsButton), slot: w.prefsButton })
     return out
   }
   function startSearch() { searching = true; query = ""; matchIndex = 0; matchCount = 0; sheet = false }
@@ -498,35 +490,57 @@ Item {
   }
   // Put the cursor on a match, opening the way to it.
   function reveal(which) {
-    var list = catalogue(), found = KeysModel.matches(list.map(function(c) { return c.text || c.name }), query)
+    var list = catalogue(), found = KeysModel.matches(list.map(function(c) { return c.text }), query)
     matchCount = found.length
     if (!found.length) { matchIndex = 0; return }
     matchIndex = ((which % found.length) + found.length) % found.length
-    var pick = list[found[matchIndex]]
-    if (pick.member) {
-      if (cursor !== pick.stop || !drawer || previewing) { put(pick.stop, 1); openDrawer(true) }
+    bringIn(list[found[matchIndex]].slot)
+  }
+  // A member comes in through its group's icon.
+  function headerOf(member) {
+    var id = member && member.memberGroup ? member.memberGroup.id : ""
+    return id ? (window.moduleItems || []).find(function(s) { return s && s.groupHeader && s.entry.powerbarGroupId === id }) || null : null
+  }
+  function inZoneDrawer(slot) {
+    return !!slot.drawerHost || (!slot.isPrefsButton && bar.managedSlots(slot.region, window).indexOf(slot) >= 0)
+  }
+  function bringIn(slot) {
+    var member = slot.memberGroup ? slot : null, target = member ? headerOf(member) : slot
+    if (!target) return
+    pending = null
+    var how = KeysModel.route({ onBar: seen(target), behindDots: !!target.inlineCandidate, inDrawer: inZoneDrawer(target) })
+    var w = window
+    if (how === "put") { landOn(target, member); return }
+    closeDrawer(false)
+    if (how === "dots") {
+      if (w.inlineZone && w.inlineZone !== target.inlineToken) w.inlineAsk("")
+      var handle = (w.foldHandles || []).find(function(h) { return h && h.inlineToken === target.inlineToken && h.shown })
+      if (handle) cursor = handle
+      openDots(target.inlineToken, 1, target.instanceKey)
+      if (pending) pending.member = member
+    } else if (how === "drawer") {
+      var near = stops().find(function(st) { return st.zone === target.region })
+      if (near) cursor = near.item
+      openZoneDrawer(target.region, target.instanceKey)
+    } else {
+      // Out of the way of another zone's expansion: close it, and land once
+      // the widget is back.
+      if (w.inlineZone || w.inlineRequest) w.inlineCollapseNow()
+      pending = { seek: target, member: member, tries: 0 }
+      landRetry.restart()
+    }
+  }
+  // The cursor on a widget the search brought in; for a member, its group's
+  // drawer opens at it (unless already open there).
+  function landOn(item, member) {
+    if (member) {
+      if (cursor !== item || !drawer || previewing) { put(item, 1); openDrawer(true) }
       var d = drawer
-      if (d) { var at = d.slots.indexOf(pick.slot); if (at >= 0) { d.cursor = at; d.cursorActive = true; d.navigate(0) } }
+      if (d) { var at = d.slots.indexOf(member); if (at >= 0) { d.cursor = at; d.cursorActive = true; d.navigate(0) } }
       return
     }
-    if (pick.behind) {
-      closeDrawer(false)
-      if (bar.onDemandInline) {
-        if (seen(pick.slot)) { put(pick.slot, 1); return }
-        var w = window
-        if (w.inlineZone && w.inlineZone !== pick.token) w.inlineAsk("")
-        var handle = (w.foldHandles || []).find(function(h) { return h && h.inlineToken === pick.token && h.shown })
-        if (handle) cursor = handle
-        openDots(pick.token, 1, pick.slot.instanceKey)
-      } else {
-        var near = stops().find(function(st) { return st.zone === pick.zone })
-        if (near) cursor = near.item
-        openZoneDrawer(pick.zone, pick.slot.instanceKey)
-      }
-      return
-    }
-    put(pick.stop, 1)
-    if (opensDrawer(pick.stop)) openDrawer(false)
+    put(item, 1)
+    if (opensDrawer(item)) openDrawer(false)
   }
 
   // ---- the shortcut sheet ---------------------------------------------------

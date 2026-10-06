@@ -167,6 +167,21 @@ function matches(names, query) {
   return scored.map(function(x) { return x.i })
 }
 
+// What a search reads for one widget: its name, after its group's for a member.
+function searchText(name, groupName) { return groupName ? groupName + " " + name : String(name || "") }
+
+// How a search brings a found widget into view, from where it is now: "put"
+// (on the bar), "dots" (waiting behind its zone's dots), "drawer" (in its
+// zone's drawer: drawer mode, or folded off for lack of room), or "clear"
+// (it gave way to another zone's expansion: close that and wait for it).
+//   where: { onBar, behindDots, inDrawer }
+function route(where) {
+  if (where.onBar) return "put"
+  if (where.behindDots) return "dots"
+  if (where.inDrawer) return "drawer"
+  return "clear"
+}
+
 // The key strip's entries for an edge: [{ keys, label }].
 // drawers: on-demand widgets wait in zone drawers (the into key enters them).
 function legend(position, state, drawers) {
@@ -189,4 +204,4 @@ function legend(position, state, drawers) {
   ]
 }
 
-if (typeof module !== "undefined") module.exports = { ZONES, keymap, barIntent, drawerIntent, step, zoneStep, fuzzy, matches, legend }
+if (typeof module !== "undefined") module.exports = { ZONES, keymap, barIntent, drawerIntent, step, zoneStep, fuzzy, matches, searchText, route, legend }
