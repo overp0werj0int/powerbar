@@ -276,8 +276,10 @@ every edge:
 - Enter or Space opens the widget (a click), or a group's drawer. A panel that
   opens takes the keys; Esc in it comes back to the bar.
 - `/` finds a widget by any word of its name (word starts first), opening the
-  way to it: into a group, behind dots or into a zone drawer. ↓ or Tab moves
-  to the next match, Enter opens it.
+  way to it: into a group, behind dots or into a zone drawer. Tab and
+  Shift+Tab move between matches, Enter opens one; an arrow ends the search
+  where it is and moves on from there (↓ on a top bar goes into the group found).
+- The Powerbar button is the last stop: Enter opens Preferences.
 - `?` lists the shortcut of every widget and group on the bar.
 - Esc closes the innermost thing first: the search, a drawer, a panel, then
   the cursor. A click off the bar leaves too, and moving the pointer over the

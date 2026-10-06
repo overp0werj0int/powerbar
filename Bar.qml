@@ -2027,6 +2027,7 @@ Item {
     return keys ? ShortcutModel.label(keys) : ""
   }
   function refreshShortcuts() { if (preferencesPane.shortcuts) preferencesPane.shortcuts.refresh() }
+  readonly property var shortcutStore: preferencesPane.shortcuts
   // The keyboard cursor's name card: the bar's tooltip, shown at once.
   function showCard(target, text) {
     clearTooltip()
@@ -3284,6 +3285,9 @@ Item {
     readonly property bool peeking: !!(peekZones.all || peekZones.left || peekZones.center || peekZones.right)
     readonly property bool autoHideShown: !autoHideActive || autoHideRevealed || peeking
     property real autoHideOffset: autoHideShown ? 0 : autoHideDistance
+    // A tooltip shown while the bar slides (the keyboard mode's name card on an
+    // autohidden bar) was placed where the bar was: it follows the bar in.
+    onAutoHideOffsetChanged: if (tooltipWindow.visible) tooltipAnchor.updateAnchor()
     // Sliding out answers the pointer, so it is a touch slower than sliding
     // away; tucked islands move on the strip's exact curve so they cancel out.
     readonly property int autoHideMotionMs: autoHideShown ? 180 : 130
@@ -3442,6 +3446,7 @@ Item {
     // The keyboard mode's keys (BarKeys.qml); a key let go unfolds a group
     // under the cursor, so a held key sweeping past never flashes one.
     readonly property Item keyCatcher: keyCatcherItem
+    property Item prefsButton: null
     Item {
       id: keyCatcherItem
       Keys.onPressed: function(event) { if (root.barKeys.barKey(event)) event.accepted = true }
@@ -3788,6 +3793,9 @@ Item {
         PreferencesButton {
           id: preferencesButton
           zoneHidden: barWindow.zoneHidden("right")
+          // The keyboard mode's last stop on the bar.
+          Component.onCompleted: barWindow.prefsButton = preferencesButton
+          Component.onDestruction: if (barWindow.prefsButton === preferencesButton) barWindow.prefsButton = null
           transform: Translate { x: barWindow.shiftX(barWindow.rightShift); y: barWindow.shiftY(barWindow.rightShift) }
           x: root.vertical ? (parent.width - width) / 2 : parent.width - root.islandScreenInset - root.cellEndPad(cellSpill) - width
           y: root.vertical ? parent.height - root.islandScreenInset - root.cellEndPad(cellSpill) - height : (parent.height - height) / 2
@@ -3851,6 +3859,9 @@ Item {
 
   component PreferencesButton: Item {
     id: preferencesButton
+    readonly property bool isPrefsButton: true
+    readonly property string label: "Powerbar preferences"
+    function activate() { preferencesPane.show(root.targetWindow(preferencesButton).screen) }
     // Part of the right zone: hidden with it by an inline expansion.
     property bool zoneHidden: false
     opacity: zoneHidden ? 0 : 1
@@ -3873,9 +3884,19 @@ Item {
     height: implicitHeight
     Accessible.role: Accessible.Button
     Accessible.name: "Powerbar preferences"
+    readonly property bool keysCursor: root.barKeys.here && root.barKeys.cursor === preferencesButton
+    Rectangle {
+      x: buttonHighlight.x; y: buttonHighlight.y; width: buttonHighlight.width; height: buttonHighlight.height
+      radius: buttonHighlight.radius
+      z: 3
+      visible: preferencesButton.keysCursor
+      color: "transparent"
+      border.width: 1.5
+      border.color: Color.accent
+    }
     HoverHighlight {
       id: buttonHighlight
-      hovered: buttonMouse.containsMouse && !root.barDragSource && !root.barHidden
+      hovered: (buttonMouse.containsMouse || preferencesButton.keysCursor) && !root.barDragSource && !root.barHidden
       selected: preferencesPane.opened
       motionEnabled: root.animationsEnabled
       hoverColor: root.highlightHoverColor
@@ -3900,7 +3921,7 @@ Item {
       anchors.fill: parent
       hoverEnabled: !preferencesButton.zoneHidden
       cursorShape: Qt.PointingHandCursor
-      onClicked: preferencesPane.show(root.targetWindow(preferencesButton).screen)
+      onClicked: preferencesButton.activate()
       onEntered: root.showTooltip(preferencesButton, "Powerbar preferences")
       onExited: root.hideTooltip(preferencesButton)
     }

@@ -113,7 +113,7 @@ function legend(position, state, drawers) {
   var arrows = { Up: "↑", Down: "↓", Left: "←", Right: "→" }
   var alongKeys = map.vertical ? "↑ ↓" : "← →"
   if (state === "search") return [
-    { keys: "↓ Tab", label: "Next match" }, { keys: "Enter", label: "Open" }, { keys: "Esc", label: "Stop finding" }
+    { keys: "Tab", label: "Next match" }, { keys: "Enter", label: "Open" }, { keys: "Esc", label: "Stop finding" }
   ]
   if (state === "drawer") return [
     { keys: map.vertical ? alongKeys : arrows[map.into[0]] + " " + arrows[map.out[0]], label: "Move" },
