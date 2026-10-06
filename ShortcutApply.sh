@@ -3,7 +3,8 @@
 # (ShortcutStore.qml runs it; tests/shortcut-apply.test.cjs checks it).
 #
 #   $1 the block ("" removes it)   $2 $3 its begin and end markers
-#   $4 $5 the markers of the old loader in hyprland.lua (removed if whole)
+#   $4 $5 the markers of the old loader in hyprland.lua (removed, with the
+#         powerbar.lua it loads, once Hyprland took the block, if whole)
 #
 # The block goes between its markers in bindings.lua, or at the end the first
 # time; every other line stays as it is on disk now. Nothing is written unless
@@ -56,16 +57,6 @@ chmod --reference="$f" -- "$next" 2>/dev/null
 mv -f -- "$next" "$f" || fail "cannot replace $f"
 next=""
 
-# The loader of the old powerbar.lua, only when its block is whole.
-main="$c/hyprland.lua"
-if [ -f "$main" ] && [ -w "$main" ] && grep -qxF -- "$4" "$main" && paired "$main" "$4" "$5"; then
-  main=$(readlink -f -- "$main")
-  cp -p -- "$main" "$main.bak.$(date +%Y%m%d%H%M%S)-powerbar" &&
-    render "$main" "$4" "$5" "$main.powerbar-new" "" &&
-    mv -f -- "$main.powerbar-new" "$main" || rm -f "$main.powerbar-new"
-fi
-rm -f -- "$c/powerbar.lua"
-
 before=$(hyprctl configerrors 2>/dev/null)
 hyprctl reload config-only >/dev/null 2>&1
 sleep 0.3
@@ -77,4 +68,23 @@ if [ "$after" != "$before" ] && [ -n "$(printf '%s' "$after" | tr -d '[:space:]'
   exit 1
 fi
 rm -f -- "$prev"
+# Only now that Hyprland took the block: the loader of the old powerbar.lua
+# goes from hyprland.lua when its block is whole, and powerbar.lua with it.
+# A damaged loader is left as it is, and so is the file it loads.
+main="$c/hyprland.lua"
+if [ -f "$main" ] && [ -w "$main" ] && grep -qxF -- "$4" "$main" && paired "$main" "$4" "$5"; then
+  main=$(readlink -f -- "$main")
+  if cp -p -- "$main" "$main.bak.$(date +%Y%m%d%H%M%S)-powerbar" &&
+    render "$main" "$4" "$5" "$main.powerbar-new" "" &&
+    mv -f -- "$main.powerbar-new" "$main"; then
+    rm -f -- "$c/powerbar.lua"
+    # The old binds are still loaded beside the block's: drop them now.
+    hyprctl reload config-only >/dev/null 2>&1
+  else
+    rm -f -- "$main.powerbar-new"
+  fi
+elif [ -f "$c/powerbar.lua" ] && ! grep -qF -- "$4" "$c/hyprland.lua" 2>/dev/null; then
+  # Nothing loads it any more.
+  rm -f -- "$c/powerbar.lua"
+fi
 echo ok

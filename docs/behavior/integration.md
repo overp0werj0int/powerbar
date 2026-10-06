@@ -75,7 +75,7 @@ name (INTEG-121).
 - **INTEG-28** The registry is stale if any registered widget has no component. Code: `registryStale()`.
 - **INTEG-29** 2500 ms after the registry is injected or its `revision` changes (and at load), `checkRegistry()` runs.
 - **INTEG-30** If stale and the stamp file holds a time less than 60 000 ms ago, nothing happens.
-- **INTEG-31** If stale and the guard has passed, it writes the time to `$XDG_RUNTIME_DIR/powerbar-registry-rescan` (`/tmp/...` if unset), logs `powerbar: widget registry is stale after a bar switch; asking the shell to rescan plugins`, and runs `omarchy-shell shell rescanPlugins`.
+- **INTEG-31** If stale, it asks the shell to rescan its plugins (`omarchy-shell shell rescanPlugins`) and logs `powerbar: widget registry is stale after a bar switch; asking the shell to rescan plugins` — at most 3 times a login and at least 60 s apart, counted in `$XDG_RUNTIME_DIR/powerbar-registry-rescan` (`<ms> <count>`). The third rescan also warns `powerbar: last rescan this login; if these stay placeholders, restart the shell: <ids>`. Without `XDG_RUNTIME_DIR` there is no heal (no shared /tmp file). Code: BarModel.js registryHeal(); Bar.qml checkRegistry()
 - **INTEG-32** The guard is a runtime file, so it survives the rescan's plugin reload and resets on reboot.
 
 ## Omarchy bar compatibility
@@ -184,13 +184,14 @@ Setting names are those of Preferences. `set` of `style` also drops `powerbarIsl
   - `error: centered is for a widget on the bar in the center zone`; `centered: false` on the anchor clears `centerAnchor`.
 - **INTEG-132** `groups` answers a JSON array: `{id, label, icon, iconFont, iconImage, iconTint, zone, before, visibility, face, tooltip (bool, or null if unset), badge, badgeMode, memberDisplay, members: [{instance, id}]}`.
 - **INTEG-133** `newGroup <name>` makes a group named by the trimmed name (at most 80 characters; empty gives `New group`) and answers `{"id":"g-<time>-<random>"}`.
-- **INTEG-134** `setGroup <group> <json>` takes a group by id, or by name when unique, and an object with any of `label`, `icon`, `iconFont`, `iconImage`, `iconTint`, `zone`, `before`, `visibility`, `face`, `tooltip`, `badge`, `badgeMode`, `memberDisplay`, `members` (widget selectors; leavers go first, the rest are appended in the order given). Choices: `visibility` shown|managed|hidden; `face` glyph|text|both; `badgeMode` sum|members; `memberDisplay` native|name|both; `iconTint` text|own; `iconFont` omarchy or `""`. Errors:
+- **INTEG-134** `setGroup <group> <json>` takes a group by id, or by name when unique, and an object with any of `label`, `icon`, `iconFont`, `iconImage`, `iconTint`, `zone`, `before`, `visibility`, `face`, `tooltip`, `badge`, `badgeMode`, `memberDisplay`, `members` (widget selectors; leavers go first, the rest are appended in the order given). Choices: `visibility` shown|managed|hidden; `face` glyph|text|both; `badgeMode` sum|members; `memberDisplay` native|name|both; `iconTint` text|own; `iconFont` omarchy or `""`. Errors: Values it would not keep whole are refused: a label over 80 characters (`error: label is at most 80 characters`), an icon of more than one glyph or emoji (`error: icon is one glyph or emoji`), an `iconImage` that is not an absolute path (`error: iconImage is an absolute path to an SVG or PNG`).
   - `error: no group <sel>`, `error: <n> groups are called <sel>; name one by id: <id>, <id>`
   - `error: a group change is a JSON object such as {"label":"Media"}`, `error: unknown field <f>; fields are <list>`
   - `error: <field> is one of <choices>`, `error: tooltip is true or false` (same for `badge`), `error: label is a name`, `error: <icon|iconImage> is a glyph or an image path`, `error: zone is one of left, center, right`, `error: before names a widget, or "" for the zone's end`, `error: members is a list of widgets, by id or instance`, `error: iconFont goes with icon`
   - `error: before names a widget in the <zone> zone` (neighbour outside the group's zone); a member selector fails as in `setWidget`.
 - **INTEG-135** `removeGroup <group>` dissolves the group (its widgets stay); selector errors as `setGroup`.
 - **INTEG-125** `shortcuts` answers `{ready, shortcuts: [{target, name, keys, source, fallback, positional, ready, live}]}` (`live` only for a shortcut set in Powerbar: whether Hyprland has it bound, KEYS-72) for `bar:keys` (always listed), every group, every widget id and any other target in `powerbarShortcuts`, keeping only those that hold keys, have a positional bind or have a source; it then re-reads Hyprland, so the next answer is current. `get shortcut.<target>` answers that one object. `set shortcut.<target> <keys>` takes keys like `SUPER + B`, `""` for none (Omarchy's own bind goes too), or `{"keys":"...","replace":true}` to take keys another bind holds; `reset shortcut.<target>` restores the default. Errors:
+- **INTEG-140** `clearShortcuts` removes every shortcut Powerbar set and its block in `bindings.lua` (Omarchy's own binds come back); `ok`, or the errors of INTEG-125 while shortcuts are being written or read. The README's removal steps run it before `omarchy plugin remove`. Code: BarCli.qml clearShortcuts()
   - `error: a shortcut is keys such as "SUPER + B", "" for none, or {"keys": "…", "replace": true}`
   - `error: no group <id>`, `error: a shortcut target is bar:keys, group:<id> or widget:<plugin id>`
   - `error: a shortcut change is still being applied; try again in a moment`, `error: reading Hyprland's shortcuts; try again in a moment` (first use; retry)
@@ -223,6 +224,7 @@ Setting names are those of Preferences. `set` of `style` also drops `powerbarIsl
 - **INTEG-102** Until then the bar shows the queued edits on top of the host's config; a `barConfig` arriving meanwhile does not undo them.
 - **INTEG-103** If the write fails the bar shows the host's config again and Preferences' footer reads `Could not save. Check that shell.json is writable.`
 - **INTEG-139** On shutdown queued edits are flushed.
+- **INTEG-141** Failures that change what the user sees are logged to the shell log with a `powerbar:` prefix: a config write the shell refused (the bar shows the saved config again), a drop that failed (the widget stays where it was), an unreadable widget face cache, shortcuts not written (with the exit status), and the registry heal (INTEG-31). Code: Bar.qml flushConfigWrites(), ShortcutStore.qml applyProc
 
 ---
 

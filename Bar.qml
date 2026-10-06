@@ -154,6 +154,7 @@ Item {
     queuedConfigEdits = []
     hostBarConfig = null
     if (!canWriteConfig() || shell.mutateShellConfig(function(config) { for (var edit of edits) edit(config) }) === false) {
+      console.warn("powerbar: the shell did not save " + edits.length + " change(s) to shell.json; the bar shows the saved config again")
       barConfig = restore
       configWriteFailed()
     }
@@ -272,7 +273,10 @@ Item {
     try {
       var data = JSON.parse(String(text || "{}"))
       return data && typeof data === "object" && !Array.isArray(data) ? data : {}
-    } catch (e) { return {} }
+    } catch (e) {
+      if (String(text || "").trim()) console.warn("powerbar: ignoring an unreadable widget face cache: " + e)
+      return {}
+    }
   }
   function recordFace(key, face) {
     if (!key || !face) return
@@ -622,6 +626,7 @@ Item {
     function setGroup(group: string, change: string): string { return cliItem.setGroup(group, change) }
     function removeGroup(group: string): string { return cliItem.removeGroup(group) }
     function shortcuts(): string { return cliItem.shortcuts() }
+    function clearShortcuts(): string { return cliItem.clearShortcuts() }
     function show(): string { return cliItem.show() }
     function hide(): string { return cliItem.hide() }
     function keysOn(): string { return cliItem.keysOn() }
@@ -638,25 +643,31 @@ Item {
   // components the shell has since rebuilt and destroyed, which leaves every
   // widget a placeholder until the shell is restarted. When Powerbar finds such
   // entries it asks the shell to rescan its plugins once, which hands it fresh
-  // components; the 60 s guard keeps a lasting fault from looping.
-  // A rescan reloads every plugin, Powerbar included, so the guard lives in a
-  // runtime file rather than in this instance: at most one rescan a minute.
+  // components. A rescan reloads every plugin, Powerbar included, so its guard
+  // lives in a runtime file rather than in this instance: at most three a
+  // login, a minute apart (BarModel.registryHeal), then a warning names the
+  // widgets still broken. Without a runtime folder there is no heal.
   function registryStale() {
     var widgets = barWidgetRegistry && barWidgetRegistry.widgets || {}
     for (var id in widgets) if (widgets[id] && !widgets[id].component) return true
     return false
   }
+  readonly property string runtimeDir: Quickshell.env("XDG_RUNTIME_DIR") || ""
   function checkRegistry() {
-    if (!registryStale()) return
-    var now = Date.now()
-    if (now - Number(String(registryHealStamp.text() || "0").trim() || 0) < 60000) return
-    registryHealStamp.setText(String(now))
+    if (!registryStale() || !runtimeDir) return
+    var heal = BarModel.registryHeal(registryHealStamp.text(), Date.now(), 3)
+    if (!heal.rescan) return
+    registryHealStamp.setText(heal.stamp)
     console.info("powerbar: widget registry is stale after a bar switch; asking the shell to rescan plugins")
+    if (heal.gaveUp) {
+      var broken = Object.keys(barWidgetRegistry.widgets || {}).filter(function(id) { return !barWidgetRegistry.widgets[id].component })
+      console.warn("powerbar: last rescan this login; if these stay placeholders, restart the shell: " + broken.join(", "))
+    }
     Util.execArgv(["omarchy-shell", "shell", "rescanPlugins"])
   }
   FileView {
     id: registryHealStamp
-    path: (Quickshell.env("XDG_RUNTIME_DIR") || "/tmp") + "/powerbar-registry-rescan"
+    path: root.runtimeDir ? root.runtimeDir + "/powerbar-registry-rescan" : ""
     blockLoading: true
     printErrors: false
   }
@@ -1677,6 +1688,7 @@ Item {
       barDragDrop = null
       return dropBarModuleAtTarget(pending.slot, pending.drop)
     } catch (e) {
+      console.warn("powerbar: a drop failed and the widget stayed where it was: " + e)
       return false
     } finally {
       Qt.callLater(function() { root.dragHandover = false })
@@ -2751,8 +2763,12 @@ Item {
     transparentForegroundTimer.restart()
   }
 
+  // A change that lands while omarchy-bar-text-color runs (a theme switch
+  // during a move) is answered by one more run once it is done, not dropped.
+  property bool transparentAgain: false
   function refreshTransparentForeground() {
-    if (!requestedTransparent || transparentForegroundProc.running) return
+    if (!requestedTransparent) return
+    if (transparentForegroundProc.running) { transparentAgain = true; return }
 
     transparentForegroundProc.command = [
       "omarchy-bar-text-color",
@@ -2778,6 +2794,7 @@ Item {
 
   Process {
     id: transparentForegroundProc
+    onExited: if (root.transparentAgain) { root.transparentAgain = false; root.scheduleTransparentForegroundRefresh() }
     stdout: SplitParser {
       onRead: function(line) {
         var value = String(line || "").trim()
@@ -2903,6 +2920,8 @@ Item {
     id: toggleKeyWatch
     command: ["bash", "-c", `
       key=$(hyprctl binds -j 2>/dev/null | jq -r 'map(select(.description == "Toggle top bar"))[0].key // ""' 2>/dev/null)
+      # A key name goes into Lua below: only a plain one (letters, digits, _).
+      case "$key" in *[!A-Za-z0-9_]*) key="" ;; esac
       mods='down("Super_L") or down("Super_R") or down("Shift_L") or down("Shift_R") or down("Control_L") or down("Control_R") or down("Alt_L") or down("Alt_R")'
       if [ -n "$key" ]; then held="down(\\"$key\\") or down(string.lower(\\"$key\\"))"; else held=$mods; fi
       lua="local function down(k) local ok, r = pcall(hl.is_key_down, k); return ok and r == true end; return $held"

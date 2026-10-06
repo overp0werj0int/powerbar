@@ -317,6 +317,15 @@ Item {
     store.save(target, keys)
     return written()
   }
+  // Everything Powerbar bound goes, block and all: an empty config renders
+  // no block, so the script removes it and Omarchy's own binds come back.
+  function clearShortcuts() {
+    var bad = shortcutReady()
+    if (bad) return bad
+    if (!Object.keys(store.config).length && !store.ownKeys.length) return "ok"
+    store.write({})
+    return written()
+  }
   function resetShortcut(target) {
     var bad = Cli.shortcutTarget(target, ctx()) || shortcutReady()
     if (bad) return bad.indexOf("error: ") === 0 ? bad : fail(bad)

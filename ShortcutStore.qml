@@ -159,6 +159,7 @@ Item {
     onExited: function(code) {
       if (code !== 0) {
         if (!store.error) store.error = "Could not update Hyprland's shortcuts, so nothing changed."
+        console.warn("powerbar: shortcuts not written (exit " + code + "): " + store.error)
         store.preferences.setOption("powerbarShortcuts", store.previous)
       }
       store.busy = false

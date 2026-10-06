@@ -39,6 +39,20 @@ function options(config) {
   }
 }
 
+// The registry heal (Bar.qml checkRegistry): whether a stale registry asks
+// the shell to rescan now. stamp: the runtime file's text, "<ms> <count>"
+// (an older "<ms>" counts as one). At most `limit` rescans a login (the
+// runtime folder empties at logout), a minute apart; then it gives up.
+// → { rescan, stamp (to write), gaveUp (the limit was just reached) }
+function registryHeal(stamp, now, limit) {
+  var parts = String(stamp || "").trim().split(/\s+/)
+  var last = Number(parts[0]) || 0, count = parts[0] ? (Number(parts[1]) || 1) : 0
+  var max = limit || 3
+  if (count >= max) return { rescan: false, stamp: "", gaveUp: false }
+  if (last && now - last < 60000) return { rescan: false, stamp: "", gaveUp: false }
+  return { rescan: true, stamp: now + " " + (count + 1), gaveUp: count + 1 >= max }
+}
+
 function normalizePosition(value) {
   var next = String(value || "").trim()
   return /^(top|bottom|left|right)$/.test(next) ? next : "top"
