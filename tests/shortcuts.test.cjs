@@ -204,3 +204,13 @@ test('the bar keyboard target binds the keys IPC', () => {
   assert.deepEqual(sm.effective('bar:keys', {}, { widgets: [], positions: [] }, []), { keys: '', source: 'none', fallback: '' });
 });
 
+test('typed keys follow the recorder: a modifier unless a function key, one spelling', () => {
+  assert.deepEqual(plain(m.bindable('super+b')), { keys: 'SUPER + B' });
+  assert.deepEqual(plain(m.bindable('ctrl + alt + code:10')), { keys: 'CTRL + ALT + code:10' });
+  assert.deepEqual(plain(m.bindable('F5')), { keys: 'F5' });
+  assert.match(m.bindable('SHIFT + B').error, /Super, Ctrl or Alt/);
+  assert.match(m.bindable('B').error, /Super, Ctrl or Alt/);
+  assert.match(m.bindable('SUPER +').error, /not a key combination/);
+  assert.match(m.bindable('HYPER + B').error, /not a key combination/);
+});
+

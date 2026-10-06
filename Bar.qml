@@ -32,6 +32,11 @@ Item {
   // The keyboard mode (Super+B): a cursor on the bar (BarKeys.qml).
   BarKeys { id: barKeysItem; bar: root }
   readonly property var barKeys: barKeysItem
+  // The command line (omarchy-shell powerbar …), read by the IpcHandler below.
+  BarCli { id: cliItem; bar: root; preferences: preferencesPane }
+  // `omarchy-shell powerbar show` holds an autohidden bar out until `hide`.
+  property bool cliShown: false
+  onAutoHideChanged: if (!autoHide) cliShown = false
   readonly property bool preferencesOpen: preferencesPane.opened
   readonly property bool animationsEnabled: barConfig.powerbarAnimations !== false
   // Neighbours make way over a time that grows with the gap (150 ms for an
@@ -587,6 +592,26 @@ Item {
         return { id: s.moduleName, key: s.instanceKey, zone: s.region, revealed: s.activityVisible, mainVisible: s.mainVisible, inDrawer: !!s.drawerHost, panelOpen: s.panelOpen, observing: s.activityTargets.length }
       }))
     }
+    // Everything Preferences reads and changes, without Preferences
+    // (BarCli.qml; `help` lists every function).
+    function status(): string { return cliItem.status() }
+    function get(setting: string): string { return cliItem.get(setting) }
+    function set(setting: string, value: string): string { return cliItem.set(setting, value) }
+    function reset(setting: string): string { return cliItem.reset(setting) }
+    function toggle(setting: string): string { return cliItem.toggle(setting) }
+    function settings(): string { return cliItem.settings() }
+    function widgets(): string { return JSON.stringify(cliItem.widgetList()) }
+    function setWidget(widget: string, change: string): string { return cliItem.setWidget(widget, change) }
+    function groups(): string { return JSON.stringify(cliItem.groupList()) }
+    function newGroup(name: string): string { return cliItem.newGroup(name) }
+    function setGroup(group: string, change: string): string { return cliItem.setGroup(group, change) }
+    function removeGroup(group: string): string { return cliItem.removeGroup(group) }
+    function shortcuts(): string { return cliItem.shortcuts() }
+    function show(): string { return cliItem.show() }
+    function hide(): string { return cliItem.hide() }
+    function keysOn(): string { return cliItem.keysOn() }
+    function keysOff(): string { return cliItem.keysOff() }
+    function help(): string { return cliItem.help() }
   }
 
   // The omarchy-shell host injects omarchyPath from OMARCHY_PATH.
@@ -3326,7 +3351,7 @@ Item {
     readonly property bool autoHideHeld: windowHover.hovered || edgeHover.hovered || drawer.opened
       || (!!root.activePopout && root.sameWindow(root.targetWindow(root.activePopout), barWindow))
       || !!root.barDragSource || root.barDragSettling || root.barMoveActive || preferencesPane.opened || root.toggleHeld
-      || root.barKeys.heldBy(barWindow)
+      || root.barKeys.heldBy(barWindow) || root.cliShown
     property bool autoHideRevealed: false
     onAutoHideHeldChanged: {
       if (autoHideHeld) {

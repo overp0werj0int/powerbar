@@ -243,7 +243,11 @@ function scopeOf(appearance, theme, tile) {
   var a = appearance || {}
   var own = theme && isMap(a.themes) ? pick(a.themes[theme], tile) : undefined
   if (isMap(own) && scopes.indexOf(own.use) >= 0) return own.use
-  return filled(pick(a.all, tile)) ? "all" : "theme"
+  return defaultScope(a, tile)
+}
+// The scope a theme without a choice of its own follows.
+function defaultScope(appearance, tile) {
+  return filled(pick((appearance || {}).all, tile)) ? "all" : "theme"
 }
 // Everything the bar and Preferences need for `theme`:
 //   scopes: tile → scope; values: key → value or undefined (Omarchy's);
