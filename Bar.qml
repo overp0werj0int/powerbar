@@ -384,7 +384,7 @@ Item {
 
   // On-demand widgets either open in a drawer island when their zone is
   // hovered ("drawer"), or wait behind the zone's dots and expand in the bar
-  // when the dots are hovered ("inline"; docs/zone-fit-implementation.md).
+  // when the dots are hovered ("inline"; docs/design/zone-fit.md).
   readonly property bool onDemandInline: barOptions.onDemand === "inline"
   // The keyboard mode's key strip (Preferences → Bar → Keyboard).
   readonly property bool keyLegend: barOptions.keyLegend
@@ -1832,7 +1832,7 @@ Item {
   function barSizeFor(vertical) {
     return (vertical ? Style.bar.sizeVertical : Style.bar.sizeHorizontal) + (largeBar ? largeBarLip * 2 : 0)
   }
-  // One cell, one inset (docs/spacing-lab): every item gets a cell along the
+  // One cell, one inset (docs/behavior/layout-zones.md): every item gets a cell along the
   // bar, square for glyphs, and the cell is its highlight. Equal slots puts
   // cells one gutter apart; Equal gaps puts the same air between glyphs.
   readonly property string spacingMode: barOptions.spacingMode
@@ -1852,7 +1852,7 @@ Item {
   function cellEndPad(spill) { return CellModel.endPad(cellTokens, spill) }
   // The preferences button's glyph: nine dots, three by three.
   readonly property real preferencesGlyphSize: Style.space(2) * 3 + Style.spaceReal(2.5) * 2
-  // Zones keep one icon cell plus the spacing between them (docs/zone-fit-lab).
+  // Zones keep one icon cell plus the spacing between them (docs/behavior/layout-zones.md).
   readonly property real zoneGap: cellTokens.cell + widgetSpacing
   // Folded widget counts per screen, for Preferences' note: { screen: { left, center, right } }.
   property var zoneFitReports: ({})
@@ -2978,7 +2978,7 @@ Item {
     property var widgetModels: ({ left: leftModel, right: rightModel, center: centerModel,
       before: beforeModel, anchor: anchorModel, after: afterModel })
     property var moduleItems: []
-    // The zone fit for this window (docs/zone-fit-implementation.md): the one
+    // The zone fit for this window (docs/design/zone-fit.md): the one
     // place that decides which widgets fold into their zone's drawer, which
     // yield to a moment, and whether a zone is expanded inline. Its inputs are
     // bindings; refit() turns them into one result and publishes it at once.
@@ -3423,7 +3423,7 @@ Item {
     property real leftShift: zoneTucked("left") ? autoHideDistance : 0
     property real centerShift: zoneTucked("center") ? autoHideDistance : 0
     property real rightShift: zoneTucked("right") ? autoHideDistance : 0
-    // The centre's offset from the middle so zones keep their gap (docs/zone-fit-lab).
+    // The centre's offset from the middle so zones keep their gap (docs/behavior/layout-zones.md).
     property real fitShift: zoneFit ? zoneFit.centerShift : 0
     Behavior on fitShift {
       enabled: root.animationsEnabled
@@ -3693,7 +3693,7 @@ Item {
       }
     }
 
-    // The keyboard mode's key strip (docs/bar-keys-lab): at the far edge from
+    // The keyboard mode's key strip (docs/behavior/keyboard.md): at the far edge from
     // the bar (along the bottom for a side bar), so panels and drawers that
     // open beside the bar are never under it. It shows this edge's keys, the
     // search while finding, and every shortcut on ?.
@@ -4433,7 +4433,7 @@ Item {
   }
 
   // The drawer handle a zone shows when widgets were folded off the bar
-  // (docs/zone-fit-lab): a glyph cell with a count; it opens the zone's drawer.
+  // (docs/behavior/layout-zones.md): a glyph cell with a count; it opens the zone's drawer.
   component FoldHandle: Item {
     id: foldHandle
     readonly property bool isFoldHandle: true
@@ -4567,7 +4567,7 @@ Item {
   }
 
   // Where widgets yield to a moment: the same dots as the drawer handle, quiet
-  // and not interactive, with the count of widgets out of view (docs/zone-fit-lab).
+  // and not interactive, with the count of widgets out of view (docs/behavior/layout-zones.md).
   component YieldMarker: Item {
     id: yieldMarker
     readonly property bool isYieldMarker: true

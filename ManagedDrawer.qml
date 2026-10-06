@@ -89,7 +89,7 @@ Item {
   readonly property string surfaceRole: Model.drawerSurface(groupConfig)
   readonly property bool namedMenu: surfaceRole === "menu"
   // Drawers are islands: the bar's cell tokens, the island radius, always
-  // floating one bar gap from the bar (docs/spacing-lab, "Extended islands").
+  // floating one bar gap from the bar (docs/behavior/on-demand-drawers.md).
   readonly property var tokens: bar.cellTokens
   readonly property real surfaceRadius: Math.min(bar.islandRounding, bar.barSize / 2)
   readonly property bool stripVertical: Model.drawerVertical(groupConfig, bar.vertical)

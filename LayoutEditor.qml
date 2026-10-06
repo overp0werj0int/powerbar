@@ -10,7 +10,7 @@ import "AppearanceModel.js" as AppearanceModel
 import "CellModel.js" as CellModel
 import "ShelfModel.js" as ShelfModel
 
-// The bar's layout as tiles (docs/prefs-layout-lab): one shelf per visibility
+// The bar's layout as tiles (docs/behavior/preferences.md): one shelf per visibility
 // (On the bar, On demand, Hidden), each holding the three zones in columns that
 // line up from shelf to shelf, then a tile with the selected widget's settings.
 // Preferences draws the bar horizontally whatever edge it is on; the zones are

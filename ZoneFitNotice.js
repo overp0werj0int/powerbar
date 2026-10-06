@@ -1,5 +1,5 @@
 // Preferences' one-line note when widgets were folded off the bar
-// (docs/zone-fit-lab/zone-fit-lab.html, Decisions).
+// (docs/behavior/layout-zones.md).
 //
 // reports: { "<screen name>": { left: n, center: n, right: n } }
 // Returns one sentence per screen with folds, sorted by screen name.

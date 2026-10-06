@@ -8,7 +8,7 @@ import "CellModel.js" as CellModel
 import "ShelfModel.js" as ShelfModel
 import "ManagedModel.js" as ManagedModel
 
-// Groups as tiles (docs/prefs-groups-lab): a shelf of your groups drawn as the
+// Groups as tiles (docs/behavior/preferences.md): a shelf of your groups drawn as the
 // bar draws them, the selected group's settings, then its drawer drawn exactly
 // as it opens beside the widgets not in a group. The two lower tiles are
 // halves of one row and mirror each other: a row of controls, a well, a line

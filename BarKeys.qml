@@ -3,7 +3,7 @@ import Quickshell.Hyprland
 import qs.Commons
 import "BarKeysModel.js" as KeysModel
 
-// The bar's keyboard mode (docs/bar-keys-lab): Super+B (omarchy-shell
+// The bar's keyboard mode (docs/behavior/keyboard.md): Super+B (omarchy-shell
 // powerbar keys) puts a cursor on the clock of the focused monitor's bar.
 // The keys that run along the bar move it, the key that points into the
 // screen goes into a group's drawer, Tab jumps a zone, / finds a widget by

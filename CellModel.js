@@ -1,5 +1,5 @@
 // One cell, one inset: the geometry every bar item, island and drawer shares.
-// See docs/spacing-lab/spacing-lab.html for the specification.
+// See docs/behavior/layout-zones.md for the specification.
 //
 // Along the bar every item gets a cell: square for glyphs, the ink plus the
 // same side air a glyph has for text and compounds. The cell is also the

@@ -1,5 +1,5 @@
 // The On the bar shelf of Preferences > Layout draws each zone the way the bar
-// does (docs/prefs-layout-lab): every widget gets the slot the bar would give
+// does (docs/behavior/preferences.md): every widget gets the slot the bar would give
 // it (CellModel.place), its ink at the slot's ink start, with the island's end
 // padding (CellModel.endPad). A zone longer than the room it has wraps onto
 // another line rather than shrinking; each line is an island of its own.
