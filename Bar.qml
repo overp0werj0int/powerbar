@@ -570,7 +570,8 @@ Item {
       if (owner && owner.opened && owner.groupId === id) root.closeManagedDrawer()
       else group(id)
     }
-    function groupsPreferences(): void { preferences(); preferencesPane.page = 2 }
+    // Groups is the second page (Layout, Groups, Bar).
+    function groupsPreferences(): void { preferences(); preferencesPane.setPage(1) }
     function popupStatus(): string {
       return JSON.stringify(root.popupPlacements.filter(function(record) { return record.panel && record.panel.open }).map(function(record) {
         var panel = record.panel
