@@ -622,22 +622,12 @@ Item {
     } else if (here && cursor && !opensDrawer(cursor)) { slot = cursor; target = cursor }
     if (!target) { cardTarget = null; bar.hideCard(); return }
     var name = nameOf(slot)
-    var shortcut = targetOf(slot)
-    var keys = shortcut ? bar.shortcutCaps(shortcut) : []
     var menuRow = !!(here && d && d.namedMenu && target !== slot)
     var own = menuRow && typeof target.ownTooltip === "function" ? target.ownTooltip() : ""
     cardTarget = target
-    bar.showCard(target, KeysModel.cardText(name, own, menuRow), keys)
+    bar.showCard(target, KeysModel.cardText(name, own, menuRow))
   }
 
-
-  // The shortcuts are read again on entering: the card names them once they arrive.
-  Connections {
-    target: keys.bar.shortcutStore
-    ignoreUnknownSignals: true
-    function onReadyChanged() { if (keys.here) keys.showCard() }
-    function onBindsChanged() { if (keys.here) keys.showCard() }
-  }
 
   // The pointer takes over: moving it onto a stop moves the cursor there.
   property var lastPointer: null

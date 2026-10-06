@@ -76,7 +76,7 @@ off.
   instead of checking on a timer.
 - Keys are named by where they point, so they mean the same thing on a top,
   bottom or side bar, and a name card beside the cursor tells you what you're
-  on and how to reach it next time.
+  on.
 - It tries hard not to surprise you. Nothing is bound until you accept a
   shortcut, Omarchy's `omarchy bar` commands keep working, a shortcut Hyprland
   rejects puts your files back as they were, and settings for an uninstalled
