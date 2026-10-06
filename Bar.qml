@@ -3354,11 +3354,12 @@ Item {
     property bool keysFocusPrimed: false
     property int keysPrimeTries: 0
     onKeysHereChanged: { keysFocusPrimed = false; keysPrimeTries = 0; if (keysHere) keysPrime.restart(); else { keysPrime.stop(); keysKick.stop() } }
-    // The keyboard can be taken away while the mode holds it: a panel it
-    // opened hands focus back to the window that had it before, after its
-    // fade-out, even across the prime. Asking for Exclusive again while
-    // already Exclusive sends nothing, so the bar drops to OnDemand for a
-    // moment and asks anew, a few times. A click elsewhere ends the mode first.
+    // Right after the mode takes the keyboard (entering, or back from a panel
+    // or a hand-off) it can be taken away: a closing panel hands focus back
+    // to the window that had it before, after its fade-out. Asking for
+    // Exclusive again while already Exclusive sends nothing, so the bar drops
+    // to OnDemand for a moment and asks anew, a few times. Only then: a
+    // window opened later is a destination and ends the mode (BarKeys).
     readonly property bool keysWindowActive: keyCatcherItem.Window.active
     Timer {
       id: keysPrime
@@ -3374,9 +3375,7 @@ Item {
       }
     }
     Timer { id: keysKick; interval: 50; onTriggered: if (barWindow.keysHere) { barWindow.keysFocusPrimed = false; keysPrime.restart() } }
-    onKeysWindowActiveChanged: if (!keysWindowActive && keysHere && keysFocusPrimed && !keysKick.running) {
-      keysFocusPrimed = false; keysPrimeTries = 0; keysPrime.restart()
-    }
+
     // While the keyboard mode is on this bar, it alone decides: a drawer it
     // entered must not hold the keys while a panel it opened has them.
     readonly property int keyboardFocusMode: root.barKeys.heldBy(barWindow)

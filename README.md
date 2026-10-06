@@ -273,8 +273,15 @@ every edge:
 - Moving onto a zone's dots opens them, and the cursor lands on the first
   widget that appeared; leaving the zone folds them back. With On demand set
   to In a drawer, the into key opens the zone's drawer from any of its widgets.
-- Enter or Space opens the widget (a click), or a group's drawer. A panel that
-  opens takes the keys; Esc in it comes back to the bar.
+- Enter or Space opens the widget (a click), or a group's drawer. What opens
+  decides what happens next: a panel that registers with the bar (Omarchy's
+  panels) is a step into the bar, and Esc in it comes back to the cursor (for a
+  panel drawn as a popup of the bar, the bar's Esc closes it); a window or layer
+  of its own (Keystroke's palette, Postcard's capture, an app) is a destination,
+  so the mode ends and the keys stay there; a widget that only toggles leaves the
+  cursor where it is. Any other window that opens while the mode is on (a bind,
+  a launcher) ends it the same way; surfaces that never take the keyboard
+  (notifications, the OSD) don't count.
 - `/` finds a widget by the words of its name: each word typed matches a word
   of its own (its start first; a single letter only starts), and a group's
   members match by the group's name too, so `/ai a` finds the AI group's
