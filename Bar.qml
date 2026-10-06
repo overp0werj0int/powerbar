@@ -2120,14 +2120,14 @@ Item {
 
   // The bar window on the monitor Hyprland has focused.
   function focusedBarWindow() {
-    var name = focusedScreenName(), first = null
+    var windows = [], names = []
     for (var i = 0; i < moduleSlots.length; i++) {
       var w = targetWindow(moduleSlots[i])
-      if (!w || !w.screen) continue
-      if (!first) first = w
-      if (String(w.screen.name || "") === name) return w
+      if (!w || !w.screen || windows.indexOf(w) >= 0) continue
+      windows.push(w); names.push(String(w.screen.name || ""))
     }
-    return first
+    var at = KeysModel.startScreen(names, focusedScreenName())
+    return at >= 0 ? windows[at] : null
   }
   // What a slot is called: a group's label, a widget's name.
   function slotName(slot) {
