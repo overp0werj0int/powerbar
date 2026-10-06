@@ -143,8 +143,9 @@ function effective(target, config, defaults, binds) {
   var id = target.indexOf("widget:") === 0 ? target.slice(7) : ""
   var omarchy = id ? ((defaults && defaults.widgets) || []).find(function(d) { return d.id === id }) || null : null
   var omarchyLive = !!omarchy && live(binds, omarchy.keys, omarchy.description)
+  // `live`: Hyprland has it bound now (false when it refused the block).
   if (mine !== null && config[target] !== "" && mine !== "")
-    return { keys: mine, source: "yours", fallback: omarchy && !same(omarchy.keys, mine) ? omarchy.keys : "" }
+    return { keys: mine, source: "yours", fallback: omarchy && !same(omarchy.keys, mine) ? omarchy.keys : "", live: live(binds, mine) }
   if (mine !== null) return { keys: "", source: omarchy ? "removed" : "none", fallback: omarchy ? omarchy.keys : "" }
   if (omarchyLive) return { keys: omarchy.keys, source: omarchy.origin === "config" ? "config" : "omarchy", fallback: "" }
   return { keys: "", source: "none", fallback: "" }
@@ -226,9 +227,14 @@ function bindable(keys) {
 }
 
 function luaString(s) { return '"' + String(s).replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\n/g, "\\n") + '"' }
+// A widget's plugin id or a group's id, as it may appear in a shell command:
+// letters, digits, dot, dash and underscore only, so a target can never add
+// shell code to the bind it becomes.
+var ID = /^[A-Za-z0-9_.\-]+$/
+function safeId(id) { return ID.test(String(id || "")) }
 function command(target) {
-  if (target.indexOf("widget:") === 0) return "omarchy-shell shell toggle " + target.slice(7)
-  if (target.indexOf("group:") === 0) return "omarchy-shell powerbar toggleGroup " + target.slice(6)
+  if (target.indexOf("widget:") === 0) return safeId(target.slice(7)) ? "omarchy-shell shell toggle " + target.slice(7) : ""
+  if (target.indexOf("group:") === 0) return safeId(target.slice(6)) ? "omarchy-shell powerbar toggleGroup " + target.slice(6) : ""
   // The keyboard mode: a cursor on the focused monitor's bar.
   if (target === "bar:keys") return "omarchy-shell powerbar keys"
   return ""
@@ -265,7 +271,16 @@ function render(config, defaults, names) {
 }
 // A file's text without Powerbar's block (so its binds don't read as the
 // user's own), and the keys the block binds.
+// Whether a file's Powerbar markers are whole: none, or one BEGIN with one
+// END after it. Anything else is a damaged block that is left alone (read as
+// the user's own text, never rewritten) rather than guessed at.
+function paired(text, begin, end) {
+  var lines = String(text || "").split("\n"), b = [], e = []
+  lines.forEach(function(line, i) { if (line === (begin || BEGIN)) b.push(i); if (line === (end || END)) e.push(i) })
+  return (b.length === 0 && e.length === 0) || (b.length === 1 && e.length === 1 && e[0] > b[0])
+}
 function strip(text) {
+  if (!paired(text)) return String(text || "")
   var out = [], skip = false
   String(text || "").split("\n").forEach(function(line) {
     if (line === BEGIN) { skip = true; return }
@@ -275,6 +290,7 @@ function strip(text) {
   return out.join("\n")
 }
 function blockKeys(text) {
+  if (!paired(text)) return []
   var out = [], inside = false
   String(text || "").split("\n").forEach(function(line) {
     if (line === BEGIN) { inside = true; return }
@@ -298,5 +314,5 @@ function recordLua(start) {
     + "hl.timer(function() " + leave + " end, { timeout = 15000, type = \"oneshot\" })"
 }
 
-if (typeof module !== "undefined") module.exports = { MODS, MASK, SUBMAP, BEGIN, END, OLD_START, OLD_END, strip, blockKeys, parse, format, normalize, same, caps, label,
+if (typeof module !== "undefined") module.exports = { MODS, MASK, SUBMAP, BEGIN, END, OLD_START, OLD_END, paired, safeId, strip, blockKeys, parse, format, normalize, same, caps, label,
   parseBinds, parseDefaults, readDefaults, live, effective, positional, conflicts, assign, restore, fromKeyEvent, command, render, recordLua }

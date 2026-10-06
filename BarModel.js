@@ -222,8 +222,14 @@ function pickDrawnSlot(slots) {
 // monitor's copy wins, so a summon lands where the user is working instead of
 // on whichever output registered its slot first. Neither narrowing applies on
 // a single monitor, or when the focused output has no bar of its own.
-function pickPanelSlot(candidates, focusedScreen) {
+// prefer: an instance key a hotkey just named by position (the bar carries
+// the same widget twice): its copies come first.
+function pickPanelSlot(candidates, focusedScreen, prefer) {
   var rows = Array.isArray(candidates) ? candidates : []
+  if (prefer) {
+    var named = rows.filter(function(row) { return row && row.instance === prefer })
+    if (named.length > 0) rows = named
+  }
   var pool = rows.filter(function(row) { return row && row.opened === true })
   if (pool.length === 0) pool = rows.filter(function(row) { return !!row })
 

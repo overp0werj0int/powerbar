@@ -6,6 +6,7 @@ import qs.Commons
 import qs.Ui
 import "IconSearch.js" as IconSearch
 import "OmarchyIcons.js" as OmarchyIcons
+import "GroupsModel.js" as GroupsModel
 
 // The group icon picker (docs/behavior/preferences.md): a popover over the Groups
 // page, under the icon well. Its icons are the glyphs your widgets draw,
@@ -51,6 +52,9 @@ Item {
     ownError = ""
     tint = "text"
     emojiFile.path = emojiPath
+    // Images imported before and never used (or no longer used) go now, while
+    // nothing is pending and the saved groups are settled.
+    iconSweep.running = true
     rebuildIndex()
     cursor = Math.max(0, results.findIndex(function(i) { return isCurrent(i) }))
     opened = true
@@ -129,6 +133,16 @@ Item {
   property string ownError: ""
   property string tint: "text"
   readonly property string iconDir: (Quickshell.env("XDG_DATA_HOME") || Quickshell.env("HOME") + "/.local/share") + "/powerbar/icons"
+  Process {
+    id: iconSweep
+    command: ["sh", "-c", 'ls -1A -- "$1" 2>/dev/null', "sh", picker.iconDir]
+    stdout: StdioCollector {
+      onStreamFinished: {
+        var stale = GroupsModel.unreferencedIcons(text.split("\n"), picker.bar ? picker.bar.barConfig : null, picker.iconDir)
+        if (stale.length) Quickshell.execDetached(["rm", "-f", "--"].concat(stale))
+      }
+    }
+  }
   function extensionOf(path) {
     var m = String(path).toLowerCase().match(/\.(svg|png)$/)
     return m ? m[1] : ""

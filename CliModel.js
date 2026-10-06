@@ -112,7 +112,8 @@ function shortcutTarget(target, ctx) {
   if (t.indexOf("group:") === 0) {
     return (ctx && ctx.groups || []).indexOf(t.slice(6)) >= 0 ? "" : "no group " + t.slice(6)
   }
-  if (t.indexOf("widget:") === 0 && t.length > 7) return ""
+  if (t.indexOf("widget:") === 0 && t.length > 7)
+    return /^[A-Za-z0-9_.\-]+$/.test(t.slice(7)) ? "" : "a widget id is letters, digits, dots, dashes and underscores"
   return "a shortcut target is bar:keys, group:<id> or widget:<plugin id>"
 }
 
@@ -176,6 +177,14 @@ function placement(record, patch, beforeRecord) {
 
 // ---- groups ----------------------------------------------------------------
 // A group (GroupsModel.groups) by its id, or by its name when it is unique.
+// A widget change names its group by id or, when unique, by name: the name
+// becomes the id before the change is checked. → { value } or { error }.
+function widgetGroupById(value, groups) {
+  if (!value || typeof value !== "object" || typeof value.group !== "string" || !value.group) return { value: value }
+  var found = groupRecord(groups, value.group)
+  if (found.error) return { error: found.error }
+  return { value: Object.assign({}, value, { group: found.group.id }) }
+}
 function groupRecord(groups, selector) {
   var sel = String(selector || "").trim(), list = groups || []
   var byId = list.find(function(g) { return g.id === sel })

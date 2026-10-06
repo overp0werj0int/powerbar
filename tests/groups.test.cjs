@@ -192,3 +192,12 @@ test('a glyph replacing your own image drops its tint, so the next image starts 
   m.edit(c, 'a', { iconImage: '/tmp/b.svg' });
   assert.equal(m.groups(c.bar)[0].iconTint, undefined);
 });
+
+test('icons in Powerbar\'s folder that no group uses are swept; others and outside files never', () => {
+  const c = fixture(), dir = '/home/u/.local/share/powerbar/icons';
+  m.create(c, 'a', 'Tools'); m.edit(c, 'a', { iconImage: dir + '/used.svg' });
+  m.create(c, 'b', 'Other'); m.edit(c, 'b', { iconImage: '/elsewhere/own.png' });
+  assert.deepEqual(plain(m.unreferencedIcons(['used.svg', 'left.png', '', '.hidden', 'own.png\n'], c.bar, dir)),
+    [dir + '/left.png', dir + '/own.png']);
+  assert.deepEqual(plain(m.unreferencedIcons([], c.bar, dir)), []);
+});

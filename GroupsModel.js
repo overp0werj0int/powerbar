@@ -101,6 +101,17 @@ function groups(bar) {
       }) }
   })
 }
+// Files in Powerbar's icon folder that no group uses any more: an import left
+// in the picker, a replaced image, a dissolved group's. names: the folder's
+// file names; dir: the folder. → full paths. Only plain names inside it are
+// ever returned, so an image a group uses from elsewhere is never touched.
+function unreferencedIcons(names, bar, dir) {
+  var used = {}
+  groups(bar).forEach(function(g) { if (g.iconImage) used[g.iconImage] = true })
+  return (names || []).map(function(n) { return String(n).trim() }).filter(function(n) {
+    return n && n.indexOf("/") < 0 && n.charAt(0) !== "." && !used[dir + "/" + n]
+  }).map(function(n) { return dir + "/" + n })
+}
 function owner(list, key) { return list.find(function(g) { return g.items.indexOf(key) >= 0 }) || null }
 function create(config, id, label) {
   if (!config.bar) config.bar = {}
