@@ -28,7 +28,7 @@ Groups are named, ordered collections of existing widget instances, shown on the
 ## Face, icon and tooltip
 
 - **GROUP-12** `face` is `"glyph"` (icon only, the default), `"text"` (name only) or `"both"` (icon, two spaces, name). On a vertical bar every group draws its icon only; its name shows in the tooltip.
-- **GROUP-13** `edit(config, id, {icon})` with a new glyph replaces the icon whole: it sets `iconFont` only when the patch says `"omarchy"` and clears `iconImage`. Returns false for an unknown group id. `iconTint` is kept (it has no effect without an image).
+- **GROUP-13** Choosing a new glyph for a group replaces its icon whole: it clears your own image (`iconImage`) and its tint (`iconTint`), and keeps the font the glyph was chosen in (`iconFont: "omarchy"` or none). An image picked later starts in the text colour. Code: GroupsModel.js edit()
 - **GROUP-14** `iconFont` is saved only as `"omarchy"` (the Omarchy logo, U+E900); otherwise `groupIconFont()` takes the font from the stock icon list for that glyph, or "" (the bar's font). A group saved before fonts were kept resolves the same way.
 - **GROUP-15** `iconImage` is a path (images chosen in the picker are copied to `~/.local/share/powerbar/icons/`). It replaces the glyph. It is drawn in the bar's text colour unless `iconTint` is `"own"`.
 - **GROUP-16** `faceRuns(group, face)` gives the pieces to draw: `glyph` is the icon (text in its font, or the image); `text` is the name in the bar's font; `both` is icon, a one-space gap, name. An empty `face` argument uses the group's own face.
@@ -128,4 +128,3 @@ GROUP-78 to GROUP-83 (dragging) moved to drag-edit.md (DRAG-14, DRAG-15, DRAG-24
 ## Open questions
 
 - Dead field in the old draft: `memberDisplayLayout` does not exist in code; removed.
-- Possible bug: `GroupsModel.edit()` replaces the icon but keeps `iconTint: "own"`, so a later picked image starts as "own" (GroupsModel.js:117-124, `iconTint` untouched when `icon` is set).
