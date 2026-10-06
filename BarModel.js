@@ -19,6 +19,26 @@ function setBarStyle(config, value) {
   return true
 }
 
+// The bar's own options, each with the value a config that never set it gets.
+// With none set, Powerbar is Omarchy's bar plus its Preferences button: flat,
+// always out, the theme's size, nothing on demand. Only a key the user wrote
+// changes that; nothing here is ever written back. (Spacing between widgets
+// is AppearanceModel.ranges.spacing; the look is AppearanceModel's scopes.)
+function options(config) {
+  var c = config || {}
+  return {
+    style: barStyle(c),
+    autoHide: c.powerbarAutoHide === true,
+    autoHideActivity: c.powerbarAutoHideActivity !== false,
+    largeBar: c.powerbarLargeBar === true,
+    spacingMode: c.powerbarSpacingMode === "gaps" ? "gaps" : "slots",
+    onDemand: c.powerbarOnDemand === "inline" ? "inline" : "drawer",
+    animations: c.powerbarAnimations !== false,
+    keyLegend: c.powerbarKeyLegend !== false,
+    dotsBadge: c.powerbarDotsBadge !== false
+  }
+}
+
 function normalizePosition(value) {
   var next = String(value || "").trim()
   return /^(top|bottom|left|right)$/.test(next) ? next : "top"

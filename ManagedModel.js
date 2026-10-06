@@ -10,6 +10,14 @@ function mode(entry, metadata) {
   // Undiscovered entries remain unresolved until the registry supplies metadata.
   return metadata ? (metadata.firstParty === true ? "shown" : "managed") : "pending"
 }
+// Whether a widget with nothing to show (no updates pending, Bluetooth off,
+// an empty tray) keeps a fallback icon in its place. On Omarchy's bar it hides
+// itself, and so it does here until the user puts it somewhere: On the bar by
+// choice (an explicit "shown"), or On demand, where the drawer must show it.
+function placeholder(entry, mode) {
+  if (mode === "managed") return true
+  return mode === "shown" && !!entry && typeof entry === "object" && entry.powerbarVisibility === "shown"
+}
 function deadline(now, duration) { return now + duration * 1000 }
 function remaining(until, now) { return Math.max(0, until - now) }
 function dismissDelay(sourceHovered, drawerHovered, interactionHeld, entered, entrySeconds, exitSeconds) {
