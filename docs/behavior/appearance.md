@@ -248,7 +248,7 @@ Storage: the look lives in `bar.powerbarAppearance` of shell.json: `all` (values
 
 - **LOOK-105** An autohidden bar slides away over 130 ms. Code: Bar.qml autoHideMotionMs.
 
-- **LOOK-106** When the text colour changes (theme switch, Light or Dark choice) it crossfades over 420 ms, InOutCubic. This crossfade is not turned off by Animations: it runs with Animations off too. Code: Bar.qml `Behavior on barForeground` (enabled: foregroundAnimationEnabled).
+- **LOOK-106** When the text colour changes (theme switch, Light or Dark choice) it crossfades over 420 ms, InOutCubic, with Animations on; with Animations off it changes at once, on the bar and in widgets that follow the bar's `foregroundAnimationEnabled` (Omarchy's WidgetButton). Code: Bar.qml foregroundFades.
 
 - **LOOK-107** The bar's background and urgent colours crossfade over 420 ms, InOutCubic, with Animations on. Code: Bar.qml Behavior on background / urgent.
 
@@ -303,5 +303,4 @@ Storage: the look lives in `bar.powerbarAppearance` of shell.json: `all` (values
 ## Open questions
 
 - Answered from code: the 420 ms text-colour crossfade is one animation on `barForeground`, shared by every text and icon on the bar, so no element lags another. A tooltip has no fade: Animations does not change tooltip timing (400 ms delay, 800 ms warm window). Saved previews are divided by `2 * devicePixelRatio` to get their display size; live previews use their own size.
-- Possible bug, for the owner: the text colour crossfade is not gated by `powerbarAnimations` (Bar.qml:839 uses `foregroundAnimationEnabled`, while background and urgent at :840-841 use `animationsEnabled`), against the design's "one switch" rule (docs/design/spacing.md, "Motion").
 - A `bar.transparent` write clears the surface only after `omarchy-bar-text-color` returns a colour (Bar.qml:2761-2768); if that command is missing or fails, `transparent` stays false and the surface stays opaque although the flag is set. Intended?

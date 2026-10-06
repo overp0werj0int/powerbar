@@ -835,7 +835,10 @@ Item {
   property color background: Color.bar.background
   property color urgent: Color.bar.active
 
-  Behavior on barForeground { enabled: root.foregroundAnimationEnabled; ColorAnimation { duration: 420; easing.type: Easing.InOutCubic } }
+  // Omarchy's bar fades the text colour unless a switch asks for it at once;
+  // with Animations off it never fades, here or in widgets (foregroundFades).
+  readonly property bool foregroundFades: foregroundAnimationEnabled && animationsEnabled
+  Behavior on barForeground { enabled: root.foregroundFades; ColorAnimation { duration: 420; easing.type: Easing.InOutCubic } }
   Behavior on background { enabled: root.animationsEnabled; ColorAnimation { duration: 420; easing.type: Easing.InOutCubic } }
   Behavior on urgent { enabled: root.animationsEnabled; ColorAnimation { duration: 420; easing.type: Easing.InOutCubic } }
   property var tooltipTarget: null
@@ -982,7 +985,7 @@ Item {
     api.vertical = Qt.binding(function() { return root.vertical })
     api.barSize = Qt.binding(function() { return root.barSize })
     api.transparent = Qt.binding(function() { return root.transparent })
-    api.foregroundAnimationEnabled = Qt.binding(function() { return root.foregroundAnimationEnabled })
+    api.foregroundAnimationEnabled = Qt.binding(function() { return root.foregroundFades })
     api.centerSectionRevealHeld = Qt.binding(function() { return root.centerSectionRevealHeld })
     api._centerHoverRevealSuppressed = Qt.binding(function() { return root.centerHoverRevealSuppressed })
     apiSync.initialize(api)
