@@ -154,7 +154,7 @@ icon, which matches the bar (copy one a widget already draws, or let the user
 pick in Preferences → Groups), or an emoji, `iconTint` (text, own), `iconFont`
 ("", omarchy), `zone`, `before`, `visibility`, `face` (glyph, text, both: what
 the bar shows), `memberDisplay` (native, name, both: how the drawer shows
-members), `orientation` (auto, horizontal, vertical), `tooltip` (bool),
+members), `tooltip` (bool),
 `badge` (bool), `badgeMode` (sum: add up counts; members: count busy widgets),
 `members` (the full ordered list, by id or instance). Groups can't contain
 groups.

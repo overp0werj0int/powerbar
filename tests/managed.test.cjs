@@ -49,9 +49,9 @@ test('only public presentation values enter the activity snapshot', () => {
   assert.notEqual(m.snapshot(widget), second);
 });
 test('groups with member names use a vertical menu surface on every bar edge', () => {
-  const name = { memberDisplay: 'name', orientation: 'horizontal' };
-  const both = { memberDisplay: 'both', orientation: 'auto' };
-  const icons = { memberDisplay: 'native', orientation: 'auto' };
+  const name = { memberDisplay: 'name' };
+  const both = { memberDisplay: 'both' };
+  const icons = { memberDisplay: 'native' };
   assert.equal(m.groupMenu(name), true);
   assert.equal(m.groupMenu(both), true);
   assert.equal(m.drawerVertical(name, false), true);
@@ -61,8 +61,6 @@ test('groups with member names use a vertical menu surface on every bar edge', (
   assert.equal(m.groupMenu(icons), false);
   assert.equal(m.drawerVertical(icons, false), false);
   assert.equal(m.drawerVertical(icons, true), true);
-  assert.equal(m.drawerVertical({ memberDisplay: 'native', orientation: 'vertical' }, false), false);
-  assert.equal(m.drawerVertical({ memberDisplay: 'native', orientation: 'horizontal' }, true), true);
   assert.equal(m.drawerSurface(icons), 'island');
   assert.equal(m.drawerSurface(null), 'island');
 });

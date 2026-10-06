@@ -105,9 +105,9 @@ Each entry is read through `GroupsModel.groups()`, so a missing or invalid value
 - **GROUP-64** `tooltip`: boolean or absent.
 - **GROUP-65** `badge`: boolean (default true; only an explicit false turns it off).
 - **GROUP-66** `badgeMode`: `sum` (default) or `members`.
-- **GROUP-67** `orientation`: `auto` (default), `horizontal`, `vertical`; no effect (GROUP-34).
+- **GROUP-67** Groups have no orientation setting: an icon-only strip follows the bar (GROUP-34). A saved `orientation` from earlier versions is ignored and dropped on the next group edit; `setGroup` refuses it. Code: GroupsModel.js groups()
 - **GROUP-68** `items`: ordered `powerbarInstance` keys; non-strings, empty strings, `group:` keys, duplicates, keys already in an earlier group and keys no longer in the layout are dropped (GROUP-3, GROUP-8).
-- **GROUP-85** Unknown values of `visibility`, `face`, `section`, `badgeMode`, `orientation` and `memberDisplay` read as their defaults (GROUP-54 to GROUP-68), and the CLI refuses them (integration.md INTEG-134).
+- **GROUP-85** Unknown values of `visibility`, `face`, `section`, `badgeMode` and `memberDisplay` read as their defaults (GROUP-54 to GROUP-68), and the CLI refuses them (integration.md INTEG-134).
 - **GROUP-69** `memberDisplay`: `native` (default), `name`, `both`.
 
 ## Glyph detection (for the icon picker's "On your bar" source)
@@ -127,6 +127,5 @@ GROUP-78 to GROUP-83 (dragging) moved to drag-edit.md (DRAG-14, DRAG-15, DRAG-24
 
 ## Open questions
 
-- Dead setting: `orientation` is stored, shown by the CLI and settable, but `ManagedModel.drawerVertical()` ignores it (tests/managed.test.cjs "groups with member names ..." asserts that). Either wire it or remove it.
 - Dead field in the old draft: `memberDisplayLayout` does not exist in code; removed.
 - Possible bug: `GroupsModel.edit()` replaces the icon but keeps `iconTint: "own"`, so a later picked image starts as "own" (GroupsModel.js:117-124, `iconTint` untouched when `icon` is set).

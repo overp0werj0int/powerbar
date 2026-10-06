@@ -88,7 +88,6 @@ function groups(bar) {
       tooltip: typeof g.tooltip === "boolean" ? g.tooltip : undefined,
       badge: g.badge !== false,
       badgeMode: g.badgeMode === "members" ? "members" : "sum",
-      orientation: ["auto", "horizontal", "vertical"].indexOf(g.orientation) >= 0 ? g.orientation : "auto",
       memberDisplay: ["native", "name", "both"].indexOf(g.memberDisplay) >= 0 ? g.memberDisplay : "native",
       // Absent unless set, so groups that don't use them save as before.
       iconFont: g.iconFont === "omarchy" ? "omarchy" : undefined,
@@ -130,7 +129,6 @@ function edit(config, id, patch) {
   if (typeof patch.tooltip === "boolean") group.tooltip = patch.tooltip
   if (typeof patch.badge === "boolean") group.badge = patch.badge
   if (["sum", "members"].indexOf(patch.badgeMode) >= 0) group.badgeMode = patch.badgeMode
-  if (["auto", "horizontal", "vertical"].indexOf(patch.orientation) >= 0) group.orientation = patch.orientation
   if (["native", "name", "both"].indexOf(patch.memberDisplay) >= 0) group.memberDisplay = patch.memberDisplay
   config.bar.powerbarGroups = list; return true
 }

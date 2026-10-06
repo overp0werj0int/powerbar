@@ -79,15 +79,22 @@ test('malformed manual config does not nest groups or assign one instance twice'
 test('group display options preserve membership and reject unknown values', () => {
   const c = fixture(); m.create(c, 'a', 'Tools'); m.assign(c, 'one', 'a');
   m.edit(c, 'a', { face: 'both', tooltip: false, badge: false,
-    badgeMode: 'members', orientation: 'vertical', memberDisplay: 'name' });
+    badgeMode: 'members', memberDisplay: 'name' });
   const group = m.groups(c.bar)[0];
   assert.equal(group.face, 'both'); assert.equal(group.tooltip, false);
   assert.equal(group.badge, false); assert.equal(group.badgeMode, 'members');
-  assert.equal(group.orientation, 'vertical'); assert.equal(group.memberDisplay, 'name');
+  assert.equal(group.memberDisplay, 'name');
   assert.deepEqual(plain(group.items), ['one']);
-  m.edit(c, 'a', { face: 'bad', orientation: 'bad', memberDisplay: 'bad' });
+  m.edit(c, 'a', { face: 'bad', memberDisplay: 'bad' });
   assert.equal(m.groups(c.bar)[0].face, 'both');
-  assert.equal(m.groups(c.bar)[0].orientation, 'vertical');
+});
+
+test('a group has no orientation: its strip follows the bar, an old saved value is dropped', () => {
+  const c = fixture(); m.create(c, 'a', 'Tools');
+  c.bar.powerbarGroups[0].orientation = 'vertical';
+  assert.equal('orientation' in m.groups(c.bar)[0], false);
+  m.edit(c, 'a', { orientation: 'horizontal', face: 'both' });
+  assert.equal('orientation' in c.bar.powerbarGroups[0], false);
 });
 
 test('a group keeps its place when its anchor widget moves away', () => {
