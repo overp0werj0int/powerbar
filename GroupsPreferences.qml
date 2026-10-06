@@ -527,6 +527,14 @@ Item {
     }
     onClosed: iconWell.forceActiveFocus(Qt.OtherFocusReason)
   }
+  // The picker belongs to this page while Preferences shows it: closing
+  // Preferences or leaving the page closes it, so it never comes back open
+  // with its keys in the footer and the focus elsewhere.
+  Connections {
+    target: pane.preferences
+    function onOpenedChanged() { if (!pane.preferences.opened) picker.close() }
+    function onPageChanged() { if (pane.preferences.page !== 1) picker.close() }
+  }
 
   // The widget being dragged between the drawer and the list.
   BorderSurface {

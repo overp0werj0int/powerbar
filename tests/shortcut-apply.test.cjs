@@ -96,6 +96,34 @@ test('a linked bindings.lua stays a link, its target gets the block', () => {
   assert.equal(fs.readFileSync(target, 'utf8'), USER + '\n\n' + BLOCK + '\n');
 });
 
+test('a refused block leaves the old loader and powerbar.lua as they were', () => {
+  const b = box(), main = path.join(b.hypr, 'hyprland.lua'), old = path.join(b.hypr, 'powerbar.lua');
+  fs.writeFileSync(b.file, USER + '\n');
+  fs.writeFileSync(main, `a\n${S.OLD_START}\ndofile("powerbar.lua")\n${S.OLD_END}\nb\n`);
+  fs.writeFileSync(old, 'o.bind("SUPER + B", "x", "y")\n');
+  fs.writeFileSync(path.join(b.root, 'refuse'), 'bad\n');
+  const r = b.run(BLOCK);
+  assert.equal(r.status, 1);
+  assert.equal(b.read(), USER + '\n');
+  assert.equal(fs.readFileSync(main, 'utf8'), `a\n${S.OLD_START}\ndofile("powerbar.lua")\n${S.OLD_END}\nb\n`);
+  assert.ok(fs.existsSync(old));
+});
+
+test('powerbar.lua goes with a whole loader, and stays while a damaged loader still names it', () => {
+  const b = box(), main = path.join(b.hypr, 'hyprland.lua'), old = path.join(b.hypr, 'powerbar.lua');
+  fs.writeFileSync(b.file, '');
+  fs.writeFileSync(main, `a\n${S.OLD_START}\nb\n`);
+  fs.writeFileSync(old, 'x\n');
+  assert.equal(answer(b.run(BLOCK)), 'ok');
+  assert.ok(fs.existsSync(old), 'a damaged loader keeps the file it loads');
+  fs.writeFileSync(main, `a\n${S.OLD_START}\ndofile("powerbar.lua")\n${S.OLD_END}\n`);
+  assert.equal(answer(b.run(BLOCK)), 'ok');
+  assert.ok(!fs.existsSync(old));
+  fs.writeFileSync(old, 'x\n');
+  assert.equal(answer(b.run(BLOCK)), 'ok');
+  assert.ok(!fs.existsSync(old), 'nothing loads it any more');
+});
+
 test('the old loader in hyprland.lua goes only when it is whole', () => {
   const b = box(), main = path.join(b.hypr, 'hyprland.lua');
   fs.writeFileSync(b.file, '');

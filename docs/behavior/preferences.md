@@ -113,6 +113,7 @@ Sources: Preferences.qml, PreferencesModel.js, BentoModel.js, ShelfModel.js, Sli
 - **PREFS-48** Arrows move the cursor through the icons, skipping headers; Up and Down keep the column or land on the last icon of a shorter row; PageUp and PageDown move a screenful; at the ends the cursor stays.
 
 - **PREFS-49** Enter chooses the cursor's icon (writing `icon` and `iconFont` to the group) and closes the picker; Tab and Shift+Tab cycle the tabs (wrapping); Esc clears the search text first, then closes the picker.
+- **PREFS-91** The icon picker closes when Preferences closes or leaves the Groups page, so it never comes back open with its keys in the footer. Code: GroupsPreferences.qml Connections on preferences
 
 - **PREFS-50** A search that is a single pasted glyph or emoji (an emoji sequence with ZWJ joiners, a skin tone, a keycap or a flag counts as one) offers it first as "Pasted, drawn in the bar's font". Other text is searched normally.
 

@@ -192,3 +192,13 @@ test('a panel hotkey by position opens the copy it counted when a widget is on t
   assert.equal(barModel.pickPanelSlot(rows, 'eDP-1', 'pw-a').name, 'a');
   assert.equal(barModel.pickPanelSlot(rows, 'eDP-1', 'gone').name, barModel.pickPanelSlot(rows, 'eDP-1').name);
 });
+
+test('the registry heal rescans at most three times a login, a minute apart', () => {
+  let r = barModel.registryHeal('', 100000, 3);
+  assert.equal(r.rescan, true); assert.equal(r.stamp, '100000 1'); assert.equal(r.gaveUp, false);
+  assert.equal(barModel.registryHeal('100000 1', 130000, 3).rescan, false, 'within a minute');
+  r = barModel.registryHeal('100000 2', 200000, 3);
+  assert.equal(r.rescan, true); assert.equal(r.stamp, '200000 3'); assert.equal(r.gaveUp, true);
+  assert.equal(barModel.registryHeal('200000 3', 900000, 3).rescan, false, 'gave up');
+  assert.equal(barModel.registryHeal('100000', 200000, 3).stamp, '200000 2', 'an old stamp counts as one');
+});

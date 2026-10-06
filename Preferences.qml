@@ -68,6 +68,8 @@ Item {
   readonly property var hints: pageItems[page] ? pageItems[page].hints : []
 
   function open(payloadJson) {
+    // Preferences takes the keyboard: a keyboard mode left on would hold it too.
+    if (bar.barKeys && bar.barKeys.active) bar.barKeys.leave()
     bar.closeManagedDrawer()
     bar.clearTooltip()
     bar.requestPopout(prefs)

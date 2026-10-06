@@ -167,6 +167,7 @@ omarchy-shell powerbar set shortcut.bar:keys "SUPER + B"           # the keyboar
 omarchy-shell powerbar set shortcut.group:<group id> "SUPER + CTRL + ALT + J"
 omarchy-shell powerbar set shortcut.widget:omarchy.audio '""'      # remove
 omarchy-shell powerbar reset shortcut.widget:omarchy.audio         # back to Omarchy's own
+omarchy-shell powerbar clearShortcuts                             # all of Powerbar's go, block and all
 ```
 
 A shortcut needs Super, Ctrl or Alt (or is an F-key). Keys another bind holds

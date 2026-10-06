@@ -142,7 +142,7 @@ test('help lists every IPC function once; settings describes every setting', () 
   const calls = m.help().map(f => f.call.split(' ')[2]);
   assert.equal(new Set(calls).size, calls.length);
   for (const fn of ['status', 'get', 'set', 'reset', 'toggle', 'widgets', 'setWidget', 'groups', 'newGroup',
-    'setGroup', 'removeGroup', 'shortcuts', 'show', 'hide', 'keysOn', 'keysOff', 'help'])
+    'setGroup', 'removeGroup', 'shortcuts', 'clearShortcuts', 'show', 'hide', 'keysOn', 'keysOff', 'help'])
     assert.ok(calls.includes(fn), fn);
   const d = m.describe({ roundingMax: 13 });
   assert.equal(d.find(s => s.name === 'shape.rounding').max, 13);
@@ -178,4 +178,13 @@ test('a widget joins a group named by id or by its unique name', () => {
   assert.match(m.widgetGroupById({ group: 'Dup' }, groups).error, /2 groups are called Dup/);
   assert.equal(m.widgetGroupById({ group: '' }, groups).value.group, '');
   assert.equal(m.widgetGroupById({ zone: 'left' }, groups).value.zone, 'left');
+});
+
+test('a group change refuses values it would not keep whole', () => {
+  assert.match(m.groupPatch({ label: 'x'.repeat(81) }).error, /80 characters/);
+  assert.equal(m.groupPatch({ label: 'x'.repeat(80) }).patch.label.length, 80);
+  assert.match(m.groupPatch({ icon: 'abcdefghij' }).error, /one glyph/);
+  assert.equal(m.groupPatch({ icon: '👩‍💻' }).patch.icon, '👩‍💻');
+  assert.match(m.groupPatch({ iconImage: 'relative.svg' }).error, /absolute path/);
+  assert.equal(m.groupPatch({ iconImage: '/home/u/a.svg' }).patch.iconImage, '/home/u/a.svg');
 });
