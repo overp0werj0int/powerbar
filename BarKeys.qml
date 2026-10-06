@@ -192,6 +192,7 @@ Item {
       if (!pick) pick = p.dir < 0 ? shown[shown.length - 1] : shown[0]
       cursor = pick.item
       showCard()
+      if (p.open) openCursor()
       return
     }
     // The zone could not open in the bar: its drawer took the widgets.
@@ -199,7 +200,11 @@ Item {
       pending = null
       var zone = p.token.split(":")[0]
       w.managedDrawer.openZone(zone, true)
-      if (w.managedDrawer.opened) adoptDrawer(w.managedDrawer, p.key)
+      if (w.managedDrawer.opened) {
+        adoptDrawer(w.managedDrawer, p.key)
+        var d = w.managedDrawer
+        if (p.open && d.slots[d.cursor]) d.slots[d.cursor].activate()
+      }
     }
   }
   Timer { id: landRetry; interval: 25; onTriggered: keys.checkPending() }
@@ -214,13 +219,13 @@ Item {
   // A group's drawer unfolds beside its icon once the key is let go, so a
   // held key sweeping past never flashes it.
   function released() {
-    if (!here || drawer || searching || !opensDrawer(cursor)) return
+    if (!here || drawer || !opensDrawer(cursor)) return
     previewTimer.restart()
   }
   Timer {
     id: previewTimer
     interval: 100
-    onTriggered: if (keys.here && !keys.drawer && !keys.searching && keys.opensDrawer(keys.cursor)) keys.openDrawer(false)
+    onTriggered: if (keys.here && !keys.drawer && keys.opensDrawer(keys.cursor)) keys.openDrawer(false)
   }
   function openDrawer(enterIt) {
     var w = window, d = w ? w.managedDrawer : null, item = cursor
@@ -385,7 +390,7 @@ Item {
   function startSearch() { searching = true; query = ""; matchIndex = 0; matchCount = 0; sheet = false }
   function searchKey(name) {
     if (name === "Escape") { searching = false; query = ""; return true }
-    if (name === "Enter") { searching = false; openCursor(); return true }
+    if (name === "Enter") { searching = false; query = ""; openMatch(); return true }
     if (name === "Tab") { reveal(matchIndex + 1); return true }
     if (name === "Backtab") { reveal(matchIndex - 1); return true }
     // An arrow, Home or End ends the search where it is and does its usual
@@ -401,6 +406,14 @@ Item {
       reveal(0)
     }
     return true
+  }
+  // Enter on a match opens it: a member in its group's drawer, a widget behind
+  // dots once they have opened, or what the cursor is on.
+  function openMatch() {
+    var d = drawer
+    if (d && !previewing && d.cursorActive && d.slots[d.cursor]) { bar.hideCard(); d.slots[d.cursor].activate(); return }
+    if (pending) { pending.open = true; return }
+    openCursor()
   }
   // Put the cursor on a match, opening the way to it.
   function reveal(which) {
@@ -432,6 +445,7 @@ Item {
       return
     }
     put(pick.stop, 1)
+    if (opensDrawer(pick.stop)) openDrawer(false)
   }
 
   // ---- the shortcut sheet ---------------------------------------------------
@@ -453,7 +467,8 @@ Item {
   // ---- the name card --------------------------------------------------------
   function showCard() {
     // A drawer open beside the icon names its own widgets; the card would cover it.
-    if (!here || !cursor || drawer) { bar.hideCard(); return }
+    // A group (or a zone's dots in drawer mode) unfolds its drawer instead.
+    if (!here || !cursor || drawer || opensDrawer(cursor)) { bar.hideCard(); return }
     var name = nameOf(cursor)
     var target = targetOf(cursor)
     var keysLabel = target ? bar.shortcutLabel(target) : ""
