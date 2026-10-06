@@ -32,6 +32,11 @@ Item {
   // The keyboard mode (Super+B): a cursor on the bar (BarKeys.qml).
   BarKeys { id: barKeysItem; bar: root }
   readonly property var barKeys: barKeysItem
+  // The command line (omarchy-shell powerbar …), read by the IpcHandler below.
+  BarCli { id: cliItem; bar: root; preferences: preferencesPane }
+  // `omarchy-shell powerbar show` holds an autohidden bar out until `hide`.
+  property bool cliShown: false
+  onAutoHideChanged: if (!autoHide) cliShown = false
   readonly property bool preferencesOpen: preferencesPane.opened
   // The bar's options with their clean-config defaults (BarModel.options).
   readonly property var barOptions: BarModel.options(barConfig)
@@ -586,7 +591,8 @@ Item {
       if (owner && owner.opened && owner.groupId === id) root.closeManagedDrawer()
       else group(id)
     }
-    function groupsPreferences(): void { preferences(); preferencesPane.page = 2 }
+    // Groups is the second page (Layout, Groups, Bar).
+    function groupsPreferences(): void { preferences(); preferencesPane.setPage(1) }
     function popupStatus(): string {
       return JSON.stringify(root.popupPlacements.filter(function(record) { return record.panel && record.panel.open }).map(function(record) {
         var panel = record.panel
@@ -602,6 +608,26 @@ Item {
         return { id: s.moduleName, key: s.instanceKey, zone: s.region, revealed: s.activityVisible, mainVisible: s.mainVisible, inDrawer: !!s.drawerHost, panelOpen: s.panelOpen, observing: s.activityTargets.length }
       }))
     }
+    // Everything Preferences reads and changes, without Preferences
+    // (BarCli.qml; `help` lists every function).
+    function status(): string { return cliItem.status() }
+    function get(setting: string): string { return cliItem.get(setting) }
+    function set(setting: string, value: string): string { return cliItem.set(setting, value) }
+    function reset(setting: string): string { return cliItem.reset(setting) }
+    function toggle(setting: string): string { return cliItem.toggle(setting) }
+    function settings(): string { return cliItem.settings() }
+    function widgets(): string { return JSON.stringify(cliItem.widgetList()) }
+    function setWidget(widget: string, change: string): string { return cliItem.setWidget(widget, change) }
+    function groups(): string { return JSON.stringify(cliItem.groupList()) }
+    function newGroup(name: string): string { return cliItem.newGroup(name) }
+    function setGroup(group: string, change: string): string { return cliItem.setGroup(group, change) }
+    function removeGroup(group: string): string { return cliItem.removeGroup(group) }
+    function shortcuts(): string { return cliItem.shortcuts() }
+    function show(): string { return cliItem.show() }
+    function hide(): string { return cliItem.hide() }
+    function keysOn(): string { return cliItem.keysOn() }
+    function keysOff(): string { return cliItem.keysOff() }
+    function help(): string { return cliItem.help() }
   }
 
   // The omarchy-shell host injects omarchyPath from OMARCHY_PATH.
@@ -797,7 +823,10 @@ Item {
     onFileChanged: reload()
   }
   readonly property var foregroundPair: AppearanceModel.textPair(themeForeground, themeContrastForeground)
-  property color barForeground: textOn(themeForeground)
+  // Over a transparent bar (Omarchy's `bar.transparent`), the colour Omarchy
+  // reads from the wallpaper, as its own bar does.
+  property color barForeground: textOn(useTransparentForeground && AppearanceModel.wallpaperText(mainSurfaceColor.a, foregroundChoice)
+    ? transparentForeground : themeForeground)
   // The chosen colour, or `themeColor` (the theme's own for that place) when
   // the choice is the theme's.
   function textOn(themeColor) {
@@ -1779,7 +1808,7 @@ Item {
   readonly property color overlaySurfaceColor: Qt.alpha(background, AppearanceModel.overlayOpacity(surfaceEffects))
   readonly property color mainSurfaceColor: surfaceColorFor(surfaceEffects)
   function surfaceColorFor(effects) {
-    return Qt.alpha(background, autoHide ? AppearanceModel.overlayOpacity(effects) : effects.backgroundOpacity)
+    return Qt.alpha(background, AppearanceModel.barOpacity(effects, autoHide, transparent))
   }
   readonly property color extendedSurfaceColor: overlaySurfaceColor
 
@@ -3339,7 +3368,7 @@ Item {
     readonly property bool autoHideHeld: windowHover.hovered || edgeHover.hovered || drawer.opened
       || (!!root.activePopout && root.sameWindow(root.targetWindow(root.activePopout), barWindow))
       || !!root.barDragSource || root.barDragSettling || root.barMoveActive || preferencesPane.opened || root.toggleHeld
-      || root.barKeys.heldBy(barWindow)
+      || root.barKeys.heldBy(barWindow) || root.cliShown
     property bool autoHideRevealed: false
     onAutoHideHeldChanged: {
       if (autoHideHeld) {

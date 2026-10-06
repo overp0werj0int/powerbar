@@ -88,6 +88,22 @@ function overlayOpacity(effects) {
   var opacity = typeof e.backgroundOpacity === "number" ? e.backgroundOpacity : 1
   return e.readableOverlay !== false && !e.blur ? Math.max(opacity, readableOpacity) : opacity
 }
+// The bar's own surface. Omarchy's `bar.transparent` (`omarchy bar
+// transparent`, the menu's Transparency) clears it as it clears Omarchy's bar;
+// an autohiding bar lies over windows and keeps its readable minimum.
+// Drawers and overlays keep the surface opacity: Omarchy's flag is the bar's.
+function barOpacity(effects, autoHide, transparent) {
+  var e = effects || {}
+  var base = transparent === true ? 0 : typeof e.backgroundOpacity === "number" ? e.backgroundOpacity : 1
+  if (!autoHide) return base
+  return overlayOpacity({ backgroundOpacity: base, blur: e.blur, readableOverlay: e.readableOverlay })
+}
+// Whether the bar's text takes the colour Omarchy reads from the wallpaper
+// behind a transparent bar: only where nothing is drawn behind it, and only
+// while Text and icons follow the theme (a Light or Dark choice wins).
+function wallpaperText(surfaceAlpha, choice) {
+  return surfaceAlpha === 0 && (choice || "theme") === "theme"
+}
 // The settings each Preferences tile returns to the theme's values, with the
 // legacy per-surface keys the bar still reads as fallbacks.
 function legacyKeys(names) {
@@ -229,7 +245,11 @@ function scopeOf(appearance, theme, tile) {
   var a = appearance || {}
   var own = theme && isMap(a.themes) ? pick(a.themes[theme], tile) : undefined
   if (isMap(own) && scopes.indexOf(own.use) >= 0) return own.use
-  return filled(pick(a.all, tile)) ? "all" : "theme"
+  return defaultScope(a, tile)
+}
+// The scope a theme without a choice of its own follows.
+function defaultScope(appearance, tile) {
+  return filled(pick((appearance || {}).all, tile)) ? "all" : "theme"
 }
 // Everything the bar and Preferences need for `theme`:
 //   scopes: tile → scope; values: key → value or undefined (Omarchy's);

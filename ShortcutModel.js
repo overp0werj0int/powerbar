@@ -216,6 +216,15 @@ function fromKeyEvent(key, mods, code) {
   return { keys: format({ mask: mask, key: name }) }
 }
 
+// Typed keys (the command line) by the recorder's rules: { keys } in
+// Powerbar's spelling, or { error }.
+function bindable(keys) {
+  var sig = parse(keys)
+  if (!sig) return { error: "\"" + String(keys || "") + "\" is not a key combination such as SUPER + B" }
+  if (!(sig.mask & (64 | 4 | 8)) && !/^F\d+$/.test(sig.key)) return { error: "Add Super, Ctrl or Alt" }
+  return { keys: format(sig) }
+}
+
 function luaString(s) { return '"' + String(s).replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\n/g, "\\n") + '"' }
 function command(target) {
   if (target.indexOf("widget:") === 0) return "omarchy-shell shell toggle " + target.slice(7)

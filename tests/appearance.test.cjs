@@ -203,3 +203,16 @@ test('themes no longer installed lose what was kept for them', () => {
   assert.deepEqual(J(bar.powerbarAppearance.themes), { nord: { text: 'light' } });
   assert.equal(model.pruneThemes(bar, []), false, 'an empty list proves nothing');
 });
+test('Omarchy\'s transparent clears the bar, not its readable minimum over windows', () => {
+  const e = { backgroundOpacity: 0.9, blur: false, readableOverlay: true };
+  assert.equal(model.barOpacity(e, false, false), 0.9);
+  assert.equal(model.barOpacity(e, false, true), 0);
+  assert.equal(model.barOpacity(e, true, true), 0.88);
+  assert.equal(model.barOpacity({ backgroundOpacity: 0.9, blur: true }, true, true), 0);
+  assert.equal(model.barOpacity({ backgroundOpacity: 0.9, readableOverlay: false }, true, true), 0);
+  assert.equal(model.barOpacity({ backgroundOpacity: 0.5 }, true, false), 0.88);
+  assert.equal(model.wallpaperText(0, 'theme'), true);
+  assert.equal(model.wallpaperText(0, undefined), true);
+  assert.equal(model.wallpaperText(0, 'dark'), false);
+  assert.equal(model.wallpaperText(0.5, 'theme'), false);
+});

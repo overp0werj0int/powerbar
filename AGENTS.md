@@ -51,6 +51,7 @@ omabox for desktop tests in a private Hyprland session
 
 | Function | Tells |
 |---|---|
+| `status` | every setting, widget, group, shortcut, and runtime state (`help` lists all functions; README "Command line") |
 | `keysStatus` | keyboard mode: cursor, stops, search, drawer, focus, name card |
 | `drawerStatus` | the open drawer or group menu |
 | `managedStatus` | on-demand widgets: zone, revealed, on the bar |

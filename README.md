@@ -380,9 +380,13 @@ for the full bar, main islands and extended islands, group drawers included.
 **Text and icons** is the theme's colours, or one fixed **Light** or **Dark**
 colour (the theme's own bar text and background, whichever is lighter or
 darker), and is always kept per theme: a dark colour chosen in a light theme
-would blank the bar in a dark one. Powerbar never picks it from the wallpaper,
-even with Omarchy's transparent bar on: it draws a surface behind every widget
-and cannot know what shows through it. Blur strength follows the desktop's
+would blank the bar in a dark one. Powerbar picks it from the wallpaper only
+where nothing is drawn behind the text: Omarchy's transparent bar
+(`omarchy bar transparent true`, or Transparency in Omarchy's menu) clears the
+bar's surface in every style, and then, as on Omarchy's bar, Theme text takes
+the colour Omarchy reads from the wallpaper; Light or Dark still wins. An
+autohiding bar keeps its readable minimum, and drawers keep their surface.
+Choosing a background opacity turns Omarchy's transparency off. Blur strength follows the desktop's
 Hyprland settings. **Readable over windows** (Behavior, on by default,
 `powerbarReadableOverlay`) keeps surfaces that lie over windows, which means
 every drawer and the bar itself while it autohides, at least 88% opaque unless
@@ -510,6 +514,52 @@ once it settles (on release, or after a short pause for keys and the wheel),
 and their ranges stop where more stops looking different: rounding tops out at
 a full pill for the bar's thickness. Bar size uniformly scales icons, text, and controls, including third-party
 widgets; drawer contents use the same scale. All numeric preferences use sliders.
+
+## Command line
+
+Omarchy's own commands work on Powerbar as on its bar: `omarchy bar position`,
+`transparent`, `put`, `move`, `set` (any widget key, `powerbarVisibility`
+included), `use`, `reset`, `defaults`, `omarchy toggle bar`, and the panel
+shortcuts (`omarchy-shell shell toggle <id>`, `togglePanelAt`). Everything
+else Powerbar does answers to `omarchy-shell powerbar <function>` (also
+`omarchy shell powerbar …`); `help` lists every function. Answers are JSON,
+`ok`, or `error: …` with the reason. Changes go through the same code as
+Preferences, so they are checked, saved and cleaned up the same way.
+
+| Command | Does |
+| --- | --- |
+| `status` | Every setting, widget, group and shortcut, and what the bar is doing |
+| `settings` | Every setting: type, values, `shell.json` key |
+| `get <setting>` / `set <setting> <value>` / `reset <setting>` / `toggle <setting>` | Read, change, restore the default, flip a switch |
+| `widgets` / `setWidget <widget> <json>` | The layout; move or change one (`zone`, `visibility`, `before`, `group`, `activityPeek`, `badgeProperty`, `urgentProperty`, `centered`) |
+| `groups` / `newGroup <name>` / `setGroup <group> <json>` / `removeGroup <group>` | Groups and their members |
+| `shortcuts` | Powerbar's shortcuts and Omarchy's panel shortcuts |
+| `show` / `hide` | Bring an autohidden bar out until `hide`; a bar switched off comes back, or goes off |
+| `keys` / `keysOn` / `keysOff` / `keysStatus` | The keyboard mode |
+| `managed <zone>` / `group <id>` / `toggleGroup <id>` / `closeManaged` | Open or close a drawer |
+| `drawerStatus` / `managedStatus` / `popupStatus` | The open drawer, On demand widgets, the open panel |
+| `preferences` / `preferencesPage <1-3>` / `groupsPreferences` / `closePreferences` | Preferences |
+
+Settings are named as in Preferences: `style`, `autoHide`, `onDemand`,
+`spacing`, `shape.rounding`, `surface.opacity`, `surface.text`, `shadow.scope`…
+(their `shell.json` key works too), and `shortcut.<target>` with `bar:keys`,
+`group:<id>` or `widget:<plugin id>`. A value is JSON or plain text. A widget is
+named by its id, or by its instance when it is on the bar twice; a group by its
+id or name.
+
+```sh
+omarchy-shell powerbar set onDemand inline
+omarchy-shell powerbar toggle autoHide
+omarchy-shell powerbar set shape.scope this && omarchy-shell powerbar set shape.rounding 6
+omarchy-shell powerbar setWidget omarchy.bluetooth '{"visibility":"managed"}'
+omarchy-shell powerbar setGroup "$(omarchy-shell powerbar newGroup Sound | jq -r .id)" \
+  '{"members":["omarchy.audio","omarchy.microphone"],"face":"both"}'
+omarchy-shell powerbar set shortcut.bar:keys "SUPER + B"
+omarchy-shell powerbar status | jq .settings
+```
+
+A shortcut whose keys something else holds is refused with its name; pass
+`'{"keys":"…","replace":true}'` to take them, as Preferences asks you to.
 
 ## Known limitations
 
