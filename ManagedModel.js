@@ -70,6 +70,17 @@ function dismissDelay(sourceHovered, drawerHovered, interactionHeld, entered, en
   if (sourceHovered || drawerHovered || interactionHeld) return 0
   return (entered ? exitSeconds : entrySeconds) * 1000
 }
+// The pointer landed on another stop on the bar (stop: { groupId, region }).
+// A drawer opened by hovering gives way at once: the exit grace is for the
+// way from its source into it, and a stop along the bar is not that way. A
+// group's drawer belongs to its icon; a zone's drawer to its zone. Pinned or
+// keyboard drawers (keyboardMode), and one whose widget has a panel open or is
+// being dragged (held), stay.
+function closesForStop(opened, keyboardMode, held, drawerGroupId, drawerZone, stop) {
+  if (!opened || keyboardMode || held || !stop) return false
+  if (drawerGroupId) return stop.groupId !== drawerGroupId
+  return !stop.groupId && stop.region !== drawerZone
+}
 function groupMenu(group) {
   return !!group && (group.memberDisplay === "name" || group.memberDisplay === "both")
 }

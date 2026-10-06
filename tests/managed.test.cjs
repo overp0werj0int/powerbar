@@ -116,3 +116,17 @@ test('Enter in a drawer opened without a cursor shows the cursor before it press
   assert.equal(m.pressAction(true, true, 3), 'activate');
   assert.equal(m.pressAction(true, false, 0), 'none');
 });
+
+test('a hover-opened drawer gives way when the pointer lands on another stop along the bar', () => {
+  // A group's drawer: any stop but its own icon closes it.
+  assert.equal(m.closesForStop(true, false, false, 'g1', 'right', { groupId: '', region: 'right' }), true);
+  assert.equal(m.closesForStop(true, false, false, 'g1', 'right', { groupId: 'g2', region: 'right' }), true);
+  assert.equal(m.closesForStop(true, false, false, 'g1', 'right', { groupId: 'g1', region: 'right' }), false);
+  // A zone's drawer: its own zone is its source.
+  assert.equal(m.closesForStop(true, false, false, '', 'right', { groupId: '', region: 'right' }), false);
+  assert.equal(m.closesForStop(true, false, false, '', 'right', { groupId: '', region: 'left' }), true);
+  // Pinned or keyboard drawers, a panel open or a drag: they stay.
+  assert.equal(m.closesForStop(true, true, false, 'g1', 'right', { groupId: '', region: 'right' }), false);
+  assert.equal(m.closesForStop(true, false, true, 'g1', 'right', { groupId: '', region: 'right' }), false);
+  assert.equal(m.closesForStop(false, false, false, 'g1', 'right', { groupId: '', region: 'right' }), false);
+});

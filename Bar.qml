@@ -5158,12 +5158,16 @@ Item {
     z: modulePointer.dragging ? 100 : 0
 
     // The whole slot, gutters included, is the widget's hover area on the bar.
+    readonly property bool stopHovered: slotHover.hovered
     HoverHandler {
       id: slotHover
       enabled: slot.mainVisible && !root.barHidden && !preferencesPane.opened && !root.barDragSource
       onHoveredChanged: {
         var window = root.targetWindow(slot)
         if (!window || !window.managedDrawer) return
+        // Another stop than the open drawer's source: it gives way first, so
+        // the highlight and tooltip that follow never share the bar with it.
+        if (hovered) window.managedDrawer.pointerOnStop(slot)
         if (hovered && slot.groupHeader) window.managedDrawer.sourceEnterGroup(slot.entry.powerbarGroupId, slot)
         // Inline mode: only the dots expand a zone; moving on to another zone
         // collapses the expanded one at once, as a drawer would switch.

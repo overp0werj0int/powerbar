@@ -335,6 +335,26 @@ Item {
     openZone(nextZone, false)
     if (opened && zone === nextZone) { sourceHovered = true; dismissal.stop() }
   }
+  // The pointer reached another stop along the bar: a hover-opened drawer
+  // closes rather than waiting out the grace (ManagedModel.closesForStop),
+  // once the pointer has stayed there 100 ms, so a diagonal way from the
+  // source into a wide menu that brushes a neighbour on the bar never counts.
+  property Item stopSlot: null
+  function pointerOnStop(slot) {
+    stopSlot = slot
+    if (opened && !keyboardMode) stepAway.restart()
+  }
+  Timer {
+    id: stepAway
+    interval: 100
+    onTriggered: {
+      var slot = drawer.stopSlot
+      if (!slot || !slot.stopHovered || drawer.containsMouse || drawer.sourceHovered) return
+      var stop = { groupId: slot.groupHeader ? slot.entry.powerbarGroupId : "", region: slot.region }
+      var held = bar.dragMotionActive || drawer.slots.some(function(s) { return s.panelOpen })
+      if (Model.closesForStop(drawer.opened, drawer.keyboardMode, held, drawer.groupId, drawer.zone, stop)) drawer.close()
+    }
+  }
   function sourceLeave(nextZone) {
     if (suppressedZone === nextZone) suppressedZone = ""
     if (zone !== nextZone) return
