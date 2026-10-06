@@ -7,7 +7,7 @@ import qs.Ui
 import "IconSearch.js" as IconSearch
 import "OmarchyIcons.js" as OmarchyIcons
 
-// The group icon picker (docs/prefs-groups-lab): a popover over the Groups
+// The group icon picker (docs/behavior/preferences.md): a popover over the Groups
 // page, under the icon well. Its icons are the glyphs your widgets draw,
 // Omarchy's own font and the Nerd Font glyphs Omarchy uses, and Omarchy's
 // emoji, about 2,170 in all; or your own SVG or PNG, dropped or pasted.

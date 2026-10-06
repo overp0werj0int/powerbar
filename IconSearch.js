@@ -1,4 +1,4 @@
-// The group icon picker's list and search (docs/prefs-groups-lab).
+// The group icon picker's list and search (docs/behavior/preferences.md).
 //
 // Sources, in this order: the glyphs your widgets draw (source 0), Omarchy's
 // own font and the Nerd Font glyphs Omarchy uses (source 1), Omarchy's emoji

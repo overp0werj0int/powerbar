@@ -834,7 +834,7 @@ Item {
                   onToggled: function(checked) { prefs.setOption("powerbarDotsBadge", checked) }
                 }
               }
-              // The keyboard mode (docs/bar-keys-lab): its shortcut, offered
+              // The keyboard mode (docs/behavior/keyboard.md): its shortcut, offered
               // rather than bound, and the strip of keys it shows.
               PrefsTile {
                 title: "Keyboard"

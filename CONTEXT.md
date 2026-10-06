@@ -48,7 +48,7 @@ A temporary appearance of a managed widget in the main bar after a qualifying ac
 A named, ordered collection of existing widget instances, represented by one bar icon.
 Icon-only groups follow the bar orientation. Groups showing member names use a
 vertical menu with Powerbar surface effects and the island radius; see
-docs/spacing-lab/spacing-lab.html for drawer geometry.
+docs/behavior/groups.md for drawer geometry.
 Membership overrides main-bar visibility
 without changing the member's saved zone, visibility mode, settings, or plugin enablement.
 Explicitly hidden members remain hidden; groups cannot be nested.

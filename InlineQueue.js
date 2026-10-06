@@ -1,5 +1,5 @@
 // The inline expansion's queue: which zone to show, and when. Pure decisions;
-// Bar.qml carries them out (docs/zone-fit-implementation.md, "Inline").
+// Bar.qml carries them out (docs/design/zone-fit.md, "Inline").
 //
 // state: { request, zone, readyAt }   what the pointer asks for, what is shown
 //                                     (a zone, or the centre by side: "center:start"),

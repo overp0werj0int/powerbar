@@ -1,4 +1,4 @@
-// Keyboard navigation of the bar (docs/bar-keys-lab): which key means what on
+// Keyboard navigation of the bar (docs/behavior/keyboard.md): which key means what on
 // each edge, how the cursor steps through the bar's stops, and how a search
 // ranks names. Pure decisions; Bar.qml carries them out.
 //

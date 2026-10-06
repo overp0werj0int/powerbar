@@ -4,7 +4,7 @@
 
 When the bug needs the whole bar (zones, drawers, drag), add a recorder to
 that app's offscreen host instead of the harness. Powerbar's bench
-(`~/Projects/powerbar/docs/rendering-bench`, `run.sh <plugin> <scenario> 1`)
+(`~/Projects/powerbar/docs/performance/bench`, `run.sh <plugin> <scenario> 1`)
 is the worked example: a shim `shell.qml` playing the Omarchy host, stand-in
 widgets for the user's layout, and scenarios driven by queued steps.
 

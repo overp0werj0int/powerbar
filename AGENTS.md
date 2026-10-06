@@ -1,8 +1,11 @@
 # Developing Powerbar
 
 Powerbar is an Omarchy shell plugin (Quickshell/QML) that replaces Omarchy's
-bar. README.md describes what it does; CONTEXT.md is the glossary (zone,
-on-demand, drawer, island…). Use its words in code, commits and UI text.
+bar. README.md is for users; CONTEXT.md is the glossary (zone, on-demand,
+drawer, island…), use its words in code, commits and UI text.
+`docs/behavior/` is the behavior of record: one file per area, every behavior
+a stable ID (`ZONE-12`) a behavioral test can name. `docs/README.md` maps the
+rest of `docs/`.
 
 ## Prerequisites
 
@@ -16,6 +19,9 @@ omabox for desktop tests in a private Hyprland session
 1. **Pure logic lives in `*Model.js`** with node tests in `tests/*.test.cjs`
    (decisions, layouts, ranking, placement). QML carries them out. New rules
    get a model function and a test first.
+   A change in what the user sees or can do updates its `docs/behavior/`
+   entry in the same commit (new behaviors get the next free ID; never reuse
+   one).
 2. **Validate before every commit:** `tools/validate.sh` (node tests, QML
    tests, the startup probe, `omarchy plugin validate`, qmlformat). Offscreen;
    it never touches the running shell.
@@ -42,7 +48,7 @@ omabox for desktop tests in a private Hyprland session
    key that the bar holds the keyboard. Never send keys or clicks to the real
    desktop otherwise.
 5. **Something jerky or slow:** `tools/frame-probe.md` (frame gaps on the live
-   bar) and `docs/rendering-bench` (offscreen whole-bar benchmark, profiler).
+   bar) and `docs/performance/bench` (offscreen whole-bar benchmark, profiler).
    Measure before and after; claim only measured gains.
 
 ## State over IPC
@@ -68,7 +74,8 @@ here automatically:
 - **omarchy-widget-debug**: frame-by-frame debugging (offscreen harness,
   `timeline.py`), the live loop (`live.sh`), focus and click pitfalls.
 - **omarchy-widget-lab**: evidence-based design labs built from the user's
-  real bar (`docs/*-lab`).
+  real bar (`docs/<topic>-lab` while the design is open). Once it ships, its
+  decisions go into `docs/behavior/` and the lab is deleted.
 
 `agents/skills/powerbar/` is the other kind: the skill a user's agent loads to
 *operate* Powerbar (CLI, settings, recipes). Keep development guidance out of

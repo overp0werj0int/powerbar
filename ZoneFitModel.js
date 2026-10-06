@@ -12,7 +12,7 @@
 // falls back. An inline expansion that would need a neighbour's anchor to
 // yield hides that whole neighbour instead (result.hidden), then the zone past
 // it if it still collides; it falls back only when it can't fit the bar line.
-// See docs/zone-fit-lab/zone-fit-lab.html for the specification.
+// See docs/behavior/layout-zones.md for the specification.
 
 function zoneItems(input, name) {
   var z = input.zones

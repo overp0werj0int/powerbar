@@ -3,7 +3,7 @@
 Use it when something "looks jerky" on the live bar (a slide, a drawer, an
 expansion). It tells a main-thread stall (one long gap between frames) from a
 slow animation (frames arrive, but move too little each). Offscreen benches
-(docs/rendering-bench) can't show this: the stall usually comes from mapping
+(docs/performance/bench) can't show this: the stall usually comes from mapping
 Wayland surfaces, which only happens on a real compositor (or in omabox).
 
 ## How
@@ -50,4 +50,4 @@ value easing towards its end. `80:58 146:3` is a stall: the first frame came at
   on `barWindow.sliding` (October 2026: Super+B on an autohidden bar went from
   2–3 frames to a frame every 16 ms).
 - A Repeater whose model holds QObjects costs ~2 ms per object
-  (docs/rendering-performance-implementation.md).
+  (docs/performance/implementation.md).
