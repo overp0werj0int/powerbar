@@ -49,7 +49,7 @@ Item {
       cursor: !cursor ? "" : cursorIsDots ? "dots:" + cursor.inlineToken : nameOf(cursor), kind: kindOf(cursor), zone: zone,
       cursorState: cursor && !cursorIsDots ? { managed: cursor.managed, inlineShown: cursor.inlineShown, activity: cursor.activityVisible, hovered: cursor.hovered, token: cursor.inlineToken } : null,
       stops: active ? stops().map(function(s) { return s.kind === "dots" ? "dots:" + s.item.inlineToken : nameOf(s.item) }) : [],
-      drawer: d ? { group: d.groupId, zone: d.zone, previewing: previewing, cursor: d.cursorActive ? d.cursor : -1,
+      drawer: d ? { group: d.groupId, zone: d.zone, previewing: previewing, aside: d.steppedAside, cursor: d.cursorActive ? d.cursor : -1,
         member: d.cursorActive && d.slots[d.cursor] ? bar.slotName(d.slots[d.cursor]) : "" } : null,
       searching: searching, query: query, matches: matchCount, sheet: sheet, inline: window ? window.inlineZone : "",
       barHidden: bar.barHidden, windowActive: !!(window && window.keysWindowActive), drawerFocused: !!(drawer && drawer.activeFocus), pointer: window && window.barPointer ? { hovered: window.barPointer.hovered, x: Math.round(window.barPointer.point.position.x), y: Math.round(window.barPointer.point.position.y) } : null, card: { shown: bar.tooltipShown, text: bar.tooltipText, mine: bar.tooltipTarget === cursor, belongs: !!cursor && bar.targetBelongsToWindow(cursor, window) }, focused: !!(window && window.keyCatcher && window.keyCatcher.activeFocus) }
@@ -266,6 +266,8 @@ Item {
   Connections {
     target: keys.drawer
     ignoreUnknownSignals: true
+    // Back from stepping aside for a member's panel: the keys go to it again.
+    function onSteppedAsideChanged() { if (keys.drawer && !keys.drawer.steppedAside && keys.here) keys.focusLater() }
     // Closed from elsewhere (the pointer, a widget): the keys come back to the bar.
     function onOpenedChanged() {
       if (keys.drawer && !keys.drawer.opened) {

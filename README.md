@@ -390,8 +390,12 @@ its activation indicator stays in the drawer and its main-bar slot is hidden.
 
 The drawer stays open while hovering its source zone or its contents. After
 leaving the source zone, you have 5 seconds to enter the drawer; after leaving
-the drawer, it closes after 3 seconds. Re-entry cancels dismissal, and entering after a timeout opens it immediately. Opening a
-widget's panel holds the drawer until that interaction ends. General's **Managed
+the drawer, it closes after 3 seconds. Re-entry cancels dismissal, and entering after a timeout opens it immediately. A
+widget's panel opened from a drawer (a group's menu or a zone's) opens at the bar's
+edge, as on Omarchy's bar, and the drawer steps aside while it is open (it fades and
+takes no clicks). When the panel closes, a drawer opened with the pointer closes too
+(the panel was the last stop); one used from the keyboard comes back with its cursor
+on the same widget once no panel is open. General's **Managed
 widgets** sliders configure activity, entry, and exit durations (10/5/3 seconds).
 
 Keyboard entry: `omarchy-shell powerbar managed left` (also `center` and `right`).
