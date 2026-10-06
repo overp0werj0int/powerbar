@@ -214,10 +214,12 @@ Item {
     if (!p || !w) return
     if (w.inlineZone === p.token) {
       var shown = stops().filter(function(s) { return s.item.inlineShown && s.item.inlineToken === p.token })
-      // The widgets take a frame or two to lay out after the zone opens.
-      if (!shown.length) { if (++p.tries < 20) landRetry.restart(); else pending = null; return }
-      pending = null
       var pick = p.key ? shown.find(function(s) { return s.item.instanceKey === p.key }) : null
+      // The widgets take a few frames to lay out after the zone opens, not
+      // all at once: wait for the one asked for (a search's), else any.
+      if (!pick && (p.key || !shown.length) && ++p.tries < 20) { landRetry.restart(); return }
+      pending = null
+      if (!shown.length) return
       if (!pick) pick = p.dir < 0 ? shown[shown.length - 1] : shown[0]
       cursor = pick.item
       showCard()
