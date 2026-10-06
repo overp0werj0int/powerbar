@@ -3477,11 +3477,21 @@ Item {
     readonly property bool peeking: !!(peekZones.all || peekZones.left || peekZones.center || peekZones.right)
     readonly property bool autoHideShown: !autoHideActive || autoHideRevealed || peeking
     property real autoHideOffset: autoHideShown ? 0 : autoHideDistance
-    // A drawer opening or closing under a tooltip moves it clear.
+    // A drawer opening or closing under a tooltip moves it clear. A tooltip
+    // on a drawer's row (the keyboard's name card after a search opened the
+    // group) is placed again once the drawer has its final size and scale:
+    // at the start of the opening it is still growing, so the row is not yet
+    // where it settles. One reposition per change batch, never per frame.
+    function reanchorTooltip() { if (tooltipWindow.visible) tooltipAnchor.updateAnchor() }
     Connections {
       target: drawer
-      function onOpenedChanged() { if (tooltipWindow.visible) tooltipAnchor.updateAnchor() }
-      function onSteppedAsideChanged() { if (tooltipWindow.visible) tooltipAnchor.updateAnchor() }
+      function onOpenedChanged() { Qt.callLater(barWindow.reanchorTooltip) }
+      function onSteppedAsideChanged() { Qt.callLater(barWindow.reanchorTooltip) }
+      function onRevealChanged() { if (drawer.reveal >= 0.999 || drawer.reveal <= 0.001) Qt.callLater(barWindow.reanchorTooltip) }
+      function onXChanged() { Qt.callLater(barWindow.reanchorTooltip) }
+      function onYChanged() { Qt.callLater(barWindow.reanchorTooltip) }
+      function onWidthChanged() { Qt.callLater(barWindow.reanchorTooltip) }
+      function onHeightChanged() { Qt.callLater(barWindow.reanchorTooltip) }
     }
     // Sliding out answers the pointer, so it is a touch slower than sliding
     // away; tucked islands move on the strip's exact curve so they cancel out.
