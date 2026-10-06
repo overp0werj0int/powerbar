@@ -132,6 +132,12 @@ Omarchy's sections, order and spacing, nothing on demand, no shortcuts bound.
 The nine-dot button at the far right (bottom of a side bar) opens
 Preferences.
 
+Back to Omarchy's bar at any time: `omarchy bar reset`. Your Powerbar
+settings stay in `~/.config/omarchy/shell.json` for when you come back.
+
+Needs Omarchy 4 (Quattro). Tested on Omarchy 4.0.4-1, Hyprland 0.56.2 and
+Quickshell 0.3.1.
+
 ### Optional: Super+B for the keyboard mode
 
 Nothing is bound on install. To start the keyboard mode with Super+B (once
@@ -143,12 +149,6 @@ omarchy-shell powerbar set shortcut.bar:keys "SUPER + B"
 
 Powerbar writes it to a marked block in `~/.config/hypr/bindings.lua`;
 `omarchy-shell powerbar clearShortcuts` removes it.
-
-Back to Omarchy's bar at any time: `omarchy bar reset`. Your Powerbar
-settings stay in `~/.config/omarchy/shell.json` for when you come back.
-
-Needs Omarchy 4 (Quattro). Tested on Omarchy 4.0.4-1, Hyprland 0.56.2 and
-Quickshell 0.3.1.
 
 ## Update
 
