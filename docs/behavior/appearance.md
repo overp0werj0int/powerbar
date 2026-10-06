@@ -220,6 +220,8 @@ Storage: the look lives in `bar.powerbarAppearance` of shell.json: `all` (values
 
 - **LOOK-93** A tooltip shows 400 ms after the pointer rests on a widget; when another tooltip was shown and cleared within the last 800 ms it shows after about 1 ms. The warm state is one global timer, not per widget. A widget with no tooltip of its own is named with its shortcut, as the keyboard cursor's name card names it (compounds such as workspaces and the tray, and groups, keep their own). Code: Bar.qml showTooltip, tooltipWarmUntil, tooltipTimer.
 
+- **LOOK-135** A tooltip (and the keyboard name card) for a widget on the bar sits the tooltip gap past the bar's outer edge, the strip that holds the islands, never past the widget's own cell: an island and a large bar's lip reach beyond the cell, and a tooltip measured from the cell sat on the island's edge. Code: TooltipModel.place (bar), Bar.qml tooltip anchoring with mainStrip.
+
 ## Large bar
 
 - **LOOK-94** `powerbarLargeBar: true` makes the bar 12 px thicker, a 6 px lip above and below each widget (26 to 38 px, 28 to 40 px vertical). Details in layout-zones.md ZONE-23. Code: Bar.qml largeBarLip, barSizeFor.

@@ -11,6 +11,10 @@
 //   inDrawer: the target is one of the drawer's items
 //   bounds:   { width, height } of the window, to flip a tooltip that has no
 //             room on its side to the other side (sliding back would cover)
+//   bar:      the bar's strip (optional). A target on the bar is measured
+//             from the strip's far edge when that is farther out: an island
+//             (and a large bar's lip) reaches past the target's cell, and a
+//             tooltip measured from the cell would sit on the island's edge.
 // Returns { x, y }, the tooltip's top left corner.
 
 function centreOn(target, popup, alongX) {
@@ -29,7 +33,16 @@ function overlaps(a, b) {
   return a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height
 }
 
-function place(position, target, popup, gap, drawer, inDrawer, bounds) {
+// The farther of two rectangles' sides away from the bar.
+function outer(position, a, b) {
+  if (!b) return a
+  if (position === "top") return a.y + a.height >= b.y + b.height ? a : { x: a.x, y: b.y, width: a.width, height: b.y + b.height - b.y }
+  if (position === "bottom") return a.y <= b.y ? a : { x: a.x, y: b.y, width: a.width, height: a.height }
+  if (position === "left") return a.x + a.width >= b.x + b.width ? a : { x: b.x, y: a.y, width: b.width, height: a.height }
+  return a.x <= b.x ? a : { x: b.x, y: a.y, width: a.width, height: a.height }
+}
+
+function place(position, target, popup, gap, drawer, inDrawer, bounds, bar) {
   var barVertical = position === "left" || position === "right"
   if (drawer && inDrawer) {
     if (drawer.vertical && !barVertical) {
@@ -43,7 +56,7 @@ function place(position, target, popup, gap, drawer, inDrawer, bounds) {
     var out = away(position, drawer, popup, gap)
     return barVertical ? { x: out.x, y: centreOn(target, popup, false) } : { x: centreOn(target, popup, true), y: out.y }
   }
-  var spot = away(position, target, popup, gap)
+  var spot = away(position, outer(position, target, bar), popup, gap)
   var at = barVertical ? { x: spot.x, y: centreOn(target, popup, false) } : { x: centreOn(target, popup, true), y: spot.y }
   // On the bar beside an open drawer: past the drawer, not over it.
   if (drawer && overlaps({ x: at.x, y: at.y, width: popup.width, height: popup.height }, drawer)) {
