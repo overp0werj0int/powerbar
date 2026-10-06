@@ -44,7 +44,7 @@ Sources: Preferences.qml, PreferencesModel.js, BentoModel.js, ShelfModel.js, Sli
 
 - **PREFS-17** A tile has a header with its title, an optional caption (a short muted line), an optional switch, an optional action button and an optional control slot (the Scope choice, the Groups filter), then its controls.
 
-- **PREFS-18** A tile can offer Reset (r, or the Reset button, asked twice within 3 s), but no tile sets `resettable` today, so no Reset appears; returning a Shape, Surface or Shadow value to the theme's is done by choosing the Scope "Theme" (PREFS-73) and a slider's Backspace (PREFS-57).
+- **PREFS-18** Tiles have no Reset action: pressing `r` in a tile does nothing and no Reset button is shown. A Shape, Surface or Shadow tile goes back to the theme's values by choosing Theme in its header (your values are kept for later); a single slider goes back to its default with Backspace. Code: PrefsTile.qml
 
 - **PREFS-19** The Groups settings tile has the action Dissolve (key x, or the button) asked twice: the first press changes it to "Again to dissolve" and the footer to "Again to dissolve", a second press within 3 s runs it, otherwise it lapses.
 
@@ -208,4 +208,3 @@ None found against the rewritten README.md.
 
 ## Open questions
 
-- No tile enables Reset (PREFS-18): `PrefsTile.resettable` is never set. Is a per-tile Reset still wanted now that Scope "Theme" returns values to the theme?

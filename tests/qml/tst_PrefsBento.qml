@@ -10,7 +10,6 @@ import "../../"
 Item {
   id: root
   width: 900; height: 700
-  property int resets: 0
   property bool shadow: false
 
   PrefsBento {
@@ -33,9 +32,6 @@ Item {
       switchable: true
       switchChecked: root.shadow
       onSwitched: function(checked) { root.shadow = checked }
-      resettable: true
-      changed: true
-      onReset: root.resets++
       PrefsSlider { id: softness; compact: true; label: "Softness"; enabled: root.shadow; animate: false }
     }
     PrefsTile {
@@ -51,9 +47,7 @@ Item {
     when: windowShown
 
     function init() {
-      root.resets = 0
       root.shadow = false
-      shadowTile.confirming = false
       large.forceActiveFocus()
       wait(0)
     }
@@ -101,25 +95,10 @@ Item {
       verify(softness.enabled)
     }
 
-    function test_resetAsksTwice() {
-      softness.enabled = true
-      root.shadow = true
-      softness.forceActiveFocus()
-      keyClick(Qt.Key_R)
-      compare(root.resets, 0)
-      verify(shadowTile.confirming)
-      keyClick(Qt.Key_R)
-      compare(root.resets, 1)
-      verify(!shadowTile.confirming)
-    }
-
-    function test_resetIsOnlyOfferedWhileChanged() {
-      shadowTile.changed = false
+    function test_tileOffersNoReset() {
+      shadowTile.forceActiveFocus()
       compare(shadowTile.tileHints.length, 0)
-      shadowTile.askReset()
-      shadowTile.askReset()
-      compare(root.resets, 0)
-      shadowTile.changed = true
+      verify(shadowTile.reset === undefined)
     }
   }
 }
