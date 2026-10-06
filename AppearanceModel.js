@@ -4,6 +4,8 @@
 // can never show a value the bar does not draw.
 //   spacing        Space between widgets. Past half a glyph cell, icons stop
 //                  reading as one bar and start reading as separate buttons.
+//                  The default, 4, spaces icons 27 px apart on the standard
+//                  bar: Omarchy's own icon slot (Style.bar.iconSlot).
 //   borderWidth    Island border. Off is the Borders switch, so the slider
 //                  starts at a hairline; past 3 the border outweighs the glyphs.
 //   rounding       Island and drawer corners. The top is computed: half the
@@ -12,7 +14,7 @@
 //                  past 24 it smears into a haze wider than the bar.
 //   shadowOpacity  Shadow strength. Under 5% it cannot be seen with Shadow on.
 var ranges = {
-  spacing: { min: 0, max: 16, step: 1, fallback: 0 },
+  spacing: { min: 0, max: 16, step: 1, fallback: 4 },
   borderWidth: { min: 0.5, max: 3, step: 0.5, fallback: 1 },
   rounding: { min: 0, step: 1 },
   backgroundOpacity: { min: 0, max: 100, step: 5, fallback: 100 },

@@ -82,6 +82,14 @@ function endPad(k, spill) {
   return k.inset - k.gutter / 2
 }
 
+// How far a flat bar's zones stay off the screen's sides: far enough that the
+// end glyph's centre sits where Omarchy's bar puts it, a section margin plus
+// half an icon slot in (8 + 27 / 2 on the standard bar). The end cell starts
+// one inset into its zone, so its centre is inset + cell / 2 further.
+function flatEdge(k, margin, iconSlot) {
+  return Math.max(0, (Number(margin) || 0) + (Number(iconSlot) || 0) / 2 - k.inset - k.cell / 2)
+}
+
 // The highlight for a placed slot, in slot coordinates along the bar.
 function highlight(k, p, rounding) {
   return { start: (p.extent - p.cell) / 2, length: p.cell, thickness: k.thickness, radius: radius(k, rounding) }

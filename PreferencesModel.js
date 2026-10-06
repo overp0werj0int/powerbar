@@ -3,16 +3,20 @@ var sections = ["left", "center", "right"]
 var modes = ["shown", "managed", "hidden"]
 
 function id(entry) { return typeof entry === "string" ? entry : String(entry.id || "") }
-function mode(entry, metadata) {
+// As ManagedModel.mode, without its pending state: a widget with no saved
+// visibility is On the bar, or, on a config still following the old default
+// (legacy), On demand unless it comes from Omarchy.
+function mode(entry, metadata, legacy) {
   var value = entry && entry.powerbarVisibility
-  return modes.indexOf(value) >= 0 ? value : metadata && metadata.firstParty === true ? "shown" : "managed"
+  if (modes.indexOf(value) >= 0) return value
+  return legacy && !(metadata && metadata.firstParty === true) ? "managed" : "shown"
 }
-function records(layout, metadataFor) {
+function records(layout, metadataFor, legacy) {
   var result = []
   sections.forEach(function(section) {
     var entries = layout && Array.isArray(layout[section]) ? layout[section] : []
     entries.forEach(function(entry, index) {
-      result.push({ section: section, index: index, id: id(entry), instanceKey: entry && entry.powerbarInstance || "", badgeProperty: entry && entry.powerbarBadgeProperty || "", urgentProperty: entry && entry.powerbarUrgentProperty || "", mode: mode(entry, metadataFor ? metadataFor(id(entry)) : null), fingerprint: JSON.stringify(entry) })
+      result.push({ section: section, index: index, id: id(entry), instanceKey: entry && entry.powerbarInstance || "", badgeProperty: entry && entry.powerbarBadgeProperty || "", urgentProperty: entry && entry.powerbarUrgentProperty || "", mode: mode(entry, metadataFor ? metadataFor(id(entry)) : null, legacy), fingerprint: JSON.stringify(entry) })
     })
   })
   return result

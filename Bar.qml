@@ -33,7 +33,9 @@ Item {
   BarKeys { id: barKeysItem; bar: root }
   readonly property var barKeys: barKeysItem
   readonly property bool preferencesOpen: preferencesPane.opened
-  readonly property bool animationsEnabled: barConfig.powerbarAnimations !== false
+  // The bar's options with their clean-config defaults (BarModel.options).
+  readonly property var barOptions: BarModel.options(barConfig)
+  readonly property bool animationsEnabled: barOptions.animations
   // Neighbours make way over a time that grows with the gap (150 ms for an
   // icon, at most 260 ms), so wide widgets never sweep their neighbours.
   readonly property int dragMotionDuration: CellModel.dragDuration(vertical ? dragGapHeight : dragGapWidth, CellModel.iconGap(cellTokens))
@@ -378,11 +380,11 @@ Item {
   // On-demand widgets either open in a drawer island when their zone is
   // hovered ("drawer"), or wait behind the zone's dots and expand in the bar
   // when the dots are hovered ("inline"; docs/zone-fit-implementation.md).
-  readonly property bool onDemandInline: barConfig.powerbarOnDemand === "inline"
+  readonly property bool onDemandInline: barOptions.onDemand === "inline"
   // The keyboard mode's key strip (Preferences → Bar → Keyboard).
-  readonly property bool keyLegend: barConfig.powerbarKeyLegend !== false
+  readonly property bool keyLegend: barOptions.keyLegend
   // The count badge on a zone's dots (drawer handle and yield marker).
-  readonly property bool dotsBadge: barConfig.powerbarDotsBadge !== false
+  readonly property bool dotsBadge: barOptions.dotsBadge
   onOnDemandInlineChanged: closeManagedDrawer()
 
   function closeManagedDrawer() { if (managedOwner) managedOwner.close("immediate") }
@@ -422,10 +424,23 @@ Item {
     activityDeadlines[key] = until
     for (var slot of (slotCopies[key] || [])) if (slot) slot.activityUntil = until
   }
-  // Assign stable identities once, preserving duplicate plugin instances on moves.
+  // Whether this config still follows the old visibility default (widgets not
+  // from Omarchy On demand) until healVisibility writes it down.
+  readonly property bool legacyVisibility: ManagedModel.legacyDefaults(barConfig)
+  // Not from Omarchy: a command or QML module, or a plugin the registry does
+  // not call first-party (by its id while the registry has not loaded it).
+  function thirdPartyEntry(entry) {
+    if (customModuleType(entry)) return true
+    var id = canonicalWidgetId(entryId(entry))
+    var metadata = barWidgetRegistry.metadataFor(id)
+    return metadata ? metadata.firstParty !== true : id.indexOf("omarchy.") !== 0
+  }
+  // Assign stable identities once, preserving duplicate plugin instances on
+  // moves. The visibility default is settled in the same write, before the
+  // ids exist: they would make a fresh config look like one Powerbar ran on.
   function ensureInstanceIds() {
     if (!shell || !barConfig.layout) return
-    var seen = {}, missing = false
+    var seen = {}, missing = barConfig.powerbarVisibilityDefault !== "shown"
     for (var zone of ["left", "center", "right"]) {
       for (var entry of (barConfig.layout[zone] || [])) {
         var key = entry && entry.powerbarInstance
@@ -435,6 +450,7 @@ Item {
     }
     if (!missing) return
     shell.mutateShellConfig(function(config) {
+      ManagedModel.healVisibility(config.bar, root.thirdPartyEntry)
       var used = {}
       for (var zone of ["left", "center", "right"]) {
         var entries = config.bar.layout[zone] || []
@@ -1767,7 +1783,7 @@ Item {
   }
   readonly property color extendedSurfaceColor: overlaySurfaceColor
 
-  readonly property string barStyle: BarModel.barStyle(barConfig)
+  readonly property string barStyle: barOptions.style
   readonly property bool islands: barStyle === "islands"
   readonly property bool floating: barStyle === "floating"
   readonly property bool flat: barStyle === "flat"
@@ -1777,13 +1793,13 @@ Item {
   property real highlightClock: 0
   // How long a narrower value keeps its cell's width.
   readonly property int widthHoldMs: 8000
-  readonly property bool autoHide: barConfig.powerbarAutoHide === true
+  readonly property bool autoHide: barOptions.autoHide
   // Whether widget activity slides an autohidden bar out (on by default).
-  readonly property bool autoHideActivity: barConfig.powerbarAutoHideActivity !== false
+  readonly property bool autoHideActivity: barOptions.autoHideActivity
   // The large bar is as thick as Preferences' Layout page draws it: the theme's
   // bar size plus a lip above and below each widget. Widgets keep their own
   // size and gain room around them; the islands' ends open up to match.
-  readonly property bool largeBar: barConfig.powerbarLargeBar === true
+  readonly property bool largeBar: barOptions.largeBar
   readonly property real largeBarLip: Style.space(6)
   function barSizeFor(vertical) {
     return (vertical ? Style.bar.sizeVertical : Style.bar.sizeHorizontal) + (largeBar ? largeBarLip * 2 : 0)
@@ -1791,15 +1807,16 @@ Item {
   // One cell, one inset (docs/spacing-lab): every item gets a cell along the
   // bar, square for glyphs, and the cell is its highlight. Equal slots puts
   // cells one gutter apart; Equal gaps puts the same air between glyphs.
-  readonly property string spacingMode: barConfig.powerbarSpacingMode === "gaps" ? "gaps" : "slots"
+  readonly property string spacingMode: barOptions.spacingMode
   readonly property var cellTokens: CellModel.tokens({ bar: barSize, spacing: widgetSpacing, mode: spacingMode })
   readonly property real highlightRadius: CellModel.radius(cellTokens, islandRounding)
   // Compounds (several click targets in one widget) show a faint track over
   // the whole cell and a thumb over the hovered target.
   readonly property color highlightTrackColor: Qt.rgba(barForeground.r, barForeground.g, barForeground.b, 0.06)
   // Islands keep the bar gap from the screen's sides, as from its edge; a
-  // flat bar runs edge to edge.
-  readonly property real islandScreenInset: flat ? 0 : edgeGap
+  // flat bar runs edge to edge, and its zones keep the end glyphs where
+  // Omarchy's bar has them (CellModel.flatEdge).
+  readonly property real islandScreenInset: flat ? CellModel.flatEdge(cellTokens, Style.space(8), Style.bar.iconSlot) : edgeGap
   // Preferences' layout preview pads its zones like an island end.
   readonly property real islandPadding: cellTokens.inset
   // Padding past the first or last slot so the end cell sits one inset from
@@ -4778,7 +4795,7 @@ Item {
     readonly property var memberGroup: groupHeader ? null : root.groupFor(instanceKey)
     readonly property var badgeInfo: memberGroup && memberGroup.badge ? GroupBadgeModel.sample(activeItem,
       entry && entry.powerbarBadgeProperty || "", entry && entry.powerbarUrgentProperty || "") : ({ count: 0, urgent: false })
-    readonly property string visibilityMode: ManagedModel.mode(entry, registryMetadata || (customType ? { firstParty: false } : null))
+    readonly property string visibilityMode: ManagedModel.mode(entry, registryMetadata || (customType ? { firstParty: false } : null), root.legacyVisibility)
     readonly property bool managed: visibilityMode === "managed"
     readonly property bool alwaysShown: visibilityMode === "shown"
     property var slotTargets: []
@@ -4876,7 +4893,9 @@ Item {
       if (hidden) { hidden.triggerPress(Qt.LeftButton); return true }
       return false
     }
-    readonly property bool needsPlaceholder: (alwaysShown || managed) && (!activeItem || !activeItem.visible || activeItem.opacity === 0 || activeItem.implicitWidth <= 0 || activeItem.implicitHeight <= 0)
+    // An empty widget hides itself as on Omarchy's bar unless the user placed
+    // it (ManagedModel.placeholder); then a fallback icon keeps its place.
+    readonly property bool needsPlaceholder: ManagedModel.placeholder(entry, visibilityMode) && (!activeItem || !activeItem.visible || activeItem.opacity === 0 || activeItem.implicitWidth <= 0 || activeItem.implicitHeight <= 0)
     // The widget's own box; drawers and drag images use it as is.
     readonly property real liveNaturalWidth: needsPlaceholder ? root.barSize : activeItem && activeItem.visible ? (root.vertical ? root.barSize : activeItem.implicitWidth) : 0
     readonly property real liveNaturalHeight: needsPlaceholder ? root.barSize : activeItem && activeItem.visible ? activeItem.implicitHeight : 0

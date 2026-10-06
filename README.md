@@ -18,8 +18,10 @@ part of them works from the keyboard.
   three zones side by side (Top, Center and Bottom on a side bar). Widgets on
   the bar show as icons, as the bar draws them; the other shelves add names.
   The shelves are:
-  - **On the bar** keeps a widget slot visible. If the widget has no visible
-    content, Powerbar displays a fallback icon. Clicking it does what clicking
+  - **On the bar** keeps a widget slot visible. A widget with nothing to show
+    (no updates pending, Bluetooth off) hides itself, as on Omarchy's bar, until
+    you place it yourself; then Powerbar displays a fallback icon in its place
+    while it has no visible content. Clicking it does what clicking
     the widget would: it presses the widget's own button even while the widget
     hides itself (the Omarchy update widget runs `omarchy-update`), or calls its
     `toggle()` or `open()`; only a widget with no action opens preferences.
@@ -90,6 +92,9 @@ With the pointer, drag any widget in Layout or between the drawer and the list;
 the landing place is previewed before you let go.
 
 Changes apply immediately and persist through the host in `~/.config/omarchy/shell.json`.
+Until you change something, Powerbar draws Omarchy's own bar plus the Preferences
+button: flat, on the edge `bar.position` names, at the theme's size, every widget
+in Omarchy's sections, order and spacing, nothing on demand, no shortcuts bound.
 **Bar style** (Bar → Style and position) is one of three, shown on a small
 picture of your screen; click another edge of the picture to move the bar there:
 
@@ -133,8 +138,12 @@ The added bar keys are `powerbarStyle` (`flat`, `floating` or `islands`),
 `powerbarAutoHide` and `powerbarSpacing`. Configs from before bar styles keep
 working: `powerbarIslands: true` reads as islands and anything else as flat,
 and choosing a style replaces the old key; each layout entry
-may have `powerbarVisibility` (`shown`, `managed`, or `hidden`). Without an explicit choice, Omarchy system
-widgets default to Always shown and custom widgets to Managed. Stable
+may have `powerbarVisibility` (`shown`, `managed`, or `hidden`). Without an explicit choice, every widget is
+Always shown, as on Omarchy's bar. Earlier versions put custom widgets On
+demand by default; a config Powerbar ran on before keeps that: the first run
+writes `powerbarVisibility: "managed"` on those widgets once and marks the
+config with `powerbarVisibilityDefault: "shown"`, which a fresh config gets on
+its first run too. Stable
 `powerbarInstance` keys are assigned once to distinguish duplicate instances.
 Existing inline settings and duplicate widget instances are preserved.
 The system tray retains Omarchy's placement at the inner edge of its section.

@@ -31,6 +31,8 @@ Item {
   property var previousCaptureConfig: ({})
   readonly property string wallpaper: bar ? "file://" + bar.stateHome + "/omarchy/current/background?v=" + openSerial : ""
   readonly property var config: bar ? bar.barConfig : ({})
+  // The bar's options as the bar reads them, defaults included.
+  readonly property var options: BarModel.options(config)
   // Widget metadata, refreshed once after the registry changes. Omarchy
   // re-registers every bar widget, one at a time, on each config write; read
   // directly, every registration rebuilt every page's models.
@@ -45,7 +47,7 @@ Item {
   function metadataFor(id) { return registryMetadata[String(id)] || null }
   onBarChanged: refreshRegistryMetadata()
   Component.onCompleted: refreshRegistryMetadata()
-  readonly property var entries: Model.records(config.layout, function(id) { return prefs.metadataFor(id) })
+  readonly property var entries: Model.records(config.layout, function(id) { return prefs.metadataFor(id) }, bar ? bar.legacyVisibility : false)
   readonly property var layoutEntries: {
     var result = entries.filter(function(e) { return !bar.groupFor(e.instanceKey) })
     bar.groups.forEach(function(g) {
@@ -774,7 +776,7 @@ Item {
                 PrefsToggle {
                   compact: true
                   label: "Autohide"
-                  checked: prefs.config.powerbarAutoHide === true
+                  checked: prefs.options.autoHide
                   onToggled: function(checked) { prefs.setOption("powerbarAutoHide", checked) }
                 }
                 // Only matters while the bar autohides, so it sits under
@@ -783,10 +785,10 @@ Item {
                   compact: true
                   Layout.leftMargin: Style.spacing.rowPaddingX
                   label: "Show on widget activity"
-                  enabled: prefs.config.powerbarAutoHide === true
+                  enabled: prefs.options.autoHide
                   opacity: enabled ? 1 : 0.45
                   Behavior on opacity { enabled: prefs.motion; NumberAnimation { duration: 120 } }
-                  checked: prefs.config.powerbarAutoHideActivity !== false
+                  checked: prefs.options.autoHideActivity
                   onToggled: function(checked) { prefs.setOption("powerbarAutoHideActivity", checked) }
                 }
                 // Powerbar's safety minimum for surfaces over windows, not a theme
@@ -815,13 +817,13 @@ Item {
                     ? "Behind dots in their zone; they expand in the bar when you hover the dots"
                     : "Hovering a zone opens them in a drawer next to the bar"
                   options: [{ value: "drawer", label: "In a drawer" }, { value: "inline", label: "In the bar" }]
-                  value: prefs.config.powerbarOnDemand === "inline" ? "inline" : "drawer"
+                  value: prefs.options.onDemand
                   onChosen: function(value) { prefs.setOption("powerbarOnDemand", value) }
                 }
                 PrefsToggle {
                   compact: true
                   label: "Count on the dots"
-                  checked: prefs.config.powerbarDotsBadge !== false
+                  checked: prefs.options.dotsBadge
                   onToggled: function(checked) { prefs.setOption("powerbarDotsBadge", checked) }
                 }
               }
@@ -839,7 +841,7 @@ Item {
                 PrefsToggle {
                   compact: true
                   label: "Key legend"
-                  checked: prefs.config.powerbarKeyLegend !== false
+                  checked: prefs.options.keyLegend
                   onToggled: function(checked) { prefs.setOption("powerbarKeyLegend", checked) }
                 }
               }
