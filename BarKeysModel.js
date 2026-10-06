@@ -215,4 +215,13 @@ function startScreen(screens, focused) {
   return screens.indexOf(focused)
 }
 
-if (typeof module !== "undefined") module.exports = { ZONES, keymap, barIntent, drawerIntent, step, zoneStep, fuzzy, matches, searchText, route, legend, startScreen }
+// The name card's text. On a row of a named menu the row already shows the
+// name, so the card says what hovering the row says: the widget's own
+// tooltip (a status, a level), when it has one that is not just its name.
+// Elsewhere it names the stop. The shortcut follows, three spaces apart.
+function cardText(name, own, shortcut, namedMenu) {
+  var main = namedMenu && own && own !== name ? own : name
+  return shortcut ? main + "   " + shortcut : main
+}
+
+if (typeof module !== "undefined") module.exports = { ZONES, keymap, barIntent, drawerIntent, step, zoneStep, fuzzy, matches, searchText, route, legend, startScreen, cardText }

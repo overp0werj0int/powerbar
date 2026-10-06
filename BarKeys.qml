@@ -624,8 +624,10 @@ Item {
     var name = nameOf(slot)
     var shortcut = targetOf(slot)
     var keysLabel = shortcut ? bar.shortcutLabel(shortcut) : ""
+    var menuRow = !!(here && d && d.namedMenu && target !== slot)
+    var own = menuRow && typeof target.ownTooltip === "function" ? target.ownTooltip() : ""
     cardTarget = target
-    bar.showCard(target, keysLabel ? name + "   " + keysLabel : name)
+    bar.showCard(target, KeysModel.cardText(name, own, keysLabel, menuRow))
   }
 
 
