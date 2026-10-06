@@ -10,3 +10,9 @@ docs/prefs-groups-lab/wall.jpg
 # falls back to the installed fonts locally.
 docs/prefs-groups-lab/fonts/
 docs/bar-keys-lab/wall.jpg
+
+# Tooling output
+__pycache__/
+*.py[cod]
+*.log
+test-results/

@@ -1,0 +1,20 @@
+#!/bin/bash
+# tests/run: the portable subset. Needs only node and bash, no Omarchy install
+# and no Qt; this is what CI runs. tools/validate.sh runs the full set.
+#   1. node unit tests (tests/*.test.cjs)
+#   2. bash -n on every shell script
+set -u
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT"
+failed=0
+
+echo "== node tests"
+node --test tests/*.test.cjs || failed=1
+
+echo "== shell syntax (bash -n)"
+while IFS= read -r f; do
+  if bash -n "$f"; then echo "ok   $f"; else echo "FAIL $f"; failed=1; fi
+done < <(find . \( -name .git -o -name worktrees -o -name node_modules \) -prune -o -name '*.sh' -type f -print | sort)
+
+[ "$failed" -eq 0 ] && echo "tests/run: all passed" || echo "tests/run: FAILED"
+exit "$failed"

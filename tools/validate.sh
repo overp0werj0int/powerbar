@@ -3,7 +3,8 @@
 # touches the running shell.
 #   1. node unit tests (tests/*.test.cjs)
 #   2. QML tests (tests/qml) against Omarchy's own Commons and Ui
-#   3. the startup probe (Bar.qml loads with a realistic config)
+#   3. the startup probe (QtTest over startup bindings that tests/startup-probe.cjs
+#      slices out of Bar.qml and LayoutEditor.qml as text; Bar.qml itself is not loaded)
 #   4. `omarchy plugin validate` (Omarchy's manifest and plugin checks)
 #   5. qmlformat parses every QML file
 # Needs: node, Qt 6 (qmltestrunner, qmlformat), an Omarchy install.
