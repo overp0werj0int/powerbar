@@ -59,8 +59,7 @@ Item {
       stops: active ? stops().map(function(s) { return s.kind === "dots" ? "dots:" + s.item.inlineToken : nameOf(s.item) }) : [],
       drawer: d ? { group: d.groupId, zone: d.zone, previewing: previewing, aside: d.steppedAside, cursor: d.cursorActive ? d.cursor : -1,
         member: d.cursorActive && d.slots[d.cursor] ? bar.slotName(d.slots[d.cursor]) : "" } : null,
-      searching: searching, query: query, matches: matchCount, sheet: sheet, handOff: handOff, foreign: foreign,
-      absorbing: absorbing, absorbed: absorbed, inline: window ? window.inlineZone : "",
+      searching: searching, query: query, matches: matchCount, sheet: sheet, handOff: handOff, foreign: foreign, inline: window ? window.inlineZone : "",
       barHidden: bar.barHidden, windowActive: !!(window && window.keysWindowActive), drawerFocused: !!(drawer && drawer.activeFocus), pointer: window && window.barPointer ? { hovered: window.barPointer.hovered, x: Math.round(window.barPointer.point.position.x), y: Math.round(window.barPointer.point.position.y) } : null, card: { shown: bar.tooltipShown, text: bar.tooltipText, mine: bar.tooltipTarget === cursor, belongs: !!cursor && bar.targetBelongsToWindow(cursor, window) }, focused: !!(window && window.keyCatcher && window.keyCatcher.activeFocus) }
   }
   function heldBy(window) { return active && !!keys.window && bar.sameWindow(keys.window, window) }
@@ -155,8 +154,8 @@ Item {
 
   // Esc twice quickly ends everything from any depth: the panel, the drawer,
   // the search, the mode. A panel's own Esc counts as the first (the bar sees
-  // it close). After the mode ends on Esc the bar keeps the keys a moment, so
-  // a reflexive extra Esc never reaches the window underneath.
+  // it close). Once the mode has ended the keys are the window's, as after
+  // Omarchy's panels and menu: an extra Esc reaches it.
   readonly property int doubleEscMs: 400
   property real lastEscAt: 0
   property real panelClosedAt: 0
@@ -165,27 +164,7 @@ Item {
     var now = Date.now(), quick = now - lastEscAt < doubleEscMs || now - panelClosedAt < doubleEscMs
     lastEscAt = now
     if (!quick) return false
-    leaveOnEscape()
-    return true
-  }
-  function leaveOnEscape() {
-    var w = window
     leave()
-    absorbWindow = w
-    absorbing = true
-    absorbEnd.restart()
-  }
-  property bool absorbing: false
-  property var absorbWindow: null
-  property int absorbed: 0
-  function absorbingOn(w) { return absorbing && !!absorbWindow && bar.sameWindow(absorbWindow, w) }
-  Timer { id: absorbEnd; interval: keys.doubleEscMs; onTriggered: { keys.absorbing = false; keys.absorbWindow = null } }
-  // The keys the bar still holds just after leaving: an Esc is swallowed;
-  // anything else ends the hold at once.
-  function absorbKey(event) {
-    if (!absorbing) return false
-    if (keyName(event) === "Escape") { absorbed++; return true }
-    absorbEnd.stop(); absorbing = false; absorbWindow = null
     return true
   }
 
@@ -404,7 +383,6 @@ Item {
   }
   // A key on the bar. Returns whether it was used.
   function barKey(event) {
-    if (absorbKey(event)) return true
     var name = keyName(event)
     if (active && doubleEscape(name)) return true
     if (name && active && suspended) return panelKey(name)
@@ -430,7 +408,7 @@ Item {
     else if (it.open) openCursor()
     else if (it.find) startSearch()
     else if (it.sheet) sheet = true
-    else if (it.leave) leaveOnEscape()
+    else if (it.leave) leave()
     return true
   }
   // A key in a drawer opened from the cursor.
