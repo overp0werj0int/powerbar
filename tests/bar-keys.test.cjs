@@ -119,6 +119,25 @@ test('each word typed must match, and a member matches by its group name too', (
   assert.equal(keys.matches(names, 'ai')[0], 0, 'the group first');
 });
 
+test('a member reads its group name first', () => {
+  assert.equal(keys.searchText('Local Laya', 'AI'), 'AI Local Laya');
+  assert.equal(keys.searchText('ScratchPeek', ''), 'ScratchPeek');
+});
+
+test('a found widget comes into view the way the pointer would bring it', () => {
+  const at = (w) => keys.route(Object.assign({ onBar: false, inline: false, behindDots: false, folded: false, inDrawer: false }, w));
+  assert.equal(at({ onBar: true, inline: true }), 'put');
+  // In the bar: the zone's dots expand it in place, for on-demand and folded widgets alike.
+  assert.equal(at({ inline: true, behindDots: true, inDrawer: true }), 'dots');
+  assert.equal(at({ inline: true, folded: true, inDrawer: true }), 'dots', 'folded off for lack of room');
+  // In a drawer: the zone's drawer.
+  assert.equal(at({ folded: true, inDrawer: true }), 'drawer');
+  assert.equal(at({ inDrawer: true }), 'drawer');
+  // Out of the way of another zone's expansion, in either mode.
+  assert.equal(at({ inline: true }), 'clear');
+  assert.equal(at({}), 'clear');
+});
+
 test('the key strip names the keys of the edge', () => {
   const right = keys.legend('right', 'bar');
   assert.equal(right[0].keys, '↑ ↓');

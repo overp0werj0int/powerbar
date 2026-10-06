@@ -288,8 +288,9 @@ every edge:
   Tailscale. A group's members match by the group's name too (`/auau` is the
   Audio group's Audio). A space starts a new word, typed in any order: `/ai a`
   finds the AI group's members with a word starting with "a". A single letter
-  only matches the start of a word. The search opens the way: into a group,
-  behind dots or into a zone drawer. Tab and
+  only matches the start of a word. Every widget you haven't hidden is
+  found, wherever it is, and the search opens the way: into a group, behind
+  dots, into a zone drawer, or out from behind another zone's expansion. Tab and
   Shift+Tab move between matches, Enter opens one; an arrow ends the search
   where it is and moves on from there (↓ on a top bar goes into the group found).
 - The Powerbar button is the last stop: Enter opens Preferences.
