@@ -35,6 +35,9 @@ omarchy-shell powerbar help >/dev/null && echo running          # answers only w
 - **Read before you write.** `omarchy-shell powerbar status` gives every
   setting, widget, group, shortcut and what the bar is doing right now. Use it
   to find ids and current values instead of guessing.
+- **Check every part of the request.** After a multi-part request, read
+  `status` (or `get`, `widgets`, `groups`) and confirm each part landed on the
+  thing the user named, before saying it is done.
 - **One change, then check.** Every write answers `ok` or `error: <reason>`.
   On `error`, read the reason; it says what is allowed. Don't retry the same
   call blindly, and don't fall back to editing `shell.json` to get around a
@@ -59,7 +62,7 @@ omarchy-shell powerbar help >/dev/null && echo running          # answers only w
 | `get <setting>` | one setting's current value (JSON) |
 | `widgets` | each widget: `id`, `instance`, `name`, `zone`, `index`, `visibility`, `group`, `centered`, `activityPeek`, `badgeProperty`, `urgentProperty`, `settings` |
 | `groups` | each group with all its fields and `members` (`instance`, `id`) |
-| `shortcuts` | each target: `name`, `keys`, `source` (omarchy / yours / powerbar…), `ready` |
+| `shortcuts` | `{ready, shortcuts: [{target, name, keys, source, fallback, positional, ready}]}`; `source` says who binds it (omarchy, yours, powerbar…) |
 | `managedStatus` / `drawerStatus` / `popupStatus` / `keysStatus` | On demand widgets, the open drawer, the open panel, the keyboard mode |
 | `help` | every function, with what it does |
 
@@ -106,14 +109,21 @@ omarchy-shell powerbar set shape.rounding 6
 
 Setting a value while its scope is `theme` answers
 `error: shape follows the theme; set shape.scope to all or this first`.
-`reset shape.scope` goes back to the theme without losing the stored values.
+
+To undo: `reset shape.rounding` drops your value in the current scope (it
+falls back to the shared value, then the theme's). To go back to the theme's
+look entirely: `set shape.scope theme`; your stored values are kept for later.
+(`reset shape.scope` picks Preferences' default instead: `all` when shared
+values exist, else `theme`.)
 A theme can also ship its own look in `powerbar.toml` (README, "For theme
 authors").
 
 ## Widgets
 
 A widget is named by its plugin id (`omarchy.bluetooth`), or by its
-`instance` when it is on the bar more than once (the error lists them).
+`instance` when it is on the bar more than once (the error lists them). Find
+ids and display names with `widgets | jq -r '.[] | "\(.id)  \(.name)  \(.zone)  \(.visibility)"'`;
+match the user's words to `name`, not a guessed id.
 
 ```sh
 omarchy-shell powerbar setWidget omarchy.bluetooth '{"visibility":"managed"}'
@@ -139,7 +149,9 @@ omarchy-shell powerbar removeGroup Sound          # its widgets go back where th
 ```
 
 A group is named by id or label. Fields: `label`, `icon` (a glyph),
-`iconImage` (path to an SVG/PNG), `iconTint` (text, own), `iconFont`
+`iconImage` (path to an SVG/PNG), where `icon` is any glyph: a Nerd Font
+icon, which matches the bar (copy one a widget already draws, or let the user
+pick in Preferences → Groups), or an emoji, `iconTint` (text, own), `iconFont`
 ("", omarchy), `zone`, `before`, `visibility`, `face` (glyph, text, both: what
 the bar shows), `memberDisplay` (native, name, both: how the drawer shows
 members), `orientation` (auto, horizontal, vertical), `tooltip` (bool),
