@@ -85,7 +85,7 @@ In inline mode a zone's On demand widgets wait behind its dots (shared with fold
 
 - **DEMAND-46** `omarchy-shell powerbar managed <left|center|right>` opens that zone's drawer on the focused monitor, for the keyboard: the drawer takes focus and no member is selected yet. Nothing happens for a zone with no On demand widgets (integration.md INTEG-49).
 - **DEMAND-47** Tab, Right and Down move to the next member; Shift+Tab, Left and Up to the previous. The first press shows the cursor (on the first member for next, the last for previous); later presses wrap around.
-- **DEMAND-48** Enter or Space presses the member under the cursor (member 0 if the cursor is not shown yet); Escape closes the drawer. A drawer opened from the bar's keyboard cursor: keyboard.md KEYS-10, KEYS-20.
+- **DEMAND-48** In a drawer opened for the keyboard (`managed <zone>`), the first Enter or Space only shows the cursor on the first member; with the cursor showing, Enter or Space presses the member under it. Escape closes the drawer. A drawer opened from the bar's keyboard cursor: keyboard.md KEYS-10, KEYS-20. Code: ManagedModel.js pressAction()
 - **DEMAND-49** Hovering a member highlights it without moving the keyboard cursor.
 - **DEMAND-50** A keyboard drawer has no close timer; it stays until Escape, an outside click, or a close from the bar.
 
@@ -126,4 +126,4 @@ DEMAND-33, 34, 35, 69 moved to groups.md (GROUP-96 to GROUP-98). DEMAND-54, 55, 
 
 ## Open questions
 
-- None open. Possible bug: in a drawer opened by `managed <zone>`, Enter or Space presses member 0 even when no cursor is shown yet (ManagedDrawer.qml:386, `slots[cursor]` without `cursorActive`), although the cursor-less open is meant to stop a first keystroke opening a panel.
+- None open.

@@ -137,6 +137,14 @@ function placeMenu(o) {
 function cursorVisible(keyboardMode, cursorActive, count) {
   return !!keyboardMode && !!cursorActive && count > 0
 }
+// What Enter or Space does in a drawer: a drawer opened for the keyboard
+// starts without a cursor so the first keystroke never opens a panel, so the
+// first press shows the cursor on the first member ("select"); with the cursor
+// showing it presses that member ("activate").
+function pressAction(keyboardMode, cursorActive, count) {
+  if (count <= 0) return "none"
+  return cursorVisible(keyboardMode, cursorActive, count) ? "activate" : "select"
+}
 // Widgets whose presentation changes on a clock rather than on an event; an
 // autohidden bar should not slide out for them every minute.
 var quietWidgets = ["omarchy.clock"]

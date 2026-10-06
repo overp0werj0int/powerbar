@@ -112,3 +112,9 @@ test('widgets peek an autohidden bar unless clock-driven or opted out', () => {
   assert.equal(m.peeksOnActivity({ id: 'omarchy.clock' }, 'omarchy.clock'), false);
   assert.equal(m.peeksOnActivity(null, 'omarchy.audio'), true);
 });
+
+test('Enter in a drawer opened without a cursor shows the cursor before it presses anything', () => {
+  assert.equal(m.pressAction(true, false, 3), 'select');
+  assert.equal(m.pressAction(true, true, 3), 'activate');
+  assert.equal(m.pressAction(true, false, 0), 'none');
+});
