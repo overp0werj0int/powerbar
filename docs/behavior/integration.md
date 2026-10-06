@@ -103,7 +103,7 @@ follows the re-injected `barConfig`; none reaches Powerbar's IPC.
 - **INTEG-92** `command` modules take `exec` (`~` expands), `interval` seconds, `tooltip`, `onClick`; output is plain text or Waybar-style JSON `{"text","tooltip","class"}`.
 - **INTEG-93** `qml` modules take optional `source` (default `~/.config/omarchy/bar/modules/<id>.qml`), are loaded as an `Item`, and receive `bar`, `moduleName`, `settings`.
 - **INTEG-94** A QML module defines `implicitWidth` and `implicitHeight`; the bar sets its height to the bar size.
-- **INTEG-95** The injected `bar` exposes `foreground`, `background`, `urgent`, `fontFamily`, `position`, `vertical`, `barSize`, `run(cmd)`, `shellQuote(v)`, `showTooltip(target, text)`, `hideTooltip(target)`, `requestPopout(owner)`, `releasePopout(owner)`.
+- **INTEG-95** The injected `bar` exposes `foreground`, `background`, `urgent`, `fontFamily`, `position`, `vertical`, `barSize`, `run(cmd)` (runs `cmd` through `bash -lc`, detached), `showTooltip(target, text)`, `hideTooltip(target)`, `requestPopout(owner)`, `releasePopout(owner)`. It has no `shellQuote`: Omarchy's bar README lists `bar.shellQuote(value)`, but neither bar defines it; a widget quotes with `Util.shellQuote(value)` from `qs.Commons`, as Omarchy's own widgets do.
 - **INTEG-96** A widget whose component is not available draws as a placeholder until the registry heal (INTEG-27..32) hands it one.
 
 ## Command line: `omarchy-shell powerbar <function> [args]`
