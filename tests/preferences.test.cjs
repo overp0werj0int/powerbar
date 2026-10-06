@@ -175,3 +175,12 @@ test('the centre On demand cell splits at the anchor into two columns', () => {
   assert.equal(model.move(config, recs[3], 'center', 'managed', model.dropBefore([recs[0]], 1, 'center:start', 2)), true);
   assert.deepEqual(config.bar.layout.center.map(model.id), ['m1', 's1', 'm2', 'clock']);
 });
+
+test('preferencesPage counts from 1 and clamps to the pages there are', () => {
+  assert.equal(model.pageIndex(1, 3), 0);
+  assert.equal(model.pageIndex(2, 3), 1);
+  assert.equal(model.pageIndex(3, 3), 2);
+  assert.equal(model.pageIndex(4, 3), 2);
+  assert.equal(model.pageIndex(0, 3), 0);
+  assert.equal(model.pageIndex(-2, 3), 0);
+});

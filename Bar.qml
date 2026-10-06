@@ -569,8 +569,7 @@ Item {
     function closePreferences(): void { preferencesPane.close() }
     function preferencesPage(page: int): void {
       if (!preferencesPane.opened) preferences()
-      // General (3) and Appearance (4) are one Bar page now; both open it.
-      preferencesPane.setPage(Math.min(page, preferencesPane.pages.length) - 1)
+      preferencesPane.setPage(PreferencesModel.pageIndex(page, preferencesPane.pages.length))
     }
     function managed(zone: string): void { root.openManagedZone(zone) }
     function closeManaged(): void { root.closeManagedDrawer() }
@@ -639,7 +638,7 @@ Item {
   // components the shell has since rebuilt and destroyed, which leaves every
   // widget a placeholder until the shell is restarted. When Powerbar finds such
   // entries it asks the shell to rescan its plugins once, which hands it fresh
-  // components; the 30 s guard keeps a lasting fault from looping.
+  // components; the 60 s guard keeps a lasting fault from looping.
   // A rescan reloads every plugin, Powerbar included, so the guard lives in a
   // runtime file rather than in this instance: at most one rescan a minute.
   function registryStale() {
