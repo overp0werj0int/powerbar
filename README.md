@@ -601,7 +601,7 @@ The model tests cover movement among all nine cells, preserving settings and
 unrelated config, duplicate instances, reordering, stale drags, and visibility
 transitions that retain or remove the affected live owners. The QML suite covers
 retention, scoped API updates, idle geometry, shared indicators and capture
-lifecycle using controlled fixtures. See [rendering implementation evidence](docs/rendering-performance-implementation.md).
+lifecycle using controlled fixtures. See [rendering implementation evidence](docs/performance/implementation.md).
 Live checks additionally cover loading,
 opening from the nine-dot button, keyboard movement, drag-and-drop, persistence,
 and Escape dismissal. Multi-monitor behavior still needs a multi-monitor session.

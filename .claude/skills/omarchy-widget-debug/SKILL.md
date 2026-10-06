@@ -157,7 +157,7 @@ See `references/bug-catalogue.md` for every class with its signature and fix.
 ## Offscreen drags (Powerbar bench, October 2026)
 
 QtTest `mousePress`/`mouseMove(..., -1, Qt.LeftButton)` drive real drags in
-`docs/rendering-bench` (`dragdots` scenario, `BENCH_DRAG="<widget> <waypoints>"`).
+`docs/performance/bench` (`dragdots` scenario, `BENCH_DRAG="<widget> <waypoints>"`).
 Offscreen, a window that shows becomes active and Qt cancels the bar's press
 (`onCanceled` fires mid-drag): set `BENCH_NO_GHOST=1` so the drag ghost window
 stays hidden. A walker that chases a moving target (dots pushed by a gap) can
