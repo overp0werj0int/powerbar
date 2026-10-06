@@ -88,32 +88,80 @@ function zoneStep(zones, index, dir) {
   return -1
 }
 
-// Search: the matches for a query, best first. Each word typed must match a
-// word of its own in the item's text: its start beats a match inside it (a
-// single letter only matches starts).
-// A group member's text includes its group's name, so "ai a" finds the AI
-// group's members starting with "a". Ties keep bar order.
+// Fuzzy search, after fzy (github.com/jhawthorn/fzy, ALGORITHM.md): the
+// letters typed appear in order anywhere in the text, and the best way to
+// place them wins. A letter scores most when it continues the previous one,
+// then at a word's start (or a capital inside a word); gaps cost a little,
+// so "ail" finds "AI Local Laya" before "Tailscale" and "auau" finds the
+// Audio group's Audio. Same constants as fzy.
+var GAP_OUTER = -0.005, GAP_INNER = -0.01, CONSECUTIVE = 1, AT_START = 0.9, AT_WORD = 0.8, AT_CAPITAL = 0.7
+// A letter of a word (any script), not a space or punctuation.
+function isLetter(c) { return c.toLowerCase() !== c.toUpperCase() || (c >= "0" && c <= "9") }
+
+// The best placement of needle (lower case) in text, skipping the letters
+// marked in used: { score, at: [index per letter], start: the first letter
+// begins a word }, or null when the letters are not all there in order.
+function fuzzy(needle, text, used) {
+  var n = needle.length, m = text.length, hay = text.toLowerCase()
+  if (!n || n > m) return null
+  var bonus = []
+  for (var j = 0; j < m; j++) {
+    var c = text[j], prev = j ? text[j - 1] : ""
+    bonus.push(!isLetter(c) ? 0 : !j ? AT_START : !isLetter(prev) ? AT_WORD
+      : c !== c.toLowerCase() && prev === prev.toLowerCase() ? AT_CAPITAL : 0)
+  }
+  // M[i][j]: best score with letter i placed at j; D[i][j]: placed at j or before.
+  var M = [], D = []
+  for (var i = 0; i < n; i++) {
+    var mi = [], di = [], best = -Infinity, gap = i === n - 1 ? GAP_OUTER : GAP_INNER
+    for (j = 0; j < m; j++) {
+      var s = -Infinity
+      if (needle[i] === hay[j] && !(used && used[j])) {
+        if (!i) s = j * GAP_OUTER + bonus[j]
+        else if (j) s = Math.max(D[i - 1][j - 1] + bonus[j], M[i - 1][j - 1] + CONSECUTIVE)
+      }
+      mi.push(s)
+      di.push(best = Math.max(s, best + gap))
+    }
+    M.push(mi); D.push(di)
+  }
+  if (D[n - 1][m - 1] === -Infinity) return null
+  // Walk back to where each letter went.
+  var at = [], must = false
+  for (i = n - 1, j = m - 1; i >= 0; i--) {
+    for (; j >= 0; j--) {
+      if (M[i][j] !== -Infinity && (must || M[i][j] === D[i][j])) {
+        must = i > 0 && j > 0 && M[i][j] === M[i - 1][j - 1] + CONSECUTIVE
+        at[i] = j--
+        break
+      }
+    }
+  }
+  return { score: D[n - 1][m - 1], at: at, start: bonus[at[0]] > 0 }
+}
+
+// Search: the matches for a query, best first, ties in bar order. Each word
+// typed must match on its own letters (longest word first), in any order,
+// so "ai a" finds the AI group's members (their text starts with the
+// group's name) but not the group itself. A space means "a new word", so a
+// word after one starts a word of the text, and so does a single letter.
 //   names: one text per item, in bar order. Returns item indices.
 function matches(names, query) {
   var words = String(query || "").toLowerCase().trim().split(/\s+/).filter(function(w) { return w })
+    .map(function(w, k) { return { w: w, anchored: k > 0 || w.length === 1 } })
   if (!words.length) return []
+  words.sort(function(a, b) { return b.w.length - a.w.length })
   var scored = []
   names.forEach(function(name, i) {
-    var n = String(name || "").toLowerCase()
-    // Words end at spaces and punctuation (Qt's engine has no \p{L}).
-    var parts = n.split(/[\s\-_.:,;\/()\[\]+&]+/), used = []
-    // Each word typed takes a word of its own: the start of one, else (two
-    // letters or more) one that contains it.
-    var score = 2
-    for (var w of words) {
-      var at = parts.findIndex(function(p, k) { return used.indexOf(k) < 0 && p.indexOf(w) === 0 })
-      var s = 2
-      if (at < 0 && w.length > 1) { at = parts.findIndex(function(p, k) { return used.indexOf(k) < 0 && p.indexOf(w) >= 0 }); s = 1 }
-      if (at < 0) { score = 0; break }
-      used.push(at)
-      score = Math.min(score, s)
+    var text = String(name || ""), used = {}, total = 0
+    for (var word of words) {
+      var hit = fuzzy(word.w, text, used)
+      if (!hit || (word.anchored && !hit.start)) return
+      total += hit.score
+      // Letters a word used are spent.
+      hit.at.forEach(function(j) { used[j] = true })
     }
-    if (score) scored.push({ i: i, score: score })
+    scored.push({ i: i, score: total })
   })
   scored.sort(function(a, b) { return b.score - a.score || a.i - b.i })
   return scored.map(function(x) { return x.i })
@@ -141,4 +189,4 @@ function legend(position, state, drawers) {
   ]
 }
 
-if (typeof module !== "undefined") module.exports = { ZONES, keymap, barIntent, drawerIntent, step, zoneStep, matches, legend }
+if (typeof module !== "undefined") module.exports = { ZONES, keymap, barIntent, drawerIntent, step, zoneStep, fuzzy, matches, legend }

@@ -282,11 +282,14 @@ every edge:
   cursor where it is. Any other window that opens while the mode is on (a bind,
   a launcher) ends it the same way; surfaces that never take the keyboard
   (notifications, the OSD) don't count.
-- `/` finds a widget by the words of its name: each word typed matches a word
-  of its own (its start first; a single letter only starts), and a group's
-  members match by the group's name too, so `/ai a` finds the AI group's
-  members starting with "a". It opens the way: into a group, behind dots or
-  into a zone drawer. Tab and
+- `/` finds a widget by its name, fuzzily (fzy's ranking): the letters you
+  type appear in order, and starts of words and letters in a row rank first,
+  so `/pm` finds Plugin Manager and `/ail` finds AI's Local Laya before
+  Tailscale. A group's members match by the group's name too (`/auau` is the
+  Audio group's Audio). A space starts a new word, typed in any order: `/ai a`
+  finds the AI group's members with a word starting with "a". A single letter
+  only matches the start of a word. The search opens the way: into a group,
+  behind dots or into a zone drawer. Tab and
   Shift+Tab move between matches, Enter opens one; an arrow ends the search
   where it is and moves on from there (↓ on a top bar goes into the group found).
 - The Powerbar button is the last stop: Enter opens Preferences.

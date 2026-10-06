@@ -76,16 +76,47 @@ test('search ranks word starts first, then any match, then bar order', () => {
   assert.deepEqual(keys.matches(['Météo'], 'mé'), [0], 'any letters, not only ASCII');
 });
 
+test('the letters typed may skip ahead, and the best placement wins', () => {
+  // Names from a real bar; members carry their group's name first.
+  const names = ['AI', 'AI Agents', 'AI Local Laya', 'Audio', 'Audio Audio', 'Audio microphone', 'Bluetooth',
+    'Tailscale', 'Plugin Manager', 'Omarchy Power Manager', 'OmaSettings', 'Omatop'];
+  const top = (q) => names[keys.matches(names, q)[0]];
+  assert.equal(top('auau'), 'Audio Audio', "the Audio group's Audio");
+  assert.equal(top('ail'), 'AI Local Laya', 'word starts beat letters in a row inside a word');
+  assert.deepEqual(keys.matches(names, 'ail').map((i) => names[i]), ['AI Local Laya', 'Tailscale']);
+  assert.equal(top('top'), 'Omatop');
+  assert.equal(top('to'), 'Omatop', 'the shorter name wins a tie');
+  assert.equal(top('pm'), 'Plugin Manager', 'initials');
+  assert.equal(top('os'), 'OmaSettings', 'a capital inside a word starts a word');
+  assert.equal(top('audio'), 'Audio', 'the exact name first');
+  assert.deepEqual(keys.matches(names, 'xq'), []);
+});
+
+test('a single letter, or a word after a space, starts a word', () => {
+  const names = ['Bluetooth', 'Tailscale', 'Audio', 'AI usage dashboard'];
+  assert.deepEqual(keys.matches(names, 't'), [1], 'not the t inside Bluetooth');
+  assert.deepEqual(keys.matches(names, 'ai u'), [3], 'not the u inside Audio');
+  assert.ok(keys.matches(names, 'ud').includes(2), 'one word of two letters may start inside a word');
+});
+
+test('the fuzzy placement says where each letter went', () => {
+  assert.deepEqual(keys.fuzzy('ail', 'AI Local Laya').at, [0, 1, 3]);
+  assert.deepEqual(keys.fuzzy('ail', 'Tailscale').at, [1, 2, 3]);
+  assert.equal(keys.fuzzy('ail', 'Tailscale').start, false);
+  assert.equal(keys.fuzzy('abc', 'ab'), null);
+  assert.deepEqual(keys.fuzzy('a', 'Audio', { 0: true }), null, 'a used letter is skipped');
+});
+
 test('each word typed must match, and a member matches by its group name too', () => {
   // In bar order: the AI group, its members (text "ai <name>"), then others.
   const names = ['AI', 'AI Agent Orchestrator', 'AI Agents', 'AI Agent Activity', 'Audio', 'AI usage dashboard'];
-  assert.deepEqual(keys.matches(names, 'ai a'), [1, 2, 3], "the group's members with a word starting with a");
+  assert.deepEqual(keys.matches(names, 'ai a').sort(), [1, 2, 3], "the group's members with a word starting with a");
   assert.deepEqual(keys.matches(names, 'ai act'), [3]);
   assert.deepEqual(keys.matches(names, 'ai u'), [5]);
   assert.deepEqual(keys.matches(names, 'act ai'), [3], 'any order');
   assert.deepEqual(keys.matches(names, 'ai zz'), [], 'every word must match');
-  assert.deepEqual(keys.matches(names, '  au  '), [4], 'spaces around do not count');
-  assert.deepEqual(keys.matches(names, 'ai'), [0, 1, 2, 3, 5], 'the group first, then by bar order');
+  assert.deepEqual(keys.matches(names, '  au  '), [4, 5], 'spaces around do not count');
+  assert.equal(keys.matches(names, 'ai')[0], 0, 'the group first');
 });
 
 test('the key strip names the keys of the edge', () => {
