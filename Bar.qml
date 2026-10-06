@@ -552,14 +552,12 @@ Item {
     pendingTargets = []
     for (var target of pending) if (clickTargets.indexOf(target) >= 0 && !attachTarget(target)) pendingTargets.push(target)
   }
+  // The keyboard's commands pick their bar one way (focusedBarWindow): the
+  // focused monitor's, another only while no monitor is focused.
   function openManagedZone(zone) {
     if (["left", "center", "right"].indexOf(zone) < 0) return
-    var screenName = focusedScreenName()
-    for (var slot of moduleSlots) {
-      var window = targetWindow(slot)
-      if (window && window.screen && window.screen.name === screenName && window.managedDrawer)
-        { window.managedDrawer.openZone(zone, true); return }
-    }
+    var window = focusedBarWindow()
+    if (window && window.managedDrawer) window.managedDrawer.openZone(zone, true)
   }
 
   IpcHandler {
@@ -581,10 +579,9 @@ Item {
     function keys(): void { root.barKeys.toggle() }
     function keysStatus(): string { return JSON.stringify(root.barKeys.status()) }
     function group(id: string): void {
-      var slot = root.moduleSlots.find(function(s) {
-        if (!s.groupHeader || s.entry.powerbarGroupId !== id) return false
-        var window = root.targetWindow(s)
-        return window && window.screen && window.screen.name === root.focusedScreenName()
+      var target = root.focusedBarWindow()
+      var slot = target && root.moduleSlots.find(function(s) {
+        return s.groupHeader && s.entry.powerbarGroupId === id && root.sameWindow(root.targetWindow(s), target)
       })
       if (slot) root.targetWindow(slot).managedDrawer.openGroup(id, slot, true)
     }
@@ -2968,6 +2965,35 @@ Item {
     }
   }
 
+  // The keyboard mode's dismiss layer on every other monitor (each bar window
+  // has its own for its monitor, keysDismiss): a click on another output ends
+  // the mode too, as Omarchy's keyboard panels put a twin on every output, so
+  // the bar never keeps the keys while the user works elsewhere.
+  Variants {
+    model: Quickshell.screens
+
+    delegate: Component {
+      PanelWindow {
+        required property var modelData
+        readonly property var holder: root.barKeys.here ? root.barKeys.window : null
+        screen: modelData
+        // By output name: the holder's screen must be known before a twin maps.
+        visible: !!holder && !!holder.screen && modelData.name !== holder.screen.name
+        color: "transparent"
+        exclusionMode: ExclusionMode.Ignore
+        WlrLayershell.namespace: "powerbar-keys-dismiss"
+        WlrLayershell.layer: WlrLayer.Overlay
+        WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
+        anchors { top: true; bottom: true; left: true; right: true }
+        MouseArea {
+          anchors.fill: parent
+          acceptedButtons: Qt.AllButtons
+          onPressed: root.barKeys.leave()
+        }
+      }
+    }
+  }
+
   Variants {
     model: Quickshell.screens
 
@@ -3876,6 +3902,9 @@ Item {
 
     PopupWindow {
       id: tooltipWindow
+      // Never takes the pointer: a tooltip that slid over its widget or the
+      // drawer would steal the hover that keeps it shown.
+      mask: Region {}
 
       visible: root.tooltipShown && !barWindow.sliding && root.tooltipTarget !== null && root.tooltipText !== "" && root.targetBelongsToWindow(root.tooltipTarget, barWindow)
       color: "transparent"
