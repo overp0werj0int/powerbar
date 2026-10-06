@@ -1,18 +1,24 @@
 .clone.*
 
 # Wallpaper crop from a third-party theme; kept local, not redistributed.
-docs/spacing-lab/wall.jpg
-docs/prefs-bento-lab/wall.jpg
-docs/prefs-layout-lab/wall.jpg
-docs/prefs-groups-lab/wall.jpg
+docs/*-lab/wall.jpg
 
 # Font subsets (Nerd Font, Omarchy's font) for the published lab only; the page
 # falls back to the installed fonts locally.
-docs/prefs-groups-lab/fonts/
-docs/bar-keys-lab/wall.jpg
+docs/*-lab/fonts/
 
 # Tooling output
 __pycache__/
 *.py[cod]
 *.log
 test-results/
+
+# Agent instructions and settings stay out of the installed plugin (Omarchy's
+# plugin review rejects them; omarchy plugin add clones this tree as is). The
+# development guide is DEVELOPMENT.md; a local AGENTS.md / CLAUDE.md may point
+# to it, and the development skills live in a local .claude/skills/.
+AGENTS.md
+CLAUDE.md
+.claude/
+.codex/
+.agents/

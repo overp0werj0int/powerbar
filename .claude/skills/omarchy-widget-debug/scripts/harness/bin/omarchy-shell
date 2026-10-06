@@ -1,3 +1,0 @@
-#!/bin/sh
-# Offscreen runs never talk to the live shell.
-echo "framedebug: blocked omarchy-shell $*" >&2
