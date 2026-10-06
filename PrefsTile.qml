@@ -5,9 +5,9 @@ import qs.Ui
 
 // One tile on a bento page: a titled group of related settings, drawn with the
 // desktop's window corners. The header can carry the switch that turns the
-// tile's subject on (Shadow) and a Reset action, shown only while one of the
-// tile's settings differs from the theme. Reset asks twice, by click or with
-// r, like Dissolve on Groups, because it changes several values at once.
+// tile's subject on (Shadow) and one destructive action (Dissolve on Groups).
+// Shape, Surface and Shadow go back to the theme with their Theme choice,
+// which keeps your values, so tiles have no Reset.
 BorderSurface {
   id: tile
   property string title: ""
@@ -16,14 +16,11 @@ BorderSurface {
   property int span6: 6
   property bool switchable: false
   property bool switchChecked: false
-  // Reset is offered while this is true.
-  property bool changed: false
-  property bool resettable: false
   property bool animate: true
   // A short muted line at the header's end: what the tile holds or a notice.
   property string caption: ""
-  // A destructive action in the header (Dissolve on Groups), asked twice like
-  // Reset: by click, or with actionKey twice within 3 s.
+  // A destructive action in the header (Dissolve on Groups), asked twice by
+  // its owner: by click, or with actionKey twice within 3 s.
   property string actionText: ""
   property string actionKey: ""
   property bool actionConfirming: false
@@ -31,24 +28,11 @@ BorderSurface {
   readonly property alias headerSlot: headerSlot
   default property alias content: body.data
   signal switched(bool checked)
-  signal reset()
   signal action()
 
-  property bool confirming: false
-  readonly property bool canReset: resettable && changed
   // Footer keys added while focus is inside this tile.
-  readonly property var tileHints: (canReset ? [{ keys: "r", label: confirming ? "Again to reset" : "Reset tile" }] : [])
-    .concat(actionText && actionKey ? [{ keys: actionKey, label: actionConfirming ? "Again to " + actionText.toLowerCase() : actionText }] : [])
+  readonly property var tileHints: actionText && actionKey ? [{ keys: actionKey, label: actionConfirming ? "Again to " + actionText.toLowerCase() : actionText }] : []
   readonly property real inset: Math.round(Style.spacing.rowPaddingX / 2)
-
-  function askReset() {
-    if (!canReset) return
-    if (!confirming) { confirming = true; confirmTimer.restart(); return }
-    confirming = false
-    confirmTimer.stop()
-    reset()
-  }
-  onCanResetChanged: if (!canReset) confirming = false
 
   implicitHeight: column.implicitHeight + inset * 2
   color: Qt.alpha(Color.popups.text, 0.035)
@@ -59,10 +43,8 @@ BorderSurface {
 
   Keys.onPressed: function(event) {
     if (event.modifiers & (Qt.ControlModifier | Qt.AltModifier)) return
-    if (event.text.toLowerCase() === "r" && tile.canReset) { tile.askReset(); event.accepted = true }
-    else if (tile.actionKey && event.text === tile.actionKey && tile.actionText) { tile.action(); event.accepted = true }
+    if (tile.actionKey && event.text === tile.actionKey && tile.actionText) { tile.action(); event.accepted = true }
   }
-  Timer { id: confirmTimer; interval: 3000; onTriggered: tile.confirming = false }
 
   ColumnLayout {
     id: column
@@ -105,18 +87,6 @@ BorderSurface {
         implicitWidth: childrenRect.width
         implicitHeight: childrenRect.height
         Layout.alignment: Qt.AlignVCenter
-      }
-      // Pointer only; keyboard users press r inside the tile.
-      Button {
-        visible: tile.canReset
-        text: tile.confirming ? "Again to reset" : "Reset"
-        tooltipText: tile.confirming ? "" : "Return this tile to the theme's values"
-        bordered: true
-        foreground: tile.confirming ? Color.urgent : Color.popups.text
-        fontSize: Style.font.caption
-        verticalPadding: Style.space(2)
-        horizontalPadding: Style.space(8)
-        onClicked: tile.askReset()
       }
       Button {
         visible: tile.actionText !== ""

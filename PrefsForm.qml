@@ -14,7 +14,7 @@ Controls.ScrollView {
   // The footer's keys follow focus: a control with its own keys (a slider)
   // lists them between moving and switching pages.
   readonly property var focusedHints: focusedItem && focusedItem.keyHints && contains(focusedItem) ? focusedItem.keyHints : null
-  // A bento tile adds its own keys (Reset), and Tab jumps between tiles.
+  // A bento tile adds its own keys (Dissolve), and Tab jumps between tiles.
   readonly property Item focusedTile: {
     for (var p = focusedItem; p && p !== column; p = p.parent) if (p.tileHints !== undefined) return p
     return null
