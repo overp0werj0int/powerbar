@@ -73,8 +73,11 @@ omabox for desktop tests in a private Hyprland session
 
 ## Skills
 
-`.claude/skills/` holds the project's agent skills; Claude Code loads them
-here automatically:
+Development skills are not part of the plugin: `omarchy plugin add` clones
+this tree as it is, and Omarchy's plugin review rejects agent instructions in
+it, so `AGENTS.md`, `CLAUDE.md` and `.claude/` are git-ignored. Keep them
+locally (a `CLAUDE.md` of `@DEVELOPMENT.md` is enough). The maintainer's
+`.claude/skills/` holds:
 
 - **omarchy-widget-ux**: theme tokens, keyboard model, motion budget, words.
   Read it before UI work.
@@ -84,10 +87,15 @@ here automatically:
   real bar (`docs/<topic>-lab` while the design is open). Once it ships, its
   decisions go into `docs/behavior/` and the lab is deleted.
 
+Without them, the loop above still holds: `tools/validate.sh`, `tests/run`,
+`tools/smoke.sh`. (`.claude/skills/omarchy-widget-debug/scripts/live.sh`
+restarts the live shell; without it use `omarchy restart shell`, never while
+the session is locked.)
+
 `agents/skills/powerbar/` is the other kind: the skill a user's agent loads to
-*operate* Powerbar (CLI, settings, recipes). Keep development guidance out of
-it, and update it in the same commit as any change to `omarchy-shell powerbar`
-functions or settings.
+*operate* Powerbar (CLI, settings, recipes). It ships on purpose. Keep
+development guidance out of it, and update it in the same commit as any change
+to `omarchy-shell powerbar` functions or settings.
 
 ## Git
 
