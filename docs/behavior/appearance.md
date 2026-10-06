@@ -303,4 +303,4 @@ Storage: the look lives in `bar.powerbarAppearance` of shell.json: `all` (values
 ## Open questions
 
 - Answered from code: the 420 ms text-colour crossfade is one animation on `barForeground`, shared by every text and icon on the bar, so no element lags another. A tooltip has no fade: Animations does not change tooltip timing (400 ms delay, 800 ms warm window). Saved previews are divided by `2 * devicePixelRatio` to get their display size; live previews use their own size.
-- A `bar.transparent` write clears the surface only after `omarchy-bar-text-color` returns a colour (Bar.qml:2761-2768); if that command is missing or fails, `transparent` stays false and the surface stays opaque although the flag is set. Intended?
+- Answered: a `bar.transparent` write clears the surface only once `omarchy-bar-text-color` answers with a colour (Bar.qml transparentForegroundProc). Omarchy's bar does exactly the same, and the script falls back to printing the theme's text colour, so it only fails when the script is missing; kept as on Omarchy's bar.
