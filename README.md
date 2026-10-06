@@ -423,6 +423,7 @@ hl.layer_rule({
   no_anim = true,
   animation = "none",
   blur = true,
+  blur_popups = true,
   ignore_alpha = 0.01,
 })
 hl.layer_rule({
@@ -432,6 +433,13 @@ hl.layer_rule({
   blur = false,
 })
 ```
+
+`blur_popups` blurs the bar's tooltips too. The key legend uses the same
+names, so the same rules cover it. Tooltips, the keyboard name card and the key
+legend follow Shape, Surface and Shadow like the bar once a tile has your
+values or the theme's Powerbar look; while a tile follows a theme without one,
+they look as Omarchy draws its own tooltips and popups. Key badges keep their
+own look.
 
 Powerbar briefly remaps its surface when switching the blur preference so the
 compositor applies the new namespace immediately. The alpha threshold leaves

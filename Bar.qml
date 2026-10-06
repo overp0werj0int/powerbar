@@ -720,6 +720,24 @@ Item {
   readonly property var appearance: AppearanceModel.resolve(AppearanceModel.appearanceOf(barConfig), themeName, themeLook)
   // The bar's config with the resolved values in the keys the drawing reads.
   readonly property var appearanceConfig: AppearanceModel.flatten(barConfig, themeName, themeLook)
+  // Tooltips, the keyboard name card and the key legend. A tile they follow
+  // draws them as Omarchy draws that kind of surface while it follows a theme
+  // without a Powerbar look of its own, and like the bar once it is yours (or
+  // the theme's Powerbar look): one look for every Powerbar surface.
+  readonly property var overlayStyled: ({
+    shape: appearance.scopes.shape !== "theme" || appearance.look.shape,
+    surface: appearance.scopes.surface !== "theme" || appearance.look.surface,
+    shadow: appearance.scopes.shadow !== "theme" || appearance.look.shadow
+  })
+  // Island borders are specified for the scaled bar; overlays are in screen pixels.
+  readonly property var overlayBorder: {
+    var spec = JSON.parse(JSON.stringify(islandBorder))
+    for (var side in spec.widths) spec.widths[side] *= barScale
+    return spec
+  }
+  readonly property bool overlayShadow: overlayStyled.shadow && surfaceEffects.shadow
+  // Room around an overlay for its shadow, inside its window.
+  readonly property real overlayShadowPad: overlayShadow ? Math.ceil(surfaceEffects.shadowSize) : 0
   // Earlier versions' flat keys move into powerbarAppearance once, and
   // themes no longer installed lose what was kept for them.
   function healAppearance() {
@@ -3639,7 +3657,8 @@ Item {
       visible: wanted && !barWindow.sliding
       color: "transparent"
       exclusionMode: ExclusionMode.Ignore
-      WlrLayershell.namespace: "powerbar-keys"
+      // The bar's own surface names, so its blur rule covers the legend too.
+      WlrLayershell.namespace: root.overlayStyled.surface && root.surfaceEffects.blur ? "powerbar" : "powerbar-keys"
       WlrLayershell.layer: WlrLayer.Overlay
       WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
       mask: Region {}
@@ -3647,18 +3666,25 @@ Item {
       anchors.top: root.position === "bottom"
       margins.bottom: root.position !== "bottom" ? Style.space(24) : 0
       margins.top: root.position === "bottom" ? Style.space(24) : 0
-      implicitWidth: Math.ceil(stripCard.implicitWidth)
-      implicitHeight: Math.ceil(stripCard.implicitHeight)
+      implicitWidth: Math.ceil(stripCard.implicitWidth) + 2 * root.overlayShadowPad
+      implicitHeight: Math.ceil(stripCard.implicitHeight) + 2 * root.overlayShadowPad
+      // Its text: the bar's once the legend is drawn like the bar.
+      readonly property color ink: root.overlayStyled.surface ? root.barForeground : Color.popups.text
       readonly property var entries: wanted ? KeysModel.legend(root.position, keys.mode, !root.onDemandInline) : []
       readonly property var sheetEntries: wanted && keys.sheet ? keys.sheetEntries() : []
-      BorderSurface {
+      EffectSurface {
         id: stripCard
         anchors.centerIn: parent
+        width: implicitWidth
+        height: implicitHeight
         implicitWidth: stripColumn.implicitWidth + Style.space(24)
         implicitHeight: stripColumn.implicitHeight + Style.space(16)
-        radius: Style.cornerRadius
-        color: Qt.alpha(Color.popups.background, 0.84)
-        borderSpec: Border.surfaceSpec("popups", "border", Color.popups.border, 1)
+        radius: root.overlayStyled.shape ? root.islandRounding : Style.cornerRadius
+        color: root.overlayStyled.surface ? root.overlaySurfaceColor : Qt.alpha(Color.popups.background, 0.84)
+        borderSpec: root.overlayStyled.shape ? root.overlayBorder : Border.surfaceSpec("popups", "border", Color.popups.border, 1)
+        shadowEnabled: root.overlayShadow
+        shadowSize: root.surfaceEffects.shadowSize
+        shadowOpacity: root.surfaceEffects.shadowOpacity
         Column {
           id: stripColumn
           anchors.centerIn: parent
@@ -3669,7 +3695,7 @@ Item {
             spacing: Style.space(4)
             Text {
               text: keysStrip.sheetEntries.length ? "Shortcuts" : "No widget on this bar has a shortcut yet. Set them in Preferences → Layout."
-              color: Color.popups.text
+              color: keysStrip.ink
               font.family: Style.font.family
               font.pixelSize: Style.font.bodySmall
               font.bold: keysStrip.sheetEntries.length > 0
@@ -3684,7 +3710,7 @@ Item {
                   required property int index
                   readonly property var entry: keysStrip.sheetEntries[Math.floor(index / 2)]
                   text: entry ? (index % 2 ? entry.keys : entry.name) : ""
-                  color: index % 2 ? Color.popups.text : Qt.alpha(Color.popups.text, 0.7)
+                  color: index % 2 ? keysStrip.ink : Qt.alpha(keysStrip.ink, 0.7)
                   font.family: Style.font.family
                   font.pixelSize: Style.font.bodySmall
                 }
@@ -3697,7 +3723,7 @@ Item {
             spacing: Style.space(8)
             Text {
               text: "Find"
-              color: Qt.alpha(Color.popups.text, 0.7)
+              color: Qt.alpha(keysStrip.ink, 0.7)
               font.family: Style.font.family
               font.pixelSize: Style.font.bodySmall
               anchors.verticalCenter: parent.verticalCenter
@@ -3705,15 +3731,16 @@ Item {
             BorderSurface {
               width: Math.max(Style.space(140), queryText.implicitWidth + Style.space(16))
               height: queryText.implicitHeight + Style.space(8)
-              radius: Math.min(Style.cornerRadius, Style.space(4))
-              color: Qt.alpha(Color.popups.text, 0.06)
+              // Nested inside the card: its radius less the card's inset.
+              radius: Math.max(2, Math.min(stripCard.radius - Style.space(8), Style.space(6)))
+              color: Qt.alpha(keysStrip.ink, 0.06)
               borderSpec: Border.flat(Color.accent, 1)
               Text {
                 id: queryText
                 x: Style.space(8)
                 anchors.verticalCenter: parent.verticalCenter
                 text: keysStrip.keys.query + "▏"
-                color: Color.popups.text
+                color: keysStrip.ink
                 font.family: Style.font.family
                 font.pixelSize: Style.font.body
               }
@@ -3722,7 +3749,7 @@ Item {
               readonly property bool none: keysStrip.keys.query !== "" && keysStrip.keys.matchCount === 0
               text: keysStrip.keys.query === "" ? "Type part of a name" : none ? "No widget named that"
                 : keysStrip.keys.matchCount === 1 ? "1 match" : (keysStrip.keys.matchIndex + 1) + " of " + keysStrip.keys.matchCount
-              color: none ? Color.urgent : Qt.alpha(Color.popups.text, 0.7)
+              color: none ? Color.urgent : Qt.alpha(keysStrip.ink, 0.7)
               font.family: Style.font.family
               font.pixelSize: Style.font.bodySmall
               anchors.verticalCenter: parent.verticalCenter
@@ -3742,7 +3769,7 @@ Item {
                 }
                 Text {
                   text: modelData.label
-                  color: Qt.alpha(Color.popups.text, 0.75)
+                  color: Qt.alpha(keysStrip.ink, 0.75)
                   font.family: Style.font.family
                   font.pixelSize: Style.font.bodySmall
                   anchors.verticalCenter: parent.verticalCenter
@@ -3759,8 +3786,8 @@ Item {
 
       visible: root.tooltipShown && !barWindow.sliding && root.tooltipTarget !== null && root.tooltipText !== "" && root.targetBelongsToWindow(root.tooltipTarget, barWindow)
       color: "transparent"
-      implicitWidth: Math.ceil(tooltipBubble.implicitWidth)
-      implicitHeight: Math.ceil(tooltipBubble.implicitHeight)
+      implicitWidth: Math.ceil(tooltipBubble.implicitWidth) + 2 * root.overlayShadowPad
+      implicitHeight: Math.ceil(tooltipBubble.implicitHeight) + 2 * root.overlayShadowPad
 
       anchor {
         id: tooltipAnchor
@@ -3779,28 +3806,37 @@ Item {
           var box = barWindow.contentItem.mapFromItem(target, 0, 0, target.width, target.height)
           var open = drawer.opened && !drawer.steppedAside
           var at = TooltipModel.place(root.position, { x: box.x, y: box.y, width: box.width, height: box.height },
-            { width: tooltipWindow.implicitWidth, height: tooltipWindow.implicitHeight }, 6 * root.barScale,
+            { width: Math.ceil(tooltipBubble.implicitWidth), height: Math.ceil(tooltipBubble.implicitHeight) }, 6 * root.barScale,
             open ? { x: drawer.x, y: drawer.y, width: drawer.width, height: drawer.height, vertical: drawer.stripVertical } : null,
             open && root.itemWithin(target, drawer), { width: barWindow.width, height: barWindow.height })
-          tooltipAnchor.rect.x = Math.round(at.x)
-          tooltipAnchor.rect.y = Math.round(at.y)
+          // The window holds the shadow's room around the bubble.
+          tooltipAnchor.rect.x = Math.round(at.x) - root.overlayShadowPad
+          tooltipAnchor.rect.y = Math.round(at.y) - root.overlayShadowPad
         }
       }
 
-      BorderSurface {
+      EffectSurface {
         id: tooltipBubble
+        x: root.overlayShadowPad
+        y: root.overlayShadowPad
+        width: implicitWidth
+        height: implicitHeight
         implicitWidth: tooltipLabel.implicitWidth + 20
         implicitHeight: tooltipLabel.implicitHeight + 14
-        color: Color.tooltip.background
-        borderSpec: Border.surfaceSpec("tooltip", "border", Color.tooltip.border, 1)
-        radius: Style.cornerRadius
+        color: root.overlayStyled.surface ? root.overlaySurfaceColor : Color.tooltip.background
+        borderSpec: root.overlayStyled.shape ? root.overlayBorder : Border.surfaceSpec("tooltip", "border", Color.tooltip.border, 1)
+        // A pill at most, as drawers cap theirs.
+        radius: root.overlayStyled.shape ? Math.min(root.islandRounding, implicitHeight / 2) : Style.cornerRadius
+        shadowEnabled: root.overlayShadow
+        shadowSize: root.surfaceEffects.shadowSize
+        shadowOpacity: root.surfaceEffects.shadowOpacity
 
         Text {
           id: tooltipLabel
           textFormat: Text.PlainText
           anchors.centerIn: parent
           text: root.tooltipText
-          color: Color.tooltip.text
+          color: root.overlayStyled.surface ? root.barForeground : Color.tooltip.text
           font.family: root.fontFamily
           font.pixelSize: Style.font.body
           horizontalAlignment: Text.AlignHCenter
