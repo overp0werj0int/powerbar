@@ -49,3 +49,10 @@ test('equality matches serialised equality, with or without shared members', () 
   assert.equal(model.equal({ n: NaN }, { n: null }), true);
   assert.equal(model.equal(null, {}), false);
 });
+
+test('shallowSame: the same keys in the same order with the same values', () => {
+  assert.equal(model.shallowSame({ start: 1, length: 2 }, { start: 1, length: 2 }), true);
+  assert.equal(model.shallowSame({ start: 1, length: 2 }, { start: 1, length: 3 }), false);
+  assert.equal(model.shallowSame({ start: 1 }, null), false);
+  assert.equal(model.shallowSame(null, null), false, 'not objects');
+});

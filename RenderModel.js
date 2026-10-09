@@ -92,4 +92,4 @@ function captureDelta(previous, next) {
   for (var key in newEntries) if (!equal(oldEntries[key], newEntries[key])) keys.push(key)
   return keys
 }
-if (typeof module !== "undefined") module.exports = { equal, sameItems, reconcileLists, records, split, groupIndex, entryIndex, captureDelta }
+if (typeof module !== "undefined") module.exports = { equal, shallowSame, sameItems, reconcileLists, records, split, groupIndex, entryIndex, captureDelta }
