@@ -33,7 +33,9 @@ for name in ("Bar.qml", "Preferences.qml"):
         s = s.replace('visible: active && String(root.barDragImageUrl) !== ""', "visible: false")
     open(p, "w").write(s)
 shell_json = os.environ.get("BENCH_SHELL_JSON") or os.path.expanduser("~/.config/omarchy/shell.json")
-json.dump(json.load(open(shell_json))["bar"], open(os.path.join(work, "bar.json"), "w"), indent=1)
+bar = json.load(open(shell_json))["bar"]
+bar["id"] = "p0werj0int.powerbar"  # Powerbar writes only a config that names it (BarModel.ownsBarConfig)
+json.dump(bar, open(os.path.join(work, "bar.json"), "w"), indent=1)
 for link in ("Commons", "Ui"):
     l = os.path.join(work, link)
     if not os.path.islink(l): os.symlink("/usr/share/omarchy/shell/" + link, l)

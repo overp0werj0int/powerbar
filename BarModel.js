@@ -39,6 +39,14 @@ function options(config) {
   }
 }
 
+// Whether the shell's bar config is Powerbar's to write: it names Powerbar
+// as the bar. Omarchy saves its whole config on every bar write, and a config
+// it could not read (a file caught mid-write) falls back to its defaults,
+// which name no bar; a write then would save those defaults over the file.
+function ownsBarConfig(config, barId) {
+  return isPlainObject(config) && !!barId && String(config.id || "") === String(barId)
+}
+
 // Widget repair (WidgetRepair.qml). Omarchy hands a full bar a copy of its
 // widget registry. A copy taken while the shell reloads its widgets, as it
 // does when the bar is switched, can list widgets whose component is already

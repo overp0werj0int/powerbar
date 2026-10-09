@@ -193,6 +193,15 @@ test('a panel hotkey by position opens the copy it counted when a widget is on t
   assert.equal(barModel.pickPanelSlot(rows, 'eDP-1', 'gone').name, barModel.pickPanelSlot(rows, 'eDP-1').name);
 });
 
+test('powerbar writes only a bar config that names it as the bar', () => {
+  assert.equal(barModel.ownsBarConfig({ id: 'p0werj0int.powerbar', layout: {} }, 'p0werj0int.powerbar'), true);
+  assert.equal(barModel.ownsBarConfig({ layout: { left: [] } }, 'p0werj0int.powerbar'), false, "Omarchy's defaults name no bar");
+  assert.equal(barModel.ownsBarConfig({ id: 'omarchy.bar' }, 'p0werj0int.powerbar'), false, 'another bar');
+  assert.equal(barModel.ownsBarConfig({}, 'p0werj0int.powerbar'), false, 'nothing delivered yet');
+  assert.equal(barModel.ownsBarConfig(null, 'p0werj0int.powerbar'), false);
+  assert.equal(barModel.ownsBarConfig({ id: 'p0werj0int.powerbar' }, ''), false);
+});
+
 test('stale widgets are the registry entries without a component', () => {
   const live = {};
   const ids = barModel.staleWidgetIds({ b: { component: null, metadata: {} }, a: { metadata: {} }, c: { component: live } });

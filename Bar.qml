@@ -130,7 +130,16 @@ Item {
   property bool applyingQueuedEdits: false
   readonly property bool configWriteSettled: !barDragSource && !barDragSettling && !barMoveActive
   signal configWriteFailed()
-  function canWriteConfig() { return !!shell && typeof shell.mutateShellConfig === "function" }
+  // Writes go through the shell only while its config names Powerbar as the
+  // bar (BarModel.ownsBarConfig): Omarchy saves its whole config with every
+  // write, and when it could not read shell.json it holds its defaults, which
+  // name no bar. Checked against the config the shell last delivered, under
+  // any queued edits.
+  readonly property string barId: manifest && manifest.id ? String(manifest.id) : "p0werj0int.powerbar"
+  function canWriteConfig() {
+    return !!shell && typeof shell.mutateShellConfig === "function"
+      && BarModel.ownsBarConfig(queuedConfigEdits.length ? hostBarConfig : barConfig, barId)
+  }
   function writeConfig(mutator) {
     if (!canWriteConfig() || typeof mutator !== "function") return false
     if (!queuedConfigEdits.length) hostBarConfig = barConfig
@@ -153,7 +162,14 @@ Item {
     if (!edits.length) return
     queuedConfigEdits = []
     hostBarConfig = null
-    if (!canWriteConfig() || shell.mutateShellConfig(function(config) { for (var edit of edits) edit(config) }) === false) {
+    if (!BarModel.ownsBarConfig(restore, barId)) {
+      console.warn("powerbar: the shell's config no longer names Powerbar as the bar; " + edits.length + " change(s) not saved")
+      barConfig = restore
+      configWriteFailed()
+      return
+    }
+    if (!shell || typeof shell.mutateShellConfig !== "function"
+        || shell.mutateShellConfig(function(config) { for (var edit of edits) edit(config) }) === false) {
       console.warn("powerbar: the shell did not save " + edits.length + " change(s) to shell.json; the bar shows the saved config again")
       barConfig = restore
       configWriteFailed()
@@ -448,7 +464,7 @@ Item {
   // moves. The visibility default is settled in the same write, before the
   // ids exist: they would make a fresh config look like one Powerbar ran on.
   function ensureInstanceIds() {
-    if (!shell || !barConfig.layout) return
+    if (!canWriteConfig() || !barConfig.layout) return
     var seen = {}, missing = barConfig.powerbarVisibilityDefault !== "shown"
     for (var zone of ["left", "center", "right"]) {
       for (var entry of (barConfig.layout[zone] || [])) {
@@ -5471,7 +5487,7 @@ Item {
       property bool suppressClick: false
       property real pressedX: 0
       property real pressedY: 0
-      readonly property bool canReorder: root.shell && typeof root.shell.mutateShellConfig === "function"
+      readonly property bool canReorder: root.canWriteConfig()
       readonly property real dragThreshold: Style.space(4)
 
       anchors.fill: parent
