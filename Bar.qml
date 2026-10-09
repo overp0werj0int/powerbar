@@ -2341,31 +2341,25 @@ Item {
     return ["left", "center", "right"][Math.min(2, Math.max(0, Math.floor(coordinate * 3 / length)))]
   }
 
+  // What a drag at scenePoint drops on. The measuring happens here (the
+  // window, the open drawer, every slot's rect); the decisions are
+  // DragModel.dropSurface and DragModel.resolveDrop, tested on their own.
   function moduleDropAtScene(scenePoint, sourceSlot) {
     var sourceWindow = root.slotWindow(sourceSlot) || root.barDragWindow
-    var zone = ""
+    var zone = "", inStrip = false, inDrawer = false, drawer = null, handle = null
     if (sourceWindow && sourceWindow.contentItem) {
-      var barPoint = sourceWindow.contentItem.mapFromItem(null, scenePoint.x, scenePoint.y)
-      if (barPoint.x < 0 || barPoint.x > sourceWindow.contentItem.width ||
-          barPoint.y < 0 || barPoint.y > sourceWindow.contentItem.height)
-        return null
-      var stripX = root.position === "right" ? sourceWindow.width - root.barExtent : 0
-      var stripY = root.position === "bottom" ? sourceWindow.height - root.barExtent : 0
-      var drawer = sourceWindow.managedDrawer
-      // Groups don't nest: a group icon has no drop surface in any group drawer.
-      var inDrawer = drawer && drawer.opened && !(sourceSlot && sourceSlot.groupHeader && drawer.groupId)
-        && barPoint.x >= drawer.x && barPoint.x <= drawer.x + drawer.width && barPoint.y >= drawer.y && barPoint.y <= drawer.y + drawer.height
-      // A release that drifts a little off the bar's inner edge still lands on
-      // the bar, unless it is over an open drawer.
-      var slack = inDrawer ? 0 : root.barSize * 0.6
-      var cross = root.vertical ? barPoint.x : barPoint.y
-      var stripStart = root.vertical ? stripX : stripY
-      var inStrip = root.position === "top" || root.position === "left"
-        ? cross >= stripStart && cross <= stripStart + root.barExtent + slack
-        : cross >= stripStart - slack && cross <= stripStart + root.barExtent
-      if (!inStrip && !inDrawer) return null
+      var content = sourceWindow.contentItem
+      var barPoint = content.mapFromItem(null, scenePoint.x, scenePoint.y)
+      drawer = sourceWindow.managedDrawer
+      var surface = DragModel.dropSurface(barPoint, { width: content.width, height: content.height },
+        { width: sourceWindow.width, height: sourceWindow.height }, root.position, root.barExtent, root.barSize,
+        drawer ? { open: drawer.opened, x: drawer.x, y: drawer.y, width: drawer.width, height: drawer.height } : null,
+        !!(sourceSlot && sourceSlot.groupHeader && drawer && drawer.groupId))
+      if (!surface) return null
+      inStrip = surface.inStrip
+      inDrawer = surface.inDrawer
       if (inStrip) zone = root.barZoneAt(barPoint, sourceWindow)
-      var handle = inStrip && typeof sourceWindow.foldHandleAt === "function" ? sourceWindow.foldHandleAt(barPoint) : null
+      handle = inStrip && typeof sourceWindow.foldHandleAt === "function" ? sourceWindow.foldHandleAt(barPoint) : null
       // A gap opening just before the dots pushes them along, and dropping on
       // them closes it again: the dots keep the drop while the pointer stays
       // where they were when they took it, so the two never trade places.
@@ -2379,10 +2373,10 @@ Item {
     var probe = { x: scenePoint.x, y: scenePoint.y }
     // The ink is measured along the bar, so it only applies to a surface along
     // the bar: in a menu below a horizontal bar it pushed the landing a row on.
-    var alongDrawer = inDrawer ? drawer.stripVertical : root.vertical
-    if (sourceSlot && sourceSlot.ink && sourceSlot.ink.length > 0 && alongDrawer === root.vertical) {
+    var alongColumn = inDrawer ? drawer.stripVertical : root.vertical
+    if (sourceSlot && sourceSlot.ink && sourceSlot.ink.length > 0 && alongColumn === root.vertical) {
       var inkCentre = (sourceSlot.ink.start + sourceSlot.ink.length / 2) * root.barScale
-      if (alongDrawer) probe.y = scenePoint.y - root.barDragOffsetY + inkCentre
+      if (alongColumn) probe.y = scenePoint.y - root.barDragOffsetY + inkCentre
       else probe.x = scenePoint.x - root.barDragOffsetX + inkCentre
     }
     var candidates = []
@@ -2408,6 +2402,9 @@ Item {
 
       candidates.push({
         slot: slot,
+        region: slot.region,
+        groupHeader: !!slot.groupHeader,
+        inDrawer: !!slot.drawerHost,
         x: slotPoint.x,
         y: slotPoint.y,
         width: item.width * root.barScale,
@@ -2420,34 +2417,15 @@ Item {
       })
     }
 
-    var hit = candidates.find(function(candidate) {
-      return probe.x >= candidate.x && probe.x <= candidate.x + candidate.width
-        && probe.y >= candidate.y && probe.y <= candidate.y + candidate.height
-    }) || candidates.find(function(candidate) {
-      return scenePoint.x >= candidate.x && scenePoint.x <= candidate.x + candidate.width
-        && scenePoint.y >= candidate.y && scenePoint.y <= candidate.y + candidate.height
-    })
-    var alongColumn = inDrawer ? drawer.stripVertical : root.vertical
-    var sourceRect = root.barDragSourceRect
-    if (!hit && sourceRect && scenePoint.x >= sourceRect.x && scenePoint.x <= sourceRect.x + sourceRect.width &&
-        scenePoint.y >= sourceRect.y && scenePoint.y <= sourceRect.y + sourceRect.height)
-      return { source: true }
+    var shown = root.barDragDrop
+    var drop = DragModel.resolveDrop({ candidates: candidates, probe: probe, point: scenePoint, sourceRect: root.barDragSourceRect,
+      handle: !!handle, sourceInDrawer: !!(sourceSlot && sourceSlot.drawerHost), sourceGroupHeader: !!(sourceSlot && sourceSlot.groupHeader),
+      alongColumn: alongColumn, previous: shown && shown.slot ? { slot: shown.slot, after: shown.after } : null,
+      deadZone: root.dragDeadZone, inDrawer: inDrawer, zone: zone })
     // The dots: the widget joins the zone's on-demand widgets on their side.
-    if (handle) return { managedZone: handle.zone, handle: true, handleToken: handle.inlineToken, managedBefore: root.handleDropBefore(handle, sourceSlot) }
-    if (hit && hit.slot.groupHeader && !hit.slot.drawerHost && sourceSlot.drawerHost && !sourceSlot.groupHeader)
-      return { slot: hit.slot, into: true }
-    if (hit) {
-      // A 3 px dead zone around the cell's centre keeps the gap from flickering.
-      var previous = root.barDragDrop && root.barDragDrop.slot === hit.slot ? root.barDragDrop.after : undefined
-      return { slot: hit.slot, after: alongColumn
-        ? DragModel.afterCentre(probe.y, hit.y + hit.contentY + hit.contentHeight / 2, previous, root.dragDeadZone)
-        : DragModel.afterCentre(probe.x, hit.x + hit.contentX + hit.contentWidth / 2, previous, root.dragDeadZone) }
-    }
-    var nearby = inDrawer ? candidates : candidates.filter(function(candidate) {
-      return candidate.slot.region === zone
-    })
-    var nearest = BarModel.nearestDropTarget(nearby, probe, alongColumn)
-    return nearest || (inDrawer ? { drawer: drawer } : { zone: zone })
+    if (drop.handle) return { managedZone: handle.zone, handle: true, handleToken: handle.inlineToken, managedBefore: root.handleDropBefore(handle, sourceSlot) }
+    if (drop.drawer) return { drawer: drawer }
+    return drop
   }
 
   // Dots at a zone's start take the widget at the start of the zone's list.
