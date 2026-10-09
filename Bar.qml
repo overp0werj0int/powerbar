@@ -113,73 +113,24 @@ Item {
   // Set while a drop into a drawer commits: the drawer (a group's or a zone's)
   // stays open under the pointer through the edit, and leaves on the exit grace.
   property bool keepDrawerThroughEdit: false
-  // Config edits show at once and reach shell.json once the bar has settled.
-  // Omarchy handles a config write by re-registering every bar widget, once
-  // for the write and again when it reloads the file, which can block the
-  // whole shell for hundreds of milliseconds. Writing first held the bar
-  // frozen on its old layout through that. Instead each edit is applied at
-  // once to the bar's own copy of its config, exactly as the host applies a
-  // bar's edit (to a copy of the bar subtree), and queued. A quiet moment with
-  // no drag, glide or bar move then writes the queue as one config change.
-  // Edits run again on the host's config, so they must capture plain values,
-  // never live slot state, and must not invent values (ensureInstanceIds
-  // writes directly for that reason).
-  property var queuedConfigEdits: []
-  // The host's config under the queued edits: a failed write restores it.
-  property var hostBarConfig: null
-  property bool applyingQueuedEdits: false
+  // Config edits show at once and reach shell.json once the bar has settled
+  // (ConfigStore.qml: the queue, the host's config under it, and the rule that
+  // only a config naming Powerbar is written).
   readonly property bool configWriteSettled: !barDragSource && !barDragSettling && !barMoveActive
   signal configWriteFailed()
-  // Writes go through the shell only while its config names Powerbar as the
-  // bar (BarModel.ownsBarConfig): Omarchy saves its whole config with every
-  // write, and when it could not read shell.json it holds its defaults, which
-  // name no bar. Checked against the config the shell last delivered, under
-  // any queued edits.
   readonly property string barId: manifest && manifest.id ? String(manifest.id) : "p0werj0int.powerbar"
-  function canWriteConfig() {
-    return !!shell && typeof shell.mutateShellConfig === "function"
-      && BarModel.ownsBarConfig(queuedConfigEdits.length ? hostBarConfig : barConfig, barId)
+  ConfigStore {
+    id: configStore
+    shell: root.shell
+    barId: root.barId
+    shown: root.barConfig
+    settled: root.configWriteSettled
+    onShow: function(config) { root.barConfig = config }
+    onFailed: root.configWriteFailed()
   }
-  function writeConfig(mutator) {
-    if (!canWriteConfig() || typeof mutator !== "function") return false
-    if (!queuedConfigEdits.length) hostBarConfig = barConfig
-    queuedConfigEdits = queuedConfigEdits.concat([mutator])
-    showQueuedEdits(hostBarConfig)
-    configWriteDelay.restart()
-    return true
-  }
-  // The host's config with every queued edit applied, shown as the bar's config.
-  function showQueuedEdits(base) {
-    var scoped = { bar: JSON.parse(JSON.stringify(Util.isPlainObject(base) ? base : {})) }
-    for (var edit of queuedConfigEdits) edit(scoped)
-    if (!Util.isPlainObject(scoped.bar)) return
-    applyingQueuedEdits = true
-    try { barConfig = scoped.bar } finally { applyingQueuedEdits = false }
-  }
-  function flushConfigWrites() {
-    configWriteDelay.stop()
-    var edits = queuedConfigEdits, restore = hostBarConfig
-    if (!edits.length) return
-    queuedConfigEdits = []
-    hostBarConfig = null
-    if (!BarModel.ownsBarConfig(restore, barId)) {
-      console.warn("powerbar: the shell's config no longer names Powerbar as the bar; " + edits.length + " change(s) not saved")
-      barConfig = restore
-      configWriteFailed()
-      return
-    }
-    if (!shell || typeof shell.mutateShellConfig !== "function"
-        || shell.mutateShellConfig(function(config) { for (var edit of edits) edit(config) }) === false) {
-      console.warn("powerbar: the shell did not save " + edits.length + " change(s) to shell.json; the bar shows the saved config again")
-      barConfig = restore
-      configWriteFailed()
-    }
-  }
-  Timer {
-    id: configWriteDelay
-    interval: 300
-    onTriggered: if (root.configWriteSettled) root.flushConfigWrites(); else restart()
-  }
+  function canWriteConfig() { return configStore.canWrite() }
+  function writeConfig(mutator) { return configStore.write(mutator) }
+  function flushConfigWrites() { configStore.flush() }
   function assignGroup(key, id, before, keepDrawer) {
     return editGroups(function(config) { GroupsModel.assign(config, key, id, before || "") }, keepDrawer)
   }
@@ -474,7 +425,7 @@ Item {
       }
     }
     if (!missing) return
-    shell.mutateShellConfig(function(config) {
+    configStore.writeNow(function(config) {
       ManagedModel.healVisibility(config.bar, root.thirdPartyEntry)
       var used = {}
       for (var zone of ["left", "center", "right"]) {
@@ -2012,13 +1963,9 @@ Item {
     // Only when the last list says a theme went: then read it again first.
     if (installedThemes.length && AppearanceModel.hasStaleThemes(barConfig, installedThemes.concat(themeName ? [themeName] : [])))
       Qt.callLater(refreshThemes)
-    // A config from the host while edits wait to be written: show the edits
-    // on top of it rather than the host's config without them.
-    if (!applyingQueuedEdits && queuedConfigEdits.length) {
-      hostBarConfig = barConfig
-      showQueuedEdits(barConfig)
-      return
-    }
+    // A config from the host while edits wait to be written: the store shows
+    // the edits on top of it rather than the host's config without them.
+    if (configStore.delivered(barConfig)) return
     applyBarConfig()
     Qt.callLater(ensureInstanceIds)
     Qt.callLater(pruneGroupMembers)
@@ -2027,7 +1974,7 @@ Item {
   // as read (GroupsModel.groups); their keys leave shell.json too, in one
   // write, so nobody has to remove them by hand.
   function pruneGroupMembers() {
-    if (!canWriteConfig() || queuedConfigEdits.length || !Util.isPlainObject(barConfig)) return
+    if (!canWriteConfig() || configStore.pending || !Util.isPlainObject(barConfig)) return
     if (!GroupsModel.danglingMembers(barConfig)) return
     writeConfig(function(config) {
       if (config.bar && GroupsModel.danglingMembers(config.bar)) config.bar.powerbarGroups = GroupsModel.groups(config.bar)
