@@ -150,6 +150,51 @@ ShellRoot {
     finish()
   }
   Timer { id: idleEnd; interval: 10000; onTriggered: shellRoot.finish() }
+
+  // Frame recorder (BENCH_FRAMES=1), for any scenario: what the eye follows on
+  // the first bar window, logged as FRAME lines in the omarchy-widget-debug
+  // format (key=x,y,WxH,oOPACITY[,hidden]) only in frames where a value
+  // changed, so timeline.py can flag wobble, jumps and late motion and two
+  // versions can be compared frame by frame. Islands (I0.. in item order),
+  // every slot's presentation (S + instance key tail), the strip and zone
+  // shifts as x values (aho, ls, cs, rs, fs) and the drawer (D: reveal as x).
+  // A frame where anything changed lists every key: timeline.py reads a key
+  // missing from a frame as that item gone.
+  readonly property bool recordFrames: Quickshell.env("BENCH_FRAMES") === "1"
+  property real frameStart: 0
+  property var frameLast: ({})
+  FrameAnimation { running: shellRoot.recordFrames && !!shellRoot.bar; onTriggered: shellRoot.recordFrame() }
+  function frameItems(item, out) {
+    for (var i = 0; i < item.children.length; i++) {
+      var child = item.children[i]
+      if (String(child).indexOf("IslandSurface") >= 0) out.push(child)
+      frameItems(child, out)
+    }
+    return out
+  }
+  function recordFrame() {
+    if (!bar || !bar.moduleSlots.length) return
+    var w = bar.slotWindow(bar.moduleSlots[0])
+    if (!w) return
+    var top = bar.moduleSlots[0]; while (top.parent && String(top.parent).indexOf("ProxyWindowContentItem") < 0) top = top.parent
+    var r = function(v) { return Math.round(v * 10) / 10 }
+    var box = function(it) {
+      var p = it.mapToItem(null, 0, 0)
+      return r(p.x) + "," + r(p.y) + "," + r(it.width) + "x" + r(it.height) + ",o" + r(it.opacity) + (it.visible ? "" : ",hidden")
+    }
+    var now = {}
+    frameItems(top, []).forEach(function(it, i) { now["I" + i] = box(it) })
+    for (var s of bar.moduleSlots) if (bar.slotWindow(s) === w) now["S" + s.instanceKey.slice(-4)] = box(s.presentationItem)
+    var scalar = { aho: w.autoHideOffset, ls: w.leftShift, cs: w.centerShift, rs: w.rightShift, fs: w.fitShift }
+    for (var k in scalar) now[k] = r(scalar[k] || 0) + ",0,0x0"
+    var d = w.managedDrawer
+    now.D = r(d.reveal) + "," + r(d.y) + "," + r(d.width) + "x" + r(d.height) + ",o" + r(d.opacity) + (d.opened ? "" : ",hidden")
+    if (!frameStart) frameStart = Date.now()
+    var changed = false
+    for (var key in now) if (now[key] !== frameLast[key]) changed = true
+    frameLast = now
+    if (changed) console.info("FRAME " + (Date.now() - frameStart) + " " + Object.keys(now).map(function(k) { return k + "=" + now[k] }).join(" "))
+  }
   function geometry() {
     var out = bar.moduleSlots.map(function(s) {
       var p = s.mapToItem(null, 0, 0)
