@@ -183,6 +183,7 @@ The CLI as a whole (`status`, `shortcuts`, `help`, error format) is integration.
 - **KEYS-64** The bar window takes exclusive keyboard focus while the mode is `here`. If the window is still not active after 200 ms (a closing panel can hand focus elsewhere), the bar drops to on-demand focus for 50 ms and asks again, up to 6 times.
 
 - **KEYS-65** Within the mode, if neither the bar's key catcher nor an entered drawer has focus, a 60 ms timer gives it back (the drawer if open and entered, else the bar).
+- **KEYS-78** When the monitor whose bar holds the mode goes away (unplugged, switched off), the mode ends with it, as `keysOff` would. Code: Bar.qml BarPanel `Component.onDestruction`.
 
 ## Doc drift
 

@@ -2934,6 +2934,10 @@ Item {
     Component.onDestruction: {
       root.reportZoneFit(barWindow.screen ? barWindow.screen.name : "", null)
       if (centerInlineBusy) root.centerRevealBlocks = Math.max(0, root.centerRevealBlocks - 1)
+      // A monitor going away takes its bar: the keyboard mode on it ends, or
+      // it would stay active with no bar to hold the cursor (and keep a
+      // switched-off bar shown, INTEG-43).
+      if (barKeysItem.window === barWindow) barKeysItem.leave()
     }
     property alias managedDrawer: drawer
     // The zone dots in this window, for drops (FoldHandle registers itself).
