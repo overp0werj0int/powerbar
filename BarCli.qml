@@ -350,7 +350,8 @@ Item {
       }),
       keys: bar.barKeys.active,
       drawer: drawer && drawer.opened ? { zone: drawer.zone, group: drawer.groupId || "" } : null,
-      preferences: { open: preferences.opened, page: preferences.opened ? preferences.pages[preferences.page].title : "" } }
+      preferences: { open: preferences.opened, page: preferences.opened ? preferences.pages[preferences.page].title : "" },
+      registry: bar.widgetRepair.report() }
   }
   function status() {
     return json({ bar: bar.manifest ? bar.manifest.id : "", version: bar.manifest ? bar.manifest.version : "",

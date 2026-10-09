@@ -67,7 +67,9 @@ omarchy-shell powerbar help >/dev/null && echo running          # answers only w
 | `help` | every function, with what it does |
 
 `runtime` holds `barOff`, `hidden`, `held`, per-screen `shown`/`peeking`,
-`keys`, the open `drawer`, and `preferences: {open, page}`.
+`keys`, the open `drawer`, `preferences: {open, page}`, and `registry`:
+`{widgets, stale, repaired, failed}`, widgets the shell's registry lost and
+Powerbar loaded itself (`failed` names any it could not, with the reason).
 
 ## Settings
 

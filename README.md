@@ -180,7 +180,6 @@ reinstall. To remove it too:
 | Theme files you wrote | `powerbar.toml` in `~/.config/omarchy/themes/<name>/` (Powerbar only reads them) | Delete them |
 | Icons you added to groups | `$XDG_DATA_HOME/powerbar/icons` (`~/.local/share/powerbar/icons`) | `rm -r ~/.local/share/powerbar` |
 | Images of your widgets | `$XDG_CACHE_HOME/powerbar` (`~/.cache/powerbar`) | `rm -r ~/.cache/powerbar` |
-| Plugin rescan stamp | `$XDG_RUNTIME_DIR/powerbar-registry-rescan` | Gone after a reboot |
 
 ```sh
 f=~/.config/omarchy/shell.json; cp "$f" "$f.bak"
@@ -395,13 +394,12 @@ keyboard focus in the keyboard mode, through Quickshell's Hyprland module.
 | `~/.config/hypr/bindings.lua` | With your other `~/.config/hypr/*.lua` files, Omarchy's default bindings and `hyprctl binds`, to show every shortcut | Only its marked block, when you set a shortcut: replaced in one step, and put back if Hyprland then reports a new config error. Once Hyprland has taken the block, it also removes the marked loader in `hyprland.lua` (backed up first) and the `~/.config/hypr/powerbar.lua` it loads, left by early Powerbar builds; a damaged loader is left alone |
 | `~/.local/state/omarchy/` | `current/theme/powerbar.toml`, `current/theme.name`, `toggles/bar-off` | `toggles/bar-off` is cleared when Omarchy's bar toggle slides an autohidden bar out |
 | `~/.config/omarchy/themes/`, `$OMARCHY_PATH` | Installed themes (to drop settings for themes you removed), Omarchy's emoji list | Nothing |
+| The folder of a widget's plugin (`~/.config/omarchy/plugins/<id>`, `$OMARCHY_PATH/shell/plugins/…`) | Only when the shell's widget list has lost that widget's component: its `manifest.json` and the bar widget QML it names, as the shell loads them | Nothing |
 | `$XDG_DATA_HOME/powerbar/icons` | | Icons you add to groups (SVG or PNG, 512 KB at most); unused ones are deleted |
 | `$XDG_CACHE_HOME/powerbar` | | Images of your widgets for Preferences, `faces.json`, `glyphs.json` |
-| `$XDG_RUNTIME_DIR/powerbar-registry-rescan` | | When it last asked the shell to rescan plugins |
 
 | Command | When |
 | --- | --- |
-| `omarchy-shell shell rescanPlugins` | A bar switch left widgets without their component; at most three times a login, a minute apart |
 | `omarchy-toggle-bar`, `omarchy-toggle bar-off off` | `omarchy-shell powerbar show` / `hide`; Omarchy's bar toggle on an autohidden bar |
 | `omarchy-bar-text-color` | A transparent bar picks its text colour over the wallpaper, as Omarchy's does |
 | `hyprctl binds`, `cat` | Reading shortcuts (Preferences, the keyboard mode, `shortcuts`) |
@@ -431,11 +429,12 @@ restart shell`. Still nothing: `omarchy bar reset` returns to Omarchy's bar
 (it works without the shell, from a TTY too), keeping your Powerbar
 settings; `omarchy bar use p0werj0int.powerbar` comes back.
 
-**Widgets show placeholders after switching bars.** The shell can keep a stale
-copy of its widget list after a switch. Powerbar notices within a few
-seconds and asks the shell to rescan its plugins (the bar disappears for a
-few seconds), at most three times a login, a minute apart; then the shell log
-names the widgets still broken. If placeholders remain, `omarchy restart shell`.
+**Widgets show placeholders.** The shell can hand Powerbar a copy of its
+widget list in which some widgets have lost their component (switching bars
+does this). Powerbar loads those widgets from their own plugins at once.
+`omarchy-shell powerbar status` lists them under `runtime.registry`; one it
+could not load is under `failed`, with the reason, and named in the shell log.
+If placeholders remain, `omarchy restart shell`.
 
 **A shortcut does nothing.** `omarchy-shell powerbar shortcuts` lists each
 one with its `source` (`yours` for one set in Powerbar, `omarchy` or `config`

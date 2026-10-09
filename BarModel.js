@@ -39,18 +39,58 @@ function options(config) {
   }
 }
 
-// The registry heal (Bar.qml checkRegistry): whether a stale registry asks
-// the shell to rescan now. stamp: the runtime file's text, "<ms> <count>"
-// (an older "<ms>" counts as one). At most `limit` rescans a login (the
-// runtime folder empties at logout), a minute apart; then it gives up.
-// → { rescan, stamp (to write), gaveUp (the limit was just reached) }
-function registryHeal(stamp, now, limit) {
-  var parts = String(stamp || "").trim().split(/\s+/)
-  var last = Number(parts[0]) || 0, count = parts[0] ? (Number(parts[1]) || 1) : 0
-  var max = limit || 3
-  if (count >= max) return { rescan: false, stamp: "", gaveUp: false }
-  if (last && now - last < 60000) return { rescan: false, stamp: "", gaveUp: false }
-  return { rescan: true, stamp: now + " " + (count + 1), gaveUp: count + 1 >= max }
+// Widget repair (WidgetRepair.qml). Omarchy hands a full bar a copy of its
+// widget registry. A copy taken while the shell reloads its widgets, as it
+// does when the bar is switched, can list widgets whose component is already
+// destroyed; nothing refreshes it until the shell registers another widget.
+
+// The widgets in a registry copy with no component left. Sorted ids.
+function staleWidgetIds(widgets) {
+  var ids = []
+  for (var id in widgets || {}) if (widgets[id] && !widgets[id].component) ids.push(id)
+  return ids.sort()
+}
+
+// Where a widget's own QML is, read from its manifest as the shell reads it
+// (PluginRegistry.entryPointUrl and isSafeEntryPoint): the barWidget entry
+// point, a relative path inside the plugin's folder, of a manifest with the
+// widget's id. → { path } or { error }
+function widgetEntryPath(id, sourceDir, manifestText) {
+  var dir = String(sourceDir || "").replace(/\/+$/, "")
+  if (!dir || dir.charAt(0) !== "/") return { error: "no plugin folder" }
+  var manifest = null
+  try { manifest = JSON.parse(String(manifestText || "")) } catch (e) { manifest = null }
+  if (!isPlainObject(manifest)) return { error: "manifest unreadable" }
+  if (String(manifest.id || "") !== String(id)) return { error: "manifest is for " + (manifest.id || "no id") }
+  var entry = isPlainObject(manifest.entryPoints) ? manifest.entryPoints.barWidget : null
+  if (typeof entry !== "string" || !entry || entry.charAt(0) === "/" || entry.indexOf("..") !== -1)
+    return { error: "no barWidget entry point" }
+  return { path: dir + "/" + entry }
+}
+
+// The manifest files that can describe a widget, in its plugin folder, as the
+// shell's scan accepts them: manifest.json, and for a first-party widget a
+// sibling <Name>.manifest.json (widgets/KeyboardLayout.manifest.json for
+// omarchy.keyboard-layout). widgetEntryPath checks the id inside.
+function manifestCandidates(id, firstParty) {
+  var names = ["manifest.json"]
+  if (firstParty) {
+    var name = String(id || "").split(".").pop().split("-").map(function(part) {
+      return part.charAt(0).toUpperCase() + part.slice(1)
+    }).join("")
+    if (name) names.push(name + ".manifest.json")
+  }
+  return names
+}
+
+// Whether a widget Powerbar loaded itself stays in use once the registry
+// changes: while the registry still lists it from the same folder. Moving a
+// working widget to the shell's new component would rebuild it, briefly
+// running two that each register their IPC handler.
+function keepRepaired(repaired, entry) {
+  var dir = function(path) { return String(path || "").replace(/\/+$/, "") }
+  return !!(repaired && entry && entry.metadata && dir(repaired.sourceDir)
+    && dir(entry.metadata.sourceDir) === dir(repaired.sourceDir))
 }
 
 function normalizePosition(value) {

@@ -69,14 +69,15 @@ name (INTEG-121).
 - **INTEG-37** `healAppearance` is also scheduled whenever a `barConfig` arrives with legacy keys; **INTEG-38** `pruneAppearanceThemes` whenever a `barConfig` arrives once the theme list is known, and when the list is read.
 - **INTEG-40** When a `barConfig` arrives and a group lists a member (instance key) not in the layout (widget uninstalled), `pruneGroupMembers()` writes `powerbarGroups` back without those members. Skipped while the bar cannot write or edits are queued. `group:`-prefixed members are not dangling. Nothing asks the user. Code: `GroupsModel.danglingMembers`.
 
-## Widget registry heal
+## Widget repair
 
-- **INTEG-27** After a bar switch (or first install) the shell's per-bar registry copy can hold widgets whose component was destroyed, leaving every widget a placeholder.
-- **INTEG-28** The registry is stale if any registered widget has no component. Code: `registryStale()`.
-- **INTEG-29** 2500 ms after the registry is injected or its `revision` changes (and at load), `checkRegistry()` runs.
-- **INTEG-30** If stale and the stamp file holds a time less than 60 000 ms ago, nothing happens.
-- **INTEG-31** If stale, it asks the shell to rescan its plugins (`omarchy-shell shell rescanPlugins`) and logs `powerbar: widget registry is stale after a bar switch; asking the shell to rescan plugins` — at most 3 times a login and at least 60 s apart, counted in `$XDG_RUNTIME_DIR/powerbar-registry-rescan` (`<ms> <count>`). The third rescan also warns `powerbar: last rescan this login; if these stay placeholders, restart the shell: <ids>`. Without `XDG_RUNTIME_DIR` there is no heal (no shared /tmp file). Code: BarModel.js registryHeal(); Bar.qml checkRegistry()
-- **INTEG-32** The guard is a runtime file, so it survives the rescan's plugin reload and resets on reboot.
+- **INTEG-27** Omarchy hands a full bar a copy of its widget registry. A copy taken while the shell reloads its widgets (a bar switch, a first install) can list widgets whose component is already destroyed. Whether it does depends on when the JavaScript garbage collector runs: in a box with a real user's plugins, 3 switches came through whole, and with a collection forced every 2 s each of six switches lost 35 of 39. Nothing refreshes the copy until the shell registers another widget; until then those widgets are placeholders.
+- **INTEG-28** A widget is stale when the registry lists it without a component. Code: `BarModel.staleWidgetIds`.
+- **INTEG-29** Each time the bar is handed a registry and each time its `widgets` change, `WidgetRepair.sync()` runs at once: no timer, no shell rescan, no limit.
+- **INTEG-30** A stale widget is loaded from its own plugin: the `barWidget` entry point of the `manifest.json` in its `sourceDir`, read as the shell reads it (a relative path without `..`, in a manifest with the widget's id). The component belongs to the bar and draws on the same frame. It logs `powerbar: the shell's widget registry lost the component of <ids>; loaded them from their plugins`. Code: `BarModel.widgetEntryPath`, `WidgetRepair.qml`.
+- **INTEG-31** A widget that cannot be loaded (no folder, no readable manifest, no entry point, a QML error) stays a placeholder and is warned about with the reason: `powerbar: <id> has no component and could not be loaded (<reason>)`.
+- **INTEG-32** A loaded widget keeps its component while the registry lists it from the same folder, even once the shell registers a fresh one: switching a working widget's component rebuilds it, briefly running two that each register their IPC handler. It is dropped when the widget is unregistered or moves folder. Code: `BarModel.keepRepaired`.
+- **INTEG-143** `status` reports the repair as `runtime.registry`: `{widgets: <count>, stale: [ids], repaired: [ids], failed: {id: reason}}`.
 
 ## Omarchy bar compatibility
 
@@ -104,7 +105,7 @@ follows the re-injected `barConfig`; none reaches Powerbar's IPC.
 - **INTEG-93** `qml` modules take optional `source` (default `~/.config/omarchy/bar/modules/<id>.qml`), are loaded as an `Item`, and receive `bar`, `moduleName`, `settings`.
 - **INTEG-94** A QML module defines `implicitWidth` and `implicitHeight`; the bar sets its height to the bar size.
 - **INTEG-95** The injected `bar` exposes `foreground`, `background`, `urgent`, `fontFamily`, `position`, `vertical`, `barSize`, `run(cmd)` (runs `cmd` through `bash -lc`, detached), `showTooltip(target, text)`, `hideTooltip(target)`, `requestPopout(owner)`, `releasePopout(owner)`. It has no `shellQuote`: Omarchy's bar README lists `bar.shellQuote(value)`, but neither bar defines it; a widget quotes with `Util.shellQuote(value)` from `qs.Commons`, as Omarchy's own widgets do.
-- **INTEG-96** A widget whose component is not available draws as a placeholder until the registry heal (INTEG-27..32) hands it one.
+- **INTEG-96** A widget whose component is not available draws as a placeholder until the widget repair (INTEG-27..32) loads it.
 
 ## Command line: `omarchy-shell powerbar <function> [args]`
 
@@ -166,7 +167,7 @@ Setting names are those of Preferences. `set` of `style` also drops `powerbarIsl
 
 ### Functions
 
-- **INTEG-122** `status` answers JSON `{bar, version, theme, settings: {<name>: value}, widgets, groups, shortcuts, runtime}`; `runtime` is `{barOff, hidden, held, screens: [{screen, shown, peeking}], keys, drawer: {zone, group} | null, preferences: {open, page}}` (`page` is `Layout`, `Groups` or `Bar` while open, else `""`).
+- **INTEG-122** `status` answers JSON `{bar, version, theme, settings: {<name>: value}, widgets, groups, shortcuts, runtime}`; `runtime` is `{barOff, hidden, held, screens: [{screen, shown, peeking}], keys, drawer: {zone, group} | null, preferences: {open, page}, registry}` (`page` is `Layout`, `Groups` or `Bar` while open, else `""`; `registry`: INTEG-143).
 - **INTEG-123** `get <setting>` answers the value as JSON (`"top"`, `true`, `4`; a shortcut: INTEG-125).
 - **INTEG-126** `set <setting> <value>` writes the setting: bar options through `bar.<key>`; `style` through the style writer; appearance tiles through Preferences' scope and look writers. Answers `ok` or one of these errors:
   - `error: <name> is true or false` (switch), `error: <name> is one of <a, b, c>` (choice), `error: <name> is a text value`, `error: <name> is a number`, `error: <name> is from <min> to <max>`, `error: <name> moves in steps of <step>` (a numeric string such as `"4"` quoted is not a number).

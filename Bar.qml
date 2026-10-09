@@ -635,46 +635,16 @@ Item {
   property string omarchyPath: Quickshell.env("OMARCHY_PATH")
   // Injected by the host shell so bar slots can resolve enabled widgets.
   property var barWidgetRegistry: fallbackBarWidgetRegistry
-  // Omarchy keeps a per-bar copy of its widget registry. After switching bars
-  // (and so on a first install), that copy can still point at widget
-  // components the shell has since rebuilt and destroyed, which leaves every
-  // widget a placeholder until the shell is restarted. When Powerbar finds such
-  // entries it asks the shell to rescan its plugins once, which hands it fresh
-  // components. A rescan reloads every plugin, Powerbar included, so its guard
-  // lives in a runtime file rather than in this instance: at most three a
-  // login, a minute apart (BarModel.registryHeal), then a warning names the
-  // widgets still broken. Without a runtime folder there is no heal.
-  function registryStale() {
-    var widgets = barWidgetRegistry && barWidgetRegistry.widgets || {}
-    for (var id in widgets) if (widgets[id] && !widgets[id].component) return true
-    return false
+  // Omarchy hands a full bar a copy of its widget registry. A copy taken while
+  // the shell reloads its widgets (switching the bar does) lists widgets whose
+  // component is already destroyed, and nothing refreshes it until the shell
+  // registers another widget. widgetRepair loads those widgets from their own
+  // plugins each time the bar is handed a copy and each time the copy changes.
+  WidgetRepair {
+    id: repairItem
+    registry: root.barWidgetRegistry
   }
-  readonly property string runtimeDir: Quickshell.env("XDG_RUNTIME_DIR") || ""
-  function checkRegistry() {
-    if (!registryStale() || !runtimeDir) return
-    var heal = BarModel.registryHeal(registryHealStamp.text(), Date.now(), 3)
-    if (!heal.rescan) return
-    registryHealStamp.setText(heal.stamp)
-    console.info("powerbar: widget registry is stale after a bar switch; asking the shell to rescan plugins")
-    if (heal.gaveUp) {
-      var broken = Object.keys(barWidgetRegistry.widgets || {}).filter(function(id) { return !barWidgetRegistry.widgets[id].component })
-      console.warn("powerbar: last rescan this login; if these stay placeholders, restart the shell: " + broken.join(", "))
-    }
-    Util.execArgv(["omarchy-shell", "shell", "rescanPlugins"])
-  }
-  FileView {
-    id: registryHealStamp
-    path: root.runtimeDir ? root.runtimeDir + "/powerbar-registry-rescan" : ""
-    blockLoading: true
-    printErrors: false
-  }
-  Connections {
-    target: root.barWidgetRegistry
-    ignoreUnknownSignals: true
-    function onRevisionChanged() { registryCheck.restart() }
-  }
-  onBarWidgetRegistryChanged: registryCheck.restart()
-  Timer { id: registryCheck; interval: 2500; onTriggered: root.checkRegistry() }
+  property alias widgetRepair: repairItem
   // Read-only registry view for third-party full bars; the built-in bar does
   // not otherwise need it, but declaring it keeps clone construction atomic.
   property var pluginRegistry: null
@@ -2287,7 +2257,7 @@ Item {
     return source ? Util.fileUrl(source) : ""
   }
 
-  Component.onCompleted: { applyBarConfig(); registryCheck.restart() }
+  Component.onCompleted: applyBarConfig()
 
   // Revealing the indicators widens the center island, which can slide a
   // neighbour under a stationary pointer or move the hovered icon away from it.
@@ -4898,7 +4868,7 @@ Item {
       var w = root.barWidgetRegistry.widgets
       if (customType) return null
       var registryName = root.canonicalWidgetId(moduleName)
-      return w[registryName] ? w[registryName].component : null
+      return repairItem.componentFor(registryName, w[registryName] ? w[registryName].component : null)
     }
     readonly property bool qmlCustom: customType === "qml"
     readonly property bool commandCustom: customType === "command"
