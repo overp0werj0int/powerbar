@@ -193,12 +193,39 @@ test('a panel hotkey by position opens the copy it counted when a widget is on t
   assert.equal(barModel.pickPanelSlot(rows, 'eDP-1', 'gone').name, barModel.pickPanelSlot(rows, 'eDP-1').name);
 });
 
-test('the registry heal rescans at most three times a login, a minute apart', () => {
-  let r = barModel.registryHeal('', 100000, 3);
-  assert.equal(r.rescan, true); assert.equal(r.stamp, '100000 1'); assert.equal(r.gaveUp, false);
-  assert.equal(barModel.registryHeal('100000 1', 130000, 3).rescan, false, 'within a minute');
-  r = barModel.registryHeal('100000 2', 200000, 3);
-  assert.equal(r.rescan, true); assert.equal(r.stamp, '200000 3'); assert.equal(r.gaveUp, true);
-  assert.equal(barModel.registryHeal('200000 3', 900000, 3).rescan, false, 'gave up');
-  assert.equal(barModel.registryHeal('100000', 200000, 3).stamp, '200000 2', 'an old stamp counts as one');
+test('stale widgets are the registry entries without a component', () => {
+  const live = {};
+  const ids = barModel.staleWidgetIds({ b: { component: null, metadata: {} }, a: { metadata: {} }, c: { component: live } });
+  assert.deepEqual([...ids], ['a', 'b']);
+  assert.deepEqual([...barModel.staleWidgetIds(null)], []);
+});
+
+test('a stale widget is found through its manifest, inside its own folder', () => {
+  const manifest = (extra) => JSON.stringify(Object.assign({ id: 'x.clock', entryPoints: { barWidget: 'BarWidget.qml' } }, extra));
+  assert.equal(barModel.widgetEntryPath('x.clock', '/p/x.clock/', manifest()).path, '/p/x.clock/BarWidget.qml');
+  assert.equal(barModel.widgetEntryPath('x.clock', '/p/x', manifest({ entryPoints: { barWidget: 'ui/W.qml' } })).path, '/p/x/ui/W.qml');
+  assert.equal(barModel.widgetEntryPath('x.clock', '', manifest()).error, 'no plugin folder');
+  assert.equal(barModel.widgetEntryPath('x.clock', 'rel/dir', manifest()).error, 'no plugin folder');
+  assert.equal(barModel.widgetEntryPath('x.clock', '/p', '{not json').error, 'manifest unreadable');
+  assert.equal(barModel.widgetEntryPath('x.clock', '/p', '').error, 'manifest unreadable');
+  assert.equal(barModel.widgetEntryPath('x.clock', '/p', manifest({ id: 'other' })).error, 'manifest is for other');
+  for (const bad of ['../evil.qml', '/abs.qml', '', 7])
+    assert.equal(barModel.widgetEntryPath('x.clock', '/p', manifest({ entryPoints: { barWidget: bad } })).error, 'no barWidget entry point', String(bad));
+  assert.equal(barModel.widgetEntryPath('x.clock', '/p', manifest({ entryPoints: { overlay: 'O.qml' } })).error, 'no barWidget entry point');
+});
+
+test('a first-party widget can be described by a sibling manifest', () => {
+  assert.deepEqual([...barModel.manifestCandidates('omarchy.keyboard-layout', true)], ['manifest.json', 'KeyboardLayout.manifest.json']);
+  assert.deepEqual([...barModel.manifestCandidates('omarchy.tray', true)], ['manifest.json', 'Tray.manifest.json']);
+  assert.deepEqual([...barModel.manifestCandidates('x.clock', false)], ['manifest.json'], 'third-party plugins have one manifest');
+});
+
+test('a repaired widget stays while the registry lists it from the same folder', () => {
+  const repaired = { sourceDir: '/p/x' };
+  assert.equal(barModel.keepRepaired(repaired, { component: {}, metadata: { sourceDir: '/p/x' } }), true, 'the shell loaded it again');
+  assert.equal(barModel.keepRepaired(repaired, { component: null, metadata: { sourceDir: '/p/x' } }), true, 'still stale');
+  assert.equal(barModel.keepRepaired(repaired, undefined), false, 'unregistered');
+  assert.equal(barModel.keepRepaired(repaired, { component: {}, metadata: { sourceDir: '/p/x/' } }), true, 'a trailing slash');
+  assert.equal(barModel.keepRepaired(repaired, { component: {}, metadata: { sourceDir: '/q/x' } }), false, 'moved');
+  assert.equal(barModel.keepRepaired({ sourceDir: '' }, { metadata: { sourceDir: '' } }), false);
 });
