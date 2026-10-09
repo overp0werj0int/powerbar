@@ -1,6 +1,10 @@
 // Groups reference existing widget instances; settings and enablement stay in
 // bar.layout. Removing a group therefore cannot delete a widget or its service.
 var sections = ["left", "center", "right"]
+// A group's icon takes a place in the layout under this instance key; no
+// widget's key starts with it.
+function groupKey(id) { return "group:" + id }
+function isGroupKey(key) { return typeof key === "string" && key.indexOf("group:") === 0 }
 // Representative glyphs from the stock Omarchy bar widgets and indicators.
 var icons = [
   { name: "Group", glyph: "󰉋" },
@@ -70,7 +74,7 @@ function danglingMembers(bar) {
   if (!known) return 0
   ;(bar && Array.isArray(bar.powerbarGroups) ? bar.powerbarGroups : []).forEach(function(g) {
     ;(g && Array.isArray(g.items) ? g.items : []).forEach(function(key) {
-      if (typeof key === "string" && key && key.indexOf("group:") !== 0 && !known[key]) count++
+      if (typeof key === "string" && key && !isGroupKey(key) && !known[key]) count++
     })
   })
   return count
@@ -94,7 +98,7 @@ function groups(bar) {
       iconImage: typeof g.iconImage === "string" && g.iconImage ? g.iconImage : undefined,
       iconTint: g.iconTint === "own" ? "own" : undefined,
       items: (Array.isArray(g.items) ? g.items : []).filter(function(key) {
-        if (typeof key !== "string" || !key || key.indexOf("group:") === 0 || members.indexOf(key) >= 0) return false
+        if (typeof key !== "string" || !key || isGroupKey(key) || members.indexOf(key) >= 0) return false
         // A widget uninstalled since it was grouped is no longer a member.
         if (known && !known[key]) return false
         members.push(key); return true
@@ -203,7 +207,7 @@ function assign(config, key, id, before) {
   var exists = sections.some(function(section) {
     return (config.bar.layout[section] || []).some(function(e) { return e && e.powerbarInstance === key })
   })
-  if (!exists || key.indexOf("group:") === 0) return false
+  if (!exists || isGroupKey(key)) return false
   if (before === key) return false
   list.forEach(function(g) { g.items = g.items.filter(function(item) { return item !== key }) })
   if (destination) {
@@ -220,7 +224,7 @@ function render(layout, list) {
       var at = result[section].findIndex(function(e) { return e.powerbarInstance === g.before })
       result[section].splice(at < 0 ? result[section].length : at, 0, {
         id: "powerbar.group." + g.id, type: "group", powerbarGroupId: g.id,
-        powerbarInstance: "group:" + g.id, powerbarVisibility: g.visibility || "shown"
+        powerbarInstance: groupKey(g.id), powerbarVisibility: g.visibility || "shown"
       })
     })
   })

@@ -94,11 +94,7 @@ Item {
   readonly property real surfaceRadius: Math.min(bar.islandRounding, bar.barSize / 2)
   readonly property bool stripVertical: Model.drawerVertical(groupConfig, bar.vertical)
   readonly property string memberDisplay: groupConfig ? groupConfig.memberDisplay : "native"
-  function memberTitle(slot) {
-    if (!slot) return ""
-    var metadata = bar.barWidgetRegistry.metadataFor(bar.canonicalWidgetId(slot.moduleName)) || {}
-    return metadata.displayName || slot.moduleName.split(".").pop()
-  }
+  function memberTitle(slot) { return slot ? slot.displayName : "" }
   FontMetrics {
     id: menuMetrics
     font.family: Style.font.menuFamily
@@ -111,18 +107,11 @@ Item {
   readonly property bool menuIcons: namedMenu && memberDisplay === "both"
   function menuInk(slot) { return bar.vertical && slot.crossInk ? slot.crossInk : slot.ink }
   function menuGlyph(slot) { var ink = menuInk(slot); return CellModel.isGlyph(ink.length, ink.glyph) }
-  function menuValueWidth(slot) { return menuIcons && !menuGlyph(slot) ? Math.min(menuInk(slot).length, CellModel.MAX_INK) : 0 }
+  function menuValueWidth(slot) { return Model.menuValueWidth(menuIcons, menuGlyph(slot), menuInk(slot).length, CellModel.MAX_INK) }
   function menuLabelStart(slot) { return Model.menuLabelStart(menuIcons && menuGlyph(slot), tokens.cell, tokens.air) }
-  readonly property real menuRowWidth: {
-    if (!namedMenu) return 0
-    var content = 0
-    for (var slot of slots) {
-      var value = menuValueWidth(slot)
-      content = Math.max(content, menuLabelStart(slot) + menuMetrics.advanceWidth(memberTitle(slot))
-        + (value > 0 ? tokens.air + value : 0) + tokens.air)
-    }
-    return Model.menuWidth(content, tokens.inset, tokens.cell) - 2 * tokens.inset
-  }
+  readonly property real menuRowWidth: !namedMenu ? 0 : Model.menuRowWidth(slots.map(function(slot) {
+    return { labelStart: menuLabelStart(slot), title: menuMetrics.advanceWidth(memberTitle(slot)), value: menuValueWidth(slot) }
+  }), tokens)
   property var anchorSlot: null
   property real anchorCenter: -1
   property string suppressedZone: ""
@@ -185,15 +174,15 @@ Item {
   // One bar gap from the bar: a floating bar's extent already includes it; a
   // flat bar has none, so its drawers add it.
   readonly property real gap: bar.flat ? bar.edgeGap : 0
-  readonly property real thickness: bar.renderedBarSize
+  readonly property real thickness: bar.barSize
   readonly property real extent: opened ? thickness + gap : 0
   readonly property real axisExtent: bar.vertical ? hostWindow.height : hostWindow.width
   // Strip ends: the island rule, so the end cells sit one inset from the ends.
   readonly property real leadPad: namedMenu ? padding : bar.cellEndPad(bar.edgeSpill(contents, false))
   readonly property real trailPad: namedMenu ? padding : bar.cellEndPad(bar.edgeSpill(contents, true))
-  readonly property real desiredLength: (bar.vertical ? grid.height : grid.width) * bar.barScale
+  readonly property real desiredLength: (bar.vertical ? grid.height : grid.width)
     + (namedMenu ? 2 * padding : leadPad + trailPad)
-  readonly property real desiredCross: (bar.vertical ? grid.width : grid.height) * bar.barScale + 2 * padding
+  readonly property real desiredCross: (bar.vertical ? grid.width : grid.height) + 2 * padding
   readonly property real crossLength: namedMenu
     ? Math.min(Math.max(thickness, desiredCross), hostWindow.drawerExtent - gap - bar.edgeGap) : thickness
   readonly property real length: opened ? Math.min(Math.max(thickness, desiredLength), Math.max(thickness, axisExtent - 2 * bar.edgeGap)) : closingLength
@@ -388,8 +377,8 @@ Item {
     cursorActive = true
     var cell = widgets.itemAt(cursor)
     if (!cell) return
-    var start = (drawer.stripVertical ? cell.y : cell.x) * bar.barScale
-    var size = (drawer.stripVertical ? cell.height : cell.width) * bar.barScale
+    var start = (drawer.stripVertical ? cell.y : cell.x)
+    var size = (drawer.stripVertical ? cell.height : cell.width)
     var offset = drawer.stripVertical ? viewport.contentY : viewport.contentX
     var span = drawer.stripVertical ? viewport.height : viewport.width
     var next = start < offset ? start : start + size > offset + span ? start + size - span : offset
@@ -416,17 +405,21 @@ Item {
 
   EffectSurface {
     anchors.fill: parent
-    color: bar.extendedSurfaceColor
-    shadowEnabled: bar.extendedEffects.shadow
-    shadowSize: bar.extendedEffects.shadowSize
-    shadowOpacity: bar.extendedEffects.shadowOpacity
+    color: bar.overlaySurfaceColor
+    shadowEnabled: bar.surfaceEffects.shadow
+    shadowSize: bar.surfaceEffects.shadowSize
+    shadowOpacity: bar.surfaceEffects.shadowOpacity
     radius: drawer.surfaceRadius
-    // Bar specs compensate for barScale; this surface is in screen pixels.
-    borderSpec: {
-      var spec = JSON.parse(JSON.stringify(bar.islandBorder))
-      for (var side in spec.widths) spec.widths[side] *= bar.barScale
-      return spec
-    }
+    borderSpec: bar.islandBorder
+  }
+  // A drop's landing spot in this drawer, outlined as on the bar: a cell in a
+  // strip, a row in a menu.
+  component DrawerOutline: DropOutline {
+    bar: drawer.bar
+    vertical: drawer.stripVertical
+    cellAlong: drawer.namedMenu ? drawer.tokens.thickness : (drawer.bar.barDragSource ? drawer.bar.barDragSource.cellLength : drawer.tokens.cell)
+    cellAcross: drawer.namedMenu ? drawer.menuRowWidth : drawer.tokens.thickness
+    ink: drawer.namedMenu ? drawer.bar.textOn(Color.menu.text) : drawer.bar.barForeground
   }
   HoverHandler { id: hover }
   Flickable {
@@ -440,8 +433,8 @@ Item {
     anchors.bottomMargin: drawer.namedMenu ? drawer.padding : bar.vertical ? drawer.trailPad : 0
     clip: true
     boundsBehavior: Flickable.StopAtBounds
-    contentWidth: grid.width * bar.barScale
-    contentHeight: grid.height * bar.barScale
+    contentWidth: grid.width
+    contentHeight: grid.height
     flickableDirection: drawer.stripVertical ? Flickable.VerticalFlick : Flickable.HorizontalFlick
     Controls.ScrollBar.horizontal: Controls.ScrollBar { policy: !drawer.stripVertical && viewport.contentWidth > viewport.width ? Controls.ScrollBar.AsNeeded : Controls.ScrollBar.AlwaysOff }
     Controls.ScrollBar.vertical: Controls.ScrollBar { policy: drawer.stripVertical && viewport.contentHeight > viewport.height ? Controls.ScrollBar.AsNeeded : Controls.ScrollBar.AlwaysOff }
@@ -449,7 +442,6 @@ Item {
       id: grid
       implicitWidth: drawer.stripVertical ? Math.max(contents.width, drawer.thickness) : contents.width + endGap.width
       implicitHeight: drawer.stripVertical ? contents.height + endGap.height : Math.max(contents.height, drawer.thickness)
-      scale: bar.barScale
       transformOrigin: Item.TopLeft
       // Strip highlights live beneath the cells, so an Equal gaps cell can
       // spill past its slot like on the bar.
@@ -467,7 +459,7 @@ Item {
             required property int index
             // Read once: a mount keeps its member for its whole life.
             readonly property var modelData: drawer.mounted.list[index]
-            readonly property string title: modelData ? (bar.barWidgetRegistry.metadataFor(bar.canonicalWidgetId(modelData.moduleName)) || {}).displayName || modelData.moduleName.split(".").pop() : ""
+            readonly property string title: modelData ? modelData.displayName : ""
             readonly property bool labelled: drawer.namedMenu
             readonly property bool showNative: drawer.memberDisplay !== "name"
             readonly property var place: modelData ? modelData.cellPlace : null
@@ -509,20 +501,15 @@ Item {
             readonly property var hostDrawer: drawer
             // The landing spot in this member's gap, outlined as on the bar: a
             // cell in a strip, a row in a menu.
-            DropOutline {
+            DrawerOutline {
               readonly property real lengthAlong: drawer.stripVertical ? mount.height : mount.width
               readonly property real insetAlong: drawer.stripVertical ? mount.animatedInsetY : mount.animatedInsetX
               readonly property real base: drawer.stripVertical ? mount.baseHeight : mount.baseWidth
               readonly property bool open: drawer.opened && !mount.preview.hidden && (mount.preview.before || mount.preview.after)
-              bar: drawer.bar
-              vertical: drawer.stripVertical
               gapStart: mount.preview.before ? 0 : base
               gapLength: !open ? 0 : mount.preview.before ? insetAlong : Math.max(0, lengthAlong - base)
               fullGap: mount.dragGap
               landingOffset: drawer.namedMenu ? (mount.preview.before ? 0 : drawer.padding) : -1
-              cellAlong: drawer.namedMenu ? drawer.tokens.thickness : (drawer.bar.barDragSource ? drawer.bar.barDragSource.cellLength : drawer.tokens.cell)
-              cellAcross: drawer.namedMenu ? drawer.menuRowWidth : drawer.tokens.thickness
-              ink: drawer.namedMenu ? drawer.bar.textOn(Color.menu.text) : drawer.bar.barForeground
               z: 3
             }
             Component.onCompleted: if (modelData) modelData.drawerHost = mount
@@ -626,8 +613,8 @@ Item {
                     // drop, which may close this drawer.
                     drawer.dragMount = mount
                     if (!bar.beginIconDrag(modelData, hostWindow, lastScene,
-                        centroid.position.x * bar.barScale,
-                        centroid.position.y * bar.barScale)) drawer.releaseDrag(mount)
+                        centroid.position.x,
+                        centroid.position.y)) drawer.releaseDrag(mount)
                   } else {
                     if (bar.barDragSource === modelData) bar.finishIconDrag(lastScene, modelData)
                     drawer.releaseDrag(mount)
@@ -665,15 +652,10 @@ Item {
         targetWidth: drawer.stripVertical ? drawer.thickness : gap ? bar.dragGapWidth : 0
         targetHeight: drawer.stripVertical ? (gap ? (drawer.namedMenu ? drawer.rowPitch : bar.dragGapHeight) : 0) : drawer.thickness
         motionEnabled: bar.animationsEnabled && drawer.opened && !drawer.replaying && !bar.dragHandover
-        DropOutline {
-          bar: drawer.bar
-          vertical: drawer.stripVertical
+        DrawerOutline {
           gapLength: drawer.stripVertical ? parent.height : parent.width
           fullGap: drawer.namedMenu ? drawer.rowPitch : drawer.stripVertical ? drawer.bar.dragGapHeight : drawer.bar.dragGapWidth
           landingOffset: drawer.namedMenu ? drawer.padding : -1
-          cellAlong: drawer.namedMenu ? drawer.tokens.thickness : (drawer.bar.barDragSource ? drawer.bar.barDragSource.cellLength : drawer.tokens.cell)
-          cellAcross: drawer.namedMenu ? drawer.menuRowWidth : drawer.tokens.thickness
-          ink: drawer.namedMenu ? drawer.bar.textOn(Color.menu.text) : drawer.bar.barForeground
         }
         motionDuration: bar.dragMotionDuration
         motionEasing: bar.dragMotionEasing

@@ -9,14 +9,13 @@ BorderSurface {
   property bool shadowEnabled: false
   property real shadowSize: 16
   property real shadowOpacity: 0.3
-  property real surfaceScale: 1
 
   RectangularShadow {
     anchors.fill: parent
     z: -1
     visible: surface.shadowEnabled
     radius: surface.radius
-    blur: surface.shadowSize / surface.surfaceScale
+    blur: surface.shadowSize
     color: Qt.rgba(0, 0, 0, surface.shadowOpacity)
   }
 }

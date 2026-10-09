@@ -193,6 +193,13 @@ test('a panel hotkey by position opens the copy it counted when a widget is on t
   assert.equal(barModel.pickPanelSlot(rows, 'eDP-1', 'gone').name, barModel.pickPanelSlot(rows, 'eDP-1').name);
 });
 
+test('a widget is called by its display name, else its manifest name, else its id', () => {
+  assert.equal(barModel.widgetName({ displayName: 'Clock', name: 'clock-plugin' }, 'omarchy.clock'), 'Clock');
+  assert.equal(barModel.widgetName({ name: 'Postcard' }, 'tahayvr.postcard'), 'Postcard');
+  assert.equal(barModel.widgetName(null, 'tahayvr.postcard'), 'postcard');
+  assert.equal(barModel.widgetName({}, ''), '');
+});
+
 test('powerbar writes only a bar config that names it as the bar', () => {
   assert.equal(barModel.ownsBarConfig({ id: 'p0werj0int.powerbar', layout: {} }, 'p0werj0int.powerbar'), true);
   assert.equal(barModel.ownsBarConfig({ layout: { left: [] } }, 'p0werj0int.powerbar'), false, "Omarchy's defaults name no bar");

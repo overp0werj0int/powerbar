@@ -101,6 +101,12 @@ function keepRepaired(repaired, entry) {
     && dir(entry.metadata.sourceDir) === dir(repaired.sourceDir))
 }
 
+// What a widget is called: its registry metadata's display name, else its
+// manifest name, else the last part of its id.
+function widgetName(metadata, id) {
+  return metadata && (metadata.displayName || metadata.name) || String(id || "").split(".").pop()
+}
+
 function normalizePosition(value) {
   var next = String(value || "").trim()
   return /^(top|bottom|left|right)$/.test(next) ? next : "top"
@@ -140,12 +146,6 @@ function pinTrayToInner(entries, section) {
   return result
 }
 
-function moduleString(entry, key, fallback) {
-  var settings = entrySettings(entry)
-  var value = settings[key]
-  return value === undefined || value === null ? fallback : String(value)
-}
-
 function entryIndex(entries, name) {
   if (!Array.isArray(entries)) return -1
   for (var i = 0; i < entries.length; i++) {
@@ -172,16 +172,6 @@ function moveInstanceInConfig(config, fromRegion, instanceKey, toRegion, beforeK
   if (visibility !== undefined) entry.powerbarVisibility = visibility
   to.splice(toIndex, 0, entry)
   return true
-}
-
-function entriesBefore(entries, name) {
-  var index = entryIndex(entries, name)
-  return index <= 0 ? [] : entries.slice(0, index)
-}
-
-function entriesAfter(entries, name) {
-  var index = entryIndex(entries, name)
-  return index === -1 ? [] : entries.slice(index + 1)
 }
 
 // A shell.json write that only changes inline widget settings (the battery
@@ -304,7 +294,6 @@ function pickPanelSlot(candidates, focusedScreen, prefer) {
   return pickDrawnSlot(pool.map(function(row) { return row.slot }))
 }
 
-
 if (typeof module !== "undefined") {
   module.exports = {
     barStyle: barStyle,
@@ -316,11 +305,9 @@ if (typeof module !== "undefined") {
     entrySettings: entrySettings,
     entryId: entryId,
     pinTrayToInner: pinTrayToInner,
-    moduleString: moduleString,
+    widgetName: widgetName,
     entryIndex: entryIndex,
     moveInstanceInConfig: moveInstanceInConfig,
-    entriesBefore: entriesBefore,
-    entriesAfter: entriesAfter,
     inlineSettingsDelta: inlineSettingsDelta,
     expandPath: expandPath,
     customModuleSafeName: customModuleSafeName,

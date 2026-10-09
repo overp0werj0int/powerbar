@@ -53,7 +53,7 @@ Item {
     bar.groups.forEach(function(g) {
       var list = result.filter(function(e) { return e.section === g.section })
       var anchor = list.find(function(e) { return e.instanceKey === g.before })
-      result.push({ id: "powerbar.group." + g.id, groupId: g.id, instanceKey: "group:" + g.id,
+      result.push({ id: "powerbar.group." + g.id, groupId: g.id, instanceKey: Groups.groupKey(g.id),
         label: g.label, icon: g.icon, iconFont: g.iconFont, iconImage: g.iconImage, iconTint: g.iconTint, mode: g.visibility, section: g.section,
         index: anchor ? anchor.index : (config.layout && config.layout[g.section] || []).length,
         fingerprint: JSON.stringify(g) })
@@ -126,7 +126,7 @@ Item {
     if (record.groupId) return record.label
     if (record.label) return record.label
     var metadata = metadataFor(record.id)
-    return metadata && (metadata.displayName || metadata.name) || String(record.id).split('.').pop()
+    return BarModel.widgetName(metadata, record.id)
   }
   // Saved widget images on disk, listed once per opening.
   property var cachedImages: ({})

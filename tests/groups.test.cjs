@@ -201,3 +201,10 @@ test('icons in Powerbar\'s folder that no group uses are swept; others and outsi
     [dir + '/left.png', dir + '/own.png']);
   assert.deepEqual(plain(m.unreferencedIcons([], c.bar, dir)), []);
 });
+
+test('a group icon takes a layout place under its own key, never a widget key', () => {
+  assert.equal(m.groupKey('g-1'), 'group:g-1');
+  assert.equal(m.isGroupKey('group:g-1'), true);
+  assert.equal(m.isGroupKey('pw-abc'), false);
+  assert.equal(m.isGroupKey(undefined), false);
+});
