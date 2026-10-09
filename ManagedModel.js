@@ -99,6 +99,20 @@ function menuLabelStart(showIcon, cell, air) {
 function menuWidth(content, inset, cell) {
   return Math.min(320, Math.max(4 * cell, content + 2 * inset))
 }
+// A menu row's value: with icons shown, a member that is text on the bar (the
+// clock, the battery) shows its text at the row's end, at most maxInk wide.
+function menuValueWidth(icons, glyph, inkLength, maxInk) {
+  return icons && !glyph ? Math.min(inkLength, maxInk) : 0
+}
+// A named menu's row width from its rows ({ labelStart, title, value } in px):
+// the widest label, title and value with an air after each, as menuWidth
+// frames it, less the inset on both sides.
+function menuRowWidth(rows, tokens) {
+  var content = 0
+  for (var row of rows)
+    content = Math.max(content, row.labelStart + row.title + (row.value > 0 ? tokens.air + row.value : 0) + tokens.air)
+  return menuWidth(content, tokens.inset, tokens.cell) - 2 * tokens.inset
+}
 function clamp(start, length, screen, edge) {
   return Math.max(edge, Math.min(screen - edge - length, start))
 }

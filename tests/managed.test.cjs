@@ -130,3 +130,15 @@ test('a hover-opened drawer gives way when the pointer lands on another stop alo
   assert.equal(m.closesForStop(true, false, true, 'g1', 'right', { groupId: '', region: 'right' }), false);
   assert.equal(m.closesForStop(false, false, false, 'g1', 'right', { groupId: '', region: 'right' }), false);
 });
+
+test('a menu row: text widgets show a value at its end; the widest row sets the width', () => {
+  assert.equal(m.menuValueWidth(true, false, 50, 40), 40, 'text, capped');
+  assert.equal(m.menuValueWidth(true, true, 50, 40), 0, 'a glyph has no value');
+  assert.equal(m.menuValueWidth(false, false, 50, 40), 0, 'without icons');
+  const tokens = { air: 4, inset: 6, cell: 30 };
+  // Rows of 30+60+4 = 94 and 4+40+(4+20)+4 = 72: the widest is 94, which
+  // menuWidth raises to four cells (120); less the insets, 108.
+  assert.equal(m.menuRowWidth([{ labelStart: 30, title: 60, value: 0 }, { labelStart: 4, title: 40, value: 20 }], tokens), 108);
+  assert.equal(m.menuRowWidth([{ labelStart: 30, title: 300, value: 0 }], tokens), 320 - 12, 'at most 320 with the insets');
+  assert.equal(m.menuRowWidth([], tokens), 120 - 12, 'an empty menu is four cells wide');
+});

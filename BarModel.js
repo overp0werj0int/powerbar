@@ -101,6 +101,12 @@ function keepRepaired(repaired, entry) {
     && dir(entry.metadata.sourceDir) === dir(repaired.sourceDir))
 }
 
+// What a widget is called: its registry metadata's display name, else its
+// manifest name, else the last part of its id.
+function widgetName(metadata, id) {
+  return metadata && (metadata.displayName || metadata.name) || String(id || "").split(".").pop()
+}
+
 function normalizePosition(value) {
   var next = String(value || "").trim()
   return /^(top|bottom|left|right)$/.test(next) ? next : "top"
@@ -140,12 +146,6 @@ function pinTrayToInner(entries, section) {
   return result
 }
 
-function moduleString(entry, key, fallback) {
-  var settings = entrySettings(entry)
-  var value = settings[key]
-  return value === undefined || value === null ? fallback : String(value)
-}
-
 function entryIndex(entries, name) {
   if (!Array.isArray(entries)) return -1
   for (var i = 0; i < entries.length; i++) {
@@ -172,16 +172,6 @@ function moveInstanceInConfig(config, fromRegion, instanceKey, toRegion, beforeK
   if (visibility !== undefined) entry.powerbarVisibility = visibility
   to.splice(toIndex, 0, entry)
   return true
-}
-
-function entriesBefore(entries, name) {
-  var index = entryIndex(entries, name)
-  return index <= 0 ? [] : entries.slice(0, index)
-}
-
-function entriesAfter(entries, name) {
-  var index = entryIndex(entries, name)
-  return index === -1 ? [] : entries.slice(index + 1)
 }
 
 // A shell.json write that only changes inline widget settings (the battery
@@ -304,37 +294,6 @@ function pickPanelSlot(candidates, focusedScreen, prefer) {
   return pickDrawnSlot(pool.map(function(row) { return row.slot }))
 }
 
-// Resolve a pointer anywhere along the bar to the closest insertion edge.
-// Requiring the pointer to sit inside another widget makes the empty space
-// around a centered group a dead zone, even though it visually reads as the
-// most natural place to drop.
-function nearestDropTarget(candidates, point, vertical) {
-  var rows = Array.isArray(candidates) ? candidates : []
-  var axis = vertical ? Number(point && point.y) : Number(point && point.x)
-  if (!isFinite(axis)) return null
-
-  var best = null
-  var bestDistance = Infinity
-  for (var i = 0; i < rows.length; i++) {
-    var row = rows[i]
-    if (!row || !row.slot) continue
-
-    var start = Number(vertical ? row.y : row.x)
-    var size = Number(vertical ? row.height : row.width)
-    if (!isFinite(start) || !isFinite(size) || size <= 0) continue
-
-    var beforeDistance = Math.abs(axis - start)
-    var afterDistance = Math.abs(axis - (start + size))
-    var after = afterDistance < beforeDistance
-    var distance = after ? afterDistance : beforeDistance
-    if (distance < bestDistance) {
-      best = { slot: row.slot, after: after }
-      bestDistance = distance
-    }
-  }
-  return best
-}
-
 if (typeof module !== "undefined") {
   module.exports = {
     barStyle: barStyle,
@@ -342,16 +301,13 @@ if (typeof module !== "undefined") {
     isDrawnSlot: isDrawnSlot,
     pickDrawnSlot: pickDrawnSlot,
     pickPanelSlot: pickPanelSlot,
-    nearestDropTarget: nearestDropTarget,
     normalizePosition: normalizePosition,
     entrySettings: entrySettings,
     entryId: entryId,
     pinTrayToInner: pinTrayToInner,
-    moduleString: moduleString,
+    widgetName: widgetName,
     entryIndex: entryIndex,
     moveInstanceInConfig: moveInstanceInConfig,
-    entriesBefore: entriesBefore,
-    entriesAfter: entriesAfter,
     inlineSettingsDelta: inlineSettingsDelta,
     expandPath: expandPath,
     customModuleSafeName: customModuleSafeName,

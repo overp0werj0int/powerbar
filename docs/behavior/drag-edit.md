@@ -68,7 +68,7 @@ Drag and drop on the live bar, into drawers and onto zone dots. The bar controll
 
 - **DRAG-25** Dropping on the bar saves the widget with `powerbarVisibility: "shown"`, written explicitly even though shown is the default for a widget with no saved value, and places it before or after the slot under it. A group icon dragged to the bar keeps its group's visibility the same way. Code: Bar.qml `dropAt()`, `BarModel.moveInstanceInConfig()`
 
-- **DRAG-26** Dropping on a zone where nothing is under the pointer lands next to the nearest widget of that zone (`BarModel.nearestDropTarget`), or at the end of the zone, saved `"shown"`, when it has none.
+- **DRAG-26** Dropping on a zone where nothing is under the pointer lands next to the nearest widget of that zone (`DragModel.nearestDropTarget`, via `DragModel.resolveDrop`), or at the end of the zone, saved `"shown"`, when it has none.
 
 - **DRAG-27** After a drop into a group's drawer or a zone's drawer the drawer stays open (it counts as entered) and closes after the exit grace once the pointer leaves (on-demand-drawers.md).
 

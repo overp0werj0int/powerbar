@@ -113,73 +113,24 @@ Item {
   // Set while a drop into a drawer commits: the drawer (a group's or a zone's)
   // stays open under the pointer through the edit, and leaves on the exit grace.
   property bool keepDrawerThroughEdit: false
-  // Config edits show at once and reach shell.json once the bar has settled.
-  // Omarchy handles a config write by re-registering every bar widget, once
-  // for the write and again when it reloads the file, which can block the
-  // whole shell for hundreds of milliseconds. Writing first held the bar
-  // frozen on its old layout through that. Instead each edit is applied at
-  // once to the bar's own copy of its config, exactly as the host applies a
-  // bar's edit (to a copy of the bar subtree), and queued. A quiet moment with
-  // no drag, glide or bar move then writes the queue as one config change.
-  // Edits run again on the host's config, so they must capture plain values,
-  // never live slot state, and must not invent values (ensureInstanceIds
-  // writes directly for that reason).
-  property var queuedConfigEdits: []
-  // The host's config under the queued edits: a failed write restores it.
-  property var hostBarConfig: null
-  property bool applyingQueuedEdits: false
+  // Config edits show at once and reach shell.json once the bar has settled
+  // (ConfigStore.qml: the queue, the host's config under it, and the rule that
+  // only a config naming Powerbar is written).
   readonly property bool configWriteSettled: !barDragSource && !barDragSettling && !barMoveActive
   signal configWriteFailed()
-  // Writes go through the shell only while its config names Powerbar as the
-  // bar (BarModel.ownsBarConfig): Omarchy saves its whole config with every
-  // write, and when it could not read shell.json it holds its defaults, which
-  // name no bar. Checked against the config the shell last delivered, under
-  // any queued edits.
   readonly property string barId: manifest && manifest.id ? String(manifest.id) : "p0werj0int.powerbar"
-  function canWriteConfig() {
-    return !!shell && typeof shell.mutateShellConfig === "function"
-      && BarModel.ownsBarConfig(queuedConfigEdits.length ? hostBarConfig : barConfig, barId)
+  ConfigStore {
+    id: configStore
+    shell: root.shell
+    barId: root.barId
+    shown: root.barConfig
+    settled: root.configWriteSettled
+    onShow: function(config) { root.barConfig = config }
+    onFailed: root.configWriteFailed()
   }
-  function writeConfig(mutator) {
-    if (!canWriteConfig() || typeof mutator !== "function") return false
-    if (!queuedConfigEdits.length) hostBarConfig = barConfig
-    queuedConfigEdits = queuedConfigEdits.concat([mutator])
-    showQueuedEdits(hostBarConfig)
-    configWriteDelay.restart()
-    return true
-  }
-  // The host's config with every queued edit applied, shown as the bar's config.
-  function showQueuedEdits(base) {
-    var scoped = { bar: JSON.parse(JSON.stringify(Util.isPlainObject(base) ? base : {})) }
-    for (var edit of queuedConfigEdits) edit(scoped)
-    if (!Util.isPlainObject(scoped.bar)) return
-    applyingQueuedEdits = true
-    try { barConfig = scoped.bar } finally { applyingQueuedEdits = false }
-  }
-  function flushConfigWrites() {
-    configWriteDelay.stop()
-    var edits = queuedConfigEdits, restore = hostBarConfig
-    if (!edits.length) return
-    queuedConfigEdits = []
-    hostBarConfig = null
-    if (!BarModel.ownsBarConfig(restore, barId)) {
-      console.warn("powerbar: the shell's config no longer names Powerbar as the bar; " + edits.length + " change(s) not saved")
-      barConfig = restore
-      configWriteFailed()
-      return
-    }
-    if (!shell || typeof shell.mutateShellConfig !== "function"
-        || shell.mutateShellConfig(function(config) { for (var edit of edits) edit(config) }) === false) {
-      console.warn("powerbar: the shell did not save " + edits.length + " change(s) to shell.json; the bar shows the saved config again")
-      barConfig = restore
-      configWriteFailed()
-    }
-  }
-  Timer {
-    id: configWriteDelay
-    interval: 300
-    onTriggered: if (root.configWriteSettled) root.flushConfigWrites(); else restart()
-  }
+  function canWriteConfig() { return configStore.canWrite() }
+  function writeConfig(mutator) { return configStore.write(mutator) }
+  function flushConfigWrites() { configStore.flush() }
   function assignGroup(key, id, before, keepDrawer) {
     return editGroups(function(config) { GroupsModel.assign(config, key, id, before || "") }, keepDrawer)
   }
@@ -236,7 +187,7 @@ Item {
           // valid while its result lives, and an image that loads it later
           // (a page shown again, a rebuilt tile) would otherwise draw nothing.
           done(key, { url: result.url, result: result, width: width, height: height, face: face })
-          if (key.indexOf("group:") === 0) return
+          if (GroupsModel.isGroupKey(key)) return
           result.saveToFile(root.widgetImageFile(key))
           root.recordFace(key, face)
         }
@@ -443,7 +394,7 @@ Item {
     var until = ManagedModel.deadline(Date.now(), managedRevealSeconds)
     setActivityDeadline(key, until)
     var owner = groupFor(key)
-    if (owner && owner.visibility === "managed") setActivityDeadline("group:" + owner.id, until)
+    if (owner && owner.visibility === "managed") setActivityDeadline(GroupsModel.groupKey(owner.id), until)
   }
   function setActivityDeadline(key, until) {
     activityDeadlines[key] = until
@@ -474,7 +425,7 @@ Item {
       }
     }
     if (!missing) return
-    shell.mutateShellConfig(function(config) {
+    configStore.writeNow(function(config) {
       ManagedModel.healVisibility(config.bar, root.thirdPartyEntry)
       var used = {}
       for (var zone of ["left", "center", "right"]) {
@@ -764,12 +715,6 @@ Item {
     surface: appearance.scopes.surface !== "theme" || appearance.look.surface,
     shadow: appearance.scopes.shadow !== "theme" || appearance.look.shadow
   })
-  // Island borders are specified for the scaled bar; overlays are in screen pixels.
-  readonly property var overlayBorder: {
-    var spec = JSON.parse(JSON.stringify(islandBorder))
-    for (var side in spec.widths) spec.widths[side] *= barScale
-    return spec
-  }
   readonly property bool overlayShadow: overlayStyled.shadow && surfaceEffects.shadow
   // Room around an overlay for its shadow, inside its window.
   readonly property real overlayShadowPad: overlayShadow ? Math.ceil(surfaceEffects.shadowSize) : 0
@@ -950,9 +895,9 @@ Item {
   readonly property real dragLandingExtent: barDragSource && barDragSource.landingExtent > 0 ? barDragSource.landingExtent
     : barDragSettling && barDragSettleLanding > 0 ? barDragSettleLanding : 0
   readonly property real dragGapWidth: !vertical && dragLandingExtent > 0 ? dragLandingExtent
-    : Math.max(barSize, barDragImageWidth / Math.max(0.01, barScale)) + cellTokens.gutter
+    : Math.max(barSize, barDragImageWidth) + cellTokens.gutter
   readonly property real dragGapHeight: vertical && dragLandingExtent > 0 ? dragLandingExtent
-    : Math.max(barSize, barDragImageHeight / Math.max(0.01, barScale)) + cellTokens.gutter
+    : Math.max(barSize, barDragImageHeight) + cellTokens.gutter
   property bool barMoveActive: false
   property string barMoveCandidate: ""
   property var barMoveWindow: null
@@ -974,8 +919,6 @@ Item {
     layoutJSON: JSON.stringify(root.layoutConfig || {})
     owns: function(id, target) { return root.pluginOwnsBarObject(id, target) }
   }
-
-  function publicLayoutConfig() { return JSON.parse(apiSync.layoutJSON) }
 
   function bindPluginBarApi(api) {
     if (!api) return
@@ -1403,8 +1346,8 @@ Item {
     barDragImageLabelled = !!host && item === host && host.labelled === true
     barDragImageFromCell = !!host && item === host
     if (host && item === slot.presentationItem) {
-      barDragOffsetX -= item.x * barScale
-      barDragOffsetY -= item.y * barScale
+      barDragOffsetX -= item.x
+      barDragOffsetY -= item.y
     }
     if (!item || typeof item.grabToImage !== "function") return
 
@@ -1412,8 +1355,8 @@ Item {
     var grabHeight = Math.max(1, Math.ceil(item.height || item.implicitHeight || slot.height || 1))
     item.grabToImage(function(result) {
       if (root.barDragSource !== slot || !result || !result.url) return
-      root.barDragImageWidth = grabWidth * root.barScale
-      root.barDragImageHeight = grabHeight * root.barScale
+      root.barDragImageWidth = grabWidth
+      root.barDragImageHeight = grabHeight
       root.barDragImageUrl = result.url
     }, Qt.size(grabWidth, grabHeight))
   }
@@ -1437,7 +1380,7 @@ Item {
     var visual = slot.drawerHost || slot
     var origin = visual.mapToItem(null, 0, 0)
     root.barDragSourceRect = { x: origin.x, y: origin.y,
-      width: visual.width * root.barScale, height: visual.height * root.barScale }
+      width: visual.width, height: visual.height }
     root.barDragOffsetX = offsetX
     root.barDragOffsetY = offsetY
     root.barDragSource = slot
@@ -1707,7 +1650,7 @@ Item {
     var choice = DragModel.settleTarget(slots.map(function(candidate) {
       return { key: candidate.instanceKey, drawer: !!candidate.drawerHost,
         shown: !candidate.drawerHost && candidate.mainVisible }
-    }), root.barDragSettleKey, owner ? "group:" + owner.id : "")
+    }), root.barDragSettleKey, owner ? GroupsModel.groupKey(owner.id) : "")
     var target = slots[choice.index] || null
     // Into a menu row that shows the widget, the image lands on the widget.
     var row = target && target.drawerHost
@@ -1807,8 +1750,6 @@ Item {
   }
 
   readonly property var surfaceEffects: AppearanceModel.effects(appearanceConfig, Color.bar.background.a)
-  readonly property var mainEffects: surfaceEffects
-  readonly property var extendedEffects: surfaceEffects
   // Drawers always lie over windows, and so does a bar that autohides; those
   // surfaces keep a readable minimum opacity (AppearanceModel.overlayOpacity).
   readonly property color overlaySurfaceColor: Qt.alpha(background, AppearanceModel.overlayOpacity(surfaceEffects))
@@ -1816,7 +1757,6 @@ Item {
   function surfaceColorFor(effects) {
     return Qt.alpha(background, AppearanceModel.barOpacity(effects, autoHide, transparent))
   }
-  readonly property color extendedSurfaceColor: overlaySurfaceColor
 
   readonly property string barStyle: barOptions.style
   readonly property bool islands: barStyle === "islands"
@@ -1910,9 +1850,6 @@ Item {
   readonly property int barSize: barSizeFor(vertical)
   // Widgets are drawn at this size whether or not the bar is large, so lists
   // of widget icons outside the bar keep to it.
-  readonly property int themeBarSize: vertical ? Style.bar.sizeVertical : Style.bar.sizeHorizontal
-  readonly property real renderedBarSize: barSize
-  readonly property real barScale: 1
   // Item highlight shared by the bar, its drawers and Preferences' layout
   // tiles: a fill in the bar's own foreground, nested inside island corners.
   readonly property color highlightHoverColor: Style.hoverFillFor(barForeground, Color.accent)
@@ -1931,7 +1868,7 @@ Item {
       : { x: start, y: cross, width: cell, height: k.thickness, radius: highlightRadius }
   }
   function highlightInset(extent) { return Math.min(Style.space(3), Math.max(0, (extent - Style.space(16)) / 2)) }
-  readonly property int barExtent: Math.ceil(renderedBarSize + (flat ? 0 : edgeGap * 2))
+  readonly property int barExtent: Math.ceil(barSize + (flat ? 0 : edgeGap * 2))
   readonly property real widgetSpacing: Style.space(AppearanceModel.clampTo(AppearanceModel.ranges.spacing, barConfig.powerbarSpacing))
   readonly property var themeIslandBorder: Border.surfaceSpec("popups", "border", Color.popups.border, 1)
   readonly property real islandRounding: roundingFor(appearanceConfig)
@@ -1950,7 +1887,7 @@ Item {
     var spec = JSON.parse(JSON.stringify(themeIslandBorder))
     var custom = typeof c.powerbarIslandBorderWidth === "number"
     for (var side in spec.widths) {
-      spec.widths[side] = (custom ? Style.spaceReal(AppearanceModel.clampTo(AppearanceModel.ranges.borderWidth, c.powerbarIslandBorderWidth)) : spec.widths[side]) / barScale
+      spec.widths[side] = (custom ? Style.spaceReal(AppearanceModel.clampTo(AppearanceModel.ranges.borderWidth, c.powerbarIslandBorderWidth)) : spec.widths[side])
     }
     return spec
   }
@@ -2012,13 +1949,9 @@ Item {
     // Only when the last list says a theme went: then read it again first.
     if (installedThemes.length && AppearanceModel.hasStaleThemes(barConfig, installedThemes.concat(themeName ? [themeName] : [])))
       Qt.callLater(refreshThemes)
-    // A config from the host while edits wait to be written: show the edits
-    // on top of it rather than the host's config without them.
-    if (!applyingQueuedEdits && queuedConfigEdits.length) {
-      hostBarConfig = barConfig
-      showQueuedEdits(barConfig)
-      return
-    }
+    // A config from the host while edits wait to be written: the store shows
+    // the edits on top of it rather than the host's config without them.
+    if (configStore.delivered(barConfig)) return
     applyBarConfig()
     Qt.callLater(ensureInstanceIds)
     Qt.callLater(pruneGroupMembers)
@@ -2027,7 +1960,7 @@ Item {
   // as read (GroupsModel.groups); their keys leave shell.json too, in one
   // write, so nobody has to remove them by hand.
   function pruneGroupMembers() {
-    if (!canWriteConfig() || queuedConfigEdits.length || !Util.isPlainObject(barConfig)) return
+    if (!canWriteConfig() || configStore.pending || !Util.isPlainObject(barConfig)) return
     if (!GroupsModel.danglingMembers(barConfig)) return
     writeConfig(function(config) {
       if (config.bar && GroupsModel.danglingMembers(config.bar)) config.bar.powerbarGroups = GroupsModel.groups(config.bar)
@@ -2146,7 +2079,7 @@ Item {
   function slotName(slot) {
     if (!slot) return ""
     if (slot.groupHeader) return slot.groupConfig ? slot.groupConfig.label : ""
-    return slot.displayName || String(slot.moduleName || "").split(".").pop()
+    return slot.displayName
   }
   // A widget's or group's shortcut as keycaps text ("Super Ctrl A"), or "".
   function shortcutLabel(target) { return shortcutCaps(target).join(" ") }
@@ -2236,32 +2169,12 @@ Item {
     return BarModel.entryId(entry)
   }
 
-  function moduleString(entry, key, fallback) {
-    return BarModel.moduleString(entry, key, fallback)
-  }
-
   function entryIndex(entries, name) {
     return BarModel.entryIndex(entries, name)
   }
 
-  function entriesBefore(entries, name) {
-    return BarModel.entriesBefore(entries, name)
-  }
-
-  function entriesAfter(entries, name) {
-    return BarModel.entriesAfter(entries, name)
-  }
-
   function canonicalWidgetId(name) {
     return Util.canonicalWidgetId(name)
-  }
-
-  function expandPath(path) {
-    return BarModel.expandPath(path, home)
-  }
-
-  function customModuleSafeName(name) {
-    return BarModel.customModuleSafeName(name)
   }
 
   function customModuleType(entry) {
@@ -2348,8 +2261,8 @@ Item {
       // A group icon is not a layout entry: it sits before its anchor entry, so
       // "before the group" means before that anchor (or the zone's end).
       var before = beforeKey
-      if (before && before.indexOf("group:") === 0) {
-        var group = GroupsModel.groups(config.bar).find(function(g) { return "group:" + g.id === before })
+      if (before && GroupsModel.isGroupKey(before)) {
+        var group = GroupsModel.groups(config.bar).find(function(g) { return GroupsModel.groupKey(g.id) === before })
         before = group && Array.isArray(to) && to.some(function(entry) { return entry && entry.powerbarInstance === group.before }) ? group.before : ""
       }
       changed = false
@@ -2394,31 +2307,25 @@ Item {
     return ["left", "center", "right"][Math.min(2, Math.max(0, Math.floor(coordinate * 3 / length)))]
   }
 
+  // What a drag at scenePoint drops on. The measuring happens here (the
+  // window, the open drawer, every slot's rect); the decisions are
+  // DragModel.dropSurface and DragModel.resolveDrop, tested on their own.
   function moduleDropAtScene(scenePoint, sourceSlot) {
     var sourceWindow = root.slotWindow(sourceSlot) || root.barDragWindow
-    var zone = ""
+    var zone = "", inStrip = false, inDrawer = false, drawer = null, handle = null
     if (sourceWindow && sourceWindow.contentItem) {
-      var barPoint = sourceWindow.contentItem.mapFromItem(null, scenePoint.x, scenePoint.y)
-      if (barPoint.x < 0 || barPoint.x > sourceWindow.contentItem.width ||
-          barPoint.y < 0 || barPoint.y > sourceWindow.contentItem.height)
-        return null
-      var stripX = root.position === "right" ? sourceWindow.width - root.barExtent : 0
-      var stripY = root.position === "bottom" ? sourceWindow.height - root.barExtent : 0
-      var drawer = sourceWindow.managedDrawer
-      // Groups don't nest: a group icon has no drop surface in any group drawer.
-      var inDrawer = drawer && drawer.opened && !(sourceSlot && sourceSlot.groupHeader && drawer.groupId)
-        && barPoint.x >= drawer.x && barPoint.x <= drawer.x + drawer.width && barPoint.y >= drawer.y && barPoint.y <= drawer.y + drawer.height
-      // A release that drifts a little off the bar's inner edge still lands on
-      // the bar, unless it is over an open drawer.
-      var slack = inDrawer ? 0 : root.barSize * 0.6
-      var cross = root.vertical ? barPoint.x : barPoint.y
-      var stripStart = root.vertical ? stripX : stripY
-      var inStrip = root.position === "top" || root.position === "left"
-        ? cross >= stripStart && cross <= stripStart + root.barExtent + slack
-        : cross >= stripStart - slack && cross <= stripStart + root.barExtent
-      if (!inStrip && !inDrawer) return null
+      var content = sourceWindow.contentItem
+      var barPoint = content.mapFromItem(null, scenePoint.x, scenePoint.y)
+      drawer = sourceWindow.managedDrawer
+      var surface = DragModel.dropSurface(barPoint, { width: content.width, height: content.height },
+        { width: sourceWindow.width, height: sourceWindow.height }, root.position, root.barExtent, root.barSize,
+        drawer ? { open: drawer.opened, x: drawer.x, y: drawer.y, width: drawer.width, height: drawer.height } : null,
+        !!(sourceSlot && sourceSlot.groupHeader && drawer && drawer.groupId))
+      if (!surface) return null
+      inStrip = surface.inStrip
+      inDrawer = surface.inDrawer
       if (inStrip) zone = root.barZoneAt(barPoint, sourceWindow)
-      var handle = inStrip && typeof sourceWindow.foldHandleAt === "function" ? sourceWindow.foldHandleAt(barPoint) : null
+      handle = inStrip && typeof sourceWindow.foldHandleAt === "function" ? sourceWindow.foldHandleAt(barPoint) : null
       // A gap opening just before the dots pushes them along, and dropping on
       // them closes it again: the dots keep the drop while the pointer stays
       // where they were when they took it, so the two never trade places.
@@ -2432,10 +2339,10 @@ Item {
     var probe = { x: scenePoint.x, y: scenePoint.y }
     // The ink is measured along the bar, so it only applies to a surface along
     // the bar: in a menu below a horizontal bar it pushed the landing a row on.
-    var alongDrawer = inDrawer ? drawer.stripVertical : root.vertical
-    if (sourceSlot && sourceSlot.ink && sourceSlot.ink.length > 0 && alongDrawer === root.vertical) {
-      var inkCentre = (sourceSlot.ink.start + sourceSlot.ink.length / 2) * root.barScale
-      if (alongDrawer) probe.y = scenePoint.y - root.barDragOffsetY + inkCentre
+    var alongColumn = inDrawer ? drawer.stripVertical : root.vertical
+    if (sourceSlot && sourceSlot.ink && sourceSlot.ink.length > 0 && alongColumn === root.vertical) {
+      var inkCentre = (sourceSlot.ink.start + sourceSlot.ink.length / 2)
+      if (alongColumn) probe.y = scenePoint.y - root.barDragOffsetY + inkCentre
       else probe.x = scenePoint.x - root.barDragOffsetX + inkCentre
     }
     var candidates = []
@@ -2461,46 +2368,30 @@ Item {
 
       candidates.push({
         slot: slot,
+        region: slot.region,
+        groupHeader: !!slot.groupHeader,
+        inDrawer: !!slot.drawerHost,
         x: slotPoint.x,
         y: slotPoint.y,
-        width: item.width * root.barScale,
-        height: item.height * root.barScale,
+        width: item.width,
+        height: item.height,
         // A bar slot's landing reference is its cell, past any open drag gap.
-        contentX: (slot.drawerHost ? slot.drawerHost.contentOffsetX : root.vertical ? 0 : slot.animatedInsetX) * root.barScale,
-        contentY: (slot.drawerHost ? slot.drawerHost.contentOffsetY : root.vertical ? slot.animatedInsetY : 0) * root.barScale,
-        contentWidth: (slot.drawerHost ? slot.drawerHost.baseWidth : root.vertical ? slot.naturalWidth : slot.cellExtent) * root.barScale,
-        contentHeight: (slot.drawerHost ? slot.drawerHost.baseHeight : root.vertical ? slot.cellExtent : slot.naturalHeight) * root.barScale
+        contentX: (slot.drawerHost ? slot.drawerHost.contentOffsetX : root.vertical ? 0 : slot.animatedInsetX),
+        contentY: (slot.drawerHost ? slot.drawerHost.contentOffsetY : root.vertical ? slot.animatedInsetY : 0),
+        contentWidth: (slot.drawerHost ? slot.drawerHost.baseWidth : root.vertical ? slot.naturalWidth : slot.cellExtent),
+        contentHeight: (slot.drawerHost ? slot.drawerHost.baseHeight : root.vertical ? slot.cellExtent : slot.naturalHeight)
       })
     }
 
-    var hit = candidates.find(function(candidate) {
-      return probe.x >= candidate.x && probe.x <= candidate.x + candidate.width
-        && probe.y >= candidate.y && probe.y <= candidate.y + candidate.height
-    }) || candidates.find(function(candidate) {
-      return scenePoint.x >= candidate.x && scenePoint.x <= candidate.x + candidate.width
-        && scenePoint.y >= candidate.y && scenePoint.y <= candidate.y + candidate.height
-    })
-    var alongColumn = inDrawer ? drawer.stripVertical : root.vertical
-    var sourceRect = root.barDragSourceRect
-    if (!hit && sourceRect && scenePoint.x >= sourceRect.x && scenePoint.x <= sourceRect.x + sourceRect.width &&
-        scenePoint.y >= sourceRect.y && scenePoint.y <= sourceRect.y + sourceRect.height)
-      return { source: true }
+    var shown = root.barDragDrop
+    var drop = DragModel.resolveDrop({ candidates: candidates, probe: probe, point: scenePoint, sourceRect: root.barDragSourceRect,
+      handle: !!handle, sourceInDrawer: !!(sourceSlot && sourceSlot.drawerHost), sourceGroupHeader: !!(sourceSlot && sourceSlot.groupHeader),
+      alongColumn: alongColumn, previous: shown && shown.slot ? { slot: shown.slot, after: shown.after } : null,
+      deadZone: root.dragDeadZone, inDrawer: inDrawer, zone: zone })
     // The dots: the widget joins the zone's on-demand widgets on their side.
-    if (handle) return { managedZone: handle.zone, handle: true, handleToken: handle.inlineToken, managedBefore: root.handleDropBefore(handle, sourceSlot) }
-    if (hit && hit.slot.groupHeader && !hit.slot.drawerHost && sourceSlot.drawerHost && !sourceSlot.groupHeader)
-      return { slot: hit.slot, into: true }
-    if (hit) {
-      // A 3 px dead zone around the cell's centre keeps the gap from flickering.
-      var previous = root.barDragDrop && root.barDragDrop.slot === hit.slot ? root.barDragDrop.after : undefined
-      return { slot: hit.slot, after: alongColumn
-        ? DragModel.afterCentre(probe.y, hit.y + hit.contentY + hit.contentHeight / 2, previous, root.dragDeadZone)
-        : DragModel.afterCentre(probe.x, hit.x + hit.contentX + hit.contentWidth / 2, previous, root.dragDeadZone) }
-    }
-    var nearby = inDrawer ? candidates : candidates.filter(function(candidate) {
-      return candidate.slot.region === zone
-    })
-    var nearest = BarModel.nearestDropTarget(nearby, probe, alongColumn)
-    return nearest || (inDrawer ? { drawer: drawer } : { zone: zone })
+    if (drop.handle) return { managedZone: handle.zone, handle: true, handleToken: handle.inlineToken, managedBefore: root.handleDropBefore(handle, sourceSlot) }
+    if (drop.drawer) return { drawer: drawer }
+    return drop
   }
 
   // Dots at a zone's start take the widget at the start of the zone's list.
@@ -2758,7 +2649,7 @@ Item {
     transparentForegroundProc.command = [
       "omarchy-bar-text-color",
       root.position,
-      String(root.renderedBarSize),
+      String(root.barSize),
       colorHex(root.themeForeground),
       colorHex(root.themeContrastForeground)
     ]
@@ -3009,6 +2900,10 @@ Item {
     Component.onDestruction: {
       root.reportZoneFit(barWindow.screen ? barWindow.screen.name : "", null)
       if (centerInlineBusy) root.centerRevealBlocks = Math.max(0, root.centerRevealBlocks - 1)
+      // A monitor going away takes its bar: the keyboard mode on it ends, or
+      // it would stay active with no bar to hold the cursor (and keep a
+      // switched-off bar shown, INTEG-43).
+      if (barKeysItem.window === barWindow) barKeysItem.leave()
     }
     property alias managedDrawer: drawer
     // The zone dots in this window, for drops (FoldHandle registers itself).
@@ -3112,7 +3007,7 @@ Item {
       var hidden = inlineHidden
       var aged = zoneFitAged
       return {
-        length: (root.vertical ? mainStrip.height : mainStrip.width) / root.barScale,
+        length: (root.vertical ? mainStrip.height : mainStrip.width),
         inset: root.islandScreenInset,
         gap: root.zoneGap,
         momentGap: root.edgeGap,
@@ -3435,7 +3330,7 @@ Item {
       interval: 400
       onTriggered: if (!barWindow.autoHideHeld) barWindow.autoHideRevealed = false
     }
-    readonly property real autoHideDistance: root.barExtent + root.mainEffects.shadowSize + Style.space(8)
+    readonly property real autoHideDistance: root.barExtent + root.surfaceEffects.shadowSize + Style.space(8)
     // Zones slid out by widget activity: "all" for flat and floating bars, or
     // single zones for islands. One timer ends them; new activity extends it.
     // Per-zone layers between the islands and the widgets, where bar item
@@ -3623,9 +3518,9 @@ Item {
       // A flat bar is this strip itself, square and edge to edge like
       // Omarchy's bar; the other styles draw their surfaces inside it.
       color: root.flat ? root.mainSurfaceColor : "transparent"
-      shadowEnabled: root.flat && root.mainEffects.shadow
-      shadowSize: root.mainEffects.shadowSize
-      shadowOpacity: root.mainEffects.shadowOpacity
+      shadowEnabled: root.flat && root.surfaceEffects.shadow
+      shadowSize: root.surfaceEffects.shadowSize
+      shadowOpacity: root.surfaceEffects.shadowOpacity
       radius: 0
       borderSpec: Border.none()
     }
@@ -3637,18 +3532,17 @@ Item {
       width: root.vertical ? root.barSize : mainStrip.width - root.edgeGap * 2
       height: root.vertical ? mainStrip.height - root.edgeGap * 2 : root.barSize
       color: root.mainSurfaceColor
-      shadowEnabled: root.mainEffects.shadow
-      shadowSize: root.mainEffects.shadowSize
-      shadowOpacity: root.mainEffects.shadowOpacity
+      shadowEnabled: root.surfaceEffects.shadow
+      shadowSize: root.surfaceEffects.shadowSize
+      shadowOpacity: root.surfaceEffects.shadowOpacity
       radius: root.islandRounding
       borderSpec: root.islandBorder
     }
     Loader {
       x: mainStrip.x
       y: mainStrip.y
-      width: mainStrip.width / root.barScale
-      height: mainStrip.height / root.barScale
-      scale: root.barScale
+      width: mainStrip.width
+      height: mainStrip.height
       transformOrigin: Item.TopLeft
       sourceComponent: barContents
 
@@ -3696,7 +3590,7 @@ Item {
               return slot.region === zoneTarget.modelData && root.sameWindow(root.targetWindow(slot), barWindow) && slot.mainVisible && slot.width > 0
             })
             anchors.centerIn: parent
-            width: root.renderedBarSize; height: root.renderedBarSize
+            width: root.barSize; height: root.barSize
             onPressed: drawer.openZone(zoneTarget.modelData, true)
             HoverHandler {
               id: zoneHover
@@ -3794,7 +3688,7 @@ Item {
         implicitHeight: stripColumn.implicitHeight + Style.space(16)
         radius: root.overlayStyled.shape ? root.islandRounding : Style.cornerRadius
         color: root.overlayStyled.surface ? root.overlaySurfaceColor : Qt.alpha(Color.popups.background, 0.84)
-        borderSpec: root.overlayStyled.shape ? root.overlayBorder : Border.surfaceSpec("popups", "border", Color.popups.border, 1)
+        borderSpec: root.overlayStyled.shape ? root.islandBorder : Border.surfaceSpec("popups", "border", Color.popups.border, 1)
         shadowEnabled: root.overlayShadow
         shadowSize: root.surfaceEffects.shadowSize
         shadowOpacity: root.surfaceEffects.shadowOpacity
@@ -3936,7 +3830,7 @@ Item {
           var box = barWindow.contentItem.mapFromItem(target, 0, 0, target.width, target.height)
           var open = drawer.opened && !drawer.steppedAside
           var at = TooltipModel.place(root.position, { x: box.x, y: box.y, width: box.width, height: box.height },
-            { width: Math.ceil(tooltipBubble.implicitWidth), height: Math.ceil(tooltipBubble.implicitHeight) }, 6 * root.barScale,
+            { width: Math.ceil(tooltipBubble.implicitWidth), height: Math.ceil(tooltipBubble.implicitHeight) }, 6,
             open ? { x: drawer.x, y: drawer.y, width: drawer.width, height: drawer.height, vertical: drawer.stripVertical } : null,
             open && root.itemWithin(target, drawer), { width: barWindow.width, height: barWindow.height },
             { x: mainStrip.x, y: mainStrip.y, width: mainStrip.width, height: mainStrip.height })
@@ -3955,7 +3849,7 @@ Item {
         implicitWidth: tooltipLabel.implicitWidth + 20
         implicitHeight: tooltipLabel.implicitHeight + 14
         color: root.overlayStyled.surface ? root.overlaySurfaceColor : Color.tooltip.background
-        borderSpec: root.overlayStyled.shape ? root.overlayBorder : Border.surfaceSpec("tooltip", "border", Color.tooltip.border, 1)
+        borderSpec: root.overlayStyled.shape ? root.islandBorder : Border.surfaceSpec("tooltip", "border", Color.tooltip.border, 1)
         // A pill at most, as drawers cap theirs.
         radius: root.overlayStyled.shape ? Math.min(root.islandRounding, implicitHeight / 2) : Style.cornerRadius
         shadowEnabled: root.overlayShadow
@@ -4083,25 +3977,29 @@ Item {
   }
 
   // Shared theme chrome; dimensions follow the rendered zone, including drawers.
+  // The yield fade (layout-zones.md): a widget, island or button making room
+  // fades out at once and fast, and comes back after a pause, once the
+  // moment's zone has shrunk. leaving: fading out now; outMs: how fast it
+  // goes (80 for a yield, 110 for a fold).
+  component YieldFade: SequentialAnimation {
+    property bool leaving: false
+    property int outMs: 80
+    PauseAnimation { duration: leaving ? 0 : 120 }
+    NumberAnimation { duration: leaving ? outMs : 160; easing.type: Easing.OutCubic }
+  }
+
   component IslandSurface: EffectSurface {
     // Hidden whole by an inline expansion: fades with its widgets, out fast,
     // back once the expansion has shrunk (the yield timings).
     property bool zoneHidden: false
     opacity: zoneHidden ? 0 : 1
-    Behavior on opacity {
-      enabled: root.animationsEnabled
-      SequentialAnimation {
-        PauseAnimation { duration: zoneHidden ? 0 : 120 }
-        NumberAnimation { duration: zoneHidden ? 80 : 160; easing.type: Easing.OutCubic }
-      }
-    }
+    Behavior on opacity { enabled: root.animationsEnabled; YieldFade { leaving: zoneHidden } }
     visible: root.islands && opacity > 0
     color: root.mainSurfaceColor
-    shadowEnabled: root.mainEffects.shadow
-    shadowSize: root.mainEffects.shadowSize
-    shadowOpacity: root.mainEffects.shadowOpacity
-    surfaceScale: root.barScale
-    radius: root.islandRounding / root.barScale
+    shadowEnabled: root.surfaceEffects.shadow
+    shadowSize: root.surfaceEffects.shadowSize
+    shadowOpacity: root.surfaceEffects.shadowOpacity
+    radius: root.islandRounding
     borderSpec: root.islandBorder
   }
 
@@ -4114,13 +4012,7 @@ Item {
     property bool zoneHidden: false
     opacity: zoneHidden ? 0 : 1
     enabled: !zoneHidden
-    Behavior on opacity {
-      enabled: root.animationsEnabled
-      SequentialAnimation {
-        PauseAnimation { duration: preferencesButton.zoneHidden ? 0 : 120 }
-        NumberAnimation { duration: preferencesButton.zoneHidden ? 80 : 160; easing.type: Easing.OutCubic }
-      }
-    }
+    Behavior on opacity { enabled: root.animationsEnabled; YieldFade { leaving: preferencesButton.zoneHidden } }
     // A glyph cell like any icon widget: square highlight, one gutter (or one
     // equal gap) around its nine dots.
     readonly property real glyphSize: root.preferencesGlyphSize
@@ -4215,7 +4107,7 @@ Item {
       if (!source) return ""
       if (source.groupHeader && source.groupConfig) return source.groupConfig.label
       var metadata = root.barWidgetRegistry.metadataFor(root.canonicalWidgetId(source.moduleName)) || {}
-      return metadata.displayName || String(source.moduleName).split(".").pop()
+      return BarModel.widgetName(metadata, source.moduleName)
     }
     BorderSurface {
       id: labelGhost
@@ -4977,7 +4869,7 @@ Item {
         }
       }
     }
-    readonly property string displayName: registryMetadata && (registryMetadata.displayName || registryMetadata.name)
+    readonly property string displayName: BarModel.widgetName(registryMetadata, moduleName)
       || String(moduleName).split(".").pop()
     // A widget that hid itself (the update widget with nothing pending) still
     // has its own button; its placeholder presses that, as a click on the
@@ -5201,10 +5093,7 @@ Item {
       opacity: slot.drawerHost ? (slot.drawerHost.showNative === false ? 0 : 1) : slot.mainVisible && !slot.preview.hidden && !slot.settleHidden ? 1 : 0
       Behavior on opacity {
         enabled: root.animationsEnabled && !slot.drawerHost && (slot.fitMotion || slot.fitYielded || slot.fitFolded)
-        SequentialAnimation {
-          PauseAnimation { duration: slot.fitYielded || slot.fitFolded ? 0 : 120 }
-          NumberAnimation { duration: slot.fitYielded ? 80 : slot.fitFolded ? 110 : 160; easing.type: Easing.OutCubic }
-        }
+        YieldFade { leaving: slot.fitYielded || slot.fitFolded; outMs: slot.fitYielded ? 80 : 110 }
       }
       enabled: !!slot.drawerHost || slot.mainVisible
     DragHandler {
@@ -5222,8 +5111,8 @@ Item {
           heldMount = slot.drawerHost
           if (heldMount && heldMount.hostDrawer) heldMount.hostDrawer.dragMount = heldMount
           if (!root.beginIconDrag(slot, root.targetWindow(slot), lastScene,
-              (presentation.x + centroid.position.x) * root.barScale,
-              (presentation.y + centroid.position.y) * root.barScale)) releaseMount()
+              (presentation.x + centroid.position.x),
+              (presentation.y + centroid.position.y))) releaseMount()
         } else {
           if (root.barDragSource === slot) root.finishIconDrag(lastScene, slot)
           releaseMount()
@@ -5525,7 +5414,7 @@ Item {
             var scenePoint = slot.mapToItem(null, mouse.x, mouse.y)
             // The ghost is the widget's own box, which sits shifted inside its cell.
             dragging = root.beginIconDrag(slot, root.targetWindow(slot), scenePoint,
-              (pressedX - presentation.x) * root.barScale, (pressedY - presentation.y) * root.barScale)
+              (pressedX - presentation.x), (pressedY - presentation.y))
           }
         }
 

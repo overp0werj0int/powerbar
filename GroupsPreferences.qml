@@ -93,7 +93,7 @@ Item {
   readonly property real barThickness: layout.barThickness
   readonly property color barInk: layout.barInk
   readonly property string barFont: layout.barFont
-  readonly property color menuSurface: bar ? Qt.rgba(bar.extendedSurfaceColor.r, bar.extendedSurfaceColor.g, bar.extendedSurfaceColor.b, 1) : Color.popups.background
+  readonly property color menuSurface: bar ? Qt.rgba(bar.overlaySurfaceColor.r, bar.overlaySurfaceColor.g, bar.overlaySurfaceColor.b, 1) : Color.popups.background
   readonly property real surfaceRadius: bar ? Math.min(bar.islandRounding, barThickness / 2) : 0
   readonly property var surfaceBorder: bar && bar.islands ? bar.islandBorder : Border.none()
   readonly property real wellRadius: Math.max(0, Style.cornerRadius - Math.round(Style.spacing.rowPaddingX / 2))
@@ -766,16 +766,10 @@ Item {
     // Menu geometry, as ManagedDrawer lays out a named menu.
     function glyphRow(face) { return !!face && CellModel.isGlyph(face.inkLength, face.glyph) }
     function labelStart(face) { return ManagedModel.menuLabelStart(drawer.icons && glyphRow(face), pane.tokens.cell, pane.tokens.air) }
-    function valueWidth(face) { return drawer.icons && face && !glyphRow(face) ? Math.min(face.inkLength, CellModel.MAX_INK) : 0 }
-    readonly property real rowWidth: {
-      var content = 0
-      for (var i = 0; i < shown.length; i++) {
-        var f = faces[i], value = valueWidth(f)
-        content = Math.max(content, labelStart(f) + menuMetrics.advanceWidth(pane.preferences.title(shown[i].record))
-          + (value > 0 ? pane.tokens.air + value : 0) + pane.tokens.air)
-      }
-      return ManagedModel.menuWidth(content, pane.tokens.inset, pane.tokens.cell) - 2 * pane.tokens.inset
-    }
+    function valueWidth(face) { return face ? ManagedModel.menuValueWidth(drawer.icons, glyphRow(face), face.inkLength, CellModel.MAX_INK) : 0 }
+    readonly property real rowWidth: ManagedModel.menuRowWidth(shown.map(function(row, i) {
+      return { labelStart: labelStart(faces[i]), title: menuMetrics.advanceWidth(pane.preferences.title(row.record)), value: valueWidth(faces[i]) }
+    }), pane.tokens)
     readonly property real pad: Style.space(6)
     readonly property var strip: menu ? ({ lines: [], width: 0 })
       : ShelfModel.zone(CellModel, pane.tokens, faces.map(function(f) { return f || { inkStart: 0, inkLength: 12, glyph: true, cap: true } }), Math.max(1, width - pad * 2))

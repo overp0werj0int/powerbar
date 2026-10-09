@@ -212,7 +212,7 @@ Storage: the look lives in `bar.powerbarAppearance` of shell.json: `all` (values
 
 - **LOOK-88** For an item in a strip under a horizontal bar, the tooltip sits past the strip, away from the bar, centred on the item. Code: TooltipModel.place.
 
-- **LOOK-89** The gap between a tooltip and what it sits beside is 6 px. Code: Bar.qml (`6 * barScale`).
+- **LOOK-89** The gap between a tooltip and what it sits beside is 6 px. Code: Bar.qml (tooltip placement, `6`).
 
 - **LOOK-91** The tooltip, the keyboard name card and the key legend are one look: while a tile (Shape, Surface, Shadow) follows Theme and the theme's file sets nothing for it, that part is Omarchy's own for tooltips and popups (its tooltip colours, corner radius and border, no Powerbar shadow); once the tile is the user's (Everywhere, Just here) or the theme's file sets it, that part is the bar's: surface colour at the overlay opacity (LOOK-6), the bar's text colour, island rounding (a pill at most), island border, and the shadow if on. Shape, Surface and Shadow are decided independently. Code: Bar.qml overlayStyled, tooltipBubble.
 
@@ -228,7 +228,7 @@ Storage: the look lives in `bar.powerbarAppearance` of shell.json: `all` (values
 
 - **LOOK-95** With the large bar on, Preferences' bar shelves draw at the large thickness. Code: LayoutEditor.qml barThickness (barSizeFor).
 
-- **LOOK-96** Drawers have the same thickness as the bar, lip included. Code: ManagedDrawer.qml thickness (bar.renderedBarSize).
+- **LOOK-96** Drawers have the same thickness as the bar, lip included. Code: ManagedDrawer.qml thickness (bar.barSize).
 
 - **LOOK-97** Widget icons keep their own size on a large bar; the extra room is space around them. Code: Bar.qml largeBar comment, cellTokens.
 
