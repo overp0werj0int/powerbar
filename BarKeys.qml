@@ -111,6 +111,17 @@ Item {
   function nameOf(item) { return !item ? "" : item.isFoldHandle || item.isPrefsButton ? item.label : bar.slotName(item) }
   // A stop that opens a drawer: a group, or a zone's dots in drawer mode.
   function opensDrawer(item) { var k = kindOf(item); return k === "group" || (k === "dots" && !bar.onDemandInline) }
+  // The zone whose drawer the cursor here previews, as the pointer resting
+  // there opens it (DEMAND-17): in drawer mode, a widget of a zone with On
+  // demand widgets, or its dots. "" for anything else.
+  function previewZone(item) {
+    var k = kindOf(item)
+    if (bar.onDemandInline || (k !== "widget" && k !== "dots")) return ""
+    var z = k === "dots" ? item.zone : String(item.region || "")
+    return z && bar.managedSlots(z, window).length ? z : ""
+  }
+  // A drawer the cursor previews: its group's, or its zone's.
+  function previews(item) { return kindOf(item) === "group" || previewZone(item) !== "" }
 
   // ---- entering and leaving ---------------------------------------------
   function toggle() { if (active) leave(); else enter() }
@@ -181,7 +192,9 @@ Item {
 
   // ---- moving -------------------------------------------------------------
   function put(item, dir) {
-    closeDrawer(false)
+    // A zone's preview stays open while the cursor walks along its zone.
+    var d = drawer
+    if (!(d && previewing && !d.groupId && previewZone(item) === d.zone)) closeDrawer(false)
     cursor = item
     // Leaving an expanded zone folds it behind its dots again.
     var w = window
@@ -265,22 +278,22 @@ Item {
   }
 
   // ---- drawers ------------------------------------------------------------
-  // A group's drawer unfolds beside its icon once the key is let go, so a
-  // held key sweeping past never flashes it.
+  // A group's drawer unfolds beside its icon, and a zone's beside the zone,
+  // once the key is let go, so a held key sweeping past never flashes it.
   function released() {
-    if (!here || drawer || !opensDrawer(cursor)) return
+    if (!here || drawer || !previews(cursor)) return
     previewTimer.restart()
   }
   Timer {
     id: previewTimer
     interval: 100
-    onTriggered: if (keys.here && !keys.drawer && keys.opensDrawer(keys.cursor)) keys.openDrawer(false)
+    onTriggered: if (keys.here && !keys.drawer && keys.previews(keys.cursor)) keys.openDrawer(false)
   }
   function openDrawer(enterIt) {
     var w = window, d = w ? w.managedDrawer : null, item = cursor
     if (!d || !item) return
-    if (item.isFoldHandle) d.openZone(item.zone, enterIt)
-    else d.openGroup(item.entry.powerbarGroupId, item, enterIt)
+    if (kindOf(item) === "group") d.openGroup(item.entry.powerbarGroupId, item, enterIt)
+    else d.openZone(previewZone(item), enterIt)
     if (!d.opened) return
     d.barKeysHeld = true
     drawer = d
@@ -301,6 +314,20 @@ Item {
     var at = key ? d.slots.findIndex(function(s) { return s.instanceKey === key }) : 0
     d.cursor = Math.max(0, at); d.cursorActive = true; d.navigate(0)
     focusLater()
+  }
+  // Out of a drawer the cursor would preview anyway (its group's icon, a
+  // widget of its zone): it folds back to that preview where it is, not
+  // closed and opened again.
+  function backToBar() {
+    var d = drawer, item = cursor
+    var same = d && d.opened && !d.steppedAside && (kindOf(item) === "group" ? d.groupId === item.entry.powerbarGroupId
+      : !d.groupId && previewZone(item) === d.zone)
+    if (!same) { closeDrawer(true); return }
+    // Previewing first: the card the drawer's cursor gives up moves to the
+    // bar's cursor as the same popup (LOOK-136), never hidden in between.
+    previewing = true
+    openDrawer(false)
+    showCard()
   }
   function closeDrawer(refocus) {
     previewTimer.stop()
@@ -441,12 +468,12 @@ Item {
     if (!name || !here || !d) return false
     if (searching && searchKey(name)) return true
     if (sheet) { sheet = false; if (name === "Escape" || name === "?") return true }
-    var it = KeysModel.drawerIntent(position, name, d.cursorActive ? d.cursor : 0)
+    var it = KeysModel.drawerIntent(position, name, d.cursorActive ? d.cursor : 0, !d.namedMenu)
     if (!it) return true
     if (it.member) {
       var to = (d.cursorActive ? d.cursor : -1) + it.member
       if (to >= 0 && to < d.slots.length) { d.cursor = to; d.cursorActive = true; d.navigate(0) }
-    } else if (it.back) closeDrawer(true)
+    } else if (it.back) backToBar()
     else if (it.backMove) { closeDrawer(true); moveBy(it.backMove) }
     else if (it.zone) { closeDrawer(true); zoneJump(it.zone) }
     else if (it.open) activate(d.slots[d.cursor])
@@ -596,7 +623,7 @@ Item {
       return
     }
     put(item, 1)
-    if (opensDrawer(item)) openDrawer(false)
+    if (previews(item)) openDrawer(false)
   }
 
   // ---- the shortcut sheet ---------------------------------------------------
@@ -621,9 +648,10 @@ Item {
   function showCard() {
     var d = drawer, target = null, slot = null
     // In a drawer the card names its current member, where hovering it would.
-    // While it only previews beside the icon, the card would cover it.
-    if (here && d) {
-      if (!previewing && d.opened && d.cursorActive && !d.steppedAside) { slot = d.slots[d.cursor]; target = slot ? d.cellAt(d.cursor) : null }
+    // A preview leaves the card on the cursor, past the drawer (LOOK-84); a
+    // group's icon and the dots have none.
+    if (here && d && !previewing) {
+      if (d.opened && d.cursorActive && !d.steppedAside) { slot = d.slots[d.cursor]; target = slot ? d.cellAt(d.cursor) : null }
     } else if (here && cursor && !opensDrawer(cursor)) { slot = cursor; target = cursor }
     if (!target) { cardTarget = null; bar.hideCard(); return }
     var name = nameOf(slot)

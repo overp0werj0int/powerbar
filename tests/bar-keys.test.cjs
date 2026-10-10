@@ -51,6 +51,19 @@ test('in a drawer below a top bar the into key goes down and the out key comes b
   assert.deepEqual(keys.drawerIntent('top', 'Tab', 3), { zone: 1 });
 });
 
+test('a strip under a top or bottom bar runs along it: the along keys walk it, the out key leaves', () => {
+  assert.deepEqual(keys.drawerIntent('top', 'Right', 0, true), { member: 1 });
+  assert.deepEqual(keys.drawerIntent('top', 'l', 0, true), { member: 1 });
+  assert.deepEqual(keys.drawerIntent('top', 'Left', 2, true), { member: -1 });
+  assert.deepEqual(keys.drawerIntent('top', 'Up', 2, true), { back: true }, 'out from any member, not a step back');
+  assert.equal(keys.drawerIntent('top', 'Down', 0, true), null, 'the into key does not walk a strip');
+  assert.deepEqual(keys.drawerIntent('bottom', 'Down', 1, true), { back: true });
+  assert.equal(keys.drawerIntent('bottom', 'Up', 1, true), null);
+  assert.deepEqual(keys.drawerIntent('left', 'Down', 0, true), { member: 1 }, 'a side bar strip as before');
+  assert.deepEqual(keys.drawerIntent('left', 'Left', 0, true), { back: true });
+  assert.equal(keys.drawerIntent('left', 'Right', 0, true), null);
+});
+
 test('the cursor stops at the ends', () => {
   assert.equal(keys.step(5, 0, -1), -1);
   assert.equal(keys.step(5, 4, 1), -1);
@@ -146,6 +159,9 @@ test('the key strip names the keys of the edge', () => {
   assert.equal(keys.legend('top', 'bar', true)[1].label, 'Into a group or drawer');
   assert.equal(keys.legend('top', 'drawer')[0].keys, '↓ ↑');
   assert.equal(keys.legend('right', 'drawer')[2].keys, '→ Esc');
+  assert.equal(keys.legend('top', 'drawer', true, true)[0].keys, '← →', 'a strip is walked along the bar');
+  assert.equal(keys.legend('top', 'drawer', true, true)[2].keys, '↑ Esc');
+  assert.equal(keys.legend('bottom', 'drawer', true, true)[2].keys, '↓ Esc');
   assert.deepEqual(keys.legend('top', 'drawer')[3], { keys: 'Esc Esc', label: 'Leave' }, 'a quick double Esc leaves from any depth');
   assert.deepEqual(keys.legend('top', 'search')[3], { keys: 'Esc Esc', label: 'Leave' });
 });
