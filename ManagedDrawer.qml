@@ -445,8 +445,10 @@ Item {
     cursorActive = true
     var cell = widgets.itemAt(cursor)
     if (!cell) return
-    var start = (drawer.stripVertical ? cell.y : cell.x)
-    var size = (drawer.stripVertical ? cell.height : cell.width)
+    // Scrolled into view with the strip's end pads kept around it.
+    var lead = namedMenu ? 0 : leadPad, trail = namedMenu ? 0 : trailPad
+    var start = (drawer.stripVertical ? grid.y + cell.y : grid.x + cell.x) - lead
+    var size = (drawer.stripVertical ? cell.height : cell.width) + lead + trail
     var offset = drawer.stripVertical ? viewport.contentY : viewport.contentX
     var span = drawer.stripVertical ? viewport.height : viewport.width
     var next = start < offset ? start : start + size > offset + span ? start + size - span : offset
@@ -493,21 +495,21 @@ Item {
   Flickable {
     id: viewport
     anchors.fill: parent
-    // Menus pad every side by one inset; strips pad only their ends, by the
-    // island rule, and keep the bar's thickness across.
-    anchors.leftMargin: drawer.namedMenu ? drawer.padding : bar.vertical ? 0 : drawer.leadPad
-    anchors.rightMargin: drawer.namedMenu ? drawer.padding : bar.vertical ? 0 : drawer.trailPad
-    anchors.topMargin: drawer.namedMenu ? drawer.padding : bar.vertical ? drawer.leadPad : 0
-    anchors.bottomMargin: drawer.namedMenu ? drawer.padding : bar.vertical ? drawer.trailPad : 0
+    // Menus pad every side by one inset. Strips pad only their ends, by the
+    // island rule, inside the viewport: an end cell's highlight spills into
+    // that pad (Equal gaps) and is clipped only by the strip's own end.
+    anchors.margins: drawer.namedMenu ? drawer.padding : 0
     clip: true
     boundsBehavior: Flickable.StopAtBounds
-    contentWidth: grid.width
-    contentHeight: grid.height
+    contentWidth: grid.width + (drawer.namedMenu || bar.vertical ? 0 : drawer.leadPad + drawer.trailPad)
+    contentHeight: grid.height + (drawer.namedMenu || !bar.vertical ? 0 : drawer.leadPad + drawer.trailPad)
     flickableDirection: drawer.stripVertical ? Flickable.VerticalFlick : Flickable.HorizontalFlick
     Controls.ScrollBar.horizontal: Controls.ScrollBar { policy: !drawer.stripVertical && viewport.contentWidth > viewport.width ? Controls.ScrollBar.AsNeeded : Controls.ScrollBar.AlwaysOff }
     Controls.ScrollBar.vertical: Controls.ScrollBar { policy: drawer.stripVertical && viewport.contentHeight > viewport.height ? Controls.ScrollBar.AsNeeded : Controls.ScrollBar.AlwaysOff }
     Item {
       id: grid
+      x: drawer.namedMenu || bar.vertical ? 0 : drawer.leadPad
+      y: drawer.namedMenu || !bar.vertical ? 0 : drawer.leadPad
       implicitWidth: drawer.stripVertical ? Math.max(contents.width, drawer.thickness) : contents.width + endGap.width
       implicitHeight: drawer.stripVertical ? contents.height + endGap.height : Math.max(contents.height, drawer.thickness)
       transformOrigin: Item.TopLeft
