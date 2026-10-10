@@ -106,8 +106,9 @@ Item {
   readonly property bool namedMenu: surfaceRole === "menu"
   // Drawers are islands: the bar's cell tokens, the island radius, always
   // floating one bar gap from the bar (docs/behavior/on-demand-drawers.md).
-  readonly property var tokens: bar.cellTokens
-  readonly property real surfaceRadius: Math.min(bar.islandRounding, bar.barSize / 2)
+  // A menu's rows are the same on every bar (Bar.menuTokens); a strip is the bar's own.
+  readonly property var tokens: namedMenu ? bar.menuTokens : bar.cellTokens
+  readonly property real surfaceRadius: Math.min(bar.islandRounding, tokens.bar / 2)
   readonly property bool stripVertical: Model.drawerVertical(groupConfig, bar.vertical)
   readonly property string memberDisplay: groupConfig ? groupConfig.memberDisplay : "native"
   function memberTitle(slot) { return slot ? slot.displayName : "" }
@@ -594,7 +595,7 @@ Item {
               motionEnabled: bar.animationsEnabled
               hoverColor: bar.highlightHoverColor
               selectedColor: bar.highlightSelectedColor
-              rounding: bar.highlightRadius
+              rounding: CellModel.radius(drawer.tokens, bar.islandRounding)
             }
             // The keyboard cursor: the bar's focus ring inside the cell; it never animates.
             Rectangle {

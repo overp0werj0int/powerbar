@@ -1794,14 +1794,19 @@ Item {
   // size and gain room around them; the islands' ends open up to match.
   readonly property bool largeBar: barOptions.largeBar
   readonly property real largeBarLip: Style.space(6)
-  function barSizeFor(vertical) {
-    return (vertical ? Style.bar.sizeVertical : Style.bar.sizeHorizontal) + (largeBar ? largeBarLip * 2 : 0)
+  function barSizeFor(vertical, large) {
+    return (vertical ? Style.bar.sizeVertical : Style.bar.sizeHorizontal) + ((large === undefined ? largeBar : large) ? largeBarLip * 2 : 0)
   }
   // One cell, one inset (docs/behavior/layout-zones.md): every item gets a cell along the
   // bar, square for glyphs, and the cell is its highlight. Equal slots puts
   // cells one gutter apart; Equal gaps puts the same air between glyphs.
   readonly property string spacingMode: barOptions.spacingMode
   readonly property var cellTokens: CellModel.tokens({ bar: barSize, spacing: widgetSpacing, mode: spacingMode })
+  // A group drawn as a menu has one size on every bar: rows, padding and icon
+  // cells as the large bar's (groups.md GROUP-96). The live drawer and
+  // Preferences' drawing of it both read these.
+  function menuTokensFor(vertical) { return CellModel.tokens({ bar: barSizeFor(vertical, true), spacing: widgetSpacing, mode: spacingMode }) }
+  readonly property var menuTokens: menuTokensFor(vertical)
   readonly property real highlightRadius: CellModel.radius(cellTokens, islandRounding)
   // Compounds (several click targets in one widget) show a faint track over
   // the whole cell and a thumb over the hovered target.

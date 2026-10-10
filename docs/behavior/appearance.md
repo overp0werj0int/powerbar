@@ -228,7 +228,7 @@ Storage: the look lives in `bar.powerbarAppearance` of shell.json: `all` (values
 
 - **LOOK-95** With the large bar on, Preferences' bar shelves draw at the large thickness. Code: LayoutEditor.qml barThickness (barSizeFor).
 
-- **LOOK-96** Drawers have the same thickness as the bar, lip included. Code: ManagedDrawer.qml thickness (bar.barSize).
+- **LOOK-96** Strip drawers have the same thickness as the bar, lip included. A group's menu is the large bar's size on either bar (groups.md GROUP-96). Code: ManagedDrawer.qml thickness (bar.barSize), tokens (bar.menuTokens).
 
 - **LOOK-97** Widget icons keep their own size on a large bar; the extra room is space around them. Code: Bar.qml largeBar comment, cellTokens.
 
