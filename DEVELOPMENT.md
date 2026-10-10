@@ -44,6 +44,10 @@ omabox for desktop tests in a private Hyprland session
    with `omabox pointer`, `omabox click`, `omabox keys`, look with `omabox shot
    -g …`, read state with `omabox run -- omarchy-shell powerbar <status>`.
    `omabox down` when done.
+   `tools/box/` has the helpers for this (box with the user's layout, sync,
+   live config changes, key and pointer driving, frame bursts with a card
+   count, montages, edge cards, bench diffs); read its README before writing
+   new ones.
    `tools/smoke.sh [name]` does all of this in a throwaway box and asserts
    the IPC basics (status, settings, keys, bar position); `SMOKE_SHOT=file.png`
    keeps a screenshot. `tests/run` is the portable subset (node tests and
