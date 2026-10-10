@@ -3934,48 +3934,101 @@ Item {
       }
     }
 
+    Timer { id: tooltipHold; interval: 800 }
     PopupWindow {
       id: tooltipWindow
       // Never takes the pointer: a tooltip that slid over its widget or the
       // drawer would steal the hover that keeps it shown.
       mask: Region {}
 
-      visible: root.tooltipShown && !barWindow.sliding && root.tooltipTarget !== null && root.tooltipText !== "" && root.targetBelongsToWindow(root.tooltipTarget, barWindow)
+      readonly property bool cardUp: root.tooltipShown && root.tooltipTarget !== null && root.tooltipText !== "" && root.targetBelongsToWindow(root.tooltipTarget, barWindow)
+      // A card taken down hides at once, but its surface stays a moment
+      // (as long as the next tooltip shows at once, tooltipWarmUntil): the
+      // compositor fades a surface that closes, and a card coming up
+      // elsewhere meanwhile stood beside the old one fading, a second card
+      // in the wrong zone. The next one reuses the surface instead.
+      visible: (cardUp || tooltipHold.running) && !barWindow.sliding
+      onCardUpChanged: {
+        if (cardUp) Qt.callLater(barWindow.reanchorTooltip)
+        else { text = ""; tooltipHold.restart() }
+      }
       color: "transparent"
-      implicitWidth: Math.ceil(tooltipBubble.implicitWidth) + 2 * root.overlayShadowPad
-      implicitHeight: Math.ceil(tooltipBubble.implicitHeight) + 2 * root.overlayShadowPad
+      // One surface for every card: it spans the bar window's whole length,
+      // pinned to one corner of it, reaches out from the bar as far as the
+      // bubble needs, and the bubble moves inside it. Moving the popup
+      // itself raced Qt: a popup that changes size is repositioned by Qt
+      // from the anchor it was first shown at (Quickshell keeps its own
+      // anchor apart), so a card resized for new text flashed back there for
+      // a frame, doubled or cut, before Quickshell placed it again.
+      readonly property bool far: root.position === "bottom" || root.position === "right"
+      readonly property real span: root.vertical ? barWindow.height : barWindow.width
+      // How far out from the bar's window edge the surface reaches; it only
+      // grows while shown, so a bubble moving never resizes it.
+      readonly property real base: (root.vertical ? barWindow.width : barWindow.height) + Math.ceil(root.vertical ? tooltipBubble.implicitWidth : tooltipBubble.implicitHeight) + 2 * root.overlayShadowPad + 6
+      property real grown: 0
+      readonly property real reach: Math.ceil(Math.max(base, grown))
+      // The words shown, taken with the place: a card whose new target has
+      // no place yet keeps its old words where it stands, never the new
+      // name beside the old widget.
+      property string text: ""
+      onVisibleChanged: if (!visible) { grown = 0; text = "" }
+      implicitWidth: root.vertical ? reach : span
+      implicitHeight: root.vertical ? span : reach
+      // The bubble's place in the bar window's coordinates, and the surface's
+      // corner there.
+      property point at: Qt.point(0, 0)
+      readonly property real originX: root.position === "right" ? barWindow.width - reach : 0
+      readonly property real originY: root.position === "bottom" ? barWindow.height - reach : 0
 
       anchor {
         id: tooltipAnchor
         window: barWindow
-        adjustment: PopupAdjustment.Slide
-        edges: Edges.Top | Edges.Left
-        gravity: Edges.Bottom | Edges.Right
-        rect.width: 1
-        rect.height: 1
+        adjustment: PopupAdjustment.None
+        // The bar window's corner on the bar's own side: the surface grows
+        // away from it and never moves.
+        edges: (tooltipWindow.far && !root.vertical ? Edges.Bottom : Edges.Top) | (tooltipWindow.far && root.vertical ? Edges.Right : Edges.Left)
+        gravity: (tooltipWindow.far && !root.vertical ? Edges.Top : Edges.Bottom) | (tooltipWindow.far && root.vertical ? Edges.Left : Edges.Right)
+        rect.x: 0
+        rect.y: 0
+        rect.width: barWindow.width
+        rect.height: barWindow.height
 
         // Out from the bar beside the target, never over an open drawer or
         // menu (TooltipModel).
         onAnchoring: {
           var target = root.tooltipTarget
           if (!root.targetBelongsToWindow(target, barWindow)) return
+          // A widget not laid out yet (a zone opening under the cursor) has
+          // no place to show: the card waits where it is until it has one.
+          if (!(target.width > 0) || !(target.height > 0)) return
+          // One just grown from no width sits where its Grid has not placed
+          // it yet (positioners lay out at the next polish): measured there,
+          // the card stood for a frame at the zone's start.
+          for (var p = target; p; p = p.parent) if (typeof p.forceLayout === "function") p.forceLayout()
           var box = barWindow.contentItem.mapFromItem(target, 0, 0, target.width, target.height)
           var open = drawer.opened && !drawer.steppedAside
+          tooltipWindow.text = root.tooltipText
+          var size = { width: Math.ceil(tooltipBubble.implicitWidth), height: Math.ceil(tooltipBubble.implicitHeight) }
           var at = TooltipModel.place(root.position, { x: box.x, y: box.y, width: box.width, height: box.height },
-            { width: Math.ceil(tooltipBubble.implicitWidth), height: Math.ceil(tooltipBubble.implicitHeight) }, 6,
+            size, 6,
             open ? { x: drawer.x, y: drawer.y, width: drawer.width, height: drawer.height, vertical: drawer.stripVertical } : null,
             open && root.itemWithin(target, drawer), { width: barWindow.width, height: barWindow.height },
-            { x: mainStrip.x, y: mainStrip.y, width: mainStrip.width, height: mainStrip.height })
-          // The window holds the shadow's room around the bubble.
-          tooltipAnchor.rect.x = Math.round(at.x) - root.overlayShadowPad
-          tooltipAnchor.rect.y = Math.round(at.y) - root.overlayShadowPad
+            { x: mainStrip.x, y: mainStrip.y, width: mainStrip.width, height: mainStrip.height }, root.overlayShadowPad)
+          var pad = root.overlayShadowPad
+          var need = root.position === "top" ? at.y + size.height + pad
+            : root.position === "bottom" ? barWindow.height - at.y + pad
+            : root.position === "left" ? at.x + size.width + pad
+            : barWindow.width - at.x + pad
+          if (need > tooltipWindow.grown) tooltipWindow.grown = need
+          tooltipWindow.at = Qt.point(Math.round(at.x), Math.round(at.y))
         }
       }
 
       EffectSurface {
         id: tooltipBubble
-        x: root.overlayShadowPad
-        y: root.overlayShadowPad
+        visible: tooltipWindow.text !== ""
+        x: tooltipWindow.at.x - tooltipWindow.originX
+        y: tooltipWindow.at.y - tooltipWindow.originY
         width: implicitWidth
         height: implicitHeight
         implicitWidth: tooltipLabel.implicitWidth + 20
@@ -3992,7 +4045,7 @@ Item {
           id: tooltipLabel
           textFormat: Text.PlainText
           anchors.centerIn: parent
-          text: root.tooltipText
+          text: tooltipWindow.text
           color: root.overlayStyled.surface ? root.barForeground : Color.tooltip.text
           font.family: root.fontFamily
           font.pixelSize: Style.font.body
@@ -5346,7 +5399,10 @@ Item {
       readonly property var hostWindow: root.targetWindow(slot)
       readonly property Item hostLayer: hostWindow && hostWindow.highlightLayers ? hostWindow.highlightLayers[slot.region] || null : null
       parent: hostLayer || presentation
-      hovered: (slot.hovered || slot.activityFlash || slot.preview.into || slot.keysCursor) && slot.mainVisible && !slot.dragSource && !root.barHidden && !preferencesPane.opened
+      // A slot still at no width has no place yet (positioners skip it until
+      // it grows): an expansion's widget the keyboard cursor lands on lights
+      // once its zone has placed it, not for a frame at the zone's start.
+      hovered: (slot.hovered || slot.activityFlash || slot.preview.into || slot.keysCursor) && slot.mainVisible && slot.width > 0 && !slot.dragSource && !root.barHidden && !preferencesPane.opened
       outlined: slot.keysCursor && hovered
       // A group icon shows the open fill while its drawer is open. Only on
       // the bar: a member's panel opened from its drawer lights its row.

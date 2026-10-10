@@ -10,11 +10,14 @@
 //             the screen (a side bar's strip, or a menu of rows)
 //   inDrawer: the target is one of the drawer's items
 //   bounds:   { width, height } of the window, to flip a tooltip that has no
-//             room on its side to the other side (sliding back would cover)
+//             room on its side to the other side (sliding back would cover),
+//             and to keep it on the window along the bar: one for a widget
+//             at the screen's end slides back in, `inset` short of the edge
 //   bar:      the bar's strip (optional). A target on the bar is measured
 //             from the strip's far edge when that is farther out: an island
 //             (and a large bar's lip) reaches past the target's cell, and a
 //             tooltip measured from the cell would sit on the island's edge.
+//   inset:    room kept clear at the window's ends (the tooltip's shadow)
 // Returns { x, y }, the tooltip's top left corner.
 
 function centreOn(target, popup, alongX) {
@@ -42,8 +45,21 @@ function outer(position, a, b) {
   return a.x <= b.x ? a : { x: b.x, y: a.y, width: a.width, height: a.height }
 }
 
-function place(position, target, popup, gap, drawer, inDrawer, bounds, bar) {
+// Along the bar, inside the window.
+function within(barVertical, at, popup, bounds, inset) {
+  if (!bounds) return at
+  var pad = inset || 0
+  if (barVertical) at.y = Math.max(pad, Math.min(at.y, bounds.height - popup.height - pad))
+  else at.x = Math.max(pad, Math.min(at.x, bounds.width - popup.width - pad))
+  return at
+}
+
+function place(position, target, popup, gap, drawer, inDrawer, bounds, bar, inset) {
   var barVertical = position === "left" || position === "right"
+  return within(barVertical, spot(position, barVertical, target, popup, gap, drawer, inDrawer, bounds, bar, inset), popup, bounds, inset)
+}
+
+function spot(position, barVertical, target, popup, gap, drawer, inDrawer, bounds, bar, inset) {
   if (drawer && inDrawer) {
     if (drawer.vertical && !barVertical) {
       // A menu of rows under a top or bottom bar: beside the menu, level with
@@ -56,9 +72,10 @@ function place(position, target, popup, gap, drawer, inDrawer, bounds, bar) {
     var out = away(position, drawer, popup, gap)
     return barVertical ? { x: out.x, y: centreOn(target, popup, false) } : { x: centreOn(target, popup, true), y: out.y }
   }
-  var spot = away(position, outer(position, target, bar), popup, gap)
-  var at = barVertical ? { x: spot.x, y: centreOn(target, popup, false) } : { x: centreOn(target, popup, true), y: spot.y }
-  // On the bar beside an open drawer: past the drawer, not over it.
+  var beside = away(position, outer(position, target, bar), popup, gap)
+  var at = within(barVertical, barVertical ? { x: beside.x, y: centreOn(target, popup, false) } : { x: centreOn(target, popup, true), y: beside.y }, popup, bounds, inset)
+  // On the bar beside an open drawer: past the drawer, not over it (where
+  // it stands after sliding in from the screen's end).
   if (drawer && overlaps({ x: at.x, y: at.y, width: popup.width, height: popup.height }, drawer)) {
     var past = away(position, drawer, popup, gap)
     if (barVertical) at.x = past.x

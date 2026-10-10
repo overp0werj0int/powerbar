@@ -58,3 +58,25 @@ test('a tooltip on the bar clears the bar strip, not just its target cell (islan
   // A strip nearer than the target never pulls the tooltip in.
   assert.equal(m.place('top', cell, popup, 6, null, false, null, { x: 0, y: 0, width: 1920, height: 30 }).y, 45);
 });
+
+test("a widget at the screen's end slides its tooltip back onto the window, along the bar only", () => {
+  const popup = { width: 100, height: 20 }, screen = { width: 1512, height: 945 };
+  // Top bar, the last widget: centred it would run 30 px past the end.
+  assert.deepEqual(m.place('top', { x: 1482, y: 7, width: 20, height: 32 }, popup, 6, null, false, screen, null, 4), { x: 1408, y: 45 });
+  // The first one: held 4 px in from the start.
+  assert.deepEqual(m.place('top', { x: 8, y: 7, width: 20, height: 32 }, popup, 6, null, false, screen, null, 4), { x: 4, y: 45 });
+  // A side bar slides it along the screen's height.
+  assert.deepEqual(m.place('left', { x: 7, y: 935, width: 32, height: 20 }, popup, 6, null, false, screen, null, 4), { x: 45, y: 921 });
+  // A strip's end member, the same.
+  const strip = { x: 1200, y: 46, width: 312, height: 44, vertical: false };
+  assert.equal(m.place('top', { x: 1480, y: 48, width: 30, height: 40 }, popup, 6, strip, true, screen, null, 4).x, 1408);
+  // No bounds: as before, centred wherever that falls.
+  assert.equal(m.place('top', { x: 8, y: 7, width: 20, height: 32 }, popup, 6).x, -32);
+});
+
+test('a slid tooltip beside an open drawer still clears the drawer', () => {
+  const popup = { width: 100, height: 20 }, screen = { width: 1512, height: 945 };
+  // The last widget's tooltip slides left, onto the drawer hanging below the bar.
+  const drawer = { x: 1380, y: 46, width: 132, height: 44, vertical: false };
+  assert.deepEqual(m.place('top', { x: 1482, y: 7, width: 20, height: 32 }, popup, 6, drawer, false, screen, null, 4), { x: 1408, y: 96 });
+});
