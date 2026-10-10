@@ -158,7 +158,7 @@ The CLI as a whole (`status`, `shortcuts`, `help`, error format) is integration.
 
 - **KEYS-68** While the mode is on, the bar is held out as the pointer holds it: an autohidden bar stays shown, and a bar switched off with `omarchy toggle bar` is drawn until the mode ends.
 
-- **KEYS-69** The stop under the cursor is drawn with the hover highlight and a 1.5 px accent ring (widgets, dots and the Preferences button alike).
+- **KEYS-69** The stop under the cursor is drawn with the hover highlight and a 1.5 px accent ring (widgets, dots and the Preferences button alike); ring and highlight fade in and out together over 90 ms (at once with animations off). Code: Bar.qml keysCursor rings, HoverHighlight.
 
 ## Shortcuts: parsing and rendering
 

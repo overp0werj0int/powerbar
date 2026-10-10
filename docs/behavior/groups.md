@@ -64,7 +64,7 @@ Groups are named, ordered collections of existing widget instances, shown on the
 
 ## Drawer and menu
 
-- **GROUP-32** Pointing at a group icon opens its drawer or menu at once (a hover drawer: no keyboard focus, same grace timers as a zone drawer). One drawer is open at a time.
+- **GROUP-32** Pointing at a group icon opens its drawer or menu once the pointer has rested on it 90 ms, so sweeping along the bar opens nothing; its own drawer, already open, is held at once (a hover drawer: no keyboard focus, same grace timers as a zone drawer). One drawer is open at a time. Code: ManagedDrawer.qml sourceEnterGroup, groupIntent.
 - **GROUP-33** `memberDisplay`: `native` (default) shows each member as it draws itself in a strip; `name` shows a menu of names only; `both` a menu of icon and name (and value).
 - **GROUP-34** `native` groups open a strip along the bar (vertical beside a side bar). `name` and `both` groups always open a vertical menu, with the island border, opacity, blur and shadow, Omarchy's menu font and text colour, and the island radius. The `orientation` setting (`auto`, `horizontal`, `vertical`) is saved but changes nothing today.
 - **GROUP-35** Members appear in `items` order; each is the live widget, so its own clicks, wheel and panels work.

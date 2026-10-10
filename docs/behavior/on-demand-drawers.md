@@ -60,6 +60,7 @@ In the default drawer mode a zone's On demand widgets (and widgets folded off th
 - **DEMAND-27** Hiding the bar, opening Preferences, changing the bar edge, switching the on-demand display and editing groups (unless a drop keeps it open) close the drawer at once. Pressing a bar widget closes the drawer first, then performs the press. A pointer drag ends keyboard use of the drawer.
 - **DEMAND-87** Default on-demand display: `powerbarOnDemand` is `"drawer"`; only the exact value `"inline"` selects inline expansion. Code: `BarModel.options().onDemand`.
 - **DEMAND-88** Drawers open with a 160 ms ease-out from 96 % scale and close in 110 ms; with animations off (`powerbarAnimations: false`) they appear and vanish at once.
+- **DEMAND-91** The opening motion starts on the second frame after the open, once the drawer's rows are laid out and painted, so its first painted frame is the motion's start. Code: ManagedDrawer.qml revealStart.
 
 ## Drawer geometry and appearance
 
@@ -80,6 +81,7 @@ In inline mode a zone's On demand widgets wait behind its dots (shared with fold
 - **DEMAND-38** When the request changes while a zone is expanded, the open zone collapses at once and the next opens only after a settle time of 170 ms (0 with animations off), so two zones never animate together. Opening a zone other than the centre first releases a held centre reveal and waits the same settle time.
 - **DEMAND-39** Pressing the dots skips the 90 ms intent (the settle time still applies); a zone that cannot fit opens its drawer.
 - **DEMAND-40** While a zone is expanded its dots are gone (they show only while something waits behind them), so nothing opens a drawer over it. Pointing at a widget of another zone collapses the expanded one at once.
+- **DEMAND-90** An expanding zone's widgets grow after an 80 ms pause (their neighbours yield first), and the dots they replace keep their cell for the same 80 ms before shrinking (120 ms), so the island's end only moves outward. With animations off both are instant. Code: Bar.qml FoldHandle giveWayMs; slot motionDelay.
 - **DEMAND-43** An expansion stays while the pointer is on its dots or any widget of the zone, a drag is in the zone, the keyboard mode holds the zone, a group drawer is open, or a panel is open from the zone. When all of that ends it collapses after `powerbarManagedExitGraceSeconds` (default 1 s).
 - **DEMAND-44** Switching the on-demand display collapses the expansion and closes any drawer at once. Hiding the bar collapses it at once. Opening a zone drawer (keyboard, IPC, fallback) collapses it.
 
