@@ -35,16 +35,27 @@ Item {
     } catch (e) {
     }
   }
+  // An ancestor that target and host share moves both alike, so it cannot
+  // change where the target sits in the host (an autohide slide moves one
+  // every frame): only the two chains below it are watched. The target and
+  // the host themselves always are, as readers use their sizes too.
   function rebuild() {
     var next = []
     function ancestors(start) {
+      var chain = []
       for (var item = start; item; item = item.parent) {
-        if (next.indexOf(item) < 0) next.push(item)
+        chain.push(item)
         var transforms = item.transform || []
-        for (var i = 0; i < transforms.length; i++) if (next.indexOf(transforms[i]) < 0) next.push(transforms[i])
+        for (var i = 0; i < transforms.length; i++) chain.push(transforms[i])
       }
+      return chain
     }
-    if (target) { ancestors(target); ancestors(host) }
+    if (target) {
+      var fromTarget = ancestors(target), fromHost = ancestors(host)
+      var own = function(item, chain, other) { return chain[0] === item || other.indexOf(item) < 0 }
+      for (var a of fromTarget) if (own(a, fromTarget, fromHost) && next.indexOf(a) < 0) next.push(a)
+      for (var b of fromHost) if (own(b, fromHost, fromTarget) && next.indexOf(b) < 0) next.push(b)
+    }
     var previous = chain
     for (var old of previous) if (next.indexOf(old) < 0) detach(old)
     for (var item of next) if (previous.indexOf(item) < 0) attach(item)

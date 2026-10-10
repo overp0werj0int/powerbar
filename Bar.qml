@@ -206,7 +206,13 @@ Item {
       for (var slot of root.moduleSlots) if (slot && slot.instanceKey) root.lookKnownKeys[slot.instanceKey] = true
       root.pendingLookKeys = []
       root.widgetLooksSeeded = true
-      root.readWidgetGlyphs()
+      // Widgets loaded so far were read 2 s after they loaded (glyphReadDelay);
+      // only ones still waiting are read here. Preferences reads all on open.
+      if (root.widgetGlyphsLoaded) {
+        var loaded = root.glyphPendingKeys
+        root.glyphPendingKeys = Object.create(null)
+        root.readWidgetGlyphs(loaded)
+      }
       if (Quickshell.screens.length) root.captureWidgetImages(Quickshell.screens[0], function() {})
     }
   }
@@ -319,11 +325,16 @@ Item {
     }
     return out
   }
-  function readWidgetGlyphs() {
+  // Widgets that loaded since the last read; read once each, on one monitor
+  // (every monitor draws the same glyph). No `only`: every widget.
+  property var glyphPendingKeys: Object.create(null)
+  function readWidgetGlyphs(only) {
     if (!widgetGlyphsLoaded) return
-    var store = widgetGlyphs
+    var store = widgetGlyphs, read = Object.create(null)
     for (var slot of moduleSlots) {
-      if (!slot || slot.groupHeader || !slot.instanceKey || !slot.activeItem) continue
+      if (!slot || slot.groupHeader || !slot.instanceKey || !slot.activeItem || read[slot.instanceKey]) continue
+      if (only && !only[slot.instanceKey]) continue
+      read[slot.instanceKey] = true
       var found = GlyphModel.pick(glyphButtons(slot.activeItem))
       store = found ? GlyphModel.merge(store, slot.instanceKey, found) : GlyphModel.forget(store, slot.instanceKey)
     }
@@ -342,13 +353,18 @@ Item {
   property var lookKnownKeys: Object.create(null)
   function widgetLoaded(key) {
     if (key && !lookKnownKeys[key] && pendingLookKeys.indexOf(key) < 0) pendingLookKeys = pendingLookKeys.concat([key])
+    if (key) glyphPendingKeys[key] = true
     glyphReadDelay.restart()
   }
   Timer {
     id: glyphReadDelay
     interval: 2000
     onTriggered: {
-      root.readWidgetGlyphs()
+      if (root.widgetGlyphsLoaded) {
+        var loaded = root.glyphPendingKeys
+        root.glyphPendingKeys = Object.create(null)
+        root.readWidgetGlyphs(loaded)
+      }
       root.pruneSessionMaps()
       if (!root.widgetLooksSeeded) return
       var keys = root.pendingLookKeys
@@ -2032,22 +2048,25 @@ Item {
   // so tabbing walks the bar the open panel belongs to instead of hopping the
   // panel to another monitor's copy of the same widget.
   function panelNavigationSlots(region, window) {
+    // One pass over the slots: the first open-able one per instance and per id.
+    var byKey = Object.create(null), byId = Object.create(null)
+    for (var j = 0; j < moduleSlots.length; j++) {
+      var slot = moduleSlots[j]
+      if (!slot || slot.region !== region) continue
+      if (window && !sameWindow(slotWindow(slot), window)) continue
+      var item = slot.activeItem
+      if (!item || item.visible !== true || slot.visible !== true || slot.width <= 0 || slot.height <= 0) continue
+      if (typeof item.open !== "function" || typeof item.close !== "function" || item.opened === undefined) continue
+      if (slot.instanceKey && !byKey[slot.instanceKey]) byKey[slot.instanceKey] = slot
+      if (slot.moduleName && !byId[slot.moduleName]) byId[slot.moduleName] = slot
+    }
     var entries = layoutEntries(region)
     var slots = []
     for (var i = 0; i < entries.length; i++) {
-      var id = entryId(entries[i])
       // A widget on the bar twice is told apart by its instance.
       var key = entries[i] && typeof entries[i] === "object" ? entries[i].powerbarInstance : ""
-      for (var j = 0; j < moduleSlots.length; j++) {
-        var slot = moduleSlots[j]
-        if (!slot || slot.region !== region || (key ? slot.instanceKey !== key : slot.moduleName !== id)) continue
-        if (window && !sameWindow(slotWindow(slot), window)) continue
-        var item = slot.activeItem
-        if (!item || item.visible !== true || slot.visible !== true || slot.width <= 0 || slot.height <= 0) continue
-        if (typeof item.open !== "function" || typeof item.close !== "function" || item.opened === undefined) continue
-        slots.push(slot)
-        break
-      }
+      var found = key ? byKey[key] : byId[entryId(entries[i])]
+      if (found) slots.push(found)
     }
     return slots
   }
@@ -3667,8 +3686,10 @@ Item {
             bar: root
             text: "󰇘"
             tooltipText: ({ left: "Left", center: "Center", right: "Right" })[zoneTarget.modelData] + " drawer"
-            visible: !root.onDemandInline && zoneTarget.members.length > 0 && !root.moduleSlots.some(function(slot) {
-              return slot.region === zoneTarget.modelData && root.sameWindow(root.targetWindow(slot), barWindow) && slot.mainVisible && slot.width > 0
+            // This window's own slots, not every monitor's: read per frame
+            // while widths animate.
+            visible: !root.onDemandInline && zoneTarget.members.length > 0 && !barWindow.moduleItems.some(function(slot) {
+              return slot && slot.region === zoneTarget.modelData && slot.mainVisible && slot.width > 0 && root.sameWindow(root.targetWindow(slot), barWindow)
             })
             anchors.centerIn: parent
             width: root.barSize; height: root.barSize
@@ -4192,41 +4213,50 @@ Item {
       var metadata = root.barWidgetRegistry.metadataFor(root.canonicalWidgetId(source.moduleName)) || {}
       return BarModel.widgetName(metadata, source.moduleName)
     }
-    BorderSurface {
-      id: labelGhost
-      visible: ghostWindow.visible && ghostWindow.display !== "native" && !root.barDragSettling
-      x: Math.round(root.barDragScreenX - root.barDragOffsetX)
-      y: Math.round(root.barDragScreenY - root.barDragOffsetY)
-      width: labelRow.implicitWidth + Style.space(20)
-      height: Math.max(root.barDragImageHeight, labelText.implicitHeight + Style.space(12))
-      // A menu row's shape, bordered like the drop outline it lands in.
-      radius: root.highlightRadius
-      // Over windows, like a drawer.
-      color: root.overlaySurfaceColor
-      borderSpec: Border.flat(Qt.rgba(Color.menu.text.r, Color.menu.text.g, Color.menu.text.b, 0.45), 1)
-      Row {
-        id: labelRow
-        anchors.verticalCenter: parent.verticalCenter
-        x: Style.space(10)
-        spacing: Style.space(8)
-        Image {
-          visible: ghostWindow.display === "both"
-          source: root.barDragImageUrl
-          width: visible ? root.barDragImageWidth : 0
-          height: root.barDragImageHeight
-          fillMode: Image.PreserveAspectFit
-          anchors.verticalCenter: parent.verticalCenter
-        }
-        Text {
-          id: labelText
-          // A captured menu row already shows the name.
-          visible: !(root.barDragImageLabelled && ghostWindow.display === "both")
-          text: ghostWindow.sourceTitle
-          textFormat: Text.PlainText
-          color: root.barForeground
-          font.family: Style.font.menuFamily
-          font.pixelSize: Style.font.bodySmall
-          anchors.verticalCenter: parent.verticalCenter
+    // The name label is built on this screen's first drag, not at startup:
+    // its text resolves the menu font, about 15 ms per screen.
+    property bool labelWanted: false
+    onActiveChanged: if (active) labelWanted = true
+    Loader {
+      active: ghostWindow.labelWanted
+      sourceComponent: Component {
+        BorderSurface {
+          id: labelGhost
+          visible: ghostWindow.visible && ghostWindow.display !== "native" && !root.barDragSettling
+          x: Math.round(root.barDragScreenX - root.barDragOffsetX)
+          y: Math.round(root.barDragScreenY - root.barDragOffsetY)
+          width: labelRow.implicitWidth + Style.space(20)
+          height: Math.max(root.barDragImageHeight, labelText.implicitHeight + Style.space(12))
+          // A menu row's shape, bordered like the drop outline it lands in.
+          radius: root.highlightRadius
+          // Over windows, like a drawer.
+          color: root.overlaySurfaceColor
+          borderSpec: Border.flat(Qt.rgba(Color.menu.text.r, Color.menu.text.g, Color.menu.text.b, 0.45), 1)
+          Row {
+            id: labelRow
+            anchors.verticalCenter: parent.verticalCenter
+            x: Style.space(10)
+            spacing: Style.space(8)
+            Image {
+              visible: ghostWindow.display === "both"
+              source: root.barDragImageUrl
+              width: visible ? root.barDragImageWidth : 0
+              height: root.barDragImageHeight
+              fillMode: Image.PreserveAspectFit
+              anchors.verticalCenter: parent.verticalCenter
+            }
+            Text {
+              id: labelText
+              // A captured menu row already shows the name.
+              visible: !(root.barDragImageLabelled && ghostWindow.display === "both")
+              text: ghostWindow.sourceTitle
+              textFormat: Text.PlainText
+              color: root.barForeground
+              font.family: Style.font.menuFamily
+              font.pixelSize: Style.font.bodySmall
+              anchors.verticalCenter: parent.verticalCenter
+            }
+          }
         }
       }
     }
