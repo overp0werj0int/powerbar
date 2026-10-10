@@ -3169,6 +3169,10 @@ Item {
     readonly property int inlineSettleMs: root.animationsEnabled ? 170 : 0
     // No expansion before this time: a collapse is still settling.
     property real inlineReadyAt: 0
+    // The expansion shown makes neighbours yield: its widgets and dots wait
+    // for them (DEMAND-90). Measured before it is shown, as the widgets start
+    // growing the moment the zone opens, before the bar is fitted again.
+    property bool inlineGiveWay: false
     // Each zone's on-demand widgets waiting behind its dots (folded ones apart),
     // the centre's also by the side of its anchor they wait on.
     readonly property var inlineHidden: {
@@ -3236,12 +3240,12 @@ Item {
       inlineAdvance(false)
     }
     // One step of the queue towards the request (InlineQueue.js decides);
-    // due when the queue's timer fires.
-    function inlineAdvance(due) {
+    // due when the queue's timer fires; settling skipped for the keyboard.
+    function inlineAdvance(due, keyboard) {
       var now = Date.now()
       var step = InlineQueue.advance({ request: inlineRequest, zone: inlineZone, readyAt: inlineReadyAt }, {
         now: now, due: due === true, enabled: root.onDemandInline && !root.barHidden,
-        intentMs: inlineIntentMs, settleMs: inlineSettleMs, timerRunning: inlineStep.running,
+        intentMs: inlineIntentMs, settleMs: keyboard === true ? 0 : inlineSettleMs, timerRunning: inlineStep.running,
         holdHeld: root.centerSectionRevealHeld && !root.centerSectionHovered
       })
       if (step.collapse) inlineApply("")
@@ -3252,18 +3256,21 @@ Item {
       if (step.hold) inlineSchedule()
       if (!step.expand) return
       // Measured now, beside every moment running now.
-      if (!inlineFits(step.expand)) {
+      var plan = inlinePlan(step.expand)
+      if (!plan) {
         inlineRequest = ""
         if (inlineHandleZone === step.expand) drawer.sourceEnter(step.expand.split(":")[0])
         return
       }
       // Not the drawer a drag is coming from: its row drives the drag.
       if (root.managedOwner && !root.managedOwner.dragMount) root.managedOwner.close("immediate")
+      inlineGiveWay = plan.giveWay
       inlineApply(step.expand)
     }
     // Would the zone fit with its hidden widgets shown, beside every other
-    // moment running now?
-    function inlineFits(token) {
+    // moment running now? Null if not, else whether a widget not yielding
+    // now would have to: { giveWay }.
+    function inlinePlan(token) {
       var i = Object.assign({}, zoneFitInputs)
       var zone = token.split(":")[0], side = token.split(":")[1] || ""
       var models = zone === "left" ? { left: leftModel } : zone === "right" ? { right: rightModel }
@@ -3278,16 +3285,35 @@ Item {
         i.dots.center = Object.assign({}, i.dots.center)
         i.dots.center[side] = false
       } else i.dots[zone] = false
-      if (!(i.length > 0)) return false
+      if (!(i.length > 0)) return null
       var moments = i.moments.filter(function(m) { return !m.unfold }).concat([{ zone: zone, sourceKey: null, unfold: zone, side: side }])
       var result = ZoneFitModel.fit(zoneFitInput(i, moments))
-      return !(result.fallbacks || []).some(function(f) { return f.zone === zone })
+      if ((result.fallbacks || []).some(function(f) { return f.zone === zone })) return null
+      return { giveWay: result.yielded.some(function(key) { return !zoneFitYielded[key] }) }
     }
     // The dots: hovering asks for the zone, clicking skips the hover intent.
-    function inlineEnter(zone, clicked) {
+    // A keyboard move is intent too, and skips the settle after a collapse:
+    // the zone it leaves folds while this one grows (DEMAND-38).
+    function inlineEnter(zone, clicked, keyboard) {
       inlineHandleZone = zone
       inlineAsk(zone)
-      if (clicked && inlineRequest === zone && inlineZone !== zone) { inlineStep.stop(); inlineAdvance(true) }
+      if (clicked && inlineRequest === zone && inlineZone !== zone) {
+        inlineStep.stop()
+        if (keyboard === true) inlineReadyAt = 0
+        inlineAdvance(true, keyboard === true)
+      }
+    }
+    // The zone's expanded widgets in drawn order, grown or not yet.
+    function inlineSlots(token) {
+      var zone = token.split(":")[0], out = []
+      var models = zone === "left" ? [leftModel] : zone === "right" ? [rightModel] : [beforeModel, centerModel, afterModel]
+      models.forEach(function(model) {
+        for (var i = 0; i < model.count; i++) {
+          var s = model.get(i)
+          if (s && s.inlineShown && s.inlineToken === token) out.push(s)
+        }
+      })
+      return out
     }
     function inlineLeave(zone) {
       if (inlineHandleZone === zone) inlineHandleZone = ""
@@ -3444,6 +3470,13 @@ Item {
     // at the start of the opening it is still growing, so the row is not yet
     // where it settles. One reposition per change batch, never per frame.
     function reanchorTooltip() { if (tooltipWindow.visible) tooltipAnchor.updateAnchor() }
+    // A card follows its widget while it moves (a zone growing under the
+    // keyboard's cursor, KEYS-79).
+    GeometryObserver {
+      target: tooltipWindow.visible && root.targetBelongsToWindow(root.tooltipTarget, barWindow) ? root.tooltipTarget : null
+      host: barWindow.contentItem
+      onChanged: Qt.callLater(barWindow.reanchorTooltip)
+    }
     Connections {
       target: drawer
       function onOpenedChanged() { Qt.callLater(barWindow.reanchorTooltip) }
@@ -4535,11 +4568,12 @@ Item {
     readonly property bool shown: count > 0
     // An inline expansion replaces the dots under the pointer.
     onShownChanged: if (!shown) root.hideTooltip(foldHandle)
-    // Its widgets grow after an 80 ms pause (the slots' motionDelay), so the
-    // dots keep their cell as long, on the same animation clock: shrinking at
-    // once pulled the island's end in before the widgets pushed it out
-    // (on-demand-drawers.md DEMAND-90).
-    readonly property int giveWayMs: !!homeWindow && homeWindow.inlineZone !== "" && homeWindow.inlineZone === inlineToken ? 80 : 0
+    // Its widgets grow after an 80 ms pause (the slots' motionDelay) when
+    // neighbours yield, so the dots keep their cell as long, on the same
+    // animation clock: shrinking at once pulled the island's end in before the
+    // widgets pushed it out (on-demand-drawers.md DEMAND-90).
+    readonly property int giveWayMs: !!homeWindow && homeWindow.inlineZone !== "" && homeWindow.inlineZone === inlineToken
+      && homeWindow.inlineGiveWay ? 80 : 0
     readonly property var cellPlace: CellModel.place(root.cellTokens, CellModel.TYPICAL_GLYPH, true)
     readonly property real cellSpill: cellPlace.spill
     readonly property bool fitYielded: !!(homeWindow && homeWindow.zoneFitYielded["handle:" + (zone === "center" ? "center:" + side : zone)])
@@ -5155,8 +5189,9 @@ Item {
     targetInsetY: root.vertical && !centerAnchorSlot && preview.before ? root.dragGapHeight : 0
     motionEnabled: root.animationsEnabled && !drawerHost && !root.dragHandover
     motionDuration: root.dragMotionActive ? root.dragMotionDuration : 120
-    // An activity reveal opens after its neighbours have yielded (80 ms).
-    motionDelay: root.animationsEnabled && managed && (activityVisible || inlineShown) && !hovered && !root.dragMotionActive ? 80 : 0
+    // An activity reveal opens after its neighbours have yielded (80 ms), an
+    // inline expansion only when it makes some yield.
+    motionDelay: root.animationsEnabled && managed && (activityVisible || inlineShown && homeWindow.inlineGiveWay) && !hovered && !root.dragMotionActive ? 80 : 0
     motionEasing: root.dragMotionActive ? root.dragMotionEasing : Easing.OutCubic
     motionOvershoot: 0
     z: modulePointer.dragging ? 100 : 0
@@ -5331,9 +5366,11 @@ Item {
         if (shown) litAt = ++root.highlightClock
         place()
       }
+      // A widget the keyboard lands on before it has grown is placed too: its
+      // cell centred where it starts (KEYS-12).
       function place() {
         var host = barHighlight.parent
-        if (!host || slot.width <= 0 || slot.height <= 0) return
+        if (!host || (root.vertical ? slot.width : slot.height) <= 0) return
         var g = root.cellHighlight(slot, host, barHighlight.hostLayer || host, slot.cellLength, slot.cellLead, slot.cellExtent)
         x = g.x; y = g.y; width = g.width; height = g.height; rounding = g.radius
       }

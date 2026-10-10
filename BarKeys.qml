@@ -72,6 +72,10 @@ Item {
     if (item.isPrefsButton) return !w.zoneHidden("right")
     return item.mainVisible && !item.drawerHost && !item.fitYielded && !w.zoneHidden(item.region)
   }
+  // A widget of an expansion that will be a stop once it has grown.
+  function landable(slot) {
+    return slot.mainVisible && !slot.drawerHost && !slot.fitYielded && !keys.window.zoneHidden(slot.region)
+  }
   // Every stop on the bar, in bar order: { item, kind, zone }.
   function stops() {
     var w = keys.window
@@ -207,14 +211,14 @@ Item {
   function openDots(token, dir, key) {
     var w = window
     pending = { token: token, dir: dir, key: key || "", tries: 0 }
-    w.inlineEnter(token, true)
+    w.inlineEnter(token, true, true)
     Qt.callLater(checkPending)
   }
   function checkPending() {
     var p = pending, w = window
     if (!p || !w) return
     if (p.seek) {
-      if (seen(p.seek)) { pending = null; landOn(p.seek, p.member); if (p.open) openMatch(); return }
+      if (seen(p.seek) || p.seek.inlineShown && w.inlineZone === p.token && landable(p.seek)) { pending = null; landOn(p.seek, p.member); if (p.open) openMatch(); return }
       // The expansion could not fit (the bar gave up on it): the zone's
       // drawer, as for the pointer.
       var refused = p.token && w.inlineRequest !== p.token && w.inlineZone !== p.token
@@ -226,15 +230,16 @@ Item {
       return
     }
     if (w.inlineZone === p.token) {
-      var shown = stops().filter(function(s) { return s.item.inlineShown && s.item.inlineToken === p.token })
-      var pick = p.key ? shown.find(function(s) { return s.item.instanceKey === p.key }) : null
-      // The widgets take a few frames to lay out after the zone opens, not
-      // all at once: wait for the one asked for (a search's), else any.
+      // The cursor lands as the zone opens, on a widget that has yet to grow
+      // (KEYS-12): its ring never leaves with the dots.
+      var shown = w.inlineSlots(p.token).filter(landable)
+      var pick = p.key ? shown.find(function(s) { return s.instanceKey === p.key }) : null
+      // A search's widget may come a few frames later: wait for it.
       if (!pick && (p.key || !shown.length) && ++p.tries < 20) { landRetry.restart(); return }
       pending = null
       if (!shown.length) return
       if (!pick) pick = p.dir < 0 ? shown[shown.length - 1] : shown[0]
-      cursor = pick.item
+      cursor = pick
       showCard()
       if (p.open) openCursor()
       return
@@ -555,7 +560,7 @@ Item {
       if (w.inlineZone && w.inlineZone !== token) w.inlineAsk("")
       var handle = (w.foldHandles || []).find(function(h) { return h && h.inlineToken === token && seen(h) })
       if (handle) cursor = handle
-      w.inlineEnter(token, true)
+      w.inlineEnter(token, true, true)
     } else if (w.inlineZone || w.inlineRequest) {
       // Out of the way of another zone's expansion: that closes.
       w.inlineCollapseNow()
