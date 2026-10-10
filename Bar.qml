@@ -1880,12 +1880,16 @@ Item {
   readonly property real highlightRounding: Math.max(Style.space(4), islandRounding - Style.space(3))
   // The highlight for a slot: its cell, centred on the slot along the bar, at
   // the cell thickness across it, in `host` coordinates.
-  function cellHighlight(item, host, strip, cell) {
+  // The cell centres on the item's own stretch: past `lead` and at most `span`
+  // long, so a drop gap the slot holds before or after its widget is left out.
+  function cellHighlight(item, host, strip, cell, lead, span) {
     var k = cellTokens
     var origin = item.mapToItem(host, 0, 0)
     var along = vertical ? item.height : item.width
+    var from = lead > 0 ? lead : 0
+    var own = span > 0 ? Math.min(along - from, span) : along - from
     var s = strip.mapToItem(host, 0, 0)
-    var start = (vertical ? origin.y : origin.x) + (along - cell) / 2
+    var start = (vertical ? origin.y : origin.x) + from + (own - cell) / 2
     var cross = vertical ? s.x + (strip.width - k.thickness) / 2 : s.y + (strip.height - k.thickness) / 2
     return vertical ? { x: cross, y: start, width: k.thickness, height: cell, radius: highlightRadius }
       : { x: start, y: cross, width: cell, height: k.thickness, radius: highlightRadius }
@@ -5079,6 +5083,8 @@ Item {
     readonly property real heldPad: Math.max(0, heldExtent - landingExtent)
     readonly property real cellExtent: landingExtent > 0 ? landingExtent + heldPad : 0
     readonly property real cellLength: cellPlace.cell + heldPad
+    // Where the widget's own stretch starts: after a drop gap opened before it.
+    readonly property real cellLead: root.vertical ? animatedInsetY : animatedInsetX
     readonly property real cellSpill: cellPlace.spill + heldPad / 2
     // Along the bar the ink centres in its cell; across a vertical bar it
     // centres on the bar's centre line, whatever box the widget laid out.
@@ -5305,7 +5311,7 @@ Item {
       function place() {
         var host = barHighlight.parent
         if (!host || slot.width <= 0 || slot.height <= 0) return
-        var g = root.cellHighlight(slot, host, barHighlight.hostLayer || host, slot.cellLength)
+        var g = root.cellHighlight(slot, host, barHighlight.hostLayer || host, slot.cellLength, slot.cellLead, slot.cellExtent)
         x = g.x; y = g.y; width = g.width; height = g.height; rounding = g.radius
       }
       GeometryObserver {
@@ -5422,7 +5428,7 @@ Item {
       function place() {
         var layer = cellBadge.parent
         if (!visible || !layer || slot.width <= 0 || slot.height <= 0) return
-        var g = root.cellHighlight(slot, layer, barHighlight.hostLayer || layer, slot.cellLength)
+        var g = root.cellHighlight(slot, layer, barHighlight.hostLayer || layer, slot.cellLength, slot.cellLead, slot.cellExtent)
         var isl = barHighlight.island
         var m = root.islands && isl && isl.visible ? isl.mapToItem(layer, 0, 0) : null
         var r = m ? { x: m.x, y: m.y, width: isl.width, height: isl.height }
