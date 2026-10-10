@@ -2775,7 +2775,12 @@ Item {
       process.running = true
   }
 
+  // While the keyboard mode holds a bar, its card names the cursor, which
+  // follows the pointer there: the pointer's tooltips on that bar neither
+  // show nor take the card down.
+  function keysCardHolds(target) { return barKeys.here && targetBelongsToWindow(target, barKeys.window) }
   function showTooltip(target, text) {
+    if (keysCardHolds(target)) return
     clearTooltip()
 
     // A widget yielded, hidden or folded off the bar is still hovered by Qt
@@ -2812,6 +2817,7 @@ Item {
 
   function hideTooltip(target) {
     if (tooltipTarget !== target && pendingTooltipTarget !== target) return
+    if (keysCardHolds(target) && tooltipTarget === barKeys.cardTarget) return
 
     tooltipRequest += 1
     clearTooltip()
@@ -2918,35 +2924,6 @@ Item {
         required property var modelData
 
         screen: modelData
-      }
-    }
-  }
-
-  // The keyboard mode's dismiss layer on every other monitor (each bar window
-  // has its own for its monitor, keysDismiss): a click on another output ends
-  // the mode too, as Omarchy's keyboard panels put a twin on every output, so
-  // the bar never keeps the keys while the user works elsewhere.
-  Variants {
-    model: Quickshell.screens
-
-    delegate: Component {
-      PanelWindow {
-        required property var modelData
-        readonly property var holder: root.barKeys.here ? root.barKeys.window : null
-        screen: modelData
-        // By output name: the holder's screen must be known before a twin maps.
-        visible: !!holder && !!holder.screen && modelData.name !== holder.screen.name
-        color: "transparent"
-        exclusionMode: ExclusionMode.Ignore
-        WlrLayershell.namespace: "powerbar-keys-dismiss"
-        WlrLayershell.layer: WlrLayer.Overlay
-        WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
-        anchors { top: true; bottom: true; left: true; right: true }
-        MouseArea {
-          anchors.fill: parent
-          acceptedButtons: Qt.AllButtons
-          onPressed: root.barKeys.leave()
-        }
       }
     }
   }
@@ -3531,7 +3508,7 @@ Item {
     function shiftY(amount) { return root.position === "top" ? -amount : root.position === "bottom" ? amount : 0 }
     readonly property real autoHideEdge: 2
     // Mapping a surface stalls the bar's frames for a moment, so the keyboard
-    // mode's own surfaces (the dismiss layer, the key legend) and any tooltip
+    // mode's own surface (the key legend) and any tooltip
     // wait until the bar has slid out: the slide is what the eye is on.
     readonly property bool sliding: autoHideOffset > 0.5
 
@@ -3575,11 +3552,10 @@ Item {
     readonly property bool keysHere: root.barKeys.heldBy(barWindow) && !root.barKeys.suspended && !root.barKeys.handOff
     // As Omarchy's keyboard panels do: Exclusive takes the keyboard, then
     // OnDemand keeps it. Exclusive alone would send every click to the bar,
-    // so the dismiss layer below (under the pointer everywhere off the bar)
-    // could never see one.
+    // so a click elsewhere could never clear the mode's grab (keysGrab).
     property bool keysFocusPrimed: false
     property int keysPrimeTries: 0
-    onKeysHereChanged: { keysFocusPrimed = false; keysPrimeTries = 0; if (keysHere) keysPrime.restart(); else { keysPrime.stop(); keysKick.stop() } }
+    onKeysHereChanged: { keysFocusPrimed = false; keysPrimeTries = 0; keysGrabReady = keysHere && keysWindowActive; if (keysHere) keysPrime.restart(); else { keysPrime.stop(); keysKick.stop() } }
     // Right after the mode takes the keyboard (entering, or back from a panel
     // or a hand-off) it can be taken away: a closing panel hands focus back
     // to the window that had it before, after its fade-out. Asking for
@@ -3622,6 +3598,25 @@ Item {
         height: drawer.opened && !drawer.steppedAside ? drawer.height : 0
         intersection: Intersection.Combine
       }
+    }
+    // While the keyboard mode lasts, a click anywhere off the bar and its
+    // drawer, on any monitor, ends it (as a click outside dismisses
+    // Omarchy's keyboard panels), so the keys are never trapped. The
+    // compositor keeps the pointer for this window, its drawer whatever its
+    // size, and drops the grab on a click elsewhere. Not while a panel the
+    // mode opened has the keys, nor during a hand-off.
+    // The compositor clears a grab that starts before the window has the
+    // keyboard, so it starts once the bar has it, and a moment's loss while
+    // the focus is primed does not drop it.
+    property bool keysGrabReady: false
+    onKeysWindowActiveChanged: if (keysHere && keysWindowActive) keysGrabReady = true
+    HyprlandFocusGrab {
+      id: keysGrab
+      active: barWindow.keysHere && barWindow.keysGrabReady
+      windows: [barWindow]
+      // Only the compositor's clear ends the mode: the grab also clears when
+      // the mode lets go of the keys.
+      onCleared: if (barWindow.keysHere) root.barKeys.leave()
     }
     HyprlandFocusGrab {
       // Hover drawers must stay passive so wheel input reaches other windows.
@@ -3747,43 +3742,6 @@ Item {
             }
           }
         }
-      }
-    }
-
-    // While the keyboard mode lasts, a click anywhere off the bar (and off a
-    // drawer it opened) ends it, as a click outside dismisses Omarchy's
-    // keyboard panels, so the keys are never trapped. The click is spent there.
-    PanelWindow {
-      id: keysDismiss
-      screen: barWindow.screen
-      visible: barWindow.keysHere && !barWindow.sliding
-      color: "transparent"
-      exclusionMode: ExclusionMode.Ignore
-      WlrLayershell.namespace: "powerbar-keys-dismiss"
-      WlrLayershell.layer: WlrLayer.Top
-      WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
-      anchors { top: true; bottom: true; left: true; right: true }
-      // Everything but the bar strip and an open drawer. The bar window sits
-      // at its edge of the screen, so its corner is the screen's size less its own.
-      readonly property real barX: root.position === "right" ? width - barWindow.width : 0
-      readonly property real barY: root.position === "bottom" ? height - barWindow.height : 0
-      mask: Region {
-        width: keysDismiss.width; height: keysDismiss.height
-        Region {
-          x: keysDismiss.barX + mainStrip.x; y: keysDismiss.barY + mainStrip.y
-          width: mainStrip.width; height: mainStrip.height
-          intersection: Intersection.Subtract
-        }
-        Region {
-          x: keysDismiss.barX + drawer.x; y: keysDismiss.barY + drawer.y
-          width: drawer.opened ? drawer.width : 0; height: drawer.opened ? drawer.height : 0
-          intersection: Intersection.Subtract
-        }
-      }
-      MouseArea {
-        anchors.fill: parent
-        acceptedButtons: Qt.AllButtons
-        onPressed: root.barKeys.leave()
       }
     }
 
@@ -5351,8 +5309,9 @@ Item {
       parent: hostLayer || presentation
       hovered: (slot.hovered || slot.activityFlash || slot.preview.into || slot.keysCursor) && slot.mainVisible && !slot.dragSource && !root.barHidden && !preferencesPane.opened
       outlined: slot.keysCursor && hovered
-      // A group icon shows the open fill while its drawer is open.
-      selected: (slot.panelOpen || slot.drawerOpen) && !slot.dragSource
+      // A group icon shows the open fill while its drawer is open. Only on
+      // the bar: a member's panel opened from its drawer lights its row.
+      selected: (slot.panelOpen || slot.drawerOpen) && slot.mainVisible && !slot.dragSource
       motionEnabled: root.animationsEnabled
       hoverColor: slot.compoundTargets.length > 1 && !slot.activityFlash ? root.highlightTrackColor : root.highlightHoverColor
       selectedColor: root.highlightSelectedColor

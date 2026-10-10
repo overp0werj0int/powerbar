@@ -634,32 +634,107 @@ Item {
   }
 
 
-  // The pointer takes over: moving it onto a stop moves the cursor there.
+  // The cursor follows the pointer (KEYS-45..47): it goes where the pointer
+  // hovers, a stop on the bar or a drawer's row, and the keys carry on from
+  // there. On the bar the pointer's own rules run as without the mode: a
+  // drawer the keys held is let go to them, opening and closing as the
+  // pointer's would.
+  // Where the pointer last was, in its window's scene.
   property var lastPointer: null
   // Where the pointer was when the mode began: resting there is not a move.
+  property real activeAt: 0
   onActiveChanged: {
     var p = active && window ? window.barPointer : null
-    lastPointer = p && p.hovered ? { x: p.point.position.x, y: p.point.position.y } : null
+    lastPointer = p && p.hovered ? { x: p.point.scenePosition.x, y: p.point.scenePosition.y } : null
+    activeAt = Date.now()
   }
+  // Only a pointer that moved counts: hover handlers also report the same
+  // point again when the bar or a drawer changes under it, and the first
+  // report after the pointer comes into an area (or one opens under it) is
+  // where it rests, not a move. One that comes into an area settled under
+  // it did move there.
+  function pointerMoved(scene, settled) {
+    var last = lastPointer
+    lastPointer = { x: scene.x, y: scene.y }
+    if (!last) return settled === true
+    return Math.abs(last.x - scene.x) >= 1 || Math.abs(last.y - scene.y) >= 1
+  }
+  function pointerLeft() { lastPointer = null }
   Connections {
     target: keys.window ? keys.window.barPointer : null
     ignoreUnknownSignals: true
     function onPointChanged() {
       var p = keys.window ? keys.window.barPointer : null
-      if (!keys.here || keys.drawer && !keys.previewing || !p || !p.hovered) return
+      // The mode holds the bar shown: once it has slid in, a pointer that
+      // comes onto it (from a drawer, say) did move there.
+      var settled = keys.window.autoHideShown && Date.now() - keys.activeAt > 300
+      if (!keys.here || !p || !p.hovered || !keys.pointerMoved(p.point.scenePosition, settled)) return
+      keys.letDrawerGo()
       var pos = p.point.position
-      // Only a pointer that moved takes over: the handler also reports
-      // the same point again when the bar changes under it.
-      if (keys.lastPointer && Math.abs(keys.lastPointer.x - pos.x) < 1 && Math.abs(keys.lastPointer.y - pos.y) < 1) return
-      keys.lastPointer = { x: pos.x, y: pos.y }
       var list = keys.stops()
       for (var i = 0; i < list.length; i++) {
         var item = list[i].item, local = item.mapFromItem(p.parent, pos.x, pos.y)
         if (local.x >= 0 && local.y >= 0 && local.x < item.width && local.y < item.height) {
-          if (item !== keys.cursor) { keys.closeDrawer(false); keys.cursor = item; keys.showCard() }
+          if (item !== keys.cursor) { keys.cursor = item; keys.showCard() }
           return
         }
       }
+    }
+    function onHoveredChanged() { if (keys.window && !keys.window.barPointer.hovered) keys.pointerLeft() }
+  }
+  // The pointer on the bar: a drawer the keys held goes back to the
+  // pointer's rules (its icon under the pointer holds it, elsewhere it
+  // closes as the pointer leaving it would). The keys take it again on the
+  // into-key or when the pointer comes onto its rows.
+  function letDrawerGo() {
+    var d = drawer
+    if (!d) return
+    previewTimer.stop()
+    drawer = null
+    previewing = false
+    d.barKeysHeld = false
+    d.keyboardMode = false
+    d.cursorActive = false
+    showCard()
+    focusLater()
+  }
+  // The pointer moved onto row `index` of drawer `d`: the cursor goes into
+  // the drawer at that row, as the into-key and arrows would, and the keys
+  // hold it, whoever opened it; its icon is the stop.
+  function pointerOnRow(d, index, scene) {
+    var settled = !!d && d.reveal >= 0.999 && Date.now() - d.shownAt > 250
+    if (!pointerMoved(scene, settled) || !here || !d || !d.opened || index < 0 || index >= d.slots.length) return
+    if (window && d !== window.managedDrawer) return
+    if (drawer !== d) {
+      var source = d.groupId ? d.anchorSlot : (window.foldHandles || []).find(function(h) { return h && h.zone === d.zone && seen(h) })
+      if (!source || !seen(source)) return
+      cursor = source
+      d.barKeysHeld = true
+      drawer = d
+    }
+    previewTimer.stop()
+    previewing = false
+    d.keyboardMode = true
+    if (d.cursorActive && d.cursor === index) return
+    d.cursor = index
+    d.cursorActive = true
+    d.navigate(0)
+    showCard()
+    focusLater()
+  }
+  // Dots the pointer opened under the cursor gave way to their widgets: the
+  // cursor goes to the widget beside them (dots at the start of their run:
+  // its first; at its end: its last).
+  Connections {
+    target: keys.window
+    ignoreUnknownSignals: true
+    function onInlineZoneChanged() {
+      var w = keys.window, c = keys.cursor
+      if (!keys.here || keys.pending || !w || !c || !c.isFoldHandle || w.inlineZone !== c.inlineToken) return
+      var shown = w.inlineSlots(c.inlineToken).filter(keys.landable)
+      if (!shown.length) return
+      keys.cursor = c.side === "start" ? shown[0] : shown[shown.length - 1]
+      keys.showCard()
     }
   }
 }

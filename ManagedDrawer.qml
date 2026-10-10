@@ -17,6 +17,9 @@ Item {
   property bool instantClose: false
   property bool replaying: false
   property real reveal: 0
+  // When the drawer last opened or changed its widgets: its rows may come
+  // under a resting pointer until it has settled.
+  property real shownAt: 0
   property int transitionEpoch: 0
   property real closingLength: thickness
   // A drag that started on one of the drawer's rows is driven by a handler on
@@ -267,6 +270,7 @@ Item {
     if (needsReveal) {
       replaying = true
       reveal = 0
+      shownAt = Date.now()
     }
     if (changingZone || !opened) { entered = false; cursor = 0; sourceHovered = false }
     cursorActive = false
@@ -589,11 +593,15 @@ Item {
             HoverHandler {
               id: memberHover
               enabled: drawer.opened && !bar.barDragSource
+              // In the keyboard mode the pointer moves the cursor onto the row.
+              onPointChanged: if (hovered) bar.barKeys.pointerOnRow(drawer, mount.index, point.scenePosition)
               // A menu row shows its name already; it shows the widget's own
               // tooltip (a volume, a status), which the row's pointer would
-              // otherwise keep from the widget.
+              // otherwise keep from the widget. The keyboard's card shows that
+              // text while the keys hold the drawer.
               onHoveredChanged: {
-                if (!drawer.namedMenu) return
+                if (!hovered) bar.barKeys.pointerLeft()
+                if (!drawer.namedMenu || bar.barKeys.here && bar.barKeys.drawer === drawer) return
                 if (!hovered) { bar.hideTooltip(mount); return }
                 var text = mount.ownTooltip()
                 // Once the row's hover has reached tooltipHovered.
