@@ -5324,6 +5324,13 @@ Item {
         function onCellTokensChanged() { Qt.callLater(barHighlight.place) }
         function onHighlightRadiusChanged() { Qt.callLater(barHighlight.place) }
       }
+      // A drop gap that moves from before the widget to after it leaves the
+      // slot's box where it was: only the widget's stretch inside it moves.
+      Connections {
+        target: barHighlight.shown ? slot : null
+        function onCellLeadChanged() { Qt.callLater(barHighlight.place) }
+        function onCellExtentChanged() { Qt.callLater(barHighlight.place) }
+      }
     }
 
     // The thumb over the hovered target of a compound, nested at the track's
@@ -5452,6 +5459,11 @@ Item {
         target: cellBadge.visible ? root : null
         function onCellTokensChanged() { Qt.callLater(cellBadge.place) }
         function onHighlightRadiusChanged() { Qt.callLater(cellBadge.place) }
+      }
+      Connections {
+        target: cellBadge.visible ? slot : null
+        function onCellLeadChanged() { Qt.callLater(cellBadge.place) }
+        function onCellExtentChanged() { Qt.callLater(cellBadge.place) }
       }
       Text {
         id: cellBadgeLabel

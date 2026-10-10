@@ -225,7 +225,11 @@ Item {
     var geometry = anchorRevision + anchorSlot.x + anchorSlot.y + anchorSlot.width + anchorSlot.height + anchorSlot.cellLength
     var p = anchorSlot.mapToItem(hostWindow.contentItem, 0, 0)
     var along = bar.vertical ? anchorSlot.height : anchorSlot.width
-    var start = (bar.vertical ? p.y : p.x) + (along - anchorSlot.cellLength) / 2
+    // The icon's own stretch of its slot, as the highlight (DRAG-64): a drop
+    // gap the slot holds is left out.
+    var lead = anchorSlot.cellLead > 0 ? anchorSlot.cellLead : 0
+    var own = anchorSlot.cellExtent > 0 ? Math.min(along - lead, anchorSlot.cellExtent) : along - lead
+    var start = (bar.vertical ? p.y : p.x) + lead + (own - anchorSlot.cellLength) / 2
     return { start: start, end: start + anchorSlot.cellLength }
   }
   readonly property var zoneIsland: {
