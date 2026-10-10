@@ -1,5 +1,34 @@
 # Changelog
 
+## 0.6.0 — 2026-10-10
+
+Faster, steadier expansion and collapse, a keyboard mode that follows the
+pointer, and tooltips that move instead of flickering.
+
+- **Expansion and collapse**: from the keyboard, inline dots expand at once
+  and the cursor lands on the zone's first widget as it opens (the first
+  growth came about 290 ms after the key before); the give-way pause runs
+  only when a widget actually has to yield. Zone drawers open after the
+  pointer rests 90 ms, as group icons do, so a pointer crossing the bar no
+  longer flashes them open.
+- **Keyboard mode**: the cursor is the item's own highlight with a crisp
+  one-device-pixel ring and moves without a fade; it follows the pointer
+  onto the bar and into drawers, and the keys carry on from there. A click
+  anywhere else ends the mode, on any monitor. In drawer mode a zone's strip
+  previews as the cursor reaches the zone and is walked with the keys along
+  the bar.
+- **Tooltips and the name card** move to the next widget in place: no
+  ghost fading out beside the new one, no card doubled, cut in half or
+  flashing in another zone, and a card at either end of the screen stays
+  on it.
+- **Drag and drop**: a drop into a group drawer no longer runs a correction
+  glide over a distance that was never real, and a widget removed mid-drag
+  discards its drop.
+- **Lighter startup and idle**: the drag label is built on first use,
+  widget glyphs are read once per widget, and an autohide slide no longer
+  re-places every highlight on each frame.
+- A strip's end cells draw their highlight whole.
+
 ## 0.5.0 — 2026-10-10
 
 The first release. Powerbar was cloned from Omarchy's built-in bar
