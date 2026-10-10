@@ -56,7 +56,7 @@ Drag and drop on the live bar, into drawers and onto zone dots. The bar controll
 
 - **DRAG-20** Hover and selection draw a soft rounded fill behind an item (`HoverHighlight`); its opacity animates over 90 ms (OutCubic). Colours and shape: see appearance.md.
 
-- **DRAG-21** Where two lit highlights overlap (Equal gaps) the older fades to 45 % opacity and the newer draws on top.
+- **DRAG-21** Where two lit highlights overlap (Equal gaps) the older fades to 45 % opacity and the newer draws on top; the keyboard cursor's (KEYS-69) never fades and stays on top.
 
 ## Drop resolution
 

@@ -620,25 +620,15 @@ Item {
               width: drawer.namedMenu || !bar.vertical ? cell : thick
               height: drawer.namedMenu || !bar.vertical ? thick : cell
               z: -1
-              hovered: ((memberHover.hovered && !bar.barDragSource) || cursorRing.visible) && drawer.opened && !preview.hidden
+              // The keyboard cursor lights the same mark, outlined (KEYS-69).
+              readonly property bool keysCursor: drawer.selectionVisible && drawer.cursor === mount.index
+              hovered: ((memberHover.hovered && !bar.barDragSource) || keysCursor) && drawer.opened && !preview.hidden
+              outlined: keysCursor && hovered
               selected: modelData ? modelData.panelOpen : false
               motionEnabled: bar.animationsEnabled
               hoverColor: bar.highlightHoverColor
               selectedColor: bar.highlightSelectedColor
               rounding: CellModel.radius(drawer.tokens, bar.islandRounding)
-            }
-            // The keyboard cursor: the bar's focus ring inside the cell; it never animates.
-            Rectangle {
-              id: cursorRing
-              parent: memberHighlight.parent
-              x: memberHighlight.x; y: memberHighlight.y
-              width: memberHighlight.width; height: memberHighlight.height
-              radius: Math.min(memberHighlight.radius, Math.min(width, height) / 2)
-              z: 2
-              visible: drawer.selectionVisible && drawer.cursor === mount.index
-              color: "transparent"
-              border.width: 1.5
-              border.color: Color.accent
             }
             Text {
               id: label
