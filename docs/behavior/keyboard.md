@@ -4,8 +4,8 @@ The bar works from the keyboard with a cursor on stops (widgets, group icons, zo
 
 **Sources:**
 - BarKeysModel.js: keymap per edge, intents, step, zoneStep, fuzzy search, route, legend
-- BarKeys.qml: mode state, stops, drawers, search, name card, hand-off, pointer takeover
-- Bar.qml: IPC `keys`/`keysStatus`, key catcher, dismiss layer, key strip window (`keysStrip`), focus priming
+- BarKeys.qml: mode state, stops, drawers, search, name card, hand-off, the cursor following the pointer
+- Bar.qml: IPC `keys`/`keysStatus`, key catcher, focus grab (`keysGrab`), key strip window (`keysStrip`), focus priming
 - BarCli.qml: `keysOn`, `keysOff`
 - ShortcutModel.js, ShortcutStore.qml, ShortcutRow.qml: shortcut parsing, recording, writing `bindings.lua`
 - tests/bar-keys.test.cjs, tests/shortcuts.test.cjs
@@ -16,9 +16,9 @@ The CLI as a whole (`status`, `shortcuts`, `help`, error format) is integration.
 
 - **KEYS-1** `omarchy-shell powerbar keys` while the mode is off enters it on the focused monitor's bar (another monitor's bar only while no monitor is focused; a focused monitor without a bar gets none, and `keysOn` then answers `error: no bar to put the cursor on`). Nothing happens while Preferences is open. On entry the cursor lands on, in order: the stop whose panel is open, the centre anchor (the clock), the middle stop of the list, or nowhere if there are no stops. The shortcut store is re-read and the name card shows at once. Stops are, in bar order: widgets and group icons that are on the bar and not in a drawer, folded or yielded, zone dots that are shown, and the Preferences button. Code: BarKeys.enter(), stops(), seen()
 
-- **KEYS-2** The mode ends on: `keys` again; `keysOff`; Esc at bar level (Esc at an inner level steps back first, KEYS-38); two Esc within 400 ms; a click anywhere outside the bar and its open drawer while the bar holds the keys, on any monitor (each other monitor gets a full-screen dismiss layer, as Omarchy's keyboard panels do) (a dismiss layer covers the rest of the screen and the click is not passed on); a window or a layer that is not Powerbar's or one of Omarchy's own bar surfaces opening (checked 150 ms after the event, and only if no registered panel is open); Enter on the Preferences button (the mode ends first, then Preferences opens). Leaving closes an open panel the cursor opened, closes any drawer, folds an inline expansion, hides the card and drops a pending search reveal.
+- **KEYS-2** The mode ends on: `keys` again; `keysOff`; Esc at bar level (Esc at an inner level steps back first, KEYS-38); two Esc within 400 ms; a click anywhere outside the bar and its open drawer while the bar holds the keys, on any monitor, as a click outside dismisses Omarchy's keyboard panels (a Hyprland focus grab on the bar window: the compositor drops it on a click elsewhere, and the click is not passed on; the drawer is part of the bar window, so the whole drawer takes the pointer whatever its size; the grab starts once the bar has the keyboard, since one started before is dropped at once); a window or a layer that is not Powerbar's or one of Omarchy's own bar surfaces opening (checked 150 ms after the event, and only if no registered panel is open); Enter on the Preferences button (the mode ends first, then Preferences opens). Leaving closes an open panel the cursor opened, closes any drawer, folds an inline expansion, hides the card and drops a pending search reveal.
 
-- **KEYS-3** Enter or Space on a widget opens it like a click and the bar lets go of the keyboard for 400 ms (`handOff`). If the widget opened a registered panel (Omarchy's KeyboardPanel, PopupCard) the mode is suspended (KEYS-4); if a window or layer of its own opened, the mode ends (KEYS-2); if nothing opened (a toggle), the bar takes the keys back after the 400 ms and shows the card again. The card is hidden while the hand-off lasts, and the bar gives up keyboard focus and hides its dismiss layer, so the keys reach what the press opened.
+- **KEYS-3** Enter or Space on a widget opens it like a click and the bar lets go of the keyboard for 400 ms (`handOff`). If the widget opened a registered panel (Omarchy's KeyboardPanel, PopupCard) the mode is suspended (KEYS-4); if a window or layer of its own opened, the mode ends (KEYS-2); if nothing opened (a toggle), the bar takes the keys back after the 400 ms and shows the card again. The card is hidden while the hand-off lasts, and the bar gives up keyboard focus and its focus grab, so the keys reach what the press opened.
 
 - **KEYS-4** Suspended (a registered panel the cursor opened is open): keys go to the panel; a panel drawn as a popup of the bar that did not take the keys ignores every key but Esc, which closes it. When it closes the mode resumes: card shown, keys back on the cursor or the drawer it came from, and an Esc within 400 ms of the close counts as the second of a double Esc (KEYS-39).
 
@@ -58,7 +58,7 @@ The CLI as a whole (`status`, `shortcuts`, `help`, error format) is integration.
 
 - **KEYS-19** When the opened member shows a registered panel the drawer steps aside and the mode is suspended; Esc in the panel closes it and the keys return to the drawer with the card on the current row.
 
-- **KEYS-20** Preview: after a non-repeating key is released with the cursor on a group icon (or, in drawer mode, on zone dots) and no drawer open, a 100 ms timer opens the drawer unfolded beside the icon but not entered; any key pressed first cancels it, so a held key sweeping across stops never flashes drawers. In a preview the name card is hidden and the pointer may take over (KEYS-47).
+- **KEYS-20** Preview: after a non-repeating key is released with the cursor on a group icon (or, in drawer mode, on zone dots) and no drawer open, a 100 ms timer opens the drawer unfolded beside the icon but not entered; any key pressed first cancels it, so a held key sweeping across stops never flashes drawers. In a preview the name card is hidden; the pointer moves the cursor as anywhere (KEYS-45).
 
 ## Search: fuzzy name matching and navigation
 
@@ -123,13 +123,15 @@ The CLI as a whole (`status`, `shortcuts`, `help`, error format) is integration.
 
 - **KEYS-44** The card shows only for a target that belongs to the keyboard's window (`keysStatus.card.belongs`); on other monitors' bars it is hidden.
 
-## Pointer takeover
+## The cursor follows the pointer
 
-- **KEYS-45** While the mode is `here`, moving the pointer onto a stop moves the cursor there. Only a real move counts: the pointer's position when the mode began, and a re-report of the same point, are ignored (under 1 px).
+- **KEYS-45** While the mode is `here`, the cursor follows the pointer: moving it onto a stop on the bar puts the cursor there, and the keys carry on from that stop. Only a real move counts: the pointer's position when the mode began, a re-report of the same point when the bar changes under a resting pointer, and the first report after the pointer comes into the bar or a drawer before it has settled (the bar slid in less than 300 ms ago; a drawer still unfolding or opened less than 250 ms ago) are ignored (under 1 px). The pointer leaving the bar leaves the cursor where it was. Code: BarKeys pointerMoved.
 
-- **KEYS-46** A takeover closes any open drawer and moves the card to the new stop.
+- **KEYS-46** On the bar the pointer's own rules run as without the mode: a drawer the keys held is let go to them the moment the pointer moves on the bar (its icon under the pointer keeps it open; elsewhere it closes as when the pointer leaves it, with the 100 ms step-away wait of DEMAND-89 and the exit delay), group icons open their drawers after the hover intent, and dots open their zone after the settle wait. Dots that open under the cursor land it on the widget beside them (dots at the start of their run: its first; at its end: its last). Code: BarKeys letDrawerGo, onInlineZoneChanged.
 
-- **KEYS-47** In an entered drawer the pointer does not take over; in a drawer preview (not entered) it does.
+- **KEYS-47** Moving the pointer onto a drawer's row puts the cursor into that drawer at that row, as the into-key and arrows would, whoever opened the drawer: the keys hold it from then on (it stays open when the pointer leaves it off the bar) and the card names the row (KEYS-41). Back on the bar the drawer is the pointer's again (KEYS-46). Code: BarKeys pointerOnRow; ManagedDrawer memberHover.
+
+- **KEYS-80** While the mode holds a bar, the card names the cursor there and the pointer's own tooltips on that bar neither show nor take the card down; on other monitors' bars, and while the mode is suspended or handing off, tooltips are as usual. Before, hovering a widget without a tooltip of its own cleared the card as the cursor reached it. Code: Bar.qml keysCardHolds (showTooltip, hideTooltip).
 
 ## IPC and configuration
 
