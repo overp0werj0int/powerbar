@@ -4127,20 +4127,10 @@ Item {
     Accessible.role: Accessible.Button
     Accessible.name: "Powerbar preferences"
     readonly property bool keysCursor: root.barKeys.here && root.barKeys.cursor === preferencesButton
-    Rectangle {
-      x: buttonHighlight.x; y: buttonHighlight.y; width: buttonHighlight.width; height: buttonHighlight.height
-      radius: buttonHighlight.radius
-      z: 3
-      opacity: preferencesButton.keysCursor ? 1 : 0
-      visible: opacity > 0
-      Behavior on opacity { enabled: root.animationsEnabled; NumberAnimation { duration: 90; easing.type: Easing.OutCubic } }
-      color: "transparent"
-      border.width: 1.5
-      border.color: Color.accent
-    }
     HoverHighlight {
       id: buttonHighlight
       hovered: (buttonMouse.containsMouse || preferencesButton.keysCursor) && !root.barDragSource && !root.barHidden
+      outlined: preferencesButton.keysCursor && hovered
       selected: preferencesPane.opened
       motionEnabled: root.animationsEnabled
       hoverColor: root.highlightHoverColor
@@ -4590,20 +4580,10 @@ Item {
     Keys.onReturnPressed: if (drawerRef) drawerRef.openZone(zone, true)
     Keys.onSpacePressed: if (drawerRef) drawerRef.openZone(zone, true)
     readonly property bool keysCursor: root.barKeys.here && root.barKeys.cursor === foldHandle
-    Rectangle {
-      x: handleHighlight.x; y: handleHighlight.y; width: handleHighlight.width; height: handleHighlight.height
-      radius: handleHighlight.radius
-      z: 3
-      opacity: foldHandle.keysCursor ? 1 : 0
-      visible: opacity > 0
-      Behavior on opacity { enabled: root.animationsEnabled; NumberAnimation { duration: 90; easing.type: Easing.OutCubic } }
-      color: "transparent"
-      border.width: 1.5
-      border.color: Color.accent
-    }
     HoverHighlight {
       id: handleHighlight
       hovered: (handleMouse.containsMouse || foldHandle.activeFocus || foldHandle.keysCursor) && !root.barDragSource && !root.barHidden
+      outlined: foldHandle.keysCursor && hovered
       selected: foldHandle.drawerOpen || foldHandle.dropTarget
       motionEnabled: root.animationsEnabled
       hoverColor: root.highlightHoverColor
@@ -5326,30 +5306,16 @@ Item {
     // It is drawn in the zone's highlight layer, beneath the widgets. The layer
     // moves with its zone, so the highlight re-places only when geometry
     // changes, never per frame.
-    // The keyboard cursor: the slot's highlight plus the accent ring the
-    // drawer's keyboard cursor draws; it never animates.
+    // The keyboard cursor: the slot's own highlight, outlined (KEYS-69).
     readonly property bool keysCursor: root.barKeys.here && root.barKeys.cursor === slot && !slot.drawerHost
       && !(root.barKeys.drawer && !root.barKeys.previewing)
-    Rectangle {
-      parent: barHighlight.parent
-      x: barHighlight.x; y: barHighlight.y; width: barHighlight.width; height: barHighlight.height
-      radius: barHighlight.radius
-      z: 3
-      // The ring fades with the fill under it (HoverHighlight, 90 ms), so the
-      // cursor arrives and leaves as one mark (keyboard.md KEYS-69).
-      opacity: slot.keysCursor && slot.mainVisible ? 1 : 0
-      visible: opacity > 0
-      Behavior on opacity { enabled: root.animationsEnabled; NumberAnimation { duration: 90; easing.type: Easing.OutCubic } }
-      color: "transparent"
-      border.width: 1.5
-      border.color: Color.accent
-    }
     HoverHighlight {
       id: barHighlight
       readonly property var hostWindow: root.targetWindow(slot)
       readonly property Item hostLayer: hostWindow && hostWindow.highlightLayers ? hostWindow.highlightLayers[slot.region] || null : null
       parent: hostLayer || presentation
       hovered: (slot.hovered || slot.activityFlash || slot.preview.into || slot.keysCursor) && slot.mainVisible && !slot.dragSource && !root.barHidden && !preferencesPane.opened
+      outlined: slot.keysCursor && hovered
       // A group icon shows the open fill while its drawer is open.
       selected: (slot.panelOpen || slot.drawerOpen) && !slot.dragSource
       motionEnabled: root.animationsEnabled
