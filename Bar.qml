@@ -1665,6 +1665,11 @@ Item {
         shown: !candidate.drawerHost && candidate.mainVisible }
     }), root.barDragSettleKey, owner ? GroupsModel.groupKey(owner.id) : "")
     var target = slots[choice.index] || null
+    // A delegate the commit just made sits where its Grid has not placed it
+    // yet (positioners lay out at the next polish); measured there, the image
+    // stood frozen through a correction glide over a distance that was never
+    // real (drag-edit.md DRAG-41).
+    for (var p = target; p; p = p.parent) if (typeof p.forceLayout === "function") p.forceLayout()
     // Into a menu row that shows the widget, the image lands on the widget.
     var row = target && target.drawerHost
     root.barDragSettleItem = !target ? null : row && !(row.labelled && row.showNative) ? row : target.presentationItem
@@ -3295,7 +3300,7 @@ Item {
       function onLayoutConfigChanged() { barWindow.reconcileWidgets() }
       function onCenterAnchorChanged() { barWindow.reconcileWidgets() }
     }
-    Component.onCompleted: reconcileWidgets()
+    Component.onCompleted: { reconcileWidgets(); syncStrip(true) }
 
     // Keep the Wayland surface stable across drawer opens/closes. Only the
     // input region and drawer visibility change; no full-bar buffer resize.
@@ -3377,7 +3382,7 @@ Item {
     Timer { id: peekEnd; interval: root.autoHidePeekMs; onTriggered: barWindow.peekZones = ({}) }
     readonly property bool peeking: !!(peekZones.all || peekZones.left || peekZones.center || peekZones.right)
     readonly property bool autoHideShown: !autoHideActive || autoHideRevealed || peeking
-    property real autoHideOffset: autoHideShown ? 0 : autoHideDistance
+    property real autoHideOffset: 0
     // A drawer opening or closing under a tooltip moves it clear. A tooltip
     // on a drawer's row (the keyboard's name card after a search opened the
     // group) is placed again once the drawer has its final size and scale:
@@ -3394,30 +3399,48 @@ Item {
       function onWidthChanged() { Qt.callLater(barWindow.reanchorTooltip) }
       function onHeightChanged() { Qt.callLater(barWindow.reanchorTooltip) }
     }
-    // Sliding out answers the pointer, so it is a touch slower than sliding
-    // away; tucked islands move on the strip's exact curve so they cancel out.
-    readonly property int autoHideMotionMs: autoHideShown ? 180 : 130
     // While one island peeks the strip is out, so the others are pushed back
     // past the edge by the same distance, on the same curve.
     function zoneTucked(zone) { return root.islands && autoHideActive && !autoHideRevealed && peeking && !peekZones[zone] }
-    property real leftShift: zoneTucked("left") ? autoHideDistance : 0
-    property real centerShift: zoneTucked("center") ? autoHideDistance : 0
-    property real rightShift: zoneTucked("right") ? autoHideDistance : 0
+    property real leftShift: 0
+    property real centerShift: 0
+    property real rightShift: 0
+    // The strip slides out over 180 ms, answering the pointer, and away over
+    // 130 (LOOK-104, 105); tucked islands move on its exact clock so the two
+    // cancel out. Durations read through bindings raced the slide's own
+    // binding (both follow autoHideShown) and could start a slide with the
+    // other's duration, the tucked islands then bobbing 10 px at every peek.
+    // So the four motions start together here, once the state has settled.
+    readonly property string stripState: [autoHideShown, zoneTucked("left"), zoneTucked("center"), zoneTucked("right"), autoHideDistance].join("|")
+    onStripStateChanged: Qt.callLater(barWindow.syncStrip)
+    function syncStrip(now) {
+      var ms = autoHideShown ? 180 : 130
+      slideStrip(offsetMotion, autoHideShown ? 0 : autoHideDistance, ms, now)
+      slideStrip(leftMotion, zoneTucked("left") ? autoHideDistance : 0, ms, now)
+      slideStrip(centerMotion, zoneTucked("center") ? autoHideDistance : 0, ms, now)
+      slideStrip(rightMotion, zoneTucked("right") ? autoHideDistance : 0, ms, now)
+    }
+    function slideStrip(motion, to, ms, now) {
+      if (motion.running && motion.to === to) return
+      motion.stop()
+      if (now === true || !root.animationsEnabled) { barWindow[motion.property] = to; return }
+      if (barWindow[motion.property] === to) return
+      motion.duration = ms
+      motion.to = to
+      motion.start()
+    }
+    NumberAnimation { id: offsetMotion; target: barWindow; property: "autoHideOffset"; easing.type: Easing.OutCubic }
+    NumberAnimation { id: leftMotion; target: barWindow; property: "leftShift"; easing.type: Easing.OutCubic }
+    NumberAnimation { id: centerMotion; target: barWindow; property: "centerShift"; easing.type: Easing.OutCubic }
+    NumberAnimation { id: rightMotion; target: barWindow; property: "rightShift"; easing.type: Easing.OutCubic }
     // The centre's offset from the middle so zones keep their gap (docs/behavior/layout-zones.md).
     property real fitShift: zoneFit ? zoneFit.centerShift : 0
     Behavior on fitShift {
       enabled: root.animationsEnabled
       NumberAnimation { duration: 200; easing.type: Easing.BezierSpline; easing.bezierCurve: [0.77, 0, 0.175, 1, 1, 1] }
     }
-    Behavior on leftShift { enabled: root.animationsEnabled; NumberAnimation { duration: barWindow.autoHideMotionMs; easing.type: Easing.OutCubic } }
-    Behavior on centerShift { enabled: root.animationsEnabled; NumberAnimation { duration: barWindow.autoHideMotionMs; easing.type: Easing.OutCubic } }
-    Behavior on rightShift { enabled: root.animationsEnabled; NumberAnimation { duration: barWindow.autoHideMotionMs; easing.type: Easing.OutCubic } }
     function shiftX(amount) { return root.position === "left" ? -amount : root.position === "right" ? amount : 0 }
     function shiftY(amount) { return root.position === "top" ? -amount : root.position === "bottom" ? amount : 0 }
-    Behavior on autoHideOffset {
-      enabled: root.animationsEnabled
-      NumberAnimation { duration: barWindow.autoHideMotionMs; easing.type: Easing.OutCubic }
-    }
     readonly property real autoHideEdge: 2
     // Mapping a surface stalls the bar's frames for a moment, so the keyboard
     // mode's own surfaces (the dismiss layer, the key legend) and any tooltip
@@ -4051,7 +4074,9 @@ Item {
       x: buttonHighlight.x; y: buttonHighlight.y; width: buttonHighlight.width; height: buttonHighlight.height
       radius: buttonHighlight.radius
       z: 3
-      visible: preferencesButton.keysCursor
+      opacity: preferencesButton.keysCursor ? 1 : 0
+      visible: opacity > 0
+      Behavior on opacity { enabled: root.animationsEnabled; NumberAnimation { duration: 90; easing.type: Easing.OutCubic } }
       color: "transparent"
       border.width: 1.5
       border.color: Color.accent
@@ -4454,6 +4479,11 @@ Item {
     readonly property bool shown: count > 0
     // An inline expansion replaces the dots under the pointer.
     onShownChanged: if (!shown) root.hideTooltip(foldHandle)
+    // Its widgets grow after an 80 ms pause (the slots' motionDelay), so the
+    // dots keep their cell as long, on the same animation clock: shrinking at
+    // once pulled the island's end in before the widgets pushed it out
+    // (on-demand-drawers.md DEMAND-90).
+    readonly property int giveWayMs: !!homeWindow && homeWindow.inlineZone !== "" && homeWindow.inlineZone === inlineToken ? 80 : 0
     readonly property var cellPlace: CellModel.place(root.cellTokens, CellModel.TYPICAL_GLYPH, true)
     readonly property real cellSpill: cellPlace.spill
     readonly property bool fitYielded: !!(homeWindow && homeWindow.zoneFitYielded["handle:" + (zone === "center" ? "center:" + side : zone)])
@@ -4467,8 +4497,20 @@ Item {
     // the island's end never jumps when the widgets it stands for take over.
     width: root.vertical ? (shown || opacity > 0 ? root.barSize : 0) : shown ? cellPlace.extent : 0
     height: !root.vertical ? (shown || opacity > 0 ? root.barSize : 0) : shown ? cellPlace.extent : 0
-    Behavior on width { enabled: root.animationsEnabled && !root.vertical; NumberAnimation { duration: 120; easing.type: Easing.OutCubic } }
-    Behavior on height { enabled: root.animationsEnabled && root.vertical; NumberAnimation { duration: 120; easing.type: Easing.OutCubic } }
+    Behavior on width {
+      enabled: root.animationsEnabled && !root.vertical
+      SequentialAnimation {
+        PauseAnimation { duration: foldHandle.giveWayMs }
+        NumberAnimation { duration: 120; easing.type: Easing.OutCubic }
+      }
+    }
+    Behavior on height {
+      enabled: root.animationsEnabled && root.vertical
+      SequentialAnimation {
+        PauseAnimation { duration: foldHandle.giveWayMs }
+        NumberAnimation { duration: 120; easing.type: Easing.OutCubic }
+      }
+    }
     visible: shown || opacity > 0
     opacity: !shown || fitYielded ? 0 : 1
     scale: shown ? 1 : 0.96
@@ -4486,7 +4528,9 @@ Item {
       x: handleHighlight.x; y: handleHighlight.y; width: handleHighlight.width; height: handleHighlight.height
       radius: handleHighlight.radius
       z: 3
-      visible: foldHandle.keysCursor
+      opacity: foldHandle.keysCursor ? 1 : 0
+      visible: opacity > 0
+      Behavior on opacity { enabled: root.animationsEnabled; NumberAnimation { duration: 90; easing.type: Easing.OutCubic } }
       color: "transparent"
       border.width: 1.5
       border.color: Color.accent
@@ -5223,7 +5267,11 @@ Item {
       x: barHighlight.x; y: barHighlight.y; width: barHighlight.width; height: barHighlight.height
       radius: barHighlight.radius
       z: 3
-      visible: slot.keysCursor && slot.mainVisible
+      // The ring fades with the fill under it (HoverHighlight, 90 ms), so the
+      // cursor arrives and leaves as one mark (keyboard.md KEYS-69).
+      opacity: slot.keysCursor && slot.mainVisible ? 1 : 0
+      visible: opacity > 0
+      Behavior on opacity { enabled: root.animationsEnabled; NumberAnimation { duration: 90; easing.type: Easing.OutCubic } }
       color: "transparent"
       border.width: 1.5
       border.color: Color.accent

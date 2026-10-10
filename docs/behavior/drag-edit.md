@@ -100,7 +100,7 @@ Drag and drop on the live bar, into drawers and onto zone dots. The bar controll
 
 - **DRAG-40** After the 180 ms glide, a fading image disappears and the drag state clears; a glide that committed first also ends there.
 
-- **DRAG-41** After a glide-then-commit drop, if the committed slot is 2 px or more from where the image landed, a 90 ms correction glide (`dragSettleCorrectionDuration`) follows, the image staying frozen where it landed in between; less than 2 px ends at once.
+- **DRAG-41** After a glide-then-commit drop, if the committed slot is 2 px or more from where the image landed, a 90 ms correction glide (`dragSettleCorrectionDuration`) follows, the image staying frozen where it landed in between; less than 2 px ends at once. The committed slot is measured once its zone has laid it out, so a slot already in place shows at once. Code: Bar.qml resolveDragSettle.
 
 - **DRAG-42** A cancelled drag (DRAG-32) glides back to the source over the same 180 ms as the source regains its space. There is no Escape binding for a drag.
 

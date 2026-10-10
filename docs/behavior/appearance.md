@@ -144,9 +144,9 @@ Storage: the look lives in `bar.powerbarAppearance` of shell.json: `all` (values
 
 - **LOOK-56** `powerbarAutoHide: true` (Preferences > Behavior > Autohide; default off) makes the bar reserve no screen space and park past its edge, sliding out over windows; a 2 px strip at the edge stays to catch the pointer. Code: Bar.qml exclusiveZone, autoHideActive, autoHideEdge.
 
-- **LOOK-57** Pointer on the 2 px edge strip, or on the bar, slides it out at once, over 180 ms (ease-out, instant with Animations off), and it stays while held (LOOK-59 to LOOK-62). Code: Bar.qml autoHideHeld, autoHideMotionMs.
+- **LOOK-57** Pointer on the 2 px edge strip, or on the bar, slides it out at once, over 180 ms (ease-out, instant with Animations off), and it stays while held (LOOK-59 to LOOK-62). Code: Bar.qml autoHideHeld, syncStrip.
 
-- **LOOK-58** When nothing holds it any more, the bar waits 400 ms, then slides away over 130 ms. Pointer coming back within the 400 ms keeps it. Code: Bar.qml autoHideDelay (400 ms), autoHideMotionMs.
+- **LOOK-58** When nothing holds it any more, the bar waits 400 ms, then slides away over 130 ms. Pointer coming back within the 400 ms keeps it. Code: Bar.qml autoHideDelay (400 ms), syncStrip.
 
 - **LOOK-59** The bar stays out while the pointer is on the bar window, the edge strip, or an open drawer. Code: Bar.qml autoHideHeld (windowHover, edgeHover, drawer.opened).
 
@@ -158,7 +158,7 @@ Storage: the look lives in `bar.powerbarAppearance` of shell.json: `all` (values
 
 - **LOOK-63** With `powerbarAutoHideActivity` (Preferences > Behavior > "Show on widget activity", default on), a change in a widget's `text`, `icon`, `iconText`, `value`, `displayValue`, `powerbarIcon`, `powerbarValue`, `powerbarActivityRevision` (or its `powerbarActivity()` signal) slides the bar out and highlights that widget (or its group's icon); on an islands bar only that widget's island slides out and the others stay tucked, on flat and floating bars the whole bar slides out. It stays `powerbarManagedRevealSeconds` (default 2.5 s, 1 to 60) and each further activity restarts that time. Peeks are ignored for 6 s after the bar (re)builds or the layout changes, so loading values do not flash it. Code: Bar.qml autoHidePeek, peek(), peekQuietUntil; ManagedModel.snapshot.
 
-- **LOOK-64** When the peek time ends with nothing else holding the bar, it slides away over 130 ms. Code: Bar.qml peekEnd, autoHideMotionMs.
+- **LOOK-64** When the peek time ends with nothing else holding the bar, it slides away over 130 ms. Code: Bar.qml peekEnd, syncStrip.
 
 - **LOOK-65** With `powerbarAutoHideActivity: false` activity never slides the bar out; only the pointer, drawers and the other holds do. Code: Bar.qml autoHidePeek, ActivityObserver enabledForActivity.
 
@@ -246,9 +246,9 @@ Storage: the look lives in `bar.powerbarAppearance` of shell.json: `all` (values
 
 - **LOOK-103** A widget's cell resizes over 120 ms (slot motion) when its width changes and no drag is running. Code: Bar.qml slot motionDuration.
 
-- **LOOK-104** An autohidden bar slides out over 180 ms (ease-out). Code: Bar.qml autoHideMotionMs.
+- **LOOK-104** An autohidden bar slides out over 180 ms (ease-out). Code: Bar.qml syncStrip.
 
-- **LOOK-105** An autohidden bar slides away over 130 ms. Code: Bar.qml autoHideMotionMs.
+- **LOOK-105** An autohidden bar slides away over 130 ms. Code: Bar.qml syncStrip.
 
 - **LOOK-106** When the text colour changes (theme switch, Light or Dark choice) it crossfades over 420 ms, InOutCubic, with Animations on; with Animations off it changes at once, on the bar and in widgets that follow the bar's `foregroundAnimationEnabled` (Omarchy's WidgetButton). Code: Bar.qml foregroundFades.
 

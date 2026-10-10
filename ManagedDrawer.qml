@@ -37,6 +37,22 @@ Item {
     }
   }
   opacity: Math.max(0, Math.min(1, reveal)) * asideOpacity
+  // The opening motion starts on the second frame after the open: the first
+  // lays out and paints the rows just mounted and the main bar's change,
+  // which can take a few frames' time. Started before it, the motion was
+  // about 64% done on its first painted frame (on-demand-drawers.md DEMAND-91).
+  FrameAnimation {
+    id: revealStart
+    property int epoch: 0
+    property int ticks: 0
+    onTriggered: {
+      if (++ticks < 2) return
+      stop()
+      if (!drawer.opened || drawer.transitionEpoch !== epoch) return
+      drawer.replaying = false
+      drawer.reveal = 1
+    }
+  }
   // A member's panel open: the drawer steps aside (fades out and leaves the
   // bar's input region) and the panel opens at the bar's edge, as a bar
   // widget's would, instead of below the drawer. It stays open underneath,
@@ -258,13 +274,9 @@ Item {
     opened = true
     bar.managedOwner = drawer
     if (needsReveal) {
-      var epoch = ++transitionEpoch
-      // Mount widgets and update the main bar before the opening motion.
-      Qt.callLater(function() {
-        if (!drawer.opened || drawer.transitionEpoch !== epoch) return
-        drawer.replaying = false
-        drawer.reveal = 1
-      })
+      revealStart.epoch = ++transitionEpoch
+      revealStart.ticks = 0
+      revealStart.restart()
     }
     dismissal.stop()
     if (keyboardMode) Qt.callLater(function() { drawer.forceActiveFocus() })
@@ -282,7 +294,28 @@ Item {
     if (opened && groupId === id && keyboardMode) close()
     else openGroup(id, slot, true)
   }
+  // A group icon opens its drawer once the pointer has rested on it 90 ms,
+  // as the dots do (groups.md GROUP-32), so a pointer sweeping along the bar
+  // flashes no drawers. Its own drawer, already open, is held at once.
+  property string intentGroup: ""
+  property Item intentSlot: null
   function sourceEnterGroup(id, slot) {
+    if (opened && groupId === id) { enterGroupNow(id, slot); return }
+    intentGroup = id
+    intentSlot = slot
+    groupIntent.restart()
+  }
+  Timer {
+    id: groupIntent
+    interval: 90
+    onTriggered: {
+      var id = drawer.intentGroup, slot = drawer.intentSlot
+      drawer.intentGroup = ""
+      drawer.intentSlot = null
+      if (slot && slot.stopHovered) drawer.enterGroupNow(id, slot)
+    }
+  }
+  function enterGroupNow(id, slot) {
     if (opened && groupId === id && keyboardMode) { sourceHovered = true; return }
     openGroup(id, slot, false)
     if (opened && groupId === id) { sourceHovered = true; dismissal.stop() }
