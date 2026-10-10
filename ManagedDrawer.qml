@@ -354,11 +354,37 @@ Item {
     entered = false
     if (!presenting && bar.managedOwner === drawer) bar.managedOwner = null
   }
-  function sourceEnter(nextZone) {
+  // A zone's widgets, dots and drawer button open its drawer once the pointer
+  // has rested on one of them 90 ms, as a group icon does (DEMAND-17), so a
+  // sweep along the bar flashes no drawers. `still` says whether the pointer
+  // is still there; without it (a decision already made) the drawer opens at
+  // once. The zone's own drawer, already open, is held at once.
+  property string intentZone: ""
+  property var intentStill: null
+  function sourceEnter(nextZone, still) {
     if (opened && keyboardMode) {
       sourceHovered = zone === nextZone
       return
     }
+    zoneIntent.stop()
+    intentZone = ""
+    intentStill = null
+    if (!still || (opened && zone === nextZone && !groupId)) { enterZoneNow(nextZone); return }
+    intentZone = nextZone
+    intentStill = still
+    zoneIntent.restart()
+  }
+  Timer {
+    id: zoneIntent
+    interval: 90
+    onTriggered: {
+      var zone = drawer.intentZone, still = drawer.intentStill
+      drawer.intentZone = ""
+      drawer.intentStill = null
+      if (zone && still && still()) drawer.enterZoneNow(zone)
+    }
+  }
+  function enterZoneNow(nextZone) {
     openZone(nextZone, false)
     if (opened && zone === nextZone) { sourceHovered = true; dismissal.stop() }
   }

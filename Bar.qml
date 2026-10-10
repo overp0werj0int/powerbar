@@ -349,6 +349,7 @@ Item {
     interval: 2000
     onTriggered: {
       root.readWidgetGlyphs()
+      root.pruneSessionMaps()
       if (!root.widgetLooksSeeded) return
       var keys = root.pendingLookKeys
       root.pendingLookKeys = []
@@ -358,6 +359,20 @@ Item {
   }
   property var activityDeadlines: Object.create(null)
   property var slotCopies: Object.create(null)
+  // Per-widget session state forgets widgets that are gone: no slot shows them
+  // and the layout no longer lists them (a rebuild re-creates slots, so a
+  // missing slot alone is not enough), an activity whose time is up, a panel
+  // that was destroyed. Runs after widgets (re)load (glyphReadDelay).
+  function pruneSessionMaps() {
+    var listed = Object.create(null), any = false
+    for (var zone of ["left", "center", "right"])
+      for (var entry of ((barConfig.layout || {})[zone] || [])) if (entry && entry.powerbarInstance) { listed[entry.powerbarInstance] = true; any = true }
+    if (any) for (var known in lookKnownKeys) if (!listed[known] && !slotCopies[known]) delete lookKnownKeys[known]
+    var now = Date.now()
+    for (var key in activityDeadlines) if (!slotCopies[key] && !(activityDeadlines[key] > now)) delete activityDeadlines[key]
+    var live = popupPlacements.filter(function(record) { return !!record.panel })
+    if (live.length !== popupPlacements.length) popupPlacements = live
+  }
   // Drawer timing is fixed; Preferences no longer offers it. The shell.json
   // keys still override it for anyone who sets them by hand. Activity keeps a
   // drawer widget on the bar exactly as long as an autohidden bar peeks for it,
@@ -1232,10 +1247,13 @@ Item {
     tooltipShown = false
   }
 
-  function clearBarDrag() {
-    // Interrupting a glide (a new press, a destroyed source) still applies the
-    // drop the user already made.
-    commitPendingDrop()
+  function clearBarDrag(discard) {
+    // Interrupting a glide (a new press, a cancel) still applies the drop the
+    // user already made. A source destroyed mid-glide (`discard`) left the
+    // layout under an outside change: its drop is dropped, never written from
+    // inside the rebuild that is destroying it.
+    if (discard) barDragPendingDrop = null
+    else commitPendingDrop()
     springOpen.stop()
     springClose.stop()
     springGroupSlot = null
@@ -1669,9 +1687,10 @@ Item {
     // yet (positioners lay out at the next polish); measured there, the image
     // stood frozen through a correction glide over a distance that was never
     // real (drag-edit.md DRAG-41).
-    for (var p = target; p; p = p.parent) if (typeof p.forceLayout === "function") p.forceLayout()
-    // Into a menu row that shows the widget, the image lands on the widget.
+    // A drawer member's row sits in the drawer's own positioner: laid out too.
     var row = target && target.drawerHost
+    for (var host of [target, row]) for (var p = host; p; p = p.parent) if (typeof p.forceLayout === "function") p.forceLayout()
+    // Into a menu row that shows the widget, the image lands on the widget.
     root.barDragSettleItem = !target ? null : row && !(row.labelled && row.showNative) ? row : target.presentationItem
     root.barDragSettleLocal = null
     root.barDragSettleFade = choice.fade
@@ -2833,11 +2852,19 @@ Item {
       mods='down("Super_L") or down("Super_R") or down("Shift_L") or down("Shift_R") or down("Control_L") or down("Control_R") or down("Alt_L") or down("Alt_R")'
       if [ -n "$key" ]; then held="down(\\"$key\\") or down(string.lower(\\"$key\\"))"; else held=$mods; fi
       lua="local function down(k) local ok, r = pcall(hl.is_key_down, k); return ok and r == true end; return $held"
-      # At most a minute, a poll every 50 ms.
+      # At most a minute, a poll every 50 ms, all through one REPL: it answers
+      # each line it reads, so a long hold spawns no process per poll.
+      coproc REPL { exec hyprctl repl 2>/dev/null; }
       for i in $(seq 1200); do
-        [ "$(hyprctl repl "$lua" 2>/dev/null)" = true ] || break
+        echo "$lua" >&"\${REPL[1]}" 2>/dev/null || break
+        answer=""
+        while IFS= read -r -t 1 line <&"\${REPL[0]}"; do
+          case "$line" in true|false) answer=$line; break ;; esac
+        done
+        [ "$answer" = true ] || break
         sleep 0.05
       done
+      kill "$REPL_PID" 2>/dev/null
       echo released`]
     stdout: SplitParser { onRead: function(line) { if (String(line).trim() === "released") root.toggleHeld = false } }
     onExited: root.toggleHeld = false
@@ -3650,7 +3677,7 @@ Item {
               id: zoneHover
               enabled: parent.visible && !root.barHidden && !preferencesPane.opened
               onHoveredChanged: {
-                if (hovered) drawer.sourceEnter(zoneTarget.modelData)
+                if (hovered) drawer.sourceEnter(zoneTarget.modelData, function() { return zoneHover.hovered })
                 else drawer.sourceLeave(zoneTarget.modelData)
               }
             }
@@ -4600,7 +4627,7 @@ Item {
       onEntered: {
         if (!foldHandle.enabled) return
         if (root.onDemandInline && foldHandle.homeWindow) foldHandle.homeWindow.inlineEnter(foldHandle.inlineToken)
-        else if (foldHandle.drawerRef) foldHandle.drawerRef.sourceEnter(foldHandle.zone)
+        else if (foldHandle.drawerRef) foldHandle.drawerRef.sourceEnter(foldHandle.zone, function() { return handleMouse.containsMouse })
         root.showTooltip(foldHandle, foldHandle.label)
       }
       onExited: {
@@ -5142,14 +5169,14 @@ Item {
           var asked = (window.inlineZone || window.inlineRequest).split(":")[0]
           if (hovered && asked && asked !== slot.region && !root.barDragSource) window.inlineAsk("")
         }
-        else if (hovered) window.managedDrawer.sourceEnter(slot.region)
+        else if (hovered) window.managedDrawer.sourceEnter(slot.region, function() { return slot.stopHovered })
         else window.managedDrawer.sourceLeave(slot.region)
       }
     }
 
     Component.onCompleted: { root.registerModuleSlot(slot); syncActivity(); Qt.callLater(updateHold) }
     Component.onDestruction: {
-      if (root.barDragSource === slot) root.clearBarDrag()
+      if (root.barDragSource === slot || (root.barDragPendingDrop && root.barDragPendingDrop.slot === slot)) root.clearBarDrag(true)
       root.forgetSlotTargets(slot)
       root.unregisterModuleSlot(slot)
     }

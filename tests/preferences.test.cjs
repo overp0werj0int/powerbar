@@ -245,3 +245,22 @@ test('a repaired widget stays while the registry lists it from the same folder',
   assert.equal(barModel.keepRepaired(repaired, { component: {}, metadata: { sourceDir: '/q/x' } }), false, 'moved');
   assert.equal(barModel.keepRepaired({ sourceDir: '' }, { metadata: { sourceDir: '' } }), false);
 });
+
+test('a move names its new neighbour by instance key, so a replay after an outside change lands beside it', () => {
+  const layout = () => ({ left: [{ id: 'a', powerbarInstance: 'A' }, { id: 'b', powerbarInstance: 'B' }, { id: 'c', powerbarInstance: 'C' }],
+    center: [], right: [{ id: 'r', powerbarInstance: 'R' }] });
+  const shown = layout();
+  assert.equal(model.anchorKey(shown, 'left', 2, 'A'), 'C');
+  assert.equal(model.anchorKey(shown, 'left', 1.5, 'A'), 'C');
+  assert.equal(model.anchorKey(shown, 'left', 3, 'A'), '');
+  assert.equal(model.anchorKey(shown, 'left', -1, 'A'), '');
+  assert.equal(model.anchorKey(shown, 'right', 0, 'A'), 'R');
+  // Just before itself is its own place: the entry after it names that.
+  assert.equal(model.anchorKey(shown, 'left', 0, 'A'), 'B');
+  assert.equal(model.anchorKey(shown, 'left', 2, 'C'), '');
+  // Replayed on a layout where another widget was added at the front.
+  const config = { bar: { layout: layout() } };
+  config.bar.layout.left.unshift({ id: 'n', powerbarInstance: 'N' });
+  assert.equal(barModel.moveInstanceInConfig(config, 'left', 'A', 'left', model.anchorKey(shown, 'left', 2, 'A'), 'shown'), true);
+  assert.deepEqual(config.bar.layout.left.map((e) => e.powerbarInstance), ['N', 'B', 'A', 'C']);
+});

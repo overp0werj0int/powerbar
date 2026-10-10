@@ -14,7 +14,7 @@ Sources: Preferences.qml, PreferencesModel.js, BentoModel.js, ShelfModel.js, Sli
 
 - **PREFS-4** On opening, Preferences list the saved widget images in `$XDG_CACHE_HOME/powerbar/widgets` (default `~/.cache/powerbar/widgets`), read the widget glyphs the bar recorded (`glyphs.json` next to it), take fresh images of the widgets on the target screen and read Hyprland's `general:gaps_in` (tile gap, PREFS-13). Hidden or unseen widgets are drawn from the saved image, else their own glyph, else Powerbar's stock glyph for that widget.
 
-- **PREFS-5** A write that cannot be queued or that the host refuses shows "Could not save. Check that shell.json is writable." in the footer (red, right side); the bar returns to the saved config. A layout move that finds the layout changed shows "The layout changed elsewhere. Try again." and one that cannot be queued "Could not save the layout. Check that shell.json is writable.". Shortcut failures: KEYS-53.
+- **PREFS-5** A write that cannot be queued or that the host refuses shows "Could not save. Check that shell.json is writable." in the footer (red, right side); the bar returns to the saved config. A layout move names the widget and the neighbour it goes before by instance key (`PreferencesModel.anchorKey`), so it still lands beside that neighbour after another change to the layout; one whose widget or neighbour is gone shows "The layout changed elsewhere. Try again." and one that cannot be queued "Could not save the layout. Check that shell.json is writable.". Shortcut failures: KEYS-53.
 
 ## Pages and tabs
 

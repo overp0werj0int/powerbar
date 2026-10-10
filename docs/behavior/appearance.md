@@ -168,7 +168,7 @@ Storage: the look lives in `bar.powerbarAppearance` of shell.json: `all` (values
 
 - **LOOK-68** On an autohidden bar, when Omarchy's `bar-off` flag (`~/.local/state/omarchy/toggles/bar-off`, set by `omarchy toggle bar`, Super+Shift+Space) appears, Powerbar clears the flag at once (`omarchy-toggle bar-off off`) and slides the bar out instead of hiding it. Without autohide the flag hides the bar (integration.md, "Bar-off toggle integration"). Code: Bar.qml barHiddenProbe, revealFromToggle.
 
-- **LOOK-69** The bar then stays out while the toggle's key is held: Powerbar asks Hyprland every 50 ms whether the bind's key (the bind described "Toggle top bar", else any modifier key) is down, for at most a minute. Code: Bar.qml toggleKeyWatch, toggleHeld.
+- **LOOK-69** The bar then stays out while the toggle's key is held: Powerbar asks Hyprland every 50 ms whether the bind's key (the bind described "Toggle top bar", else any modifier key) is down, for at most a minute, through one `hyprctl repl` kept open for the hold (no process per poll). Code: Bar.qml toggleKeyWatch, toggleHeld.
 
 - **LOOK-70** After the key is released, the bar slides away 400 ms later (LOOK-58) unless the pointer or another hold keeps it. Code: autoHideHeld (toggleHeld) then autoHideDelay.
 
