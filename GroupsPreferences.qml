@@ -90,6 +90,7 @@ Item {
 
   // How the bar draws things, at the size it has on a top edge.
   readonly property var tokens: layout.barTokens
+  readonly property var menuTokens: bar ? bar.menuTokensFor(false) : tokens
   readonly property real barThickness: layout.barThickness
   readonly property color barInk: layout.barInk
   readonly property string barFont: layout.barFont
@@ -749,7 +750,10 @@ Item {
     property int liftPos: 0
     property int dropPos: -1
     readonly property var current: lifted || pane.members[cursor] || null
-    readonly property bool menu: !!pane.selectedGroup && pane.selectedGroup.memberDisplay !== "native"
+    readonly property bool menu: ManagedModel.groupMenu(pane.selectedGroup)
+    // A menu is drawn at the size it has on every bar (Bar.menuTokensFor); a
+    // strip at the bar's own.
+    readonly property var cells: menu ? pane.menuTokens : pane.tokens
     readonly property bool icons: !!pane.selectedGroup && pane.selectedGroup.memberDisplay === "both"
     // The members in the order shown, with the gap a move or a drag opens.
     readonly property var shown: {
@@ -765,18 +769,18 @@ Item {
     readonly property var faces: shown.map(function(v) { return pane.layout.barFace(v.record) })
     // Menu geometry, as ManagedDrawer lays out a named menu.
     function glyphRow(face) { return !!face && CellModel.isGlyph(face.inkLength, face.glyph) }
-    function labelStart(face) { return ManagedModel.menuLabelStart(drawer.icons && glyphRow(face), pane.tokens.cell, pane.tokens.air) }
+    function labelStart(face) { return ManagedModel.menuLabelStart(drawer.icons && glyphRow(face), drawer.cells.cell, drawer.cells.air) }
     function valueWidth(face) { return face ? ManagedModel.menuValueWidth(drawer.icons, glyphRow(face), face.inkLength, CellModel.MAX_INK) : 0 }
     readonly property real rowWidth: ManagedModel.menuRowWidth(shown.map(function(row, i) {
       return { labelStart: labelStart(faces[i]), title: menuMetrics.advanceWidth(pane.preferences.title(row.record)), value: valueWidth(faces[i]) }
-    }), pane.tokens)
+    }), drawer.cells)
     readonly property real pad: Style.space(6)
     readonly property var strip: menu ? ({ lines: [], width: 0 })
-      : ShelfModel.zone(CellModel, pane.tokens, faces.map(function(f) { return f || { inkStart: 0, inkLength: 12, glyph: true, cap: true } }), Math.max(1, width - pad * 2))
+      : ShelfModel.zone(CellModel, drawer.cells, faces.map(function(f) { return f || { inkStart: 0, inkLength: 12, glyph: true, cap: true } }), Math.max(1, width - pad * 2))
     readonly property real drawingHeight: menu
-      ? shown.length * pane.tokens.thickness + Math.max(0, shown.length - 1) * pane.tokens.inset + 2 * pane.tokens.inset
+      ? shown.length * drawer.cells.thickness + Math.max(0, shown.length - 1) * drawer.cells.inset + 2 * drawer.cells.inset
       : Math.max(1, strip.lines.length) * (pane.barThickness + Style.space(4)) - Style.space(4)
-    readonly property real drawingWidth: menu ? rowWidth + 2 * pane.tokens.inset : strip.width
+    readonly property real drawingWidth: menu ? rowWidth + 2 * drawer.cells.inset : strip.width
     FontMetrics {
       id: menuMetrics
       font.family: Style.font.menuFamily
@@ -812,7 +816,7 @@ Item {
       return pos
     }
     function rectOf(i) {
-      if (menu) return { x: pane.tokens.inset, y: pane.tokens.inset + i * (pane.tokens.thickness + pane.tokens.inset), width: rowWidth, height: pane.tokens.thickness }
+      if (menu) return { x: drawer.cells.inset, y: drawer.cells.inset + i * (drawer.cells.thickness + drawer.cells.inset), width: rowWidth, height: drawer.cells.thickness }
       var at = ShelfModel.slotOf(strip, i)
       if (!at) return { x: 0, y: 0, width: 0, height: 0 }
       return { x: stripLineX(at.line) + at.slot.x, y: at.line * (pane.barThickness + Style.space(4)), width: at.slot.extent, height: pane.barThickness }
@@ -907,14 +911,14 @@ Item {
           y: rect.y
           width: rect.width
           height: rect.height
-          readonly property var placed: face ? CellModel.place(pane.tokens, face.inkLength, face.glyph, face.cap) : null
+          readonly property var placed: face ? CellModel.place(drawer.cells, face.inkLength, face.glyph, face.cap) : null
           // The highlight: a whole row in a menu, the slot's cell on a strip.
           BorderSurface {
             x: drawer.menu ? 0 : (member.width - (member.placed ? member.placed.cell : member.width)) / 2
-            y: drawer.menu ? 0 : pane.tokens.inset
+            y: drawer.menu ? 0 : drawer.cells.inset
             width: drawer.menu ? member.width : (member.placed ? member.placed.cell : member.width)
-            height: drawer.menu ? member.height : pane.tokens.thickness
-            radius: CellModel.radius(pane.tokens, pane.bar.islandRounding)
+            height: drawer.menu ? member.height : drawer.cells.thickness
+            radius: CellModel.radius(drawer.cells, pane.bar.islandRounding)
             color: member.modelData.gap ? "transparent"
               : member.isCursor ? Style.focusFillFor(pane.barInk, Color.accent)
               : member.chosen ? Style.selectedFillFor(pane.barInk, Color.accent) : "transparent"
@@ -927,8 +931,8 @@ Item {
             visible: !member.modelData.gap && !!member.face && (!drawer.menu || drawer.icons)
             readonly property bool value: drawer.menu && drawer.valueWidth(member.face) > 0
             x: !member.face ? 0 : !drawer.menu ? member.placed.inkStart - member.face.inkStart
-              : value ? member.width - pane.tokens.air - member.face.inkStart - drawer.valueWidth(member.face)
-              : pane.tokens.cell / 2 - (member.face.inkStart + member.face.inkLength / 2)
+              : value ? member.width - drawer.cells.air - member.face.inkStart - drawer.valueWidth(member.face)
+              : drawer.cells.cell / 2 - (member.face.inkStart + member.face.inkLength / 2)
             y: (member.height - pane.barThickness) / 2
             face: !member.modelData.gap && (!drawer.menu || drawer.icons) ? member.face : null
             barThickness: pane.barThickness
@@ -938,7 +942,7 @@ Item {
           Text {
             visible: drawer.menu && !member.modelData.gap
             x: drawer.labelStart(member.face)
-            width: Math.max(0, member.width - x - pane.tokens.air - (drawer.valueWidth(member.face) > 0 ? drawer.valueWidth(member.face) + pane.tokens.air : 0))
+            width: Math.max(0, member.width - x - drawer.cells.air - (drawer.valueWidth(member.face) > 0 ? drawer.valueWidth(member.face) + drawer.cells.air : 0))
             anchors.verticalCenter: parent.verticalCenter
             text: pane.preferences.title(member.record)
             textFormat: Text.PlainText
