@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Window
 import qs.Commons
 
 // Hover and selection for bar and drawer items, drawn like the tiles in
@@ -12,37 +13,42 @@ Rectangle {
   property color hoverColor: "transparent"
   property color selectedColor: "transparent"
   property real rounding: 6
-  // The keyboard cursor: the same mark with an accent ring as its border, so
-  // ring and fill share one shape and one fade (keyboard.md KEYS-69). The
-  // caller also lights the mark (`hovered`) for the cursor.
+  // The keyboard cursor: the same mark with an accent ring as its border, one
+  // device pixel wide (keyboard.md KEYS-69). The caller also lights the mark
+  // (`hovered`) for the cursor.
   property bool outlined: false
   property color outlineColor: Color.accent
-  property real outlineWidth: 1.5
+  property real outlineWidth: 1 / Math.max(1, Screen.devicePixelRatio)
   // Where two lit highlights overlap (Equal gaps), the older one fades so the
   // eye goes to what just happened; the newer one draws on top. The keyboard
   // cursor never fades for that.
   property bool older: false
   property real litAt: 0
   readonly property bool shown: hovered || selected
-  // A border is drawn inside the shape, so a transparent one would leave a
-  // gap around the fill: the ring has width only while it shows. It stays on
-  // while the mark fades out after the cursor left, and comes off at once
-  // when the mark stays lit for something else (the pointer on it).
-  property bool ringFading: false
-  onOutlinedChanged: {
-    if (outlined) ringFading = true
-    else Qt.callLater(mark.settleRing)
+  // The cursor arriving or leaving changes `outlined` and `hovered` together,
+  // in either order, so both are settled once per event-loop turn: a change
+  // that moved the ring is a cursor move and shows at once, without the fade.
+  property bool lit: false
+  property bool ringed: false
+  property bool cursorMove: false
+  onShownChanged: Qt.callLater(mark.settle)
+  onOutlinedChanged: Qt.callLater(mark.settle)
+  Component.onCompleted: settle()
+  function settle() {
+    cursorMove = outlined !== ringed
+    ringed = outlined
+    lit = shown
   }
-  function settleRing() { if (!outlined && (shown || opacity === 0)) ringFading = false }
-  onOpacityChanged: if (opacity === 0 && !outlined) ringFading = false
   radius: Math.max(0, Math.min(rounding, Math.min(width, height) / 2))
   color: selected ? selectedColor : hoverColor
-  border.width: outlined || ringFading ? outlineWidth : 0
+  // A border is drawn inside the shape: it has width only while it shows, so
+  // the fill has no gap around it otherwise.
+  border.width: ringed ? outlineWidth : 0
   border.color: outlineColor
-  opacity: shown ? (older && !outlined ? 0.45 : 1) : 0
-  z: shown && (!older || outlined) ? 1 : 0
+  opacity: lit ? (older && !ringed ? 0.45 : 1) : 0
+  z: lit && (!older || ringed) ? 1 : 0
   visible: opacity > 0
   Accessible.ignored: true
-  Behavior on opacity { enabled: mark.motionEnabled; NumberAnimation { duration: 90; easing.type: Easing.OutCubic } }
-  Behavior on color { enabled: mark.motionEnabled; ColorAnimation { duration: 90 } }
+  Behavior on opacity { enabled: mark.motionEnabled && !mark.cursorMove; NumberAnimation { duration: 90; easing.type: Easing.OutCubic } }
+  Behavior on color { enabled: mark.motionEnabled && !mark.cursorMove; ColorAnimation { duration: 90 } }
 }
