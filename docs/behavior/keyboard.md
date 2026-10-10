@@ -158,7 +158,7 @@ The CLI as a whole (`status`, `shortcuts`, `help`, error format) is integration.
 
 - **KEYS-68** While the mode is on, the bar is held out as the pointer holds it: an autohidden bar stays shown, and a bar switched off with `omarchy toggle bar` is drawn until the mode ends.
 
-- **KEYS-69** The stop under the cursor is drawn with its own hover highlight, outlined: a 1.5 px accent ring as the highlight's border (widgets, dots, the Preferences button and drawer rows alike), so ring and fill are one shape and fade in and out together over 90 ms (at once with animations off). When the pointer keeps the stop lit after the cursor leaves it, the ring comes off at once. Where highlights overlap (DRAG-21) the outlined one never dims. Code: HoverHighlight `outlined`.
+- **KEYS-69** The stop under the cursor is drawn with its own hover highlight, outlined: a one-device-pixel accent ring as the highlight's border (widgets, dots, the Preferences button and drawer rows alike), so ring and fill are one shape. A cursor move shows at once, without the hover fade: the stop it leaves goes dark and the stop it reaches lights in the same frame, as do the cursor appearing and keyboard mode ending. When the pointer keeps the stop lit after the cursor leaves it, the ring comes off and the fill stays. Pointer hover keeps its 90 ms fade. Where highlights overlap (DRAG-21) the outlined one never dims. Code: HoverHighlight `outlined`, `settle()`.
 
 ## Shortcuts: parsing and rendering
 
