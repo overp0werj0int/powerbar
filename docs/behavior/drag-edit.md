@@ -146,7 +146,7 @@ Drag and drop on the live bar, into drawers and onto zone dots. The bar controll
 
 - **DRAG-63** A hover fill or the drop outline's cell is `thickness` across the bar, thickness = bar size - 2 x inset with inset = min(3, (bar size - 16) / 2) px; its length along the bar is the widget's cell (CellModel.cellLength): square for an icon, ink + 2 x air for text. See layout-zones.md.
 
-- **DRAG-64** The fill centres on the widget's own cell, never on a drop gap its slot holds: while a gap is open before or after a widget (or a settling drop keeps the gap's length), the hover or drop-into fill and the group badge stay on the widget. Code: `Bar.cellHighlight()` (`cellLead`, `cellExtent`).
+- **DRAG-64** The fill centres on the widget's own cell, never on a drop gap its slot holds: while a gap is open before or after a widget (or a settling drop keeps the gap's length), the hover or drop-into fill, the group badge and a spring-opened drawer's pointer stay on the widget, and follow it when the gap moves from one side to the other. Code: `Bar.cellHighlight()` (`cellLead`, `cellExtent`), `ManagedDrawer.sourceCell`.
 
 - **DRAG-65** The highlight's corner radius is min(thickness / 2, island rounding - inset) (`CellModel.radius`, floor 0).
 
