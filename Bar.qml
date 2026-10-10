@@ -1253,7 +1253,20 @@ Item {
 
   // Once a tooltip has been read, its neighbours along the bar show at once.
   property real tooltipWarmUntil: 0
+  // A tooltip or card already up moves to its next target as the same popup,
+  // resized and placed anew (each bar window re-anchors it on the target's
+  // change). Closing it and opening another would leave the compositor
+  // fading the old one out where it was, a ghost beside the new one.
+  function moveTooltip(target, text) {
+    tooltipTimer.stop()
+    tooltipLinger.stop()
+    pendingTooltipTarget = null
+    pendingTooltipText = ""
+    tooltipTarget = target
+    tooltipText = text
+  }
   function clearTooltip() {
+    tooltipLinger.stop()
     if (tooltipShown) tooltipWarmUntil = Date.now() + 800
     tooltipTimer.stop()
     pendingTooltipTarget = null
@@ -1439,7 +1452,7 @@ Item {
     // A group's own drawer hangs off the icon being moved: it closes.
     if (owner && slot.groupHeader && owner.groupId && owner.groupId === slot.entry.powerbarGroupId) owner.close("immediate")
     root.captureBarDragGhost(slot)
-    root.hideTooltip(slot.activeItem)
+    root.hideTooltip(slot.activeItem, true)
     root.updateIconDrag(scenePoint, slot)
     return true
   }
@@ -2169,8 +2182,9 @@ Item {
   readonly property var shortcutStore: preferencesPane.shortcuts
   // The keyboard cursor's name card: the bar's tooltip, shown at once.
   function showCard(target, text) {
+    if (!target || !text) { clearTooltip(); return }
+    if (tooltipShown) { moveTooltip(target, text); return }
     clearTooltip()
-    if (!target || !text) return
     tooltipTarget = target
     tooltipText = text
     tooltipShown = true
@@ -2781,7 +2795,6 @@ Item {
   function keysCardHolds(target) { return barKeys.here && targetBelongsToWindow(target, barKeys.window) }
   function showTooltip(target, text) {
     if (keysCardHolds(target)) return
-    clearTooltip()
 
     // A widget yielded, hidden or folded off the bar is still hovered by Qt
     // (it hovers disabled items); it shows no tooltip.
@@ -2791,9 +2804,13 @@ Item {
     // that brings none shows none. Shortcuts live in the keyboard mode's ?
     // sheet and in Preferences, not in tooltips.
     if (unseen || !targetTooltipHovered(target) || !text) {
+      clearTooltip()
       tooltipRequest += 1
       return
     }
+    // One already up stays until this one takes its place (moveTooltip).
+    var moving = tooltipShown
+    if (!moving) clearTooltip()
 
     var request = tooltipRequest + 1
     tooltipRequest = request
@@ -2806,6 +2823,7 @@ Item {
         clearTooltip()
         return
       }
+      if (moving && tooltipShown) { moveTooltip(pendingTooltipTarget, pendingTooltipText); return }
       tooltipTarget = pendingTooltipTarget
       tooltipText = pendingTooltipText
       pendingTooltipTarget = null
@@ -2815,12 +2833,26 @@ Item {
     })
   }
 
-  function hideTooltip(target) {
+  function hideTooltip(target, now) {
     if (tooltipTarget !== target && pendingTooltipTarget !== target) return
     if (keysCardHolds(target) && tooltipTarget === barKeys.cardTarget) return
+    // The pointer left the widget whose tooltip is up: it stays a moment, so
+    // a pointer crossing to the next widget moves it there (moveTooltip).
+    // A hide while the widget is still hovered (a press), or one the bar
+    // asks for (`now`: a drag starting, dots giving way), is at once.
+    if (now !== true && tooltipShown && tooltipTarget === target && !targetTooltipHovered(target)) {
+      if (!tooltipLinger.running) tooltipLinger.start()
+      return
+    }
 
     tooltipRequest += 1
     clearTooltip()
+  }
+
+  Timer {
+    id: tooltipLinger
+    interval: 80
+    onTriggered: if (!root.targetTooltipHovered(root.tooltipTarget)) { root.tooltipRequest += 1; root.clearTooltip() }
   }
 
   Timer {
@@ -3447,6 +3479,13 @@ Item {
     // at the start of the opening it is still growing, so the row is not yet
     // where it settles. One reposition per change batch, never per frame.
     function reanchorTooltip() { if (tooltipWindow.visible) tooltipAnchor.updateAnchor() }
+    // A tooltip moved to another target, resized for its text, is placed
+    // anew (moveTooltip).
+    Connections {
+      target: root
+      function onTooltipTargetChanged() { Qt.callLater(barWindow.reanchorTooltip) }
+      function onTooltipTextChanged() { Qt.callLater(barWindow.reanchorTooltip) }
+    }
     // A card follows its widget while it moves (a zone growing under the
     // keyboard's cursor, KEYS-79).
     GeometryObserver {
@@ -4525,7 +4564,7 @@ Item {
       : homeWindow.zoneFit.folded[zone].length + (root.onDemandInline ? homeWindow.inlineHidden[zone] : 0)
     readonly property bool shown: count > 0
     // An inline expansion replaces the dots under the pointer.
-    onShownChanged: if (!shown) root.hideTooltip(foldHandle)
+    onShownChanged: if (!shown) root.hideTooltip(foldHandle, true)
     // Its widgets grow after an 80 ms pause (the slots' motionDelay) when
     // neighbours yield, so the dots keep their cell as long, on the same
     // animation clock: shrinking at once pulled the island's end in before the
