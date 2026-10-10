@@ -42,13 +42,13 @@ The CLI as a whole (`status`, `shortcuts`, `help`, error format) is integration.
 
 - **KEYS-12** In inline mode (`inline`), landing the cursor on a zone's dots expands the zone in place at once: no hover intent and, unlike the pointer, no settle wait after another zone collapses (DEMAND-38), so the zone left folds while this one grows. The cursor lands as the zone opens, before its widgets have grown, on the first widget in the direction it was moving (in the zone's drawn order); its ring shows at the widget's full cell from the first frame and rides with it as it grows. If the zone cannot fit, its drawer opens entered instead. The into-key on dots in inline mode does nothing. Code: BarKeys openDots, checkPending, landable; Bar.qml inlineEnter (keyboard), inlineSlots.
 
-- **KEYS-13** In a drawer the out-key (top: Up/k; bottom: Down/j; right: Right/l; left: Left/h) or Esc closes it and returns to the bar with the cursor where it was (on the group icon or the widget or dots it came from); on a top or bottom bar the out-key first walks back up the rows and closes the drawer only from the first row. Code: BarKeysModel.drawerIntent()
+- **KEYS-13** In a drawer the out-key (top: Up/k; bottom: Down/j; right: Right/l; left: Left/h) or Esc leaves it and returns to the bar with the cursor where it was (on the group icon or the widget or dots it came from); in a menu on a top or bottom bar the out-key first walks back up the rows and leaves only from the first row. When the cursor there previews that same drawer (KEYS-20: its group's icon, a widget or the dots of its zone), the drawer folds back to that preview where it is, without closing and opening again, and the card moves from the row to the cursor as the same popup (LOOK-136); otherwise it closes. Code: BarKeysModel.drawerIntent(); BarKeys backToBar()
 
 ## Drawer navigation
 
-- **KEYS-14** In a drawer on a top or bottom bar the rows run away from the bar: the into-key moves to the next row, the out-key to the previous one (closing the drawer from row 0). On a side bar the rows run along the bar: the along keys (Up/k, Down/j) walk the rows, the out-key closes the drawer, and the into-key does nothing. Moving past the last or first row does nothing.
+- **KEYS-14** A strip (a zone's drawer, or a group showing icons only) runs along the bar on every edge: the along keys (Left/h, Right/l on a top or bottom bar; Up/k, Down/j on a side bar) walk its members, the out-key leaves it from any member, and the into-key does nothing. A menu (a group showing names) runs down the screen: on a top or bottom bar its rows run away from the bar, so the into-key moves to the next row and the out-key to the previous one (leaving from row 0); on a side bar the along keys walk the rows, the out-key leaves and the into-key does nothing. Moving past the last or first member does nothing. Before, a strip under a top or bottom bar was walked with the into and out keys, as a menu. Code: BarKeysModel.drawerIntent (strip)
 
-- **KEYS-15** In a drawer on a top or bottom bar, the along keys (Left/h, Right/l) close the drawer and move the bar cursor one stop in that direction. On a side bar they are not used in a drawer.
+- **KEYS-15** In a menu on a top or bottom bar, the along keys (Left/h, Right/l) close the drawer and move the bar cursor one stop in that direction. In a strip they walk it (KEYS-14); on a side bar they are not used in a menu.
 
 - **KEYS-16** Tab and Shift+Tab in a drawer close it and jump to the next or previous zone as in KEYS-7.
 
@@ -58,7 +58,7 @@ The CLI as a whole (`status`, `shortcuts`, `help`, error format) is integration.
 
 - **KEYS-19** When the opened member shows a registered panel the drawer steps aside and the mode is suspended; Esc in the panel closes it and the keys return to the drawer with the card on the current row.
 
-- **KEYS-20** Preview: after a non-repeating key is released with the cursor on a group icon (or, in drawer mode, on zone dots) and no drawer open, a 100 ms timer opens the drawer unfolded beside the icon but not entered; any key pressed first cancels it, so a held key sweeping across stops never flashes drawers. In a preview the name card is hidden; the pointer moves the cursor as anywhere (KEYS-45).
+- **KEYS-20** Preview: after a non-repeating key is released with the cursor on a group icon, or in drawer mode on a widget or the dots of a zone with On demand widgets (as the pointer resting there opens that zone's drawer, on-demand-drawers.md DEMAND-17), and no drawer open, a 100 ms timer opens the drawer unfolded but not entered; any key pressed first cancels it, so a held key sweeping across stops never flashes drawers. A zone's preview stays open while the cursor moves among that zone's widgets and dots; moving to another zone, or to a group icon, closes it, and the next stop's preview follows the next key release. A release in a drawer the keys just left (an along key out of a menu, Tab) counts too. On a group icon or dots the name card is hidden during a preview; on a widget it stays, past the drawer (appearance.md LOOK-84). The pointer moves the cursor as anywhere (KEYS-45). Code: BarKeys previewZone(), previews(), released(), put(); ManagedDrawer Keys.onReleased
 
 ## Search: fuzzy name matching and navigation
 
@@ -90,7 +90,7 @@ The CLI as a whole (`status`, `shortcuts`, `help`, error format) is integration.
 
 - **KEYS-32** While the mode is active and not suspended, a strip at the screen edge opposite the bar (24 px in) lists the keys for the current level, unless `powerbarKeyLegend` is false (default true; Preferences → Bar → Keyboard → Key legend). The strip is hidden while the bar is sliding. Bar level: Move (← → or ↑ ↓), Into (the into arrow) "Into a group", Tab "Next zone", Enter "Open", / "Find", ? "Shortcuts", Esc "Leave". Code: BarKeysModel.legend()
 
-- **KEYS-33** Drawer level: Move, Enter "Open", Back (Esc; on a side bar the out arrow and Esc), Esc Esc "Leave". For a top or bottom bar, Move shows the into and out arrows (↓ ↑ on top).
+- **KEYS-33** Drawer level: Move, Enter "Open", Back, Esc Esc "Leave". Move shows the along arrows for a strip, and for a menu on a side bar; for a menu on a top or bottom bar, the into and out arrows (↓ ↑ on top). Back shows the out arrow and Esc, except for a menu on a top or bottom bar (Esc alone).
 
 - **KEYS-34** Search level: Tab "Next match", Enter "Open", Esc "Stop finding", Esc Esc "Leave".
 
@@ -119,7 +119,7 @@ The CLI as a whole (`status`, `shortcuts`, `help`, error format) is integration.
 
 - **KEYS-42** The card refreshes when the cursor moves, when the drawer's row changes and when the drawer is no longer stepped aside.
 
-- **KEYS-43** The card is hidden on group icons and on zone dots in drawer mode (they open a drawer), on a drawer preview, while suspended or handing off, and when the mode ends.
+- **KEYS-43** The card is hidden on group icons and on zone dots in drawer mode (they open a drawer), while suspended or handing off, and when the mode ends. A preview hides it only where the cursor is on one of those (KEYS-20).
 
 - **KEYS-44** The card shows only for a target that belongs to the keyboard's window (`keysStatus.card.belongs`); on other monitors' bars it is hidden.
 

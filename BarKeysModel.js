@@ -40,14 +40,15 @@ function barIntent(position, key) {
   return null
 }
 
-// What a key asks for inside a drawer opened from the cursor. A drawer's rows
-// run down the screen: on a side bar that is along the bar, so the along keys
-// walk them and the out key leaves; on a top or bottom bar they run away from
-// it, so the into key goes on down the rows and the out key comes back up
-// (to the icon from the first row), and the along keys leave and move on.
+// What a key asks for inside a drawer opened from the cursor. A strip (strip:
+// true) runs along the bar, and so does a menu's column on a side bar: the
+// along keys walk it and the out key leaves. A menu under a top or bottom bar
+// runs away from it, so the into key goes on down the rows and the out key
+// comes back up (to the icon from the first row), and the along keys leave
+// and move on.
 // Returns { member: ±1 }, { back }, { backMove: ±1 }, { zone: ±1 }, { open },
 // { find }, { sheet }, or null.
-function drawerIntent(position, key, member) {
+function drawerIntent(position, key, member, strip) {
   var map = keymap(position)
   if (key === "Escape") return { back: true }
   if (key === "Enter" || key === "Space") return { open: true }
@@ -55,7 +56,7 @@ function drawerIntent(position, key, member) {
   if (key === "Backtab") return { zone: -1 }
   if (key === "/") return { find: true }
   if (key === "?") return { sheet: true }
-  if (map.vertical) {
+  if (map.vertical || strip) {
     if (map.along[key] !== undefined) return { member: map.along[key] }
     if (map.out.indexOf(key) >= 0) return { back: true }
     return null
@@ -185,7 +186,8 @@ function route(where) {
 
 // The key strip's entries for an edge: [{ keys, label }].
 // drawers: on-demand widgets wait in zone drawers (the into key enters them).
-function legend(position, state, drawers) {
+// strip: the open drawer is a strip, walked with the along keys.
+function legend(position, state, drawers, strip) {
   var map = keymap(position)
   var arrows = { Up: "↑", Down: "↓", Left: "←", Right: "→" }
   var alongKeys = map.vertical ? "↑ ↓" : "← →"
@@ -194,8 +196,8 @@ function legend(position, state, drawers) {
     { keys: "Esc Esc", label: "Leave" }
   ]
   if (state === "drawer") return [
-    { keys: map.vertical ? alongKeys : arrows[map.into[0]] + " " + arrows[map.out[0]], label: "Move" },
-    { keys: "Enter", label: "Open" }, { keys: map.vertical ? arrows[map.out[0]] + " Esc" : "Esc", label: "Back" },
+    { keys: map.vertical || strip ? alongKeys : arrows[map.into[0]] + " " + arrows[map.out[0]], label: "Move" },
+    { keys: "Enter", label: "Open" }, { keys: map.vertical || strip ? arrows[map.out[0]] + " Esc" : "Esc", label: "Back" },
     { keys: "Esc Esc", label: "Leave" }
   ]
   return [

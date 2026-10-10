@@ -222,8 +222,10 @@ on every edge:
 
 - The arrows (or h j k l) along the bar move the cursor; Home / End jump to
   the ends; Tab / Shift+Tab jump zone to zone.
-- The key that points into the screen (↓ on a top bar) goes into a group or a
-  zone's drawer; the opposite key comes back.
+- A zone's drawer unfolds as the cursor reaches the zone, as it does for the
+  pointer. The key that points into the screen (↓ on a top bar) goes into it
+  or into a group, and the opposite key comes back. A strip of icons is walked
+  along the bar, like the bar itself; a menu of names, row by row.
 - Enter or Space opens the widget, a group or Preferences (the last stop).
 - `/` finds a widget by name, fuzzily (`/pm` finds Plugin Manager), and opens
   the way to it, into a group, a drawer or behind dots.

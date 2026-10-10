@@ -3809,7 +3809,7 @@ Item {
       implicitHeight: Math.ceil(stripCard.implicitHeight) + 2 * root.overlayShadowPad
       // Its text: the bar's once the legend is drawn like the bar.
       readonly property color ink: root.overlayStyled.surface ? root.barForeground : Color.popups.text
-      readonly property var entries: wanted ? KeysModel.legend(root.position, keys.mode, !root.onDemandInline) : []
+      readonly property var entries: wanted ? KeysModel.legend(root.position, keys.mode, !root.onDemandInline, !!keys.drawer && !keys.drawer.namedMenu) : []
       readonly property var sheetEntries: wanted && keys.sheet ? keys.sheetEntries() : []
       EffectSurface {
         id: stripCard
