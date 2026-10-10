@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.0.0 — unreleased
+## 0.5.0 — 2026-10-10
 
 The first release. Powerbar was cloned from Omarchy's built-in bar
 (`omarchy.bar`, Omarchy 4 Quattro's shell) on 2026-09-21 and still starts
