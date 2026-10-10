@@ -84,11 +84,11 @@ Numbers below use Omarchy's default theme tokens: bar 26 px (horizontal) or 28 p
 
 ## Inline expansion in the fit
 
-- **ZONE-35** An inline expansion counts the zone's hidden on-demand widgets as shown at their measured size (they stay loaded at opacity 0), unfolds that zone's folded widgets, and drops that zone's dots for the moment. Code: Bar.qml zoneFitList(expand), inlineFits; fitMoment unfold.
+- **ZONE-35** An inline expansion counts the zone's hidden on-demand widgets as shown at their measured size (they stay loaded at opacity 0), unfolds that zone's folded widgets, and drops that zone's dots for the moment. Code: Bar.qml zoneFitList(expand), inlinePlan; fitMoment unfold.
 
 - **ZONE-36** A center with an anchor expands one side at a time: the dots at its start expand and unfold the before-anchor run, the dots at its end the after-anchor run (tokens `center:start`, `center:end`); the other side's folds stay folded. Code: fitMoment sides; Bar.qml inlineToken.
 
-- **ZONE-37** Before expanding, the bar fits the zone as if expanded beside every other moment running; if that would fall back, the zone's drawer opens instead and the bar does not change. Code: Bar.qml inlineFits.
+- **ZONE-37** Before expanding, the bar fits the zone as if expanded beside every other moment running; if that would fall back, the zone's drawer opens instead and the bar does not change. Code: Bar.qml inlinePlan.
 
 ## Position, style and configuration
 
