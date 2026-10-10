@@ -270,23 +270,37 @@ Item {
     ignoreUnknownSignals: true
     function onConfigWriteFailed() { prefs.status = "Could not save. Check that shell.json is writable." }
   }
+  // `before` is an index into the layout shown now; the edit names the widget
+  // and its new neighbour by instance key, so replayed on a layout that
+  // changed meanwhile (a queued edit is re-run on each delivery) it lands
+  // beside the same neighbour, or reports that the neighbour is gone.
   function move(record, section, mode, before) {
     if (!record || !bar || !bar.shell) return
-    var changed = false
+    var beforeKey = Model.anchorKey(config.layout, section, before, record.groupId ? "" : record.instanceKey)
+    var changed = false, inPlace = false
     var accepted = bar.writeConfig(function(config) {
+      changed = false
+      inPlace = false
       if (record.groupId) {
-        var anchor = (config.bar.layout[section] || [])[Math.ceil(before)]
-        changed = Groups.edit(config, record.groupId, { section: section, visibility: mode,
-          before: anchor && anchor.powerbarInstance || "" })
-      } else {
-        // A group anchored on the moving widget stays where it is.
-        var next = Groups.nextAnchor(config, record.section, record.instanceKey)
-        changed = Model.move(config, record, section, mode, Math.ceil(before))
-        if (changed) Groups.reanchor(config, record.section, record.instanceKey, next)
+        changed = Groups.edit(config, record.groupId, { section: section, visibility: mode, before: beforeKey })
+        return
       }
+      var layout = config.bar.layout
+      if (!record.instanceKey) { changed = Model.move(config, record, section, mode, Math.ceil(before)); return }
+      var from = ["left", "center", "right"].find(function(zone) {
+        return (layout[zone] || []).some(function(entry) { return entry && entry.powerbarInstance === record.instanceKey })
+      })
+      var to = layout[section] || []
+      if (!from || (beforeKey && !to.some(function(entry) { return entry && entry.powerbarInstance === beforeKey }))) return
+      // A group anchored on the moving widget stays where it is.
+      var next = Groups.nextAnchor(config, from, record.instanceKey)
+      if (!Array.isArray(layout[section])) layout[section] = []
+      changed = BarModel.moveInstanceInConfig(config, from, record.instanceKey, section, beforeKey, mode)
+      if (changed) Groups.reanchor(config, from, record.instanceKey, next)
+      else inPlace = true
     })
     status = accepted === false ? "Could not save the layout. Check that shell.json is writable."
-      : changed ? "" : "The layout changed elsewhere. Try again."
+      : changed || inPlace ? "" : "The layout changed elsewhere. Try again."
   }
 
   Timer {

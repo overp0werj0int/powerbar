@@ -37,6 +37,18 @@ function move(config, source, section, visibility, beforeIndex) {
   to.splice(at, 0, entry)
   return true
 }
+// The instance key a `before` index names in `section` (the index counts the
+// source when it is in that section; past the end, or none, is ""), so a move
+// replayed on a layout that changed meanwhile still finds its place. Just
+// before the source itself is its own place: the entry after it names that.
+function anchorKey(layout, section, beforeIndex, sourceKey) {
+  var list = layout && Array.isArray(layout[section]) ? layout[section] : []
+  var at = Math.ceil(beforeIndex)
+  if (!Number.isInteger(at) || at < 0) return ""
+  var entry = list[at]
+  if (entry && sourceKey && entry.powerbarInstance === sourceKey) entry = list[at + 1]
+  return entry && entry.powerbarInstance || ""
+}
 function icon(idValue) {
   var name = idValue.split('.').pop()
   var icons = { clock: "󰥔", audio: "󰕾", network: "󰤨", bluetooth: "󰂯", power: "󰁹", monitor: "󰍹", workspaces: "󰙀", indicators: "󰍉", tray: "󰀱", media: "󰎆", weather: "󰖐", microphone: "󰍬", "keyboard-layout": "󰌌", "system-update": "󰚰", spacer: "↔", agents: "󰚩" }
