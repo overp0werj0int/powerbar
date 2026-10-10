@@ -64,7 +64,12 @@ Item {
     { title: "Layout", icon: "󰕰" }, { title: "Groups", icon: "󰉋" },
     { title: "Bar", icon: "󰒓" }
   ]
-  readonly property var pageItems: [layoutPage, groupsPage, barPage]
+  readonly property var pageItems: [layoutPage.item, groupsPage.item, barPage.item]
+  // Built on the first open (the page Loaders), then kept.
+  property bool pagesLoaded: false
+  // A group asked for before its page exists, selected as it loads.
+  property string pendingGroupId: ""
+  function selectGroup(id) { if (groupsPage.item) groupsPage.item.selectedId = id; else pendingGroupId = id }
   readonly property var hints: pageItems[page] ? pageItems[page].hints : []
 
   function open(payloadJson) {
@@ -89,7 +94,11 @@ Item {
   // Widget and group shortcuts: read from Hyprland each time Preferences opens.
   ShortcutStore { id: shortcutStore; bar: prefs.bar; preferences: prefs }
   readonly property var shortcuts: shortcutStore
-  onOpenedChanged: if (opened && bar) shortcutStore.refresh()
+  onOpenedChanged: {
+    if (!opened) return
+    pagesLoaded = true
+    if (bar) shortcutStore.refresh()
+  }
   function close() {
     shortcutStore.stopRecording()
     opened = false
@@ -99,8 +108,8 @@ Item {
     if (bar) bar.releasePopout(prefs)
   }
   function show(screen) { targetScreen = screen; open("{}") }
-  function showGroup(screen, id) { if (id) groupsPage.selectedId = id; page = 1; show(screen) }
-  function openGroup(id) { groupsPage.selectedId = id; setPage(1) }
+  function showGroup(screen, id) { if (id) selectGroup(id); page = 1; show(screen) }
+  function openGroup(id) { selectGroup(id); setPage(1) }
   function setPage(index) {
     if (index < 0 || index >= pages.length) return
     page = index
@@ -548,310 +557,326 @@ Item {
           Layout.bottomMargin: Style.space(14)
           currentIndex: prefs.page
 
-          LayoutEditor { id: layoutPage; preferences: prefs; columns: BentoModel.columnsFor(card.width / Style.spacing.scale) }
-          GroupsPreferences { id: groupsPage; preferences: prefs; layout: layoutPage; columns: BentoModel.columnsFor(card.width / Style.spacing.scale) }
+          // The pages are built the first time Preferences opens, not at the
+          // shell's start, and then kept: nothing in them shows while closed.
+          Loader {
+            id: layoutPage
+            active: prefs.pagesLoaded
+            sourceComponent: Component { LayoutEditor { preferences: prefs; columns: BentoModel.columnsFor(card.width / Style.spacing.scale) } }
+          }
+          Loader {
+            id: groupsPage
+            active: prefs.pagesLoaded && !!layoutPage.item
+            sourceComponent: Component { GroupsPreferences { preferences: prefs; layout: layoutPage.item; columns: BentoModel.columnsFor(card.width / Style.spacing.scale) } }
+            onLoaded: if (prefs.pendingGroupId) { item.selectedId = prefs.pendingGroupId; prefs.pendingGroupId = "" }
+          }
 
           // General and Appearance as one page of tiles. Changes show on
           // the bar itself, so the page draws no preview of its own.
-          PrefsForm {
+          Loader {
             id: barPage
-            maxContentWidth: Infinity
+            active: prefs.pagesLoaded
+            sourceComponent: Component {
+              PrefsForm {
+                  maxContentWidth: Infinity
 
-            PrefsBento {
-              id: bento
-              Layout.fillWidth: true
-              columns: BentoModel.columnsFor(card.width / Style.spacing.scale)
-              gap: prefs.tileGap
-
-              PrefsTile {
-                title: "Style and position"
-                span12: 8; span6: 6
-                GridLayout {
-                  id: placement
-                  readonly property var screen: prefs.targetScreen
+                PrefsBento {
+                  id: bento
                   Layout.fillWidth: true
-                  Layout.leftMargin: Style.spacing.rowPaddingX
-                  Layout.topMargin: Style.space(4)
-                  Layout.bottomMargin: Style.space(4)
-                  columns: width >= Style.space(560) ? 2 : 1
-                  columnSpacing: Style.space(16)
-                  rowSpacing: Style.space(8)
-                  BarPlacement {
-                    Layout.alignment: Qt.AlignTop | Qt.AlignHCenter
-                    bar: prefs.bar
-                    source: prefs.wallpaper
-                    aspect: placement.screen && placement.screen.height > 0 ? placement.screen.width / placement.screen.height : 16 / 10
-                    onEdgeChosen: function(edge) { prefs.setOption("position", edge) }
-                  }
-                  ColumnLayout {
-                    Layout.fillWidth: true
-                    Layout.alignment: Qt.AlignTop
-                    spacing: Style.space(2)
-                    PrefsChoice {
-                      compact: true
-                      Layout.leftMargin: 0
-                      stacked: true
-                      label: "Style"
-                      description: value === "islands" ? "A surface for each zone" : value === "floating" ? "One bar, off the edges" : "Edge to edge, like Omarchy"
-                      options: [{ value: "flat", label: "Flat" }, { value: "floating", label: "Floating" }, { value: "islands", label: "Islands" }]
-                      value: prefs.bar ? prefs.bar.barStyle : "flat"
-                      onChosen: function(value) { prefs.setBarStyle(value) }
-                    }
-                    PrefsChoice {
-                      compact: true
-                      Layout.leftMargin: 0
-                      stacked: true
-                      label: "Screen edge"
-                      options: [{ value: "top", label: "Top" }, { value: "bottom", label: "Bottom" }, { value: "left", label: "Left" }, { value: "right", label: "Right" }]
-                      value: prefs.bar ? prefs.bar.position : "top"
-                      onChosen: function(value) { prefs.setOption("position", value) }
-                    }
-                    Text {
+                  columns: BentoModel.columnsFor(card.width / Style.spacing.scale)
+                  gap: prefs.tileGap
+
+                  PrefsTile {
+                    title: "Style and position"
+                    span12: 8; span6: 6
+                    GridLayout {
+                      id: placement
+                      readonly property var screen: prefs.targetScreen
+                      Layout.fillWidth: true
+                      Layout.leftMargin: Style.spacing.rowPaddingX
                       Layout.topMargin: Style.space(4)
-                      text: "Pinned to screen center"
-                      textFormat: Text.PlainText
-                      color: Color.popups.text
-                      font.family: Style.font.family
-                      font.pixelSize: Style.font.body
-                      font.bold: true
-                      Layout.fillWidth: true
-                      elide: Text.ElideRight
-                    }
-                    Dropdown {
-                      label: "Pinned to screen center"
-                      showLabel: false
-                      Layout.fillWidth: true
-                      Layout.rightMargin: Style.spacing.rowPaddingX
-                      options: [{ label: "None", value: "" }].concat(prefs.layoutEntries.filter(function(e) {
-                        return e.section === "center" && e.mode === "shown" && !e.groupId
-                      }).map(function(e) { return { label: prefs.title(e), value: e.id } }))
-                      value: prefs.bar ? prefs.bar.centerAnchor : ""
-                      onChanged: function(value) { prefs.setOption("centerAnchor", value) }
+                      Layout.bottomMargin: Style.space(4)
+                      columns: width >= Style.space(560) ? 2 : 1
+                      columnSpacing: Style.space(16)
+                      rowSpacing: Style.space(8)
+                      BarPlacement {
+                        Layout.alignment: Qt.AlignTop | Qt.AlignHCenter
+                        bar: prefs.bar
+                        source: prefs.wallpaper
+                        aspect: placement.screen && placement.screen.height > 0 ? placement.screen.width / placement.screen.height : 16 / 10
+                        onEdgeChosen: function(edge) { prefs.setOption("position", edge) }
+                      }
+                      ColumnLayout {
+                        Layout.fillWidth: true
+                        Layout.alignment: Qt.AlignTop
+                        spacing: Style.space(2)
+                        PrefsChoice {
+                          compact: true
+                          Layout.leftMargin: 0
+                          stacked: true
+                          label: "Style"
+                          description: value === "islands" ? "A surface for each zone" : value === "floating" ? "One bar, off the edges" : "Edge to edge, like Omarchy"
+                          options: [{ value: "flat", label: "Flat" }, { value: "floating", label: "Floating" }, { value: "islands", label: "Islands" }]
+                          value: prefs.bar ? prefs.bar.barStyle : "flat"
+                          onChosen: function(value) { prefs.setBarStyle(value) }
+                        }
+                        PrefsChoice {
+                          compact: true
+                          Layout.leftMargin: 0
+                          stacked: true
+                          label: "Screen edge"
+                          options: [{ value: "top", label: "Top" }, { value: "bottom", label: "Bottom" }, { value: "left", label: "Left" }, { value: "right", label: "Right" }]
+                          value: prefs.bar ? prefs.bar.position : "top"
+                          onChosen: function(value) { prefs.setOption("position", value) }
+                        }
+                        Text {
+                          Layout.topMargin: Style.space(4)
+                          text: "Pinned to screen center"
+                          textFormat: Text.PlainText
+                          color: Color.popups.text
+                          font.family: Style.font.family
+                          font.pixelSize: Style.font.body
+                          font.bold: true
+                          Layout.fillWidth: true
+                          elide: Text.ElideRight
+                        }
+                        Dropdown {
+                          label: "Pinned to screen center"
+                          showLabel: false
+                          Layout.fillWidth: true
+                          Layout.rightMargin: Style.spacing.rowPaddingX
+                          options: [{ label: "None", value: "" }].concat(prefs.layoutEntries.filter(function(e) {
+                            return e.section === "center" && e.mode === "shown" && !e.groupId
+                          }).map(function(e) { return { label: prefs.title(e), value: e.id } }))
+                          value: prefs.bar ? prefs.bar.centerAnchor : ""
+                          onChanged: function(value) { prefs.setOption("centerAnchor", value) }
+                        }
+                      }
                     }
                   }
-                }
-              }
-              PrefsTile {
-                title: "Size"
-                span12: 4; span6: 3
-                PrefsToggle {
-                  compact: true
-                  label: "Large bar"
-                  checked: prefs.bar ? prefs.bar.largeBar : false
-                  onToggled: function(checked) { prefs.setOption("powerbarLargeBar", checked) }
-                }
-                PrefsChoice {
-                  compact: true
-                  stacked: true
-                  label: "Spacing"
-                  options: [{ value: "slots", label: "Equal slots" }, { value: "gaps", label: "Equal gaps" }]
-                  value: prefs.bar ? prefs.bar.spacingMode : "slots"
-                  onChosen: function(value) { prefs.setOption("powerbarSpacingMode", value) }
-                }
-                PrefsSlider {
-                  compact: true
-                  label: "Space between widgets"
-                  minimum: prefs.ranges.spacing.min; maximum: prefs.ranges.spacing.max; stepSize: prefs.ranges.spacing.step
-                  defaultValue: prefs.ranges.spacing.fallback
-                  value: AppearanceModel.clampTo(prefs.ranges.spacing, prefs.config.powerbarSpacing)
-                  formatter: function(v) { return v === 0 ? "None" : "" }
-                  animate: prefs.motion
-                  onEdited: function(v) { prefs.setOption("powerbarSpacing", v) }
-                }
-              }
-              PrefsTile {
-                id: shapeTile
-                readonly property bool editable: prefs.scopeOf("shape") !== "theme"
-                title: "Shape"
-                span12: 4; span6: 3
-                animate: prefs.motion
-                ScopeChoice { parent: shapeTile.headerSlot; tile: "shape" }
-                ScopeHint { tile: "shape" }
-                PrefsSlider {
-                  readonly property real themeRounding: Style.cornerRadius / Style.spacing.scale
-                  compact: true
-                  enabled: shapeTile.editable
-                  label: "Corner rounding"
-                  minimum: 0; maximum: prefs.bar ? prefs.bar.roundingMax : 16; stepSize: 1
-                  defaultValue: Math.min(maximum, Math.round(themeRounding))
-                  value: typeof prefs.lookValue("rounding") === "number" ? prefs.lookValue("rounding") : themeRounding
-                  formatter: function(v) { return v === 0 ? "Square" : v >= maximum ? "Pill" : "" }
-                  animate: prefs.motion
-                  onEdited: function(v) { prefs.setLook("shape", "rounding", v) }
-                }
-                PrefsToggle {
-                  compact: true
-                  label: "Borders"
-                  enabled: shapeTile.editable
-                  opacity: enabled ? 1 : 0.45
-                  checked: prefs.lookValue("borders") !== false
-                  onToggled: function(checked) { prefs.setLook("shape", "borders", checked) }
-                }
-                PrefsSlider {
-                  readonly property real themeWidth: prefs.bar ? Border.top(prefs.bar.themeIslandBorder) / Style.space(1) : 1
-                  compact: true
-                  label: "Border thickness"
-                  minimum: prefs.ranges.borderWidth.min; maximum: prefs.ranges.borderWidth.max; stepSize: prefs.ranges.borderWidth.step
-                  defaultValue: themeWidth
-                  enabled: shapeTile.editable && prefs.lookValue("borders") !== false
-                  value: AppearanceModel.clampTo(prefs.ranges.borderWidth, prefs.lookValue("borderWidth"), themeWidth)
-                  formatter: function(v) { return v === prefs.ranges.borderWidth.min ? "Hairline" : "" }
-                  animate: prefs.motion
-                  onEdited: function(v) { prefs.setLook("shape", "borderWidth", v) }
-                }
-              }
-              PrefsTile {
-                id: surfaceTile
-                readonly property bool editable: prefs.scopeOf("surface") !== "theme"
-                title: "Surface"
-                span12: 4; span6: 3
-                animate: prefs.motion
-                ScopeChoice { parent: surfaceTile.headerSlot; tile: "surface" }
-                ScopeHint { tile: "surface" }
-                PrefsSlider {
-                  compact: true
-                  enabled: surfaceTile.editable
-                  label: "Background opacity"
-                  unit: "%"
-                  minimum: prefs.ranges.backgroundOpacity.min; maximum: prefs.ranges.backgroundOpacity.max; stepSize: prefs.ranges.backgroundOpacity.step
-                  defaultValue: prefs.ranges.backgroundOpacity.fallback
-                  // A transparent bar (Omarchy's Transparency) shows as Clear.
-                  value: !prefs.bar ? 100 : prefs.bar.requestedTransparent ? 0 : Math.round(prefs.bar.surfaceEffects.backgroundOpacity * 100)
-                  formatter: function(v) { return v === 0 ? "Clear" : v === 100 ? "Opaque" : "" }
-                  animate: prefs.motion
-                  onEdited: function(v) { prefs.setLook("surface", "opacity", v) }
-                }
-                PrefsToggle {
-                  compact: true
-                  label: "Background blur"
-                  enabled: surfaceTile.editable
-                  opacity: enabled ? 1 : 0.45
-                  checked: prefs.bar ? prefs.bar.surfaceEffects.blur : false
-                  onToggled: function(checked) { prefs.setLook("surface", "blur", checked) }
-                }
-                // Kept per theme in every scope: a light or dark choice can't be
-                // shared between light and dark themes.
-                PrefsChoice {
-                  compact: true
-                  label: "Text and icons"
-                  description: "Kept per theme"
-                  options: [{ value: "theme", label: "Theme" }, { value: "light", label: "Light" }, { value: "dark", label: "Dark" }]
-                  value: prefs.bar ? prefs.bar.foregroundChoice : "theme"
-                  onChosen: function(value) { prefs.setText(value) }
-                }
-              }
-              PrefsTile {
-                id: shadowTile
-                readonly property bool editable: prefs.scopeOf("shadow") !== "theme"
-                readonly property bool shadowOn: !!prefs.bar && prefs.bar.surfaceEffects.shadow
-                title: "Shadow"
-                span12: 4; span6: 3
-                animate: prefs.motion
-                ScopeChoice { parent: shadowTile.headerSlot; tile: "shadow" }
-                ScopeHint { tile: "shadow" }
-                PrefsToggle {
-                  compact: true
-                  label: "Shadow"
-                  enabled: shadowTile.editable
-                  opacity: enabled ? 1 : 0.45
-                  checked: shadowTile.shadowOn
-                  onToggled: function(checked) { prefs.setLook("shadow", "enabled", checked) }
-                }
-                PrefsSlider {
-                  compact: true
-                  label: "Softness"
-                  minimum: prefs.ranges.shadowSize.min; maximum: prefs.ranges.shadowSize.max; stepSize: prefs.ranges.shadowSize.step
-                  defaultValue: prefs.ranges.shadowSize.fallback
-                  enabled: shadowTile.editable && shadowTile.shadowOn
-                  value: prefs.bar ? prefs.bar.surfaceEffects.shadowSize : prefs.ranges.shadowSize.fallback
-                  animate: prefs.motion
-                  onEdited: function(v) { prefs.setLook("shadow", "softness", v) }
-                }
-                PrefsSlider {
-                  compact: true
-                  label: "Strength"
-                  unit: "%"
-                  minimum: prefs.ranges.shadowOpacity.min; maximum: prefs.ranges.shadowOpacity.max; stepSize: prefs.ranges.shadowOpacity.step
-                  defaultValue: prefs.ranges.shadowOpacity.fallback
-                  enabled: shadowTile.editable && shadowTile.shadowOn
-                  value: prefs.bar ? Math.round(prefs.bar.surfaceEffects.shadowOpacity * 100) : prefs.ranges.shadowOpacity.fallback
-                  animate: prefs.motion
-                  onEdited: function(v) { prefs.setLook("shadow", "strength", v) }
-                }
-              }
-              PrefsTile {
-                title: "Behavior"
-                span12: 4; span6: 3
-                PrefsToggle {
-                  compact: true
-                  label: "Autohide"
-                  checked: prefs.options.autoHide
-                  onToggled: function(checked) { prefs.setOption("powerbarAutoHide", checked) }
-                }
-                // Only matters while the bar autohides, so it sits under
-                // Autohide and dims in place when that is off.
-                PrefsToggle {
-                  compact: true
-                  Layout.leftMargin: Style.spacing.rowPaddingX
-                  label: "Show on widget activity"
-                  enabled: prefs.options.autoHide
-                  opacity: enabled ? 1 : 0.45
-                  Behavior on opacity { enabled: prefs.motion; NumberAnimation { duration: 120 } }
-                  checked: prefs.options.autoHideActivity
-                  onToggled: function(checked) { prefs.setOption("powerbarAutoHideActivity", checked) }
-                }
-                // Powerbar's safety minimum for surfaces over windows, not a theme
-                // value, so it stays outside the appearance scopes.
-                PrefsToggle {
-                  compact: true
-                  label: "Readable over windows"
-                  checked: prefs.bar ? prefs.bar.surfaceEffects.readableOverlay : true
-                  onToggled: function(checked) { prefs.setOption("powerbarReadableOverlay", checked) }
-                }
-                PrefsToggle {
-                  compact: true
-                  label: "Animations"
-                  checked: prefs.bar ? prefs.bar.animationsEnabled : true
-                  onToggled: function(checked) { prefs.setOption("powerbarAnimations", checked) }
-                }
-              }
-              PrefsTile {
-                title: "On demand"
-                span12: 4; span6: 3
-                PrefsChoice {
-                  compact: true
-                  stacked: bento.columns !== 12
-                  label: "Show them"
-                  description: value === "inline"
-                    ? "Behind dots in their zone; they expand in the bar when you hover the dots"
-                    : "Hovering a zone opens them in a drawer next to the bar"
-                  options: [{ value: "drawer", label: "In a drawer" }, { value: "inline", label: "In the bar" }]
-                  value: prefs.options.onDemand
-                  onChosen: function(value) { prefs.setOption("powerbarOnDemand", value) }
-                }
-                PrefsToggle {
-                  compact: true
-                  label: "Count on the dots"
-                  checked: prefs.options.dotsBadge
-                  onToggled: function(checked) { prefs.setOption("powerbarDotsBadge", checked) }
-                }
-              }
-              // The keyboard mode (docs/behavior/keyboard.md): its shortcut, offered
-              // rather than bound, and the strip of keys it shows.
-              PrefsTile {
-                title: "Keyboard"
-                span12: 4; span6: 6
-                ShortcutRow {
-                  label: "Bar keyboard"
-                  store: prefs.shortcuts
-                  target: "bar:keys"
-                  suggested: "SUPER + B"
-                }
-                PrefsToggle {
-                  compact: true
-                  label: "Key legend"
-                  checked: prefs.options.keyLegend
-                  onToggled: function(checked) { prefs.setOption("powerbarKeyLegend", checked) }
+                  PrefsTile {
+                    title: "Size"
+                    span12: 4; span6: 3
+                    PrefsToggle {
+                      compact: true
+                      label: "Large bar"
+                      checked: prefs.bar ? prefs.bar.largeBar : false
+                      onToggled: function(checked) { prefs.setOption("powerbarLargeBar", checked) }
+                    }
+                    PrefsChoice {
+                      compact: true
+                      stacked: true
+                      label: "Spacing"
+                      options: [{ value: "slots", label: "Equal slots" }, { value: "gaps", label: "Equal gaps" }]
+                      value: prefs.bar ? prefs.bar.spacingMode : "slots"
+                      onChosen: function(value) { prefs.setOption("powerbarSpacingMode", value) }
+                    }
+                    PrefsSlider {
+                      compact: true
+                      label: "Space between widgets"
+                      minimum: prefs.ranges.spacing.min; maximum: prefs.ranges.spacing.max; stepSize: prefs.ranges.spacing.step
+                      defaultValue: prefs.ranges.spacing.fallback
+                      value: AppearanceModel.clampTo(prefs.ranges.spacing, prefs.config.powerbarSpacing)
+                      formatter: function(v) { return v === 0 ? "None" : "" }
+                      animate: prefs.motion
+                      onEdited: function(v) { prefs.setOption("powerbarSpacing", v) }
+                    }
+                  }
+                  PrefsTile {
+                    id: shapeTile
+                    readonly property bool editable: prefs.scopeOf("shape") !== "theme"
+                    title: "Shape"
+                    span12: 4; span6: 3
+                    animate: prefs.motion
+                    ScopeChoice { parent: shapeTile.headerSlot; tile: "shape" }
+                    ScopeHint { tile: "shape" }
+                    PrefsSlider {
+                      readonly property real themeRounding: Style.cornerRadius / Style.spacing.scale
+                      compact: true
+                      enabled: shapeTile.editable
+                      label: "Corner rounding"
+                      minimum: 0; maximum: prefs.bar ? prefs.bar.roundingMax : 16; stepSize: 1
+                      defaultValue: Math.min(maximum, Math.round(themeRounding))
+                      value: typeof prefs.lookValue("rounding") === "number" ? prefs.lookValue("rounding") : themeRounding
+                      formatter: function(v) { return v === 0 ? "Square" : v >= maximum ? "Pill" : "" }
+                      animate: prefs.motion
+                      onEdited: function(v) { prefs.setLook("shape", "rounding", v) }
+                    }
+                    PrefsToggle {
+                      compact: true
+                      label: "Borders"
+                      enabled: shapeTile.editable
+                      opacity: enabled ? 1 : 0.45
+                      checked: prefs.lookValue("borders") !== false
+                      onToggled: function(checked) { prefs.setLook("shape", "borders", checked) }
+                    }
+                    PrefsSlider {
+                      readonly property real themeWidth: prefs.bar ? Border.top(prefs.bar.themeIslandBorder) / Style.space(1) : 1
+                      compact: true
+                      label: "Border thickness"
+                      minimum: prefs.ranges.borderWidth.min; maximum: prefs.ranges.borderWidth.max; stepSize: prefs.ranges.borderWidth.step
+                      defaultValue: themeWidth
+                      enabled: shapeTile.editable && prefs.lookValue("borders") !== false
+                      value: AppearanceModel.clampTo(prefs.ranges.borderWidth, prefs.lookValue("borderWidth"), themeWidth)
+                      formatter: function(v) { return v === prefs.ranges.borderWidth.min ? "Hairline" : "" }
+                      animate: prefs.motion
+                      onEdited: function(v) { prefs.setLook("shape", "borderWidth", v) }
+                    }
+                  }
+                  PrefsTile {
+                    id: surfaceTile
+                    readonly property bool editable: prefs.scopeOf("surface") !== "theme"
+                    title: "Surface"
+                    span12: 4; span6: 3
+                    animate: prefs.motion
+                    ScopeChoice { parent: surfaceTile.headerSlot; tile: "surface" }
+                    ScopeHint { tile: "surface" }
+                    PrefsSlider {
+                      compact: true
+                      enabled: surfaceTile.editable
+                      label: "Background opacity"
+                      unit: "%"
+                      minimum: prefs.ranges.backgroundOpacity.min; maximum: prefs.ranges.backgroundOpacity.max; stepSize: prefs.ranges.backgroundOpacity.step
+                      defaultValue: prefs.ranges.backgroundOpacity.fallback
+                      // A transparent bar (Omarchy's Transparency) shows as Clear.
+                      value: !prefs.bar ? 100 : prefs.bar.requestedTransparent ? 0 : Math.round(prefs.bar.surfaceEffects.backgroundOpacity * 100)
+                      formatter: function(v) { return v === 0 ? "Clear" : v === 100 ? "Opaque" : "" }
+                      animate: prefs.motion
+                      onEdited: function(v) { prefs.setLook("surface", "opacity", v) }
+                    }
+                    PrefsToggle {
+                      compact: true
+                      label: "Background blur"
+                      enabled: surfaceTile.editable
+                      opacity: enabled ? 1 : 0.45
+                      checked: prefs.bar ? prefs.bar.surfaceEffects.blur : false
+                      onToggled: function(checked) { prefs.setLook("surface", "blur", checked) }
+                    }
+                    // Kept per theme in every scope: a light or dark choice can't be
+                    // shared between light and dark themes.
+                    PrefsChoice {
+                      compact: true
+                      label: "Text and icons"
+                      description: "Kept per theme"
+                      options: [{ value: "theme", label: "Theme" }, { value: "light", label: "Light" }, { value: "dark", label: "Dark" }]
+                      value: prefs.bar ? prefs.bar.foregroundChoice : "theme"
+                      onChosen: function(value) { prefs.setText(value) }
+                    }
+                  }
+                  PrefsTile {
+                    id: shadowTile
+                    readonly property bool editable: prefs.scopeOf("shadow") !== "theme"
+                    readonly property bool shadowOn: !!prefs.bar && prefs.bar.surfaceEffects.shadow
+                    title: "Shadow"
+                    span12: 4; span6: 3
+                    animate: prefs.motion
+                    ScopeChoice { parent: shadowTile.headerSlot; tile: "shadow" }
+                    ScopeHint { tile: "shadow" }
+                    PrefsToggle {
+                      compact: true
+                      label: "Shadow"
+                      enabled: shadowTile.editable
+                      opacity: enabled ? 1 : 0.45
+                      checked: shadowTile.shadowOn
+                      onToggled: function(checked) { prefs.setLook("shadow", "enabled", checked) }
+                    }
+                    PrefsSlider {
+                      compact: true
+                      label: "Softness"
+                      minimum: prefs.ranges.shadowSize.min; maximum: prefs.ranges.shadowSize.max; stepSize: prefs.ranges.shadowSize.step
+                      defaultValue: prefs.ranges.shadowSize.fallback
+                      enabled: shadowTile.editable && shadowTile.shadowOn
+                      value: prefs.bar ? prefs.bar.surfaceEffects.shadowSize : prefs.ranges.shadowSize.fallback
+                      animate: prefs.motion
+                      onEdited: function(v) { prefs.setLook("shadow", "softness", v) }
+                    }
+                    PrefsSlider {
+                      compact: true
+                      label: "Strength"
+                      unit: "%"
+                      minimum: prefs.ranges.shadowOpacity.min; maximum: prefs.ranges.shadowOpacity.max; stepSize: prefs.ranges.shadowOpacity.step
+                      defaultValue: prefs.ranges.shadowOpacity.fallback
+                      enabled: shadowTile.editable && shadowTile.shadowOn
+                      value: prefs.bar ? Math.round(prefs.bar.surfaceEffects.shadowOpacity * 100) : prefs.ranges.shadowOpacity.fallback
+                      animate: prefs.motion
+                      onEdited: function(v) { prefs.setLook("shadow", "strength", v) }
+                    }
+                  }
+                  PrefsTile {
+                    title: "Behavior"
+                    span12: 4; span6: 3
+                    PrefsToggle {
+                      compact: true
+                      label: "Autohide"
+                      checked: prefs.options.autoHide
+                      onToggled: function(checked) { prefs.setOption("powerbarAutoHide", checked) }
+                    }
+                    // Only matters while the bar autohides, so it sits under
+                    // Autohide and dims in place when that is off.
+                    PrefsToggle {
+                      compact: true
+                      Layout.leftMargin: Style.spacing.rowPaddingX
+                      label: "Show on widget activity"
+                      enabled: prefs.options.autoHide
+                      opacity: enabled ? 1 : 0.45
+                      Behavior on opacity { enabled: prefs.motion; NumberAnimation { duration: 120 } }
+                      checked: prefs.options.autoHideActivity
+                      onToggled: function(checked) { prefs.setOption("powerbarAutoHideActivity", checked) }
+                    }
+                    // Powerbar's safety minimum for surfaces over windows, not a theme
+                    // value, so it stays outside the appearance scopes.
+                    PrefsToggle {
+                      compact: true
+                      label: "Readable over windows"
+                      checked: prefs.bar ? prefs.bar.surfaceEffects.readableOverlay : true
+                      onToggled: function(checked) { prefs.setOption("powerbarReadableOverlay", checked) }
+                    }
+                    PrefsToggle {
+                      compact: true
+                      label: "Animations"
+                      checked: prefs.bar ? prefs.bar.animationsEnabled : true
+                      onToggled: function(checked) { prefs.setOption("powerbarAnimations", checked) }
+                    }
+                  }
+                  PrefsTile {
+                    title: "On demand"
+                    span12: 4; span6: 3
+                    PrefsChoice {
+                      compact: true
+                      stacked: bento.columns !== 12
+                      label: "Show them"
+                      description: value === "inline"
+                        ? "Behind dots in their zone; they expand in the bar when you hover the dots"
+                        : "Hovering a zone opens them in a drawer next to the bar"
+                      options: [{ value: "drawer", label: "In a drawer" }, { value: "inline", label: "In the bar" }]
+                      value: prefs.options.onDemand
+                      onChosen: function(value) { prefs.setOption("powerbarOnDemand", value) }
+                    }
+                    PrefsToggle {
+                      compact: true
+                      label: "Count on the dots"
+                      checked: prefs.options.dotsBadge
+                      onToggled: function(checked) { prefs.setOption("powerbarDotsBadge", checked) }
+                    }
+                  }
+                  // The keyboard mode (docs/behavior/keyboard.md): its shortcut, offered
+                  // rather than bound, and the strip of keys it shows.
+                  PrefsTile {
+                    title: "Keyboard"
+                    span12: 4; span6: 6
+                    ShortcutRow {
+                      label: "Bar keyboard"
+                      store: prefs.shortcuts
+                      target: "bar:keys"
+                      suggested: "SUPER + B"
+                    }
+                    PrefsToggle {
+                      compact: true
+                      label: "Key legend"
+                      checked: prefs.options.keyLegend
+                      onToggled: function(checked) { prefs.setOption("powerbarKeyLegend", checked) }
+                    }
+                  }
                 }
               }
             }

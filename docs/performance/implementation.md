@@ -269,6 +269,36 @@ group icon and beside the centre anchor: every island and every visible icon
 keeps its place from release to settle; the saved layouts of the drag
 scenario are unchanged.
 
+## Measured pass: 10 October 2026
+
+A review found startup CPU about doubled since the 3 October pass, and idle CPU
+too. Three changes, measured with the same bench (medians of 3, the user's
+layout of 37 entries, CPU ms):
+
+| Change | Why |
+| --- | --- |
+| Preferences builds its pages (Layout, Groups, Bar) the first time it opens, then keeps them (`Preferences.qml` `pagesLoaded`, page Loaders). A group asked for before its page exists is selected as it loads (`selectGroup`). | All three pages were built at startup for a window nobody had opened. |
+| Widget faces captured in one run are published once, 100 ms after the last (`Bar.qml` `pendingFaces`, `facePublish`). | 5 s after start about 40 captures each reassigned `widgetFaces`, and the closed Layout editor redid its work each time. |
+| A slot's ink measurements, cell placement and the island border return the same object when the values are the same (`measureKept`, `kept()`, `borderKept`); the hidden placeholder's tooltip is not computed. | A value change re-lays the label out in several steps; a step that measures what the last did no longer re-runs the cell, hold and zone fit. |
+
+| Scenario | Before (3764842) | After |
+| --- | --- | --- |
+| Startup: create / CPU | 260 / 400 ms | 153 / 170 ms |
+| Idle 10 s after startup | 160 ms | 120 ms |
+| Drop commit, average | 28.1 ms | 17.2 ms |
+| Settings change, average | 11.7 ms | 6.7 ms |
+| Drawer open | 22.8 ms | 19.8 ms |
+| Preferences, first open | 29 ms | 137 ms |
+
+The first open of Preferences now pays for its pages (about 110 ms, once per
+session) instead of every startup paying for them. Geometry and saved layouts
+are identical to before in all fifteen scenarios. The per-frame recordings of
+the animated scenarios have the same final values; a 0.7 to 2.7 px drift of
+one icon after a drop varies from run to run on both versions alike.
+
+Not done: the PNG writes of captured faces still run on the GUI thread, and
+the zone fit still re-runs per measurement step (now with fewer steps).
+
 ## Profiling gates still outstanding
 
 The running Omarchy shell was found with `qs list --all`. This sandbox denies

@@ -245,14 +245,27 @@ Item {
       return {}
     }
   }
+  // Captures come one or two a frame (CaptureQueue), forty or so after the
+  // start: their faces are published together, once the run has gone quiet,
+  // so what reads widgetFaces (the layout editor) updates once, not per widget.
+  property var pendingFaces: ({})
   function recordFace(key, face) {
     if (!key || !face) return
-    var next = Object.assign({}, widgetFaces)
-    // A drawer capture knows no ink; it keeps what the bar measured before.
-    var before = next[key]
-    if (face.inkLength === undefined && before && before.inkLength !== undefined && before.w === face.w && before.h === face.h)
-      face = Object.assign({}, before, { ink: face.ink })
-    next[key] = face
+    pendingFaces[key] = face
+    facePublish.restart()
+  }
+  Timer { id: facePublish; interval: 100; onTriggered: root.publishFaces() }
+  function publishFaces() {
+    var next = Object.assign({}, widgetFaces), pending = pendingFaces
+    pendingFaces = ({})
+    for (var key in pending) {
+      var face = pending[key]
+      // A drawer capture knows no ink; it keeps what the bar measured before.
+      var before = next[key]
+      if (face.inkLength === undefined && before && before.inkLength !== undefined && before.w === face.w && before.h === face.h)
+        face = Object.assign({}, before, { ink: face.ink })
+      next[key] = face
+    }
     widgetFaces = next
     faceWriteDelay.restart()
   }
@@ -1872,7 +1885,16 @@ Item {
   readonly property real widgetSpacing: Style.space(AppearanceModel.clampTo(AppearanceModel.ranges.spacing, barConfig.powerbarSpacing))
   readonly property var themeIslandBorder: Border.surfaceSpec("popups", "border", Color.popups.border, 1)
   readonly property real islandRounding: roundingFor(appearanceConfig)
-  readonly property var islandBorder: borderFor(appearanceConfig)
+  // Every config delivery builds the spec afresh; an equal one keeps the last
+  // object, so the islands, drawers, tooltip and strip that read it (through
+  // Border.*) are not re-resolved for a change elsewhere in the config.
+  readonly property var borderKept: ({})
+  readonly property var islandBorder: {
+    var next = borderFor(appearanceConfig)
+    if (RenderModel.equal(borderKept.last, next)) return borderKept.last
+    borderKept.last = next
+    return next
+  }
   // Surface geometry for a bar config.
   // Rounding stops at a full pill: past half the bar's thickness corners look
   // the same, and nested highlights would round past their cells.
@@ -4918,8 +4940,20 @@ Item {
     // The cell: what the widget visibly paints along the bar decides its slot
     // and its highlight, never the box it asks for.
     readonly property Item inkItem: needsPlaceholder ? placeholderButton : activeItem
-    readonly property var measuredInk: liveNaturalWidth > 0 && liveNaturalHeight > 0 && inkItem
-      ? HighlightModel.inkRect(inkItem, root.vertical) : ({ start: 0, length: 0, glyph: false })
+    // The last result of each measurement below. A value change re-lays the
+    // label out in several steps, each re-running the chain; a step that
+    // measures what the last one did returns the same object, so nothing
+    // downstream (the cell, the hold, the zone fit) runs again for it. Same
+    // values in the same frame: only the repeats are skipped.
+    readonly property var measureKept: ({})
+    function kept(name, next) {
+      var last = measureKept[name]
+      if (last === next || RenderModel.shallowSame(last, next)) return last
+      measureKept[name] = next
+      return next
+    }
+    readonly property var measuredInk: kept("measured", liveNaturalWidth > 0 && liveNaturalHeight > 0 && inkItem
+      ? HighlightModel.inkRect(inkItem, root.vertical) : ({ start: 0, length: 0, glyph: false }))
     // When one kit button is the widget's whole content, measure the text it
     // actually paints: its exact font, its tight glyph bounds and where the
     // text sits. Kit hints give only a width and assume a centred glyph, but
@@ -4946,19 +4980,19 @@ Item {
       var align = t.horizontalAlignment === Text.AlignHCenter ? (t.width - advance) / 2
         : t.horizontalAlignment === Text.AlignRight ? t.width - advance : 0
       var p = t.mapToItem(inkItem, align + r.x, t.baselineOffset + r.y)
-      return { x: p.x, y: p.y, width: r.width, height: r.height }
+      return kept("glyph", { x: p.x, y: p.y, width: r.width, height: r.height })
     }
-    readonly property var liveInk: !glyphInk ? measuredInk : root.vertical
+    readonly property var liveInk: !glyphInk ? measuredInk : kept("live", root.vertical
       ? { start: glyphInk.y, length: glyphInk.height, glyph: measuredInk.glyph || glyphInk.width <= CellModel.GLYPH_INK }
-      : { start: glyphInk.x, length: glyphInk.width, glyph: glyphInk.width <= CellModel.GLYPH_INK }
+      : { start: glyphInk.x, length: glyphInk.width, glyph: glyphInk.width <= CellModel.GLYPH_INK })
     readonly property var liveCrossInk: !root.vertical || liveNaturalWidth <= 0 || !inkItem ? null
-      : glyphInk ? { start: glyphInk.x, length: glyphInk.width, glyph: glyphInk.width <= CellModel.GLYPH_INK }
-      : HighlightModel.inkRect(inkItem, false)
+      : kept("cross", glyphInk ? { start: glyphInk.x, length: glyphInk.width, glyph: glyphInk.width <= CellModel.GLYPH_INK }
+      : HighlightModel.inkRect(inkItem, false))
     readonly property var ink: frozenMeasure ? frozenMeasure.ink : liveInk
     readonly property var crossInk: frozenMeasure ? frozenMeasure.crossInk : liveCrossInk
     // Only free text is capped: a compound (workspaces) or a vertical stack keeps its length.
-    readonly property var cellPlace: CellModel.place(root.cellTokens, ink.length, CellModel.isGlyph(ink.length, ink.glyph),
-      !root.vertical && compoundTargets.length < 2)
+    readonly property var cellPlace: kept("place", CellModel.place(root.cellTokens, ink.length, CellModel.isGlyph(ink.length, ink.glyph),
+      !root.vertical && compoundTargets.length < 2))
     readonly property real landingExtent: naturalWidth > 0 && naturalHeight > 0 ? cellPlace.extent : 0
     // A value that gets narrower keeps its width for a while, so flickering
     // values never make the bar breathe; it grows at once.
@@ -5133,7 +5167,9 @@ Item {
       anchors.fill: parent
       bar: root
       text: PreferencesModel.icon(slot.moduleName)
-      tooltipText: slot.displayName + " is inactive. " + (slot.canActivate() ? "Click to open it." : "Click to set it up.")
+      // Only while it shows: canActivate() reads the widget's targets, which
+      // change with every opacity step of a widget that is drawn.
+      tooltipText: !slot.needsPlaceholder ? "" : slot.displayName + " is inactive. " + (slot.canActivate() ? "Click to open it." : "Click to set it up.")
       onPressed: {
         if (!slot.activate()) preferencesPane.show(root.targetWindow(slot).screen)
       }
