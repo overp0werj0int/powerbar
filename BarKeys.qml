@@ -414,6 +414,8 @@ Item {
     case Qt.Key_Down: return "Down"
     case Qt.Key_Home: return "Home"
     case Qt.Key_End: return "End"
+    case Qt.Key_PageUp: return "PageUp"
+    case Qt.Key_PageDown: return "PageDown"
     case Qt.Key_Backtab: return "Backtab"
     case Qt.Key_Tab: return event.modifiers & Qt.ShiftModifier ? "Backtab" : "Tab"
     case Qt.Key_Return: case Qt.Key_Enter: return "Enter"
@@ -478,6 +480,8 @@ Item {
     if (it.member) {
       var to = (d.cursorActive ? d.cursor : -1) + it.member
       if (to >= 0 && to < d.slots.length) { d.cursor = to; d.cursorActive = true; d.navigate(0) }
+    } else if (it.first || it.last) {
+      if (d.slots.length) { d.cursor = it.first ? 0 : d.slots.length - 1; d.cursorActive = true; d.navigate(0) }
     } else if (it.back) backToBar()
     else if (it.backMove) { closeDrawer(true); moveBy(it.backMove) }
     else if (it.zone) { closeDrawer(true); zoneJump(it.zone) }

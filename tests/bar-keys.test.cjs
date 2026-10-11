@@ -34,6 +34,19 @@ test('the other keys mean the same on every edge', () => {
     assert.deepEqual(keys.drawerIntent(edge, ',', 0, true), { prefs: true });
     assert.deepEqual(keys.barIntent(edge, 'Escape'), { leave: true });
     assert.deepEqual(keys.barIntent(edge, 'Home'), { home: true });
+    assert.deepEqual(keys.barIntent(edge, '^'), { home: true }, 'vim: ^ to the start');
+    assert.deepEqual(keys.barIntent(edge, 'End'), { end: true });
+    assert.deepEqual(keys.barIntent(edge, '$'), { end: true }, 'vim: $ to the end');
+    assert.deepEqual(keys.barIntent(edge, 'PageDown'), { zone: 1 });
+    assert.deepEqual(keys.barIntent(edge, 'PageUp'), { zone: -1 });
+    for (const strip of [false, true]) {
+      assert.deepEqual(keys.drawerIntent(edge, 'Home', 2, strip), { first: true });
+      assert.deepEqual(keys.drawerIntent(edge, '^', 2, strip), { first: true });
+      assert.deepEqual(keys.drawerIntent(edge, 'End', 0, strip), { last: true });
+      assert.deepEqual(keys.drawerIntent(edge, '$', 0, strip), { last: true });
+      assert.deepEqual(keys.drawerIntent(edge, 'PageDown', 0, strip), { zone: 1 });
+      assert.deepEqual(keys.drawerIntent(edge, 'PageUp', 0, strip), { zone: -1 });
+    }
   }
 });
 
@@ -156,21 +169,30 @@ test('a found widget comes into view the way the pointer would bring it', () => 
 
 test('the key strip names the keys of the edge', () => {
   const right = keys.legend('right', 'bar');
-  assert.equal(right[0].keys, '↑ ↓');
-  assert.equal(right[1].keys, '←');
-  assert.equal(keys.legend('top', 'bar')[1].keys, '↓');
-  assert.equal(keys.legend('top', 'bar', true)[1].label, 'Into a group or drawer');
+  assert.deepEqual(right[0], { keys: '↑ ↓ ←', label: 'Move' }, 'the along and into arrows share one Move');
+  assert.deepEqual(right[1], { keys: 'Tab Shift+Tab', label: 'Zones' });
+  assert.equal(keys.legend('top', 'bar')[0].keys, '← → ↓');
   assert.equal(keys.legend('top', 'drawer')[0].keys, '↓ ↑');
   assert.equal(keys.legend('right', 'drawer')[2].keys, '→ Esc');
-  assert.equal(keys.legend('top', 'drawer', true, true)[0].keys, '← →', 'a strip is walked along the bar');
-  assert.equal(keys.legend('top', 'drawer', true, true)[2].keys, '↑ Esc');
-  assert.equal(keys.legend('bottom', 'drawer', true, true)[2].keys, '↓ Esc');
+  assert.equal(keys.legend('top', 'drawer', true)[0].keys, '← →', 'a strip is walked along the bar');
+  assert.equal(keys.legend('top', 'drawer', true)[2].keys, '↑ Esc');
+  assert.equal(keys.legend('bottom', 'drawer', true)[2].keys, '↓ Esc');
   assert.deepEqual(keys.legend('top', 'drawer').at(-1), { keys: 'Esc Esc', label: 'Leave' }, 'a quick double Esc leaves from any depth');
   for (const state of ['bar', 'drawer']) {
     assert.deepEqual(keys.legend('top', state).at(-2), { keys: ',', label: 'Preferences' }, `${state}: , opens Preferences`);
   }
   assert.ok(!keys.legend('top', 'search').some(e => e.label === 'Preferences'), 'a comma in a search is typed');
   assert.deepEqual(keys.legend('top', 'search')[3], { keys: 'Esc Esc', label: 'Leave' });
+});
+
+test('the ? sheet lists every key of the mode for the edge', () => {
+  const top = keys.sheetKeys('top');
+  assert.deepEqual(top[0], { keys: '← → ↓ ↑ h l j k', label: 'Movement' }, 'arrows and vim letters in one row');
+  assert.deepEqual(keys.sheetKeys('right')[0], { keys: '↑ ↓ ← → k j h l', label: 'Movement' });
+  assert.deepEqual(keys.sheetKeys('bottom')[0], { keys: '← → ↑ ↓ h l k j', label: 'Movement' });
+  assert.equal(top[1].label, 'First stop');
+  const all = top.map(e => e.keys).join(' ').split(' ');
+  for (const k of ['Home', '^', 'End', '$', 'Tab', 'PgDn', 'PgUp', 'Enter', '/', ',', '?', 'Esc']) assert.ok(all.includes(k), k);
 });
 
 test('the keyboard mode starts on the focused monitor, never on another one it can not see', () => {

@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+- **Sliding highlight** (experimental): the hover highlight and the keyboard
+  cursor slide from widget to widget within a zone and along a drawer's
+  rows, instead of fading out and in.
+- **Keyboard mode**: `^` and `$` jump to the ends as Home and End do, Page
+  Up and Page Down jump zone to zone, and Home, End, `^`, `$` work in drawers.
+- **Shortcut sheet**: `?` lays out in two columns, every keyboard-mode key
+  on the left (all arrows and their vim letters in one "Movement" row) and
+  the widgets' and groups' own shortcuts on the right.
+- **Key strip**: at bar level the arrows share one "Move" and Tab and
+  Shift+Tab one "Zones".
 - **Keyboard mode**: `,` opens Preferences, and `,` in Preferences closes
   them and brings the keyboard mode back with the cursor where it was. The
   key strip and the `?` sheet list it.
