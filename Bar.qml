@@ -38,6 +38,7 @@ Item {
   property bool cliShown: false
   onAutoHideChanged: if (!autoHide) cliShown = false
   readonly property bool preferencesOpen: preferencesPane.opened
+  function showPreferences(screen) { preferencesPane.show(screen) }
   // The bar's options with their clean-config defaults (BarModel.options).
   readonly property var barOptions: BarModel.options(barConfig)
   readonly property bool animationsEnabled: barOptions.animations
@@ -3861,6 +3862,8 @@ Item {
       readonly property color ink: root.overlayStyled.surface ? root.barForeground : Color.popups.text
       readonly property var entries: wanted ? KeysModel.legend(root.position, keys.mode, !root.onDemandInline, !!keys.drawer && !keys.drawer.namedMenu) : []
       readonly property var sheetEntries: wanted && keys.sheet ? keys.sheetEntries() : []
+      // The mode's own key for Preferences heads the sheet (KEYS-70).
+      readonly property var sheetRows: wanted && keys.sheet ? [{ name: "Powerbar preferences", keys: [KeysModel.PREFS_KEY] }].concat(sheetEntries) : []
       EffectSurface {
         id: stripCard
         anchors.centerIn: parent
@@ -3894,10 +3897,10 @@ Item {
               columnSpacing: Style.space(16)
               rowSpacing: Style.space(4)
               Repeater {
-                model: keysStrip.sheetEntries.length * 2
+                model: keysStrip.sheetRows.length * 2
                 Item {
                   required property int index
-                  readonly property var entry: keysStrip.sheetEntries[Math.floor(index / 2)]
+                  readonly property var entry: keysStrip.sheetRows[Math.floor(index / 2)]
                   implicitWidth: index % 2 ? sheetKeys.implicitWidth : sheetName.implicitWidth
                   implicitHeight: Math.max(sheetKeys.implicitHeight, sheetName.implicitHeight)
                   Text {

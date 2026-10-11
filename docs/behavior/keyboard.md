@@ -88,9 +88,9 @@ The CLI as a whole (`status`, `shortcuts`, `help`, error format) is integration.
 
 ## Key strip and shortcut sheet
 
-- **KEYS-32** While the mode is active and not suspended, a strip at the screen edge opposite the bar (24 px in) lists the keys for the current level, unless `powerbarKeyLegend` is false (default true; Preferences → Bar → Keyboard → Key legend). The strip is hidden while the bar is sliding. Bar level: Move (← → or ↑ ↓), Into (the into arrow) "Into a group", Tab "Next zone", Enter "Open", / "Find", ? "Shortcuts", Esc "Leave". Code: BarKeysModel.legend()
+- **KEYS-32** While the mode is active and not suspended, a strip at the screen edge opposite the bar (24 px in) lists the keys for the current level, unless `powerbarKeyLegend` is false (default true; Preferences → Bar → Keyboard → Key legend). The strip is hidden while the bar is sliding. Bar level: Move (← → or ↑ ↓), Into (the into arrow) "Into a group", Tab "Next zone", Enter "Open", / "Find", ? "Shortcuts", , "Preferences", Esc "Leave". Code: BarKeysModel.legend()
 
-- **KEYS-33** Drawer level: Move, Enter "Open", Back, Esc Esc "Leave". Move shows the along arrows for a strip, and for a menu on a side bar; for a menu on a top or bottom bar, the into and out arrows (↓ ↑ on top). Back shows the out arrow and Esc, except for a menu on a top or bottom bar (Esc alone).
+- **KEYS-33** Drawer level: Move, Enter "Open", Back, , "Preferences", Esc Esc "Leave". Move shows the along arrows for a strip, and for a menu on a side bar; for a menu on a top or bottom bar, the into and out arrows (↓ ↑ on top). Back shows the out arrow and Esc, except for a menu on a top or bottom bar (Esc alone).
 
 - **KEYS-34** Search level: Tab "Next match", Enter "Open", Esc "Stop finding", Esc Esc "Leave".
 
@@ -100,7 +100,7 @@ The CLI as a whole (`status`, `shortcuts`, `help`, error format) is integration.
 
 - **KEYS-37** The double Esc is listed on the drawer and search strips only, as "Esc Esc" "Leave"; the bar-level strip lists a single Esc "Leave".
 
-- **KEYS-70** `?` shows the shortcut sheet in the strip: "Shortcuts" and two columns, widget or group name and its shortcut drawn as keycaps joined by "+", for every catalogue entry that has one; with none, "No widget on this bar has a shortcut yet. Set them in Preferences → Layout." It shows even when the key legend is off. `?` or Esc closes it; any other key closes it and then does its usual job.
+- **KEYS-70** `?` shows the shortcut sheet in the strip: "Shortcuts" and two columns, a name and its keys drawn as keycaps joined by "+": first "Powerbar preferences" with `,` (KEYS-81), then every catalogue entry that has a shortcut; with none of those, the title reads "No widget on this bar has a shortcut yet. Set them in Preferences → Layout." over the Preferences row. It shows even when the key legend is off. `?` or Esc closes it; any other key closes it and then does its usual job.
 
 ## Double Escape (quick exit)
 
@@ -152,6 +152,7 @@ The CLI as a whole (`status`, `shortcuts`, `help`, error format) is integration.
 - **KEYS-74** A group dissolved while a shortcut change is being written loses its shortcut once that write is done. After a failed write, this cleanup waits for the next change instead of retrying. Code: ShortcutStore.qml pruneStaleGroups()
 - **KEYS-75** With the same widget on the bar twice, moving between panels (a panel's own Tab) walks both copies, and Omarchy's place-based panel shortcut (`togglePanelAt`, Super+Ctrl+1–9) opens the copy at that place, not the first. Code: Bar.qml panelNavigationSlots(), panelWidgetIdAt(); BarModel.js pickPanelSlot()
 - **KEYS-76** Opening Preferences (its button, `omarchy-shell powerbar preferences`, a bind) ends the keyboard mode first, so only one of them holds the keyboard. Code: Preferences.qml open()
+- **KEYS-81** `,` toggles Preferences from the keyboard mode: at bar level or in a drawer (not in a search, where it is typed) it opens Preferences on that bar's monitor, as Enter on the Preferences button does, and the mode ends (KEYS-76). In Preferences `,` (when the focused control does not take it, as a text field does) closes Preferences; when they were opened from the mode (`,` or Enter on the button), the mode comes back on the same bar with the cursor on the stop it left from (a drawer it was in stays closed; the cursor is on the drawer's icon or zone stop). Opened any other way, `,` only closes them. Code: BarKeysModel.PREFS_KEY, barIntent, drawerIntent; BarKeys openPreferences, backFromPreferences, enter(onWindow, at); Preferences.qml closeToKeys
 
 - **KEYS-54** Recording (Preferences): Enter, Space or a click on a shortcut row (not while it is unavailable or Saving) puts Hyprland in the empty submap `powerbar-record` (15 s watchdog) and the tag reads "Press the keys"; the modifiers held show as keycaps. A plain Esc cancels. A combination needs Super, Ctrl or Alt unless it is an F key, else the tag says "Add Super, Ctrl or Alt"; an unmappable key says "Powerbar can't bind that key". If the keys are already bound to something else, the row names it and asks: Enter ("Take over") gives them to this target, Esc keeps them where they were; otherwise the shortcut is saved at once. Losing focus cancels. Code: ShortcutRow.qml, ShortcutModel.fromKeyEvent()
 

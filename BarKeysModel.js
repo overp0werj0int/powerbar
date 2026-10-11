@@ -11,6 +11,9 @@
 // "Backtab", "Enter", "Space", "Escape", "Backspace", or the character typed.
 
 var ZONES = ["left", "center", "right"]
+// Opens Preferences from the mode, and in Preferences comes back to it
+// (the comma, as for an app's settings).
+var PREFS_KEY = ","
 
 function keymap(position) {
   var vertical = position === "left" || position === "right"
@@ -23,8 +26,8 @@ function keymap(position) {
 }
 
 // What a key asks for on the bar: { move: ±1 } along, { zone: ±1 } (Tab),
-// { home }, { end }, { into }, { open }, { find }, { sheet }, { leave }, or
-// null for a key the bar does not use.
+// { home }, { end }, { into }, { open }, { find }, { sheet }, { prefs }
+// (Preferences), { leave }, or null for a key the bar does not use.
 function barIntent(position, key) {
   var map = keymap(position)
   if (map.along[key] !== undefined) return { move: map.along[key] }
@@ -36,6 +39,7 @@ function barIntent(position, key) {
   if (key === "Enter" || key === "Space") return { open: true }
   if (key === "/") return { find: true }
   if (key === "?") return { sheet: true }
+  if (key === PREFS_KEY) return { prefs: true }
   if (key === "Escape") return { leave: true }
   return null
 }
@@ -47,10 +51,11 @@ function barIntent(position, key) {
 // comes back up (to the icon from the first row), and the along keys leave
 // and move on.
 // Returns { member: ±1 }, { back }, { backMove: ±1 }, { zone: ±1 }, { open },
-// { find }, { sheet }, or null.
+// { find }, { sheet }, { prefs }, or null.
 function drawerIntent(position, key, member, strip) {
   var map = keymap(position)
   if (key === "Escape") return { back: true }
+  if (key === PREFS_KEY) return { prefs: true }
   if (key === "Enter" || key === "Space") return { open: true }
   if (key === "Tab") return { zone: 1 }
   if (key === "Backtab") return { zone: -1 }
@@ -198,12 +203,12 @@ function legend(position, state, drawers, strip) {
   if (state === "drawer") return [
     { keys: map.vertical || strip ? alongKeys : arrows[map.into[0]] + " " + arrows[map.out[0]], label: "Move" },
     { keys: "Enter", label: "Open" }, { keys: map.vertical || strip ? arrows[map.out[0]] + " Esc" : "Esc", label: "Back" },
-    { keys: "Esc Esc", label: "Leave" }
+    { keys: PREFS_KEY, label: "Preferences" }, { keys: "Esc Esc", label: "Leave" }
   ]
   return [
     { keys: alongKeys, label: "Move" }, { keys: arrows[map.into[0]], label: drawers ? "Into a group or drawer" : "Into a group" },
     { keys: "Tab", label: "Next zone" }, { keys: "Enter", label: "Open" }, { keys: "/", label: "Find" },
-    { keys: "?", label: "Shortcuts" }, { keys: "Esc", label: "Leave" }
+    { keys: "?", label: "Shortcuts" }, { keys: PREFS_KEY, label: "Preferences" }, { keys: "Esc", label: "Leave" }
   ]
 }
 
@@ -225,4 +230,4 @@ function cardText(name, own, namedMenu) {
   return namedMenu && own && own !== name ? own : name
 }
 
-if (typeof module !== "undefined") module.exports = { ZONES, keymap, barIntent, drawerIntent, step, zoneStep, fuzzy, matches, searchText, route, legend, startScreen, cardText }
+if (typeof module !== "undefined") module.exports = { ZONES, PREFS_KEY, keymap, barIntent, drawerIntent, step, zoneStep, fuzzy, matches, searchText, route, legend, startScreen, cardText }

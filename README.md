@@ -206,7 +206,7 @@ whatever has focus):
 
 | Where | Keys |
 | --- | --- |
-| Anywhere | `1`–`3` switch pages, Ctrl+Tab cycles them, Tab / Shift+Tab move between controls, Esc closes |
+| Anywhere | `1`–`3` switch pages, Ctrl+Tab cycles them, Tab / Shift+Tab move between controls, Esc or `,` closes (`,` back to the keyboard mode when it came from there) |
 | Forms | `j` / `k` move between controls, `h` / `l` adjust (Shift for larger steps), Space / Enter toggle or choose |
 | Sliders | Home / End for the ends, Backspace for the default, Esc undoes a value not yet applied |
 | Layout shelves | `h` `j` `k` `l` move; Space picks up a widget, then `h` / `l` move it and `j` / `k` change its shelf; Space drops it, Esc puts it back; `x` hides or restores; `g` edits its group |
@@ -230,6 +230,8 @@ on every edge:
 - `/` finds a widget by name, fuzzily (`/pm` finds Plugin Manager), and opens
   the way to it, into a group, a drawer or behind dots.
 - `?` lists every widget's and group's shortcut.
+- `,` opens Preferences; `,` there closes them and brings the cursor back
+  where it was.
 - Esc closes the innermost thing; Esc twice quickly ends everything and gives
   the keys back to your window. So does Super+B again.
 

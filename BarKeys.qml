@@ -125,9 +125,10 @@ Item {
 
   // ---- entering and leaving ---------------------------------------------
   function toggle() { if (active) leave(); else enter() }
-  function enter() {
+  // onWindow and at: a bar and a stop to start on (back from Preferences).
+  function enter(onWindow, at) {
     if (bar.preferencesOpen) return
-    var w = bar.focusedBarWindow()
+    var w = onWindow || bar.focusedBarWindow()
     if (!w) return
     window = w
     active = true
@@ -137,7 +138,8 @@ Item {
     var list = stops()
     var open = list.find(function(s) { return s.item.panelOpen })
     var anchor = list.find(function(s) { return s.item.centerAnchorSlot })
-    var start = open || anchor || list[Math.floor(list.length / 2)]
+    var back = at ? list.find(function(s) { return s.item === at }) : null
+    var start = back || open || anchor || list[Math.floor(list.length / 2)]
     cursor = start ? start.item : null
     showCard()
     focusLater()
@@ -397,8 +399,8 @@ Item {
     var item = cursor
     if (!item) return
     if (opensDrawer(item)) { openDrawer(true); return }
-    // Preferences takes the keyboard: the cursor leaves first.
-    if (item.isPrefsButton) { leave(); item.activate(); return }
+    // Preferences takes the keyboard: the mode ends until , brings it back.
+    if (item.isPrefsButton) { openPreferences(); return }
     if (item.isFoldHandle) { openDots(item.inlineToken, 1, ""); return }
     activate(item)
   }
@@ -458,6 +460,7 @@ Item {
     else if (it.open) openCursor()
     else if (it.find) startSearch()
     else if (it.sheet) sheet = true
+    else if (it.prefs) openPreferences()
     else if (it.leave) leave()
     return true
   }
@@ -481,7 +484,33 @@ Item {
     else if (it.open) activate(d.slots[d.cursor])
     else if (it.find) { closeDrawer(true); startSearch() }
     else if (it.sheet) sheet = true
+    else if (it.prefs) openPreferences()
     return true
+  }
+
+  // ---- Preferences ----------------------------------------------------------
+  // , opens Preferences on this bar's monitor; Preferences takes the keyboard,
+  // so the mode ends. , there (Preferences.qml) closes it and brings the mode
+  // back on the same bar with the cursor where it was (KEYS-81).
+  property var backFrom: null
+  property bool toPreferences: false
+  function openPreferences() {
+    var w = window, at = cursor
+    if (!w) return
+    toPreferences = true
+    bar.showPreferences(w.screen)
+    toPreferences = false
+    backFrom = { window: w, cursor: at }
+  }
+  function backFromPreferences() {
+    var b = backFrom
+    backFrom = null
+    if (b && b.window) enter(b.window, b.cursor)
+  }
+  // Preferences opened any other way forgets the way back.
+  Connections {
+    target: keys.bar
+    function onPreferencesOpenChanged() { if (keys.bar.preferencesOpen && !keys.toPreferences) keys.backFrom = null }
   }
 
   // ---- finding --------------------------------------------------------------

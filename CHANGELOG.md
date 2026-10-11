@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- **Keyboard mode**: `,` opens Preferences, and `,` in Preferences closes
+  them and brings the keyboard mode back with the cursor where it was. The
+  key strip and the `?` sheet list it.
 - **Frame log** for debugging: `"powerbarFrameLog": true` on the bar in
   shell.json (no Preferences switch) writes a timeline of what the bar does
   (`PB-EV` lines: keys, cards, hover, expansions, drawers, slides, drags,

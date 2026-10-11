@@ -107,6 +107,10 @@ Item {
     snapshotDelay.stop()
     if (bar) bar.releasePopout(prefs)
   }
+  function closeToKeys() {
+    close()
+    if (bar && bar.barKeys) Qt.callLater(bar.barKeys.backFromPreferences)
+  }
   function show(screen) { targetScreen = screen; open("{}") }
   function showGroup(screen, id) { if (id) selectGroup(id); page = 1; show(screen) }
   function openGroup(id) { selectGroup(id); setPage(1) }
@@ -385,6 +389,9 @@ Item {
         var ctrl = event.modifiers & Qt.ControlModifier
         var digit = event.key - Qt.Key_1
         if (event.key === Qt.Key_Escape) { prefs.close(); event.accepted = true }
+        // , (the keyboard mode's key for Preferences) closes it, back to the
+        // mode when it came from there (KEYS-81).
+        else if (event.text === "," && !(event.modifiers & (Qt.ControlModifier | Qt.AltModifier | Qt.MetaModifier))) { prefs.closeToKeys(); event.accepted = true }
         else if (digit >= 0 && digit < prefs.pages.length && !(event.modifiers & Qt.AltModifier)) { prefs.setPage(digit); event.accepted = true }
         else if (ctrl && event.key === Qt.Key_Tab) { prefs.setPage((prefs.page + 1) % prefs.pages.length); event.accepted = true }
         else if (ctrl && event.key === Qt.Key_Backtab) { prefs.setPage((prefs.page + prefs.pages.length - 1) % prefs.pages.length); event.accepted = true }
