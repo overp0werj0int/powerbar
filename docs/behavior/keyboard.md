@@ -89,7 +89,7 @@ The CLI as a whole (`status`, `shortcuts`, `help`, error format) is integration.
 
 ## Key strip and shortcut sheet
 
-- **KEYS-32** While the mode is active and not suspended, a strip at the screen edge opposite the bar (24 px in) lists the keys for the current level, unless `powerbarKeyLegend` is false (default true; Preferences → Bar → Keyboard → Key legend). The strip is hidden while the bar is sliding. Bar level: Move (← → or ↑ ↓), Into (the into arrow) "Into a group", Tab "Next zone", Enter "Open", / "Find", ? "Shortcuts", , "Preferences", Esc "Leave". Code: BarKeysModel.legend()
+- **KEYS-32** While the mode is active and not suspended, a strip at the screen edge opposite the bar (24 px in) lists the keys for the current level, unless `powerbarKeyLegend` is false (default true; Preferences → Bar → Keyboard → Key legend). The strip is hidden while the bar is sliding. Bar level: the along arrows and the into arrow together "Move" (← → ↓ on a top bar), Tab Shift+Tab "Zones", Enter "Open", / "Find", ? "Shortcuts", , "Preferences", Esc "Leave". Code: BarKeysModel.legend()
 
 - **KEYS-33** Drawer level: Move, Enter "Open", Back, , "Preferences", Esc Esc "Leave". Move shows the along arrows for a strip, and for a menu on a side bar; for a menu on a top or bottom bar, the into and out arrows (↓ ↑ on top). Back shows the out arrow and Esc, except for a menu on a top or bottom bar (Esc alone).
 
@@ -97,11 +97,10 @@ The CLI as a whole (`status`, `shortcuts`, `help`, error format) is integration.
 
 - **KEYS-35** The arrows are named by the edge: top bar into = ↓, out = ↑; bottom into = ↑; right bar into = ←, out = →; left bar into = →. hjkl never appear on the strip.
 
-- **KEYS-36** In drawer mode (`powerbarOnDemand` = `drawer`) the bar-level label is "Into a group or drawer"; in inline mode "Into a group".
 
 - **KEYS-37** The double Esc is listed on the drawer and search strips only, as "Esc Esc" "Leave"; the bar-level strip lists a single Esc "Leave".
 
-- **KEYS-70** `?` shows the shortcut sheet in the strip, in two columns side by side with a thin rule between, the strip as wide as they need. Left, "Keyboard mode": every key of the mode for this edge, keycaps then what they do: the along arrows and vim letters "Move", the into arrow and letter "Into a group or drawer" ("Into a group" when on-demand widgets are inline), the out arrow and letter "Back out of a drawer", Home ^ "First stop", End $ "Last stop", Tab PgDn "Next zone", Shift+Tab PgUp "Previous zone", Enter Space "Open", / "Find", , "Preferences" (KEYS-81), ? "This sheet", Esc "Back, or leave", Esc Esc "Leave from anywhere". Right, "Widgets and groups": every catalogue entry that has a shortcut, its name and its keys drawn as keycaps joined by "+"; with none, it reads "No widget on this bar has a shortcut yet. Set them in Preferences → Layout." The key legend row is hidden while the sheet shows. It shows even when the key legend is off. `?` or Esc closes it; any other key closes it and then does its usual job. Code: BarKeysModel.sheetKeys(); Bar.qml keysStrip
+- **KEYS-70** `?` shows the shortcut sheet in the strip, in two columns side by side with a thin rule between, the strip as wide as they need. Left, "Keyboard mode": every key of the mode for this edge, keycaps then what they do: first one "Movement" row with every arrow (along, into, out) then their vim letters (← → ↓ ↑ h l j k on a top bar), then Home ^ "First stop", End $ "Last stop", Tab PgDn "Next zone", Shift+Tab PgUp "Previous zone", Enter Space "Open", / "Find", , "Preferences" (KEYS-81), ? "This sheet", Esc "Back, or leave", Esc Esc "Leave from anywhere". Right, "Widgets and groups": every catalogue entry that has a shortcut, its name and its keys drawn as keycaps joined by "+"; with none, it reads "No widget on this bar has a shortcut yet. Set them in Preferences → Layout." The key legend row is hidden while the sheet shows. It shows even when the key legend is off. `?` or Esc closes it; any other key closes it and then does its usual job. Code: BarKeysModel.sheetKeys(); Bar.qml keysStrip
 
 ## Double Escape (quick exit)
 
@@ -189,6 +188,10 @@ The CLI as a whole (`status`, `shortcuts`, `help`, error format) is integration.
 
 - **KEYS-65** Within the mode, if neither the bar's key catcher nor an entered drawer has focus, a 60 ms timer gives it back (the drawer if open and entered, else the bar).
 - **KEYS-78** When the monitor whose bar holds the mode goes away (unplugged, switched off), the mode ends with it, as `keysOff` would. Code: Bar.qml BarPanel `Component.onDestruction`.
+
+## Retired IDs
+
+KEYS-36 (the "Into a group or drawer" label) merged into KEYS-32 and KEYS-70: the into arrow is part of "Move" and "Movement".
 
 ## Doc drift
 

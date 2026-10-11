@@ -169,15 +169,14 @@ test('a found widget comes into view the way the pointer would bring it', () => 
 
 test('the key strip names the keys of the edge', () => {
   const right = keys.legend('right', 'bar');
-  assert.equal(right[0].keys, '↑ ↓');
-  assert.equal(right[1].keys, '←');
-  assert.equal(keys.legend('top', 'bar')[1].keys, '↓');
-  assert.equal(keys.legend('top', 'bar', true)[1].label, 'Into a group or drawer');
+  assert.deepEqual(right[0], { keys: '↑ ↓ ←', label: 'Move' }, 'the along and into arrows share one Move');
+  assert.deepEqual(right[1], { keys: 'Tab Shift+Tab', label: 'Zones' });
+  assert.equal(keys.legend('top', 'bar')[0].keys, '← → ↓');
   assert.equal(keys.legend('top', 'drawer')[0].keys, '↓ ↑');
   assert.equal(keys.legend('right', 'drawer')[2].keys, '→ Esc');
-  assert.equal(keys.legend('top', 'drawer', true, true)[0].keys, '← →', 'a strip is walked along the bar');
-  assert.equal(keys.legend('top', 'drawer', true, true)[2].keys, '↑ Esc');
-  assert.equal(keys.legend('bottom', 'drawer', true, true)[2].keys, '↓ Esc');
+  assert.equal(keys.legend('top', 'drawer', true)[0].keys, '← →', 'a strip is walked along the bar');
+  assert.equal(keys.legend('top', 'drawer', true)[2].keys, '↑ Esc');
+  assert.equal(keys.legend('bottom', 'drawer', true)[2].keys, '↓ Esc');
   assert.deepEqual(keys.legend('top', 'drawer').at(-1), { keys: 'Esc Esc', label: 'Leave' }, 'a quick double Esc leaves from any depth');
   for (const state of ['bar', 'drawer']) {
     assert.deepEqual(keys.legend('top', state).at(-2), { keys: ',', label: 'Preferences' }, `${state}: , opens Preferences`);
@@ -187,13 +186,11 @@ test('the key strip names the keys of the edge', () => {
 });
 
 test('the ? sheet lists every key of the mode for the edge', () => {
-  const top = keys.sheetKeys('top', false);
-  assert.deepEqual(top[0], { keys: '← → h l', label: 'Move' });
-  assert.deepEqual(top[1], { keys: '↓ j', label: 'Into a group' });
-  assert.deepEqual(top[2], { keys: '↑ k', label: 'Back out of a drawer' });
-  assert.deepEqual(keys.sheetKeys('right', true)[0], { keys: '↑ ↓ k j', label: 'Move' });
-  assert.deepEqual(keys.sheetKeys('right', true)[1], { keys: '← h', label: 'Into a group or drawer' });
-  assert.deepEqual(keys.sheetKeys('bottom', false)[2], { keys: '↓ j', label: 'Back out of a drawer' });
+  const top = keys.sheetKeys('top');
+  assert.deepEqual(top[0], { keys: '← → ↓ ↑ h l j k', label: 'Movement' }, 'arrows and vim letters in one row');
+  assert.deepEqual(keys.sheetKeys('right')[0], { keys: '↑ ↓ ← → k j h l', label: 'Movement' });
+  assert.deepEqual(keys.sheetKeys('bottom')[0], { keys: '← → ↑ ↓ h l k j', label: 'Movement' });
+  assert.equal(top[1].label, 'First stop');
   const all = top.map(e => e.keys).join(' ').split(' ');
   for (const k of ['Home', '^', 'End', '$', 'Tab', 'PgDn', 'PgUp', 'Enter', '/', ',', '?', 'Esc']) assert.ok(all.includes(k), k);
 });

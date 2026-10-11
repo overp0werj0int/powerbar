@@ -194,10 +194,11 @@ function route(where) {
   return "clear"
 }
 
-// The key strip's entries for an edge: [{ keys, label }].
-// drawers: on-demand widgets wait in zone drawers (the into key enters them).
+// The key strip's entries for an edge: [{ keys, label }]. At bar level the
+// arrows that move the cursor (along and into) share one "Move", and Tab and
+// Shift+Tab one "Zones".
 // strip: the open drawer is a strip, walked with the along keys.
-function legend(position, state, drawers, strip) {
+function legend(position, state, strip) {
   var map = keymap(position)
   var arrows = { Up: "↑", Down: "↓", Left: "←", Right: "→" }
   var alongKeys = map.vertical ? "↑ ↓" : "← →"
@@ -211,24 +212,23 @@ function legend(position, state, drawers, strip) {
     { keys: PREFS_KEY, label: "Preferences" }, { keys: "Esc Esc", label: "Leave" }
   ]
   return [
-    { keys: alongKeys, label: "Move" }, { keys: arrows[map.into[0]], label: drawers ? "Into a group or drawer" : "Into a group" },
-    { keys: "Tab", label: "Next zone" }, { keys: "Enter", label: "Open" }, { keys: "/", label: "Find" },
+    { keys: alongKeys + " " + arrows[map.into[0]], label: "Move" }, { keys: "Tab Shift+Tab", label: "Zones" },
+    { keys: "Enter", label: "Open" }, { keys: "/", label: "Find" },
     { keys: "?", label: "Shortcuts" }, { keys: PREFS_KEY, label: "Preferences" }, { keys: "Esc", label: "Leave" }
   ]
 }
 
 // The ? sheet's left column: every key of the mode for an edge, in the
-// legend's form ({ keys, label }, keys split on spaces into keycaps).
-// drawers: on-demand widgets wait in zone drawers (the into key enters them).
-function sheetKeys(position, drawers) {
+// legend's form ({ keys, label }, keys split on spaces into keycaps). The
+// arrows (along, into, out) and their vim letters share one "Movement" row.
+function sheetKeys(position) {
   var map = keymap(position)
   var arrows = { Up: "↑", Down: "↓", Left: "←", Right: "→" }
-  var along = Object.keys(map.along).filter(function(k) { return arrows[k] }).map(function(k) { return arrows[k] })
+  var along = Object.keys(map.along).filter(function(k) { return arrows[k] })
   var vim = Object.keys(map.along).filter(function(k) { return !arrows[k] })
+  var moveArrows = along.concat([map.into[0], map.out[0]]).map(function(k) { return arrows[k] })
   return [
-    { keys: along.concat(vim).join(" "), label: "Move" },
-    { keys: arrows[map.into[0]] + " " + map.into[1], label: drawers ? "Into a group or drawer" : "Into a group" },
-    { keys: arrows[map.out[0]] + " " + map.out[1], label: "Back out of a drawer" },
+    { keys: moveArrows.concat(vim, [map.into[1], map.out[1]]).join(" "), label: "Movement" },
     { keys: "Home ^", label: "First stop" },
     { keys: "End $", label: "Last stop" },
     { keys: "Tab PgDn", label: "Next zone" },
