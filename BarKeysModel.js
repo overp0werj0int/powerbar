@@ -7,8 +7,10 @@
 // drawer opens) and enters a group, "out" comes back. On a side bar Up and
 // Down run along it, so ← or → enter and leave.
 //
-// A key name is "Left", "Right", "Up", "Down", "Home", "End", "Tab",
-// "Backtab", "Enter", "Space", "Escape", "Backspace", or the character typed.
+// A key name is "Left", "Right", "Up", "Down", "Home", "End", "PageUp",
+// "PageDown", "Tab", "Backtab", "Enter", "Space", "Escape", "Backspace", or the
+// character typed. As in vim, ^ and $ go to the ends, like Home and End; Page
+// Up and Page Down jump zone to zone, like Shift+Tab and Tab.
 
 var ZONES = ["left", "center", "right"]
 // Opens Preferences from the mode, and in Preferences comes back to it
@@ -32,10 +34,10 @@ function barIntent(position, key) {
   var map = keymap(position)
   if (map.along[key] !== undefined) return { move: map.along[key] }
   if (map.into.indexOf(key) >= 0) return { into: true }
-  if (key === "Tab") return { zone: 1 }
-  if (key === "Backtab") return { zone: -1 }
-  if (key === "Home") return { home: true }
-  if (key === "End") return { end: true }
+  if (key === "Tab" || key === "PageDown") return { zone: 1 }
+  if (key === "Backtab" || key === "PageUp") return { zone: -1 }
+  if (key === "Home" || key === "^") return { home: true }
+  if (key === "End" || key === "$") return { end: true }
   if (key === "Enter" || key === "Space") return { open: true }
   if (key === "/") return { find: true }
   if (key === "?") return { sheet: true }
@@ -50,15 +52,18 @@ function barIntent(position, key) {
 // runs away from it, so the into key goes on down the rows and the out key
 // comes back up (to the icon from the first row), and the along keys leave
 // and move on.
-// Returns { member: ±1 }, { back }, { backMove: ±1 }, { zone: ±1 }, { open },
-// { find }, { sheet }, { prefs }, or null.
+// Home and ^ go to the first member, End and $ to the last.
+// Returns { member: ±1 }, { first }, { last }, { back }, { backMove: ±1 },
+// { zone: ±1 }, { open }, { find }, { sheet }, { prefs }, or null.
 function drawerIntent(position, key, member, strip) {
   var map = keymap(position)
   if (key === "Escape") return { back: true }
   if (key === PREFS_KEY) return { prefs: true }
   if (key === "Enter" || key === "Space") return { open: true }
-  if (key === "Tab") return { zone: 1 }
-  if (key === "Backtab") return { zone: -1 }
+  if (key === "Tab" || key === "PageDown") return { zone: 1 }
+  if (key === "Backtab" || key === "PageUp") return { zone: -1 }
+  if (key === "Home" || key === "^") return { first: true }
+  if (key === "End" || key === "$") return { last: true }
   if (key === "/") return { find: true }
   if (key === "?") return { sheet: true }
   if (map.vertical || strip) {

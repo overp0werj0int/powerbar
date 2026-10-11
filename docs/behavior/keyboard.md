@@ -31,6 +31,7 @@ The CLI as a whole (`status`, `shortcuts`, `help`, error format) is integration.
 - **KEYS-7** Tab goes to the first stop of the next zone that has stops; Shift+Tab (Backtab) to the last stop of the previous one; both wrap round left, centre, right. With stops in one zone only, they land on that zone's first or last stop.
 
 - **KEYS-8** Home moves to the first stop, End to the last, whatever the zone.
+- **KEYS-82** As in vim, `^` does what Home does and `$` what End does; Page Down does what Tab does and Page Up what Shift+Tab does (KEYS-7), on the bar and in a drawer. In a drawer Home and `^` move to its first member, End and `$` to its last (the strip scrolls them into view). In a search they are typed, as other characters are. Code: BarKeysModel.barIntent, drawerIntent; BarKeys keyName (PageUp, PageDown), drawerKey (first, last)
 
 - **KEYS-9** If the cursor's stop disappears (hidden, folded, yielded, its drawer or dots changed), the next movement starts from the first stop of the cursor's zone. The cursor is not moved by the disappearance itself.
 
@@ -162,7 +163,7 @@ The CLI as a whole (`status`, `shortcuts`, `help`, error format) is integration.
 
 - **KEYS-68** While the mode is on, the bar is held out as the pointer holds it: an autohidden bar stays shown, and a bar switched off with `omarchy toggle bar` is drawn until the mode ends.
 
-- **KEYS-69** The stop under the cursor is drawn with its own hover highlight, outlined: a one-device-pixel accent ring as the highlight's border (widgets, dots, the Preferences button and drawer rows alike), so ring and fill are one shape. A cursor move shows at once, without the hover fade: the stop it leaves goes dark and the stop it reaches lights in the same frame, as do the cursor appearing and keyboard mode ending. When the pointer keeps the stop lit after the cursor leaves it, the ring comes off and the fill stays. Pointer hover keeps its 90 ms fade. Where highlights overlap (DRAG-21) the outlined one never dims. Code: HoverHighlight `outlined`, `settle()`.
+- **KEYS-69** The stop under the cursor is drawn with its own hover highlight, outlined: a one-device-pixel accent ring as the highlight's border (widgets, dots, the Preferences button and drawer rows alike), so ring and fill are one shape. A cursor move within a zone or a drawer slides the ring and fill from the stop it leaves to the stop it reaches (appearance.md LOOK-139); a move to another zone shows at once, without the hover fade: the stop it leaves goes dark and the stop it reaches lights in the same frame, as do the cursor appearing and keyboard mode ending. When the pointer keeps the stop lit after the cursor leaves it, the ring comes off and the fill stays. Pointer hover keeps its 90 ms fade. Where highlights overlap (DRAG-21) the outlined one never dims. Code: HoverHighlight `outlined`, `settle()`.
 
 ## Shortcuts: parsing and rendering
 

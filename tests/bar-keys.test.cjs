@@ -34,6 +34,19 @@ test('the other keys mean the same on every edge', () => {
     assert.deepEqual(keys.drawerIntent(edge, ',', 0, true), { prefs: true });
     assert.deepEqual(keys.barIntent(edge, 'Escape'), { leave: true });
     assert.deepEqual(keys.barIntent(edge, 'Home'), { home: true });
+    assert.deepEqual(keys.barIntent(edge, '^'), { home: true }, 'vim: ^ to the start');
+    assert.deepEqual(keys.barIntent(edge, 'End'), { end: true });
+    assert.deepEqual(keys.barIntent(edge, '$'), { end: true }, 'vim: $ to the end');
+    assert.deepEqual(keys.barIntent(edge, 'PageDown'), { zone: 1 });
+    assert.deepEqual(keys.barIntent(edge, 'PageUp'), { zone: -1 });
+    for (const strip of [false, true]) {
+      assert.deepEqual(keys.drawerIntent(edge, 'Home', 2, strip), { first: true });
+      assert.deepEqual(keys.drawerIntent(edge, '^', 2, strip), { first: true });
+      assert.deepEqual(keys.drawerIntent(edge, 'End', 0, strip), { last: true });
+      assert.deepEqual(keys.drawerIntent(edge, '$', 0, strip), { last: true });
+      assert.deepEqual(keys.drawerIntent(edge, 'PageDown', 0, strip), { zone: 1 });
+      assert.deepEqual(keys.drawerIntent(edge, 'PageUp', 0, strip), { zone: -1 });
+    }
   }
 });
 

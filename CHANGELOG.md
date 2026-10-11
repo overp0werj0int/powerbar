@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- **Sliding highlight** (experimental): the hover highlight and the keyboard
+  cursor slide from widget to widget within a zone and along a drawer's
+  rows, instead of fading out and in.
+- **Keyboard mode**: `^` and `$` jump to the ends as Home and End do, Page
+  Up and Page Down jump zone to zone, and Home, End, `^`, `$` work in drawers.
 - **Keyboard mode**: `,` opens Preferences, and `,` in Preferences closes
   them and brings the keyboard mode back with the cursor where it was. The
   key strip and the `?` sheet list it.

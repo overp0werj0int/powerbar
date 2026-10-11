@@ -524,6 +524,8 @@ Item {
       // Strip highlights live beneath the cells, so an Equal gaps cell can
       // spill past its slot like on the bar.
       Item { id: stripHighlights; anchors.fill: parent }
+      // A row's highlight slides on to the next row (LOOK-139).
+      HighlightGlide { id: rowGlide }
       Grid {
         id: contents
         columns: drawer.stripVertical ? 1 : Math.max(1, drawer.slots.length)
@@ -644,6 +646,8 @@ Item {
               outlined: keysCursor && hovered
               selected: modelData ? modelData.panelOpen : false
               motionEnabled: bar.animationsEnabled
+              glide: rowGlide
+              glideKey: "rows"
               hoverColor: bar.highlightHoverColor
               selectedColor: bar.highlightSelectedColor
               rounding: CellModel.radius(drawer.tokens, bar.islandRounding)

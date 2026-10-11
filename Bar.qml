@@ -3034,6 +3034,8 @@ Item {
       if (barKeysItem.window === barWindow) barKeysItem.leave()
     }
     property alias managedDrawer: drawer
+    // The bar's highlights slide from one to the next within a zone (LOOK-139).
+    readonly property HighlightGlide highlightGlide: HighlightGlide {}
     // The frame log's timeline for this screen's bar (FrameLog.qml).
     readonly property string evScreen: screen ? screen.name : "?"
     Connections {
@@ -4269,6 +4271,9 @@ Item {
       outlined: preferencesButton.keysCursor && hovered
       selected: preferencesPane.opened
       motionEnabled: root.animationsEnabled
+      readonly property var hostWindow: root.targetWindow(preferencesButton)
+      glide: hostWindow ? hostWindow.highlightGlide || null : null
+      glideKey: "right"
       hoverColor: root.highlightHoverColor
       selectedColor: root.highlightSelectedColor
       width: root.vertical ? root.cellTokens.thickness : preferencesButton.cellPlace.cell
@@ -4723,6 +4728,9 @@ Item {
       outlined: foldHandle.keysCursor && hovered
       selected: foldHandle.drawerOpen || foldHandle.dropTarget
       motionEnabled: root.animationsEnabled
+      readonly property var hostWindow: root.targetWindow(foldHandle)
+      glide: hostWindow ? hostWindow.highlightGlide || null : null
+      glideKey: foldHandle.zone
       hoverColor: root.highlightHoverColor
       selectedColor: root.highlightSelectedColor
       width: root.vertical ? root.cellTokens.thickness : foldHandle.cellPlace.cell
@@ -5461,6 +5469,8 @@ Item {
       // the bar: a member's panel opened from its drawer lights its row.
       selected: (slot.panelOpen || slot.drawerOpen) && slot.mainVisible && !slot.dragSource
       motionEnabled: root.animationsEnabled
+      glide: hostWindow ? hostWindow.highlightGlide || null : null
+      glideKey: slot.region
       hoverColor: slot.compoundTargets.length > 1 && !slot.activityFlash ? root.highlightTrackColor : root.highlightHoverColor
       selectedColor: root.highlightSelectedColor
       readonly property Item island: hostWindow && hostWindow.zoneIslands ? hostWindow.zoneIslands[slot.region] || null : null

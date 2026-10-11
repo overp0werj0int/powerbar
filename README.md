@@ -220,8 +220,9 @@ you accept). The cursor starts on the clock, or on the widget whose panel is
 open. Keys are named by direction relative to the bar, so they mean the same
 on every edge:
 
-- The arrows (or h j k l) along the bar move the cursor; Home / End jump to
-  the ends; Tab / Shift+Tab jump zone to zone.
+- The arrows (or h j k l) along the bar move the cursor; Home / End (or `^` /
+  `$`) jump to the ends, in a drawer too; Tab / Shift+Tab (or Page Down / Page
+  Up) jump zone to zone.
 - A zone's drawer unfolds as the cursor reaches the zone, as it does for the
   pointer. The key that points into the screen (↓ on a top bar) goes into it
   or into a group, and the opposite key comes back. A strip of icons is walked
