@@ -3864,8 +3864,7 @@ Item {
       readonly property color ink: root.overlayStyled.surface ? root.barForeground : Color.popups.text
       readonly property var entries: wanted ? KeysModel.legend(root.position, keys.mode, !root.onDemandInline, !!keys.drawer && !keys.drawer.namedMenu) : []
       readonly property var sheetEntries: wanted && keys.sheet ? keys.sheetEntries() : []
-      // The mode's own key for Preferences heads the sheet (KEYS-70).
-      readonly property var sheetRows: wanted && keys.sheet ? [{ name: "Powerbar preferences", keys: [KeysModel.PREFS_KEY] }].concat(sheetEntries) : []
+      readonly property var sheetKeys: wanted && keys.sheet ? KeysModel.sheetKeys(root.position, !root.onDemandInline) : []
       EffectSurface {
         id: stripCard
         anchors.centerIn: parent
@@ -3883,43 +3882,104 @@ Item {
           id: stripColumn
           anchors.centerIn: parent
           spacing: Style.space(10)
-          // ?: every widget's own shortcut on this bar.
-          Column {
+          // ?: the mode's keys on the left, every widget's and group's own
+          // shortcut on this bar on the right (KEYS-70).
+          Row {
             visible: keysStrip.keys.sheet
-            spacing: Style.space(4)
-            Text {
-              text: keysStrip.sheetEntries.length ? "Shortcuts" : "No widget on this bar has a shortcut yet. Set them in Preferences → Layout."
-              color: keysStrip.ink
-              font.family: Style.font.family
-              font.pixelSize: Style.font.bodySmall
-              font.bold: keysStrip.sheetEntries.length > 0
-            }
-            Grid {
-              columns: 2
-              columnSpacing: Style.space(16)
-              rowSpacing: Style.space(4)
-              Repeater {
-                model: keysStrip.sheetRows.length * 2
-                Item {
-                  required property int index
-                  readonly property var entry: keysStrip.sheetRows[Math.floor(index / 2)]
-                  implicitWidth: index % 2 ? sheetKeys.implicitWidth : sheetName.implicitWidth
-                  implicitHeight: Math.max(sheetKeys.implicitHeight, sheetName.implicitHeight)
-                  Text {
-                    id: sheetName
-                    visible: index % 2 === 0
-                    anchors.verticalCenter: parent.verticalCenter
-                    text: entry ? entry.name : ""
-                    color: Qt.alpha(keysStrip.ink, 0.7)
-                    font.family: Style.font.family
-                    font.pixelSize: Style.font.bodySmall
+            spacing: Style.space(20)
+            Column {
+              spacing: Style.space(6)
+              Text {
+                text: "Keyboard mode"
+                color: keysStrip.ink
+                font.family: Style.font.family
+                font.pixelSize: Style.font.bodySmall
+                font.bold: true
+              }
+              Grid {
+                columns: 2
+                columnSpacing: Style.space(12)
+                rowSpacing: Style.space(4)
+                Repeater {
+                  model: keysStrip.sheetKeys.length * 2
+                  Item {
+                    required property int index
+                    readonly property var entry: keysStrip.sheetKeys[Math.floor(index / 2)]
+                    implicitWidth: index % 2 ? keyLabel.implicitWidth : keyCaps.implicitWidth
+                    implicitHeight: Math.max(keyCaps.implicitHeight, keyLabel.implicitHeight)
+                    Row {
+                      id: keyCaps
+                      visible: index % 2 === 0
+                      anchors.verticalCenter: parent.verticalCenter
+                      spacing: Style.space(4)
+                      Repeater {
+                        model: entry ? String(entry.keys).split(" ") : []
+                        KeyCap { required property var modelData; text: modelData; foreground: keysStrip.ink }
+                      }
+                    }
+                    Text {
+                      id: keyLabel
+                      visible: index % 2 === 1
+                      anchors.verticalCenter: parent.verticalCenter
+                      text: entry ? entry.label : ""
+                      color: Qt.alpha(keysStrip.ink, 0.7)
+                      font.family: Style.font.family
+                      font.pixelSize: Style.font.bodySmall
+                    }
                   }
-                  KeyCombo {
-                    id: sheetKeys
-                    visible: index % 2 === 1
-                    anchors.verticalCenter: parent.verticalCenter
-                    keys: entry ? entry.keys : []
-                    foreground: keysStrip.ink
+                }
+              }
+            }
+            Rectangle {
+              width: 1
+              height: parent.height
+              color: Qt.alpha(keysStrip.ink, 0.14)
+            }
+            Column {
+              spacing: Style.space(6)
+              Text {
+                text: "Widgets and groups"
+                color: keysStrip.ink
+                font.family: Style.font.family
+                font.pixelSize: Style.font.bodySmall
+                font.bold: true
+              }
+              Text {
+                visible: keysStrip.sheetEntries.length === 0
+                width: Style.space(220)
+                wrapMode: Text.WordWrap
+                text: "No widget on this bar has a shortcut yet. Set them in Preferences → Layout."
+                color: Qt.alpha(keysStrip.ink, 0.7)
+                font.family: Style.font.family
+                font.pixelSize: Style.font.bodySmall
+              }
+              Grid {
+                columns: 2
+                columnSpacing: Style.space(16)
+                rowSpacing: Style.space(4)
+                Repeater {
+                  model: keysStrip.sheetEntries.length * 2
+                  Item {
+                    required property int index
+                    readonly property var entry: keysStrip.sheetEntries[Math.floor(index / 2)]
+                    implicitWidth: index % 2 ? sheetCombo.implicitWidth : sheetName.implicitWidth
+                    implicitHeight: Math.max(sheetCombo.implicitHeight, sheetName.implicitHeight)
+                    Text {
+                      id: sheetName
+                      visible: index % 2 === 0
+                      anchors.verticalCenter: parent.verticalCenter
+                      text: entry ? entry.name : ""
+                      color: Qt.alpha(keysStrip.ink, 0.7)
+                      font.family: Style.font.family
+                      font.pixelSize: Style.font.bodySmall
+                    }
+                    KeyCombo {
+                      id: sheetCombo
+                      visible: index % 2 === 1
+                      anchors.verticalCenter: parent.verticalCenter
+                      keys: entry ? entry.keys : []
+                      foreground: keysStrip.ink
+                    }
                   }
                 }
               }
@@ -3963,8 +4023,9 @@ Item {
               anchors.verticalCenter: parent.verticalCenter
             }
           }
-          // The keys for where the cursor is.
+          // The keys for where the cursor is; the sheet already lists them all.
           Row {
+            visible: !keysStrip.keys.sheet
             spacing: Style.space(14)
             Repeater {
               model: keysStrip.entries

@@ -217,6 +217,31 @@ function legend(position, state, drawers, strip) {
   ]
 }
 
+// The ? sheet's left column: every key of the mode for an edge, in the
+// legend's form ({ keys, label }, keys split on spaces into keycaps).
+// drawers: on-demand widgets wait in zone drawers (the into key enters them).
+function sheetKeys(position, drawers) {
+  var map = keymap(position)
+  var arrows = { Up: "↑", Down: "↓", Left: "←", Right: "→" }
+  var along = Object.keys(map.along).filter(function(k) { return arrows[k] }).map(function(k) { return arrows[k] })
+  var vim = Object.keys(map.along).filter(function(k) { return !arrows[k] })
+  return [
+    { keys: along.concat(vim).join(" "), label: "Move" },
+    { keys: arrows[map.into[0]] + " " + map.into[1], label: drawers ? "Into a group or drawer" : "Into a group" },
+    { keys: arrows[map.out[0]] + " " + map.out[1], label: "Back out of a drawer" },
+    { keys: "Home ^", label: "First stop" },
+    { keys: "End $", label: "Last stop" },
+    { keys: "Tab PgDn", label: "Next zone" },
+    { keys: "Shift+Tab PgUp", label: "Previous zone" },
+    { keys: "Enter Space", label: "Open" },
+    { keys: "/", label: "Find" },
+    { keys: PREFS_KEY, label: "Preferences" },
+    { keys: "?", label: "This sheet" },
+    { keys: "Esc", label: "Back, or leave" },
+    { keys: "Esc Esc", label: "Leave from anywhere" }
+  ]
+}
+
 // Which bar the keyboard mode starts on: the focused monitor's (screens: each
 // bar window's screen name, in order). Another monitor's bar is used only while
 // no monitor is known to be focused; a focused monitor without a bar gets
@@ -235,4 +260,4 @@ function cardText(name, own, namedMenu) {
   return namedMenu && own && own !== name ? own : name
 }
 
-if (typeof module !== "undefined") module.exports = { ZONES, PREFS_KEY, keymap, barIntent, drawerIntent, step, zoneStep, fuzzy, matches, searchText, route, legend, startScreen, cardText }
+if (typeof module !== "undefined") module.exports = { ZONES, PREFS_KEY, keymap, barIntent, drawerIntent, step, zoneStep, fuzzy, matches, searchText, route, legend, sheetKeys, startScreen, cardText }

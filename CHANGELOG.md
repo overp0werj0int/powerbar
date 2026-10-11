@@ -7,6 +7,8 @@
   rows, instead of fading out and in.
 - **Keyboard mode**: `^` and `$` jump to the ends as Home and End do, Page
   Up and Page Down jump zone to zone, and Home, End, `^`, `$` work in drawers.
+- **Shortcut sheet**: `?` lays out in two columns, every keyboard-mode key
+  on the left and the widgets' and groups' own shortcuts on the right.
 - **Keyboard mode**: `,` opens Preferences, and `,` in Preferences closes
   them and brings the keyboard mode back with the cursor where it was. The
   key strip and the `?` sheet list it.

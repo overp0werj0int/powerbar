@@ -186,6 +186,18 @@ test('the key strip names the keys of the edge', () => {
   assert.deepEqual(keys.legend('top', 'search')[3], { keys: 'Esc Esc', label: 'Leave' });
 });
 
+test('the ? sheet lists every key of the mode for the edge', () => {
+  const top = keys.sheetKeys('top', false);
+  assert.deepEqual(top[0], { keys: '← → h l', label: 'Move' });
+  assert.deepEqual(top[1], { keys: '↓ j', label: 'Into a group' });
+  assert.deepEqual(top[2], { keys: '↑ k', label: 'Back out of a drawer' });
+  assert.deepEqual(keys.sheetKeys('right', true)[0], { keys: '↑ ↓ k j', label: 'Move' });
+  assert.deepEqual(keys.sheetKeys('right', true)[1], { keys: '← h', label: 'Into a group or drawer' });
+  assert.deepEqual(keys.sheetKeys('bottom', false)[2], { keys: '↓ j', label: 'Back out of a drawer' });
+  const all = top.map(e => e.keys).join(' ').split(' ');
+  for (const k of ['Home', '^', 'End', '$', 'Tab', 'PgDn', 'PgUp', 'Enter', '/', ',', '?', 'Esc']) assert.ok(all.includes(k), k);
+});
+
 test('the keyboard mode starts on the focused monitor, never on another one it can not see', () => {
   assert.equal(keys.startScreen(['DP-1', 'eDP-1'], 'eDP-1'), 1);
   assert.equal(keys.startScreen(['DP-1', 'eDP-1'], 'HDMI-A-1'), -1);
