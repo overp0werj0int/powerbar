@@ -64,6 +64,7 @@ Item {
   // stop. The grace lets one member's panel hand over to another's.
   readonly property bool memberPanelOpen: slots.some(function(slot) { return slot.panelOpen })
   property bool steppedAside: false
+  onSteppedAsideChanged: bar.ev("drawer", steppedAside ? "aside" : "back")
   onMemberPanelOpenChanged: {
     if (memberPanelOpen) { asideEnd.stop(); steppedAside = opened }
     else if (steppedAside) asideEnd.restart()
@@ -100,6 +101,8 @@ Item {
     if (opened) grabDelay.restart()
     else grabDelay.stop()
     if (!opened) { asideEnd.stop(); steppedAside = false }
+    if (opened) bar.ev("drawer", "open " + (groupId ? "group:" + groupId : zone) + (keyboardMode ? " keys" : "")
+      + " on " + (hostWindow && hostWindow.screen ? hostWindow.screen.name : "?"), bar.animationsEnabled ? 200 : 0)
   }
   Timer { id: grabDelay; interval: 250; onTriggered: drawer.grabReady = drawer.opened }
   property string zone: ""
@@ -335,6 +338,8 @@ Item {
     openZone(["left", "center", "right"].indexOf(payload.zone) >= 0 ? payload.zone : "center", true)
   }
   function close(reason) {
+    if (opened) bar.ev("drawer", "close " + (groupId ? "group:" + groupId : zone) + " " + (reason || "-"),
+      bar.animationsEnabled && reason !== "immediate" ? 110 : 0)
     dismissal.stop()
     ++transitionEpoch
     replaying = false

@@ -29,6 +29,7 @@ var settings = [
   { name: "revealSeconds", key: "powerbarManagedRevealSeconds", type: "number", min: 1, max: 60, writer: "option" },
   { name: "entryGraceSeconds", key: "powerbarManagedEntryGraceSeconds", type: "number", min: 1, max: 15, writer: "option" },
   { name: "exitGraceSeconds", key: "powerbarManagedExitGraceSeconds", type: "number", min: 1, max: 15, writer: "option" },
+  { name: "frameLog", key: "powerbarFrameLog", type: "bool", writer: "option" },
   // Appearance (bar.powerbarAppearance), in the scope each tile follows now.
   { name: "shape.scope", tile: "shape", type: "choice", choices: ["theme", "all", "this"], writer: "scope" },
   { name: "shape.rounding", tile: "shape", look: "rounding", type: "number", min: 0, max: "roundingMax", step: 1, writer: "look" },

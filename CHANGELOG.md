@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- **Frame log** for debugging: `"powerbarFrameLog": true` on the bar in
+  shell.json (no Preferences switch) writes a timeline of what the bar does
+  (`PB-EV` lines: keys, cards, hover, expansions, drawers, slides, drags,
+  config) and the frame timing of each motion (`PB-FT` lines, long frames
+  flagged) to the shell log. Off by default; nothing runs while off.
+
 ## 0.6.0 — 2026-10-10
 
 Faster, steadier expansion and collapse, a keyboard mode that follows the

@@ -45,6 +45,11 @@ tools/box/box.sh conf $B position=left; tools/box/edges.sh $B left.png -g "0,0 3
 omabox pointer -b $B move 700 600 sleep 300; glide 1300 60 1330 22 6
 omabox pointer -b $B move 1331 22 sleep 900; omabox shot -b $B -g "700,0 812x200"
 
+# What the bar did, in order, and each motion's frame timing (INTEG-146).
+tools/box/box.sh conf $B powerbarFrameLog=true
+omabox log -b $B shell -n all --grep PB- | sed 's/.*qml.*: //'
+omabox log -b $B shell -n all --grep PB-FT | ~/.claude/skills/omarchy-widget-debug/scripts/framestats.py --tag PB-FT --group anim
+
 tools/box/benchdiff.sh . ../powerbar-wt-x         # before merging
 omabox down $B
 ```

@@ -41,6 +41,40 @@ Item {
   // The bar's options with their clean-config defaults (BarModel.options).
   readonly property var barOptions: BarModel.options(barConfig)
   readonly property bool animationsEnabled: barOptions.animations
+  // `powerbarFrameLog` (shell.json only): the bar's event timeline and the
+  // frame timing of its motions in the shell log, for live debugging
+  // (FrameLog.qml, INTEG-146). ev() names what happened; ms > 0 also times
+  // the frames of the motion it starts.
+  readonly property bool frameLog: barOptions.frameLog
+  FrameLog { id: frameLogItem; enabled: root.frameLog }
+  function ev(kind, detail, ms) { if (frameLog) frameLogItem.ev(kind, detail, ms) }
+  function motion(label, ms) { if (frameLog) frameLogItem.motion(label, ms) }
+  function evCard() { return evName(tooltipTarget) + " " + JSON.stringify(String(tooltipText).split("\n")[0].slice(0, 40)) }
+  function evCardMove() { if (tooltipShown && tooltipTarget) ev("card", "move " + evCard()) }
+  function evName(item) { return !item ? "-" : item.isFoldHandle || item.isPrefsButton ? String(item.label || "dots") : (slotName(item) || "?") }
+  Connections {
+    target: root
+    enabled: root.frameLog
+    function onBarConfigChanged() { root.ev("config", "delivered") }
+    function onPositionChanged() { root.ev("position", root.position) }
+    function onBarHiddenChanged() { root.ev("hidden", root.barHidden) }
+    function onBarHoverCountChanged() { if (root.barHoverCount <= 1) root.ev("hover", root.barHoverCount ? "in" : "out") }
+    function onCenterSectionHoveredChanged() { root.ev("center-hover", root.centerSectionHovered ? "in" : "out") }
+    function onTooltipShownChanged() { root.ev("card", root.tooltipShown ? "show " + root.evCard() : "hide", root.tooltipShown ? 160 : 0) }
+    // Its text is set after the target: logged once both have landed.
+    function onTooltipTargetChanged() { if (root.tooltipShown && root.tooltipTarget) Qt.callLater(root.evCardMove) }
+    function onActivePopoutChanged() { root.ev("popout", root.activePopout ? "open" : "closed") }
+    function onBarDragSourceChanged() { root.ev("drag", root.barDragSource ? "start " + root.evName(root.barDragSource) : "end", root.barDragSource ? 200 : 0) }
+    function onBarDragSettlingChanged() { root.ev("settle", root.barDragSettling ? "start" : "done", root.barDragSettling ? root.barDragSettleDuration : 0) }
+    function onBarMoveActiveChanged() { root.ev("barmove", root.barMoveActive ? "start" : "end " + root.position, root.barMoveActive ? 200 : 0) }
+    function onZoneFitReportsChanged() { root.ev("folded", JSON.stringify(root.zoneFitReports)) }
+  }
+  Connections {
+    target: barKeysItem
+    enabled: root.frameLog
+    function onActiveChanged() { root.ev("keys", barKeysItem.active ? "on" : "off") }
+    function onCursorChanged() { if (barKeysItem.active) root.ev("cursor", root.evName(barKeysItem.cursor)) }
+  }
   // Neighbours make way over a time that grows with the gap (150 ms for an
   // icon, at most 260 ms), so wide widgets never sweep their neighbours.
   readonly property int dragMotionDuration: CellModel.dragDuration(vertical ? dragGapHeight : dragGapWidth, CellModel.iconGap(cellTokens))
@@ -1360,6 +1394,7 @@ Item {
   function updateBarMove(screenPoint) {
     if (!barMoveActive || !barMoveScreen) return
     barMoveCandidate = nearestScreenEdge(screenPoint, barMoveScreen)
+    motion("barmove", 200)
   }
 
   function clearBarMove() {
@@ -1547,6 +1582,7 @@ Item {
   function updateIconDrag(scenePoint, slot) {
     if (root.barDragSource !== slot) return
     root.barDragScene = { x: scenePoint.x, y: scenePoint.y }
+    root.motion("drag", 200)
     var screenPoint = root.barDragScreenPoint(scenePoint)
     root.barDragScreenX = screenPoint.x
     root.barDragScreenY = screenPoint.y
@@ -2997,6 +3033,20 @@ Item {
       if (barKeysItem.window === barWindow) barKeysItem.leave()
     }
     property alias managedDrawer: drawer
+    // The frame log's timeline for this screen's bar (FrameLog.qml).
+    readonly property string evScreen: screen ? screen.name : "?"
+    Connections {
+      target: barWindow
+      enabled: root.frameLog
+      function onInlineRequestChanged() { root.ev("ask", (barWindow.inlineRequest || "-") + " on " + barWindow.evScreen) }
+      function onInlineZoneChanged() {
+        root.ev("inline", (barWindow.inlineZone ? "open " + barWindow.inlineZone : "close") + " on " + barWindow.evScreen
+          + (barWindow.inlineZone && barWindow.inlineGiveWay ? " giveway" : ""), 260)
+      }
+      function onInlineHandleZoneChanged() { root.ev("dots", (barWindow.inlineHandleZone || "-") + " on " + barWindow.evScreen) }
+      function onAutoHideShownChanged() { root.ev("strip", (barWindow.autoHideShown ? "out" : "away") + " on " + barWindow.evScreen, root.animationsEnabled ? (barWindow.autoHideShown ? 180 : 130) : 0) }
+      function onPeekingChanged() { root.ev("peek", (barWindow.peeking ? Object.keys(barWindow.peekZones).join(",") : "end") + " on " + barWindow.evScreen) }
+    }
     // The zone dots in this window, for drops (FoldHandle registers itself).
     property var foldHandles: []
     function registerFoldHandle(handle, present) {
