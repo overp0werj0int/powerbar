@@ -49,6 +49,7 @@ Item {
     case "onDemand": return b.onDemandInline ? "inline" : "drawer"
     case "dotsBadge": return b.dotsBadge
     case "keyLegend": return b.keyLegend
+    case "frameLog": return b.frameLog
     case "revealSeconds": return b.managedRevealSeconds
     case "entryGraceSeconds": return b.managedEntrySeconds
     case "exitGraceSeconds": return b.managedExitSeconds

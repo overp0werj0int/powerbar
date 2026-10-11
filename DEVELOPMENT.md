@@ -58,9 +58,20 @@ omabox for desktop tests in a private Hyprland session
    Drive the keyboard mode with `tools/live-keys.sh`, which checks before every
    key that the bar holds the keyboard. Never send keys or clicks to the real
    desktop otherwise.
-5. **Something jerky or slow:** `tools/frame-probe.md` (frame gaps on the live
-   bar) and `docs/performance/bench` (offscreen whole-bar benchmark, profiler).
-   Measure before and after; claim only measured gains.
+5. **Something jerky, slow or out of order:** turn on the frame log first
+   (`"powerbarFrameLog": true` on the bar in shell.json, applied live; not in
+   Preferences; INTEG-146). The shell log then carries a timeline of what the
+   bar did (`PB-EV t=<ms> <kind> <detail>`: keys, cursor, cards, hover, dots,
+   inline asks and opens, drawers with their close reason, strip slides,
+   drags, folds, config deliveries) and one `PB-FT anim=… frames= wall= p95=
+   max= long=` line per motion, with `longframe dt=` on the timeline where a
+   frame stalled. In a box: `omabox log -b NAME shell --grep PB-`. On the
+   desktop the user sets the key, then
+   `~/.claude/skills/omarchy-widget-debug/scripts/live.sh follow PB- 300`
+   while they reproduce. Turn it off afterwards.
+   For per-frame values of one motion, `tools/frame-probe.md`; for offscreen
+   whole-bar timings, `docs/performance/bench`. Measure before and after;
+   claim only measured gains.
 
 ## State over IPC
 

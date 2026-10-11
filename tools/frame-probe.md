@@ -1,5 +1,10 @@
 # Frame probe: is a motion getting its frames?
 
+Start with the frame log (`"powerbarFrameLog": true`, DEVELOPMENT.md step 5,
+INTEG-146): it times every motion's frames and logs the events around them
+with no code change. This probe is for when you also need the animated value
+on each frame.
+
 Use it when something "looks jerky" on the live bar (a slide, a drawer, an
 expansion). It tells a main-thread stall (one long gap between frames) from a
 slow animation (frames arrive, but move too little each). Offscreen benches

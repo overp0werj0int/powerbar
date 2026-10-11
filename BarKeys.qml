@@ -433,6 +433,7 @@ Item {
   // A key on the bar. Returns whether it was used.
   function barKey(event) {
     var name = keyName(event)
+    bar.ev("key", (name || "code=" + event.key) + " bar")
     if (active && doubleEscape(name)) return true
     if (name && active && suspended) return panelKey(name)
     if (!name || !here) return false
@@ -463,6 +464,7 @@ Item {
   // A key in a drawer opened from the cursor.
   function drawerKey(event) {
     var name = keyName(event), d = drawer
+    bar.ev("key", (name || "code=" + event.key) + " drawer")
     if (d && active && doubleEscape(name)) return true
     if (name && d && active && suspended) return panelKey(name)
     if (!name || !here || !d) return false

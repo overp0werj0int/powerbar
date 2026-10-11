@@ -55,6 +55,7 @@ name (INTEG-121).
 - **INTEG-109** `bar.powerbarStyle` is `flat`, `floating` or `islands`; absent: `islands` if the older `powerbarIslands` is `true`, else `flat`. Choosing a style removes `powerbarIslands`.
 - **INTEG-110** `bar.powerbarReadableOverlay` (bool, default `true`; only `false` turns it off).
 - **INTEG-111** `bar.powerbarVisibilityDefault: "shown"` is the marker for a config on the current visibility rule (INTEG-112). A widget entry's `powerbarVisibility` is `shown`, `managed` or `hidden`.
+- **INTEG-146** `bar.powerbarFrameLog` (bool, default `false`; only `true` turns it on; not in Preferences) writes the bar's event timeline and the frame timing of its motions to the shell log, applied live, for debugging with an agent. `PB-EV t=<ms> <kind> <detail>` lines name what happened: `key`, `keys` (on/off), `cursor`, `card` (show/move/hide with the target and its first line), `hover`, `center-hover`, `dots`, `ask` (the inline request), `inline` (open/close, `giveway`), `drawer` (open/close with the reason, aside/back), `strip` (out/away), `peek`, `drag`, `settle`, `barmove`, `popout`, `folded` (the zone-fit report), `position`, `hidden`, `config` (a config delivered), `framelog`, and `longframe dt=<ms> in=<run>` for any frame interval over 25 ms while a motion runs. A motion (strip, inline, drawer, card show, drag, settle, bar move) arms a frame run for its nominal time plus 100 ms; motions starting meanwhile join it, and when it ends one `PB-FT anim=<labels> frames=N nominal=MS wall=MS mean=MS p95=MS max=MS long=N` line sums it up (labels joined with `+`). Nothing is measured or logged while off. Code: FrameLog.qml, Bar.qml `ev()`.
 
 ## Config healing
 
@@ -148,6 +149,7 @@ bar uses now, the stored value or its default:
 | `onDemand` | choice drawer, inline | `powerbarOnDemand` | drawer |
 | `dotsBadge` | bool | `powerbarDotsBadge` | true |
 | `keyLegend` | bool | `powerbarKeyLegend` | true |
+| `frameLog` | bool | `powerbarFrameLog` | false |
 | `revealSeconds` | number 1 to 60 | `powerbarManagedRevealSeconds` | 2.5 |
 | `entryGraceSeconds` | number 1 to 15 | `powerbarManagedEntryGraceSeconds` | 1 |
 | `exitGraceSeconds` | number 1 to 15 | `powerbarManagedExitGraceSeconds` | 1 |

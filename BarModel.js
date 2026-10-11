@@ -35,7 +35,8 @@ function options(config) {
     onDemand: c.powerbarOnDemand === "inline" ? "inline" : "drawer",
     animations: c.powerbarAnimations !== false,
     keyLegend: c.powerbarKeyLegend !== false,
-    dotsBadge: c.powerbarDotsBadge !== false
+    dotsBadge: c.powerbarDotsBadge !== false,
+    frameLog: c.powerbarFrameLog === true
   }
 }
 
