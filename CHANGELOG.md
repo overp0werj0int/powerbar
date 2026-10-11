@@ -1,8 +1,12 @@
 # Changelog
 
-## Unreleased
+## 0.7.0 — 2026-10-11
 
-- **Sliding highlight** (experimental): the hover highlight and the keyboard
+A highlight that slides from widget to widget, a fuller keyboard mode with
+vim and page keys and a two-column shortcut sheet, and a frame log for
+debugging.
+
+- **Sliding highlight**: the hover highlight and the keyboard
   cursor slide from widget to widget within a zone and along a drawer's
   rows, instead of fading out and in.
 - **Keyboard mode**: `^` and `$` jump to the ends as Home and End do, Page
