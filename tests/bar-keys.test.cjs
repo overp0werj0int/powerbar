@@ -29,6 +29,9 @@ test('the other keys mean the same on every edge', () => {
     assert.deepEqual(keys.barIntent(edge, 'Space'), { open: true });
     assert.deepEqual(keys.barIntent(edge, '/'), { find: true });
     assert.deepEqual(keys.barIntent(edge, '?'), { sheet: true });
+    assert.deepEqual(keys.barIntent(edge, ','), { prefs: true });
+    assert.deepEqual(keys.drawerIntent(edge, ',', 0), { prefs: true });
+    assert.deepEqual(keys.drawerIntent(edge, ',', 0, true), { prefs: true });
     assert.deepEqual(keys.barIntent(edge, 'Escape'), { leave: true });
     assert.deepEqual(keys.barIntent(edge, 'Home'), { home: true });
   }
@@ -162,7 +165,11 @@ test('the key strip names the keys of the edge', () => {
   assert.equal(keys.legend('top', 'drawer', true, true)[0].keys, '← →', 'a strip is walked along the bar');
   assert.equal(keys.legend('top', 'drawer', true, true)[2].keys, '↑ Esc');
   assert.equal(keys.legend('bottom', 'drawer', true, true)[2].keys, '↓ Esc');
-  assert.deepEqual(keys.legend('top', 'drawer')[3], { keys: 'Esc Esc', label: 'Leave' }, 'a quick double Esc leaves from any depth');
+  assert.deepEqual(keys.legend('top', 'drawer').at(-1), { keys: 'Esc Esc', label: 'Leave' }, 'a quick double Esc leaves from any depth');
+  for (const state of ['bar', 'drawer']) {
+    assert.deepEqual(keys.legend('top', state).at(-2), { keys: ',', label: 'Preferences' }, `${state}: , opens Preferences`);
+  }
+  assert.ok(!keys.legend('top', 'search').some(e => e.label === 'Preferences'), 'a comma in a search is typed');
   assert.deepEqual(keys.legend('top', 'search')[3], { keys: 'Esc Esc', label: 'Leave' });
 });
 
