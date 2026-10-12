@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- **Search shortcut**: `omarchy-shell powerbar keysSearch` starts the
+  keyboard mode with its `/` search already open, for jumping straight to a
+  widget by name. Bind it in Preferences → Bar → Keyboard ("Bar search",
+  suggested Super+Ctrl+/) or with `set shortcut.bar:search`.
 - **Ready for Qt 6.12**: the palette is read as `Commons.Color`, as Omarchy
   now does, since Qt 6.12's QtQuick brings its own `Color` type that would
   shadow it. `tools/validate.sh` fails on a bare `Color.` reference.

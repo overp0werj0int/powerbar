@@ -6,7 +6,7 @@
 // Omarchy's shortcuts (Super+Ctrl+A for Audio) and Powerbar's are the same
 // kind of bind. Groups open their drawer: `omarchy-shell powerbar toggleGroup
 // <id>`. Changes live in the bar config (`powerbarShortcuts`, keyed
-// "widget:<id>", "group:<id>" or "bar:keys"; "" removes Omarchy's) and become
+// "widget:<id>", "group:<id>", "bar:keys" or "bar:search"; "" removes Omarchy's) and become
 // a marked block of o.bind calls in ~/.config/hypr/bindings.lua (render).
 
 var MODS = ["SUPER", "CTRL", "ALT", "SHIFT"]
@@ -237,6 +237,8 @@ function command(target) {
   if (target.indexOf("group:") === 0) return safeId(target.slice(6)) ? "omarchy-shell powerbar toggleGroup " + target.slice(6) : ""
   // The keyboard mode: a cursor on the focused monitor's bar.
   if (target === "bar:keys") return "omarchy-shell powerbar keys"
+  // The same with its search open: for jumping to a widget by name.
+  if (target === "bar:search") return "omarchy-shell powerbar keysSearch"
   return ""
 }
 

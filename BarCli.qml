@@ -282,13 +282,13 @@ Item {
       positional: e.positional || "", ready: store.ready, live: e.source === "yours" ? e.live === true : null }
   }
   function shortcutList() {
-    var targets = ["bar:keys"].concat(bar.groups.map(function(g) { return "group:" + g.id }))
+    var targets = ["bar:keys", "bar:search"].concat(bar.groups.map(function(g) { return "group:" + g.id }))
     var ids = []
     for (var r of preferences.entries) if (ids.indexOf(r.id) < 0) ids.push(r.id)
     targets = targets.concat(ids.map(function(id) { return "widget:" + id }))
     for (var t in (bar.barConfig.powerbarShortcuts || {})) if (targets.indexOf(t) < 0) targets.push(t)
     return targets.map(shortcutInfo).filter(function(s) {
-      return s.target === "bar:keys" || s.keys || s.positional || s.source !== "none"
+      return s.target.indexOf("bar:") === 0 || s.keys || s.positional || s.source !== "none"
     })
   }
   function shortcuts() {
@@ -384,6 +384,13 @@ Item {
   function keysOff() {
     if (bar.barKeys.active) bar.barKeys.leave()
     return "ok"
+  }
+  // A toggle, as the shortcut it is bound to: an open search ends the mode.
+  function keysSearch() {
+    var wasSearching = bar.barKeys.active && bar.barKeys.searching
+    bar.barKeys.search()
+    if (wasSearching || bar.barKeys.searching) return "ok"
+    return fail(bar.preferencesOpen ? "not while Preferences are open" : "no bar to put the cursor on")
   }
   function help() { return json(Cli.help()) }
 }

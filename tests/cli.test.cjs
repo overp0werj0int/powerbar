@@ -60,10 +60,11 @@ test('shortcut values: keys, none, or a confirmed replacement', () => {
   assert.deepEqual(J(m.check(s, { keys: 'SUPER + B', replace: true })), { value: { keys: 'SUPER + B', replace: true } });
   assert.ok(m.check(s, 3).error);
   assert.equal(m.shortcutTarget('bar:keys'), '');
+  assert.equal(m.shortcutTarget('bar:search'), '');
   assert.equal(m.shortcutTarget('widget:omarchy.audio'), '');
   assert.equal(m.shortcutTarget('group:g-1', { groups: ['g-1'] }), '');
   assert.match(m.shortcutTarget('group:g-2', { groups: ['g-1'] }), /no group g-2/);
-  assert.match(m.shortcutTarget('bar'), /bar:keys/);
+  assert.match(m.shortcutTarget('bar'), /bar:keys, bar:search/);
 });
 
 test('toggle flips switches only', () => {
@@ -142,7 +143,7 @@ test('help lists every IPC function once; settings describes every setting', () 
   const calls = m.help().map(f => f.call.split(' ')[2]);
   assert.equal(new Set(calls).size, calls.length);
   for (const fn of ['status', 'get', 'set', 'reset', 'toggle', 'widgets', 'setWidget', 'groups', 'newGroup',
-    'setGroup', 'removeGroup', 'shortcuts', 'clearShortcuts', 'show', 'hide', 'keysOn', 'keysOff', 'help'])
+    'setGroup', 'removeGroup', 'shortcuts', 'clearShortcuts', 'show', 'hide', 'keysOn', 'keysOff', 'keysSearch', 'help'])
     assert.ok(calls.includes(fn), fn);
   const d = m.describe({ roundingMax: 13 });
   assert.equal(d.find(s => s.name === 'shape.rounding').max, 13);

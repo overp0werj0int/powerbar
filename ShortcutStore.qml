@@ -32,6 +32,7 @@ Item {
   // What each target is called in Hyprland's list and in messages.
   function nameOf(target) {
     if (target === "bar:keys") return "Powerbar keyboard"
+    if (target === "bar:search") return "Powerbar search"
     if (target.indexOf("group:") === 0) {
       var g = (bar.groups || []).find(function(x) { return "group:" + x.id === target })
       return (g ? g.label : target.slice(6)) + " group"

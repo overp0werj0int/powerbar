@@ -199,6 +199,7 @@ test("the user's own files add shortcuts and win over Omarchy's for the same wid
 test('the bar keyboard target binds the keys IPC', () => {
   const sm = require('../ShortcutModel.js');
   assert.equal(sm.command('bar:keys'), 'omarchy-shell powerbar keys');
+  assert.equal(sm.command('bar:search'), 'omarchy-shell powerbar keysSearch');
   const lua = sm.render({ 'bar:keys': 'SUPER + B' }, { widgets: [], positions: [] }, { 'bar:keys': 'Powerbar keyboard' });
   assert.match(lua, /o\.bind\("SUPER \+ B", "Powerbar keyboard", "omarchy-shell powerbar keys"\)/);
   assert.deepEqual(sm.effective('bar:keys', {}, { widgets: [], positions: [] }, []), { keys: '', source: 'none', fallback: '' });

@@ -145,6 +145,8 @@ the bar is up):
 
 ```sh
 omarchy-shell powerbar set shortcut.bar:keys "SUPER + B"
+# and, to jump straight into its search (/):
+omarchy-shell powerbar set shortcut.bar:search "SUPER + CTRL + SLASH"
 ```
 
 Powerbar writes it to a marked block in `~/.config/hypr/bindings.lua`;
@@ -230,6 +232,9 @@ on every edge:
 - Enter or Space opens the widget, a group or Preferences (the last stop).
 - `/` finds a widget by name, fuzzily (`/pm` finds Plugin Manager), and opens
   the way to it, into a group, a drawer or behind dots.
+  To jump straight there, bind the search too: Preferences → Bar → Keyboard
+  offers Super+Ctrl+/ ("Bar search"), which starts the mode with the search
+  open (`omarchy-shell powerbar keysSearch`); press it again to leave.
 - `?` lists every widget's and group's shortcut.
 - `,` opens Preferences; `,` there closes them and brings the cursor back
   where it was.
@@ -265,6 +270,7 @@ Preferences.
 | `shortcuts` | Powerbar's shortcuts and Omarchy's panel shortcuts |
 | `show` / `hide` | Hold an autohidden bar out until `hide`; or switch the bar on and off |
 | `keys` / `keysOn` / `keysOff` / `keysStatus` | The keyboard mode |
+| `keysSearch` | The keyboard mode with its search (`/`) open; ends it while a search is open |
 | `managed <zone>` / `group <id>` / `toggleGroup <id>` / `closeManaged` | Open or close a drawer |
 | `drawerStatus` / `managedStatus` / `popupStatus` | The open drawer, On demand widgets, the open panel |
 | `preferences` / `preferencesPage <1-3>` / `groupsPreferences` / `closePreferences` | Preferences |
@@ -274,7 +280,7 @@ Settings are named as in Preferences (`style`, `autoHide`, `onDemand`,
 with no control in Preferences: `revealSeconds` (how long activity shows a
 widget, 2.5 s), `entryGraceSeconds` and `exitGraceSeconds` (how long a drawer
 waits for the pointer, 1 s each). Shortcuts are `shortcut.bar:keys`,
-`shortcut.group:<id>` and `shortcut.widget:<plugin id>`.
+`shortcut.bar:search`, `shortcut.group:<id>` and `shortcut.widget:<plugin id>`.
 
 ```sh
 omarchy-shell powerbar set onDemand inline
@@ -283,6 +289,7 @@ omarchy-shell powerbar setWidget omarchy.bluetooth '{"visibility":"managed"}'
 omarchy-shell powerbar setGroup "$(omarchy-shell powerbar newGroup Sound | jq -r .id)" \
   '{"members":["omarchy.audio","omarchy.microphone"],"face":"both"}'
 omarchy-shell powerbar set shortcut.bar:keys "SUPER + B"
+omarchy-shell powerbar set shortcut.bar:search "SUPER + CTRL + SLASH"
 ```
 
 An agent can do all of this for you: `agents/skills/powerbar/` is a skill
