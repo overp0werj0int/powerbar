@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Window
 import qs.Commons
+import qs.Commons as Commons
 
 // A widget's own look at icon size: its live rendering when it is loaded, the
 // last rendering Powerbar saw when it is hidden, and otherwise its glyph: the
@@ -11,7 +12,7 @@ Item {
   property var record: ({})
   property real size: Style.font.iconLarge
   property real maxAspect: 3.2
-  property color color: Color.popups.text
+  property color color: Commons.Color.popups.text
   readonly property string key: record && record.instanceKey ? record.instanceKey : ""
   readonly property var live: key ? preferences.snapshots[key] : null
   readonly property string cachedUrl: !live && key !== "" && !record.groupId ? preferences.cachedImageUrl(key) : ""
@@ -78,7 +79,7 @@ Item {
     visible: !icon.hasImage && icon.isGroup
     group: icon.isGroup ? icon.record : null
     faceMode: "glyph"
-    color: Color.accent
+    color: Commons.Color.accent
     fontSize: Math.round(icon.size * 0.72)
     imageSize: Math.round(icon.size * 0.72)
   }
@@ -88,7 +89,7 @@ Item {
     visible: !icon.hasImage && !icon.isGroup
     text: icon.key ? icon.preferences.icon(icon.record) : ""
     textFormat: Text.PlainText
-    color: icon.record && icon.record.groupId ? Color.accent : icon.color
+    color: icon.record && icon.record.groupId ? Commons.Color.accent : icon.color
     font.family: icon.key ? icon.preferences.iconFont(icon.record) : Style.font.family
     font.pixelSize: Math.round(icon.size * 0.72)
   }

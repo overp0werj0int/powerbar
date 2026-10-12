@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Layouts
 import QtQuick.Controls as Controls
 import qs.Commons
+import qs.Commons as Commons
 import qs.Ui
 import "GroupsModel.js" as Model
 import "CellModel.js" as CellModel
@@ -94,7 +95,7 @@ Item {
   readonly property real barThickness: layout.barThickness
   readonly property color barInk: layout.barInk
   readonly property string barFont: layout.barFont
-  readonly property color menuSurface: bar ? Qt.rgba(bar.overlaySurfaceColor.r, bar.overlaySurfaceColor.g, bar.overlaySurfaceColor.b, 1) : Color.popups.background
+  readonly property color menuSurface: bar ? Qt.rgba(bar.overlaySurfaceColor.r, bar.overlaySurfaceColor.g, bar.overlaySurfaceColor.b, 1) : Commons.Color.popups.background
   readonly property real surfaceRadius: bar ? Math.min(bar.islandRounding, barThickness / 2) : 0
   readonly property var surfaceBorder: bar && bar.islands ? bar.islandBorder : Border.none()
   readonly property real wellRadius: Math.max(0, Style.cornerRadius - Math.round(Style.spacing.rowPaddingX / 2))
@@ -121,7 +122,7 @@ Item {
         span12: 12
         span6: 6
         animate: pane.bar.animationsEnabled
-        borderSpec: Border.flat(Qt.alpha(Color.popups.text, shelfFocus.activeFocus ? 0.28 : 0.1), 1)
+        borderSpec: Border.flat(Qt.alpha(Commons.Color.popups.text, shelfFocus.activeFocus ? 0.28 : 0.1), 1)
 
         Item {
           id: shelfFocus
@@ -167,8 +168,8 @@ Item {
                 width: newLabel.implicitWidth + Style.space(28)
                 height: pane.barThickness + Style.space(8)
                 radius: pane.wellRadius
-                color: newMouse.containsMouse ? Style.hoverFillFor(Color.popups.text, Color.accent) : "transparent"
-                borderSpec: Border.flat(Qt.alpha(Color.popups.text, 0.3), 1)
+                color: newMouse.containsMouse ? Style.hoverFillFor(Commons.Color.popups.text, Commons.Color.accent) : "transparent"
+                borderSpec: Border.flat(Qt.alpha(Commons.Color.popups.text, 0.3), 1)
                 Row {
                   id: newLabel
                   anchors.centerIn: parent
@@ -176,7 +177,7 @@ Item {
                   Text {
                     text: "+ New group"
                     textFormat: Text.PlainText
-                    color: Qt.alpha(Color.popups.text, 0.8)
+                    color: Qt.alpha(Commons.Color.popups.text, 0.8)
                     font.family: Style.font.family
                     font.pixelSize: Style.font.bodySmall
                     anchors.verticalCenter: parent.verticalCenter
@@ -198,7 +199,7 @@ Item {
               Layout.leftMargin: Math.round(Style.spacing.rowPaddingX / 2)
               text: "No groups yet. A group gathers related widgets behind one icon on the bar. Press n to make your first."
               textFormat: Text.PlainText
-              color: Qt.alpha(Color.popups.text, 0.65)
+              color: Qt.alpha(Commons.Color.popups.text, 0.65)
               font.family: Style.font.family
               font.pixelSize: Style.font.bodySmall
               wrapMode: Text.WordWrap
@@ -266,7 +267,7 @@ Item {
               Layout.fillWidth: true
               text: pane.selectedGroup ? pane.selectedGroup.label : ""
               placeholderText: "Group name"
-              foreground: Color.popups.text
+              foreground: Commons.Color.popups.text
               font.bold: true
               Accessible.name: "Group name"
               onEditingFinished: if (pane.selectedGroup && text.trim() && text.trim() !== pane.selectedGroup.label) pane.edit({ label: text })
@@ -402,7 +403,7 @@ Item {
         span12: 6
         span6: 3
         animate: pane.bar.animationsEnabled
-        borderSpec: Border.flat(Qt.alpha(Color.popups.text, drawerFocus.activeFocus ? 0.28 : 0.1), 1)
+        borderSpec: Border.flat(Qt.alpha(Commons.Color.popups.text, drawerFocus.activeFocus ? 0.28 : 0.1), 1)
 
         // In the header, mirroring the filter in the tile beside it.
         Row {
@@ -412,7 +413,7 @@ Item {
             anchors.verticalCenter: parent.verticalCenter
             text: "Widgets show"
             textFormat: Text.PlainText
-            color: Qt.alpha(Color.popups.text, 0.55)
+            color: Qt.alpha(Commons.Color.popups.text, 0.55)
             font.family: Style.font.family
             font.pixelSize: Style.font.caption
           }
@@ -420,7 +421,7 @@ Item {
             anchors.verticalCenter: parent.verticalCenter
             options: [{ value: "native", label: "Icon" }, { value: "name", label: "Name" }, { value: "both", label: "Both" }]
             value: pane.selectedGroup ? pane.selectedGroup.memberDisplay : ""
-            foreground: Color.popups.text
+            foreground: Commons.Color.popups.text
             background: "transparent"
             fontSize: Style.font.caption
             Accessible.name: "Widgets in the drawer show"
@@ -450,7 +451,7 @@ Item {
             Layout.preferredWidth: 2
             text: parent.member ? parent.member.badgeProperty || "" : ""
             placeholderText: "Count: detected"
-            foreground: Color.popups.text
+            foreground: Commons.Color.popups.text
             font.pixelSize: Style.font.caption
             verticalPadding: Style.space(3)
             Accessible.name: "Badge count property"
@@ -462,7 +463,7 @@ Item {
             Layout.preferredWidth: 2
             text: parent.member ? parent.member.urgentProperty || "" : ""
             placeholderText: "Urgent: detected"
-            foreground: Color.popups.text
+            foreground: Commons.Color.popups.text
             font.pixelSize: Style.font.caption
             verticalPadding: Style.space(3)
             Accessible.name: "Urgent property"
@@ -479,7 +480,7 @@ Item {
         span12: 6
         span6: 3
         animate: pane.bar.animationsEnabled
-        borderSpec: Border.flat(Qt.alpha(Color.popups.text, availFocus.activeFocus ? 0.28 : 0.1), 1)
+        borderSpec: Border.flat(Qt.alpha(Commons.Color.popups.text, availFocus.activeFocus ? 0.28 : 0.1), 1)
 
         // In the header, mirroring Widgets show in the tile beside it.
         Item {
@@ -492,7 +493,7 @@ Item {
             verticalPadding: Style.space(3)
             font.pixelSize: Style.font.caption
             placeholderText: "Filter " + availFocus.count + (availFocus.count === 1 ? " widget" : " widgets")
-            foreground: Color.popups.text
+            foreground: Commons.Color.popups.text
             Accessible.name: "Filter widgets"
             Keys.onDownPressed: availFocus.forceActiveFocus()
             Keys.onEscapePressed: function(event) {
@@ -547,8 +548,8 @@ Item {
     width: ghostRow.implicitWidth + Style.space(18)
     height: Style.spacing.controlHeight
     radius: pane.wellRadius
-    color: Color.popups.background
-    borderSpec: Border.flat(Qt.alpha(Color.popups.text, 0.45), 1)
+    color: Commons.Color.popups.background
+    borderSpec: Border.flat(Qt.alpha(Commons.Color.popups.text, 0.45), 1)
     opacity: 0.95
     Row {
       id: ghostRow
@@ -563,7 +564,7 @@ Item {
       Text {
         text: ghost.record ? pane.preferences.title(ghost.record) : ""
         textFormat: Text.PlainText
-        color: Color.popups.text
+        color: Commons.Color.popups.text
         font.family: Style.font.family
         font.pixelSize: Style.font.bodySmall
         anchors.verticalCenter: parent.verticalCenter
@@ -606,7 +607,7 @@ Item {
   component Hint: Text {
     property bool dim: false
     textFormat: Text.PlainText
-    color: Qt.alpha(Color.popups.text, dim ? 0.35 : 0.6)
+    color: Qt.alpha(Commons.Color.popups.text, dim ? 0.35 : 0.6)
     font.family: Style.font.family
     font.pixelSize: Style.font.caption
     wrapMode: Text.WordWrap
@@ -626,12 +627,12 @@ Item {
     width: cardRow.implicitWidth + Style.space(4) + Style.space(14)
     height: pane.barThickness + Style.space(8)
     radius: pane.wellRadius
-    color: dissolving ? Qt.alpha(Color.urgent, 0.16)
-      : current && shelfFocus.activeFocus ? Style.focusFillFor(Color.popups.text, Color.accent)
-      : current ? Style.selectedFillFor(Color.popups.text, Color.accent)
-      : cardMouse.containsMouse ? Style.hoverFillFor(Color.popups.text, Color.accent) : "transparent"
-    borderSpec: dissolving ? Border.flat(Color.urgent, 1)
-      : current && shelfFocus.activeFocus ? Border.controlSpec("focus", Color.popups.text, Color.accent) : Border.none()
+    color: dissolving ? Qt.alpha(Commons.Color.urgent, 0.16)
+      : current && shelfFocus.activeFocus ? Style.focusFillFor(Commons.Color.popups.text, Commons.Color.accent)
+      : current ? Style.selectedFillFor(Commons.Color.popups.text, Commons.Color.accent)
+      : cardMouse.containsMouse ? Style.hoverFillFor(Commons.Color.popups.text, Commons.Color.accent) : "transparent"
+    borderSpec: dissolving ? Border.flat(Commons.Color.urgent, 1)
+      : current && shelfFocus.activeFocus ? Border.controlSpec("focus", Commons.Color.popups.text, Commons.Color.accent) : Border.none()
     Behavior on color { enabled: pane.bar.animationsEnabled; ColorAnimation { duration: 90 } }
     Row {
       id: cardRow
@@ -659,7 +660,7 @@ Item {
         Text {
           text: card.group ? card.group.label : ""
           textFormat: Text.PlainText
-          color: Color.popups.text
+          color: Commons.Color.popups.text
           font.family: Style.font.family
           font.pixelSize: Style.font.body
           font.bold: true
@@ -669,7 +670,7 @@ Item {
             : card.count + (card.count === 1 ? " widget, " : " widgets, ") + String(pane.zoneNames[card.group.section]).toLowerCase()
               + (card.group.visibility === "shown" ? "" : card.group.visibility === "managed" ? ", on demand" : ", hidden")
           textFormat: Text.PlainText
-          color: card.dissolving ? Color.urgent : Qt.alpha(Color.popups.text, 0.6)
+          color: card.dissolving ? Commons.Color.urgent : Qt.alpha(Commons.Color.popups.text, 0.6)
           font.family: Style.font.family
           font.pixelSize: Style.font.caption
         }
@@ -719,9 +720,9 @@ Item {
       width: well.placed ? well.placed.cell : 0
       height: pane.tokens.thickness
       radius: CellModel.radius(pane.tokens, pane.bar.islandRounding)
-      color: well.activeFocus ? Style.focusFillFor(pane.barInk, Color.accent)
-        : wellMouse.containsMouse ? Style.hoverFillFor(pane.barInk, Color.accent) : "transparent"
-      borderSpec: well.activeFocus ? Border.controlSpec("focus", pane.barInk, Color.accent) : Border.none()
+      color: well.activeFocus ? Style.focusFillFor(pane.barInk, Commons.Color.accent)
+        : wellMouse.containsMouse ? Style.hoverFillFor(pane.barInk, Commons.Color.accent) : "transparent"
+      borderSpec: well.activeFocus ? Border.controlSpec("focus", pane.barInk, Commons.Color.accent) : Border.none()
     }
     BarFace {
       x: well.placed ? well.endPad + well.placed.inkStart - well.face.inkStart : 0
@@ -792,8 +793,8 @@ Item {
     Layout.rightMargin: Math.round(Style.spacing.rowPaddingX / 2)
     Layout.preferredHeight: Math.max(Style.space(120), drawingHeight + pad * 2)
     radius: pane.wellRadius
-    color: Qt.alpha(Color.popups.text, 0.04)
-    borderSpec: dropPos >= 0 && pane.members.length === 0 ? Border.flat(Qt.alpha(Color.popups.text, 0.45), 1) : Border.none()
+    color: Qt.alpha(Commons.Color.popups.text, 0.04)
+    borderSpec: dropPos >= 0 && pane.members.length === 0 ? Border.flat(Qt.alpha(Commons.Color.popups.text, 0.45), 1) : Border.none()
     activeFocusOnTab: true
     Accessible.role: Accessible.List
     Accessible.name: "In the drawer"
@@ -920,10 +921,10 @@ Item {
             height: drawer.menu ? member.height : drawer.cells.thickness
             radius: CellModel.radius(drawer.cells, pane.bar.islandRounding)
             color: member.modelData.gap ? "transparent"
-              : member.isCursor ? Style.focusFillFor(pane.barInk, Color.accent)
-              : member.chosen ? Style.selectedFillFor(pane.barInk, Color.accent) : "transparent"
+              : member.isCursor ? Style.focusFillFor(pane.barInk, Commons.Color.accent)
+              : member.chosen ? Style.selectedFillFor(pane.barInk, Commons.Color.accent) : "transparent"
             borderSpec: member.modelData.gap ? Border.flat(Qt.alpha(pane.barInk, 0.45), 1)
-              : member.isCursor ? Border.controlSpec("focus", pane.barInk, Color.accent) : Border.none()
+              : member.isCursor ? Border.controlSpec("focus", pane.barInk, Commons.Color.accent) : Border.none()
           }
           // Its face: in the icon cell of a menu row (Both), as a value at the
           // row's end when it is text on the bar, or in its strip slot.
@@ -946,7 +947,7 @@ Item {
             anchors.verticalCenter: parent.verticalCenter
             text: pane.preferences.title(member.record)
             textFormat: Text.PlainText
-            color: pane.bar.textOn(Color.menu.text)
+            color: pane.bar.textOn(Commons.Color.menu.text)
             font.family: Style.font.menuFamily
             font.pixelSize: Style.font.bodySmall
             elide: Text.ElideRight
@@ -960,7 +961,7 @@ Item {
       visible: pane.members.length === 0 && drawer.dropPos < 0
       text: "Empty. Add widgets from the list beside this, or drag one here."
       textFormat: Text.PlainText
-      color: Qt.alpha(Color.popups.text, 0.5)
+      color: Qt.alpha(Commons.Color.popups.text, 0.5)
       font.family: Style.font.family
       font.pixelSize: Style.font.bodySmall
       horizontalAlignment: Text.AlignHCenter
@@ -1025,8 +1026,8 @@ Item {
     Layout.preferredHeight: pane.columns > 1 ? drawerFocus.Layout.preferredHeight
       : Math.min(Style.space(260), chips.implicitHeight + Style.space(16))
     radius: pane.wellRadius
-    color: Qt.alpha(Color.popups.text, 0.04)
-    borderSpec: targeted ? Border.flat(Qt.alpha(Color.popups.text, 0.45), 1) : Border.none()
+    color: Qt.alpha(Commons.Color.popups.text, 0.04)
+    borderSpec: targeted ? Border.flat(Qt.alpha(Commons.Color.popups.text, 0.45), 1) : Border.none()
     activeFocusOnTab: true
     Accessible.role: Accessible.List
     Accessible.name: "Not in a group"
@@ -1082,7 +1083,7 @@ Item {
               y: Style.space(2)
               text: entry.modelData.header
               textFormat: Text.PlainText
-              color: Qt.alpha(Color.popups.text, 0.55)
+              color: Qt.alpha(Commons.Color.popups.text, 0.55)
               font.family: Style.font.family
               font.pixelSize: Style.font.caption
             }
@@ -1093,9 +1094,9 @@ Item {
               width: entry.record ? chipRow.implicitWidth + Style.space(16) : 0
               height: entry.record ? Math.max(Style.spacing.controlHeight, chipRow.implicitHeight + Style.space(8)) : 0
               radius: Math.max(0, pane.wellRadius - Style.space(2))
-              color: isCursor ? Style.focusFillFor(Color.popups.text, Color.accent)
-                : chipMouse.containsMouse ? Style.hoverFillFor(Color.popups.text, Color.accent) : Qt.alpha(Color.popups.text, 0.06)
-              borderSpec: isCursor ? Border.controlSpec("focus", Color.popups.text, Color.accent) : Border.none()
+              color: isCursor ? Style.focusFillFor(Commons.Color.popups.text, Commons.Color.accent)
+                : chipMouse.containsMouse ? Style.hoverFillFor(Commons.Color.popups.text, Commons.Color.accent) : Qt.alpha(Commons.Color.popups.text, 0.06)
+              borderSpec: isCursor ? Border.controlSpec("focus", Commons.Color.popups.text, Commons.Color.accent) : Border.none()
               onIsCursorChanged: if (isCursor) {
                 var top = entry.y, bottom = top + height
                 if (top < scroller.contentY) scroller.contentY = top
@@ -1115,7 +1116,7 @@ Item {
                 Text {
                   text: entry.record ? pane.preferences.title(entry.record) : ""
                   textFormat: Text.PlainText
-                  color: Color.popups.text
+                  color: Commons.Color.popups.text
                   font.family: Style.font.family
                   font.pixelSize: Style.font.bodySmall
                   elide: Text.ElideRight
@@ -1163,7 +1164,7 @@ Item {
       width: parent.width - Style.space(40)
       text: filter.text ? "No widgets match." : "Every widget is in a group."
       textFormat: Text.PlainText
-      color: Qt.alpha(Color.popups.text, 0.5)
+      color: Qt.alpha(Commons.Color.popups.text, 0.5)
       font.family: Style.font.family
       font.pixelSize: Style.font.bodySmall
       horizontalAlignment: Text.AlignHCenter

@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Layouts
 import qs.Commons
+import qs.Commons as Commons
 import qs.Ui
 import "ShortcutModel.js" as Shortcuts
 
@@ -112,9 +113,9 @@ BorderSurface {
   Layout.fillWidth: true
   implicitHeight: Style.spacing.controlHeight + Style.space(8)
   radius: Math.max(0, Style.cornerRadius - Math.round(Style.spacing.rowPaddingX / 2))
-  color: phase !== "idle" ? Qt.alpha(Color.accent, 0.1)
-    : rowMouse.containsMouse && usable ? Style.hoverFillFor(Color.popups.text, Color.accent) : "transparent"
-  borderSpec: phase !== "idle" ? Border.controlSpec("focus", Color.popups.text, Color.accent) : Border.none()
+  color: phase !== "idle" ? Qt.alpha(Commons.Color.accent, 0.1)
+    : rowMouse.containsMouse && usable ? Style.hoverFillFor(Commons.Color.popups.text, Commons.Color.accent) : "transparent"
+  borderSpec: phase !== "idle" ? Border.controlSpec("focus", Commons.Color.popups.text, Commons.Color.accent) : Border.none()
   opacity: usable ? 1 : 0.45
   activeFocusOnTab: true
   Accessible.role: Accessible.Button
@@ -166,7 +167,7 @@ BorderSurface {
     Text {
       text: row.label
       textFormat: Text.PlainText
-      color: Color.popups.text
+      color: Commons.Color.popups.text
       font.family: Style.font.family
       font.pixelSize: Style.font.body
       font.bold: true
@@ -177,21 +178,21 @@ BorderSurface {
       text: row.tag
       textFormat: Text.PlainText
       elide: Text.ElideRight
-      color: row.phase === "confirm" || (row.phase === "recording" && row.notice) ? Color.urgent
-        : row.phase === "recording" ? Color.accent : Qt.alpha(Color.popups.text, 0.6)
+      color: row.phase === "confirm" || (row.phase === "recording" && row.notice) ? Commons.Color.urgent
+        : row.phase === "recording" ? Commons.Color.accent : Qt.alpha(Commons.Color.popups.text, 0.6)
       font.family: Style.font.family
       font.pixelSize: Style.font.bodySmall
     }
     KeyCombo {
       keys: row.shownCaps
-      foreground: row.phase === "confirm" ? Color.urgent : Color.popups.text
+      foreground: row.phase === "confirm" ? Commons.Color.urgent : Commons.Color.popups.text
       opacity: row.info.keys || row.phase !== "idle" ? 1 : 0.6
     }
     Button {
       visible: row.phase === "confirm"
       text: "Take over"
       focusable: false
-      foreground: Color.popups.text
+      foreground: Commons.Color.popups.text
       onClicked: row.confirm()
     }
   }

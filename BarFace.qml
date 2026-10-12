@@ -1,5 +1,6 @@
 import QtQuick
 import qs.Commons
+import qs.Commons as Commons
 
 // One widget drawn the way the bar draws it, from LayoutEditor.barFace: a
 // saved or live image at 1:1 (redrawn in the bar's text colour when it was
@@ -10,7 +11,7 @@ Item {
   id: root
   property var face: null
   property real barThickness: Style.bar.sizeHorizontal
-  property color ink: Color.popups.text
+  property color ink: Commons.Color.popups.text
   property string fontFamily: Style.font.family
   readonly property string kind: face ? face.kind : ""
   width: kind === "image" ? face.w : kind === "group" ? groupFace.implicitWidth : kind === "text" ? text.implicitWidth : 0

@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Window
 import qs.Commons
+import qs.Commons as Commons
 
 // Hover and selection for bar and drawer items, drawn like the tiles in
 // Preferences → Layout: a soft rounded fill behind the item. Visual only;
@@ -23,7 +24,7 @@ Item {
   // device pixel wide (keyboard.md KEYS-69). The caller also lights the mark
   // (`hovered`) for the cursor.
   property bool outlined: false
-  property color outlineColor: Color.accent
+  property color outlineColor: Commons.Color.accent
   property real outlineWidth: 1 / Math.max(1, Screen.devicePixelRatio)
   // Where two lit highlights overlap (Equal gaps), the older one fades so the
   // eye goes to what just happened; the newer one draws on top. The keyboard

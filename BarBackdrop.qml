@@ -1,6 +1,7 @@
 import QtQuick
 import Quickshell.Widgets
 import qs.Commons
+import qs.Commons as Commons
 
 // The current wallpaper, cropped to the edge the bar sits on, so previews
 // show the bar's surface, borders and transparency as they really look.
@@ -11,7 +12,7 @@ ClippingRectangle {
   // Follows Powerbar's Animations setting; off, the wallpaper appears at once.
   property bool motionEnabled: true
   radius: Math.max(Style.cornerRadius, Style.space(6))
-  color: Qt.alpha(Color.popups.text, 0.08)
+  color: Qt.alpha(Commons.Color.popups.text, 0.08)
   Accessible.ignored: true
   Image {
     anchors.fill: parent

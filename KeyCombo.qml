@@ -1,5 +1,6 @@
 import QtQuick
 import qs.Commons
+import qs.Commons as Commons
 
 // A key combination as keycaps joined by "+" (Super + Ctrl + A): tooltips,
 // the keyboard mode's name card and shortcut sheet, and Preferences' shortcut
@@ -8,7 +9,7 @@ import qs.Commons
 Row {
   id: combo
   property var keys: []
-  property color foreground: Color.popups.text
+  property color foreground: Commons.Color.popups.text
   spacing: Style.space(3)
   Repeater {
     model: combo.keys || []

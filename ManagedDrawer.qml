@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Controls as Controls
 import QtQuick.Layouts
 import qs.Commons
+import qs.Commons as Commons
 import qs.Ui
 import "ManagedModel.js" as Model
 import "DragModel.js" as DragModel
@@ -497,7 +498,7 @@ Item {
     vertical: drawer.stripVertical
     cellAlong: drawer.namedMenu ? drawer.tokens.thickness : (drawer.bar.barDragSource ? drawer.bar.barDragSource.cellLength : drawer.tokens.cell)
     cellAcross: drawer.namedMenu ? drawer.menuRowWidth : drawer.tokens.thickness
-    ink: drawer.namedMenu ? drawer.bar.textOn(Color.menu.text) : drawer.bar.barForeground
+    ink: drawer.namedMenu ? drawer.bar.textOn(Commons.Color.menu.text) : drawer.bar.barForeground
   }
   HoverHandler { id: hover }
   Flickable {
@@ -657,7 +658,7 @@ Item {
               visible: mount.labelled
               textFormat: Text.PlainText
               text: mount.title
-              color: drawer.bar.textOn(drawer.namedMenu ? Color.menu.text : Color.popups.text)
+              color: drawer.bar.textOn(drawer.namedMenu ? Commons.Color.menu.text : Commons.Color.popups.text)
               font.family: drawer.namedMenu ? Style.font.menuFamily : Style.font.family
               font.pixelSize: Style.font.bodySmall
               // Names end one air before the row's end, or before a trailing value.

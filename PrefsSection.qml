@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Layouts
 import qs.Commons
+import qs.Commons as Commons
 
 // One titled block of related settings.
 ColumnLayout {
@@ -17,7 +18,7 @@ ColumnLayout {
     Text {
       text: section.title
       textFormat: Text.PlainText
-      color: Color.popups.text
+      color: Commons.Color.popups.text
       font.family: Style.font.family
       font.pixelSize: Style.font.title
       font.bold: true
@@ -26,7 +27,7 @@ ColumnLayout {
       visible: section.description !== ""
       text: section.description
       textFormat: Text.PlainText
-      color: Qt.alpha(Color.popups.text, 0.6)
+      color: Qt.alpha(Commons.Color.popups.text, 0.6)
       font.family: Style.font.family
       font.pixelSize: Style.font.bodySmall
       wrapMode: Text.WordWrap

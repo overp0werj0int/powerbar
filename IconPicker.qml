@@ -3,6 +3,7 @@ import QtQuick.Layouts
 import Quickshell
 import Quickshell.Io
 import qs.Commons
+import qs.Commons as Commons
 import qs.Ui
 import "IconSearch.js" as IconSearch
 import "OmarchyIcons.js" as OmarchyIcons
@@ -245,8 +246,8 @@ Item {
     width: Math.min(picker.width - Style.space(16), Style.space(488))
     height: Math.min(picker.height - Style.space(16), Style.space(520))
     radius: Style.cornerRadius
-    color: Color.popups.background
-    borderSpec: Border.surfaceSpec("popups", "border", Color.popups.border, Math.max(1, Style.space(1)))
+    color: Commons.Color.popups.background
+    borderSpec: Border.surfaceSpec("popups", "border", Commons.Color.popups.border, Math.max(1, Style.space(1)))
     // Opens from the icon well: a short fade and scale, none with animations off.
     opacity: picker.opened ? 1 : 0
     scale: picker.opened ? 1 : 0.97
@@ -266,7 +267,7 @@ Item {
         TextField {
           id: field
           Layout.fillWidth: true
-          foreground: Color.popups.text
+          foreground: Commons.Color.popups.text
           placeholderText: "Search " + picker.index.length.toLocaleString(Qt.locale("en_US"), "f", 0) + " icons, or paste one"
           Accessible.name: "Search icons"
           onTextChanged: picker.query = text
@@ -305,7 +306,7 @@ Item {
           text: picker.source === "own" ? "" : picker.query.trim()
             ? picker.results.length + " found" : picker.offered.length.toLocaleString(Qt.locale("en_US"), "f", 0) + " icons"
           textFormat: Text.PlainText
-          color: Qt.alpha(Color.popups.text, 0.55)
+          color: Qt.alpha(Commons.Color.popups.text, 0.55)
           font.family: Style.font.family
           font.pixelSize: Style.font.caption
         }
@@ -315,13 +316,13 @@ Item {
         options: picker.sources
         value: picker.source
         focusable: false
-        foreground: Color.popups.text
+        foreground: Commons.Color.popups.text
         background: "transparent"
         fontSize: Style.font.bodySmall
         Accessible.name: "Icon source"
         onChanged: function(value) { picker.source = value; field.forceActiveFocus() }
       }
-      Rectangle { Layout.fillWidth: true; Layout.preferredHeight: 1; color: Qt.alpha(Color.popups.text, 0.1) }
+      Rectangle { Layout.fillWidth: true; Layout.preferredHeight: 1; color: Qt.alpha(Commons.Color.popups.text, 0.1) }
 
       // The grid: rows of icons under a header per source. Only the rows in
       // view exist.
@@ -345,7 +346,7 @@ Item {
             x: Style.space(2)
             text: rowItem.modelData.header.toUpperCase()
             textFormat: Text.PlainText
-            color: Qt.darker(Color.popups.text, 1.4)
+            color: Qt.darker(Commons.Color.popups.text, 1.4)
             font.family: Style.font.family
             font.pixelSize: Style.font.caption
             font.bold: true
@@ -364,17 +365,17 @@ Item {
                 width: pasted ? Math.max(picker.cellSize, useLabel.implicitWidth + Style.space(44)) : picker.cellSize
                 height: picker.cellSize
                 radius: Math.max(0, Style.cornerRadius - Style.space(2))
-                color: isCursor ? Style.focusFillFor(Color.popups.text, Color.accent)
-                  : cellHover.hovered ? Style.hoverFillFor(Color.popups.text, Color.accent) : "transparent"
-                borderSpec: isCursor ? Border.controlSpec("focus", Color.popups.text, Color.accent)
-                  : picker.isCurrent(icon) ? Border.flat(Qt.alpha(Color.popups.text, 0.5), 1) : Border.none()
+                color: isCursor ? Style.focusFillFor(Commons.Color.popups.text, Commons.Color.accent)
+                  : cellHover.hovered ? Style.hoverFillFor(Commons.Color.popups.text, Commons.Color.accent) : "transparent"
+                borderSpec: isCursor ? Border.controlSpec("focus", Commons.Color.popups.text, Commons.Color.accent)
+                  : picker.isCurrent(icon) ? Border.flat(Qt.alpha(Commons.Color.popups.text, 0.5), 1) : Border.none()
                 HoverHandler { id: cellHover; onHoveredChanged: if (hovered) picker.cursor = cell.modelData.at }
                 Text {
                   x: cell.pasted ? Style.space(10) : (parent.width - width) / 2
                   anchors.verticalCenter: parent.verticalCenter
                   text: cell.icon.glyph
                   textFormat: Text.PlainText
-                  color: Color.popups.text
+                  color: Commons.Color.popups.text
                   font.family: cell.icon.font || (picker.bar ? picker.bar.fontFamily : Style.font.family)
                   font.pixelSize: Style.font.iconLarge
                 }
@@ -385,7 +386,7 @@ Item {
                   anchors.verticalCenter: parent.verticalCenter
                   text: "Use this"
                   textFormat: Text.PlainText
-                  color: Color.popups.text
+                  color: Commons.Color.popups.text
                   font.family: Style.font.family
                   font.pixelSize: Style.font.bodySmall
                 }
@@ -404,7 +405,7 @@ Item {
           visible: picker.offered.length === 0
           text: picker.query.trim() ? "No icons match “" + picker.query.trim() + "”. Try a simpler word, or paste a glyph or emoji." : "No icons here."
           textFormat: Text.PlainText
-          color: Qt.alpha(Color.popups.text, 0.6)
+          color: Qt.alpha(Commons.Color.popups.text, 0.6)
           font.family: Style.font.family
           font.pixelSize: Style.font.bodySmall
           horizontalAlignment: Text.AlignHCenter
@@ -422,8 +423,8 @@ Item {
           Layout.fillWidth: true
           Layout.preferredHeight: Style.space(170)
           radius: Math.max(0, Style.cornerRadius - Style.space(2))
-          color: ownDrop.containsDrag ? Qt.alpha(Color.accent, 0.1) : "transparent"
-          borderSpec: Border.flat(ownDrop.containsDrag ? Color.accent : Qt.alpha(Color.popups.text, 0.3), 1)
+          color: ownDrop.containsDrag ? Qt.alpha(Commons.Color.accent, 0.1) : "transparent"
+          borderSpec: Border.flat(ownDrop.containsDrag ? Commons.Color.accent : Qt.alpha(Commons.Color.popups.text, 0.3), 1)
           DropArea { id: ownDrop; anchors.fill: parent }
           ColumnLayout {
             anchors.centerIn: parent
@@ -432,7 +433,7 @@ Item {
             Text {
               Layout.alignment: Qt.AlignHCenter
               text: "󰉍"
-              color: Qt.alpha(Color.popups.text, 0.7)
+              color: Qt.alpha(Commons.Color.popups.text, 0.7)
               font.family: Style.font.family
               font.pixelSize: Style.font.iconLarge * 1.4
             }
@@ -440,7 +441,7 @@ Item {
               Layout.fillWidth: true
               text: "Drop an SVG or PNG here"
               textFormat: Text.PlainText
-              color: Color.popups.text
+              color: Commons.Color.popups.text
               font.family: Style.font.family
               font.pixelSize: Style.font.body
               font.bold: true
@@ -450,7 +451,7 @@ Item {
               Layout.fillWidth: true
               text: "or paste one with Ctrl+V, or type its path and press Enter. Up to 512 KB; Powerbar keeps its own copy."
               textFormat: Text.PlainText
-              color: Qt.alpha(Color.popups.text, 0.65)
+              color: Qt.alpha(Commons.Color.popups.text, 0.65)
               font.family: Style.font.family
               font.pixelSize: Style.font.bodySmall
               horizontalAlignment: Text.AlignHCenter
@@ -461,7 +462,7 @@ Item {
               visible: picker.ownError !== ""
               text: picker.ownError
               textFormat: Text.PlainText
-              color: Color.urgent
+              color: Commons.Color.urgent
               font.family: Style.font.family
               font.pixelSize: Style.font.bodySmall
               horizontalAlignment: Text.AlignHCenter
@@ -482,7 +483,7 @@ Item {
             Text {
               text: picker.own ? picker.own.name : ""
               textFormat: Text.PlainText
-              color: Color.popups.text
+              color: Commons.Color.popups.text
               font.family: Style.font.family
               font.pixelSize: Style.font.body
               font.bold: true
@@ -493,7 +494,7 @@ Item {
               options: [{ value: "text", label: "Text colour" }, { value: "own", label: "Its own colours" }]
               value: picker.tint
               focusable: false
-              foreground: Color.popups.text
+              foreground: Commons.Color.popups.text
               background: "transparent"
               fontSize: Style.font.bodySmall
               Accessible.name: "Icon colour"
@@ -503,7 +504,7 @@ Item {
               text: picker.tint === "text" ? "Drawn in the bar's text colour, like your other icons. A multicolour image shows as its outline."
                 : "Keeps its colours; they won't follow Light or Dark."
               textFormat: Text.PlainText
-              color: Qt.alpha(Color.popups.text, 0.6)
+              color: Qt.alpha(Commons.Color.popups.text, 0.6)
               font.family: Style.font.family
               font.pixelSize: Style.font.caption
               wrapMode: Text.WordWrap
@@ -515,7 +516,7 @@ Item {
       }
 
       // The icon under the cursor, drawn as the group's face on the bar.
-      Rectangle { Layout.fillWidth: true; Layout.preferredHeight: 1; color: Qt.alpha(Color.popups.text, 0.1) }
+      Rectangle { Layout.fillWidth: true; Layout.preferredHeight: 1; color: Qt.alpha(Commons.Color.popups.text, 0.1) }
       RowLayout {
         Layout.fillWidth: true
         Layout.preferredHeight: picker.bar ? picker.bar.barSizeFor(false) + Style.space(4) : Style.space(40)
@@ -531,7 +532,7 @@ Item {
           Text {
             text: picker.current ? picker.current.name : "Nothing under the cursor"
             textFormat: Text.PlainText
-            color: Color.popups.text
+            color: Commons.Color.popups.text
             font.family: Style.font.family
             font.pixelSize: Style.font.body
             font.bold: true
@@ -544,7 +545,7 @@ Item {
               : picker.current.logo ? "Omarchy's font" : picker.current.source === IconSearch.OMARCHY ? "Used by Omarchy"
               : "Emoji, keeps its own colours on the bar"
             textFormat: Text.PlainText
-            color: Qt.alpha(Color.popups.text, 0.55)
+            color: Qt.alpha(Commons.Color.popups.text, 0.55)
             font.family: Style.font.family
             font.pixelSize: Style.font.caption
             elide: Text.ElideRight
@@ -554,7 +555,7 @@ Item {
         KeyCap { text: "enter" }
         Text {
           text: "Choose"
-          color: Qt.alpha(Color.popups.text, 0.6)
+          color: Qt.alpha(Commons.Color.popups.text, 0.6)
           font.family: Style.font.family
           font.pixelSize: Style.font.caption
         }
@@ -570,7 +571,7 @@ Item {
     readonly property string mode: group && group.face === "text" ? "glyph" : ""
     implicitWidth: face.implicitWidth + Style.space(20)
     implicitHeight: picker.bar ? picker.bar.barSizeFor(false) : Style.space(36)
-    color: picker.bar ? Qt.rgba(picker.bar.mainSurfaceColor.r, picker.bar.mainSurfaceColor.g, picker.bar.mainSurfaceColor.b, 1) : Color.popups.background
+    color: picker.bar ? Qt.rgba(picker.bar.mainSurfaceColor.r, picker.bar.mainSurfaceColor.g, picker.bar.mainSurfaceColor.b, 1) : Commons.Color.popups.background
     radius: picker.bar ? Math.min(picker.bar.islandRounding, implicitHeight / 2) : 0
     borderSpec: picker.bar && picker.bar.islands ? picker.bar.islandBorder : Border.none()
     GroupFace {
@@ -578,7 +579,7 @@ Item {
       anchors.centerIn: parent
       group: island.group
       faceMode: island.mode
-      color: picker.bar ? picker.bar.barForeground : Color.popups.text
+      color: picker.bar ? picker.bar.barForeground : Commons.Color.popups.text
       fontFamily: picker.bar ? picker.bar.fontFamily : Style.font.family
       fontSize: Style.font.body
     }

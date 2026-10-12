@@ -6,6 +6,7 @@ import QtQuick
 import QtQuick.Layouts
 import QtQml.Models as Models
 import qs.Commons
+import qs.Commons as Commons
 import qs.Ui
 import "BarModel.js" as BarModel
 import "PreferencesModel.js" as PreferencesModel
@@ -758,9 +759,9 @@ Item {
   property string fontFamily: Style.font.family
   // Bound to the central Color singleton so the bar tracks shell.toml's
   // [bar] section. Property names kept for the rest of this file's bindings.
-  property color themeForeground: Color.bar.text
-  property color themeContrastForeground: Color.background
-  property color transparentForeground: Color.bar.text
+  property color themeForeground: Commons.Color.bar.text
+  property color themeContrastForeground: Commons.Color.background
+  property color transparentForeground: Commons.Color.bar.text
   property color foreground: themeForeground
   // Text and icons on every Powerbar surface (Bar > Surface > Text and icons):
   // the theme's colours unless a fixed light or dark one is chosen. Omarchy's
@@ -859,8 +860,8 @@ Item {
     return foregroundChoice === "light" ? foregroundPair.light : foregroundChoice === "dark" ? foregroundPair.dark : themeColor
   }
   property bool foregroundAnimationEnabled: true
-  property color background: Color.bar.background
-  property color urgent: Color.bar.active
+  property color background: Commons.Color.bar.background
+  property color urgent: Commons.Color.bar.active
 
   // Omarchy's bar fades the text colour unless a switch asks for it at once;
   // with Animations off it never fades, here or in widgets (foregroundFades).
@@ -1852,7 +1853,7 @@ Item {
     if (activePopout === owner) activePopout = null
   }
 
-  readonly property var surfaceEffects: AppearanceModel.effects(appearanceConfig, Color.bar.background.a)
+  readonly property var surfaceEffects: AppearanceModel.effects(appearanceConfig, Commons.Color.bar.background.a)
   // Drawers always lie over windows, and so does a bar that autohides; those
   // surfaces keep a readable minimum opacity (AppearanceModel.overlayOpacity).
   readonly property color overlaySurfaceColor: Qt.alpha(background, AppearanceModel.overlayOpacity(surfaceEffects))
@@ -1960,8 +1961,8 @@ Item {
   // of widget icons outside the bar keep to it.
   // Item highlight shared by the bar, its drawers and Preferences' layout
   // tiles: a fill in the bar's own foreground, nested inside island corners.
-  readonly property color highlightHoverColor: Style.hoverFillFor(barForeground, Color.accent)
-  readonly property color highlightSelectedColor: Style.selectedFillFor(barForeground, Color.accent)
+  readonly property color highlightHoverColor: Style.hoverFillFor(barForeground, Commons.Color.accent)
+  readonly property color highlightSelectedColor: Style.selectedFillFor(barForeground, Commons.Color.accent)
   readonly property real highlightRounding: Math.max(Style.space(4), islandRounding - Style.space(3))
   // The highlight for a slot: its cell, centred on the slot along the bar, at
   // the cell thickness across it, in `host` coordinates.
@@ -1982,7 +1983,7 @@ Item {
   function highlightInset(extent) { return Math.min(Style.space(3), Math.max(0, (extent - Style.space(16)) / 2)) }
   readonly property int barExtent: Math.ceil(barSize + (flat ? 0 : edgeGap * 2))
   readonly property real widgetSpacing: Style.space(AppearanceModel.clampTo(AppearanceModel.ranges.spacing, barConfig.powerbarSpacing))
-  readonly property var themeIslandBorder: Border.surfaceSpec("popups", "border", Color.popups.border, 1)
+  readonly property var themeIslandBorder: Border.surfaceSpec("popups", "border", Commons.Color.popups.border, 1)
   readonly property real islandRounding: roundingFor(appearanceConfig)
   // Every config delivery builds the spec afresh; an equal one keeps the last
   // object, so the islands, drawers, tooltip and strip that read it (through
@@ -3861,7 +3862,7 @@ Item {
       implicitWidth: Math.ceil(stripCard.implicitWidth) + 2 * root.overlayShadowPad
       implicitHeight: Math.ceil(stripCard.implicitHeight) + 2 * root.overlayShadowPad
       // Its text: the bar's once the legend is drawn like the bar.
-      readonly property color ink: root.overlayStyled.surface ? root.barForeground : Color.popups.text
+      readonly property color ink: root.overlayStyled.surface ? root.barForeground : Commons.Color.popups.text
       readonly property var entries: wanted ? KeysModel.legend(root.position, keys.mode, !!keys.drawer && !keys.drawer.namedMenu) : []
       readonly property var sheetEntries: wanted && keys.sheet ? keys.sheetEntries() : []
       readonly property var sheetKeys: wanted && keys.sheet ? KeysModel.sheetKeys(root.position) : []
@@ -3873,8 +3874,8 @@ Item {
         implicitWidth: stripColumn.implicitWidth + Style.space(24)
         implicitHeight: stripColumn.implicitHeight + Style.space(16)
         radius: root.overlayStyled.shape ? root.islandRounding : Style.cornerRadius
-        color: root.overlayStyled.surface ? root.overlaySurfaceColor : Qt.alpha(Color.popups.background, 0.84)
-        borderSpec: root.overlayStyled.shape ? root.islandBorder : Border.surfaceSpec("popups", "border", Color.popups.border, 1)
+        color: root.overlayStyled.surface ? root.overlaySurfaceColor : Qt.alpha(Commons.Color.popups.background, 0.84)
+        borderSpec: root.overlayStyled.shape ? root.islandBorder : Border.surfaceSpec("popups", "border", Commons.Color.popups.border, 1)
         shadowEnabled: root.overlayShadow
         shadowSize: root.surfaceEffects.shadowSize
         shadowOpacity: root.surfaceEffects.shadowOpacity
@@ -4002,7 +4003,7 @@ Item {
               // Nested inside the card: its radius less the card's inset.
               radius: Math.max(2, Math.min(stripCard.radius - Style.space(8), Style.space(6)))
               color: Qt.alpha(keysStrip.ink, 0.06)
-              borderSpec: Border.flat(Color.accent, 1)
+              borderSpec: Border.flat(Commons.Color.accent, 1)
               Text {
                 id: queryText
                 x: Style.space(8)
@@ -4017,7 +4018,7 @@ Item {
               readonly property bool none: keysStrip.keys.query !== "" && keysStrip.keys.matchCount === 0
               text: keysStrip.keys.query === "" ? "Type part of a name" : none ? "No widget named that"
                 : keysStrip.keys.matchCount === 1 ? "1 match" : (keysStrip.keys.matchIndex + 1) + " of " + keysStrip.keys.matchCount
-              color: none ? Color.urgent : Qt.alpha(keysStrip.ink, 0.7)
+              color: none ? Commons.Color.urgent : Qt.alpha(keysStrip.ink, 0.7)
               font.family: Style.font.family
               font.pixelSize: Style.font.bodySmall
               anchors.verticalCenter: parent.verticalCenter
@@ -4149,8 +4150,8 @@ Item {
         height: implicitHeight
         implicitWidth: tooltipLabel.implicitWidth + 20
         implicitHeight: tooltipLabel.implicitHeight + 14
-        color: root.overlayStyled.surface ? root.overlaySurfaceColor : Color.tooltip.background
-        borderSpec: root.overlayStyled.shape ? root.islandBorder : Border.surfaceSpec("tooltip", "border", Color.tooltip.border, 1)
+        color: root.overlayStyled.surface ? root.overlaySurfaceColor : Commons.Color.tooltip.background
+        borderSpec: root.overlayStyled.shape ? root.islandBorder : Border.surfaceSpec("tooltip", "border", Commons.Color.tooltip.border, 1)
         // A pill at most, as drawers cap theirs.
         radius: root.overlayStyled.shape ? Math.min(root.islandRounding, implicitHeight / 2) : Style.cornerRadius
         shadowEnabled: root.overlayShadow
@@ -4162,7 +4163,7 @@ Item {
           textFormat: Text.PlainText
           anchors.centerIn: parent
           text: tooltipWindow.text
-          color: root.overlayStyled.surface ? root.barForeground : Color.tooltip.text
+          color: root.overlayStyled.surface ? root.barForeground : Commons.Color.tooltip.text
           font.family: root.fontFamily
           font.pixelSize: Style.font.body
           horizontalAlignment: Text.AlignHCenter
@@ -4423,7 +4424,7 @@ Item {
           radius: root.highlightRadius
           // Over windows, like a drawer.
           color: root.overlaySurfaceColor
-          borderSpec: Border.flat(Qt.rgba(Color.menu.text.r, Color.menu.text.g, Color.menu.text.b, 0.45), 1)
+          borderSpec: Border.flat(Qt.rgba(Commons.Color.menu.text.r, Commons.Color.menu.text.g, Commons.Color.menu.text.b, 0.45), 1)
           Row {
             id: labelRow
             anchors.verticalCenter: parent.verticalCenter
@@ -4820,14 +4821,14 @@ Item {
       x: spot.x
       y: spot.y
       z: 2
-      color: Color.accent
+      color: Commons.Color.accent
       Accessible.ignored: true
       Text {
         id: handleBadgeLabel
         anchors.centerIn: parent
         textFormat: Text.PlainText
         text: foldHandle.shownCount > 99 ? "99+" : String(foldHandle.shownCount)
-        color: Color.background
+        color: Commons.Color.background
         font.family: Style.font.family
         font.pixelSize: Style.font.caption
       }
@@ -4898,13 +4899,13 @@ Item {
       radius: height / 2
       x: spot.x
       y: spot.y
-      color: Color.accent
+      color: Commons.Color.accent
       Text {
         id: yieldBadgeLabel
         anchors.centerIn: parent
         textFormat: Text.PlainText
         text: yieldMarker.count > 99 ? "99+" : String(yieldMarker.count)
-        color: Color.background
+        color: Commons.Color.background
         font.family: Style.font.family
         font.pixelSize: Style.font.caption
       }
@@ -5666,7 +5667,7 @@ Item {
       height: Style.space(12)
       radius: height / 2
       z: 8
-      color: info && info.urgent ? Color.urgent : Color.accent
+      color: info && info.urgent ? Commons.Color.urgent : Commons.Color.accent
       Accessible.ignored: true
       onVisibleChanged: place()
       onWidthChanged: place()
@@ -5708,7 +5709,7 @@ Item {
         anchors.centerIn: parent
         textFormat: Text.PlainText
         text: !cellBadge.info ? "" : cellBadge.info.count > 99 ? "99+" : String(cellBadge.info.count)
-        color: Color.background
+        color: Commons.Color.background
         font.family: Style.font.family
         font.pixelSize: Style.font.caption
       }

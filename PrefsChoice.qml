@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Layouts
 import qs.Commons
+import qs.Commons as Commons
 import qs.Ui
 
 // A labelled pick-one row. The chips are a single focus stop: h/l or
@@ -31,7 +32,7 @@ GridLayout {
     Text {
       text: row.label
       textFormat: Text.PlainText
-      color: Color.popups.text
+      color: Commons.Color.popups.text
       font.family: Style.font.family
       font.pixelSize: Style.font.body
       font.bold: true
@@ -42,7 +43,7 @@ GridLayout {
       visible: row.description !== ""
       text: row.description
       textFormat: Text.PlainText
-      color: Qt.alpha(Color.popups.text, 0.6)
+      color: Qt.alpha(Commons.Color.popups.text, 0.6)
       font.family: Style.font.family
       font.pixelSize: Style.font.bodySmall
       wrapMode: Text.WordWrap
@@ -52,7 +53,7 @@ GridLayout {
   ButtonGroup {
     options: row.options
     value: row.value
-    foreground: Color.popups.text
+    foreground: Commons.Color.popups.text
     background: "transparent"
     fontSize: Style.font.bodySmall
     Accessible.name: row.label
