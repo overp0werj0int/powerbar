@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- **Widgets stay in their groups when Omarchy edits them**: cycling the
+  clock's format, or pinning a tray icon, made Omarchy save the widget
+  without Powerbar's keys; it got a new id, left its group and the group
+  lost it for good (the tray also lost its On demand setting). The bar now
+  puts those keys back from the layout it showed before.
 - **Which code is running**: `omarchy-shell powerbar build` answers the
   version, a digest of the files the bar loaded, its git commit and when it
   loaded. `tools/build-check.sh` compares it with the checkout and says
