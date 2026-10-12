@@ -676,7 +676,22 @@ Item {
     function keysOn(): string { return cliItem.keysOn() }
     function keysOff(): string { return cliItem.keysOff() }
     function keysSearch(): string { return cliItem.keysSearch() }
+    function build(): string { return cliItem.build() }
     function help(): string { return cliItem.help() }
+  }
+
+  // The code this shell loaded (`powerbar build`): BuildStamp.sh run once on
+  // the plugin's own folder as it loads. tools/build-check.sh compares it with
+  // the checkout, so a restart that kept older code is caught.
+  readonly property string pluginDir: decodeURIComponent(Qt.resolvedUrl(".").toString().replace(/^file:\/\//, "")).replace(/\/$/, "")
+  property var buildStamp: ({ digest: "", commit: "", dirty: false })
+  property string loadedAt: new Date().toISOString()
+  Process {
+    running: true
+    command: ["bash", root.pluginDir + "/BuildStamp.sh", root.pluginDir]
+    stdout: SplitParser { onRead: function(line) {
+      try { root.buildStamp = JSON.parse(line) } catch (e) { console.warn("powerbar: build stamp unreadable: " + line) }
+    } }
   }
 
   // The omarchy-shell host injects omarchyPath from OMARCHY_PATH.

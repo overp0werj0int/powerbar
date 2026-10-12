@@ -274,6 +274,7 @@ Preferences.
 | `managed <zone>` / `group <id>` / `toggleGroup <id>` / `closeManaged` | Open or close a drawer |
 | `drawerStatus` / `managedStatus` / `popupStatus` | The open drawer, On demand widgets, the open panel |
 | `preferences` / `preferencesPage <1-3>` / `groupsPreferences` / `closePreferences` | Preferences |
+| `build` | The code this shell is running: version, a digest of the files it loaded, git commit, when it loaded |
 
 Settings are named as in Preferences (`style`, `autoHide`, `onDemand`,
 `spacing`, `shape.rounding`, `surface.opacity`, `shadow.scope`…), plus a few
@@ -421,6 +422,7 @@ keyboard focus in the keyboard mode, through Quickshell's Hyprland module.
 | `hyprctl -j getoption general:gaps_in` | Opening Preferences, to space its tiles like your windows |
 | `wl-paste` (under `timeout 2s`) | Ctrl+V in the icon picker |
 | `ls`, `mkdir`, `cp`, `stat`, `rm` | The icon and image folders above |
+| `BuildStamp.sh` (`find`, `sha256sum`, `git rev-parse`, `git status`) | Once as the bar loads, on Powerbar's own folder only, for `omarchy-shell powerbar build` |
 | Your custom modules' `exec`, `onClick`… | Command modules in your layout, through `bash -lc`, as on Omarchy's bar |
 
 ## Troubleshooting

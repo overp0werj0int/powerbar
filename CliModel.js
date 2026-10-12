@@ -279,6 +279,7 @@ var functions = [
   ["preferencesPage", "<1-3>", "open Preferences at Layout (1), Groups (2) or Bar (3)"],
   ["groupsPreferences", "", "open Preferences at Groups"],
   ["closePreferences", "", "close Preferences"],
+  ["build", "", "the code this shell is running: version, digest of the loaded files, git commit, when it loaded (tools/build-check.sh compares it with a checkout)"],
   ["help", "", "this list"]
 ]
 function help() {

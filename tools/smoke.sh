@@ -40,6 +40,9 @@ else
   exit 1
 fi
 
+# The box runs this checkout's code, not a cached or older copy.
+if bash "$ROOT/tools/build-check.sh" -b "$NAME" >/dev/null 2>&1; then pass "build is this checkout"
+else fail "build is this checkout" "$(bash "$ROOT/tools/build-check.sh" -b "$NAME" 2>&1)"; fi
 check "status is JSON with settings/widgets/runtime" \
   "$(ipc status | jsget '["settings","widgets","runtime"].every(k=>k in o)')" "true"
 check "managedStatus is [] on a fresh install" "$(ipc managedStatus | tr -d ' \n')" "[]"
