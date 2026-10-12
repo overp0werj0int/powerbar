@@ -352,7 +352,7 @@ Item {
       keys: bar.barKeys.active,
       drawer: drawer && drawer.opened ? { zone: drawer.zone, group: drawer.groupId || "" } : null,
       preferences: { open: preferences.opened, page: preferences.opened ? preferences.pages[preferences.page].title : "" },
-      registry: bar.widgetRepair.report() }
+      registry: bar.widgetRepair.report(), build: bar.buildStamp.digest }
   }
   function status() {
     return json({ bar: bar.manifest ? bar.manifest.id : "", version: bar.manifest ? bar.manifest.version : "",
@@ -391,6 +391,12 @@ Item {
     bar.barKeys.search()
     if (wasSearching || bar.barKeys.searching) return "ok"
     return fail(bar.preferencesOpen ? "not while Preferences are open" : "no bar to put the cursor on")
+  }
+  // The code this shell is running, as it was on disk when the bar loaded.
+  function build() {
+    var s = bar.buildStamp
+    return json({ version: bar.manifest ? bar.manifest.version : "", digest: s.digest, commit: s.commit, dirty: s.dirty,
+      loadedAt: bar.loadedAt, dir: bar.pluginDir })
   }
   function help() { return json(Cli.help()) }
 }

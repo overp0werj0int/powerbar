@@ -189,6 +189,7 @@ written, the setting is put back and `live` stays false.
 | `show` / `hide` | autohide on: hold the bar out until `hide`. Autohide off: switch the bar on/off (as `omarchy toggle bar`) |
 | `keysOn` / `keysOff` / `keys` | start, end, toggle the keyboard mode on the focused monitor |
 | `keysSearch` | the keyboard mode with its search (`/`) open; ends it while a search is open |
+| `build` | the code the shell is running (version, digest, commit); after an update or restart, check it is the new one |
 | `managed <left\|center\|right>` / `group <id>` / `toggleGroup <id>` / `closeManaged` | open or close a drawer |
 | `preferences` / `preferencesPage <1-3>` / `groupsPreferences` / `closePreferences` | the Preferences window (1 Layout, 2 Groups, 3 Bar) |
 

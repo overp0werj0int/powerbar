@@ -49,12 +49,23 @@ omabox for desktop tests in a private Hyprland session
    count, montages, edge cards, bench diffs); read its README before writing
    new ones.
    `tools/smoke.sh [name]` does all of this in a throwaway box and asserts
-   the IPC basics (status, settings, keys, bar position); `SMOKE_SHOT=file.png`
+   the IPC basics (status, settings, keys, bar position) and that the box runs
+   this checkout (`tools/build-check.sh -b BOX`); `SMOKE_SHOT=file.png`
    keeps a screenshot. `tests/run` is the portable subset (node tests and
    `bash -n`) that CI runs.
+   **After an Omarchy update**, start with `node tools/omarchy-contract.cjs`
+   (validate.sh runs it too): each `contract drift:` line names the Omarchy
+   file, the exact text Powerbar relied on that is gone, and what that breaks.
+   Read what replaced it in that file, adapt Powerbar, then update the entry
+   in the script. Then `tools/smoke.sh` for Quickshell and Hyprland behaviour,
+   which the contract does not cover.
 4. **The live desktop only when the user asks.** Restart the user's shell with
    `.claude/skills/omarchy-widget-debug/scripts/live.sh restart powerbar`
    (it refuses while the session is locked; never restart a locked session).
+   Then `tools/build-check.sh` (through `omabox host --` under the guard)
+   says whether the shell now runs this checkout: `current`, or `stale` when
+   the restart did not happen or kept older code. Trust it over a process id:
+   `qs list` can name another Quickshell app.
    Drive the keyboard mode with `tools/live-keys.sh`, which checks before every
    key that the bar holds the keyboard. Never send keys or clicks to the real
    desktop otherwise.

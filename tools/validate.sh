@@ -9,6 +9,9 @@
 #   5. qmlformat parses every QML file
 #   6. no bare palette reference: Qt 6.12's QtQuick has its own Color type,
 #      so Omarchy's palette is always Commons.Color (import qs.Commons as Commons)
+#   7. the Omarchy contract (tools/omarchy-contract.cjs): every Omarchy line,
+#      theme token and type Powerbar relies on is still there; a failure names
+#      the Omarchy file and the missing text
 # Needs: node, Qt 6 (qmltestrunner, qmlformat), an Omarchy install.
 # Exit status is non-zero when any step fails.
 set -u
@@ -47,6 +50,9 @@ omarchy plugin validate "$ROOT" 2>&1 | tail -1
 
 echo "== qmlformat"
 for f in *.qml; do "$QT_BIN/qmlformat" --normalize "$f" >/dev/null 2>&1 || { echo "qmlformat fails: $f"; failed=1; }; done
+
+echo "== omarchy contract"
+node tools/omarchy-contract.cjs "$OMARCHY" || failed=1
 
 echo "== palette references"
 bare=$(/usr/bin/grep -rnP '(?<![\w.])Color\.' --include=*.qml --exclude-dir=node_modules . || true)

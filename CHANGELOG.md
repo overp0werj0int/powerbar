@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- **Which code is running**: `omarchy-shell powerbar build` answers the
+  version, a digest of the files the bar loaded, its git commit and when it
+  loaded. `tools/build-check.sh` compares it with the checkout and says
+  `current` or `stale`, so a restart that kept older code (or none at all)
+  is caught after an update.
+- **Omarchy contract check**: `tools/omarchy-contract.cjs` (also part of
+  `tools/validate.sh`) checks the installed Omarchy still has every line,
+  theme token and UI type Powerbar relies on, about 200 checks, and names
+  the Omarchy file and the missing text when one drifts after an update.
 - **Search shortcut**: `omarchy-shell powerbar keysSearch` starts the
   keyboard mode with its `/` search already open, for jumping straight to a
   widget by name. Bind it in Preferences → Bar → Keyboard ("Bar search",

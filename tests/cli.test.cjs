@@ -143,7 +143,7 @@ test('help lists every IPC function once; settings describes every setting', () 
   const calls = m.help().map(f => f.call.split(' ')[2]);
   assert.equal(new Set(calls).size, calls.length);
   for (const fn of ['status', 'get', 'set', 'reset', 'toggle', 'widgets', 'setWidget', 'groups', 'newGroup',
-    'setGroup', 'removeGroup', 'shortcuts', 'clearShortcuts', 'show', 'hide', 'keysOn', 'keysOff', 'keysSearch', 'help'])
+    'setGroup', 'removeGroup', 'shortcuts', 'clearShortcuts', 'show', 'hide', 'keysOn', 'keysOff', 'keysSearch', 'build', 'help'])
     assert.ok(calls.includes(fn), fn);
   const d = m.describe({ roundingMax: 13 });
   assert.equal(d.find(s => s.name === 'shape.rounding').max, 13);
