@@ -162,7 +162,8 @@ Item {
     shown: root.barConfig
     settled: root.configWriteSettled
     onShow: function(config) { root.barConfig = config }
-    onFailed: root.configWriteFailed()
+    // A restore that could not be saved is not tried again on the config it failed on.
+    onFailed: { root.shownLayout = null; root.configWriteFailed() }
   }
   function canWriteConfig() { return configStore.canWrite() }
   function writeConfig(mutator) { return configStore.write(mutator) }
@@ -495,7 +496,7 @@ Item {
   // moves. The visibility default is settled in the same write, before the
   // ids exist: they would make a fresh config look like one Powerbar ran on.
   function ensureInstanceIds() {
-    if (!canWriteConfig() || !barConfig.layout) return
+    if (!canWriteConfig() || !barConfig.layout || lostKeysPending()) return
     var seen = {}, missing = barConfig.powerbarVisibilityDefault !== "shown"
     for (var zone of ["left", "center", "right"]) {
       for (var entry of (barConfig.layout[zone] || [])) {
@@ -2090,7 +2091,29 @@ Item {
     // A config from the host while edits wait to be written: the store shows
     // the edits on top of it rather than the host's config without them.
     if (configStore.delivered(barConfig)) return
+    // An entry another writer saved without Powerbar's keys is not shown
+    // until they are back, so its widget keeps its instance and groups.
+    if (lostKeysPending()) { Qt.callLater(restoreLostKeys); return }
     applyBarConfig()
+    shownLayout = JSON.parse(JSON.stringify(barConfig && barConfig.layout || {}))
+    Qt.callLater(ensureInstanceIds)
+    Qt.callLater(pruneGroupMembers)
+  }
+  // The layout last shown: where keys another writer dropped come back from
+  // (BarModel.lostKeys; Omarchy's updateEntryInline keeps only a widget's id
+  // and settings, INTEG-148).
+  property var shownLayout: null
+  function lostKeysPending() {
+    return BarModel.lostKeys(shownLayout, barConfig && barConfig.layout).length > 0
+  }
+  function restoreLostKeys() {
+    var plan = BarModel.lostKeys(shownLayout, barConfig && barConfig.layout)
+    // Queued, so the store shows the config with the keys back at once.
+    if (plan.length && writeConfig(function(config) { BarModel.applyLostKeys(config.bar, plan) })) return
+    // Not writable: show the config as it is; new instance ids follow.
+    shownLayout = null
+    applyBarConfig()
+    shownLayout = JSON.parse(JSON.stringify(barConfig && barConfig.layout || {}))
     Qt.callLater(ensureInstanceIds)
     Qt.callLater(pruneGroupMembers)
   }
@@ -2098,7 +2121,7 @@ Item {
   // as read (GroupsModel.groups); their keys leave shell.json too, in one
   // write, so nobody has to remove them by hand.
   function pruneGroupMembers() {
-    if (!canWriteConfig() || configStore.pending || !Util.isPlainObject(barConfig)) return
+    if (!canWriteConfig() || configStore.pending || !Util.isPlainObject(barConfig) || lostKeysPending()) return
     if (!GroupsModel.danglingMembers(barConfig)) return
     writeConfig(function(config) {
       if (config.bar && GroupsModel.danglingMembers(config.bar)) config.bar.powerbarGroups = GroupsModel.groups(config.bar)

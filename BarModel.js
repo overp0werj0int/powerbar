@@ -295,6 +295,80 @@ function pickPanelSlot(candidates, focusedScreen, prefer) {
   return pickDrawnSlot(pool.map(function(row) { return row.slot }))
 }
 
+// Another writer can rewrite a layout entry without Powerbar's keys: Omarchy's
+// updateEntryInline (a clock's format change, the tray's pin) saves {id} plus
+// the widget's own settings, dropping powerbarInstance, and the tray drops
+// powerbarVisibility too. A new instance id would cost the widget its groups
+// and its place in them, so the keys come back from the layout the bar showed
+// before: each entry without an instance gets the powerbar* keys it lacks from
+// a previous entry of the same id whose instance is not in use now, the same
+// zone and position first, then the same zone, then anywhere.
+// Returns [{zone, index, id, keys}], plain values for applyLostKeys.
+function lostKeys(previous, next) {
+  if (!isPlainObject(previous) || !isPlainObject(next)) return []
+  var zones = ["left", "center", "right"]
+  var used = {}, candidates = []
+  for (var z = 0; z < zones.length; z++) {
+    var now = Array.isArray(next[zones[z]]) ? next[zones[z]] : []
+    for (var i = 0; i < now.length; i++)
+      if (isPlainObject(now[i]) && now[i].powerbarInstance) used[now[i].powerbarInstance] = true
+  }
+  for (var y = 0; y < zones.length; y++) {
+    var before = Array.isArray(previous[zones[y]]) ? previous[zones[y]] : []
+    for (var j = 0; j < before.length; j++) {
+      var entry = before[j]
+      if (isPlainObject(entry) && entry.powerbarInstance && !used[entry.powerbarInstance])
+        candidates.push({ zone: zones[y], index: j, id: entryId(entry), entry: entry })
+    }
+  }
+  var plan = []
+  for (var x = 0; x < zones.length && candidates.length; x++) {
+    var entries = Array.isArray(next[zones[x]]) ? next[zones[x]] : []
+    for (var k = 0; k < entries.length; k++) {
+      var current = entries[k]
+      if (isPlainObject(current) && current.powerbarInstance) continue
+      var id = entryId(current)
+      if (!id) continue
+      var best = -1, score = -1
+      for (var c = 0; c < candidates.length; c++) {
+        var candidate = candidates[c]
+        if (candidate.id !== id) continue
+        var s = candidate.zone !== zones[x] ? 0 : candidate.index === k ? 2 : 1
+        if (s > score) { best = c; score = s }
+      }
+      if (best < 0) continue
+      var old = candidates.splice(best, 1)[0].entry, keys = {}
+      for (var key in old) {
+        if (key.indexOf("powerbar") === 0 && !(isPlainObject(current) && key in current))
+          keys[key] = JSON.parse(JSON.stringify(old[key]))
+      }
+      plan.push({ zone: zones[x], index: k, id: id, keys: keys })
+    }
+  }
+  return plan
+}
+
+// Put lostKeys' keys back into a bar config ({layout}), in place. Only an
+// entry still at that place, of that id and without an instance is touched,
+// so a plan applied to a config that changed since does no harm. Returns how
+// many entries it changed.
+function applyLostKeys(config, plan) {
+  var layout = config && config.layout
+  if (!isPlainObject(layout) || !Array.isArray(plan)) return 0
+  var changed = 0
+  for (var p = 0; p < plan.length; p++) {
+    var step = plan[p], entries = step && layout[step.zone]
+    if (!Array.isArray(entries) || !(step.index >= 0 && step.index < entries.length)) continue
+    var entry = entries[step.index]
+    if (entryId(entry) !== step.id || (isPlainObject(entry) && entry.powerbarInstance)) continue
+    if (!isPlainObject(entry)) entry = { id: entry }
+    for (var key in step.keys) if (!(key in entry)) entry[key] = JSON.parse(JSON.stringify(step.keys[key]))
+    entries[step.index] = entry
+    changed++
+  }
+  return changed
+}
+
 if (typeof module !== "undefined") {
   module.exports = {
     barStyle: barStyle,
@@ -310,6 +384,8 @@ if (typeof module !== "undefined") {
     entryIndex: entryIndex,
     moveInstanceInConfig: moveInstanceInConfig,
     inlineSettingsDelta: inlineSettingsDelta,
+    lostKeys: lostKeys,
+    applyLostKeys: applyLostKeys,
     expandPath: expandPath,
     customModuleSafeName: customModuleSafeName,
     customModuleType: customModuleType,
