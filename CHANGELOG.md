@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- **Shortcuts bound on first start**: a new install binds Super+B to the
+  keyboard mode and Super+Ctrl+/ to its search, each only where nothing else
+  holds the keys, and a notification says what it bound and what holds any
+  key it left alone. An existing setup is not touched; README has the two
+  commands to bind them by hand.
 - **Arrow keys in one keycap**: the key legend and the `?` sheet draw the
   arrows as one keycap (←→↓) and their vim letters as another (hjkl),
   as Atlas does, instead of a cap per key.

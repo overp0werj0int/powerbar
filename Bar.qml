@@ -507,6 +507,9 @@ Item {
     }
     if (!missing) return
     configStore.writeNow(function(config) {
+      // A config Powerbar never ran on: its shortcut store binds the bar's
+      // suggested shortcuts where free, once (ShortcutStore offerSuggested).
+      if (!ManagedModel.powerbarHasRun(config.bar)) config.bar.powerbarShortcutOffer = true
       ManagedModel.healVisibility(config.bar, root.thirdPartyEntry)
       var used = {}
       for (var zone of ["left", "center", "right"]) {
