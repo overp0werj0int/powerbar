@@ -1,5 +1,6 @@
 import QtQuick
 import qs.Commons
+import qs.Commons as Commons
 import qs.Ui
 
 // Your screen in miniature: the wallpaper, and the bar drawn in its style on
@@ -64,7 +65,7 @@ BarBackdrop {
       width: screen.pw(modelData.l, screen.mark)
       height: screen.ph(modelData.l, screen.mark)
       radius: Style.space(2)
-      color: screen.bar ? Qt.alpha(screen.bar.barForeground, 0.85) : Color.popups.text
+      color: screen.bar ? Qt.alpha(screen.bar.barForeground, 0.85) : Commons.Color.popups.text
     }
   }
   // The other edges: a handle each, centred on the edge and half its length,
@@ -85,9 +86,9 @@ BarBackdrop {
       width: horizontal ? length : thickness
       height: horizontal ? thickness : length
       radius: thickness / 2
-      color: Qt.alpha(Color.popups.text, hit.containsMouse ? 0.95 : 0.55)
+      color: Qt.alpha(Commons.Color.popups.text, hit.containsMouse ? 0.95 : 0.55)
       border.width: Math.max(1, Style.space(1))
-      border.color: Color.popups.background
+      border.color: Commons.Color.popups.background
       Behavior on color { enabled: screen.motionEnabled; ColorAnimation { duration: 100 } }
       MouseArea {
         id: hit

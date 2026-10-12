@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Layouts
 import qs.Commons
+import qs.Commons as Commons
 import qs.Ui
 
 // One tile on a bento page: a titled group of related settings, drawn with the
@@ -35,8 +36,8 @@ BorderSurface {
   readonly property real inset: Math.round(Style.spacing.rowPaddingX / 2)
 
   implicitHeight: column.implicitHeight + inset * 2
-  color: Qt.alpha(Color.popups.text, 0.035)
-  borderSpec: Border.flat(Qt.alpha(Color.popups.text, 0.1), 1)
+  color: Qt.alpha(Commons.Color.popups.text, 0.035)
+  borderSpec: Border.flat(Qt.alpha(Commons.Color.popups.text, 0.1), 1)
   radius: Style.cornerRadius
   Accessible.role: Accessible.Grouping
   Accessible.name: title
@@ -65,7 +66,7 @@ BorderSurface {
       // read like the shell's own panels.
       PanelSectionHeader {
         text: tile.title.toUpperCase()
-        foreground: Color.popups.text
+        foreground: Commons.Color.popups.text
         Layout.fillWidth: true
         elide: Text.ElideRight
         Accessible.name: tile.title
@@ -74,7 +75,7 @@ BorderSurface {
         visible: tile.caption !== ""
         text: tile.caption
         textFormat: Text.PlainText
-        color: Qt.alpha(Color.popups.text, 0.55)
+        color: Qt.alpha(Commons.Color.popups.text, 0.55)
         font.family: Style.font.family
         font.pixelSize: Style.font.caption
         elide: Text.ElideRight
@@ -92,7 +93,7 @@ BorderSurface {
         visible: tile.actionText !== ""
         text: tile.actionConfirming ? "Again to " + tile.actionText.toLowerCase() : tile.actionText
         bordered: true
-        foreground: tile.actionConfirming ? Color.urgent : Color.popups.text
+        foreground: tile.actionConfirming ? Commons.Color.urgent : Commons.Color.popups.text
         fontSize: Style.font.caption
         verticalPadding: Style.space(2)
         horizontalPadding: Style.space(8)
@@ -120,7 +121,7 @@ BorderSurface {
           anchors.centerIn: parent
           checked: tile.switchChecked
           cursorRing: false
-          foreground: Color.popups.text
+          foreground: Commons.Color.popups.text
           onToggled: { headSwitch.forceActiveFocus(Qt.MouseFocusReason); tile.switched(!tile.switchChecked) }
         }
       }

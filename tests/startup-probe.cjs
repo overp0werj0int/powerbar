@@ -16,7 +16,7 @@ function block(source, marker) {
   }
   return source.slice(start, end + 1);
 }
-const badge = block(bar, 'Rectangle {\n      id: cellBadge').replaceAll('Style.', 'fixtureStyle.').replaceAll('Color.', 'fixturePalette.');
+const badge = block(bar, 'Rectangle {\n      id: cellBadge').replaceAll('Style.', 'fixtureStyle.').replaceAll('Commons.Color.', 'fixturePalette.');
 const cells = block(editor, 'readonly property var cellEntries:');
 const members = block(editor, 'function members(');
 const dir = path.resolve(process.argv[2] || '/tmp/powerbar-startup-probe');

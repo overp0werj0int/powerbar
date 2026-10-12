@@ -1,12 +1,13 @@
 import QtQuick
 import qs.Commons
+import qs.Commons as Commons
 import qs.Ui
 
 // A key legend, as printed on a keycap.
 BorderSurface {
   id: cap
   property string text: ""
-  property color foreground: Color.popups.text
+  property color foreground: Commons.Color.popups.text
   implicitWidth: Math.max(implicitHeight, label.implicitWidth + Style.space(10))
   implicitHeight: label.implicitHeight + Style.space(4)
   radius: Math.min(Style.cornerRadius, Style.space(4))

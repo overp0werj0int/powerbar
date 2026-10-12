@@ -7,6 +7,8 @@
 #      slices out of Bar.qml and LayoutEditor.qml as text; Bar.qml itself is not loaded)
 #   4. `omarchy plugin validate` (Omarchy's manifest and plugin checks)
 #   5. qmlformat parses every QML file
+#   6. no bare palette reference: Qt 6.12's QtQuick has its own Color type,
+#      so Omarchy's palette is always Commons.Color (import qs.Commons as Commons)
 # Needs: node, Qt 6 (qmltestrunner, qmlformat), an Omarchy install.
 # Exit status is non-zero when any step fails.
 set -u
@@ -45,6 +47,10 @@ omarchy plugin validate "$ROOT" 2>&1 | tail -1
 
 echo "== qmlformat"
 for f in *.qml; do "$QT_BIN/qmlformat" --normalize "$f" >/dev/null 2>&1 || { echo "qmlformat fails: $f"; failed=1; }; done
+
+echo "== palette references"
+bare=$(/usr/bin/grep -rnP '(?<![\w.])Color\.' --include=*.qml --exclude-dir=node_modules . || true)
+[ -z "$bare" ] || { echo "bare Color. (use Commons.Color.):"; echo "$bare" | head -20; failed=1; }
 
 [ "$failed" -eq 0 ] && echo "validate: all passed" || echo "validate: FAILED"
 exit "$failed"

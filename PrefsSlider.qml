@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Layouts
 import qs.Commons
+import qs.Commons as Commons
 import qs.Ui
 import "SliderModel.js" as SliderModel
 
@@ -104,8 +105,8 @@ BorderSurface {
   activeFocusOnTab: enabled
   opacity: enabled ? 1 : 0.45
   readonly property bool resting: compact && !activeFocus && !hot
-  color: resting ? "transparent" : Style.controlFill(activeFocus, hot, Color.popups.text, Color.accent)
-  borderSpec: resting ? Border.none() : Border.controlSpec(activeFocus ? "focus" : hot ? "hover-cursor" : "normal", Color.popups.text, Color.accent)
+  color: resting ? "transparent" : Style.controlFill(activeFocus, hot, Commons.Color.popups.text, Commons.Color.accent)
+  borderSpec: resting ? Border.none() : Border.controlSpec(activeFocus ? "focus" : hot ? "hover-cursor" : "normal", Commons.Color.popups.text, Commons.Color.accent)
   Accessible.role: Accessible.Slider
   Accessible.name: label
   Accessible.description: format(shown)
@@ -157,7 +158,7 @@ BorderSurface {
         Text {
           text: row.label
           textFormat: Text.PlainText
-          color: Color.popups.text
+          color: Commons.Color.popups.text
           font.family: Style.font.family
           font.pixelSize: Style.font.body
           font.bold: true
@@ -168,7 +169,7 @@ BorderSurface {
           visible: row.description !== "" && !row.compact
           text: row.description
           textFormat: Text.PlainText
-          color: Qt.alpha(Color.popups.text, 0.6)
+          color: Qt.alpha(Commons.Color.popups.text, 0.6)
           font.family: Style.font.family
           font.pixelSize: Style.font.bodySmall
           wrapMode: Text.WordWrap
@@ -180,7 +181,7 @@ BorderSurface {
         Layout.alignment: row.compact ? Qt.AlignVCenter : Qt.AlignTop
         text: row.format(row.shown)
         textFormat: Text.PlainText
-        color: row.drafting ? Color.accent : Qt.alpha(Color.popups.text, 0.7)
+        color: row.drafting ? Commons.Color.accent : Qt.alpha(Commons.Color.popups.text, 0.7)
         font.family: Style.font.family
         font.pixelSize: Style.font.bodySmall
         font.bold: true
@@ -209,7 +210,7 @@ BorderSurface {
         width: slider.span + height
         height: slider.trackHeight
         radius: height / 2
-        color: Style.selectedFillFor(Color.popups.text, Color.accent)
+        color: Style.selectedFillFor(Commons.Color.popups.text, Commons.Color.accent)
       }
       // The default, as a faint mark across the track.
       Rectangle {
@@ -219,7 +220,7 @@ BorderSurface {
         radius: width / 2
         anchors.verticalCenter: track.verticalCenter
         x: slider.xFor(row.defaultValue) - width / 2
-        color: Qt.alpha(Color.popups.text, 0.35)
+        color: Qt.alpha(Commons.Color.popups.text, 0.35)
         Accessible.ignored: true
       }
       Rectangle {
@@ -228,7 +229,7 @@ BorderSurface {
         height: track.height
         radius: track.radius
         width: slider.span * slider.progress + track.height
-        color: Color.popups.text
+        color: Commons.Color.popups.text
         Behavior on width {
           enabled: !row.dragging && row.animate
           NumberAnimation { duration: 120; easing.type: Easing.OutCubic }
@@ -243,7 +244,7 @@ BorderSurface {
           radius: 1
           anchors.verticalCenter: track.verticalCenter
           x: slider.knobSize / 2 + slider.span * index / (slider.ticks - 1) - width / 2
-          color: Color.popups.background
+          color: Commons.Color.popups.background
           Accessible.ignored: true
         }
       }
@@ -254,8 +255,8 @@ BorderSurface {
         radius: width / 2
         anchors.verticalCenter: track.verticalCenter
         x: slider.span * slider.progress
-        color: Color.popups.text
-        borderSpec: Border.flat(Color.popups.background, Math.max(1, Style.space(2)))
+        color: Commons.Color.popups.text
+        borderSpec: Border.flat(Commons.Color.popups.background, Math.max(1, Style.space(2)))
         scale: row.dragging ? 1.2 : slider.hot ? 1.15 : 1
         Behavior on x {
           enabled: !row.dragging && row.animate

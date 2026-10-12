@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- **Ready for Qt 6.12**: the palette is read as `Commons.Color`, as Omarchy
+  now does, since Qt 6.12's QtQuick brings its own `Color` type that would
+  shadow it. `tools/validate.sh` fails on a bare `Color.` reference.
+
 ## 0.7.0 — 2026-10-11
 
 A highlight that slides from widget to widget, a fuller keyboard mode with

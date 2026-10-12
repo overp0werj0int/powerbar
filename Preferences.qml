@@ -4,6 +4,7 @@ import Quickshell
 import Quickshell.Io
 import Quickshell.Wayland
 import qs.Commons
+import qs.Commons as Commons
 import qs.Ui
 import "PreferencesModel.js" as Model
 import "BarModel.js" as BarModel
@@ -224,7 +225,7 @@ Item {
     anchors.verticalCenter: parent ? parent.verticalCenter : undefined
     options: [{ value: "theme", label: "Theme" }, { value: "all", label: "Everywhere" }, { value: "this", label: "Just here" }]
     value: prefs.scopeOf(tile)
-    foreground: Color.popups.text
+    foreground: Commons.Color.popups.text
     background: "transparent"
     fontSize: Style.font.caption
     Accessible.name: tile.charAt(0).toUpperCase() + tile.slice(1) + " values"
@@ -234,7 +235,7 @@ Item {
     property string tile: ""
     text: prefs.scopeHint(tile)
     textFormat: Text.PlainText
-    color: Qt.alpha(Color.popups.text, 0.55)
+    color: Qt.alpha(Commons.Color.popups.text, 0.55)
     font.family: Style.font.family
     font.pixelSize: Style.font.caption
     elide: Text.ElideRight
@@ -366,7 +367,7 @@ Item {
 
     Rectangle {
       anchors.fill: parent
-      color: Color.menu.scrim
+      color: Commons.Color.menu.scrim
       MouseArea { anchors.fill: parent; onClicked: prefs.close() }
     }
 
@@ -375,8 +376,8 @@ Item {
       anchors.centerIn: parent
       width: Math.min(parent.width - Style.space(48), Style.space(1180))
       height: Math.min(parent.height - Style.space(64), Style.space(790))
-      color: Qt.rgba(Color.popups.background.r, Color.popups.background.g, Color.popups.background.b, 1)
-      borderSpec: Border.surfaceSpec("popups", "border", Color.popups.border, 1)
+      color: Qt.rgba(Commons.Color.popups.background.r, Commons.Color.popups.background.g, Commons.Color.popups.background.b, 1)
+      borderSpec: Border.surfaceSpec("popups", "border", Commons.Color.popups.border, 1)
       radius: Style.cornerRadius
       focus: true
       opacity: prefs.opened ? 1 : 0
@@ -427,7 +428,7 @@ Item {
           readonly property bool shown: !!target && target.visible
           color: "transparent"
           radius: Style.cornerRadius + pad
-          borderSpec: Border.flat(Color.accent, Math.max(1, Style.space(2)))
+          borderSpec: Border.flat(Commons.Color.accent, Math.max(1, Style.space(2)))
           onTargetChanged: { gliding = true; glideEnd.restart(); follow() }
           function onPages(item) {
             for (var p = item; p; p = p.parent) if (p === pages) return true
@@ -480,7 +481,7 @@ Item {
           Text {
             text: "Powerbar"
             textFormat: Text.PlainText
-            color: Color.popups.text
+            color: Commons.Color.popups.text
             font.family: Style.font.family
             font.pixelSize: Style.font.heading
             font.bold: true
@@ -505,13 +506,13 @@ Item {
                   spacing: Style.space(8)
                   KeyCap {
                     text: tab.index + 1
-                    foreground: tab.current ? Color.accent : Color.popups.text
+                    foreground: tab.current ? Commons.Color.accent : Commons.Color.popups.text
                     anchors.verticalCenter: parent.verticalCenter
                   }
                   Text {
                     text: tab.modelData.title
                     textFormat: Text.PlainText
-                    color: tab.current ? Color.popups.text : Qt.alpha(Color.popups.text, tabMouse.containsMouse ? 0.85 : 0.55)
+                    color: tab.current ? Commons.Color.popups.text : Qt.alpha(Commons.Color.popups.text, tabMouse.containsMouse ? 0.85 : 0.55)
                     font.family: Style.font.family
                     font.pixelSize: Style.font.body
                     font.bold: tab.current
@@ -524,7 +525,7 @@ Item {
                   width: tab.current ? parent.width - Style.space(12) : 0
                   height: Math.max(2, Style.space(2))
                   radius: height / 2
-                  color: Color.accent
+                  color: Commons.Color.accent
                   Behavior on width { enabled: prefs.bar && prefs.bar.animationsEnabled; NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
                 }
                 MouseArea {
@@ -551,7 +552,7 @@ Item {
             Text {
               text: "Close"
               textFormat: Text.PlainText
-              color: Color.popups.text
+              color: Commons.Color.popups.text
               font.family: Style.font.family
               font.pixelSize: Style.font.bodySmall
               anchors.verticalCenter: parent.verticalCenter
@@ -567,7 +568,7 @@ Item {
             }
           }
         }
-        Rectangle { Layout.fillWidth: true; Layout.preferredHeight: 1; color: Qt.alpha(Color.popups.text, 0.1) }
+        Rectangle { Layout.fillWidth: true; Layout.preferredHeight: 1; color: Qt.alpha(Commons.Color.popups.text, 0.1) }
 
         // ----------------------------------------------------------- pages
         StackLayout {
@@ -654,7 +655,7 @@ Item {
                           Layout.topMargin: Style.space(4)
                           text: "Pinned to screen center"
                           textFormat: Text.PlainText
-                          color: Color.popups.text
+                          color: Commons.Color.popups.text
                           font.family: Style.font.family
                           font.pixelSize: Style.font.body
                           font.bold: true
@@ -905,7 +906,7 @@ Item {
         }
 
         // ---------------------------------------------------------- footer
-        Rectangle { Layout.fillWidth: true; Layout.preferredHeight: 1; color: Qt.alpha(Color.popups.text, 0.1) }
+        Rectangle { Layout.fillWidth: true; Layout.preferredHeight: 1; color: Qt.alpha(Commons.Color.popups.text, 0.1) }
         RowLayout {
           Layout.fillWidth: true
           Layout.topMargin: Style.space(12)
@@ -922,7 +923,7 @@ Item {
               Text {
                 text: parent.modelData.label
                 textFormat: Text.PlainText
-                color: Qt.alpha(Color.popups.text, 0.6)
+                color: Qt.alpha(Commons.Color.popups.text, 0.6)
                 font.family: Style.font.family
                 font.pixelSize: Style.font.caption
                 anchors.verticalCenter: parent.verticalCenter
@@ -933,7 +934,7 @@ Item {
           Text {
             text: prefs.status
             textFormat: Text.PlainText
-            color: Color.urgent
+            color: Commons.Color.urgent
             font.family: Style.font.family
             font.pixelSize: Style.font.caption
             elide: Text.ElideLeft

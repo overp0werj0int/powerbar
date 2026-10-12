@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Window
 import qs.Commons
+import qs.Commons as Commons
 import "GroupsModel.js" as Groups
 
 // A group's face drawn as runs (GroupsModel.faceRuns): its icon, a glyph in
@@ -13,7 +14,7 @@ Row {
   property var group: null
   // "glyph", "text" or "both"; empty draws the group's own setting.
   property string faceMode: ""
-  property color color: Color.popups.text
+  property color color: Commons.Color.popups.text
   property string fontFamily: Style.font.family
   property real fontSize: Style.font.body
   // Your own image fits this square: the bar's glyph size (CellModel.GLYPH_INK).

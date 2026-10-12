@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Window
 import QtQuick.Layouts
 import qs.Commons
+import qs.Commons as Commons
 import qs.Ui
 import "PreferencesModel.js" as Model
 import "GroupsModel.js" as Groups
@@ -62,16 +63,16 @@ Item {
   // a backing in the Preferences text colour instead.
   readonly property bool inkBacked: {
     if (!bar || !bar.barForeground) return false
-    var a = AppearanceModel.luminance(bar.barForeground), b = AppearanceModel.luminance(Color.popups.background)
+    var a = AppearanceModel.luminance(bar.barForeground), b = AppearanceModel.luminance(Commons.Color.popups.background)
     return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05) < 3
   }
   // The bar shelf draws the bar as it is: its cell geometry at the size it
   // has on a top edge, its text colour and font, its surface (opaque: the
   // wallpaper behind it is not drawn), rounding and border.
   readonly property var barTokens: CellModel.tokens({ bar: barThickness, spacing: bar ? bar.widgetSpacing : 0, mode: bar ? bar.spacingMode : "slots" })
-  readonly property color barInk: bar ? bar.barForeground : Color.popups.text
+  readonly property color barInk: bar ? bar.barForeground : Commons.Color.popups.text
   readonly property string barInkHex: bar ? bar.colorHex(bar.barForeground) : ""
-  readonly property color barSurface: bar ? Qt.rgba(bar.mainSurfaceColor.r, bar.mainSurfaceColor.g, bar.mainSurfaceColor.b, 1) : Color.popups.background
+  readonly property color barSurface: bar ? Qt.rgba(bar.mainSurfaceColor.r, bar.mainSurfaceColor.g, bar.mainSurfaceColor.b, 1) : Commons.Color.popups.background
   readonly property string barFont: bar ? bar.fontFamily : Style.font.family
   // Ink of a line of text, measured once per text, font and size. Each font
   // gets its own FontMetrics, made once, so measuring never changes a
@@ -432,7 +433,7 @@ Item {
     span12: 12
     span6: 6
     animate: editor.bar ? editor.bar.animationsEnabled : true
-    borderSpec: Border.flat(Qt.alpha(Color.popups.text, shelfFocus.activeFocus ? 0.28 : 0.1), 1)
+    borderSpec: Border.flat(Qt.alpha(Commons.Color.popups.text, shelfFocus.activeFocus ? 0.28 : 0.1), 1)
 
     Item {
       id: shelfFocus
@@ -465,7 +466,7 @@ Item {
               required property string modelData
               text: editor.zoneNames[modelData]
               textFormat: Text.PlainText
-              color: Model.sectionOf(editor.cursorCell.section) === modelData ? Color.popups.text : Qt.alpha(Color.popups.text, 0.6)
+              color: Model.sectionOf(editor.cursorCell.section) === modelData ? Commons.Color.popups.text : Qt.alpha(Commons.Color.popups.text, 0.6)
               font.family: Style.font.family
               font.pixelSize: Style.font.caption
               font.bold: Model.sectionOf(editor.cursorCell.section) === modelData
@@ -602,7 +603,7 @@ Item {
       width: parent.width
       text: cell.caption
       textFormat: Text.PlainText
-      color: Qt.alpha(Color.popups.text, 0.6)
+      color: Qt.alpha(Commons.Color.popups.text, 0.6)
       font.family: Style.font.family
       font.pixelSize: Style.font.caption
       elide: Text.ElideRight
@@ -615,10 +616,10 @@ Item {
         ? Math.max(1, cell.layout.lines.length) * (editor.barThickness + cell.lineGap) - cell.lineGap + cell.pad * 2
         : Math.max(Style.space(42), (content.item ? content.item.height : 0) + cell.pad * 2)
       radius: cell.radius
-      color: Qt.alpha(Color.popups.text, 0.04)
+      color: Qt.alpha(Commons.Color.popups.text, 0.04)
       // An empty well waiting for a drop is outlined the way the bar outlines
       // a landing place.
-      borderSpec: cell.targeted && cell.list.length === 1 ? Border.flat(Qt.alpha(Color.popups.text, 0.45), 1) : Border.none()
+      borderSpec: cell.targeted && cell.list.length === 1 ? Border.flat(Qt.alpha(Commons.Color.popups.text, 0.45), 1) : Border.none()
       Behavior on height { enabled: editor.bar.animationsEnabled; NumberAnimation { duration: 140; easing.type: Easing.OutCubic } }
 
       Text {
@@ -626,7 +627,7 @@ Item {
         visible: cell.list.length === 0 && cell.cursorHere && editor.gridFocused
         text: "Empty"
         textFormat: Text.PlainText
-        color: Qt.alpha(Color.popups.text, 0.45)
+        color: Qt.alpha(Commons.Color.popups.text, 0.45)
         font.family: Style.font.family
         font.pixelSize: Style.font.bodySmall
       }
@@ -636,7 +637,7 @@ Item {
         visible: cell.list.length === 0 && cell.cursorHere && editor.gridFocused
         color: "transparent"
         radius: Math.max(0, cell.radius - Style.space(3))
-        borderSpec: Border.controlSpec("focus", Color.popups.text, Color.accent)
+        borderSpec: Border.controlSpec("focus", Commons.Color.popups.text, Commons.Color.accent)
       }
 
       Loader {
@@ -747,12 +748,12 @@ Item {
       radius: CellModel.radius(editor.barTokens, editor.bar.islandRounding)
       color: tile.placeholder ? "transparent"
         : tile.ghost ? editor.barSurface
-        : tile.isCursor && editor.gridFocused ? Style.focusFillFor(editor.barInk, Color.accent)
-        : tile.isCursor ? Style.selectedFillFor(editor.barInk, Color.accent)
-        : tile.hovered ? Style.hoverFillFor(editor.barInk, Color.accent)
+        : tile.isCursor && editor.gridFocused ? Style.focusFillFor(editor.barInk, Commons.Color.accent)
+        : tile.isCursor ? Style.selectedFillFor(editor.barInk, Commons.Color.accent)
+        : tile.hovered ? Style.hoverFillFor(editor.barInk, Commons.Color.accent)
         : "transparent"
       borderSpec: tile.placeholder || tile.ghost ? Border.flat(Qt.alpha(editor.barInk, 0.45), 1)
-        : tile.isCursor && editor.gridFocused ? Border.controlSpec("focus", editor.barInk, Color.accent)
+        : tile.isCursor && editor.gridFocused ? Border.controlSpec("focus", editor.barInk, Commons.Color.accent)
         : Border.none()
       Behavior on color { enabled: editor.bar.animationsEnabled; ColorAnimation { duration: 90 } }
     }
@@ -771,14 +772,14 @@ Item {
       anchors.fill: parent
       radius: Math.max(0, Style.cornerRadius - Math.round(Style.spacing.rowPaddingX / 2))
       color: tile.placeholder ? "transparent"
-        : tile.ghost ? Color.popups.background
-        : tile.isCursor && editor.gridFocused ? Style.focusFillFor(Color.popups.text, Color.accent)
-        : tile.isCursor ? Style.selectedFillFor(Color.popups.text, Color.accent)
-        : tile.hovered ? Style.hoverFillFor(Color.popups.text, Color.accent)
-        : Qt.alpha(Color.popups.text, 0.06)
-      borderSpec: tile.placeholder || tile.ghost ? Border.flat(Qt.alpha(Color.popups.text, 0.45), 1)
-        : tile.isCursor && editor.gridFocused ? Border.controlSpec("focus", Color.popups.text, Color.accent)
-        : tile.isCursor ? Border.flat(Qt.alpha(Color.popups.text, 0.35), 1)
+        : tile.ghost ? Commons.Color.popups.background
+        : tile.isCursor && editor.gridFocused ? Style.focusFillFor(Commons.Color.popups.text, Commons.Color.accent)
+        : tile.isCursor ? Style.selectedFillFor(Commons.Color.popups.text, Commons.Color.accent)
+        : tile.hovered ? Style.hoverFillFor(Commons.Color.popups.text, Commons.Color.accent)
+        : Qt.alpha(Commons.Color.popups.text, 0.06)
+      borderSpec: tile.placeholder || tile.ghost ? Border.flat(Qt.alpha(Commons.Color.popups.text, 0.45), 1)
+        : tile.isCursor && editor.gridFocused ? Border.controlSpec("focus", Commons.Color.popups.text, Commons.Color.accent)
+        : tile.isCursor ? Border.flat(Qt.alpha(Commons.Color.popups.text, 0.35), 1)
         : Border.none()
       Behavior on color { enabled: editor.bar.animationsEnabled; ColorAnimation { duration: 90 } }
     }
@@ -796,7 +797,7 @@ Item {
           anchors.fill: parent
           visible: tile.backed
           radius: Style.space(3)
-          color: Color.popups.text
+          color: Commons.Color.popups.text
         }
         WidgetIcon {
           id: rowIcon
@@ -811,7 +812,7 @@ Item {
         id: nameLabel
         text: tile.record.instanceKey ? editor.preferences.title(tile.record) : ""
         textFormat: Text.PlainText
-        color: Color.popups.text
+        color: Commons.Color.popups.text
         font.family: Style.font.family
         font.pixelSize: Style.font.bodySmall
         elide: Text.ElideRight
@@ -825,7 +826,7 @@ Item {
         visible: tile.memberCount > 0
         text: tile.memberCount
         textFormat: Text.PlainText
-        color: Qt.alpha(Color.popups.text, 0.55)
+        color: Qt.alpha(Commons.Color.popups.text, 0.55)
         font.family: Style.font.family
         font.pixelSize: Style.font.caption
         anchors.verticalCenter: parent.verticalCenter
@@ -865,7 +866,7 @@ Item {
         : "Nothing " + (editor.cursorCell.mode === "shown" ? "on the bar in " : editor.cursorCell.mode === "managed" ? "on demand in " : "hidden in ")
           + editor.zoneNames[editor.cursorCell.section] + " yet. Pick up a widget with Space, or drag one here."
       textFormat: Text.PlainText
-      color: Qt.alpha(Color.popups.text, 0.65)
+      color: Qt.alpha(Commons.Color.popups.text, 0.65)
       font.family: Style.font.family
       font.pixelSize: Style.font.bodySmall
       wrapMode: Text.WordWrap
@@ -977,7 +978,7 @@ Item {
         Text {
           text: "Members"
           textFormat: Text.PlainText
-          color: Color.popups.text
+          color: Commons.Color.popups.text
           font.family: Style.font.family
           font.pixelSize: Style.font.body
           font.bold: true
@@ -1006,7 +1007,7 @@ Item {
         Text {
           text: "Group"
           textFormat: Text.PlainText
-          color: Color.popups.text
+          color: Commons.Color.popups.text
           font.family: Style.font.family
           font.pixelSize: Style.font.body
           font.bold: true
@@ -1030,7 +1031,7 @@ Item {
           iconText: "󰏫"
           focusable: true
           bordered: true
-          foreground: Color.popups.text
+          foreground: Commons.Color.popups.text
           onClicked: editor.preferences.openGroup(panel.record.groupId)
         }
       }
@@ -1041,7 +1042,7 @@ Item {
     property bool dim: false
     Layout.fillWidth: true
     textFormat: Text.PlainText
-    color: Qt.alpha(Color.popups.text, dim ? 0.35 : 0.6)
+    color: Qt.alpha(Commons.Color.popups.text, dim ? 0.35 : 0.6)
     font.family: Style.font.family
     font.pixelSize: Style.font.caption
     wrapMode: Text.WordWrap
