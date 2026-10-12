@@ -194,6 +194,54 @@ function restore(config, target) {
   return next
 }
 
+// The bar's own shortcuts Preferences suggests (faded, "Suggested"), and a
+// first start binds where free (KEYS-84): what each does, said in full, and
+// shorter after the keyboard mode was named.
+var SUGGESTED = [
+  { target: "bar:keys", keys: "SUPER + B", does: "starts the keyboard mode", what: "the keyboard mode" },
+  { target: "bar:search", keys: "SUPER + CTRL + SLASH", does: "starts the keyboard mode with its search open",
+    doesAfter: "starts it with its search open", what: "the keyboard mode's search", whatAfter: "its search" }
+]
+function suggested(target) {
+  var s = SUGGESTED.find(function(x) { return x.target === target })
+  return s ? s.keys : ""
+}
+
+// A first start's offer: each suggested target the config has no entry for
+// (an entry, even "" for none, means the user decided) gets its keys when
+// nothing else answers them (conflicts). → { next, bound: [suggestion],
+// taken: [suggestion + by] }; next is config with the bound ones assigned.
+function offer(config, binds, names, own) {
+  var next = config || {}, bound = [], taken = []
+  SUGGESTED.forEach(function(s) {
+    if (Object.prototype.hasOwnProperty.call(next, s.target)) return
+    var by = conflicts(s.keys, s.target, next, binds, names, own)
+    if (by.length) taken.push(Object.assign({ by: by.map(function(c) { return c.description }).join(", ") }, s))
+    else { next = assign(next, s.target, s.keys); bound.push(s) }
+  })
+  return { next: next, bound: bound, taken: taken }
+}
+
+// The offer told in one notification: what was bound, what was taken and by
+// what, and where to change them. "" when nothing was offered.
+function offerMessage(result) {
+  var keys = function(s) { return caps(s.keys).join(" + ") }
+  var out = []
+  if (result.bound.length) {
+    out.push(result.bound.map(function(s, i) {
+      return keys(s) + " " + (i > 0 && s.doesAfter ? s.doesAfter : s.does)
+    }).join(", ") + ".")
+  }
+  if (result.taken.length) {
+    out.push(result.taken.map(function(s, i) {
+      return keys(s) + " (" + (i > 0 && s.whatAfter ? s.whatAfter : s.what) + ") is taken by " + s.by
+    }).join("; ") + ". Choose keys in Preferences → Bar → Keyboard.")
+  } else if (result.bound.length) {
+    out.push((result.bound.length > 1 ? "Change them" : "Change it") + " in Preferences → Bar → Keyboard.")
+  }
+  return out.join(" ")
+}
+
 // A key press while recording → { keys } or { error }. key: Qt key code;
 // mods: Qt modifier bits; code: the native scan code (0 when unknown).
 var QT = { Shift: 0x02000000, Control: 0x04000000, Alt: 0x08000000, Meta: 0x10000000 }
@@ -317,4 +365,4 @@ function recordLua(start) {
 }
 
 if (typeof module !== "undefined") module.exports = { MODS, MASK, SUBMAP, BEGIN, END, OLD_START, OLD_END, paired, safeId, strip, blockKeys, parse, format, normalize, same, caps, label,
-  parseBinds, parseDefaults, readDefaults, live, effective, positional, conflicts, assign, restore, fromKeyEvent, command, render, recordLua }
+  parseBinds, parseDefaults, readDefaults, live, effective, positional, conflicts, assign, restore, SUGGESTED, suggested, offer, offerMessage, fromKeyEvent, command, render, recordLua }

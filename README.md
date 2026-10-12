@@ -77,8 +77,9 @@ off.
 - Keys are named by where they point, so they mean the same thing on a top,
   bottom or side bar, and a name card beside the cursor tells you what you're
   on.
-- It tries hard not to surprise you. Nothing is bound until you accept a
-  shortcut, Omarchy's `omarchy bar` commands keep working, a shortcut Hyprland
+- It tries hard not to surprise you. On first start it binds only its two
+  bar shortcuts, and only keys nothing else holds (it tells you which); any
+  other shortcut waits until you accept it. Omarchy's `omarchy bar` commands keep working, a shortcut Hyprland
   rejects puts your files back as they were, and settings for an uninstalled
   widget clean themselves up.
 
@@ -128,7 +129,9 @@ omarchy bar use p0werj0int.powerbar
 
 Until you change something, Powerbar draws Omarchy's bar plus one button:
 flat, on the edge `bar.position` names, at your theme's size, every widget in
-Omarchy's sections, order and spacing, nothing on demand, no shortcuts bound.
+Omarchy's sections, order and spacing, nothing on demand. Two shortcuts are
+bound if their keys are free: Super+B for the keyboard mode and Super+Ctrl+/
+for its search (below).
 The nine-dot button at the far right (bottom of a side bar) opens
 Preferences.
 
@@ -138,19 +141,24 @@ settings stay in `~/.config/omarchy/shell.json` for when you come back.
 Needs Omarchy 4 (Quattro). Tested on Omarchy 4.0.4-1, Hyprland 0.56.2 and
 Quickshell 0.3.1.
 
-### Optional: Super+B for the keyboard mode
+### Shortcuts for the keyboard mode
 
-Nothing is bound on install. To start the keyboard mode with Super+B (once
-the bar is up):
+On its first start Powerbar binds Super+B to the keyboard mode and
+Super+Ctrl+/ to the mode with its search (/) open, each only if nothing else
+already answers those keys, and a notification says what it bound. A key that
+is taken stays with what holds it; the notification names it, and you choose
+other keys in Preferences → Bar → Keyboard. To bind them yourself (or again,
+after an upgrade from a version that bound nothing):
 
 ```sh
 omarchy-shell powerbar set shortcut.bar:keys "SUPER + B"
-# and, to jump straight into its search (/):
 omarchy-shell powerbar set shortcut.bar:search "SUPER + CTRL + SLASH"
 ```
 
-Powerbar writes it to a marked block in `~/.config/hypr/bindings.lua`;
-`omarchy-shell powerbar clearShortcuts` removes it.
+A key that is taken is refused with what holds it; add `'{"keys":"…","replace":true}'`
+in place of the keys to take it anyway. Powerbar writes them to a marked
+block in `~/.config/hypr/bindings.lua`; `omarchy-shell powerbar
+clearShortcuts` removes it.
 
 ## Update
 
@@ -217,8 +225,8 @@ whatever has focus):
 
 ## Keyboard mode
 
-Preferences → Bar → Keyboard offers Super+B for it (nothing is bound until
-you accept). The cursor starts on the clock, or on the widget whose panel is
+Super+B starts it, when it was free on Powerbar's first start (otherwise
+Preferences → Bar → Keyboard offers it). The cursor starts on the clock, or on the widget whose panel is
 open. Keys are named by direction relative to the bar, so they mean the same
 on every edge:
 

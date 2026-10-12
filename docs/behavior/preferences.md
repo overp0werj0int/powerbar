@@ -164,7 +164,7 @@ Sources: Preferences.qml, PreferencesModel.js, BentoModel.js, ShelfModel.js, Sli
 
 - **PREFS-71** On demand: "Show them" In a drawer (the default, hovering a zone opens its drawer) or In the bar (behind dots, expanding in the bar; `powerbarOnDemand`), and "Count on the dots" (`powerbarDotsBadge`, default on). Timing: on-demand-drawers.md.
 
-- **PREFS-72** Keyboard: the "Bar keyboard" shortcut row (SUPER + B is only suggested, KEYS-66) and "Key legend" (`powerbarKeyLegend`, default on).
+- **PREFS-72** Keyboard: the "Bar keyboard" (`bar:keys`) and "Bar search" (`bar:search`) shortcut rows (bound on the first start where free, KEYS-84; otherwise SUPER + B and SUPER + CTRL + SLASH are only suggested, KEYS-66) and "Key legend" (`powerbarKeyLegend`, default on).
 
 ## Appearance scopes
 

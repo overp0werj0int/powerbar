@@ -881,8 +881,8 @@ Item {
                       onToggled: function(checked) { prefs.setOption("powerbarDotsBadge", checked) }
                     }
                   }
-                  // The keyboard mode (docs/behavior/keyboard.md): its shortcut, offered
-                  // rather than bound, and the strip of keys it shows.
+                  // The keyboard mode (docs/behavior/keyboard.md): its shortcuts (bound
+                  // on a first start where free, else offered) and its strip of keys.
                   PrefsTile {
                     title: "Keyboard"
                     span12: 4; span6: 6
@@ -890,13 +890,13 @@ Item {
                       label: "Bar keyboard"
                       store: prefs.shortcuts
                       target: "bar:keys"
-                      suggested: "SUPER + B"
+                      suggested: prefs.shortcuts.suggested("bar:keys")
                     }
                     ShortcutRow {
                       label: "Bar search"
                       store: prefs.shortcuts
                       target: "bar:search"
-                      suggested: "SUPER + CTRL + SLASH"
+                      suggested: prefs.shortcuts.suggested("bar:search")
                     }
                     PrefsToggle {
                       compact: true

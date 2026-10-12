@@ -64,6 +64,39 @@ Item {
     return Shortcuts.conflicts(keys, target, config, binds, named, ownKeys)
   }
 
+  function suggested(target) { return Shortcuts.suggested(target) }
+
+  // A first start (keyboard.md KEYS-84): Powerbar's first write on a config
+  // it never ran on leaves bar.powerbarShortcutOffer. Once Hyprland's binds
+  // are read, the bar's suggested shortcuts that nothing holds are bound, a
+  // notification says which and what holds the others, and the flag goes.
+  readonly property bool offerPending: !!bar && !!bar.barConfig && bar.barConfig.powerbarShortcutOffer === true
+  // The notification, sent once the write is done (or failed).
+  property string offerNote: ""
+  // Finished reads of Hyprland's binds; the offer waits for one it asked for,
+  // so it judges the binds as they are now, not as they were at start.
+  property int reads: 0
+  property int offerAfter: -1
+  // Later, not inside the change: the offer writes the config offerPending reads.
+  onOfferPendingChanged: Qt.callLater(offerSuggested)
+  onReadsChanged: Qt.callLater(offerSuggested)
+  function offerSuggested() {
+    if (!offerPending || busy || offerNote) return
+    if (offerAfter < 0) { offerAfter = reads + 1; refresh(); return }
+    if (reads < offerAfter || !bar.canWriteConfig()) return
+    offerAfter = -1
+    var result = Shortcuts.offer(config, binds, names(config), ownKeys)
+    preferences.setOption("powerbarShortcutOffer", undefined)
+    offerNote = Shortcuts.offerMessage(result)
+    if (result.bound.length) write(result.next)
+    else notifyOffer()
+  }
+  function notifyOffer() {
+    var text = error ? error + " Set the bar's shortcuts in Preferences → Bar → Keyboard." : offerNote
+    offerNote = ""
+    if (text) Quickshell.execDetached(["notify-send", "-a", "Powerbar", "Powerbar shortcuts", text])
+  }
+
   function save(target, keys) { write(Shortcuts.assign(config, target, keys)) }
   function restore(target) { write(Shortcuts.restore(config, target)) }
   // What powerbarShortcuts held before the write in flight: put back when
@@ -98,7 +131,7 @@ Item {
   })
   onStaleGroupsChanged: pruneStaleGroups()
   // Also once a write in flight is done: a group dissolved meanwhile.
-  onBusyChanged: if (!busy) pruneStaleGroups()
+  onBusyChanged: if (!busy) { if (offerNote) notifyOffer(); pruneStaleGroups(); Qt.callLater(offerSuggested) }
   // Not again after a write that failed (error set): a refusal would put the
   // stale shortcut back and this would try forever; the next change retries.
   function pruneStaleGroups() {
@@ -140,6 +173,7 @@ Item {
         store.ownKeys = own
         store.defaults = Shortcuts.readDefaults(files)
         store.ready = true
+        store.reads++
       }
     }
   }
