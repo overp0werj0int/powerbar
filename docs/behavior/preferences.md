@@ -172,7 +172,7 @@ Sources: Preferences.qml, PreferencesModel.js, BentoModel.js, ShelfModel.js, Sli
 
 ## Keyboard shortcuts
 
-- **PREFS-76** A shortcut row appears in the Layout tile (widget or group), the Groups settings tile (its group) and Bar → Keyboard (`bar:keys`). Its behavior, recording and the file it writes: keyboard.md KEYS-53 to KEYS-62, KEYS-66, KEYS-67. A row is unavailable, with its reason as the tag, for a hidden widget or group ("Hidden widgets can't open", "Hidden groups can't open") and for a widget with nothing to open ("Nothing to open").
+- **PREFS-76** A shortcut row appears in the Layout tile (widget or group), the Groups settings tile (its group) and Bar → Keyboard (`bar:keys`, `bar:search`). Its behavior, recording and the file it writes: keyboard.md KEYS-53 to KEYS-62, KEYS-66, KEYS-67. A row is unavailable, with its reason as the tag, for a hidden widget or group ("Hidden widgets can't open", "Hidden groups can't open") and for a widget with nothing to open ("Nothing to open").
 
 ## Configuration persistence and healing
 

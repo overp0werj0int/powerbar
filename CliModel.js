@@ -44,7 +44,7 @@ var settings = [
   { name: "shadow.softness", tile: "shadow", look: "softness", type: "number", min: 2, max: 24, step: 1, writer: "look" },
   { name: "shadow.strength", tile: "shadow", look: "strength", type: "number", min: 5, max: 60, step: 5, writer: "look" }
 ]
-// Shortcuts: "shortcut.bar:keys", "shortcut.group:<id>", "shortcut.widget:<id>".
+// Shortcuts: "shortcut.bar:keys", "shortcut.bar:search", "shortcut.group:<id>", "shortcut.widget:<id>".
 var shortcutPrefix = "shortcut."
 
 // A setting by its name or its shell.json key (powerbarAutoHide), or a
@@ -109,13 +109,13 @@ function shortcutValue(value) {
 // [ids] }. Widgets are named by plugin id, as Omarchy's own binds name them.
 function shortcutTarget(target, ctx) {
   var t = String(target || "")
-  if (t === "bar:keys") return ""
+  if (t === "bar:keys" || t === "bar:search") return ""
   if (t.indexOf("group:") === 0) {
     return (ctx && ctx.groups || []).indexOf(t.slice(6)) >= 0 ? "" : "no group " + t.slice(6)
   }
   if (t.indexOf("widget:") === 0 && t.length > 7)
     return /^[A-Za-z0-9_.\-]+$/.test(t.slice(7)) ? "" : "a widget id is letters, digits, dots, dashes and underscores"
-  return "a shortcut target is bar:keys, group:<id> or widget:<plugin id>"
+  return "a shortcut target is bar:keys, bar:search, group:<id> or widget:<plugin id>"
 }
 
 // Boolean settings flip with `toggle`.
@@ -266,6 +266,7 @@ var functions = [
   ["keys", "", "toggle the keyboard mode on the focused monitor's bar"],
   ["keysOn", "", "start the keyboard mode"],
   ["keysOff", "", "end the keyboard mode"],
+  ["keysSearch", "", "start the keyboard mode with its search (/) open, or end it while a search is open"],
   ["keysStatus", "", "the keyboard mode's state, as JSON"],
   ["managed", "<zone>", "open a zone's On demand drawer for the keyboard"],
   ["closeManaged", "", "close the open drawer or group menu"],
@@ -293,5 +294,5 @@ function describe(ctx) {
     if (s.type === "number") { d.min = s.min; d.max = s.max === "roundingMax" ? (ctx && ctx.roundingMax) : s.max; if (s.step) d.step = s.step }
     return d
   }).concat([{ name: "shortcut.<target>", type: "shortcut", key: "bar.powerbarShortcuts",
-    targets: ["bar:keys", "group:<id>", "widget:<plugin id>"] }])
+    targets: ["bar:keys", "bar:search", "group:<id>", "widget:<plugin id>"] }])
 }

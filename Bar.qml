@@ -675,6 +675,7 @@ Item {
     function hide(): string { return cliItem.hide() }
     function keysOn(): string { return cliItem.keysOn() }
     function keysOff(): string { return cliItem.keysOff() }
+    function keysSearch(): string { return cliItem.keysSearch() }
     function help(): string { return cliItem.help() }
   }
 

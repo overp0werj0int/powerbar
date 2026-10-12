@@ -892,6 +892,12 @@ Item {
                       target: "bar:keys"
                       suggested: "SUPER + B"
                     }
+                    ShortcutRow {
+                      label: "Bar search"
+                      store: prefs.shortcuts
+                      target: "bar:search"
+                      suggested: "SUPER + CTRL + SLASH"
+                    }
                     PrefsToggle {
                       compact: true
                       label: "Key legend"

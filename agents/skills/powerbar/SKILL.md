@@ -166,6 +166,7 @@ groups.
 ```sh
 omarchy-shell powerbar shortcuts                                  # what is bound, and by whom
 omarchy-shell powerbar set shortcut.bar:keys "SUPER + B"           # the keyboard mode
+omarchy-shell powerbar set shortcut.bar:search "SUPER + CTRL + SLASH"  # straight into its search
 omarchy-shell powerbar set shortcut.group:<group id> "SUPER + CTRL + ALT + J"
 omarchy-shell powerbar set shortcut.widget:omarchy.audio '""'      # remove
 omarchy-shell powerbar reset shortcut.widget:omarchy.audio         # back to Omarchy's own
@@ -187,6 +188,7 @@ written, the setting is put back and `live` stays false.
 |---|---|
 | `show` / `hide` | autohide on: hold the bar out until `hide`. Autohide off: switch the bar on/off (as `omarchy toggle bar`) |
 | `keysOn` / `keysOff` / `keys` | start, end, toggle the keyboard mode on the focused monitor |
+| `keysSearch` | the keyboard mode with its search (`/`) open; ends it while a search is open |
 | `managed <left\|center\|right>` / `group <id>` / `toggleGroup <id>` / `closeManaged` | open or close a drawer |
 | `preferences` / `preferencesPage <1-3>` / `groupsPreferences` / `closePreferences` | the Preferences window (1 Layout, 2 Groups, 3 Bar) |
 

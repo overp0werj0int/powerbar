@@ -125,6 +125,18 @@ Item {
 
   // ---- entering and leaving ---------------------------------------------
   function toggle() { if (active) leave(); else enter() }
+  // `/` from outside (powerbar keysSearch): the mode on the focused monitor's
+  // bar with the search open, from wherever the mode was; while a search is
+  // open, the mode ends, so one shortcut opens and closes it.
+  function search() {
+    if (active && searching) { leave(); return }
+    var w = bar.focusedBarWindow()
+    if (active && (!here || !w || !bar.sameWindow(window, w))) leave()
+    if (!active) enter()
+    if (!active) return
+    if (drawer) closeDrawer(true)
+    startSearch()
+  }
   // onWindow and at: a bar and a stop to start on (back from Preferences).
   function enter(onWindow, at) {
     if (bar.preferencesOpen) return
