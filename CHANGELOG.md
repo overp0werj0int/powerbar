@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- **Arrow keys in one keycap**: the key legend and the `?` sheet draw the
+  arrows as one keycap (←→↓) and their vim letters as another (hjkl),
+  as Atlas does, instead of a cap per key.
 - **Widgets stay in their groups when Omarchy edits them**: cycling the
   clock's format, or pinning a tray icon, made Omarchy save the widget
   without Powerbar's keys; it got a new id, left its group and the group

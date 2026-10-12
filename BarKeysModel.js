@@ -194,6 +194,15 @@ function route(where) {
   return "clear"
 }
 
+// Arrow keys drawn as one keycap ("←→↓"), always in the order ← ↑ → ↓, as
+// Atlas draws them; their vim letters likewise ("hjkl"). A thin space (not a
+// keycap break) parts the arrows: side by side, the font joins ← → into ↔.
+var ARROWS = [["Left", "←"], ["Up", "↑"], ["Right", "→"], ["Down", "↓"]]
+var THIN = "\u2009"
+function arrowCap(names) {
+  return ARROWS.filter(function(a) { return names.indexOf(a[0]) >= 0 }).map(function(a) { return a[1] }).join(THIN)
+}
+
 // The key strip's entries for an edge: [{ keys, label }]. At bar level the
 // arrows that move the cursor (along and into) share one "Move", and Tab and
 // Shift+Tab one "Zones".
@@ -201,18 +210,19 @@ function route(where) {
 function legend(position, state, strip) {
   var map = keymap(position)
   var arrows = { Up: "↑", Down: "↓", Left: "←", Right: "→" }
-  var alongKeys = map.vertical ? "↑ ↓" : "← →"
+  var along = map.vertical ? ["Up", "Down"] : ["Left", "Right"]
+  var alongKeys = arrowCap(along)
   if (state === "search") return [
     { keys: "Tab", label: "Next match" }, { keys: "Enter", label: "Open" }, { keys: "Esc", label: "Stop finding" },
     { keys: "Esc Esc", label: "Leave" }
   ]
   if (state === "drawer") return [
-    { keys: map.vertical || strip ? alongKeys : arrows[map.into[0]] + " " + arrows[map.out[0]], label: "Move" },
+    { keys: map.vertical || strip ? alongKeys : arrowCap([map.into[0], map.out[0]]), label: "Move" },
     { keys: "Enter", label: "Open" }, { keys: map.vertical || strip ? arrows[map.out[0]] + " Esc" : "Esc", label: "Back" },
     { keys: PREFS_KEY, label: "Preferences" }, { keys: "Esc Esc", label: "Leave" }
   ]
   return [
-    { keys: alongKeys + " " + arrows[map.into[0]], label: "Move" }, { keys: "Tab Shift+Tab", label: "Zones" },
+    { keys: arrowCap(along.concat([map.into[0]])), label: "Move" }, { keys: "Tab Shift+Tab", label: "Zones" },
     { keys: "Enter", label: "Open" }, { keys: "/", label: "Find" },
     { keys: "?", label: "Shortcuts" }, { keys: PREFS_KEY, label: "Preferences" }, { keys: "Esc", label: "Leave" }
   ]
@@ -220,15 +230,14 @@ function legend(position, state, strip) {
 
 // The ? sheet's left column: every key of the mode for an edge, in the
 // legend's form ({ keys, label }, keys split on spaces into keycaps). The
-// arrows (along, into, out) and their vim letters share one "Movement" row.
+// arrows (along, into, out) share one keycap and their vim letters another,
+// in one "Movement" row: every edge uses all four ("←↑→↓ hjkl").
 function sheetKeys(position) {
   var map = keymap(position)
-  var arrows = { Up: "↑", Down: "↓", Left: "←", Right: "→" }
-  var along = Object.keys(map.along).filter(function(k) { return arrows[k] })
-  var vim = Object.keys(map.along).filter(function(k) { return !arrows[k] })
-  var moveArrows = along.concat([map.into[0], map.out[0]]).map(function(k) { return arrows[k] })
+  var keys = Object.keys(map.along).concat(map.into, map.out)
+  var vim = ["h", "j", "k", "l"].filter(function(k) { return keys.indexOf(k) >= 0 })
   return [
-    { keys: moveArrows.concat(vim, [map.into[1], map.out[1]]).join(" "), label: "Movement" },
+    { keys: arrowCap(keys) + " " + vim.join(""), label: "Movement" },
     { keys: "Home ^", label: "First stop" },
     { keys: "End $", label: "Last stop" },
     { keys: "Tab PgDn", label: "Next zone" },

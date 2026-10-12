@@ -4,7 +4,7 @@ import qs.Commons as Commons
 
 // A key combination as keycaps joined by "+" (Super + Ctrl + A): tooltips,
 // the keyboard mode's name card and shortcut sheet, and Preferences' shortcut
-// rows. Sequences and alternatives (the key strip's "Esc Esc", "↓ ↑") are not
+// rows. Sequences and alternatives (the key strip's "Esc Esc", "Tab Shift+Tab") are not
 // combinations and stay as separate caps.
 Row {
   id: combo

@@ -169,12 +169,13 @@ test('a found widget comes into view the way the pointer would bring it', () => 
 
 test('the key strip names the keys of the edge', () => {
   const right = keys.legend('right', 'bar');
-  assert.deepEqual(right[0], { keys: '↑ ↓ ←', label: 'Move' }, 'the along and into arrows share one Move');
+  assert.deepEqual(right[0], { keys: '←\u2009↑\u2009↓', label: 'Move' }, 'the along and into arrows share one Move, in one keycap (thin spaces part the arrows, a space parts keycaps)');
   assert.deepEqual(right[1], { keys: 'Tab Shift+Tab', label: 'Zones' });
-  assert.equal(keys.legend('top', 'bar')[0].keys, '← → ↓');
-  assert.equal(keys.legend('top', 'drawer')[0].keys, '↓ ↑');
+  assert.equal(keys.legend('top', 'bar')[0].keys, '←\u2009→\u2009↓');
+  assert.equal(keys.legend('top', 'drawer')[0].keys, '↑\u2009↓');
   assert.equal(keys.legend('right', 'drawer')[2].keys, '→ Esc');
-  assert.equal(keys.legend('top', 'drawer', true)[0].keys, '← →', 'a strip is walked along the bar');
+  assert.equal(keys.legend('top', 'drawer', true)[0].keys, '←\u2009→', 'a strip is walked along the bar');
+  assert.equal(keys.legend('left', 'drawer', true)[0].keys, '↑\u2009↓');
   assert.equal(keys.legend('top', 'drawer', true)[2].keys, '↑ Esc');
   assert.equal(keys.legend('bottom', 'drawer', true)[2].keys, '↓ Esc');
   assert.deepEqual(keys.legend('top', 'drawer').at(-1), { keys: 'Esc Esc', label: 'Leave' }, 'a quick double Esc leaves from any depth');
@@ -187,9 +188,9 @@ test('the key strip names the keys of the edge', () => {
 
 test('the ? sheet lists every key of the mode for the edge', () => {
   const top = keys.sheetKeys('top');
-  assert.deepEqual(top[0], { keys: '← → ↓ ↑ h l j k', label: 'Movement' }, 'arrows and vim letters in one row');
-  assert.deepEqual(keys.sheetKeys('right')[0], { keys: '↑ ↓ ← → k j h l', label: 'Movement' });
-  assert.deepEqual(keys.sheetKeys('bottom')[0], { keys: '← → ↑ ↓ h l k j', label: 'Movement' });
+  // One keycap for the arrows, one for their vim letters, on every edge.
+  for (const edge of ['top', 'bottom', 'left', 'right'])
+    assert.deepEqual(keys.sheetKeys(edge)[0], { keys: '←\u2009↑\u2009→\u2009↓ hjkl', label: 'Movement' }, edge);
   assert.equal(top[1].label, 'First stop');
   const all = top.map(e => e.keys).join(' ').split(' ');
   for (const k of ['Home', '^', 'End', '$', 'Tab', 'PgDn', 'PgUp', 'Enter', '/', ',', '?', 'Esc']) assert.ok(all.includes(k), k);
