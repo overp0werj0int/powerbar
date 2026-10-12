@@ -39,8 +39,8 @@ Item {
   readonly property real cellSize: Style.space(38)
   readonly property int columns: Math.max(1, Math.floor((grid.width + Style.space(2)) / (cellSize + Style.space(2))))
   readonly property var hints: source === "own"
-    ? [{ keys: "h l", label: "Colour" }, { keys: "enter", label: "Use it" }, { keys: "tab", label: "Source" }, { keys: "esc", label: "Close" }]
-    : [{ keys: "↑ ↓ ← →", label: "Move" }, { keys: "enter", label: "Choose" }, { keys: "tab", label: "Source" },
+    ? [{ keys: "←→", label: "Colour" }, { keys: "enter", label: "Use it" }, { keys: "tab", label: "Source" }, { keys: "esc", label: "Close" }]
+    : [{ keys: "←↑→↓", label: "Move" }, { keys: "enter", label: "Choose" }, { keys: "tab", label: "Source" },
       { keys: "ctrl+v", label: "Paste" }, { keys: "esc", label: query ? "Clear search" : "Close" }]
 
   function open(group, anchorItem) {
