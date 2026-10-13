@@ -161,7 +161,10 @@ Item {
     barId: root.barId
     shown: root.barConfig
     settled: root.configWriteSettled
-    onShow: function(config) { root.barConfig = config }
+    // Qt 6.12 hands a `var` signal argument over as a reference wrapper whose
+    // lists fail Array.isArray, so Omarchy's normalizeLayout would read an
+    // empty layout and every widget would be rebuilt: take a plain copy.
+    onShow: function(config) { root.barConfig = JSON.parse(JSON.stringify(config)) }
     // A restore that could not be saved is not tried again on the config it failed on.
     onFailed: { root.shownLayout = null; root.configWriteFailed() }
   }

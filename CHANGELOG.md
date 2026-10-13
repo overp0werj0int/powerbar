@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- **Moving a widget no longer rebuilds the bar** (Qt 6.12): every move,
+  on the bar or in Preferences, emptied the bar for a moment and built every
+  widget again, so the icons blinked out and the bar seemed to reload. Qt
+  6.12 handed Powerbar's own edited config over in a form whose lists
+  Omarchy's layout reader does not accept; the bar takes a plain copy now.
 - **Battery percentage shown whole**: Omarchy's Power widget now draws its
   percentage as a label beside the battery icon, and Powerbar sized the
   widget to the icon alone, so "100%" was cut off. The label counts now.
