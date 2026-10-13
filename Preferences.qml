@@ -672,6 +672,8 @@ Item {
                           onChosen: function(value) { prefs.setOption("position", value) }
                         }
                         Text {
+                          // Two-zone modes have no centre to pin to.
+                          visible: !(prefs.bar && prefs.bar.twoZones)
                           Layout.topMargin: Style.space(4)
                           text: "Pinned to screen center"
                           textFormat: Text.PlainText
@@ -683,6 +685,7 @@ Item {
                           elide: Text.ElideRight
                         }
                         Dropdown {
+                          visible: !(prefs.bar && prefs.bar.twoZones)
                           label: "Pinned to screen center"
                           showLabel: false
                           Layout.fillWidth: true

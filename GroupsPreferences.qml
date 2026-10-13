@@ -305,7 +305,7 @@ Item {
               Layout.alignment: Qt.AlignVCenter
               stacked: !settingsGrid.roomy
               label: "Zone"
-              options: ["left", "center", "right"].map(function(s) { return { value: s, label: pane.zoneNames[s] } })
+              options: (pane.bar && pane.bar.twoZones ? ["left", "right"] : ["left", "center", "right"]).map(function(s) { return { value: s, label: pane.zoneNames[s] } })
               value: pane.selectedGroup ? pane.selectedGroup.section : ""
               onChosen: function(value) { pane.edit({ section: value }) }
             }
