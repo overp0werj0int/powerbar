@@ -3712,7 +3712,8 @@ Item {
       id: remapGuard
       window: barWindow
     }
-    readonly property bool blurEnabled: root.surfaceEffects.blur
+    // Omarchy's glassy background blurs too.
+    readonly property bool blurEnabled: root.surfaceEffects.blur || root.glassy
     onBlurEnabledChanged: {
       if (visible) { freezeLayout(); blurRemap.restart() }
     }
@@ -3738,7 +3739,7 @@ Item {
     implicitHeight: root.vertical ? 0 : root.barExtent + drawerExtent
     color: "transparent"
     surfaceFormat.opaque: false
-    WlrLayershell.namespace: root.surfaceEffects.blur || root.glassy ? "powerbar" : "powerbar-clear"
+    WlrLayershell.namespace: blurEnabled ? "powerbar" : "powerbar-clear"
     WlrLayershell.layer: WlrLayer.Top
 
     // The keyboard: a keyboard-opened drawer's, or the keyboard mode's cursor

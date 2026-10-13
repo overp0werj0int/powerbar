@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+- **Glassy bar background**: Omarchy's bar now steps its background from
+  clear to glassy to opaque (a double click on the bar, the menu's
+  Transparency, `omarchy bar background`). Powerbar follows: glassy draws the
+  bar see-through (35% at most) and blurred, a double click cycles the three,
+  and the menu's Transparency works again (it answered "no bar"). Blur needs
+  the layer rules in README, "Backdrop blur". On an Omarchy without glassy,
+  Powerbar keeps toggling `transparent` as before.
+- **Toasts keep their distance from the bar again**: Omarchy's notifications
+  now ask the bar its size per screen, and Powerbar answered with a
+  vertical bar's size.
+- **Omarchy's panel shortcuts recognised again**: Omarchy now binds Super+Ctrl+A
+  and the other panel keys in a new form, so Preferences showed Audio,
+  Bluetooth and the rest without their shortcut. Both forms are read.
+
 - **Moving a widget no longer rebuilds the bar** (Qt 6.12): every move,
   on the bar or in Preferences, emptied the bar for a moment and built every
   widget again, so the icons blinked out and the bar seemed to reload. Qt
