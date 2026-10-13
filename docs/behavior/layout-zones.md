@@ -213,9 +213,9 @@ Numbers below use Omarchy's default theme tokens: bar 26 px (horizontal) or 28 p
 
 - **ZONE-80** Only a top bar meets the notch.
   - Height: Omarchy's calibrated `[bar] notch-height` (`Style.bar.notchHeight`) when the theme sets one, otherwise the described rows scaled to logical px (32 on a 14" MacBook Pro at scale 2).
-  - Width: `powerbarNotchWidth` (logical px) when set, otherwise the camera housing, 370 panel px scaled (185 at scale 2). The file has no width.
+  - Width: `powerbarNotchWidth` (logical px) when set, otherwise the panel's camera housing, scaled. Omarchy's file has no width, so Powerbar's `notch-panels.json` lists each panel's, matched by mode the same way: 370 panel px on the 14" and 16" Pro (185 at scale 2), 313 on the Airs. A panel it lacks takes 370. Each row names its source and whether it was measured or inferred.
 
-  Code: NotchModel.notchOf.
+  Code: NotchModel.notchOf, parsePanels, housingOf; notch-panels.json.
 
 - **ZONE-81** On a notched screen, the strip is at least as tall as the notch in every mode. That way no window peeks out beside the camera. The exclusive zone, popups, drawers and the autohide distance all use that extent, and Omarchy's notch-height reports per screen take the same value (`screenBarSizes`). Code: Bar.qml extent, extentOf, screenBarSizes.
 

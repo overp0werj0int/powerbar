@@ -1987,6 +1987,14 @@ Item {
     onLoadFailed: missing = true
     onFileChanged: reload()
   }
+  // Each panel's camera width, which Omarchy's file lacks (notch-panels.json).
+  readonly property var notchPanels: NotchModel.parsePanels(notchPanelsFile.text())
+  FileView {
+    id: notchPanelsFile
+    path: root.pluginDir + "/notch-panels.json"
+    blockLoading: true
+    printErrors: false
+  }
   // The physical mode Hyprland reports for a screen; Qt's whole-number
   // devicePixelRatio can't rebuild it at a fractional scale.
   function panelModeFor(screen) {
@@ -2000,7 +2008,7 @@ Item {
   function notchFor(screen) {
     if (!screen) return null
     return NotchModel.notchOf(displayCutouts, position, screen.name, screen.width, screen.height, screen.devicePixelRatio,
-      panelModeFor(screen), barOptions.notchWidth, Style.bar["notchHeight"])
+      panelModeFor(screen), barOptions.notchWidth, Style.bar["notchHeight"], notchPanels)
   }
   // The notch on the first screen that has one, for Preferences (null: none).
   readonly property var screenNotch: {

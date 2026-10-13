@@ -408,10 +408,11 @@ Powerbar adds no polling.
 - **Switching bars** back and forth makes Powerbar ask the shell to reload its
   plugins (at most three times a login, a minute apart), so the bar disappears for a few
   seconds.
-- **The notch's width is an estimate.** Omarchy describes how tall a
-  notch is, not how wide, so Powerbar assumes the MacBook Pro's camera
-  housing (185 px at scale 2). If the zones overlap the camera or leave a
-  gap beside it, set Preferences > Bar > Notch > Notch width
+- **The notch's width comes from macOS readings.** Omarchy describes how
+  tall a notch is, not how wide, so Powerbar keeps each MacBook panel's
+  width in `notch-panels.json`, from readings people took on macOS (the 15"
+  Air's is inferred from the 13" one). If the zones overlap the camera or
+  leave a gap beside it, set Preferences > Bar > Notch > Notch width
   (`omarchy-shell powerbar set notchWidth N`).
 - **One zone mode for every screen.** Notch shows as two black zones on a
   screen without a notch.

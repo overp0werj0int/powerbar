@@ -12,8 +12,9 @@
 // parseCutouts, cutoutTop, cutoutPending), and these follow it so both bars
 // agree on which screens have a notch and how tall it is.
 //
-// The file has no width. Apple's MacBook Pro camera housing is about 370
-// panel pixels wide (measured on the 14" and 16"), so that is the default,
+// The file has no width. notch-panels.json, next to this file, gives each
+// panel's camera housing in panel pixels from macOS readings (its sources are
+// in it); a panel it lacks takes the MacBook Pro's, about 370 panel pixels,
 // and powerbarNotchWidth (logical px) sets it for a panel that differs.
 var DEFAULT_WIDTH = 370
 // The same housing in logical px at the MacBook's scale 2: the gap two-zone
@@ -38,6 +39,36 @@ function parseCutouts(text) {
     cutouts.push({ connector: panel.connector, width: width, height: height, top: top })
   }
   return cutouts
+}
+
+// notch-panels.json's widths: [{ width, height, notchWidth }] (panel px);
+// anything malformed is dropped.
+function parsePanels(text) {
+  var parsed
+  try {
+    parsed = JSON.parse(String(text || ""))
+  } catch (error) {
+    return []
+  }
+  var panels = parsed && Array.isArray(parsed.panels) ? parsed.panels : []
+  var out = []
+  for (var i = 0; i < panels.length; i++) {
+    var p = panels[i] || {}
+    var width = Number(p.width), height = Number(p.height), notch = Number(p.notchWidth)
+    if (!(width > 0) || !(height > 0) || !(notch > 0) || notch >= width) continue
+    out.push({ width: width, height: height, notchWidth: notch })
+  }
+  return out
+}
+
+// A panel's camera housing in panel pixels: its notch-panels.json width,
+// matched by mode as panelOf matches, else the default.
+function housingOf(panels, panel) {
+  var list = Array.isArray(panels) ? panels : []
+  for (var i = 0; i < list.length; i++) {
+    if (Math.abs(list[i].width - panel.width) <= 4 && Math.abs(list[i].height - panel.height) <= 4) return list[i].notchWidth
+  }
+  return DEFAULT_WIDTH
 }
 
 // The described panel this screen is, or null. `mode` is the output's
@@ -72,14 +103,15 @@ function panelOf(cutouts, screenName, logicalWidth, logicalHeight, devicePixelRa
 
 // The notch a top bar on this screen meets, in logical px: { width, height },
 // or null (no notch, or a bar on another edge). width: a positive
-// powerbarNotchWidth, else the default housing; height: a positive calibrated
-// height (Omarchy's [bar] notch-height), else the described rows.
-function notchOf(cutouts, position, screenName, logicalWidth, logicalHeight, devicePixelRatio, mode, width, calibratedHeight) {
+// powerbarNotchWidth, else the panel's housing (`panels`, from parsePanels);
+// height: a positive calibrated height (Omarchy's [bar] notch-height), else
+// the described rows.
+function notchOf(cutouts, position, screenName, logicalWidth, logicalHeight, devicePixelRatio, mode, width, calibratedHeight, panels) {
   if (position !== "top") return null
   var found = panelOf(cutouts, screenName, logicalWidth, logicalHeight, devicePixelRatio, mode)
   if (!found) return null
   var ratio = Number(logicalWidth) / found.physicalWidth
-  var housing = Math.ceil(DEFAULT_WIDTH * ratio)
+  var housing = Math.ceil(housingOf(panels, found.panel) * ratio)
   return {
     // housing: the default width, what an unset width falls back to.
     housing: housing,

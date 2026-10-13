@@ -1,0 +1,37 @@
+{
+  "about": "Camera notch widths of MacBook panels, in panel pixels, for NotchModel.js. Omarchy's display-cutouts.json says which screens have a notch and how tall it is; it has no width. A panel is matched by its physical mode, as there. Widths come from macOS readings (NSScreen auxiliaryTopLeftArea/RightArea) taken at a scaled mode, converted: points x native width / scaled width. 'measured' rows convert a reading on that panel; 'inferred' rows assume the same camera housing as a measured panel of the same pixel density.",
+  "panels": [
+    {
+      "width": 3024, "height": 1964, "notchWidth": 370,
+      "panel": "14.2-inch MacBook Pro",
+      "models": ["MacBookPro18,3", "MacBookPro18,4", "Mac14,5", "Mac14,9", "Mac15,3", "Mac15,6", "Mac15,8", "Mac15,10", "Mac16,1", "Mac16,6", "Mac16,8", "Mac17,2", "Mac17,7", "Mac17,9"],
+      "devicetree": ["apple,j314s", "apple,j314c", "apple,j414s", "apple,j414c", "apple,j504", "apple,j514s", "apple,j514c"],
+      "status": "measured",
+      "source": "185 x 32 pt at 1512 x 982 (NSScreen readout): https://notchbay.com/blog/macbook-notch-size/"
+    },
+    {
+      "width": 3456, "height": 2234, "notchWidth": 370,
+      "panel": "16.2-inch MacBook Pro",
+      "models": ["MacBookPro18,1", "MacBookPro18,2", "Mac14,6", "Mac14,10", "Mac15,7", "Mac15,9", "Mac15,11", "Mac16,5", "Mac16,7", "Mac17,6", "Mac17,8"],
+      "devicetree": ["apple,j316s", "apple,j316c", "apple,j416s", "apple,j416c", "apple,j516s", "apple,j516c"],
+      "status": "measured",
+      "source": "220 x 38 pt at 2056 x 1329 on Mac16,7 (AppKit): https://crestnotch.app/macbook-notch-dimensions"
+    },
+    {
+      "width": 2560, "height": 1664, "notchWidth": 313,
+      "panel": "13.6-inch MacBook Air",
+      "models": ["Mac14,2", "Mac15,12", "Mac16,12", "Mac17,3"],
+      "devicetree": ["apple,j413", "apple,j613"],
+      "status": "measured",
+      "source": "209 x 38 pt at 1710 x 1112 on Mac14,2 (auxiliary areas 751 + 750): https://github.com/valenvivaldi/notch-fight/pull/1"
+    },
+    {
+      "width": 2880, "height": 1864, "notchWidth": 313,
+      "panel": "15.3-inch MacBook Air",
+      "models": ["Mac14,15", "Mac15,13", "Mac16,13", "Mac17,4"],
+      "devicetree": ["apple,j415", "apple,j615"],
+      "status": "inferred",
+      "source": "No reading found; the 13.6-inch Air's housing at the same 224 ppi."
+    }
+  ]
+}

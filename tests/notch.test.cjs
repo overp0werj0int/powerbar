@@ -18,6 +18,22 @@ const omarchyFile = JSON.stringify({ panels: [
 const cutouts = notch.parseCutouts(omarchyFile);
 const mbp14 = { width: 3024, height: 1964, transform: 0 };
 
+const panels = notch.parsePanels(fs.readFileSync(`${__dirname}/../notch-panels.json`, 'utf8'));
+
+test("notch-panels.json gives each of Omarchy's notched panels a width", () => {
+  const omarchy = [[3024, 1964], [3456, 2234], [2560, 1664], [2880, 1864]];
+  for (const [w, h] of omarchy) assert.ok(panels.some(p => p.width === w && p.height === h), `${w}x${h}`);
+  assert.deepEqual(J(notch.parsePanels('{"panels":[{"width":10,"height":10,"notchWidth":20},{}]}')), []);
+  assert.deepEqual(J(notch.parsePanels('nope')), []);
+});
+
+test("a panel's housing is its listed width, else the Pro's", () => {
+  const air13 = { width: 2560, height: 1664, transform: 0 };
+  assert.deepEqual(J(notch.notchOf(cutouts, 'top', 'eDP-1', 1280, 832, 2, air13, 0, 0, panels)), { housing: 157, width: 157, height: 28 });
+  assert.equal(notch.notchOf(cutouts, 'top', 'eDP-1', 1512, 982, 2, mbp14, 0, 0, panels).housing, 185);
+  assert.equal(notch.notchOf(cutouts, 'top', 'eDP-1', 1280, 832, 2, air13).housing, 185, 'no table: the default');
+});
+
 test('the described panels parse; malformed ones are dropped', () => {
   assert.equal(cutouts.length, 2);
   assert.deepEqual(J(notch.parseCutouts('not json')), []);
