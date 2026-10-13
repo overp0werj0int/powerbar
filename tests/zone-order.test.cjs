@@ -106,3 +106,17 @@ test('a gap lands On demand only inside the expansion run', () => {
   // Nothing expanded: never On demand.
   assert.equal(order.landsOnDemand([item('K', 'left'), item('W', 'left')], 2), false);
 });
+
+test('on the notch the dots and their run sit at the far ends: the left zone starts with them, the right ends with them', () => {
+  const items = [{ k: 'a' }, { k: 'm', managed: true }, { k: 'b' }];
+  const keysOf = list => list.map(i => i.k);
+  const managed = i => !!i.managed;
+  assert.deepEqual(keysOf(order.arrange(items, managed, 'left', true)), ['m', 'a', 'b']);
+  assert.deepEqual(keysOf(order.arrange(items, managed, 'right', true)), ['a', 'b', 'm']);
+  assert.deepEqual(keysOf(order.arrange(items, managed, 'left')), ['a', 'b', 'm'], 'elsewhere: the end');
+  assert.equal(order.dotsAtStart('left', true), true);
+  assert.equal(order.dotsAtStart('right', true), false);
+  // A gap at the left zone's start, before an expanded widget: on demand.
+  const seq = [{ key: 'm', list: 'left', managed: true, expanded: true }, { key: 'a', list: 'left' }];
+  assert.equal(order.landsOnDemand(seq, 0, null, true), true);
+});

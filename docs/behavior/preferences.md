@@ -86,7 +86,7 @@ Sources: Preferences.qml, PreferencesModel.js, BentoModel.js, ShelfModel.js, Sli
 - **PREFS-94** In two zones and on the notch, each shelf has two columns, Left and Right (Top and Bottom on a side bar). Several controls follow:
   - The selected widget's Zone choice and the Groups page's Zone choice offer only those two.
   - "Keep at screen center" is gone.
-  - On the notch, side-by-side shelves draw the camera as a black column between the zones, and the On the bar shelf's zones hug it, as each grows out of the camera.
+  - On the notch the On the bar shelf's zones hug the middle, as each grows out of the camera.
 
   Code: LayoutEditor twoZones, notchMode, zoneColumns, lineX; GroupsPreferences Zone options.
 
@@ -179,7 +179,7 @@ Sources: Preferences.qml, PreferencesModel.js, BentoModel.js, ShelfModel.js, Sli
 
 - **PREFS-96** On the notch, controls that cannot apply give way in place to what does (appearance.md LOOK-143):
   - **Style and position:** the screen picture is disabled. Style and Screen edge give way to "On the notch" and the line "Black zones grow out of the camera at the top of the screen. Choose Three or Two zones on the Layout page for the other styles."
-  - **Size:** "Large bar" reads "As tall as the notch".
+  - **Size:** "Large bar" is hidden: the notch's bar is always as tall as the camera.
   - **Shape:** Borders and Border thickness are hidden; Corner rounding stays.
   - **Surface and Shadow:** these tiles give way to the Notch tile.
   - **On demand:** "Show them" gives way to the line "Behind dots in their zone; they expand in the bar when you hover the dots. The notch has no drawers." "Count on the dots" stays.

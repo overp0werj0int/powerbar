@@ -55,13 +55,12 @@ Item {
   readonly property var modes: Model.modes
   readonly property bool sideBar: !!bar && bar.vertical
   readonly property string anchorTitle: anchorRecord ? preferences.title(anchorRecord) : "center"
-  readonly property var zoneNames: ({ left: sideBar ? "Top" : "Left", center: "Center", right: sideBar ? "Bottom" : "Right", notch: "",
+  readonly property var zoneNames: ({ left: sideBar ? "Top" : "Left", center: "Center", right: sideBar ? "Bottom" : "Right",
     "center:start": (sideBar ? "Above " : "Left of ") + anchorTitle,
     "center:end": (sideBar ? "Below " : "Right of ") + anchorTitle })
   // Preferences draws a horizontal bar, at the size it has on a top edge.
   readonly property real barThickness: bar ? bar.barSizeFor(false) : Style.bar.sizeHorizontal
   readonly property real iconSize: Style.bar.sizeHorizontal
-  readonly property real notchColumnWidth: Style.space(40)
   // Widget images are drawn in the bar's text colour. When that barely shows
   // on the Preferences background (Light text in a light theme), they sit on
   // a backing in the Preferences text colour instead.
@@ -447,8 +446,7 @@ Item {
     property string mode: "shown"
     property alias focusItem: shelfFocus
     readonly property bool stacked: shelfFocus.width < Style.space(560)
-    // Side by side on the notch, the camera sits between the two zones.
-    readonly property var zoneColumns: !stacked && editor.notchMode ? ["left", "notch", "right"] : editor.sections
+    readonly property var zoneColumns: editor.sections
     title: editor.shelfInfo[mode].title
     caption: editor.shelfInfo[mode].caption
     span12: 12
@@ -491,8 +489,8 @@ Item {
               font.family: Style.font.family
               font.pixelSize: Style.font.caption
               font.bold: Model.sectionOf(editor.cursorCell.section) === modelData
-              Layout.fillWidth: modelData !== "notch"
-              Layout.preferredWidth: modelData === "notch" ? editor.notchColumnWidth : 1
+              Layout.fillWidth: true
+              Layout.preferredWidth: 1
               horizontalAlignment: modelData === "left" ? Text.AlignLeft : modelData === "right" ? Text.AlignRight : Text.AlignHCenter
             }
           }
@@ -510,21 +508,10 @@ Item {
               id: zoneColumn
               required property string modelData
               readonly property var cells: editor.columnsFor(shelf.mode).filter(function(column) { return Model.sectionOf(column) === zoneColumn.modelData })
-              Layout.fillWidth: modelData !== "notch"
-              Layout.preferredWidth: modelData === "notch" ? editor.notchColumnWidth : 1
-              Layout.fillHeight: modelData === "notch"
+              Layout.fillWidth: true
+              Layout.preferredWidth: 1
               Layout.alignment: Qt.AlignTop
               spacing: Style.space(4)
-              // The camera, black as on the screen, down the middle of the shelf.
-              Rectangle {
-                visible: zoneColumn.modelData === "notch"
-                Layout.fillWidth: true
-                Layout.fillHeight: true
-                Layout.minimumHeight: editor.barThickness
-                radius: Math.min(width / 2, Style.space(6))
-                color: "black"
-                Accessible.ignored: true
-              }
               Repeater {
                 model: zoneColumn.cells
                 Cell {

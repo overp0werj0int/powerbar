@@ -28,12 +28,14 @@ function keymap(position) {
 }
 
 // What a key asks for on the bar: { move: ±1 } along, { zone: ±1 } (Tab),
-// { home }, { end }, { into }, { open }, { find }, { sheet }, { prefs }
-// (Preferences), { leave }, or null for a key the bar does not use.
+// { home }, { end }, { into }, { out } (back up from a notch zone's second
+// row), { open }, { find }, { sheet }, { prefs } (Preferences), { leave }, or
+// null for a key the bar does not use.
 function barIntent(position, key) {
   var map = keymap(position)
   if (map.along[key] !== undefined) return { move: map.along[key] }
   if (map.into.indexOf(key) >= 0) return { into: true }
+  if (map.out.indexOf(key) >= 0) return { out: true }
   if (key === "Tab" || key === "PageDown") return { zone: 1 }
   if (key === "Backtab" || key === "PageUp") return { zone: -1 }
   if (key === "Home" || key === "^") return { home: true }
@@ -82,6 +84,34 @@ function drawerIntent(position, key, member, strip) {
 function step(count, index, dir) {
   var to = index + dir
   return to < 0 || to >= count ? -1 : to
+}
+
+// On a bar with rows (a notch zone's second row, docs/behavior/keyboard.md)
+// the cursor moves as on a grid. stops: [{ at, row, zone }] (at: the centre
+// along the bar; row: 0 on the bar's own row, 1 on the second).
+// Along (dir ±1): the nearest stop past the cursor in its own row, or -1 at
+// the row's end. Across (rows ±1, +1 away from the screen edge): the stop of
+// the cursor's zone in the next row nearest along the bar, or -1 when that
+// row has none.
+function gridStep(stops, index, dir, rows) {
+  var from = stops[index]
+  if (!from) return -1
+  var best = -1, gap = Infinity
+  for (var i = 0; i < stops.length; i++) {
+    var s = stops[i]
+    if (i === index) continue
+    var d
+    if (rows) {
+      if ((s.row || 0) !== (from.row || 0) + rows || s.zone !== from.zone) continue
+      d = Math.abs(s.at - from.at)
+    } else {
+      if ((s.row || 0) !== (from.row || 0)) continue
+      d = (s.at - from.at) * dir
+      if (!(d > 0)) continue
+    }
+    if (d < gap) { gap = d; best = i }
+  }
+  return best
 }
 
 // Tab: the next zone with stops, wrapping; it lands on the zone's first stop
@@ -269,4 +299,4 @@ function cardText(name, own, namedMenu) {
   return namedMenu && own && own !== name ? own : name
 }
 
-if (typeof module !== "undefined") module.exports = { ZONES, PREFS_KEY, keymap, barIntent, drawerIntent, step, zoneStep, fuzzy, matches, searchText, route, legend, sheetKeys, startScreen, cardText }
+if (typeof module !== "undefined") module.exports = { ZONES, PREFS_KEY, keymap, barIntent, drawerIntent, step, gridStep, zoneStep, fuzzy, matches, searchText, route, legend, sheetKeys, startScreen, cardText }

@@ -12,8 +12,11 @@
   `omarchy-shell powerbar set zones three|two|notch`.
 - **Notch**: on a MacBook screen Omarchy describes as notched
   (`display-cutouts.json`), two black zones grow out of the camera. They are
-  flush with the top, rounded at their outer ends, and the large bar is
-  exactly as tall as the notch. Each MacBook panel's notch width comes from
+  rounded at their outer ends with the bar's rounding, and the bar is always
+  exactly as tall as the notch. Their dots sit at the far ends, by the screen
+  edges, windows stop under the camera even while the bar autohides, the bar
+  can't be dragged off the top, and a zone's second row is walked from the
+  keyboard as a grid. Each MacBook panel's notch width comes from
   macOS readings, kept in `notch-panels.json`, with the housing's corner
   radii: the camera keeps its real shape with the zones in, whatever the
   bar's rounding, and only that shape reveals the bar.

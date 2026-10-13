@@ -729,9 +729,11 @@ Item {
                   PrefsTile {
                     title: "Size"
                     span12: 4; span6: 3
+                    // The notch's bar is always as tall as the camera.
                     PrefsToggle {
+                      visible: !prefs.notchMode
                       compact: true
-                      label: prefs.notchMode ? "As tall as the notch" : "Large bar"
+                      label: "Large bar"
                       checked: prefs.bar ? prefs.bar.largeBar : false
                       onToggled: function(checked) { prefs.setOption("powerbarLargeBar", checked) }
                     }

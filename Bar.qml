@@ -1451,6 +1451,8 @@ Item {
   }
 
   function beginBarMove(window) {
+    // The notch keeps the bar at the top.
+    if (notchMode) return
     barMoveWindow = window
     barMoveScreen = window ? window.screen : null
     barMoveCandidate = position
@@ -1947,7 +1949,8 @@ Item {
   // The large bar is as thick as Preferences' Layout page draws it: the theme's
   // bar size plus a lip above and below each widget. Widgets keep their own
   // size and gain room around them; the islands' ends open up to match.
-  readonly property bool largeBar: barOptions.largeBar
+  // The notch has no small bar: its zones are as tall as the camera.
+  readonly property bool largeBar: barOptions.largeBar || notchMode
   readonly property real largeBarLip: Style.space(6)
   function barSizeFor(vertical, large) {
     // Omarchy asks by screen name (notifications clear the bar by it).
@@ -2818,7 +2821,7 @@ Item {
   // (ZoneOrderModel.landsOnDemand).
   function barGapOnDemand(targetSlot, after, sourceSlot) {
     var g = barGap(targetSlot, after, sourceSlot)
-    return !!g && ZoneOrderModel.landsOnDemand(g.rest, g.gap, targetSlot.instanceKey)
+    return !!g && ZoneOrderModel.landsOnDemand(g.rest, g.gap, targetSlot.instanceKey, !!targetSlot.homeWindow.notchLook)
   }
   function barDropBefore(targetSlot, after, sourceSlot, managed) {
     var g = barGap(targetSlot, after, sourceSlot)
@@ -3659,7 +3662,7 @@ Item {
       var managed = function(item) { return item.managed }
       for (var name of names) {
         models.push(widgetModels[name])
-        lists.push(ZoneOrderModel.arrange(partition[name].map(function(key) { return widgetStore.get(key) }).filter(function(item) { return !!item }), managed, name))
+        lists.push(ZoneOrderModel.arrange(partition[name].map(function(key) { return widgetStore.get(key) }).filter(function(item) { return !!item }), managed, name, notchLook))
       }
       var items = records.map(function(record) { return widgetStore.get(record.key) }).filter(function(item) { return !!item })
       for (var item of items) {
@@ -3675,6 +3678,8 @@ Item {
       function onLayoutConfigChanged() { barWindow.reconcileWidgets() }
       function onCenterAnchorChanged() { barWindow.reconcileWidgets() }
     }
+    // The notch draws on-demand runs at the zones' far ends.
+    onNotchLookChanged: reconcileWidgets()
     Component.onCompleted: { reconcileWidgets(); syncStrip(true); if (!notchPending) notchWaitOver = true }
 
     // Keep the Wayland surface stable across drawer opens/closes. Only the
@@ -3758,8 +3763,10 @@ Item {
       function onXChanged() { barWindow.freezeLayout() }
       function onYChanged() { barWindow.freezeLayout() }
     }
-    exclusionMode: root.barHidden ? ExclusionMode.Ignore : ExclusionMode.Normal
-    exclusiveZone: root.barHidden || root.autoHide ? 0 : extent
+    // On the notch, windows stop under the camera even while the bar hides.
+    exclusionMode: root.barHidden && !notchLook ? ExclusionMode.Ignore : ExclusionMode.Normal
+    exclusiveZone: notchLook ? (root.barHidden || root.autoHide ? notch.height : extent)
+      : root.barHidden || root.autoHide ? 0 : extent
 
     // Autohide overlays windows without reserving space. The surface stays
     // mapped and its content slides past the screen edge, leaving a thin edge
@@ -4775,7 +4782,7 @@ Item {
     property bool zoneHidden: false
     // On the notched screen (barWindow.notchLook): "left" or "right", the
     // side of the notch this zone grows from. Square where it meets the
-    // screen's top edge and the camera, rounded only at its outer foot.
+    // camera; its outer end is rounded top and bottom like any island.
     property string notchSide: ""
     opacity: zoneHidden ? 0 : 1
     Behavior on opacity { enabled: root.animationsEnabled; YieldFade { leaving: zoneHidden } }
@@ -4786,11 +4793,6 @@ Item {
     shadowOpacity: root.surfaceEffects.shadowOpacity
     radius: root.islandRounding
     borderSpec: root.notchMode ? Border.none() : root.islandBorder
-    Rectangle {
-      visible: island.notchSide !== ""
-      width: parent.width; height: parent.height / 2
-      color: island.color
-    }
     Rectangle {
       visible: island.notchSide !== ""
       x: island.notchSide === "left" ? parent.width / 2 : 0
@@ -5160,7 +5162,7 @@ Item {
     pressAndHoldInterval: 200
 
     function startDrag(x, y) {
-      if (dragging) return
+      if (dragging || root.notchMode) return
       dragging = true
       root.beginBarMove(root.targetWindow(gestureArea))
       var scenePoint = gestureArea.mapToItem(null, x, y)
@@ -5460,9 +5462,9 @@ Item {
     readonly property var fitHandles: homeWindow && homeWindow.zoneFit ? homeWindow.zoneFit.handles : null
     readonly property bool centerStartDots: !!fitHandles && (fitHandles.center === "start" || fitHandles.center === "both")
     readonly property bool centerEndDots: !!fitHandles && (fitHandles.center === "end" || fitHandles.center === "both")
-    readonly property bool handleAtStart: !!fitHandles && ((listRole === "right" && fitHandles.right === "start")
+    readonly property bool handleAtStart: !!fitHandles && (((listRole === "left" || listRole === "right") && fitHandles[listRole] === "start")
       || ((listRole === "before" || listRole === "center") && centerStartDots))
-    readonly property bool handleAtEnd: !!fitHandles && ((listRole === "left" && fitHandles.left === "end")
+    readonly property bool handleAtEnd: !!fitHandles && (((listRole === "left" || listRole === "right") && fitHandles[listRole] === "end")
       || ((listRole === "after" || listRole === "center") && centerEndDots))
     width: root.vertical ? Math.max(root.barSize, contents.width) : startGap.width + startHandle.width + contents.width + endHandle.width + endGap.width
     height: root.vertical ? startGap.height + startHandle.height + contents.height + endHandle.height + endGap.height : Math.max(root.barSize, contents.height)

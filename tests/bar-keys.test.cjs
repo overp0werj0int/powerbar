@@ -6,12 +6,12 @@ test('the along keys follow the edge, the into key points into the screen', () =
   assert.deepEqual(keys.barIntent('right', 'Down'), { move: 1 });
   assert.deepEqual(keys.barIntent('right', 'k'), { move: -1 });
   assert.deepEqual(keys.barIntent('right', 'Left'), { into: true });
-  assert.equal(keys.barIntent('right', 'Right'), null, 'nothing past the screen edge');
+  assert.deepEqual(keys.barIntent('right', 'Right'), { out: true }, 'toward the screen edge: only back up a row');
   assert.deepEqual(keys.barIntent('left', 'l'), { into: true });
   assert.deepEqual(keys.barIntent('top', 'l'), { move: 1 });
   assert.deepEqual(keys.barIntent('top', 'Down'), { into: true });
   assert.deepEqual(keys.barIntent('bottom', 'Up'), { into: true });
-  assert.equal(keys.barIntent('top', 'Up'), null);
+  assert.deepEqual(keys.barIntent('top', 'Up'), { out: true });
 });
 
 test('one meaning per key: no edge spends a key on two jobs', () => {
@@ -208,4 +208,23 @@ test('on a named menu row the name card says what hovering says: the widget\'s o
   assert.equal(keys.cardText('Agents', '', true), 'Agents', 'no tooltip of its own: the name');
   assert.equal(keys.cardText('Clock', 'Clock', true), 'Clock');
   assert.equal(keys.cardText('Clock', 'Tuesday', false), 'Clock', 'on the bar: the name');
+});
+
+test('a notch zone with a second row walks as a grid', () => {
+  // Left zone: row 0 at 60, 90, 120; its second row at 10, 40. Right zone: 300.
+  const stops = [{ at: 10, row: 1, zone: 'left' }, { at: 40, row: 1, zone: 'left' },
+    { at: 60, row: 0, zone: 'left' }, { at: 90, row: 0, zone: 'left' }, { at: 120, row: 0, zone: 'left' },
+    { at: 300, row: 0, zone: 'right' }];
+  assert.equal(keys.gridStep(stops, 2, 1, 0), 3, 'along its row');
+  assert.equal(keys.gridStep(stops, 4, 1, 0), 5, 'on along the bar, past the camera');
+  assert.equal(keys.gridStep(stops, 2, -1, 0), -1, 'the row ends: no jump into the other row');
+  assert.equal(keys.gridStep(stops, 1, 1, 0), -1, 'the second row ends too');
+  assert.equal(keys.gridStep(stops, 1, -1, 0), 0);
+  assert.equal(keys.gridStep(stops, 2, 0, 1), 1, 'down to the nearest along the bar');
+  assert.equal(keys.gridStep(stops, 0, 0, -1), 2, 'up to the nearest');
+  assert.equal(keys.gridStep(stops, 5, 0, 1), -1, 'no second row in this zone');
+  assert.equal(keys.gridStep(stops, 2, 0, -1), -1);
+  const flat = [{ at: 1 }, { at: 2 }, { at: 3 }];
+  assert.equal(keys.gridStep(flat, 1, 1, 0), 2, 'one row: as step');
+  assert.equal(keys.gridStep(flat, 0, -1, 0), -1);
 });

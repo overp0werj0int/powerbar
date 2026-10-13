@@ -81,8 +81,9 @@ function slotsOf(input, name, st) {
     return (c.start ? [mk("handle:center:start")] : []).concat(items, c.end ? [mk("handle:center:end")] : [])
   }
   if (!foldedKeys(input, name, st).length && !hasDots(input, name)) return items
-  if (name === "left") return items.concat([mk("handle:left")])
-  return [mk("handle:right")].concat(items)
+  // On the notch the dots sit at the far ends (handlesOf).
+  if (name === "left") return input.wrap ? [mk("handle:left")].concat(items) : items.concat([mk("handle:left")])
+  return input.wrap ? items.concat([mk("handle:right")]) : [mk("handle:right")].concat(items)
 }
 
 function sumExtent(slots, n) {
@@ -222,12 +223,14 @@ function clamp(v, lo, hi) { return Math.min(hi, Math.max(lo, v)) }
 
 // Where each zone draws its handle: at the end away from its anchor, when
 // widgets are folded or hidden on demand; the centre at either end or "both".
+// On the notch (input.wrap) the side zones grow away from the camera and the
+// dots sit at their far ends, by the screen edges.
 function handlesOf(input, st) {
   var c = centerHandles(input, st)
   return {
-    left: foldedKeys(input, "left", st).length || hasDots(input, "left") ? "end" : null,
+    left: foldedKeys(input, "left", st).length || hasDots(input, "left") ? (input.wrap ? "start" : "end") : null,
     center: c.start && c.end ? "both" : c.start ? "start" : c.end ? "end" : null,
-    right: foldedKeys(input, "right", st).length || hasDots(input, "right") ? "start" : null
+    right: foldedKeys(input, "right", st).length || hasDots(input, "right") ? (input.wrap ? "end" : "start") : null
   }
 }
 

@@ -221,14 +221,16 @@ Numbers below use Omarchy's default theme tokens: bar 26 px (horizontal) or 28 p
 - **ZONE-81** On a notched screen, the strip is at least as tall as the notch in every mode. That way no window peeks out beside the camera. The exclusive zone, popups, drawers and the autohide distance all use that extent, and Omarchy's notch-height reports per screen take the same value (`screenBarSizes`). Code: Bar.qml extent, extentOf, screenBarSizes.
 
 - **ZONE-82** The notch mode has the two-zone layout. Its zones grow out of the camera:
-  - On the notched screen the left zone ends at the camera's left edge and the right zone starts at its right edge. Both are drawn as black islands that run on under the camera, flush with the top edge (appearance.md LOOK-143).
+  - On the notched screen the left zone ends at the camera's left edge and the right zone starts at its right edge. Both are drawn as black islands that run on under the camera. Their outer ends are rounded top and bottom with the bar's rounding (appearance.md LOOK-143).
+  - A zone's dots sit at its far end, by the screen edge: the left zone's start, the right zone's end. Its on-demand widgets expand there, so an expansion grows toward the edge and wraps (ZONE-85). Elsewhere two zones keep theirs beside the gap.
   - The keep-out gap there is the camera plus the inset a zone keeps from a screen edge, on each side.
   - On a screen without a notch the mode looks like two zones in the notch's colours.
-  - The bar is locked to the top edge, and the Islands style is forced.
+  - The bar is locked to the top edge, and the Islands style is forced. Dragging the bar to another edge does nothing.
+  - On the notched screen, windows stop under the camera: the camera's height stays reserved while the bar autohides or is switched off.
 
-  Code: Bar.qml notchLook, notchLeft, notchRight, notchKeepOut, barStyle; position (notch: top).
+  Code: Bar.qml notchLook, notchLeft, notchRight, notchKeepOut, barStyle, beginBarMove, exclusiveZone; position (notch: top); ZoneFitModel handlesOf (input.wrap); ZoneOrderModel.arrange (outward).
 
-- **ZONE-83** On the notch the large bar is exactly as tall as the notch, on every screen. The small bar keeps its height and sits at the top, beside the camera. Code: Bar.qml barSizeFor.
+- **ZONE-83** On the notch the bar is always large, and the large bar is exactly as tall as the notch, on every screen. `powerbarLargeBar` applies to the other modes only. Code: Bar.qml largeBar, barSizeFor.
 
 - **ZONE-84** On-demand widgets on the notch always wait behind their zone's dots and expand in the bar, whatever `powerbarOnDemand` says: the notch has no drawers. Code: Bar.qml onDemandInline.
 

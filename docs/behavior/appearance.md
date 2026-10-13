@@ -252,7 +252,7 @@ Storage: the look lives in `bar.powerbarAppearance` of shell.json: `all` (values
 - **LOOK-143** In the notch mode (layout-zones.md ZONE-82) the zones are black with the theme's light text on every screen, because a widget takes one colour across the bar.
   - The look forces fully opaque surfaces with no blur, shadow or border; the Surface and Shadow choices are kept for the other modes.
   - Islands are forced whatever the style.
-  - Each zone's outer end is rounded with the bar's rounding (LOOK-10). Its inner end runs on under the camera.
+  - Each zone's outer end is rounded top and bottom with the bar's rounding (LOOK-10). Its inner end is square and runs on under the camera.
   - On the notched screen the camera's own black is also drawn behind the zones, so they meet the camera however wide it really is. It has the housing's shape (layout-zones.md ZONE-80), whatever the bar's rounding: round bottom corners, and shoulders where the screen's top edge curves into it. It shows whole when the zones are in, and below them under a bar shorter than the camera.
 
   Code: Bar.qml notchMode (surfaceEffects, mainSurfaceColor, barForeground, barStyle); NotchShape.qml; IslandSurface borderSpec.

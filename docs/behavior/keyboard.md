@@ -26,7 +26,15 @@ The CLI as a whole (`status`, `shortcuts`, `help`, error format) is integration.
 
 ## Cursor movement
 
-- **KEYS-6** Along keys move the cursor one stop; at either end it stays (no wrap). Horizontal bar: Left/h = previous, Right/l = next. Vertical bar: Up/k = previous, Down/j = next. Keys the bar does not use are swallowed (they do not reach the window). Code: BarKeysModel.keymap(), step()
+- **KEYS-6** Along keys move the cursor one stop; at either end it stays (no wrap). Horizontal bar: Left/h = previous, Right/l = next. Vertical bar: Up/k = previous, Down/j = next. Keys the bar does not use are swallowed (they do not reach the window). Code: BarKeysModel.keymap(), gridStep()
+
+- **KEYS-85** On the notch, a zone with a second row (layout-zones.md ZONE-85) is walked as a grid:
+  - **Along keys** move within the cursor's row, to the nearest stop in that direction. The bar's own row runs on past the camera into the other zone; the second row stops at its ends.
+  - **Into key** (Down/j) moves from the bar's row to the nearest stop, along the bar, in the zone's second row. Where the zone has none, it does its usual job (KEYS-10).
+  - **Out key** (Up/k) moves from the second row to the nearest stop in the bar's row. Elsewhere it does nothing.
+  - **Order:** the bar's row comes first, so Home, End, Tab and the stops list read it before the second row.
+
+  Code: BarKeysModel.gridStep, barIntent (out); BarKeys stops (row), moveBy, moveRow.
 
 - **KEYS-7** Tab goes to the first stop of the next zone that has stops; Shift+Tab (Backtab) to the last stop of the previous one; both wrap round left, centre, right. With stops in one zone only, they land on that zone's first or last stop.
 
