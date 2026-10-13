@@ -143,3 +143,14 @@ test('a centre expansion slides nothing over the camera', () => {
   const s = centreSpans(Object.assign({}, base), r);
   assert.ok(Math.abs((s.notch[0] + s.notch[1]) / 2 - 756) < 1e-6, 'the notch slot stays put');
 });
+
+test('a zone springing out of the camera overshoots by the same few pixels at any length', () => {
+  const nm = notch;
+  const peak = (s) => 4 * s ** 3 / (27 * (s + 1) ** 2);
+  for (const d of [40, 300, 1200]) {
+    const s = nm.backOvershoot(d, 4);
+    assert.ok(Math.abs(peak(s) * d - Math.min(4, d * 0.1)) < 0.01, `distance ${d}`);
+  }
+  assert.ok(Math.abs(nm.backOvershoot(10, 4) - 1.70158) < 1e-3, 'Qt\'s default overshoot caps a short slide');
+  assert.equal(nm.backOvershoot(0, 4), 0);
+});

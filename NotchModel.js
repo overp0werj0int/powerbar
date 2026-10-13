@@ -100,3 +100,21 @@ function pending(cutouts, position, screenName, logicalWidth, logicalHeight, dev
   var described = list.some(function(c) { return name.indexOf(c.connector) === 0 })
   return described && !panelOf(cutouts, screenName, logicalWidth, logicalHeight, devicePixelRatio, mode)
 }
+
+// The overshoot setting for Qt's OutBack easing that carries a slide of
+// `distance` px at most `px` past its end, so a zone springing out of the
+// camera overshoots by the same few pixels however long it is. OutBack's
+// peak, as a fraction of the distance, is 4s³ / (27(s+1)²) for overshoot s;
+// it rises with s, so a bisection finds it.
+function backOvershoot(distance, px) {
+  var d = Number(distance), p = Number(px)
+  if (!(d > 0) || !(p > 0)) return 0
+  var want = Math.min(p / d, 0.1)
+  var peak = function(s) { return 4 * s * s * s / (27 * (s + 1) * (s + 1)) }
+  var lo = 0, hi = 1.70158
+  for (var i = 0; i < 40; i++) {
+    var mid = (lo + hi) / 2
+    if (peak(mid) < want) lo = mid; else hi = mid
+  }
+  return lo
+}
