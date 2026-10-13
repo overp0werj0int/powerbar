@@ -81,7 +81,7 @@ Sources: Preferences.qml, PreferencesModel.js, BentoModel.js, ShelfModel.js, Sli
 
 - **PREFS-34** All nine destinations (zone x shelf) are valid, and the entry keeps its settings and instance key through any number of moves. A stale move (the layout changed under it) or an unknown zone changes nothing (PREFS-5).
 
-- **PREFS-93** The header of the On the bar shelf has a Zones choice: "Three zones", "Two zones" and, when a screen has a notch (or the notch mode is already in use), "Notch". Choosing a mode writes `bar.powerbarZones` and swaps in that mode's own arrangement (layout-zones.md ZONE-72 to ZONE-74); the shelves redraw from it. Code: LayoutEditor ButtonGroup; Preferences.setZoneMode.
+- **PREFS-93** The header of the On the bar shelf has a Zones choice: "Three zones", "Two zones" and, when a screen has a notch (or the notch mode is already in use), "Notch". It is offered wherever the bar sits: the Notch mode moves the bar to the top. Choosing a mode writes `bar.powerbarZones` and swaps in that mode's own arrangement (layout-zones.md ZONE-72 to ZONE-74); the shelves redraw from it. Code: LayoutEditor ButtonGroup; Preferences.setZoneMode; Bar.qml screenNotch.
 
 - **PREFS-94** In two zones and on the notch, each shelf has two columns, Left and Right (Top and Bottom on a side bar). Several controls follow:
   - The selected widget's Zone choice and the Groups page's Zone choice offer only those two.
@@ -157,7 +157,7 @@ Sources: Preferences.qml, PreferencesModel.js, BentoModel.js, ShelfModel.js, Sli
 
 ## Bar page
 
-- **PREFS-64** The Bar page has eight tiles, in order: Style and position (8 of 12 columns), Size, Shape, Surface, Shadow, Behavior, On demand (4 each) and Keyboard (4; 6 of 6 at medium width). In two zones a Notch tile follows Shape (4; 3 of 6); on the notch it takes the place of Surface and Shadow (PREFS-96). Every change shows on the bar at once.
+- **PREFS-64** The Bar page has eight tiles, in order: Style and position (8 of 12 columns), Size, Shape, Surface, Shadow, Behavior, On demand (4 each) and Keyboard (4; 6 of 6 at medium width). In two zones a Notch tile follows Shape (4; 3 of 6); on the notch it takes the place of Surface (PREFS-96). Every change shows on the bar at once.
 
 - **PREFS-65** Style and position: a picture of the screen where clicking an edge moves the bar there; Style (Flat "Edge to edge, like Omarchy", Floating "One bar, off the edges", Islands "A surface for each zone"); Screen edge (Top, Bottom, Left, Right); Pinned to screen center (None or a centre widget that is On the bar). Writes `bar.powerbarStyle`, `bar.position`, `bar.centerAnchor`. The default style is Flat, the default edge top.
 
@@ -181,7 +181,7 @@ Sources: Preferences.qml, PreferencesModel.js, BentoModel.js, ShelfModel.js, Sli
   - **Style and position:** the screen picture is disabled. Style and Screen edge give way to "On the notch" and the line "Black zones grow out of the camera at the top of the screen. Choose Three or Two zones on the Layout page for the other styles."
   - **Size:** "Large bar" is hidden: the notch's bar is always as tall as the camera.
   - **Shape:** Borders and Border thickness are hidden; Corner rounding stays.
-  - **Surface and Shadow:** these tiles give way to the Notch tile.
+  - **Surface:** the tile gives way to the Notch tile. Shadow stays.
   - **On demand:** "Show them" gives way to the line "Behind dots in their zone; they expand in the bar when you hover the dots. The notch has no drawers." "Count on the dots" stays.
 
   The values these controls hold are kept for the other modes.

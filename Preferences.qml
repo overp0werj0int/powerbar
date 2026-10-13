@@ -802,7 +802,7 @@ Item {
                   }
                   // Two-zone modes keep a gap one notch wide in the middle; the
                   // notch's zones blend into the camera, which takes the place
-                  // of Surface and Shadow (black, no blur, no shadow there).
+                  // of Surface (black, no blur there).
                   PrefsTile {
                     id: notchTile
                     readonly property var notch: prefs.bar ? prefs.bar.screenNotch : null
@@ -867,7 +867,6 @@ Item {
                     id: shadowTile
                     readonly property bool editable: prefs.scopeOf("shadow") !== "theme"
                     readonly property bool shadowOn: !!prefs.bar && prefs.bar.surfaceEffects.shadow
-                    visible: !prefs.notchMode
                     title: "Shadow"
                     span12: 4; span6: 3
                     animate: prefs.motion

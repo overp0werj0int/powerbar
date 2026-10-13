@@ -236,6 +236,7 @@ Numbers below use Omarchy's default theme tokens: bar 26 px (horizontal) or 28 p
 
 - **ZONE-85** A zone that grows past the screen edge on the notch (an inline expansion on the notched screen) wraps onto a second row under the first:
   - **Which items move:** the left zone's first items or the right zone's last ones, as one block. The outermost still meets the screen edge, and the row reads from the edge toward the camera.
+  - **Preferences stays put:** the Preferences button is the corner icon and never wraps. It keeps its place at the right screen edge in the first row; the first row's widgets stop where it begins, and those past that point wrap.
   - **No yielding:** a moment never makes another zone yield or hide.
   - **No fallback:** running past the screen edge is no reason to fall back.
   - **Shape:** the black is one coat-hanger shape. A rounded cap at the screen edge spans both rows with the bar's rounding (appearance.md LOOK-10), and the second row meets the first with an inside curve where it ends.
@@ -247,9 +248,9 @@ Numbers below use Omarchy's default theme tokens: bar 26 px (horizontal) or 28 p
 - **ZONE-87** With autohide on the notch (appearance.md LOOK-144):
   - The strip does not slide off the screen. Each zone slides sideways into the camera and is clipped at the camera's edge.
   - The camera alone reveals the bar.
-  - Activity peeks bring out only the zone that changed.
+  - An activity peek brings the widget that changed out of the camera on its own badge; the zones stay in.
 
-  Code: Bar.qml slideNotch, zoneOut, autoHideStrip; ZoneClip.
+  Code: Bar.qml slideNotch, zoneOut, autoHideStrip, PeekBadge; ZoneClip.
 
 ## Doc drift
 

@@ -210,6 +210,13 @@ test('a notch zone past the screen edge wraps its outer widgets into a second ro
   assert.equal(r.shift, -36);
   assert.deepEqual(r.row, [1434, 1504], 'the button still meets the edge');
   assert.equal(r.rest, 1470);
+  // The Preferences button pinned at the edge: the first row stops at 1474,
+  // where it begins, and the second row still meets the screen edge.
+  const modules = run(870, [50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 40]);
+  const p = J(notch.wrapRow(modules, 1474, 'right', 1504));
+  assert.deepEqual([p.from, p.to], [12, 13], 'only the widget past the button wraps');
+  assert.deepEqual(p.row, [1464, 1504]);
+  assert.equal(p.rest, 1470);
   assert.equal(notch.wrapRow(run(100, [50, 50]), 8, 'left'), null, 'it fits: no second row');
   assert.equal(notch.wrapRow([], 8, 'left'), null);
 });

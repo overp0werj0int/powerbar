@@ -182,11 +182,13 @@ function backOvershoot(distance, px) {
 // under the first, moved along the bar as one so the outermost still meets
 // the edge, and the row reads from there toward the camera. spans: the
 // zone's items in bar order, [{ start, end }] along the bar; side: "left" or
-// "right". Null when it fits; else { from, to } (the wrapped items, `to`
-// exclusive), shift (how far they move along the bar), row ([start, end] of
-// the second row) and rest (where the first row's items now begin on the
-// left, or end on the right).
-function wrapRow(spans, edge, side) {
+// "right"; align: where the second row's outermost item ends, when that is
+// not `edge` (the right zone's first row stops short of the Preferences
+// button, which keeps its place at the screen edge). Null when it fits; else
+// { from, to } (the wrapped items, `to` exclusive), shift (how far they move
+// along the bar), row ([start, end] of the second row) and rest (where the
+// first row's items now begin on the left, or end on the right).
+function wrapRow(spans, edge, side, align) {
   var list = Array.isArray(spans) ? spans : [], n = list.length
   if (!n) return null
   if (side === "left") {
@@ -199,6 +201,7 @@ function wrapRow(spans, edge, side) {
   var first = n
   while (first > 0 && list[first - 1].end > edge + 0.5) first--
   if (first === n) return null
-  var back = edge - list[n - 1].end
-  return { from: first, to: n, shift: back, row: [list[first].start + back, edge], rest: first > 0 ? list[first - 1].end : edge }
+  var end = align === undefined ? edge : align
+  var back = end - list[n - 1].end
+  return { from: first, to: n, shift: back, row: [list[first].start + back, end], rest: first > 0 ? list[first - 1].end : edge }
 }

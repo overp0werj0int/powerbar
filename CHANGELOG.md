@@ -21,13 +21,26 @@
   radii: the camera keeps its real shape with the zones in, whatever the
   bar's rounding, and only that shape reveals the bar.
   - With autohide, pointing at the camera makes each zone spring out of it
-    sideways, and an activity peek brings out only the zone that changed.
+    sideways, and an activity peek springs only the widget that changed out
+    of the camera, on its own black badge beside it.
   - On-demand widgets expand in the bar (the notch has no drawers). A zone
     that outgrows the screen wraps onto a second row at the edge, one black
     shape with the first.
-  - On the Bar page, Style, Surface, Shadow and borders give way to the Notch
-    tile.
+  - On the Bar page, Style, Surface and borders give way to the Notch tile.
   - Other screens show the same two black zones.
+- **Activity peeks show just the widget**: with autohide, a widget that
+  changes no longer brings out its whole zone or the whole bar. It comes out
+  alone, on a badge in the bar's shape (its rounding, surface, border and
+  shadow), at its own place along the bar, with the bar's timing; the bar
+  stays hidden.
+- **Preferences stays in its corner on the notch**: when a zone wraps onto a
+  second row, the Preferences button keeps its place at the screen edge and
+  only the widgets before it wrap.
+- **Notch offered wherever the bar sits**: Preferences > Layout offered the
+  Notch mode only while the bar was at the top; it now does from any edge,
+  since the mode moves the bar there.
+- **Shadow on the notch**: the Shadow tile stays on the Bar page in the
+  Notch mode; the camera, the zones and their second rows cast it.
 - **Glassy bar background**: Omarchy's bar now steps its background from
   clear to glassy to opaque (a double click on the bar, the menu's
   Transparency, `omarchy bar background`). Powerbar follows: glassy draws the

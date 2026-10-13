@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Effects
 import QtQuick.Shapes
 
 // A notch zone that wraps (Bar.qml zoneWrap, docs/behavior/layout-zones.md
@@ -17,6 +18,9 @@ Item {
   property real inner: 0
   property real rowEnd: 0
   property color color: "black"
+  property bool shadowEnabled: false
+  property real shadowSize: 16
+  property real shadowOpacity: 0.3
 
   readonly property real h: bar ? bar.barSize : 0
   readonly property bool leftSide: side === "left"
@@ -29,8 +33,24 @@ Item {
   readonly property real capShown: Math.min(cap, reach / 2)
   visible: shown
 
+  // The shadows of the cap with the second row and of the first row, as an
+  // island casts its own (EffectSurface).
+  RectangularShadow {
+    visible: hanger.shadowEnabled
+    x: capRect.x; width: capRect.width; height: capRect.height
+    radius: hanger.cap
+    blur: hanger.shadowSize
+    color: Qt.rgba(0, 0, 0, hanger.shadowOpacity)
+  }
+  RectangularShadow {
+    visible: hanger.shadowEnabled
+    x: firstRow.x; width: firstRow.width; height: firstRow.height
+    blur: hanger.shadowSize
+    color: Qt.rgba(0, 0, 0, hanger.shadowOpacity)
+  }
   // The cap and the second row.
   Rectangle {
+    id: capRect
     x: hanger.leftSide ? hanger.outer : hanger.outer - hanger.reach
     width: hanger.reach
     height: hanger.h * 2
@@ -42,6 +62,7 @@ Item {
   }
   // The first row, from past the cap's curve to the camera.
   Rectangle {
+    id: firstRow
     x: hanger.leftSide ? hanger.outer + hanger.capShown : hanger.inner
     width: Math.max(0, hanger.leftSide ? hanger.inner - x : hanger.outer - hanger.capShown - hanger.inner)
     height: hanger.h
