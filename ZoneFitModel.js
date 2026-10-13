@@ -12,12 +12,22 @@
 // falls back. An inline expansion that would need a neighbour's anchor to
 // yield hides that whole neighbour instead (result.hidden), then the zone past
 // it if it still collides; it falls back only when it can't fit the bar line.
+// A screen with a camera notch (input.notch, the keep-out's extent) puts an
+// empty slot in the centre, just before the anchor (before every centre
+// widget without one), that stays at the middle of the bar line: the centre
+// never slides there, and the widgets on either side fold towards their own
+// neighbour instead (the left zone or the centre's before-run on the left,
+// the right zone or its after-run on the right).
 // See docs/behavior/layout-zones.md for the specification.
+
+var NOTCH = "notch"
+function hasNotch(input) { return input.notch > 0 }
 
 function zoneItems(input, name) {
   var z = input.zones
-  if (name === "center") return z.anchor ? z.before.concat([z.anchor], z.after) : z.center
-  return z[name]
+  if (name !== "center") return z[name]
+  var n = hasNotch(input) ? [{ key: NOTCH, extent: input.notch, spill: 0 }] : []
+  return z.anchor ? z.before.concat(n, [z.anchor], z.after) : n.concat(z.center)
 }
 
 function isFolded(st, key) { return st.folded[key] === true }
@@ -83,11 +93,14 @@ function zoneLength(pad, slots) {
   return pad(slots[0].spill) + sumExtent(slots, slots.length) + pad(slots[slots.length - 1].spill)
 }
 
+// Where along the centre its fixed point sits: the notch's middle, else the
+// anchor's, else the centre's own.
 function anchorOffsetOf(input, slots, len) {
   var a = input.zones.anchor
-  if (!a) return len / 2
+  var key = hasNotch(input) ? NOTCH : a ? a.key : null
+  if (!key) return len / 2
   for (var i = 0; i < slots.length; i++) {
-    if (slots[i].key === a.key) return input.pad(slots[0].spill) + sumExtent(slots, i) + a.extent / 2
+    if (slots[i].key === key) return input.pad(slots[0].spill) + sumExtent(slots, i) + slots[i].extent / 2
   }
   return len / 2
 }
@@ -105,14 +118,50 @@ function layout(input, st) {
   g.off = anchorOffsetOf(input, g.center, g.lenC)
   g.lo = inset + g.lenL + (g.lenL > 0 ? input.gap : 0)
   g.hi = input.length - inset - g.lenR - (g.lenR > 0 ? input.gap : 0) - g.lenC
+  // With a notch the centre starts where its notch slot meets the middle.
+  g.target = hasNotch(input) ? input.length / 2 - g.off : null
   return g
+}
+
+// Whether the zones keep their gap with `slack` to spare. Without a notch the
+// centre may slide anywhere between lo and hi; with one it stays at target.
+function roomy(input, g, slack) {
+  if (g.target === null) return g.lo + slack <= g.hi
+  return g.lo + slack <= g.target + 1e-6 && g.target + slack <= g.hi + 1e-6
 }
 
 function unfoldedOf(input, name, st) {
   return zoneItems(input, name).filter(function (it) { return !isFolded(st, it.key) })
 }
 
+// Beside a notch: fold on the side that collides, from the longer of the
+// side zone and the centre's run on that side. The anchor never folds.
+function foldBeside(input, st, g) {
+  var z = input.zones, anchor = z.anchor
+  var leftSide = g.lo > g.target + 1e-6
+  var cand = []
+  if (leftSide) {
+    var ul = unfoldedOf(input, "left", st)
+    var before = anchor ? z.before.filter(function (it) { return !isFolded(st, it.key) }) : []
+    if (ul.length > 1) cand.push({ len: g.lenL, key: ul[ul.length - 1].key })
+    if (before.length) cand.push({ len: g.off - input.notch / 2, key: before[0].key })
+  } else {
+    var ur = unfoldedOf(input, "right", st)
+    var after = anchor ? z.after.filter(function (it) { return !isFolded(st, it.key) })
+      : z.center.filter(function (it) { return !isFolded(st, it.key) })
+    if (ur.length > 1) cand.push({ len: g.lenR, key: ur[0].key })
+    if (after.length > (anchor ? 0 : 1)) cand.push({ len: g.lenC - g.off - input.notch / 2, key: after[after.length - 1].key })
+  }
+  if (!cand.length) return false
+  var pick = cand[0]
+  for (var i = 1; i < cand.length; i++) if (cand[i].len > pick.len) pick = cand[i]
+  st.folded[pick.key] = true
+  st.order.push(pick.key)
+  return true
+}
+
 function foldOne(input, st, g) {
+  if (hasNotch(input)) return foldBeside(input, st, g)
   var z = input.zones, anchor = z.anchor
   var ul = unfoldedOf(input, "left", st)
   var ur = unfoldedOf(input, "right", st)
@@ -180,7 +229,7 @@ function handlesOf(input, st) {
 }
 
 function resultOf(input, st, g, fits) {
-  var cs = fits ? clamp(input.length / 2 - g.off, g.lo, g.hi) : g.lo
+  var cs = g.target !== null ? g.target : fits ? clamp(input.length / 2 - g.off, g.lo, g.hi) : g.lo
   var f = {
     left: foldedKeys(input, "left", st),
     center: foldedKeys(input, "center", st),
@@ -208,17 +257,17 @@ function fitLasting(input) {
     delete st.folded[key]
     st.order.pop()
     g = layout(input, st)
-    if (g.lo + input.gutter <= g.hi) continue
+    if (roomy(input, g, input.gutter)) continue
     st.folded[key] = true
     st.order.push(key)
     break
   }
   g = layout(input, st)
-  while (g.lo > g.hi) {
+  while (!roomy(input, g, 0)) {
     if (!foldOne(input, st, g)) break
     g = layout(input, st)
   }
-  return resultOf(input, st, g, g.lo <= g.hi)
+  return resultOf(input, st, g, roomy(input, g, 0))
 }
 
 function withTransient(input, t) {
@@ -294,7 +343,8 @@ function fitMoment(input) {
   // An inline expansion of the centre that would run off the bar slides back
   // onto it by the least distance; the zones it then meets hide. Only a centre
   // longer than the bar line falls back.
-  if (ts.some(function(t) { return t.unfold === "center" && t.zone === "center" }) && g.lenC <= length - 2 * inset + 1e-6)
+  // Over a notch the centre never slides.
+  if (!hasNotch(input) && ts.some(function(t) { return t.unfold === "center" && t.zone === "center" }) && g.lenC <= length - 2 * inset + 1e-6)
     cs = clamp(cs, inset, length - inset - g.lenC)
   var res = {
     fits: prev.fits,
@@ -330,9 +380,11 @@ function fitMoment(input) {
   var rightLast = input.zones.right.length ? input.zones.right[input.zones.right.length - 1].key : null
   // Without an anchor the centre's last widget stands in for it; a centre that
   // is only its handle (every widget hidden on demand) keeps the handle.
+  // The notch slot never yields either.
   var centerAnchor = function (s, rest) {
+    if (s.key === NOTCH) return true
     if (anchorKey) return s.key === anchorKey
-    var widgets = rest.filter(function (x) { return x.key.indexOf("handle:") !== 0 }).length
+    var widgets = rest.filter(function (x) { return x.key.indexOf("handle:") !== 0 && x.key !== NOTCH }).length
     if (s.key.indexOf("handle:") === 0) return widgets === 0
     return widgets <= 1
   }

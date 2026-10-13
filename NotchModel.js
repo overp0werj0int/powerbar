@@ -1,0 +1,102 @@
+// A camera notch at the top of a laptop panel (docs/behavior/layout-zones.md,
+// "Notch"). Pure rules; Bar.qml reads the file and Hyprland's modes.
+//
+// Omarchy's platform package describes the panels that have one, in
+// /usr/share/omarchy-platform/display-cutouts.json:
+//
+//   { "panels": [ { "connector": "eDP", "width": 3024, "height": 1964, "top": 64 } ] }
+//
+// A panel matches a screen whose connector name starts with `connector` and
+// whose mode is width x height physical pixels; `top` is how many physical
+// rows the notch covers. Omarchy's bar reads the same file (BarModel.js
+// parseCutouts, cutoutTop, cutoutPending), and these follow it so both bars
+// agree on which screens have a notch and how tall it is.
+//
+// The file has no width. Apple's MacBook Pro camera housing is about 370
+// panel pixels wide (measured on the 14" and 16"), so that is the default,
+// and powerbarNotchWidth (logical px) sets it for a panel that differs.
+var DEFAULT_WIDTH = 370
+
+// The described panels; anything malformed is dropped.
+function parseCutouts(text) {
+  var parsed
+  try {
+    parsed = JSON.parse(String(text || ""))
+  } catch (error) {
+    return []
+  }
+  var panels = parsed && Array.isArray(parsed.panels) ? parsed.panels : []
+  var cutouts = []
+  for (var i = 0; i < panels.length; i++) {
+    var panel = panels[i] || {}
+    var width = Number(panel.width), height = Number(panel.height), top = Number(panel.top)
+    if (typeof panel.connector !== "string" || panel.connector === "") continue
+    if (!(width > 0) || !(height > 0) || !(top > 0) || top >= height) continue
+    cutouts.push({ connector: panel.connector, width: width, height: height, top: top })
+  }
+  return cutouts
+}
+
+// The described panel this screen is, or null. `mode` is the output's
+// physical mode as Hyprland reports it ({ width, height, transform }); until it
+// arrives the logical size times Qt's (whole-number) ratio stands in, which
+// rebuilds the mode only at whole scales. Turned a quarter or upside down, the
+// notch is on another edge: no panel.
+function panelOf(cutouts, screenName, logicalWidth, logicalHeight, devicePixelRatio, mode) {
+  var name = String(screenName || "")
+  var logical = Number(logicalWidth), logicalTall = Number(logicalHeight)
+  if (!(logical > 0) || !(logicalTall > 0)) return null
+  var width = Number(mode && mode.width), height = Number(mode && mode.height)
+  if (width > 0 && height > 0) {
+    var transform = Number(mode.transform) || 0
+    if (transform !== 0 && transform !== 4) return null
+    if ((width > height) !== (logical > logicalTall)) return null
+  } else {
+    var scale = Number(devicePixelRatio) > 0 ? Number(devicePixelRatio) : 1
+    width = Math.round(logical * scale)
+    height = Math.round(logicalTall * scale)
+  }
+  var list = Array.isArray(cutouts) ? cutouts : []
+  for (var i = 0; i < list.length; i++) {
+    var panel = list[i]
+    if (name.indexOf(panel.connector) !== 0) continue
+    // Logical sizes are rounded, so a rebuilt mode can be a couple of pixels off.
+    if (Math.abs(width - panel.width) <= 4 && Math.abs(height - panel.height) <= 4)
+      return { panel: panel, physicalWidth: width }
+  }
+  return null
+}
+
+// The notch a top bar on this screen meets, in logical px: { width, height },
+// or null (no notch, or a bar on another edge). width: a positive
+// powerbarNotchWidth, else the default housing; height: a positive calibrated
+// height (Omarchy's [bar] notch-height), else the described rows.
+function notchOf(cutouts, position, screenName, logicalWidth, logicalHeight, devicePixelRatio, mode, width, calibratedHeight) {
+  if (position !== "top") return null
+  var found = panelOf(cutouts, screenName, logicalWidth, logicalHeight, devicePixelRatio, mode)
+  if (!found) return null
+  var ratio = Number(logicalWidth) / found.physicalWidth
+  return {
+    width: Number(width) > 0 ? Math.round(Number(width)) : Math.ceil(DEFAULT_WIDTH * ratio),
+    height: Number(calibratedHeight) > 0 ? Math.round(Number(calibratedHeight)) : Math.ceil(found.panel.top * ratio)
+  }
+}
+
+// Whether a top bar can't tell its notch yet: Hyprland hasn't reported the
+// screen's mode, the rebuilt one matched no panel (as at a fractional scale),
+// and a described connector matches the screen, so the mode may still bring a
+// notch. The bar waits for the mode (a while at most) rather than guess.
+function pending(cutouts, position, screenName, logicalWidth, logicalHeight, devicePixelRatio, mode) {
+  if (position !== "top") return false
+  if (Number(mode && mode.width) > 0 && Number(mode && mode.height) > 0) return false
+  var name = String(screenName || "")
+  var list = Array.isArray(cutouts) ? cutouts : []
+  var described = list.some(function(c) { return name.indexOf(c.connector) === 0 })
+  return described && !panelOf(cutouts, screenName, logicalWidth, logicalHeight, devicePixelRatio, mode)
+}
+
+// What the black fill paints on a notched screen (powerbarNotchFill): "off",
+// "camera" (an island behind the camera, as tall as the bar) or "bar" (the
+// bar's whole strip, beneath its own surfaces).
+var fills = ["off", "camera", "bar"]
+function fill(value) { return fills.indexOf(value) >= 0 ? value : "off" }
