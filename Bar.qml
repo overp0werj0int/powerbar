@@ -2647,6 +2647,8 @@ Item {
   function barZoneAt(point, window) {
     var coordinate = root.vertical ? point.y : point.x
     var length = root.vertical ? window.height : window.width
+    // Two zones have no centre: each takes its half.
+    if (root.twoZones) return coordinate < length / 2 ? "left" : "right"
     return ["left", "center", "right"][Math.min(2, Math.max(0, Math.floor(coordinate * 3 / length)))]
   }
 
