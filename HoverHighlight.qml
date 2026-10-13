@@ -56,12 +56,15 @@ Item {
     ringed = outlined
     if (lighting) {
       handedOff = false
-      var from = glide && motionEnabled ? glide.takeOver(mark) : null
+      var from = glideLive() && motionEnabled ? glide.takeOver(mark) : null
       if (from) slideFrom(from)
     }
-    if (!shown && lit && glide) glide.release(mark)
+    if (!shown && lit && glideLive()) glide.release(mark)
     lit = shown
   }
+  // A settle queued with Qt.callLater can run while the glide is being torn
+  // down, when Qt 6.12 has already dropped its functions.
+  function glideLive() { return !!glide && typeof glide.release === "function" }
   function handOff() { slide.stop(); handedOff = true }
   // From a rect in scene coordinates to the mark's own place.
   function slideFrom(r) {

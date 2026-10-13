@@ -30,8 +30,14 @@ grep -E "^ℹ (pass|fail)" "$TMP/node.log"
 grep -E "^not ok" "$TMP/node.log"
 
 echo "== QML tests"
-mkdir -p "$TMP/kit/qs"
-ln -s "$OMARCHY/shell/Commons" "$OMARCHY/shell/Ui" "$TMP/kit/qs/"
+# qs.Commons with only the singletons Powerbar uses: Qt 6.12 loads every type
+# a module lists, and Omarchy's others need Quickshell services (Pipewire,
+# Hyprland) the test runner has no stand-in for.
+mkdir -p "$TMP/kit/qs/Commons"
+ln -s "$OMARCHY/shell/Ui" "$TMP/kit/qs/"
+ln -s "$OMARCHY"/shell/Commons/* "$TMP/kit/qs/Commons/"
+rm "$TMP/kit/qs/Commons/qmldir"
+{ echo "module qs.Commons"; grep -E "^singleton (Border|Color|Style|Util) " "$OMARCHY/shell/Commons/qmldir"; } >"$TMP/kit/qs/Commons/qmldir"
 timeout 300 "$QT_BIN/qmltestrunner" -import tests/qml/imports -import "$TMP/kit" -input tests/qml -o "$TMP/qml.log,txt" >/dev/null 2>&1 || failed=1
 grep -E "^Totals|^FAIL" "$TMP/qml.log" | head -20
 

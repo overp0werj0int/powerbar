@@ -161,7 +161,10 @@ Item {
     barId: root.barId
     shown: root.barConfig
     settled: root.configWriteSettled
-    onShow: function(config) { root.barConfig = config }
+    // Qt 6.12 hands a `var` signal argument over as a reference wrapper whose
+    // lists fail Array.isArray, so Omarchy's normalizeLayout would read an
+    // empty layout and every widget would be rebuilt: take a plain copy.
+    onShow: function(config) { root.barConfig = JSON.parse(JSON.stringify(config)) }
     // A restore that could not be saved is not tried again on the config it failed on.
     onFailed: { root.shownLayout = null; root.configWriteFailed() }
   }
@@ -753,6 +756,33 @@ Item {
   property bool requestedTransparent: false
   property bool useTransparentForeground: false
   property bool transparent: false
+  // Omarchy's bar background (AppearanceModel.barBackground): opaque, glassy
+  // (see-through and blurred) or none (the transparent above).
+  property string backgroundLook: "opaque"
+  // Glassy until a clear bar has its text colour: a glassy bar going clear
+  // stays glassy until then rather than flashing opaque, as Omarchy's does.
+  property bool glassy: false
+  // An Omarchy with glassy ships the Hyprland toggle that blurs behind it.
+  property bool omarchyGlassy: false
+  FileView {
+    path: (root.omarchyPath || "/usr/share/omarchy") + "/default/hypr/toggles/bar-glassy.lua"
+    printErrors: false
+    onLoaded: root.omarchyGlassy = true
+  }
+  // The look Hyprland's blur behind the bar was last synced for.
+  property string glassSyncedLook: ""
+  onOmarchyGlassyChanged: syncGlass()
+  // Hyprland blurs behind a glassy bar only while Omarchy's bar-glassy toggle
+  // is on, and `omarchy-bar sync-glass` sets it from shell.json, as Omarchy's
+  // bar has it do whenever the look changes. Powerbar shows an edit before it
+  // is saved, so the sync waits (up to 3 s) for shell.json to say the same.
+  function syncGlass() {
+    var look = backgroundLook
+    if (!omarchyGlassy || look === glassSyncedLook) return
+    glassSyncedLook = look
+    Util.execDetached("for i in $(seq 30); do [ \"$(omarchy-bar background 2>/dev/null)\" = " + look
+      + " ] && break; sleep 0.1; done; omarchy-bar sync-glass")
+  }
   property int centerHoverCount: 0
   readonly property bool centerSectionHovered: centerHoverCount > 0
   property bool centerSectionRevealHeld: false
@@ -1879,7 +1909,7 @@ Item {
   readonly property color overlaySurfaceColor: Qt.alpha(background, AppearanceModel.overlayOpacity(surfaceEffects))
   readonly property color mainSurfaceColor: surfaceColorFor(surfaceEffects)
   function surfaceColorFor(effects) {
-    return Qt.alpha(background, AppearanceModel.barOpacity(effects, autoHide, transparent))
+    return Qt.alpha(background, AppearanceModel.barOpacity(effects, autoHide, transparent, glassy))
   }
 
   readonly property string barStyle: barOptions.style
@@ -1901,7 +1931,17 @@ Item {
   readonly property bool largeBar: barOptions.largeBar
   readonly property real largeBarLip: Style.space(6)
   function barSizeFor(vertical, large) {
+    // Omarchy asks by screen name (notifications clear the bar by it).
+    if (typeof vertical === "string") return screenBarSizes[vertical] || barSize
     return (vertical ? Style.bar.sizeVertical : Style.bar.sizeHorizontal) + ((large === undefined ? largeBar : large) ? largeBarLip * 2 : 0)
+  }
+  // Each screen's bar thickness by screen name, as Omarchy's bar reports it
+  // to plugins (barSizes); Powerbar's is the same on every screen.
+  readonly property var screenBarSizes: {
+    var sizes = ({})
+    var screens = Quickshell.screens
+    for (var i = 0; i < screens.length; i++) sizes[screens[i].name] = barSize
+    return sizes
   }
   // One cell, one inset (docs/behavior/layout-zones.md): every item gets a cell along the
   // bar, square for glyphs, and the cell is its highlight. Equal slots puts
@@ -2069,7 +2109,11 @@ Item {
 
     updateGroups(config)
     position = normalizePosition(config.position)
-    setRequestedTransparency(config.transparent === true)
+    var look = AppearanceModel.barBackground(config)
+    backgroundLook = look
+    setRequestedTransparency(look === "none")
+    if (look !== "none") glassy = look === "glassy"
+    syncGlass()
     centerAnchor = Util.canonicalWidgetId(config.centerAnchor || "")
 
     var next = normalizeLayout(config.layout)
@@ -2404,16 +2448,33 @@ Item {
     Util.execDetached(command)
   }
 
+  // The older on/off form: clear or opaque.
   function toggleTransparency() {
-    var nextTransparent = !(root.requestedTransparent === true)
-    if (root.canWriteConfig()) {
-      root.writeConfig(function(config) {
-        if (!Util.isPlainObject(config.bar)) config.bar = {}
-        config.bar.transparent = nextTransparent
-      })
-    } else {
-      root.setRequestedTransparency(nextTransparent)
+    setBackground(root.requestedTransparent === true ? "opaque" : "none")
+  }
+  // Steps the background from clear to glassy to opaque and around, as
+  // Omarchy's bar does (its menu and a double click on the bar).
+  function cycleBackground() {
+    setBackground(AppearanceModel.nextBackground(root.backgroundLook, root.omarchyGlassy))
+  }
+  // An Omarchy with glassy keeps `background` (and drops `transparent`, as
+  // `omarchy bar background` does); an older one reads only `transparent`.
+  function setBackground(look) {
+    if (!root.canWriteConfig()) {
+      root.setRequestedTransparency(look === "none")
+      return
     }
+    var glassyOmarchy = root.omarchyGlassy
+    root.writeConfig(function(config) {
+      if (!Util.isPlainObject(config.bar)) config.bar = {}
+      if (glassyOmarchy) {
+        config.bar.background = look
+        delete config.bar.transparent
+      } else {
+        config.bar.transparent = look === "none"
+        delete config.bar.background
+      }
+    })
   }
 
   function dropBarModule(source, toRegion, beforeKey, visibility) {
@@ -3651,7 +3712,8 @@ Item {
       id: remapGuard
       window: barWindow
     }
-    readonly property bool blurEnabled: root.surfaceEffects.blur
+    // Omarchy's glassy background blurs too.
+    readonly property bool blurEnabled: root.surfaceEffects.blur || root.glassy
     onBlurEnabledChanged: {
       if (visible) { freezeLayout(); blurRemap.restart() }
     }
@@ -3677,7 +3739,7 @@ Item {
     implicitHeight: root.vertical ? 0 : root.barExtent + drawerExtent
     color: "transparent"
     surfaceFormat.opaque: false
-    WlrLayershell.namespace: root.surfaceEffects.blur ? "powerbar" : "powerbar-clear"
+    WlrLayershell.namespace: blurEnabled ? "powerbar" : "powerbar-clear"
     WlrLayershell.layer: WlrLayer.Top
 
     // The keyboard: a keyboard-opened drawer's, or the keyboard mode's cursor
@@ -4749,7 +4811,7 @@ Item {
         return
       }
       if (mouse.button === Qt.LeftButton) {
-        root.toggleTransparency()
+        root.cycleBackground()
         mouse.accepted = true
       }
     }
@@ -5300,10 +5362,19 @@ Item {
     // ink in a 7.2 px box, so a text button paints it 3.4 px right of centre).
     readonly property Item kitGlyph: inkItem && liveNaturalWidth > 0 ? root.findKitGlyph(inkItem, 0) : null
     readonly property Item glyphText: kitGlyph ? root.findGlyphText(kitGlyph, String(kitGlyph.text), 0) : null
+    // An icon button may paint a label beside its glyph (Power's "100%"): the
+    // ink spans both.
+    readonly property Item labelText: kitGlyph && String(kitGlyph.labelText || "") !== ""
+      ? root.findGlyphText(kitGlyph, String(kitGlyph.labelText), 0) : null
     TextMetrics {
       id: kitGlyphMetrics
       font: slot.glyphText ? slot.glyphText.font : Qt.font({ family: Style.font.family })
       text: slot.glyphText ? slot.glyphText.text : ""
+    }
+    TextMetrics {
+      id: kitLabelMetrics
+      font: slot.labelText ? slot.labelText.font : Qt.font({ family: Style.font.family })
+      text: slot.labelText ? slot.labelText.text : ""
     }
     readonly property var glyphInk: {
       var t = glyphText
@@ -5319,7 +5390,14 @@ Item {
       var align = t.horizontalAlignment === Text.AlignHCenter ? (t.width - advance) / 2
         : t.horizontalAlignment === Text.AlignRight ? t.width - advance : 0
       var p = t.mapToItem(inkItem, align + r.x, t.baselineOffset + r.y)
-      return kept("glyph", { x: p.x, y: p.y, width: r.width, height: r.height })
+      var l = labelText
+      var lr = kitLabelMetrics.tightBoundingRect
+      if (!l || !(lr.width > 0)) return kept("glyph", { x: p.x, y: p.y, width: r.width, height: r.height })
+      var labelGeometry = l.x + l.y + l.width + l.parent.x + l.parent.width
+      var q = l.mapToItem(inkItem, lr.x, l.baselineOffset + lr.y)
+      var x0 = Math.min(p.x, q.x), y0 = Math.min(p.y, q.y)
+      return kept("glyph", { x: x0, y: y0, width: Math.max(p.x + r.width, q.x + lr.width) - x0,
+        height: Math.max(p.y + r.height, q.y + lr.height) - y0 })
     }
     readonly property var liveInk: !glyphInk ? measuredInk : kept("live", root.vertical
       ? { start: glyphInk.y, length: glyphInk.height, glyph: measuredInk.glyph || glyphInk.width <= CellModel.GLYPH_INK }

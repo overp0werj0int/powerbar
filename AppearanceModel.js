@@ -88,15 +88,33 @@ function overlayOpacity(effects) {
   var opacity = typeof e.backgroundOpacity === "number" ? e.backgroundOpacity : 1
   return e.readableOverlay !== false && !e.blur ? Math.max(opacity, readableOpacity) : opacity
 }
-// The bar's own surface. Omarchy's `bar.transparent` (`omarchy bar
-// transparent`, the menu's Transparency) clears it as it clears Omarchy's bar;
-// an autohiding bar lies over windows and keeps its readable minimum.
-// Drawers and overlays keep the surface opacity: Omarchy's flag is the bar's.
-function barOpacity(effects, autoHide, transparent) {
+// Omarchy's bar background: "opaque", "glassy" or "none" (`omarchy bar
+// background`). A config from an Omarchy before background says
+// `transparent` instead, which is none or opaque.
+var backgrounds = ["opaque", "glassy", "none"]
+function barBackground(barConfig) {
+  var c = barConfig || {}
+  if (backgrounds.indexOf(c.background) >= 0) return c.background
+  return c.transparent === true ? "none" : "opaque"
+}
+// The step a double click on the bar takes: clear, glassy, opaque and around,
+// as Omarchy's bar does. An Omarchy without glassy toggles clear and opaque.
+function nextBackground(current, glassyOffered) {
+  if (!glassyOffered) return current === "none" ? "opaque" : "none"
+  return current === "none" ? "glassy" : current === "glassy" ? "opaque" : "none"
+}
+// A glassy bar is see-through at most this much, as Omarchy's is.
+var glassOpacity = 0.35
+// The bar's own surface. Omarchy's bar background (`omarchy bar background`,
+// the menu's Transparency) clears it or makes it glassy as it does Omarchy's
+// bar; an autohiding bar lies over windows and keeps its readable minimum.
+// Drawers and overlays keep the surface opacity: Omarchy's setting is the bar's.
+function barOpacity(effects, autoHide, transparent, glassy) {
   var e = effects || {}
-  var base = transparent === true ? 0 : typeof e.backgroundOpacity === "number" ? e.backgroundOpacity : 1
+  var opacity = typeof e.backgroundOpacity === "number" ? e.backgroundOpacity : 1
+  var base = transparent === true ? 0 : glassy === true ? Math.min(opacity, glassOpacity) : opacity
   if (!autoHide) return base
-  return overlayOpacity({ backgroundOpacity: base, blur: e.blur, readableOverlay: e.readableOverlay })
+  return overlayOpacity({ backgroundOpacity: base, blur: e.blur || glassy === true, readableOverlay: e.readableOverlay })
 }
 // Whether the bar's text takes the colour Omarchy reads from the wallpaper
 // behind a transparent bar: only where nothing is drawn behind it, and only
