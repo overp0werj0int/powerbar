@@ -10,8 +10,9 @@
 //   1. CONTRACT: literal lines in Omarchy's files that Powerbar depends on (the
 //      host handing the bar its config, the shell facade, the widget kit
 //      properties Powerbar reads, commands, state files, bind forms). When one
-//      is missing, read what replaced it in that file and adapt Powerbar, then
-//      update the line here.
+//      is missing, read what replaced it in that file and adapt Powerbar
+//      keeping the older form working, then add the new line here as an
+//      alternative after the old one.
 //   2. Theme tokens: every Style.* and Commons.Color.* path Powerbar's own
 //      files use, found automatically, must be declared in Omarchy's Commons.
 //   3. qs.Commons singletons and qs.Ui types Powerbar uses must be registered.
@@ -55,12 +56,13 @@ const CONTRACT = [
   ["shell/shell.qml", "api.barSize = Qt.binding(function() { return shell.bar ? Math.max(0, shell.bar.barSize || 0) : 0 })", "bar-state facade reads Powerbar's barSize"],
   ["shell/shell.qml", "api.fontFamily = Qt.binding(function() { return shell.bar ? String(shell.bar.fontFamily || \"\") : \"\" })", "bar-state facade reads Powerbar's fontFamily"],
   ["shell/shell.qml", "api.position = Qt.binding(function() { return shell.bar ? String(shell.bar.position || \"top\") : \"top\" })", "bar-state facade reads Powerbar's position"],
-  ["shell/plugins/notifications/Service.qml", "shell.bar && !shell.bar.barHidden ? Math.max(0, shell.bar.barSize)", "notifications offset from the bar"],
+  ["shell/plugins/notifications/Service.qml", ["shell.bar && !shell.bar.barHidden ? Math.max(0, shell.bar.barSize)",
+    "NotificationLogic.barClearance(shell ? shell.bar : null, screenName, defaultBarSize, Style.gapsOut)"], "notifications offset from the bar (barSize, then barSizeFor(screenName))"],
   ["shell/shell.qml", "shell.bar.summonBarWidget(id)", "`omarchy-shell shell summon` does nothing"],
   ["shell/shell.qml", "shell.bar.hideBarWidget(id)", "hide/toggle can't close a widget panel"],
   ["shell/shell.qml", "shell.bar.isBarWidgetOpen(id)", "toggle always opens"],
   ["shell/shell.qml", "if (m.kinds.indexOf(\"bar-widget\") === -1) return false", "summon routing through the bar"],
-  ["shell/shell.qml", "shell.bar.toggleTransparency()", "toggleBarTransparency answers no-bar"],
+  ["shell/shell.qml", ["shell.bar.toggleTransparency()", "shell.bar.cycleBackground()"], "toggleBarTransparency answers no-bar"],
   ["shell/shell.qml", "shell.bar.debugBarGeometry()", "debug geometry IPC answers []"],
   ["shell/shell.qml", "shell.bar.panelWidgetIdAt(section, index)", "Super+Ctrl+1..9 panel keys stop"],
   ["shell/shell.qml", "function togglePanelAt(section: string, index: string): string {", "Super+Ctrl+1..9 panel keys stop"],
@@ -76,7 +78,8 @@ const CONTRACT = [
   ["shell/Ui/PluginBarApi.qml", "property var clickTargets: []", "click targets not synced (PluginApiSync)"],
   ["shell/Ui/PluginBarApi.qml", "property var layoutConfig: ({})", "layout not synced (PluginApiSync)"],
   ["shell/Ui/WidgetButton.qml", "registeredBar.registerClickTarget(root)", "buttons stop registering click targets"],
-  ["shell/Ui/WidgetButton.qml", "property color foreground: bar ? bar.barForeground : Color.foreground", "widget colours (barForeground)"],
+  ["shell/Ui/WidgetButton.qml", ["property color foreground: bar ? bar.barForeground : Color.foreground",
+    "property color foreground: bar ? bar.barForeground : Commons.Color.foreground"], "widget colours (barForeground)"],
   ["shell/Ui/BarWidget.qml", "? bar.moduleWidgets(moduleName) : [root]", "multi-monitor widget sync"],
   ["shell/Ui/Panel.qml", "return bar.switchPanelFrom(root, direction)", "left/right panel switching"],
   ["shell/plugins/panels/clock/Panel.qml", "root.bar.setCenterHoverRevealSuppressed(value)", "centre reveal fights an open clock panel"],
@@ -131,10 +134,13 @@ const CONTRACT = [
   ["bin/omarchy-toggle-bar", "omarchy-shell -q omarchy.bar syncHidden", "the bar can stay off-screen"],
   ["bin/omarchy-toggle", "FLAG=\"$HOME/.local/state/omarchy/toggles/$FLAG_NAME\"", "barOffFlag never changes"],
   ["bin/omarchy-bar-text-color", "background_color=${4:-}", "transparent-bar text colour"],
-  ["bin/omarchy-bar", "commit \"$NORMALIZE | .bar.transparent = (.bar.transparent != true)\"", "the bar.transparent key moved"],
+  ["bin/omarchy-bar", ["commit \"$NORMALIZE | .bar.transparent = (.bar.transparent != true)\"",
+    ["commit \"$NORMALIZE | .bar.background = \\$background | del(.bar.transparent)\"", "  sync-glass)", "if (( $# == 0 )); then\n    current_background"]],
+    "the bar background keys moved (transparent, then background with glassy: Bar.qml setBackground, syncGlass)"],
   ["bin/omarchy-bar", "commit \"$NORMALIZE | .bar.position = \\$position\" --arg position \"$position\"", "the bar.position key moved"],
   ["bin/omarchy-bar", "commit \"$NORMALIZE | .bar.id = \\$plugin\" --arg plugin \"$plugin\"", "how Powerbar becomes the active bar"],
-  ["bin/omarchy-theme-set", "echo \"$THEME_NAME\" >\"$HOME/.local/state/omarchy/current/theme.name\"", "per-theme appearance scopes"],
+  ["bin/omarchy-theme-set", ["echo \"$THEME_NAME\" >\"$HOME/.local/state/omarchy/current/theme.name\"",
+    ["CURRENT_THEME_NAME_PATH=\"$HOME/.local/state/omarchy/current/theme.name\"", "echo \"$THEME_NAME\" >\"$CURRENT_THEME_NAME_PATH\""]], "per-theme appearance scopes"],
   ["bin/omarchy-theme-set", "CURRENT_THEME_PATH=\"$HOME/.local/state/omarchy/current/theme\"", "theme powerbar.toml not read"],
   ["bin/omarchy-theme-set", "CURRENT_BACKGROUND_LINK=\"$HOME/.local/state/omarchy/current/background\"", "Preferences wallpaper blank"],
   ["bin/omarchy-theme-set", "OMARCHY_THEMES_PATH=\"$OMARCHY_PATH/themes\"", "theme pruning skipped"],
@@ -145,7 +151,8 @@ const CONTRACT = [
   ["default/hypr/helpers.lua", "o.bind(keys, description, \"omarchy-toggle-\" .. toggle, options)", "held-key reveal falls back to any modifier"],
   ["default/hypr/helpers.lua", "function o.bind(keys, description, dispatcher, options)", "the shortcut block fails to load and rolls back"],
   ["config/hypr/hyprland.lua", "require(\"hypr.bindings\")", "the shortcut block in bindings.lua never loads"],
-  ["default/hypr/bindings/utilities.lua", "o.bind(\"SUPER + CTRL + A\", \"Audio\", \"omarchy-shell shell toggle omarchy.audio\")", "Omarchy's widget shortcuts not read"],
+  ["default/hypr/bindings/utilities.lua", ["o.bind(\"SUPER + CTRL + A\", \"Audio\", \"omarchy-shell shell toggle omarchy.audio\")",
+    "o.bind(\"SUPER + CTRL + A\", \"Audio\", { panel = \"omarchy.audio\" })"], "Omarchy's widget shortcuts not read (ShortcutModel.parseDefaults)"],
   ["default/hypr/bindings/utilities.lua", "for panel = 1, 9 do", "positional panel shortcuts not read"],
   ["default/hypr/bindings/utilities.lua", "\"SUPER + CTRL + code:\" .. tostring(panel + 9),", "positional panel shortcuts not read"],
   ["default/hypr/bindings/utilities.lua", "\"omarchy-shell -q shell togglePanelAt right \" .. panel", "positional panel shortcuts not read"],
@@ -181,11 +188,15 @@ function read(rel) {
 }
 function drift(rel, what, breaks) { failures.push(`contract drift: ${rel}: ${what}\n    breaks: ${breaks}`) }
 
-// 1. Literal lines.
+// 1. Literal lines. A check may list alternatives, oldest Omarchy first, that
+// Powerbar handles alike: one holding is enough. An alternative that is itself
+// a list needs every line in it.
 for (const [rel, literal, breaks] of CONTRACT) {
   const text = read(rel)
+  const options = (Array.isArray(literal) ? literal : [literal]).map((o) => (Array.isArray(o) ? o : [o]))
   if (text === null) drift(rel, "the file is gone", breaks)
-  else if (!text.includes(literal)) drift(rel, literal, breaks)
+  else if (!options.some((lines) => lines.every((l) => text.includes(l))))
+    drift(rel, options.map((lines) => lines.join(" + ")).join("\n    or: "), breaks)
 }
 
 // 2. Theme tokens used by Powerbar's own (loaded) files.
