@@ -25,6 +25,9 @@
   - With autohide, pointing at the camera makes each zone spring out of it
     sideways, and an activity peek springs only the widget that changed out
     of the camera, on its own black badge beside it.
+  - A group's drawer slides down out of the bar like a zone out of the
+    camera: black, attached, its top corners curving into the bar and its
+    bottom corners the camera's.
   - On-demand widgets expand in the bar (the notch has no drawers). A zone
     that outgrows the screen wraps onto a second row at the edge, one black
     shape with the first.
@@ -43,6 +46,9 @@
   since the mode moves the bar there.
 - **Shadow on the notch**: the Shadow tile stays on the Bar page in the
   Notch mode; the camera, the zones and their second rows cast it.
+- **Drawers are one size on every bar**: a group's strip or menu is always
+  the large bar's size, with the bar's spacing, whether the bar is small,
+  large or as tall as the notch (on the notch it was the camera's height).
 - **Glassy bar background**: Omarchy's bar now steps its background from
   clear to glassy to opaque (a double click on the bar, the menu's
   Transparency, `omarchy bar background`). Powerbar follows: glassy draws the

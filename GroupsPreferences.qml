@@ -752,9 +752,10 @@ Item {
     property int dropPos: -1
     readonly property var current: lifted || pane.members[cursor] || null
     readonly property bool menu: ManagedModel.groupMenu(pane.selectedGroup)
-    // A menu is drawn at the size it has on every bar (Bar.menuTokensFor); a
-    // strip at the bar's own.
-    readonly property var cells: menu ? pane.menuTokens : pane.tokens
+    // Drawn at the size a drawer has on every bar (Bar.drawerTokensFor), menu
+    // or strip; the widgets in a strip keep the bar's own size.
+    readonly property var cells: pane.menuTokens
+    readonly property real lineThickness: cells.bar
     readonly property bool icons: !!pane.selectedGroup && pane.selectedGroup.memberDisplay === "both"
     // The members in the order shown, with the gap a move or a drag opens.
     readonly property var shown: {
@@ -780,7 +781,7 @@ Item {
       : ShelfModel.zone(CellModel, drawer.cells, faces.map(function(f) { return f || { inkStart: 0, inkLength: 12, glyph: true, cap: true } }), Math.max(1, width - pad * 2))
     readonly property real drawingHeight: menu
       ? shown.length * drawer.cells.thickness + Math.max(0, shown.length - 1) * drawer.cells.inset + 2 * drawer.cells.inset
-      : Math.max(1, strip.lines.length) * (pane.barThickness + Style.space(4)) - Style.space(4)
+      : Math.max(1, strip.lines.length) * (lineThickness + Style.space(4)) - Style.space(4)
     readonly property real drawingWidth: menu ? rowWidth + 2 * drawer.cells.inset : strip.width
     FontMetrics {
       id: menuMetrics
@@ -820,7 +821,7 @@ Item {
       if (menu) return { x: drawer.cells.inset, y: drawer.cells.inset + i * (drawer.cells.thickness + drawer.cells.inset), width: rowWidth, height: drawer.cells.thickness }
       var at = ShelfModel.slotOf(strip, i)
       if (!at) return { x: 0, y: 0, width: 0, height: 0 }
-      return { x: stripLineX(at.line) + at.slot.x, y: at.line * (pane.barThickness + Style.space(4)), width: at.slot.extent, height: pane.barThickness }
+      return { x: stripLineX(at.line) + at.slot.x, y: at.line * (lineThickness + Style.space(4)), width: at.slot.extent, height: lineThickness }
     }
     function stripLineX(n) { return (drawingWidth - strip.lines[n].width) / 2 }
     function memberAt(point) {
@@ -887,9 +888,9 @@ Item {
           required property var modelData
           required property int index
           x: drawer.stripLineX(index)
-          y: index * (pane.barThickness + Style.space(4))
+          y: index * (drawer.lineThickness + Style.space(4))
           width: modelData.width
-          height: pane.barThickness
+          height: drawer.lineThickness
           color: pane.menuSurface
           radius: pane.surfaceRadius
           borderSpec: pane.surfaceBorder

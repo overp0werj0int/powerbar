@@ -252,6 +252,15 @@ Numbers below use Omarchy's default theme tokens: bar 26 px (horizontal) or 28 p
 
   Code: Bar.qml slideNotch, zoneOut, autoHideStrip, PeekBadge; ZoneClip.
 
+- **ZONE-88** On the notched screen a group's drawer (a strip or a menu) comes out of the bar as the zones come out of the camera, downward:
+  - **Attached:** it hangs from the bar's bottom edge with no gap, black with the bar's light text, and no border.
+  - **Shape:** where it meets the bar, its top corners curve up into the bar's edge with the camera's shoulder, as the screen's top edge curves into the camera; its bottom corners have the camera's bottom radius (appearance.md LOOK-143).
+  - **Motion:** it slides down out of the bar, cut at the bar's bottom edge: 220 ms with the zones' spring (overshoot held to 4 px) out, 140 ms ease-out back in. It does not fade or scale.
+  - **Size:** as on every bar (on-demand-drawers.md DEMAND-92).
+  - Other screens keep the floating island drawer.
+
+  Code: ManagedDrawer.qml fromNotch, clipper, Behavior on reveal; NotchShape.qml.
+
 ## Doc drift
 
 - docs/design/zone-fit.md:218 says the fit's `inset` is "0 on Flat, edgeGap otherwise". Code: a flat bar's inset is `CellModel.flatEdge` (8.5 px on the 26 px bar), Bar.qml:1848.

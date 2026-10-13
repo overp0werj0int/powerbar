@@ -2036,8 +2036,14 @@ Item {
   // A group drawn as a menu has one size on every bar: rows, padding and icon
   // cells as the large bar's (groups.md GROUP-96). The live drawer and
   // Preferences' drawing of it both read these.
-  function menuTokensFor(vertical) { return CellModel.tokens({ bar: barSizeFor(vertical, true), spacing: widgetSpacing, mode: spacingMode }) }
-  readonly property var menuTokens: menuTokensFor(vertical)
+  // Drawers (strips and menus) have one size on every bar, the large bar's
+  // own (never the notch's), and the bar's spacing.
+  function drawerTokensFor(vertical) {
+    return CellModel.tokens({ bar: (vertical ? Style.bar.sizeVertical : Style.bar.sizeHorizontal) + largeBarLip * 2, spacing: widgetSpacing, mode: spacingMode })
+  }
+  function menuTokensFor(vertical) { return drawerTokensFor(vertical) }
+  readonly property var drawerTokens: drawerTokensFor(vertical)
+  readonly property var menuTokens: drawerTokens
   readonly property real highlightRadius: CellModel.radius(cellTokens, islandRounding)
   // Compounds (several click targets in one widget) show a faint track over
   // the whole cell and a thumb over the hovered target.
@@ -6028,7 +6034,9 @@ Item {
     readonly property var ink: frozenMeasure ? frozenMeasure.ink : liveInk
     readonly property var crossInk: frozenMeasure ? frozenMeasure.crossInk : liveCrossInk
     // Only free text is capped: a compound (workspaces) or a vertical stack keeps its length.
-    readonly property var cellPlace: kept("place", CellModel.place(root.cellTokens, ink.length, CellModel.isGlyph(ink.length, ink.glyph),
+    // In a drawer the cell is the drawer's size (drawerTokens), not the bar's.
+    readonly property var slotTokens: drawerHost ? root.drawerTokens : root.cellTokens
+    readonly property var cellPlace: kept("place", CellModel.place(slotTokens, ink.length, CellModel.isGlyph(ink.length, ink.glyph),
       !root.vertical && compoundTargets.length < 2))
     readonly property real landingExtent: naturalWidth > 0 && naturalHeight > 0 ? cellPlace.extent : 0
     // A value that gets narrower keeps its width for a while, so flickering
@@ -6041,7 +6049,7 @@ Item {
     Timer { interval: 2000; running: true; onTriggered: slot.holdArmed = true }
     // The hold is for a value changing in place, not for a new layout: a
     // retained slot that changes orientation, bar size or spacing starts fresh.
-    readonly property string holdLayout: root.vertical + "|" + root.barSize + "|" + root.spacingMode + "|" + root.widgetSpacing
+    readonly property string holdLayout: root.vertical + "|" + slotTokens.bar + "|" + root.spacingMode + "|" + root.widgetSpacing
     property string heldLayout: ""
     onHoldLayoutChanged: Qt.callLater(updateHold)
     // The hold also waits out a remap freeze (measureFrozen).
@@ -6055,7 +6063,7 @@ Item {
       var holds = !(activeItem && activeItem.powerbarWidthHold === false)
       if (!(target > 0) || !baseVisible || !holdArmed || relayout || !holds) { heldExtent = target; shrinkAt = 0; holdTimer.stop(); return }
       var now = Date.now()
-      var h = CellModel.hold(heldExtent, target, now, root.widthHoldMs, shrinkAt, root.cellTokens.cell)
+      var h = CellModel.hold(heldExtent, target, now, root.widthHoldMs, shrinkAt, slotTokens.cell)
       heldExtent = h.value
       shrinkAt = h.shrinkAt
       if (shrinkAt > 0) { holdTimer.interval = Math.max(1, shrinkAt - now); holdTimer.restart() } else holdTimer.stop()
