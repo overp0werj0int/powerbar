@@ -157,7 +157,7 @@ Sources: Preferences.qml, PreferencesModel.js, BentoModel.js, ShelfModel.js, Sli
 
 ## Bar page
 
-- **PREFS-64** The Bar page has eight tiles, in order: Style and position (8 of 12 columns), Size, Shape, Surface, Shadow, Behavior, On demand (4 each) and Keyboard (4; 6 of 6 at medium width). In two zones a Notch tile follows Shape (4; 3 of 6); on the notch it takes the place of Surface (PREFS-96). Every change shows on the bar at once.
+- **PREFS-64** The Bar page has eight tiles, in order: Style and position (8 of 12 columns), Size, Shape, Surface, Shadow, Behavior, On demand (4 each) and Keyboard (4; 6 of 6 at medium width). In two zones a Notch tile follows Shape (4; 3 of 6); on the notch it takes the place of Shape and Surface (PREFS-96). Every change shows on the bar at once.
 
 - **PREFS-65** Style and position: a picture of the screen where clicking an edge moves the bar there; Style (Flat "Edge to edge, like Omarchy", Floating "One bar, off the edges", Islands "A surface for each zone"); Screen edge (Top, Bottom, Left, Right); Pinned to screen center (None or a centre widget that is On the bar). Writes `bar.powerbarStyle`, `bar.position`, `bar.centerAnchor`. The default style is Flat, the default edge top.
 
@@ -180,7 +180,7 @@ Sources: Preferences.qml, PreferencesModel.js, BentoModel.js, ShelfModel.js, Sli
 - **PREFS-96** On the notch, controls that cannot apply give way in place to what does (appearance.md LOOK-143):
   - **Style and position:** the screen picture is disabled. Style and Screen edge give way to "On the notch" and the line "Black zones grow out of the camera at the top of the screen. Choose Three or Two zones on the Layout page for the other styles."
   - **Size:** "Large bar" is hidden: the notch's bar is always as tall as the camera.
-  - **Shape:** Borders and Border thickness are hidden; Corner rounding stays.
+  - **Shape:** the tile is hidden: the zones take the camera's corners and have no border.
   - **Surface:** the tile gives way to the Notch tile. Shadow stays.
   - **On demand:** "Show them" gives way to the line "Behind dots in their zone; they expand in the bar when you hover the dots. The notch has no drawers." "Count on the dots" stays.
 

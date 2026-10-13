@@ -220,3 +220,8 @@ test('a notch zone past the screen edge wraps its outer widgets into a second ro
   assert.equal(notch.wrapRow(run(100, [50, 50]), 8, 'left'), null, 'it fits: no second row');
   assert.equal(notch.wrapRow([], 8, 'left'), null);
 });
+
+test('the notch mode zones take the camera corners, or the default housing at scale 2', () => {
+  assert.deepEqual(J(notch.zoneCorners({ radius: 9, shoulder: 3.5 })), { radius: 9, shoulder: 3.5 });
+  assert.deepEqual(J(notch.zoneCorners(null)), { radius: 8, shoulder: 4 });
+});

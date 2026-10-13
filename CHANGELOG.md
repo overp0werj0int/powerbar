@@ -12,7 +12,9 @@
   `omarchy-shell powerbar set zones three|two|notch`.
 - **Notch**: on a MacBook screen Omarchy describes as notched
   (`display-cutouts.json`), two black zones grow out of the camera. They are
-  rounded at their outer ends with the bar's rounding, and the bar is always
+  shaped at their outer ends like the camera itself (its shoulders at the
+  top, its corner radius below, whatever the rounding setting), and the bar
+  is always
   exactly as tall as the notch. Their dots sit at the far ends, by the screen
   edges, windows stop under the camera even while the bar autohides, the bar
   can't be dragged off the top, and a zone's second row is walked from the
@@ -26,7 +28,7 @@
   - On-demand widgets expand in the bar (the notch has no drawers). A zone
     that outgrows the screen wraps onto a second row at the edge, one black
     shape with the first.
-  - On the Bar page, Style, Surface and borders give way to the Notch tile.
+  - On the Bar page, Style, Shape and Surface give way to the Notch tile.
   - Other screens show the same two black zones.
 - **Activity peeks show just the widget**: with autohide, a widget that
   changes no longer brings out its whole zone or the whole bar. It comes out

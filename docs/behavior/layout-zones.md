@@ -221,7 +221,7 @@ Numbers below use Omarchy's default theme tokens: bar 26 px (horizontal) or 28 p
 - **ZONE-81** On a notched screen, the strip is at least as tall as the notch in every mode. That way no window peeks out beside the camera. The exclusive zone, popups, drawers and the autohide distance all use that extent, and Omarchy's notch-height reports per screen take the same value (`screenBarSizes`). Code: Bar.qml extent, extentOf, screenBarSizes.
 
 - **ZONE-82** The notch mode has the two-zone layout. Its zones grow out of the camera:
-  - On the notched screen the left zone ends at the camera's left edge and the right zone starts at its right edge. Both are drawn as black islands that run on under the camera. Their outer ends are rounded top and bottom with the bar's rounding (appearance.md LOOK-143).
+  - On the notched screen the left zone ends at the camera's left edge and the right zone starts at its right edge. Both are drawn as black islands that run on under the camera. Their outer ends have the camera's corners: its shoulder at the top, its bottom radius below (appearance.md LOOK-143).
   - A zone's dots sit at its far end, by the screen edge: the left zone's start, the right zone's end. Its on-demand widgets expand there, so an expansion grows toward the edge and wraps (ZONE-85). Elsewhere two zones keep theirs beside the gap.
   - The keep-out gap there is the camera plus the inset a zone keeps from a screen edge, on each side.
   - On a screen without a notch the mode looks like two zones in the notch's colours.
@@ -239,7 +239,7 @@ Numbers below use Omarchy's default theme tokens: bar 26 px (horizontal) or 28 p
   - **Preferences stays put:** the Preferences button is the corner icon and never wraps. It keeps its place at the right screen edge in the first row; the first row's widgets stop where it begins, and those past that point wrap.
   - **No yielding:** a moment never makes another zone yield or hide.
   - **No fallback:** running past the screen edge is no reason to fall back.
-  - **Shape:** the black is one coat-hanger shape. A rounded cap at the screen edge spans both rows with the bar's rounding (appearance.md LOOK-10), and the second row meets the first with an inside curve where it ends.
+  - **Shape:** the black is one coat-hanger shape. A cap at the screen edge spans both rows with the camera's corners (the shoulder at the top, its bottom radius below), and the second row ends toward the camera with the same radius, meeting the first with an inside curve.
 
   Code: NotchModel.wrapRow; ZoneFitModel (input.wrap); Bar.qml zoneWrap, applyWrap; NotchHanger.qml.
 

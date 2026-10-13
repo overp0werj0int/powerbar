@@ -2174,7 +2174,10 @@ Item {
   readonly property int barExtent: Math.ceil(barSize + (flat ? 0 : edgeGap * 2))
   readonly property real widgetSpacing: Style.space(AppearanceModel.clampTo(AppearanceModel.ranges.spacing, barConfig.powerbarSpacing))
   readonly property var themeIslandBorder: Border.surfaceSpec("popups", "border", Commons.Color.popups.border, 1)
-  readonly property real islandRounding: roundingFor(appearanceConfig)
+  // The notch mode's zones take the camera's corners (notchCorners), not the
+  // rounding setting.
+  readonly property real islandRounding: notchMode ? Math.min(notchCorners.radius, barSize / 2) : roundingFor(appearanceConfig)
+  readonly property var notchCorners: NotchModel.zoneCorners(screenNotch)
   // Every config delivery builds the spec afresh; an equal one keeps the last
   // object, so the islands, drawers, tooltip and strip that read it (through
   // Border.*) are not re-resolved for a change elsewhere in the config.
@@ -4178,17 +4181,9 @@ Item {
       width: barWindow.notchRight - barWindow.notchLeft
       height: barWindow.notch ? barWindow.notch.height : 0
       notch: barWindow.notch
-      // The shadow of its body, below the shoulders, as the zones cast theirs.
-      RectangularShadow {
-        z: -1
-        visible: root.surfaceEffects.shadow
-        x: cameraShape.s
-        width: Math.max(0, cameraShape.width - 2 * cameraShape.s)
-        height: cameraShape.height
-        radius: cameraShape.r
-        blur: root.surfaceEffects.shadowSize
-        color: Qt.rgba(0, 0, 0, root.surfaceEffects.shadowOpacity)
-      }
+      shadowEnabled: root.surfaceEffects.shadow
+      shadowSize: root.surfaceEffects.shadowSize
+      shadowOpacity: root.surfaceEffects.shadowOpacity
     }
     Loader {
       x: mainStrip.x
@@ -4929,19 +4924,14 @@ Item {
       y: root.vertical ? badge.start : (badge.onNotch ? 0 : badge.cross)
       width: root.vertical ? root.barSize : badge.bodyLength
       height: root.vertical ? badge.bodyLength : root.barSize
-      color: root.mainSurfaceColor
-      shadowEnabled: root.surfaceEffects.shadow
+      color: badge.onNotch ? "transparent" : root.mainSurfaceColor
+      shadowEnabled: root.surfaceEffects.shadow && !badge.onNotch
       shadowSize: root.surfaceEffects.shadowSize
       shadowOpacity: root.surfaceEffects.shadowOpacity
       radius: root.islandRounding
       borderSpec: root.notchMode ? Border.none() : root.islandBorder
-      // On the notch, square where it meets the camera.
-      Rectangle {
-        visible: badge.onNotch
-        x: badge.leftSide ? parent.width / 2 : 0
-        width: parent.width / 2; height: parent.height
-        color: body.color
-      }
+      // On the notch, a zone's black a widget long.
+      NotchEnd { visible: badge.onNotch; side: badge.side }
       ShaderEffectSource {
         sourceItem: badge.target
         live: true
@@ -4962,23 +4952,38 @@ Item {
     property bool zoneHidden: false
     // On the notched screen (barWindow.notchLook): "left" or "right", the
     // side of the notch this zone grows from. Square where it meets the
-    // camera; its outer end is rounded top and bottom like any island.
+    // camera; its outer end has the camera's corners (NotchEnd).
     property string notchSide: ""
     opacity: zoneHidden ? 0 : 1
     Behavior on opacity { enabled: root.animationsEnabled; YieldFade { leaving: zoneHidden } }
     visible: (root.islands || notchSide !== "") && opacity > 0
-    color: root.mainSurfaceColor
-    shadowEnabled: root.surfaceEffects.shadow
+    color: notchSide !== "" ? "transparent" : root.mainSurfaceColor
+    shadowEnabled: root.surfaceEffects.shadow && notchSide === ""
     shadowSize: root.surfaceEffects.shadowSize
     shadowOpacity: root.surfaceEffects.shadowOpacity
     radius: root.islandRounding
     borderSpec: root.notchMode ? Border.none() : root.islandBorder
-    Rectangle {
-      visible: island.notchSide !== ""
-      x: island.notchSide === "left" ? parent.width / 2 : 0
-      width: parent.width / 2; height: parent.height
-      color: island.color
-    }
+    NotchEnd { visible: island.notchSide !== ""; side: island.notchSide }
+  }
+
+  // A notch zone's or badge's black, filling its parent: square where it
+  // meets the camera, and at the outer end on `side` the camera's own
+  // corners, its shoulder running out past the end along the screen's top
+  // edge as the camera's does (appearance.md LOOK-143).
+  component NotchEnd: NotchShape {
+    property string side: "left"
+    readonly property bool leftSide: side === "left"
+    x: leftSide ? -root.notchCorners.shoulder : 0
+    width: (parent ? parent.width : 0) + root.notchCorners.shoulder
+    height: parent ? parent.height : 0
+    shoulderStart: leftSide ? root.notchCorners.shoulder : 0
+    shoulderEnd: leftSide ? 0 : root.notchCorners.shoulder
+    radiusStart: leftSide ? root.notchCorners.radius : 0
+    radiusEnd: leftSide ? 0 : root.notchCorners.radius
+    color: root.mainSurfaceColor
+    shadowEnabled: root.surfaceEffects.shadow
+    shadowSize: root.surfaceEffects.shadowSize
+    shadowOpacity: root.surfaceEffects.shadowOpacity
   }
 
   component PreferencesButton: Item {

@@ -146,6 +146,14 @@ function cornersOf(notch, width) {
   return { radius: r * k, shoulder: s * k }
 }
 
+// The corners the notch mode's zones take from the camera, in logical px
+// ({ radius, shoulder }): the notch's own, else (no notched screen) the
+// default housing's at a MacBook's scale 2.
+function zoneCorners(notch) {
+  if (notch && notch.radius >= 0 && notch.shoulder >= 0) return { radius: notch.radius, shoulder: notch.shoulder }
+  return { radius: DEFAULT_RADIUS / 2, shoulder: DEFAULT_SHOULDER / 2 }
+}
+
 // Whether a top bar can't tell its notch yet: Hyprland hasn't reported the
 // screen's mode, the rebuilt one matched no panel (as at a fractional scale),
 // and a described connector matches the screen, so the mode may still bring a

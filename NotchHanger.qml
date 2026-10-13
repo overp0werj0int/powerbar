@@ -5,7 +5,8 @@ import QtQuick.Shapes
 // A notch zone that wraps (Bar.qml zoneWrap, docs/behavior/layout-zones.md
 // "Notch"): its first row from the camera to the screen edge and the second
 // row hanging under it there, drawn as one black shape. The outer end is one
-// rounded cap across both rows; where the second row ends it meets the first
+// cap across both rows with the camera's corners (its shoulder at the top,
+// its bottom radius below); where the second row ends it meets the first
 // with an inside curve. The second row opens from the screen edge and closes
 // back into it, on the widgets' clock.
 Item {
@@ -25,48 +26,42 @@ Item {
   readonly property real h: bar ? bar.barSize : 0
   readonly property bool leftSide: side === "left"
   readonly property real outer: leftSide ? bar.islandScreenInset : width - bar.islandScreenInset
-  readonly property real cap: Math.min(bar.islandRounding, h)
-  readonly property real foot: Math.min(bar.islandRounding, h / 2)
+  // The camera's corners (Bar.qml notchCorners), as the zones have them.
+  readonly property real shoulder: bar.notchCorners.shoulder
+  readonly property real foot: Math.min(bar.notchCorners.radius, h / 2)
   property real reach: wrap ? Math.max(0, leftSide ? rowEnd - outer : outer - rowEnd) : 0
   Behavior on reach { enabled: bar.animationsEnabled; NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
   readonly property bool shown: reach > 0.5
-  readonly property real capShown: Math.min(cap, reach / 2)
   visible: shown
 
-  // The shadows of the cap with the second row and of the first row, as an
-  // island casts its own (EffectSurface).
-  RectangularShadow {
-    visible: hanger.shadowEnabled
-    x: capRect.x; width: capRect.width; height: capRect.height
-    radius: hanger.cap
-    blur: hanger.shadowSize
-    color: Qt.rgba(0, 0, 0, hanger.shadowOpacity)
-  }
+  // The first row, from the outer end to the camera, and its shadow.
   RectangularShadow {
     visible: hanger.shadowEnabled
     x: firstRow.x; width: firstRow.width; height: firstRow.height
     blur: hanger.shadowSize
     color: Qt.rgba(0, 0, 0, hanger.shadowOpacity)
   }
-  // The cap and the second row.
-  Rectangle {
-    id: capRect
-    x: hanger.leftSide ? hanger.outer : hanger.outer - hanger.reach
-    width: hanger.reach
-    height: hanger.h * 2
-    color: hanger.color
-    topLeftRadius: hanger.leftSide ? hanger.cap : 0
-    bottomLeftRadius: hanger.leftSide ? hanger.cap : hanger.foot
-    topRightRadius: hanger.leftSide ? 0 : hanger.cap
-    bottomRightRadius: hanger.leftSide ? hanger.foot : hanger.cap
-  }
-  // The first row, from past the cap's curve to the camera.
   Rectangle {
     id: firstRow
-    x: hanger.leftSide ? hanger.outer + hanger.capShown : hanger.inner
-    width: Math.max(0, hanger.leftSide ? hanger.inner - x : hanger.outer - hanger.capShown - hanger.inner)
+    x: hanger.leftSide ? hanger.outer : hanger.inner
+    width: Math.max(0, hanger.leftSide ? hanger.inner - x : hanger.outer - hanger.inner)
     height: hanger.h
     color: hanger.color
+  }
+  // The cap across both rows: the camera's shoulder and bottom corner at the
+  // outer end, the second row's foot toward the camera.
+  NotchShape {
+    x: hanger.leftSide ? hanger.outer - hanger.shoulder : hanger.outer - hanger.reach
+    width: hanger.reach + hanger.shoulder
+    height: hanger.h * 2
+    color: hanger.color
+    shoulderStart: hanger.leftSide ? hanger.shoulder : 0
+    shoulderEnd: hanger.leftSide ? 0 : hanger.shoulder
+    radiusStart: hanger.leftSide ? bar.notchCorners.radius : hanger.foot
+    radiusEnd: hanger.leftSide ? hanger.foot : bar.notchCorners.radius
+    shadowEnabled: hanger.shadowEnabled
+    shadowSize: hanger.shadowSize
+    shadowOpacity: hanger.shadowOpacity
   }
   // The inside curve where the second row meets the first.
   Shape {

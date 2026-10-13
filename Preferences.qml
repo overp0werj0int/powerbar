@@ -756,9 +756,12 @@ Item {
                       onEdited: function(v) { prefs.setOption("powerbarSpacing", v) }
                     }
                   }
+                  // The notch's zones take the camera's corners and have no
+                  // border: nothing here applies to them.
                   PrefsTile {
                     id: shapeTile
                     readonly property bool editable: prefs.scopeOf("shape") !== "theme"
+                    visible: !prefs.notchMode
                     title: "Shape"
                     span12: 4; span6: 3
                     animate: prefs.motion
@@ -777,8 +780,6 @@ Item {
                       onEdited: function(v) { prefs.setLook("shape", "rounding", v) }
                     }
                     PrefsToggle {
-                      // The camera has no border, so the notch's zones have none.
-                      visible: !prefs.notchMode
                       compact: true
                       label: "Borders"
                       enabled: shapeTile.editable
@@ -788,7 +789,6 @@ Item {
                     }
                     PrefsSlider {
                       readonly property real themeWidth: prefs.bar ? Border.top(prefs.bar.themeIslandBorder) / Style.space(1) : 1
-                      visible: !prefs.notchMode
                       compact: true
                       label: "Border thickness"
                       minimum: prefs.ranges.borderWidth.min; maximum: prefs.ranges.borderWidth.max; stepSize: prefs.ranges.borderWidth.step
