@@ -1931,8 +1931,18 @@ Item {
   function cellEndPad(spill) { return CellModel.endPad(cellTokens, spill) }
   // The preferences button's glyph: nine dots, three by three.
   readonly property real preferencesGlyphSize: Style.space(2) * 3 + Style.spaceReal(2.5) * 2
+    // Omarchy asks by screen name (notifications clear the bar by it).
+    if (typeof vertical === "string") return screenBarSizes[vertical] || barSize
   // Zones keep one icon cell plus the spacing between them (docs/behavior/layout-zones.md).
   readonly property real zoneGap: cellTokens.cell + widgetSpacing
+  // Each screen's bar thickness by screen name, as Omarchy's bar reports it
+  // to plugins (barSizes); Powerbar's is the same on every screen.
+  readonly property var screenBarSizes: {
+    var sizes = ({})
+    var screens = Quickshell.screens
+    for (var i = 0; i < screens.length; i++) sizes[screens[i].name] = barSize
+    return sizes
+  }
   // Folded widget counts per screen, for Preferences' note: { screen: { left, center, right } }.
   property var zoneFitReports: ({})
   function reportZoneFit(screenName, folded) {
