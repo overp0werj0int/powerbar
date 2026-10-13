@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- **Battery percentage shown whole**: Omarchy's Power widget now draws its
+  percentage as a label beside the battery icon, and Powerbar sized the
+  widget to the icon alone, so "100%" was cut off. The label counts now.
 - **Shortcuts bound on first start**: a new install binds Super+B to the
   keyboard mode and Super+Ctrl+/ to its search, each only where nothing else
   holds the keys, and a notification says what it bound and what holds any

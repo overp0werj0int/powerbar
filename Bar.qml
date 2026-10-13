@@ -5300,10 +5300,19 @@ Item {
     // ink in a 7.2 px box, so a text button paints it 3.4 px right of centre).
     readonly property Item kitGlyph: inkItem && liveNaturalWidth > 0 ? root.findKitGlyph(inkItem, 0) : null
     readonly property Item glyphText: kitGlyph ? root.findGlyphText(kitGlyph, String(kitGlyph.text), 0) : null
+    // An icon button may paint a label beside its glyph (Power's "100%"): the
+    // ink spans both.
+    readonly property Item labelText: kitGlyph && String(kitGlyph.labelText || "") !== ""
+      ? root.findGlyphText(kitGlyph, String(kitGlyph.labelText), 0) : null
     TextMetrics {
       id: kitGlyphMetrics
       font: slot.glyphText ? slot.glyphText.font : Qt.font({ family: Style.font.family })
       text: slot.glyphText ? slot.glyphText.text : ""
+    }
+    TextMetrics {
+      id: kitLabelMetrics
+      font: slot.labelText ? slot.labelText.font : Qt.font({ family: Style.font.family })
+      text: slot.labelText ? slot.labelText.text : ""
     }
     readonly property var glyphInk: {
       var t = glyphText
@@ -5319,7 +5328,14 @@ Item {
       var align = t.horizontalAlignment === Text.AlignHCenter ? (t.width - advance) / 2
         : t.horizontalAlignment === Text.AlignRight ? t.width - advance : 0
       var p = t.mapToItem(inkItem, align + r.x, t.baselineOffset + r.y)
-      return kept("glyph", { x: p.x, y: p.y, width: r.width, height: r.height })
+      var l = labelText
+      var lr = kitLabelMetrics.tightBoundingRect
+      if (!l || !(lr.width > 0)) return kept("glyph", { x: p.x, y: p.y, width: r.width, height: r.height })
+      var labelGeometry = l.x + l.y + l.width + l.parent.x + l.parent.width
+      var q = l.mapToItem(inkItem, lr.x, l.baselineOffset + lr.y)
+      var x0 = Math.min(p.x, q.x), y0 = Math.min(p.y, q.y)
+      return kept("glyph", { x: x0, y: y0, width: Math.max(p.x + r.width, q.x + lr.width) - x0,
+        height: Math.max(p.y + r.height, q.y + lr.height) - y0 })
     }
     readonly property var liveInk: !glyphInk ? measuredInk : kept("live", root.vertical
       ? { start: glyphInk.y, length: glyphInk.height, glyph: measuredInk.glyph || glyphInk.width <= CellModel.GLYPH_INK }
