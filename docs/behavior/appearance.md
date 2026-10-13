@@ -247,6 +247,26 @@ Storage: the look lives in `bar.powerbarAppearance` of shell.json: `all` (values
 
 - **LOOK-98** Previews of widgets grabbed on a large bar are trimmed of the lip (LOOK-76). Code: WidgetIcon.
 
+## Notch look
+
+- **LOOK-143** In the notch mode (layout-zones.md ZONE-82) the zones are black with the theme's light text on every screen, because a widget takes one colour across the bar.
+  - The look forces fully opaque surfaces with no blur, shadow or border; the Surface and Shadow choices are kept for the other modes.
+  - Islands are forced whatever the style.
+  - Each zone's outer end is rounded with the bar's rounding (LOOK-10). Its inner end runs on under the camera.
+  - On the notched screen, a black block the camera's size is also drawn behind it, so the zones meet the camera however wide it really is. Under a small bar shorter than the camera, the block's lower corners are rounded.
+
+  Code: Bar.qml notchMode (surfaceEffects, mainSurfaceColor, barForeground, barStyle), the camera Rectangle; IslandSurface borderSpec.
+
+- **LOOK-144** Autohide on the notch:
+  - **The camera is the edge strip:** only the camera reveals the bar (not a strip along the screen edge, as in LOOK-56 and LOOK-67).
+  - **Each zone slides on its own:** it slides sideways out of the camera and back into it, clipped at the camera's edge, instead of the strip leaving the screen.
+  - **Out:** 220 ms with a spring (OutBack) whose overshoot is held to 4 px, however long the zone. The zone runs on 6 px under the camera, so the overshoot never parts it from the camera.
+  - **In:** 140 ms (ease-out).
+  - **Peeks and lengths:** an activity peek (LOOK-63) brings out only the zone that changed. A hidden zone that changes length follows at once.
+  - **Off:** without autohide the zones stay out, blended into the camera.
+
+  Code: Bar.qml slideNotch, notchTuck, notchOvershoot, zoneOut, autoHideStrip; NotchModel.backOvershoot.
+
 ## Animations
 
 - **LOOK-99** With `powerbarAnimations` unset or true (Behavior > Animations, default on), changes animate: islands and cells resize, drawers grow and shrink, the center slides (layout-zones.md ZONE-70), the bar slides in auto-hide, colours cross-fade. Code: Bar.qml animationsEnabled.

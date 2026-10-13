@@ -38,6 +38,12 @@ off.
   becomes 40 px wide. Icons and text keep their size and get room to breathe,
   and the hover highlights grow with the bar. It helps most on a left or right
   edge, where the stock strip is narrow.
+- Three zones, or two. Two zones put everything left or right of a gap one
+  notch wide. On a MacBook's notched screen, Notch grows two black zones out
+  of the camera: with autohide they spring out of it when you point at the
+  camera, and a zone that outgrows the screen wraps onto a second row at the
+  edge. Each mode keeps its own arrangement, so switching back finds your bar
+  as you left it.
 - Rounding, borders, blur and shadow follow each theme until you change them,
   for every theme at once or just the one you're on.
 - You never need the mouse. A shortcut puts a cursor on the bar; the arrows
@@ -205,14 +211,15 @@ Three pages, all usable from the keyboard (the footer lists the keys for
 whatever has focus):
 
 - **Layout**: your bar as shelves (On the bar, On demand, Hidden), each with
-  your three zones. Drag or pick up widgets to move them; the tile below holds
-  the selected widget's zone, visibility, *Show on activity*, centring, group
-  and shortcut.
+  your zones, and the choice of three zones, two, or Notch. Drag or pick up
+  widgets to move them; the tile below holds the selected widget's zone,
+  visibility, *Show on activity*, centring, group and shortcut.
 - **Groups**: make, name and arrange groups; pick an icon from your widgets'
   glyphs, Omarchy's icons and emoji, or drop in your own SVG or PNG.
 - **Bar**: style and edge, size and spacing, Shape, Surface, Shadow,
-  Behavior (autohide, readable over windows, animations), On demand and
-  Keyboard. Changes show on the bar as you make them.
+  Behavior (autohide, readable over windows, animations), On demand, Notch
+  (in two zones: the gap's width) and Keyboard. On the notch, what can't apply
+  there gives way to what does. Changes show on the bar as you make them.
 
 | Where | Keys |
 | --- | --- |
@@ -401,6 +408,13 @@ Powerbar adds no polling.
 - **Switching bars** back and forth makes Powerbar ask the shell to reload its
   plugins (at most three times a login, a minute apart), so the bar disappears for a few
   seconds.
+- **The notch's width is an estimate.** Omarchy describes how tall a
+  notch is, not how wide, so Powerbar assumes the MacBook Pro's camera
+  housing (185 px at scale 2). If the zones overlap the camera or leave a
+  gap beside it, set Preferences > Bar > Notch > Notch width
+  (`omarchy-shell powerbar set notchWidth N`).
+- **One zone mode for every screen.** Notch shows as two black zones on a
+  screen without a notch.
 - Multi-monitor setups are less tested than single-monitor ones.
 
 ## What Powerbar touches

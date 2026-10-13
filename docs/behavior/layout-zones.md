@@ -162,6 +162,92 @@ Numbers below use Omarchy's default theme tokens: bar 26 px (horizontal) or 28 p
 
 - **ZONE-71** Each monitor's bar fits independently from its own length: a short monitor folds widgets that a long one shows. Code: Bar.qml zoneFitInputs (per bar window).
 
+## Zone modes
+
+- **ZONE-72** `bar.powerbarZones` sets one zone mode for every screen (Preferences > Layout, the choice above the shelves; `omarchy-shell powerbar set zones three|two|notch`). If it is absent or unknown, the bar has three zones (left, centre, right), as described above. `"two"` gives two zones, left and right, with no centre. `"notch"` gives two zones that grow out of a camera notch (ZONE-82). Code: ZoneModeModel.modeOf; Bar.qml zoneMode, twoZones, notchMode.
+
+- **ZONE-73** Each mode keeps its own arrangement: the zone each widget and group sits in, their order, and each one's visibility (on the bar, on demand or hidden).
+  - Only the mode in use lives in `bar.layout` and the groups' `section`, `before` and `visibility`, so every editor works on it unchanged, Omarchy's included.
+  - The other modes wait in `bar.powerbarZoneLayouts.<mode>` as `{ layout, groups }`.
+  - A widget's other settings are shared (format, size, shortcut, instance key): a switch carries them over from the layout being left. A switch is one config write.
+
+  Code: ZoneModeModel.switchMode; Preferences.setZoneMode.
+
+- **ZONE-74** The first time a two-zone mode is used, it is made from the three-zone layout. `two` and `notch` are each made separately, both from three zones:
+  - The centre splits at its anchor, or at the clock when nothing is pinned.
+  - What comes before the split point joins the end of the left zone. What comes after it starts the right zone.
+  - The keyboard layout and then the anchor end the right zone, beside the Preferences button.
+  - A group moves with the widget it sits before. A group before the anchor goes to the end of the left zone; a group at the centre's end goes before the right zone's first widget.
+
+  Code: ZoneModeModel.derive.
+
+- **ZONE-75** A widget that the layout being entered does not know (it was added while another mode was in use) joins the end of its zone, with two exceptions. In two zones, a centre widget joins the end of the right zone. On the notch, a new left widget takes the start of the left zone, the end farthest from the camera. A widget removed meanwhile is gone from every layout it returns to. Code: ZoneModeModel.placeNew.
+
+- **ZONE-76** Another writer may add a widget while a two-zone mode is in use. Omarchy, for example, puts a newly installed widget with no instance key at the end of its zone. The widget moves before it gets its key: a centre one goes to the end of the right zone, and on the notch a new left one goes to the start of the left zone. Code: ZoneModeModel.settleNew; Bar.qml ensureInstanceIds.
+
+- **ZONE-77** In two zones the zones keep a gap at the middle of a horizontal bar, one notch wide:
+  - The width is `powerbarNotchWidth` when set, otherwise the camera housing on a notched screen (ZONE-80), otherwise 185 px.
+  - The fit places it as a fixed slot in the empty centre, so the centre never slides and moments never move it.
+  - A zone that runs out of room folds on its own side, from its end nearest the middle; it never pushes into the other zone.
+  - Side bars keep no gap.
+
+  Code: ZoneFitModel zoneItems (the `notch` slot), roomy, foldBeside; Bar.qml notchKeepOut, zoneFitInput.
+
+- **ZONE-78** In two zones the bar has no centre to land on:
+  - A drag dropped on the bar away from any widget goes to the zone on that half of the bar.
+  - Tab and Page Down jump straight from one zone to the other (keyboard.md KEYS-7).
+  - The Layout page has two columns (preferences.md PREFS-94).
+  - "Pinned to screen center" is gone; `centerAnchor` is kept for three zones.
+
+  Code: Bar.qml barZoneAt; BarKeysModel.zoneStep (zones without stops are skipped).
+
+## Notch
+
+- **ZONE-79** A screen has a notch when Omarchy's platform package describes it in `/usr/share/omarchy-platform/display-cutouts.json` (`{ "panels": [ { "connector", "width", "height", "top" } ] }`). The screen's connector name must start with `connector`, and its physical mode, as Hyprland reports it, must be `width` x `height` within 4 px.
+  - A panel turned a quarter or upside down has no notch, and neither does a mode that leaves out the notch rows (Asahi's).
+  - Until Hyprland reports the mode, the logical size times Qt's whole-number ratio stands in. If that matches no panel but a described connector names the screen, the bar waits for the mode, 2 s at most, before it maps.
+  - These are the rules of Omarchy's own bar, so both bars agree.
+  - `POWERBAR_DISPLAY_CUTOUTS` points at another file (for tests).
+
+  Code: NotchModel.panelOf, pending; Bar.qml displayCutouts, notchFor.
+
+- **ZONE-80** Only a top bar meets the notch.
+  - Height: Omarchy's calibrated `[bar] notch-height` (`Style.bar.notchHeight`) when the theme sets one, otherwise the described rows scaled to logical px (32 on a 14" MacBook Pro at scale 2).
+  - Width: `powerbarNotchWidth` (logical px) when set, otherwise the camera housing, 370 panel px scaled (185 at scale 2). The file has no width.
+
+  Code: NotchModel.notchOf.
+
+- **ZONE-81** On a notched screen, the strip is at least as tall as the notch in every mode. That way no window peeks out beside the camera. The exclusive zone, popups, drawers and the autohide distance all use that extent, and Omarchy's notch-height reports per screen take the same value (`screenBarSizes`). Code: Bar.qml extent, extentOf, screenBarSizes.
+
+- **ZONE-82** The notch mode has the two-zone layout. Its zones grow out of the camera:
+  - On the notched screen the left zone ends at the camera's left edge and the right zone starts at its right edge. Both are drawn as black islands that run on under the camera, flush with the top edge (appearance.md LOOK-143).
+  - The keep-out gap there is the camera plus the inset a zone keeps from a screen edge, on each side.
+  - On a screen without a notch the mode looks like two zones in the notch's colours.
+  - The bar is locked to the top edge, and the Islands style is forced.
+
+  Code: Bar.qml notchLook, notchLeft, notchRight, notchKeepOut, barStyle; position (notch: top).
+
+- **ZONE-83** On the notch the large bar is exactly as tall as the notch, on every screen. The small bar keeps its height and sits at the top, beside the camera. Code: Bar.qml barSizeFor.
+
+- **ZONE-84** On-demand widgets on the notch always wait behind their zone's dots and expand in the bar, whatever `powerbarOnDemand` says: the notch has no drawers. Code: Bar.qml onDemandInline.
+
+- **ZONE-85** A zone that grows past the screen edge on the notch (an inline expansion on the notched screen) wraps onto a second row under the first:
+  - **Which items move:** the left zone's first items or the right zone's last ones, as one block. The outermost still meets the screen edge, and the row reads from the edge toward the camera.
+  - **No yielding:** a moment never makes another zone yield or hide.
+  - **No fallback:** running past the screen edge is no reason to fall back.
+  - **Shape:** the black is one coat-hanger shape. A rounded cap at the screen edge spans both rows with the bar's rounding (appearance.md LOOK-10), and the second row meets the first with an inside curve where it ends.
+
+  Code: NotchModel.wrapRow; ZoneFitModel (input.wrap); Bar.qml zoneWrap, applyWrap; NotchHanger.qml.
+
+- **ZONE-86** The second row opens from the screen edge over 200 ms (ease-out). Moved items take their places at once and fade in over 90 ms as the black reaches them. When the expansion ends, they return to the first row at once and the empty row closes back into the edge over 200 ms. The keyboard cursor, its highlight and hover cards follow the items into the second row, and a card from the first row keeps clear of the second. Code: NotchHanger reach; Bar.qml wrapOpacity, cellHighlight, wrapRowNear.
+
+- **ZONE-87** With autohide on the notch (appearance.md LOOK-144):
+  - The strip does not slide off the screen. Each zone slides sideways into the camera and is clipped at the camera's edge.
+  - The camera alone reveals the bar.
+  - Activity peeks bring out only the zone that changed.
+
+  Code: Bar.qml slideNotch, zoneOut, autoHideStrip; ZoneClip.
+
 ## Doc drift
 
 - docs/design/zone-fit.md:218 says the fit's `inset` is "0 on Flat, edgeGap otherwise". Code: a flat bar's inset is `CellModel.flatEdge` (8.5 px on the 26 px bar), Bar.qml:1848.

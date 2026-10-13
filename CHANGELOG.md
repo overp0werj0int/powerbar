@@ -2,6 +2,26 @@
 
 ## Unreleased
 
+- **Zone modes: three zones, two, or Notch.** Preferences > Layout now has
+  three modes, and each keeps its own arrangement (where each widget sits,
+  in what order, and whether it's on the bar, on demand or hidden). Switching
+  back finds a mode as you left it. Two zones drop the centre: everything sits
+  left or right of a gap one notch wide (Bar > Notch > Notch width; 185 px by
+  default). The first time you use a two-zone mode, the centre splits at the
+  clock, and the clock and keyboard layout move beside the Preferences button.
+  `omarchy-shell powerbar set zones three|two|notch`.
+- **Notch**: on a MacBook screen Omarchy describes as notched
+  (`display-cutouts.json`), two black zones grow out of the camera. They are
+  flush with the top, rounded at their outer ends, and the large bar is
+  exactly as tall as the notch.
+  - With autohide, pointing at the camera makes each zone spring out of it
+    sideways, and an activity peek brings out only the zone that changed.
+  - On-demand widgets expand in the bar (the notch has no drawers). A zone
+    that outgrows the screen wraps onto a second row at the edge, one black
+    shape with the first.
+  - On the Bar page, Style, Surface, Shadow and borders give way to the Notch
+    tile.
+  - Other screens show the same two black zones.
 - **Glassy bar background**: Omarchy's bar now steps its background from
   clear to glassy to opaque (a double click on the bar, the menu's
   Transparency, `omarchy bar background`). Powerbar follows: glassy draws the
