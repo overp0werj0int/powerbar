@@ -271,6 +271,8 @@ Item {
     status = result === false ? "Could not save. Check that shell.json is writable." : ""
   }
   readonly property var ranges: AppearanceModel.ranges
+  // The notch (ZoneModeModel.js): black, at the top, no drawers.
+  readonly property bool notchMode: !!bar && bar.notchMode
   readonly property bool motion: !bar || bar.animationsEnabled
   // Tiles sit apart like tiled windows: twice Hyprland's inner gap, read once
   // per opening; 8 px until it is known or when it cannot be read.
@@ -642,6 +644,7 @@ Item {
                       columnSpacing: Style.space(16)
                       rowSpacing: Style.space(8)
                       BarPlacement {
+                        enabled: !prefs.notchMode
                         Layout.alignment: Qt.AlignTop | Qt.AlignHCenter
                         bar: prefs.bar
                         source: prefs.wallpaper
@@ -652,7 +655,30 @@ Item {
                         Layout.fillWidth: true
                         Layout.alignment: Qt.AlignTop
                         spacing: Style.space(2)
+                        // The notch is its own look, at the top of the screen.
+                        Text {
+                          visible: prefs.notchMode
+                          text: "On the notch"
+                          textFormat: Text.PlainText
+                          color: Commons.Color.popups.text
+                          font.family: Style.font.family
+                          font.pixelSize: Style.font.body
+                          font.bold: true
+                          Layout.fillWidth: true
+                        }
+                        Text {
+                          visible: prefs.notchMode
+                          text: "Black zones grow out of the camera at the top of the screen. Choose Three or Two zones on the Layout page for the other styles."
+                          textFormat: Text.PlainText
+                          wrapMode: Text.WordWrap
+                          color: Qt.alpha(Commons.Color.popups.text, 0.6)
+                          font.family: Style.font.family
+                          font.pixelSize: Style.font.caption
+                          Layout.fillWidth: true
+                          Layout.rightMargin: Style.spacing.rowPaddingX
+                        }
                         PrefsChoice {
+                          visible: !prefs.notchMode
                           compact: true
                           Layout.leftMargin: 0
                           stacked: true
@@ -663,6 +689,7 @@ Item {
                           onChosen: function(value) { prefs.setBarStyle(value) }
                         }
                         PrefsChoice {
+                          visible: !prefs.notchMode
                           compact: true
                           Layout.leftMargin: 0
                           stacked: true
@@ -704,7 +731,7 @@ Item {
                     span12: 4; span6: 3
                     PrefsToggle {
                       compact: true
-                      label: "Large bar"
+                      label: prefs.notchMode ? "As tall as the notch" : "Large bar"
                       checked: prefs.bar ? prefs.bar.largeBar : false
                       onToggled: function(checked) { prefs.setOption("powerbarLargeBar", checked) }
                     }
@@ -748,6 +775,8 @@ Item {
                       onEdited: function(v) { prefs.setLook("shape", "rounding", v) }
                     }
                     PrefsToggle {
+                      // The camera has no border, so the notch's zones have none.
+                      visible: !prefs.notchMode
                       compact: true
                       label: "Borders"
                       enabled: shapeTile.editable
@@ -757,6 +786,7 @@ Item {
                     }
                     PrefsSlider {
                       readonly property real themeWidth: prefs.bar ? Border.top(prefs.bar.themeIslandBorder) / Style.space(1) : 1
+                      visible: !prefs.notchMode
                       compact: true
                       label: "Border thickness"
                       minimum: prefs.ranges.borderWidth.min; maximum: prefs.ranges.borderWidth.max; stepSize: prefs.ranges.borderWidth.step
@@ -768,9 +798,31 @@ Item {
                       onEdited: function(v) { prefs.setLook("shape", "borderWidth", v) }
                     }
                   }
+                  // Two-zone modes keep a gap one notch wide in the middle; the
+                  // notch's zones blend into the camera, which takes the place
+                  // of Surface and Shadow (black, no blur, no shadow there).
+                  PrefsTile {
+                    id: notchTile
+                    readonly property var notch: prefs.bar ? prefs.bar.screenNotch : null
+                    visible: !!prefs.bar && prefs.bar.twoZones
+                    title: "Notch"
+                    caption: prefs.notchMode ? "Black, like the camera" : "The gap in the middle"
+                    span12: 4; span6: 3
+                    PrefsSlider {
+                      compact: true
+                      label: "Notch width"
+                      unit: "px"
+                      minimum: 40; maximum: 600; stepSize: 1
+                      defaultValue: notchTile.notch ? notchTile.notch.housing : 185
+                      value: notchTile.notch ? notchTile.notch.width : (prefs.options.notchWidth || 185)
+                      animate: prefs.motion
+                      onEdited: function(v) { prefs.setOption("powerbarNotchWidth", v === defaultValue ? undefined : v) }
+                    }
+                  }
                   PrefsTile {
                     id: surfaceTile
                     readonly property bool editable: prefs.scopeOf("surface") !== "theme"
+                    visible: !prefs.notchMode
                     title: "Surface"
                     span12: 4; span6: 3
                     animate: prefs.motion
@@ -813,6 +865,7 @@ Item {
                     id: shadowTile
                     readonly property bool editable: prefs.scopeOf("shadow") !== "theme"
                     readonly property bool shadowOn: !!prefs.bar && prefs.bar.surfaceEffects.shadow
+                    visible: !prefs.notchMode
                     title: "Shadow"
                     span12: 4; span6: 3
                     animate: prefs.motion
@@ -888,6 +941,7 @@ Item {
                     title: "On demand"
                     span12: 4; span6: 3
                     PrefsChoice {
+                      visible: !prefs.notchMode
                       compact: true
                       stacked: bento.columns !== 12
                       label: "Show them"
@@ -897,6 +951,18 @@ Item {
                       options: [{ value: "drawer", label: "In a drawer" }, { value: "inline", label: "In the bar" }]
                       value: prefs.options.onDemand
                       onChosen: function(value) { prefs.setOption("powerbarOnDemand", value) }
+                    }
+                    Text {
+                      visible: prefs.notchMode
+                      text: "Behind dots in their zone; they expand in the bar when you hover the dots. The notch has no drawers."
+                      textFormat: Text.PlainText
+                      wrapMode: Text.WordWrap
+                      color: Qt.alpha(Commons.Color.popups.text, 0.6)
+                      font.family: Style.font.family
+                      font.pixelSize: Style.font.caption
+                      Layout.fillWidth: true
+                      Layout.leftMargin: Style.spacing.rowPaddingX
+                      Layout.rightMargin: Style.spacing.rowPaddingX
                     }
                     PrefsToggle {
                       compact: true
