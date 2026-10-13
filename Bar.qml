@@ -18,6 +18,7 @@ import "DragModel.js" as DragModel
 import "HighlightModel.js" as HighlightModel
 import "CellModel.js" as CellModel
 import "ZoneFitModel.js" as ZoneFitModel
+import "NotchModel.js" as NotchModel
 import "InlineQueue.js" as InlineQueue
 import "RenderModel.js" as RenderModel
 import "ZoneOrderModel.js" as ZoneOrderModel
@@ -25,6 +26,7 @@ import "GlyphModel.js" as GlyphModel
 import "ShortcutModel.js" as ShortcutModel
 import "BarKeysModel.js" as KeysModel
 import "TooltipModel.js" as TooltipModel
+import "ZoneModeModel.js" as ZoneModeModel
 
 Item {
   id: root
@@ -501,6 +503,8 @@ Item {
   function ensureInstanceIds() {
     if (!canWriteConfig() || !barConfig.layout || lostKeysPending()) return
     var seen = {}, missing = barConfig.powerbarVisibilityDefault !== "shown"
+    // Two-zone modes have no centre: a widget another writer put there moves.
+    if (twoZones && (barConfig.layout.center || []).length) missing = true
     for (var zone of ["left", "center", "right"]) {
       for (var entry of (barConfig.layout[zone] || [])) {
         var key = entry && entry.powerbarInstance
@@ -514,6 +518,8 @@ Item {
       // suggested shortcuts where free, once (ShortcutStore offerSuggested).
       if (!ManagedModel.powerbarHasRun(config.bar)) config.bar.powerbarShortcutOffer = true
       ManagedModel.healVisibility(config.bar, root.thirdPartyEntry)
+      // New widgets (no instance key yet) take their mode's place first.
+      ZoneModeModel.settleNew(config.bar, function(entry) { return !entry.powerbarInstance })
       var used = {}
       for (var zone of ["left", "center", "right"]) {
         var entries = config.bar.layout[zone] || []
@@ -723,6 +729,9 @@ Item {
   // the bar just renders whatever it's handed. The bar font follows the
   // OS-level fontconfig monospace binding — it is not stored in shell.json.
   property var barConfig: ({})
+  // Three zones, two, or two growing out of the notch (ZoneModeModel.js).
+  readonly property string zoneMode: ZoneModeModel.modeOf(barConfig)
+  readonly property bool twoZones: ZoneModeModel.twoZones(zoneMode)
   // Injected by the host shell. Used for shell-wide actions such as opening
   // settings and persisting inline widget state.
   property var shell: null
@@ -1574,7 +1583,7 @@ Item {
   function onSpringPath(drawer, scenePoint) {
     if (!drawer || !drawer.opened || !scenePoint) return false
     var p = drawer.mapFromItem(null, scenePoint.x, scenePoint.y)
-    var reach = drawer.gap + root.barExtent + Style.space(8)
+    var reach = drawer.gap + root.extentOf(drawer.hostWindow) + Style.space(8)
     var margin = Style.space(12)
     return root.vertical
       ? p.y >= -margin && p.y <= drawer.height + margin && p.x >= -reach && p.x <= drawer.width + reach
@@ -1877,7 +1886,7 @@ Item {
             item.gap = Qt.binding(function() {
               var host = item.anchorWindow
               if (!host) return Style.gapsOut + record.gapOffset
-              return Style.gapsOut + record.gapOffset + root.barExtent - (root.vertical ? host.width : host.height)
+              return Style.gapsOut + record.gapOffset + root.extentOf(host) - (root.vertical ? host.width : host.height)
             })
           }
         }
@@ -1936,13 +1945,61 @@ Item {
     return (vertical ? Style.bar.sizeVertical : Style.bar.sizeHorizontal) + ((large === undefined ? largeBar : large) ? largeBarLip * 2 : 0)
   }
   // Each screen's bar thickness by screen name, as Omarchy's bar reports it
-  // to plugins (barSizes); Powerbar's is the same on every screen.
+  // to plugins (barSizes): barSize, or the notch's height where a top bar
+  // has to reach past a camera notch.
   readonly property var screenBarSizes: {
     var sizes = ({})
     var screens = Quickshell.screens
-    for (var i = 0; i < screens.length; i++) sizes[screens[i].name] = barSize
+    for (var i = 0; i < screens.length; i++) {
+      var notch = notchFor(screens[i])
+      sizes[screens[i].name] = Math.max(barSize, notch ? notch.height : 0)
+    }
     return sizes
   }
+
+  // Camera notches (NotchModel.js, docs/behavior/layout-zones.md "Notch"):
+  // the panels Omarchy's platform package describes, read as the shell starts
+  // so a bar knows before it maps whether its screen may have one.
+  // POWERBAR_DISPLAY_CUTOUTS points at another file (tests in a box).
+  readonly property var displayCutouts: displayCutoutsFile.missing ? [] : NotchModel.parseCutouts(displayCutoutsFile.text())
+  FileView {
+    id: displayCutoutsFile
+    // A file that went away describes nothing, whatever text() still holds.
+    property bool missing: false
+    path: Quickshell.env("POWERBAR_DISPLAY_CUTOUTS") || "/usr/share/omarchy-platform/display-cutouts.json"
+    blockLoading: true
+    watchChanges: true
+    printErrors: false
+    onLoaded: missing = false
+    onLoadFailed: missing = true
+    onFileChanged: reload()
+  }
+  // The physical mode Hyprland reports for a screen; Qt's whole-number
+  // devicePixelRatio can't rebuild it at a fractional scale.
+  function panelModeFor(screen) {
+    var monitor = screen ? Hyprland.monitorFor(screen) : null
+    return monitor ? ({ width: monitor.width, height: monitor.height,
+      transform: monitor.lastIpcObject ? monitor.lastIpcObject.transform : 0 }) : null
+  }
+  // The notch a top bar meets on this screen ({ width, height } logical px),
+  // or null. Omarchy's [bar] notch-height calibrates the height; read by name
+  // since an Omarchy from before notches has no such token.
+  function notchFor(screen) {
+    if (!screen) return null
+    return NotchModel.notchOf(displayCutouts, position, screen.name, screen.width, screen.height, screen.devicePixelRatio,
+      panelModeFor(screen), barOptions.notchWidth, Style.bar["notchHeight"])
+  }
+  // The notch on the first screen that has one, for Preferences (null: none).
+  readonly property var screenNotch: {
+    var screens = Quickshell.screens
+    for (var i = 0; i < screens.length; i++) {
+      var notch = notchFor(screens[i])
+      if (notch) return notch
+    }
+    return null
+  }
+  // A bar window's thickness: the bar's, or more where a notch floor raises it.
+  function extentOf(window) { return window && window.extent > 0 ? window.extent : barExtent }
   // One cell, one inset (docs/behavior/layout-zones.md): every item gets a cell along the
   // bar, square for glyphs, and the cell is its highlight. Equal slots puts
   // cells one gutter apart; Equal gaps puts the same air between glyphs.
@@ -2108,7 +2165,8 @@ Item {
     var config = Util.isPlainObject(barConfig) ? barConfig : fallbackBarConfig
 
     updateGroups(config)
-    position = normalizePosition(config.position)
+    // The notch's zones grow out of a camera at the top of the screen.
+    position = ZoneModeModel.modeOf(config) === "notch" ? "top" : normalizePosition(config.position)
     var look = AppearanceModel.barBackground(config)
     backgroundLook = look
     setRequestedTransparency(look === "none")
@@ -2547,7 +2605,7 @@ Item {
       var barPoint = content.mapFromItem(null, scenePoint.x, scenePoint.y)
       drawer = sourceWindow.managedDrawer
       var surface = DragModel.dropSurface(barPoint, { width: content.width, height: content.height },
-        { width: sourceWindow.width, height: sourceWindow.height }, root.position, root.barExtent, root.barSize,
+        { width: sourceWindow.width, height: sourceWindow.height }, root.position, root.extentOf(sourceWindow), root.barSize,
         drawer ? { open: drawer.opened, x: drawer.x, y: drawer.y, width: drawer.width, height: drawer.height } : null,
         !!(sourceSlot && sourceSlot.groupHeader && drawer && drawer.groupId))
       if (!surface) return null
@@ -3260,6 +3318,7 @@ Item {
         gap: root.zoneGap,
         momentGap: root.edgeGap,
         gutter: root.cellTokens.gutter,
+        notch: notchKeepOut,
         left: zoneFitList(leftModel), right: right,
         before: zoneFitList(beforeModel), anchor: anchors.length ? anchors[0] : null, after: zoneFitList(afterModel),
         center: zoneFitList(centerModel),
@@ -3272,6 +3331,7 @@ Item {
       var handle = CellModel.place(root.cellTokens, CellModel.TYPICAL_GLYPH, true)
       return {
         length: i.length, inset: i.inset, gap: i.gap, gutter: i.gutter, momentGap: i.momentGap,
+        notch: i.notch > 0 ? Math.max(1, i.notch - 2 * (root.cellEndPad(0) + i.gap)) : 0,
         pad: function(spill) { return root.cellEndPad(spill) },
         handle: { extent: handle.extent, spill: handle.spill },
         zones: { left: i.left, right: i.right, before: i.before, anchor: i.anchor, after: i.after, center: i.center },
@@ -3547,7 +3607,7 @@ Item {
       function onLayoutConfigChanged() { barWindow.reconcileWidgets() }
       function onCenterAnchorChanged() { barWindow.reconcileWidgets() }
     }
-    Component.onCompleted: { reconcileWidgets(); syncStrip(true) }
+    Component.onCompleted: { reconcileWidgets(); syncStrip(true); if (!notchPending) notchWaitOver = true }
 
     // Keep the Wayland surface stable across drawer opens/closes. Only the
     // input region and drawer visibility change; no full-bar buffer resize.
@@ -3560,7 +3620,26 @@ Item {
     // reveal has to rebuild them — new surface, re-shaped glyphs, re-uploaded
     // textures — which measures ~150ms against ~20ms to tear down. Parking
     // keeps the surface alive, so showing is only a margin change.
-    visible: !remapping
+    // A top bar that can't tell its notch yet waits for Hyprland's mode before
+    // it maps (NotchModel.pending), so it maps at its full height instead of
+    // growing once windows are laid out; two seconds at most, once.
+    visible: !remapping && (notchWaitOver || !notchPending)
+    readonly property var panelMode: root.panelModeFor(screen)
+    readonly property bool notchPending: !!screen && NotchModel.pending(root.displayCutouts, root.position, screen.name, screen.width, screen.height, screen.devicePixelRatio, panelMode)
+    property bool notchWaitOver: false
+    onNotchPendingChanged: if (!notchPending) notchWaitOver = true
+    Timer { interval: 2000; running: barWindow.notchPending && !barWindow.notchWaitOver; onTriggered: barWindow.notchWaitOver = true }
+    // The camera notch on this screen, or null; panelMode keeps it in step
+    // with Hyprland's answer.
+    readonly property var notch: { var m = panelMode; return root.notchFor(screen) }
+    // The gap two-zone modes keep in the middle of a horizontal bar: one
+    // notch wide, the camera's where there is one (ZoneFitModel's notch slot,
+    // less the zone gap and end pads the fit adds around it; zoneFitInput).
+    readonly property real notchKeepOut: root.twoZones && !root.vertical
+      ? (notch ? notch.width : root.barOptions.notchWidth || NotchModel.DEFAULT_LOGICAL_WIDTH) : 0
+    // The strip is at least as tall as the notch, so no window peeks out
+    // beside the camera; widgets stay centred in it.
+    readonly property int extent: Math.max(root.barExtent, notch ? notch.height : 0)
     // Hidden for a moment to remap (a blur change, a screen move). Widgets read
     // as invisible meanwhile, so the window freezes its slots' measurements
     // first and thaws them once the widgets have reported their sizes again.
@@ -3580,7 +3659,7 @@ Item {
       function onYChanged() { barWindow.freezeLayout() }
     }
     exclusionMode: root.barHidden ? ExclusionMode.Ignore : ExclusionMode.Normal
-    exclusiveZone: root.barHidden || root.autoHide ? 0 : root.barExtent
+    exclusiveZone: root.barHidden || root.autoHide ? 0 : extent
 
     // Autohide overlays windows without reserving space. The surface stays
     // mapped and its content slides past the screen edge, leaving a thin edge
@@ -3604,7 +3683,7 @@ Item {
       interval: 400
       onTriggered: if (!barWindow.autoHideHeld) barWindow.autoHideRevealed = false
     }
-    readonly property real autoHideDistance: root.barExtent + root.surfaceEffects.shadowSize + Style.space(8)
+    readonly property real autoHideDistance: extent + root.surfaceEffects.shadowSize + Style.space(8)
     // Zones slid out by widget activity: "all" for flat and floating bars, or
     // single zones for islands. One timer ends them; new activity extends it.
     // Per-zone layers between the islands and the widgets, where bar item
@@ -3722,10 +3801,10 @@ Item {
     Timer { id: blurRemap; interval: 60 }
 
     margins {
-      top: root.barHidden && root.position === "top" ? -(root.barExtent + drawerExtent) : 0
-      bottom: root.barHidden && root.position === "bottom" ? -(root.barExtent + drawerExtent) : 0
-      left: root.barHidden && root.position === "left" ? -(root.barExtent + drawerExtent) : 0
-      right: root.barHidden && root.position === "right" ? -(root.barExtent + drawerExtent) : 0
+      top: root.barHidden && root.position === "top" ? -(barWindow.extent + drawerExtent) : 0
+      bottom: root.barHidden && root.position === "bottom" ? -(barWindow.extent + drawerExtent) : 0
+      left: root.barHidden && root.position === "left" ? -(barWindow.extent + drawerExtent) : 0
+      right: root.barHidden && root.position === "right" ? -(barWindow.extent + drawerExtent) : 0
     }
 
     anchors {
@@ -3735,8 +3814,8 @@ Item {
       right: root.position === "right" || !root.vertical
     }
 
-    implicitWidth: root.vertical ? root.barExtent + drawerExtent : 0
-    implicitHeight: root.vertical ? 0 : root.barExtent + drawerExtent
+    implicitWidth: root.vertical ? extent + drawerExtent : 0
+    implicitHeight: root.vertical ? 0 : extent + drawerExtent
     color: "transparent"
     surfaceFormat.opaque: false
     WlrLayershell.namespace: blurEnabled ? "powerbar" : "powerbar-clear"
@@ -3838,8 +3917,8 @@ Item {
         : root.position === "left" ? -barWindow.autoHideOffset : 0
       y: root.position === "bottom" ? barWindow.drawerExtent + barWindow.autoHideOffset
         : root.position === "top" ? -barWindow.autoHideOffset : 0
-      width: root.vertical ? root.barExtent : barWindow.width
-      height: root.vertical ? barWindow.height : root.barExtent
+      width: root.vertical ? barWindow.extent : barWindow.width
+      height: root.vertical ? barWindow.height : barWindow.extent
       // A flat bar is this strip itself, square and edge to edge like
       // Omarchy's bar; the other styles draw their surfaces inside it.
       color: root.flat ? root.mainSurfaceColor : "transparent"
@@ -3852,8 +3931,8 @@ Item {
     // A floating bar: one continuous surface, held off the edges like islands.
     EffectSurface {
       visible: root.floating
-      x: mainStrip.x + (root.vertical ? (root.barExtent - root.barSize) / 2 : root.edgeGap)
-      y: mainStrip.y + (root.vertical ? root.edgeGap : (root.barExtent - root.barSize) / 2)
+      x: mainStrip.x + (root.vertical ? (barWindow.extent - root.barSize) / 2 : root.edgeGap)
+      y: mainStrip.y + (root.vertical ? root.edgeGap : (barWindow.extent - root.barSize) / 2)
       width: root.vertical ? root.barSize : mainStrip.width - root.edgeGap * 2
       height: root.vertical ? mainStrip.height - root.edgeGap * 2 : root.barSize
       color: root.mainSurfaceColor

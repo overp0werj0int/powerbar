@@ -25,12 +25,12 @@ test('the described panels parse; malformed ones are dropped', () => {
 });
 
 test("a top bar on a described panel meets its notch, in logical px", () => {
-  assert.deepEqual(J(notch.notchOf(cutouts, 'top', 'eDP-1', 1512, 982, 2, mbp14)), { width: 185, height: 32 });
+  assert.deepEqual(J(notch.notchOf(cutouts, 'top', 'eDP-1', 1512, 982, 2, mbp14)), { housing: 185, width: 185, height: 32 });
   // Fractional scale: Hyprland's mode decides, the logical size scales it.
-  assert.deepEqual(J(notch.notchOf(cutouts, 'top', 'eDP-1', 1890, 1228, 2, mbp14)), { width: 232, height: 40 });
+  assert.deepEqual(J(notch.notchOf(cutouts, 'top', 'eDP-1', 1890, 1228, 2, mbp14)), { housing: 232, width: 232, height: 40 });
   // Before Hyprland answers, the logical size times a whole ratio stands in.
-  assert.deepEqual(J(notch.notchOf(cutouts, 'top', 'eDP-1', 1512, 982, 2, null)), { width: 185, height: 32 });
-  assert.deepEqual(J(notch.notchOf(cutouts, 'top', 'eDP-1', 1512, 982, 2, mbp14, 200, 34)), { width: 200, height: 34 }, 'set width and calibrated height win');
+  assert.deepEqual(J(notch.notchOf(cutouts, 'top', 'eDP-1', 1512, 982, 2, null)), { housing: 185, width: 185, height: 32 });
+  assert.deepEqual(J(notch.notchOf(cutouts, 'top', 'eDP-1', 1512, 982, 2, mbp14, 200, 34)), { housing: 185, width: 200, height: 34 }, 'set width and calibrated height win');
 });
 
 test('no notch: another edge, another screen, a turned panel, Asahi hiding the notch row', () => {
@@ -46,13 +46,6 @@ test('a top bar waits for the mode only where a notch may still come', () => {
   assert.equal(notch.pending(cutouts, 'top', 'eDP-1', 1512, 982, 2, null), false, 'a whole scale rebuilds the mode');
   assert.equal(notch.pending(cutouts, 'top', 'HDMI-A-1', 1890, 1228, 2, null), false, 'no described connector');
   assert.equal(notch.pending(cutouts, 'left', 'eDP-1', 1890, 1228, 2, null), false);
-});
-
-test('the black fill reads off, camera or bar', () => {
-  assert.equal(notch.fill('camera'), 'camera');
-  assert.equal(notch.fill('bar'), 'bar');
-  assert.equal(notch.fill(undefined), 'off');
-  assert.equal(notch.fill('purple'), 'off');
 });
 
 // Zone fit inputs from real tokens, as tests/zone-fit.test.cjs builds them.

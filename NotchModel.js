@@ -16,6 +16,9 @@
 // panel pixels wide (measured on the 14" and 16"), so that is the default,
 // and powerbarNotchWidth (logical px) sets it for a panel that differs.
 var DEFAULT_WIDTH = 370
+// The same housing in logical px at the MacBook's scale 2: the gap two-zone
+// modes keep on a screen without a notch.
+var DEFAULT_LOGICAL_WIDTH = 185
 
 // The described panels; anything malformed is dropped.
 function parseCutouts(text) {
@@ -76,8 +79,11 @@ function notchOf(cutouts, position, screenName, logicalWidth, logicalHeight, dev
   var found = panelOf(cutouts, screenName, logicalWidth, logicalHeight, devicePixelRatio, mode)
   if (!found) return null
   var ratio = Number(logicalWidth) / found.physicalWidth
+  var housing = Math.ceil(DEFAULT_WIDTH * ratio)
   return {
-    width: Number(width) > 0 ? Math.round(Number(width)) : Math.ceil(DEFAULT_WIDTH * ratio),
+    // housing: the default width, what an unset width falls back to.
+    housing: housing,
+    width: Number(width) > 0 ? Math.round(Number(width)) : housing,
     height: Number(calibratedHeight) > 0 ? Math.round(Number(calibratedHeight)) : Math.ceil(found.panel.top * ratio)
   }
 }
@@ -94,9 +100,3 @@ function pending(cutouts, position, screenName, logicalWidth, logicalHeight, dev
   var described = list.some(function(c) { return name.indexOf(c.connector) === 0 })
   return described && !panelOf(cutouts, screenName, logicalWidth, logicalHeight, devicePixelRatio, mode)
 }
-
-// What the black fill paints on a notched screen (powerbarNotchFill): "off",
-// "camera" (an island behind the camera, as tall as the bar) or "bar" (the
-// bar's whole strip, beneath its own surfaces).
-var fills = ["off", "camera", "bar"]
-function fill(value) { return fills.indexOf(value) >= 0 ? value : "off" }

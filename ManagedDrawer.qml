@@ -254,8 +254,8 @@ Item {
   readonly property real axisPosition: placement.start
   width: bar.vertical ? crossLength : length
   height: bar.vertical ? length : crossLength
-  x: bar.vertical ? (bar.position === "left" ? bar.barExtent + gap : hostWindow.drawerExtent - gap - width) : axisPosition
-  y: bar.vertical ? axisPosition : (bar.position === "top" ? bar.barExtent + gap : hostWindow.drawerExtent - gap - height)
+  x: bar.vertical ? (bar.position === "left" ? bar.extentOf(hostWindow) + gap : hostWindow.drawerExtent - gap - width) : axisPosition
+  y: bar.vertical ? axisPosition : (bar.position === "top" ? bar.extentOf(hostWindow) + gap : hostWindow.drawerExtent - gap - height)
   visible: presenting
   enabled: opened
   focus: opened && keyboardMode

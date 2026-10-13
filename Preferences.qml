@@ -8,6 +8,7 @@ import qs.Commons as Commons
 import qs.Ui
 import "PreferencesModel.js" as Model
 import "BarModel.js" as BarModel
+import "ZoneModeModel.js" as ZoneModeModel
 import "AppearanceModel.js" as AppearanceModel
 import "GroupsModel.js" as Groups
 import "RenderModel.js" as RenderModel
@@ -261,6 +262,12 @@ Item {
   function setBarStyle(value) {
     if (!bar || !bar.shell) return
     var result = bar.writeConfig(function(config) { BarModel.setBarStyle(config, value) })
+    status = result === false ? "Could not save. Check that shell.json is writable." : ""
+  }
+  // Zone modes swap layouts (ZoneModeModel.switchMode): one write.
+  function setZoneMode(value) {
+    if (!bar || !bar.shell) return
+    var result = bar.writeConfig(function(config) { ZoneModeModel.switchMode(config.bar, value) })
     status = result === false ? "Could not save. Check that shell.json is writable." : ""
   }
   readonly property var ranges: AppearanceModel.ranges
