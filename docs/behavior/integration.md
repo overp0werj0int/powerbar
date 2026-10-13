@@ -35,7 +35,7 @@ written back by merely starting Powerbar. Each key also has a CLI setting
 name (INTEG-121).
 
 - **INTEG-9** `bar.position` is `top`, `bottom`, `left` or `right`; anything else is read as `top`. Default `top`. Code: `normalizePosition`.
-- **INTEG-10** `bar.transparent: true` (Omarchy's own key) clears the bar's surface in every style and Theme text takes the wallpaper-derived colour Omarchy computes; drawers keep their surface; an auto-hiding bar keeps its readable minimum (see appearance.md). Default `false`.
+- **INTEG-10** `bar.background: "none"` (Omarchy's own key; `bar.transparent: true` on an Omarchy from before glassy) clears the bar's surface in every style and Theme text takes the wallpaper-derived colour Omarchy computes; drawers keep their surface; an auto-hiding bar keeps its readable minimum (see appearance.md). `glassy` draws a see-through, blurred surface (appearance.md LOOK-141). Default `opaque`.
 - **INTEG-11** `bar.centerAnchor` is the plugin id kept at the centre of the centre zone. Default none (`""`; `omarchy.clock` only in the INTEG-4 fallback).
 - **INTEG-12** `bar.layout` has `left`, `center`, `right` arrays; a missing or non-array zone is treated as empty.
 - **INTEG-13** `bar.powerbarAutoHide` (bool, default `false`) auto-hides the bar.
@@ -91,7 +91,7 @@ follows the re-injected `barConfig`; none reaches Powerbar's IPC.
 - **INTEG-45** `omarchy.bar syncHidden` (IPC target `omarchy.bar`, no output) re-reads the flag at once, even if the directory watch went quiet, so a quick on/off pair cannot strand the bar off screen.
 - **INTEG-116** While `bar.powerbarAutoHide` is on, `omarchy toggle bar` does not hide the bar: the flag reads as off again and the bar slides out as at its edge, held while the toggle's key (or any modifier if the bind is not found) is down, up to 60 s, and slides away the usual delay after release (a tap: at once). Code: `revealFromToggle`.
 - **INTEG-80** `omarchy bar position <top|bottom|left|right>` writes `bar.position`; the bar moves.
-- **INTEG-84** `omarchy bar transparent <true|false|toggle>` writes `bar.transparent` (toggle: `!= true`); the bar clears or fills (INTEG-10). Omarchy's menu Transparency and the shell's `toggleBarTransparency` do the same. Choosing an opacity in Preferences ends the transparency and the slider shows Clear while it is on.
+- **INTEG-84** `omarchy bar background <opaque|glassy|none|cycle>` writes `bar.background` and drops `bar.transparent`; `omarchy bar transparent <true|false|toggle>` writes `none` or `opaque` there, and `bar.transparent` on an Omarchy from before glassy (toggle: `!= true`); the bar clears, turns glassy or fills (INTEG-10). Omarchy's menu Transparency calls the bar's `cycleBackground()` (`toggleTransparency()` on older shells), which Powerbar answers (appearance.md LOOK-133). Choosing an opacity in Preferences ends the transparency and the slider shows Clear while it is on.
 - **INTEG-85** `omarchy bar use <id>` sets `bar.id`; `use omarchy.bar`, `use default`, `use built-in` and `omarchy bar reset` remove `bar.id` (Powerbar is replaced by that bar). An unknown id: `omarchy bar: <id> is not a known bar option; run 'omarchy plugin list'` (Omarchy's text).
 - **INTEG-87** `omarchy bar defaults` replaces the whole `bar` object with Omarchy's default (position, transparent, layout, centerAnchor; no `bar.id`), so Powerbar's `powerbar*` keys and groups go and the stock bar becomes active; installed dropbox and tailscale widgets are re-added after `omarchy.workspaces`/`omarchy.tray`.
 - **INTEG-88** `omarchy bar put <id> [section] [--before|--after <id>]` has the shell place the widget (`putBarWidget`); a widget already on the bar stays. Powerbar shows it on the next injection with a `powerbarInstance` (INTEG-114) and no saved visibility, so On the bar (INTEG-112).
@@ -136,7 +136,8 @@ bar uses now, the stored value or its default:
 | Name | Type, values | shell.json key | Default |
 |---|---|---|---|
 | `position` | choice top, bottom, left, right | `position` | top |
-| `transparent` | bool | `transparent` | false |
+| `background` | choice opaque, glassy, none | `background` | opaque (from `transparent`) |
+| `transparent` | bool, the older form of `background` | `transparent` (`background` on an Omarchy with glassy) | false |
 | `centerAnchor` | text (plugin id, `""` for none) | `centerAnchor` | `""` |
 | `style` | choice flat, floating, islands | `powerbarStyle` | flat |
 | `largeBar` | bool | `powerbarLargeBar` | false |

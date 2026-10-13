@@ -36,6 +36,7 @@ Item {
     var b = bar, look = b.appearance, fx = b.surfaceEffects
     switch (s.name) {
     case "position": return b.position
+    case "background": return b.backgroundLook
     case "transparent": return b.requestedTransparent
     case "centerAnchor": return b.centerAnchor
     case "style": return b.barStyle

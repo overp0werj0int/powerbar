@@ -216,3 +216,24 @@ test('Omarchy\'s transparent clears the bar, not its readable minimum over windo
   assert.equal(model.wallpaperText(0, 'dark'), false);
   assert.equal(model.wallpaperText(0.5, 'theme'), false);
 });
+test('Omarchy\'s bar background: background wins, transparent is the older form', () => {
+  assert.equal(model.barBackground({}), 'opaque');
+  assert.equal(model.barBackground({ transparent: true }), 'none');
+  assert.equal(model.barBackground({ transparent: false }), 'opaque');
+  assert.equal(model.barBackground({ background: 'glassy', transparent: true }), 'glassy');
+  assert.equal(model.barBackground({ background: 'opaque', transparent: true }), 'opaque');
+  assert.equal(model.barBackground({ background: 'frosted', transparent: true }), 'none', 'an unknown value falls back');
+  assert.equal(model.nextBackground('none', true), 'glassy');
+  assert.equal(model.nextBackground('glassy', true), 'opaque');
+  assert.equal(model.nextBackground('opaque', true), 'none');
+  assert.equal(model.nextBackground('opaque', false), 'none', 'an Omarchy without glassy toggles');
+  assert.equal(model.nextBackground('none', false), 'opaque');
+  assert.equal(model.nextBackground('glassy', false), 'none');
+});
+test('a glassy bar is see-through at most as much as Omarchy\'s, and counts as blurred', () => {
+  assert.equal(model.barOpacity({ backgroundOpacity: 0.9 }, false, false, true), 0.35);
+  assert.equal(model.barOpacity({ backgroundOpacity: 0.2 }, false, false, true), 0.2);
+  assert.equal(model.barOpacity({ backgroundOpacity: 0.9 }, false, true, true), 0, 'clear wins');
+  assert.equal(model.barOpacity({ backgroundOpacity: 0.9, readableOverlay: true }, true, false, true), 0.35,
+    'an autohiding glassy bar is blurred, so it needs no readable minimum');
+});

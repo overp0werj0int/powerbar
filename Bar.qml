@@ -756,6 +756,33 @@ Item {
   property bool requestedTransparent: false
   property bool useTransparentForeground: false
   property bool transparent: false
+  // Omarchy's bar background (AppearanceModel.barBackground): opaque, glassy
+  // (see-through and blurred) or none (the transparent above).
+  property string backgroundLook: "opaque"
+  // Glassy until a clear bar has its text colour: a glassy bar going clear
+  // stays glassy until then rather than flashing opaque, as Omarchy's does.
+  property bool glassy: false
+  // An Omarchy with glassy ships the Hyprland toggle that blurs behind it.
+  property bool omarchyGlassy: false
+  FileView {
+    path: (root.omarchyPath || "/usr/share/omarchy") + "/default/hypr/toggles/bar-glassy.lua"
+    printErrors: false
+    onLoaded: root.omarchyGlassy = true
+  }
+  // The look Hyprland's blur behind the bar was last synced for.
+  property string glassSyncedLook: ""
+  onOmarchyGlassyChanged: syncGlass()
+  // Hyprland blurs behind a glassy bar only while Omarchy's bar-glassy toggle
+  // is on, and `omarchy-bar sync-glass` sets it from shell.json, as Omarchy's
+  // bar has it do whenever the look changes. Powerbar shows an edit before it
+  // is saved, so the sync waits (up to 3 s) for shell.json to say the same.
+  function syncGlass() {
+    var look = backgroundLook
+    if (!omarchyGlassy || look === glassSyncedLook) return
+    glassSyncedLook = look
+    Util.execDetached("for i in $(seq 30); do [ \"$(omarchy-bar background 2>/dev/null)\" = " + look
+      + " ] && break; sleep 0.1; done; omarchy-bar sync-glass")
+  }
   property int centerHoverCount: 0
   readonly property bool centerSectionHovered: centerHoverCount > 0
   property bool centerSectionRevealHeld: false
@@ -1882,7 +1909,7 @@ Item {
   readonly property color overlaySurfaceColor: Qt.alpha(background, AppearanceModel.overlayOpacity(surfaceEffects))
   readonly property color mainSurfaceColor: surfaceColorFor(surfaceEffects)
   function surfaceColorFor(effects) {
-    return Qt.alpha(background, AppearanceModel.barOpacity(effects, autoHide, transparent))
+    return Qt.alpha(background, AppearanceModel.barOpacity(effects, autoHide, transparent, glassy))
   }
 
   readonly property string barStyle: barOptions.style
@@ -1904,7 +1931,17 @@ Item {
   readonly property bool largeBar: barOptions.largeBar
   readonly property real largeBarLip: Style.space(6)
   function barSizeFor(vertical, large) {
+    // Omarchy asks by screen name (notifications clear the bar by it).
+    if (typeof vertical === "string") return screenBarSizes[vertical] || barSize
     return (vertical ? Style.bar.sizeVertical : Style.bar.sizeHorizontal) + ((large === undefined ? largeBar : large) ? largeBarLip * 2 : 0)
+  }
+  // Each screen's bar thickness by screen name, as Omarchy's bar reports it
+  // to plugins (barSizes); Powerbar's is the same on every screen.
+  readonly property var screenBarSizes: {
+    var sizes = ({})
+    var screens = Quickshell.screens
+    for (var i = 0; i < screens.length; i++) sizes[screens[i].name] = barSize
+    return sizes
   }
   // One cell, one inset (docs/behavior/layout-zones.md): every item gets a cell along the
   // bar, square for glyphs, and the cell is its highlight. Equal slots puts
@@ -1931,18 +1968,8 @@ Item {
   function cellEndPad(spill) { return CellModel.endPad(cellTokens, spill) }
   // The preferences button's glyph: nine dots, three by three.
   readonly property real preferencesGlyphSize: Style.space(2) * 3 + Style.spaceReal(2.5) * 2
-    // Omarchy asks by screen name (notifications clear the bar by it).
-    if (typeof vertical === "string") return screenBarSizes[vertical] || barSize
   // Zones keep one icon cell plus the spacing between them (docs/behavior/layout-zones.md).
   readonly property real zoneGap: cellTokens.cell + widgetSpacing
-  // Each screen's bar thickness by screen name, as Omarchy's bar reports it
-  // to plugins (barSizes); Powerbar's is the same on every screen.
-  readonly property var screenBarSizes: {
-    var sizes = ({})
-    var screens = Quickshell.screens
-    for (var i = 0; i < screens.length; i++) sizes[screens[i].name] = barSize
-    return sizes
-  }
   // Folded widget counts per screen, for Preferences' note: { screen: { left, center, right } }.
   property var zoneFitReports: ({})
   function reportZoneFit(screenName, folded) {
@@ -2082,7 +2109,11 @@ Item {
 
     updateGroups(config)
     position = normalizePosition(config.position)
-    setRequestedTransparency(config.transparent === true)
+    var look = AppearanceModel.barBackground(config)
+    backgroundLook = look
+    setRequestedTransparency(look === "none")
+    if (look !== "none") glassy = look === "glassy"
+    syncGlass()
     centerAnchor = Util.canonicalWidgetId(config.centerAnchor || "")
 
     var next = normalizeLayout(config.layout)
@@ -2417,16 +2448,33 @@ Item {
     Util.execDetached(command)
   }
 
+  // The older on/off form: clear or opaque.
   function toggleTransparency() {
-    var nextTransparent = !(root.requestedTransparent === true)
-    if (root.canWriteConfig()) {
-      root.writeConfig(function(config) {
-        if (!Util.isPlainObject(config.bar)) config.bar = {}
-        config.bar.transparent = nextTransparent
-      })
-    } else {
-      root.setRequestedTransparency(nextTransparent)
+    setBackground(root.requestedTransparent === true ? "opaque" : "none")
+  }
+  // Steps the background from clear to glassy to opaque and around, as
+  // Omarchy's bar does (its menu and a double click on the bar).
+  function cycleBackground() {
+    setBackground(AppearanceModel.nextBackground(root.backgroundLook, root.omarchyGlassy))
+  }
+  // An Omarchy with glassy keeps `background` (and drops `transparent`, as
+  // `omarchy bar background` does); an older one reads only `transparent`.
+  function setBackground(look) {
+    if (!root.canWriteConfig()) {
+      root.setRequestedTransparency(look === "none")
+      return
     }
+    var glassyOmarchy = root.omarchyGlassy
+    root.writeConfig(function(config) {
+      if (!Util.isPlainObject(config.bar)) config.bar = {}
+      if (glassyOmarchy) {
+        config.bar.background = look
+        delete config.bar.transparent
+      } else {
+        config.bar.transparent = look === "none"
+        delete config.bar.background
+      }
+    })
   }
 
   function dropBarModule(source, toRegion, beforeKey, visibility) {
@@ -3690,7 +3738,7 @@ Item {
     implicitHeight: root.vertical ? 0 : root.barExtent + drawerExtent
     color: "transparent"
     surfaceFormat.opaque: false
-    WlrLayershell.namespace: root.surfaceEffects.blur ? "powerbar" : "powerbar-clear"
+    WlrLayershell.namespace: root.surfaceEffects.blur || root.glassy ? "powerbar" : "powerbar-clear"
     WlrLayershell.layer: WlrLayer.Top
 
     // The keyboard: a keyboard-opened drawer's, or the keyboard mode's cursor
@@ -4762,7 +4810,7 @@ Item {
         return
       }
       if (mouse.button === Qt.LeftButton) {
-        root.toggleTransparency()
+        root.cycleBackground()
         mouse.accepted = true
       }
     }

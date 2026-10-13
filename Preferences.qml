@@ -174,11 +174,23 @@ Item {
   // (Bar.writeConfig); a write that fails later is reported here.
   function setOption(key, value) {
     if (!bar || !bar.shell) return
+    var glassyOmarchy = bar.omarchyGlassy === true
     var result = bar.writeConfig(function(config) {
       if (!config.bar) config.bar = {}
       // Undefined returns the setting to its default.
       if (value === undefined) delete config.bar[key]
       else config.bar[key] = value
+      // Omarchy's bar background has two forms (AppearanceModel.barBackground):
+      // the one written replaces the other, and an Omarchy with glassy keeps
+      // only `background`, as `omarchy bar transparent` does there.
+      if (key === "background") delete config.bar.transparent
+      if (key === "transparent") {
+        delete config.bar.background
+        if (value !== undefined && glassyOmarchy) {
+          config.bar.background = value === true ? "none" : "opaque"
+          delete config.bar.transparent
+        }
+      }
     })
     status = result === false ? "Could not save. Check that shell.json is writable." : ""
   }
@@ -201,11 +213,12 @@ Item {
     var look = bar ? bar.themeLook : ({})
     writeLook(function(b, theme) { AppearanceModel.setScope(b, theme, tile, scope, look) })
   }
-  // Choosing an opacity ends Omarchy's transparent bar (`omarchy bar transparent`).
+  // Choosing an opacity ends Omarchy's clear or glassy bar (`omarchy bar
+  // background`, or `transparent` before it).
   function setLook(tile, key, value) {
     writeLook(function(b, theme) {
       AppearanceModel.setValue(b, theme, tile, key, value)
-      if (tile === "surface" && key === "opacity") delete b.transparent
+      if (tile === "surface" && key === "opacity") { delete b.transparent; delete b.background }
     })
   }
   function setText(value) { writeLook(function(b, theme) { AppearanceModel.setText(b, theme, value) }) }
@@ -760,8 +773,9 @@ Item {
                       unit: "%"
                       minimum: prefs.ranges.backgroundOpacity.min; maximum: prefs.ranges.backgroundOpacity.max; stepSize: prefs.ranges.backgroundOpacity.step
                       defaultValue: prefs.ranges.backgroundOpacity.fallback
-                      // A transparent bar (Omarchy's Transparency) shows as Clear.
-                      value: !prefs.bar ? 100 : prefs.bar.requestedTransparent ? 0 : Math.round(prefs.bar.surfaceEffects.backgroundOpacity * 100)
+                      // A transparent bar (Omarchy's Transparency) shows as Clear,
+                      // a glassy one as the opacity it draws.
+                      value: !prefs.bar ? 100 : Math.round(AppearanceModel.barOpacity(prefs.bar.surfaceEffects, false, prefs.bar.requestedTransparent, prefs.bar.glassy) * 100)
                       formatter: function(v) { return v === 0 ? "Clear" : v === 100 ? "Opaque" : "" }
                       animate: prefs.motion
                       onEdited: function(v) { prefs.setLook("surface", "opacity", v) }

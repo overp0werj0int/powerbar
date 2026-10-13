@@ -12,6 +12,8 @@
 // bar's own (it depends on the bar's thickness) and comes in as ctx.
 var settings = [
   { name: "position", key: "position", type: "choice", choices: ["top", "bottom", "left", "right"], writer: "option" },
+  { name: "background", key: "background", type: "choice", choices: ["opaque", "glassy", "none"], writer: "option" },
+  // The older on/off form of background: none or opaque.
   { name: "transparent", key: "transparent", type: "bool", writer: "option" },
   { name: "centerAnchor", key: "centerAnchor", type: "string", writer: "option" },
   { name: "style", key: "powerbarStyle", type: "choice", choices: ["flat", "floating", "islands"], writer: "style" },

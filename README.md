@@ -261,7 +261,7 @@ alone), so Super+K lists them.
 ## Command line
 
 Omarchy's own commands work on Powerbar as on its bar: `omarchy bar position`,
-`transparent`, `put`, `move`, `set`, `use`, `reset`, `defaults`, `omarchy
+`background` (or `transparent`), `put`, `move`, `set`, `use`, `reset`, `defaults`, `omarchy
 toggle bar`, and the panel shortcuts (`omarchy-shell shell toggle <id>`).
 Everything Powerbar adds answers to `omarchy-shell powerbar <function>`;
 `omarchy-shell powerbar help` lists them. Answers are JSON, `ok`, or
@@ -330,7 +330,8 @@ strength = 30
 
 ## Backdrop blur
 
-Blur behind the bar needs these layer rules in your Hyprland Lua
+Blur behind the bar (Surface > Background blur, or Omarchy's glassy bar
+background) needs these layer rules in your Hyprland Lua
 configuration (for example `~/.config/hypr/looknfeel.lua`). `blur_popups`
 blurs the bar's tooltips too.
 
