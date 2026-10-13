@@ -95,17 +95,18 @@ function parseBinds(text) {
 }
 
 // Shortcuts to widgets already in Hyprland's config files: binds that run
-// `omarchy-shell shell toggle <id>` (by id), and the ranges that run
+// `omarchy-shell shell toggle <id>` or, since Omarchy routes panels through
+// its own global shortcuts, name `{ panel = "<id>" }` (by id), and the ranges that run
 // `togglePanelAt <section> N` (by position). origin: "omarchy" for Omarchy's
 // defaults, "config" for the user's own files. → { widgets: [{ keys,
 // description, id, origin }], positions: [{ section, n, keys }] }.
 function parseDefaults(lua, origin) {
   var text = String(lua || ""), widgets = [], positions = []
-  var byId = /(?:o\.bind|hl\.bind)\(\s*"([^"]+)"\s*,\s*(?:"([^"]*)"\s*,\s*)?(?:hl\.dsp\.exec_cmd\(\s*)?"omarchy-shell(?:\s+-q)?\s+shell\s+toggle\s+([\w.\-]+)/g
+  var byId = /(?:o\.bind|hl\.bind)\(\s*"([^"]+)"\s*,\s*(?:"([^"]*)"\s*,\s*)?(?:(?:hl\.dsp\.exec_cmd\(\s*)?"omarchy-shell(?:\s+-q)?\s+shell\s+toggle\s+([\w.\-]+)|\{\s*panel\s*=\s*"([\w.\-]+)"\s*\})/g
   var m
   while ((m = byId.exec(text))) {
     var keys = normalize(m[1])
-    if (keys) widgets.push({ keys: keys, description: m[2] || "", id: m[3], origin: origin || "omarchy" })
+    if (keys) widgets.push({ keys: keys, description: m[2] || "", id: m[3] || m[4], origin: origin || "omarchy" })
   }
   // for panel = 1, 9 do o.bind("SUPER + CTRL + code:" .. tostring(panel + 9), ..., "... togglePanelAt right " .. panel)
   var range = /for\s+(\w+)\s*=\s*(\d+)\s*,\s*(\d+)\s+do[\s\S]*?"([^"]*?)code:"\s*\.\.\s*tostring\(\s*\1\s*\+\s*(\d+)\s*\)[\s\S]*?togglePanelAt\s+(\w+)\s+"\s*\.\.\s*\1/g

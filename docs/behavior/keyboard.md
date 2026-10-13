@@ -181,7 +181,7 @@ The CLI as a whole (`status`, `shortcuts`, `help`, error format) is integration.
 
 - **KEYS-60** `render()` writes, per target in alphabetical order: `hl.unbind` of Omarchy's old keys if they changed, `hl.unbind` of the new keys, then `o.bind(keys, name, command)`. Commands: widget `omarchy-shell shell toggle <id>`; group `omarchy-shell powerbar toggleGroup <id>`; `bar:keys` `omarchy-shell powerbar keys`; `bar:search` `omarchy-shell powerbar keysSearch`. The names are "Powerbar keyboard", "Powerbar search", "<group label> group", the widget's title (what Super+K lists). No binds renders no block.
 
-- **KEYS-61** Omarchy's own widget shortcuts are read from `$OMARCHY_PATH/default/hypr/bindings/*.lua`, then the user's `~/.config/hypr/*.lua` (not `powerbar.lua`, Powerbar's block stripped), in load order; a later file's bind for the same widget id wins. `omarchy-shell shell toggle <id>` binds are by id; `togglePanelAt <section> N` ranges are by place.
+- **KEYS-61** Omarchy's own widget shortcuts are read from `$OMARCHY_PATH/default/hypr/bindings/*.lua`, then the user's `~/.config/hypr/*.lua` (not `powerbar.lua`, Powerbar's block stripped), in load order; a later file's bind for the same widget id wins. `omarchy-shell shell toggle <id>` binds and, from newer Omarchy, `{ panel = "<id>" }` binds are by id; `togglePanelAt <section> N` ranges are by place.
 
 - **KEYS-62** Before October 2026 shortcuts lived in `~/.config/hypr/powerbar.lua`, loaded from `hyprland.lua` by a `-- >>> powerbar >>>` block. Any write removes that loader (after a `hyprland.lua.bak.<date>-powerbar` backup) and the file, and writes the new block.
 

@@ -84,6 +84,28 @@ test('key strings normalize to one spelling and compare by modifiers and key', (
   assert.equal(m.label('CTRL + ALT + F5'), 'Ctrl Alt F5');
 });
 
+test("Omarchy's newer panel binds, { panel = id }, read as the older command ones do", () => {
+  const lua = [
+    'o.bind("SUPER + CTRL + A", "Audio", { panel = "omarchy.audio" })',
+    'o.bind("SUPER + CTRL + V", "Clipboard manager", {panel="omarchy.clipboard"})',
+    'o.bind("SUPER + SHIFT + B", "Browser", { omarchy = "browser" })',
+    'o.bind("SUPER + CTRL + M", "Theme", { menu = "theme" })',
+    'for panel = 1, 9 do',
+    '  o.bind(',
+    '    "SUPER + CTRL + code:" .. tostring(panel + 9),',
+    '    "Bar panel " .. panel,',
+    '    "omarchy-shell -q shell togglePanelAt right " .. panel',
+    '  )',
+    'end'
+  ].join('\n');
+  const d = m.parseDefaults(lua);
+  assert.deepEqual(plain(d.widgets), [
+    { keys: 'SUPER + CTRL + A', description: 'Audio', id: 'omarchy.audio', origin: 'omarchy' },
+    { keys: 'SUPER + CTRL + V', description: 'Clipboard manager', id: 'omarchy.clipboard', origin: 'omarchy' }
+  ]);
+  assert.equal(d.positions.length, 9);
+});
+
 test('hyprctl binds parse into comparable records, code: keys included', () => {
   const binds = m.parseBinds(hyprctl);
   assert.deepEqual(plain(binds.map(b => b.keys)), ['SUPER + CTRL + A', 'SUPER + CTRL + ALT + D', 'SUPER + CTRL + code:12', 'SUPER + CTRL + T', 'ESCAPE']);
