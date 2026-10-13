@@ -12,11 +12,16 @@
 // parseCutouts, cutoutTop, cutoutPending), and these follow it so both bars
 // agree on which screens have a notch and how tall it is.
 //
-// The file has no width. notch-panels.json, next to this file, gives each
-// panel's camera housing in panel pixels from macOS readings (its sources are
-// in it); a panel it lacks takes the MacBook Pro's, about 370 panel pixels,
-// and powerbarNotchWidth (logical px) sets it for a panel that differs.
+// The file has no width or shape. notch-panels.json, next to this file, gives
+// each panel's camera housing in panel pixels from macOS readings (its sources
+// are in it): its width along the screen's top edge, the radius of its bottom
+// corners and that of its shoulders, the inside curves where the screen's top
+// edge turns down into it. Below the shoulders the housing is width - 2 x
+// shoulder wide. A panel it lacks takes the MacBook Pro's, and
+// powerbarNotchWidth (logical px) sets the width for a panel that differs.
 var DEFAULT_WIDTH = 370
+var DEFAULT_RADIUS = 16
+var DEFAULT_SHOULDER = 8
 // The same housing in logical px at the MacBook's scale 2: the gap two-zone
 // modes keep on a screen without a notch.
 var DEFAULT_LOGICAL_WIDTH = 185
@@ -41,7 +46,8 @@ function parseCutouts(text) {
   return cutouts
 }
 
-// notch-panels.json's widths: [{ width, height, notchWidth }] (panel px);
+// notch-panels.json's housings: [{ width, height, notchWidth, radius,
+// shoulder }] (panel px); a row without a shape takes the default one, and
 // anything malformed is dropped.
 function parsePanels(text) {
   var parsed
@@ -56,19 +62,23 @@ function parsePanels(text) {
     var p = panels[i] || {}
     var width = Number(p.width), height = Number(p.height), notch = Number(p.notchWidth)
     if (!(width > 0) || !(height > 0) || !(notch > 0) || notch >= width) continue
-    out.push({ width: width, height: height, notchWidth: notch })
+    var radius = p.radius === undefined ? DEFAULT_RADIUS : Number(p.radius)
+    var shoulder = p.shoulder === undefined ? DEFAULT_SHOULDER : Number(p.shoulder)
+    if (!(radius >= 0) || !(shoulder >= 0) || (radius + shoulder) * 2 >= notch) continue
+    out.push({ width: width, height: height, notchWidth: notch, radius: radius, shoulder: shoulder })
   }
   return out
 }
 
-// A panel's camera housing in panel pixels: its notch-panels.json width,
-// matched by mode as panelOf matches, else the default.
+// A panel's camera housing in panel pixels, { notchWidth, radius, shoulder }:
+// its notch-panels.json row, matched by mode as panelOf matches, else the
+// default.
 function housingOf(panels, panel) {
   var list = Array.isArray(panels) ? panels : []
   for (var i = 0; i < list.length; i++) {
-    if (Math.abs(list[i].width - panel.width) <= 4 && Math.abs(list[i].height - panel.height) <= 4) return list[i].notchWidth
+    if (Math.abs(list[i].width - panel.width) <= 4 && Math.abs(list[i].height - panel.height) <= 4) return list[i]
   }
-  return DEFAULT_WIDTH
+  return { notchWidth: DEFAULT_WIDTH, radius: DEFAULT_RADIUS, shoulder: DEFAULT_SHOULDER }
 }
 
 // The described panel this screen is, or null. `mode` is the output's
@@ -101,23 +111,39 @@ function panelOf(cutouts, screenName, logicalWidth, logicalHeight, devicePixelRa
   return null
 }
 
-// The notch a top bar on this screen meets, in logical px: { width, height },
-// or null (no notch, or a bar on another edge). width: a positive
-// powerbarNotchWidth, else the panel's housing (`panels`, from parsePanels);
-// height: a positive calibrated height (Omarchy's [bar] notch-height), else
-// the described rows.
+// The notch a top bar on this screen meets, in logical px: { housing, width,
+// height, radius, shoulder }, or null (no notch, or a bar on another edge).
+// width: a positive powerbarNotchWidth, else the panel's housing (`panels`,
+// from parsePanels); height: a positive calibrated height (Omarchy's [bar]
+// notch-height), else the described rows; radius and shoulder: the housing's
+// corners, kept within its height.
 function notchOf(cutouts, position, screenName, logicalWidth, logicalHeight, devicePixelRatio, mode, width, calibratedHeight, panels) {
   if (position !== "top") return null
   var found = panelOf(cutouts, screenName, logicalWidth, logicalHeight, devicePixelRatio, mode)
   if (!found) return null
   var ratio = Number(logicalWidth) / found.physicalWidth
-  var housing = Math.ceil(housingOf(panels, found.panel) * ratio)
+  var shape = housingOf(panels, found.panel)
+  var housing = Math.ceil(shape.notchWidth * ratio)
+  var height = Number(calibratedHeight) > 0 ? Math.round(Number(calibratedHeight)) : Math.ceil(found.panel.top * ratio)
+  var shoulder = Math.min(shape.shoulder * ratio, height / 2)
   return {
     // housing: the default width, what an unset width falls back to.
     housing: housing,
     width: Number(width) > 0 ? Math.round(Number(width)) : housing,
-    height: Number(calibratedHeight) > 0 ? Math.round(Number(calibratedHeight)) : Math.ceil(found.panel.top * ratio)
+    height: height,
+    radius: Math.min(shape.radius * ratio, height - shoulder),
+    shoulder: shoulder
   }
+}
+
+// The housing's corners on a notch `width` wide (a set width can be narrower
+// than the panel's): { radius, shoulder }, shrunk together to fit. Below the
+// shoulders the housing is width - 2 x shoulder wide (NotchShape.qml).
+function cornersOf(notch, width) {
+  var r = Math.max(0, Number(notch && notch.radius) || 0), s = Math.max(0, Number(notch && notch.shoulder) || 0)
+  var fit = Math.max(0, Number(width) / 2)
+  var k = r + s > fit ? fit / (r + s) : 1
+  return { radius: r * k, shoulder: s * k }
 }
 
 // Whether a top bar can't tell its notch yet: Hyprland hasn't reported the

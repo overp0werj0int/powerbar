@@ -3713,8 +3713,13 @@ Item {
     readonly property real notchLeft: notchLook ? (width - notch.width) / 2 : 0
     readonly property real notchRight: notchLook ? (width + notch.width) / 2 : 0
     // How far each zone runs on under the camera, so the black it springs out
-    // with never parts from it: the spring's overshoot stays within it.
-    readonly property real notchTuck: notchLook ? Style.space(6) : 0
+    // with never parts from it: the spring's overshoot stays within it, and
+    // a zone as tall as the camera covers its round corner once out.
+    readonly property real notchTuck: {
+      if (!notchLook) return 0
+      var c = NotchModel.cornersOf(notch, notch.width)
+      return Math.max(Style.space(6), Math.ceil(c.shoulder + c.radius) + 1)
+    }
     readonly property real notchOvershoot: Style.space(4)
     // Each zone's length from inside the camera out, reported by the bar's
     // contents: how far it slides to hide in the notch.
@@ -3997,7 +4002,28 @@ Item {
       width: barWindow.notchLook ? 0 : mainStrip.width
       height: barWindow.notchLook ? 0 : mainStrip.height
       Region {
-        item: autoHideStrip
+        item: barWindow.notchLook ? null : autoHideStrip
+        intersection: Intersection.Combine
+      }
+      // On the notch the camera reveals the bar in its own shape (NotchShape):
+      // the screen beside its round corners stays the windows'. The band over
+      // its shoulders, where the top edge curves into it, is the full width.
+      Region {
+        readonly property var corners: NotchModel.cornersOf(barWindow.notch, autoHideStrip.width)
+        readonly property bool on: barWindow.notchLook && autoHideStrip.visible
+        x: autoHideStrip.x + Math.round(corners.shoulder)
+        y: autoHideStrip.y
+        width: on ? autoHideStrip.width - Math.round(corners.shoulder) * 2 : 0
+        height: on ? autoHideStrip.height : 0
+        bottomLeftRadius: Math.round(corners.radius)
+        bottomRightRadius: Math.round(corners.radius)
+        intersection: Intersection.Combine
+      }
+      Region {
+        x: autoHideStrip.x
+        y: autoHideStrip.y
+        width: barWindow.notchLook && autoHideStrip.visible ? autoHideStrip.width : 0
+        height: barWindow.notchLook ? Math.ceil(NotchModel.cornersOf(barWindow.notch, autoHideStrip.width).shoulder) : 0
         intersection: Intersection.Combine
       }
       Region {
@@ -4106,17 +4132,16 @@ Item {
       radius: root.islandRounding
       borderSpec: root.islandBorder
     }
-    // The camera's own black, so the zones meet it however wide it really is.
-    Rectangle {
+    // The camera's own black, so the zones meet it however wide it really is,
+    // in the housing's shape. Zones as tall as it cover its corners as they
+    // come out (notchTuck).
+    NotchShape {
       visible: barWindow.notchLook
       x: mainStrip.x + barWindow.notchLeft
       y: mainStrip.y
       width: barWindow.notchRight - barWindow.notchLeft
       height: barWindow.notch ? barWindow.notch.height : 0
-      color: "black"
-      // Square where zones as tall as the camera run on from it.
-      bottomLeftRadius: root.barSize >= height ? 0 : Math.min(root.islandRounding, height / 2)
-      bottomRightRadius: bottomLeftRadius
+      notch: barWindow.notch
     }
     Loader {
       x: mainStrip.x

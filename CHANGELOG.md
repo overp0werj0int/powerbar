@@ -14,7 +14,9 @@
   (`display-cutouts.json`), two black zones grow out of the camera. They are
   flush with the top, rounded at their outer ends, and the large bar is
   exactly as tall as the notch. Each MacBook panel's notch width comes from
-  macOS readings, kept in `notch-panels.json`.
+  macOS readings, kept in `notch-panels.json`, with the housing's corner
+  radii: the camera keeps its real shape with the zones in, whatever the
+  bar's rounding, and only that shape reveals the bar.
   - With autohide, pointing at the camera makes each zone spring out of it
     sideways, and an activity peek brings out only the zone that changed.
   - On-demand widgets expand in the bar (the notch has no drawers). A zone

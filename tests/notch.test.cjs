@@ -25,11 +25,20 @@ test("notch-panels.json gives each of Omarchy's notched panels a width", () => {
   for (const [w, h] of omarchy) assert.ok(panels.some(p => p.width === w && p.height === h), `${w}x${h}`);
   assert.deepEqual(J(notch.parsePanels('{"panels":[{"width":10,"height":10,"notchWidth":20},{}]}')), []);
   assert.deepEqual(J(notch.parsePanels('nope')), []);
+  assert.deepEqual(J(notch.parsePanels('{"panels":[{"width":100,"height":50,"notchWidth":60},{"width":100,"height":50,"notchWidth":60,"radius":25,"shoulder":5}]}')),
+    [{ width: 100, height: 50, notchWidth: 60, radius: 16, shoulder: 8 }], 'no shape: the default; corners wider than the housing: dropped');
+});
+
+test("the housing's corners fit the width they are drawn at", () => {
+  const n = { width: 185, height: 32, radius: 8, shoulder: 4 };
+  assert.deepEqual(J(notch.cornersOf(n, 185)), { radius: 8, shoulder: 4 });
+  assert.deepEqual(J(notch.cornersOf(n, 20)), { radius: 20 / 3, shoulder: 10 / 3 }, 'a narrow set width shrinks both');
+  assert.deepEqual(J(notch.cornersOf(null, 100)), { radius: 0, shoulder: 0 });
 });
 
 test("a panel's housing is its listed width, else the Pro's", () => {
   const air13 = { width: 2560, height: 1664, transform: 0 };
-  assert.deepEqual(J(notch.notchOf(cutouts, 'top', 'eDP-1', 1280, 832, 2, air13, 0, 0, panels)), { housing: 157, width: 157, height: 28 });
+  assert.deepEqual(J(notch.notchOf(cutouts, 'top', 'eDP-1', 1280, 832, 2, air13, 0, 0, panels)), { housing: 157, width: 157, height: 28, radius: 7, shoulder: 3.5 });
   assert.equal(notch.notchOf(cutouts, 'top', 'eDP-1', 1512, 982, 2, mbp14, 0, 0, panels).housing, 185);
   assert.equal(notch.notchOf(cutouts, 'top', 'eDP-1', 1280, 832, 2, air13).housing, 185, 'no table: the default');
 });
@@ -41,12 +50,12 @@ test('the described panels parse; malformed ones are dropped', () => {
 });
 
 test("a top bar on a described panel meets its notch, in logical px", () => {
-  assert.deepEqual(J(notch.notchOf(cutouts, 'top', 'eDP-1', 1512, 982, 2, mbp14)), { housing: 185, width: 185, height: 32 });
+  assert.deepEqual(J(notch.notchOf(cutouts, 'top', 'eDP-1', 1512, 982, 2, mbp14)), { housing: 185, width: 185, height: 32, radius: 8, shoulder: 4 });
   // Fractional scale: Hyprland's mode decides, the logical size scales it.
-  assert.deepEqual(J(notch.notchOf(cutouts, 'top', 'eDP-1', 1890, 1228, 2, mbp14)), { housing: 232, width: 232, height: 40 });
+  assert.deepEqual(J(notch.notchOf(cutouts, 'top', 'eDP-1', 1890, 1228, 2, mbp14)), { housing: 232, width: 232, height: 40, radius: 10, shoulder: 5 });
   // Before Hyprland answers, the logical size times a whole ratio stands in.
-  assert.deepEqual(J(notch.notchOf(cutouts, 'top', 'eDP-1', 1512, 982, 2, null)), { housing: 185, width: 185, height: 32 });
-  assert.deepEqual(J(notch.notchOf(cutouts, 'top', 'eDP-1', 1512, 982, 2, mbp14, 200, 34)), { housing: 185, width: 200, height: 34 }, 'set width and calibrated height win');
+  assert.deepEqual(J(notch.notchOf(cutouts, 'top', 'eDP-1', 1512, 982, 2, null)), { housing: 185, width: 185, height: 32, radius: 8, shoulder: 4 });
+  assert.deepEqual(J(notch.notchOf(cutouts, 'top', 'eDP-1', 1512, 982, 2, mbp14, 200, 34)), { housing: 185, width: 200, height: 34, radius: 8, shoulder: 4 }, 'set width and calibrated height win');
 });
 
 test('no notch: another edge, another screen, a turned panel, Asahi hiding the notch row', () => {

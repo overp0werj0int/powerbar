@@ -253,19 +253,19 @@ Storage: the look lives in `bar.powerbarAppearance` of shell.json: `all` (values
   - The look forces fully opaque surfaces with no blur, shadow or border; the Surface and Shadow choices are kept for the other modes.
   - Islands are forced whatever the style.
   - Each zone's outer end is rounded with the bar's rounding (LOOK-10). Its inner end runs on under the camera.
-  - On the notched screen, a black block the camera's size is also drawn behind it, so the zones meet the camera however wide it really is. Under a small bar shorter than the camera, the block's lower corners are rounded.
+  - On the notched screen the camera's own black is also drawn behind the zones, so they meet the camera however wide it really is. It has the housing's shape (layout-zones.md ZONE-80), whatever the bar's rounding: round bottom corners, and shoulders where the screen's top edge curves into it. It shows whole when the zones are in, and below them under a bar shorter than the camera.
 
-  Code: Bar.qml notchMode (surfaceEffects, mainSurfaceColor, barForeground, barStyle), the camera Rectangle; IslandSurface borderSpec.
+  Code: Bar.qml notchMode (surfaceEffects, mainSurfaceColor, barForeground, barStyle); NotchShape.qml; IslandSurface borderSpec.
 
 - **LOOK-144** Autohide on the notch:
-  - **The camera is the edge strip:** only the camera reveals the bar (not a strip along the screen edge, as in LOOK-56 and LOOK-67).
+  - **The camera is the edge strip:** only the camera reveals the bar (not a strip along the screen edge, as in LOOK-56 and LOOK-67), in the housing's shape: the screen beside its round bottom corners does not.
   - **Each zone slides on its own:** it slides sideways out of the camera and back into it, clipped at the camera's edge, instead of the strip leaving the screen.
-  - **Out:** 220 ms with a spring (OutBack) whose overshoot is held to 4 px, however long the zone. The zone runs on 6 px under the camera, so the overshoot never parts it from the camera.
+  - **Out:** 220 ms with a spring (OutBack) whose overshoot is held to 4 px, however long the zone. The zone runs on under the camera by 6 px, or by the shoulder and bottom radius plus 1 px when that is more (13 px at scale 2 on a Pro), so the overshoot never parts it from the camera and a zone as tall as the camera covers its round corner once out.
   - **In:** 140 ms (ease-out).
   - **Peeks and lengths:** an activity peek (LOOK-63) brings out only the zone that changed. A hidden zone that changes length follows at once.
   - **Off:** without autohide the zones stay out, blended into the camera.
 
-  Code: Bar.qml slideNotch, notchTuck, notchOvershoot, zoneOut, autoHideStrip; NotchModel.backOvershoot.
+  Code: Bar.qml slideNotch, notchTuck, notchOvershoot, zoneOut, autoHideStrip, the window mask; NotchModel.backOvershoot.
 
 ## Animations
 
