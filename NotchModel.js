@@ -118,3 +118,29 @@ function backOvershoot(distance, px) {
   }
   return lo
 }
+
+// A notch zone that runs past the screen edge wraps: the items past `edge`
+// (the left zone's first ones, the right zone's last) hang in a second row
+// under the first, moved along the bar as one so the outermost still meets
+// the edge, and the row reads from there toward the camera. spans: the
+// zone's items in bar order, [{ start, end }] along the bar; side: "left" or
+// "right". Null when it fits; else { from, to } (the wrapped items, `to`
+// exclusive), shift (how far they move along the bar), row ([start, end] of
+// the second row) and rest (where the first row's items now begin on the
+// left, or end on the right).
+function wrapRow(spans, edge, side) {
+  var list = Array.isArray(spans) ? spans : [], n = list.length
+  if (!n) return null
+  if (side === "left") {
+    var cut = 0
+    while (cut < n && list[cut].start < edge - 0.5) cut++
+    if (cut === 0) return null
+    var shift = edge - list[0].start
+    return { from: 0, to: cut, shift: shift, row: [edge, list[cut - 1].end + shift], rest: cut < n ? list[cut].start : edge }
+  }
+  var first = n
+  while (first > 0 && list[first - 1].end > edge + 0.5) first--
+  if (first === n) return null
+  var back = edge - list[n - 1].end
+  return { from: first, to: n, shift: back, row: [list[first].start + back, edge], rest: first > 0 ? list[first - 1].end : edge }
+}

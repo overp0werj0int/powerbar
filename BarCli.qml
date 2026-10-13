@@ -39,7 +39,7 @@ Item {
     case "background": return b.backgroundLook
     case "transparent": return b.requestedTransparent
     case "centerAnchor": return b.centerAnchor
-    case "style": return b.barStyle
+    case "style": return b.barOptions.style
     case "largeBar": return b.largeBar
     case "spacingMode": return b.spacingMode
     case "spacing": return AppearanceModel.clampTo(AppearanceModel.ranges.spacing, b.barConfig.powerbarSpacing)

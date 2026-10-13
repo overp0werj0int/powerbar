@@ -18,6 +18,9 @@
 // never slides there, and the widgets on either side fold towards their own
 // neighbour instead (the left zone or the centre's before-run on the left,
 // the right zone or its after-run on the right).
+// On the notch (input.wrap) each zone grows away from the camera and wraps
+// onto a second row at the screen edge, so a moment never makes another zone
+// yield or hide, and running past the screen edge is no reason to fall back.
 // See docs/behavior/layout-zones.md for the specification.
 
 var NOTCH = "notch"
@@ -370,7 +373,7 @@ function fitMoment(input) {
   var active = ts.filter(function (t) {
     var reason = null
     if (t.sourceKey && all.indexOf(t.sourceKey) >= 0) reason = "folded"
-    else if (span[t.zone][0] < inset - 0.5 || span[t.zone][1] > length - inset + 0.5) reason = "screen"
+    else if (!input.wrap && (span[t.zone][0] < inset - 0.5 || span[t.zone][1] > length - inset + 0.5)) reason = "screen"
     if (reason) fallbacks.push({ zone: t.zone, reason: reason })
     return !reason
   })
@@ -452,7 +455,7 @@ function fitMoment(input) {
     y = y.filter(function(key) { if (seen[key]) return false; seen[key] = true; return true })
     return { yielded: y, hidden: hidden }
   }
-  var out = attempt(active)
+  var out = input.wrap ? { yielded: [], hidden: {} } : attempt(active)
   while (out.fail) {
     var failed = out.fail, reason = out.reason
     active = active.filter(function (t) {

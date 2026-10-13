@@ -1929,7 +1929,9 @@ Item {
     return Qt.alpha(background, AppearanceModel.barOpacity(effects, autoHide, transparent, glassy))
   }
 
-  readonly property string barStyle: barOptions.style
+  // The notch's zones are islands that grow out of the camera, on every
+  // screen (Preferences hides Style there).
+  readonly property string barStyle: notchMode ? "islands" : barOptions.style
   readonly property bool islands: barStyle === "islands"
   readonly property bool floating: barStyle === "floating"
   readonly property bool flat: barStyle === "flat"
@@ -2105,8 +2107,51 @@ Item {
     var s = strip.mapToItem(host, 0, 0)
     var start = (vertical ? origin.y : origin.x) + from + (own - cell) / 2
     var cross = vertical ? s.x + (strip.width - k.thickness) / 2 : s.y + (strip.height - k.thickness) / 2
+    // A widget in the notch's second row lights there.
+    if (!vertical && item.wrapY > 0) cross += item.wrapY
     return vertical ? { x: cross, y: start, width: k.thickness, height: cell, radius: highlightRadius }
       : { x: start, y: cross, width: cell, height: k.thickness, radius: highlightRadius }
+  }
+  // A notch zone's second row (NotchModel.wrapRow), or null: list is the
+  // zone's ModuleList, trail an item that ends it (the Preferences button).
+  function zoneWrap(list, trail, side, length) {
+    if (!list || !list.slotRow) return null
+    var kids = list.slotRow.children, base = list.x + list.slotRow.x, spans = [], items = []
+    for (var i = 0; i < kids.length; i++) {
+      var k = kids[i]
+      if (!k || k.cellSpill === undefined || !k.visible || !(k.width > 0)) continue
+      spans.push({ start: base + k.x, end: base + k.x + k.width })
+      items.push(k)
+    }
+    if (trail && trail.visible && trail.width > 0) {
+      spans.push({ start: trail.x, end: trail.x + trail.width })
+      items.push(trail)
+    }
+    if (!items.length) return null
+    var edge = side === "left" ? islandScreenInset + cellEndPad(items[0].cellSpill)
+      : length - islandScreenInset - cellEndPad(items[items.length - 1].cellSpill)
+    var w = NotchModel.wrapRow(spans, edge, side)
+    if (!w) return null
+    w.items = items.slice(w.from, w.to)
+    w.spans = spans.slice(w.from, w.to)
+    w.spill = { first: items[w.from].cellSpill, last: items[w.to - 1].cellSpill }
+    return w
+  }
+  // Hang a zone's widgets as its wrap says, and bring the rest back.
+  function applyWrap(list, trail, wrap, hanger, side, length) {
+    var all = list && list.slotRow ? Array.prototype.slice.call(list.slotRow.children) : []
+    if (trail) all.push(trail)
+    all.forEach(function(k) {
+      if (!k || k.wrapped === undefined) return
+      var at = wrap ? wrap.items.indexOf(k) : -1
+      if (at >= 0) {
+        var span = wrap.spans[at]
+        k.wrapShift = wrap.shift
+        k.wrapHanger = hanger
+        k.wrapAt = side === "left" ? span.end + wrap.shift - islandScreenInset : length - islandScreenInset - (span.start + wrap.shift)
+      }
+      k.wrapped = at >= 0
+    })
   }
   function highlightInset(extent) { return Math.min(Style.space(3), Math.max(0, (extent - Style.space(16)) / 2)) }
   readonly property int barExtent: Math.ceil(barSize + (flat ? 0 : edgeGap * 2))
@@ -3330,6 +3375,7 @@ Item {
         momentGap: root.edgeGap,
         gutter: root.cellTokens.gutter,
         notch: notchKeepOut,
+        wrap: notchLook,
         left: zoneFitList(leftModel), right: right,
         before: zoneFitList(beforeModel), anchor: anchors.length ? anchors[0] : null, after: zoneFitList(afterModel),
         center: zoneFitList(centerModel),
@@ -3343,6 +3389,7 @@ Item {
       return {
         length: i.length, inset: i.inset, gap: i.gap, gutter: i.gutter, momentGap: i.momentGap,
         notch: i.notch > 0 ? Math.max(1, i.notch - 2 * (root.cellEndPad(0) + i.gap)) : 0,
+        wrap: i.wrap,
         pad: function(spill) { return root.cellEndPad(spill) },
         handle: { extent: handle.extent, spill: handle.spill },
         zones: { left: i.left, right: i.right, before: i.before, anchor: i.anchor, after: i.after, center: i.center },
@@ -3663,6 +3710,17 @@ Item {
     // contents: how far it slides to hide in the notch.
     property real leftReach: 0
     property real rightReach: 0
+    // A wrapped zone's second row, along the bar from the screen edge (0: none).
+    property real leftRow: 0
+    property real rightRow: 0
+    // The second row on a card's side of the camera, which the card keeps
+    // clear of as it does an open drawer (TooltipModel.place).
+    function wrapRowNear(box) {
+      var leftSide = box.x + box.width / 2 < width / 2, along = leftSide ? leftRow : rightRow
+      if (!notchLook || !(along > 0)) return null
+      return { x: leftSide ? root.islandScreenInset : width - root.islandScreenInset - along, y: mainStrip.y + root.barSize,
+        width: along, height: root.barSize, vertical: false }
+    }
     // The strip is at least as tall as the notch, so no window peeks out
     // beside the camera; widgets stay centred in it (at the top on the notch,
     // where the zones are only as tall as the bar).
@@ -3946,6 +4004,20 @@ Item {
         height: root.barSize
         intersection: Intersection.Combine
       }
+      Region {
+        x: root.islandScreenInset
+        y: mainStrip.y + root.barSize
+        width: barWindow.notchLook ? barWindow.leftRow : 0
+        height: root.barSize
+        intersection: Intersection.Combine
+      }
+      Region {
+        x: barWindow.width - root.islandScreenInset - barWindow.rightRow
+        y: mainStrip.y + root.barSize
+        width: barWindow.notchLook ? barWindow.rightRow : 0
+        height: root.barSize
+        intersection: Intersection.Combine
+      }
       // A drawer stepped aside for a member's panel takes no clicks.
       Region {
         x: drawer.x; y: drawer.y
@@ -4040,7 +4112,8 @@ Item {
       x: mainStrip.x
       y: mainStrip.y
       width: mainStrip.width
-      height: barWindow.notchLook ? root.barSize : mainStrip.height
+      // On the notch: the bar's row and room for a zone's second (zoneWrap).
+      height: barWindow.notchLook ? root.barSize * 2 : mainStrip.height
       transformOrigin: Item.TopLeft
       sourceComponent: barContents
 
@@ -4405,7 +4478,7 @@ Item {
           var size = { width: Math.ceil(tooltipBubble.implicitWidth), height: Math.ceil(tooltipBubble.implicitHeight) }
           var at = TooltipModel.place(root.position, { x: box.x, y: box.y, width: box.width, height: box.height },
             size, 6,
-            open ? { x: drawer.x, y: drawer.y, width: drawer.width, height: drawer.height, vertical: drawer.stripVertical } : null,
+            open ? { x: drawer.x, y: drawer.y, width: drawer.width, height: drawer.height, vertical: drawer.stripVertical } : barWindow.wrapRowNear(box),
             open && root.itemWithin(target, drawer), { width: barWindow.width, height: barWindow.height },
             { x: mainStrip.x, y: mainStrip.y, width: mainStrip.width, height: mainStrip.height }, root.overlayShadowPad)
           var pad = root.overlayShadowPad
@@ -4478,9 +4551,26 @@ Item {
         // with autohide it clips at the camera's middle, so a zone sliding in
         // vanishes under it rather than coming out the other side.
         ZoneClip {
+          id: leftZone
           z: barWindow.inlineZoneName === "left" ? 1 : 0
           clipping: barWindow.notchLook && barWindow.autoHideActive
           clipTo: barWindow.notchLeft + barWindow.notchTuck
+          rowHeight: barWindow.notchLook ? root.barSize : 0
+          // Past the screen edge the zone's outer widgets hang in a second row.
+          readonly property var wrap: barWindow.notchLook ? root.zoneWrap(leftModules, null, "left", barWindow.width) : null
+          onWrapChanged: root.applyWrap(leftModules, null, wrap, leftHanger, "left", barWindow.width)
+          NotchHanger {
+            id: leftHanger
+            bar: root
+            side: "left"
+            wrap: leftZone.wrap
+            width: parent.width
+            height: root.barSize * 2
+            inner: barWindow.notchLeft + barWindow.notchTuck
+            rowEnd: wrap ? wrap.row[1] + root.cellEndPad(wrap.spill.last) : 0
+            color: root.mainSurfaceColor
+            transform: Translate { x: barWindow.slideX("left", barWindow.leftShift) }
+          }
           IslandSurface {
             id: leftIsland
             zoneHidden: barWindow.zoneHidden("left")
@@ -4491,7 +4581,7 @@ Item {
             width: root.vertical ? root.barSize : leftModules.width - leftModules.shownLead - leftModules.shownTrail + root.islandEnd("left", leftModules.leadSpill) + root.islandEnd("left", leftModules.trailSpill)
               + (barWindow.notchLook ? root.islandScreenInset + barWindow.notchTuck : 0)
             height: root.vertical ? leftModules.height - leftModules.shownLead - leftModules.shownTrail + root.islandEnd("left", leftModules.leadSpill) + root.islandEnd("left", leftModules.trailSpill) : root.barSize
-            visible: root.islands && leftModules.shownLength > 0 && opacity > 0
+            visible: root.islands && leftModules.shownLength > 0 && opacity > 0 && !leftHanger.shown
           }
           HighlightLayer { zone: "left"; island: leftIsland; transform: Translate { x: barWindow.slideX("left", barWindow.leftShift); y: barWindow.slideY("left", barWindow.leftShift) } }
           LeftModules {
@@ -4509,14 +4599,32 @@ Item {
             y: root.vertical ? root.islandScreenInset + root.cellEndPad(leadSpill) : (parent.height - height) / 2
           }
           Binding { target: barWindow; property: "leftReach"; value: barWindow.notchLook ? barWindow.notchLeft + barWindow.notchTuck - leftIsland.x : 0 }
+          Binding { target: barWindow; property: "leftRow"; value: leftHanger.shown ? leftHanger.reach : 0 }
         }
         ZoneClip {
+          id: rightZone
           z: barWindow.inlineZoneName === "right" ? 1 : 0
           clipping: barWindow.notchLook && barWindow.autoHideActive
           clipFrom: barWindow.notchRight - barWindow.notchTuck
           clipTo: barWindow.width
+          rowHeight: barWindow.notchLook ? root.barSize : 0
+          readonly property var wrap: barWindow.notchLook ? root.zoneWrap(rightModules, preferencesButton, "right", barWindow.width) : null
+          onWrapChanged: root.applyWrap(rightModules, preferencesButton, wrap, rightHanger, "right", barWindow.width)
+          NotchHanger {
+            id: rightHanger
+            bar: root
+            side: "right"
+            wrap: rightZone.wrap
+            width: parent.width
+            height: root.barSize * 2
+            inner: barWindow.notchRight - barWindow.notchTuck
+            rowEnd: wrap ? wrap.row[0] - root.cellEndPad(wrap.spill.first) : 0
+            color: root.mainSurfaceColor
+            transform: Translate { x: barWindow.slideX("right", barWindow.rightShift) }
+          }
           IslandSurface {
             id: rightIsland
+            visible: (root.islands || notchSide !== "") && opacity > 0 && !rightHanger.shown
             zoneHidden: barWindow.zoneHidden("right")
             notchSide: barWindow.notchLook ? "right" : ""
             transform: Translate { x: barWindow.slideX("right", barWindow.rightShift); y: barWindow.slideY("right", barWindow.rightShift) }
@@ -4538,7 +4646,10 @@ Item {
             // The keyboard mode's last stop on the bar.
             Component.onCompleted: barWindow.prefsButton = preferencesButton
             Component.onDestruction: if (barWindow.prefsButton === preferencesButton) barWindow.prefsButton = null
-            transform: Translate { x: barWindow.slideX("right", barWindow.rightShift); y: barWindow.slideY("right", barWindow.rightShift) }
+            transform: [
+              Translate { x: barWindow.slideX("right", barWindow.rightShift); y: barWindow.slideY("right", barWindow.rightShift) },
+              Translate { x: preferencesButton.wrapX; y: preferencesButton.wrapY }
+            ]
             // On the notch the right zone runs out from the camera and the
             // button ends it.
             x: root.vertical ? (parent.width - width) / 2
@@ -4558,6 +4669,7 @@ Item {
             y: root.vertical ? preferencesButton.y - height : (parent.height - height) / 2
           }
           Binding { target: barWindow; property: "rightReach"; value: barWindow.notchLook ? rightIsland.width : 0 }
+          Binding { target: barWindow; property: "rightRow"; value: rightHanger.shown ? rightHanger.reach : 0 }
         }
       }
     }
@@ -4573,6 +4685,9 @@ Item {
     property real clipFrom: 0
     property real clipTo: 0
     property bool clipping: false
+    // The height its content is laid out in, when less than its own (the
+    // notch's first row, with room under it for the second).
+    property real rowHeight: 0
     default property alias content: zoneLayer.data
     x: clipping ? clipFrom : 0
     width: clipping ? Math.max(0, clipTo - clipFrom) : (parent ? parent.width : 0)
@@ -4582,7 +4697,7 @@ Item {
       id: zoneLayer
       x: -zoneClip.x
       width: zoneClip.parent ? zoneClip.parent.width : 0
-      height: zoneClip.height
+      height: zoneClip.rowHeight > 0 ? zoneClip.rowHeight : zoneClip.height
     }
   }
 
@@ -4659,6 +4774,26 @@ Item {
     opacity: zoneHidden ? 0 : 1
     enabled: !zoneHidden
     Behavior on opacity { enabled: root.animationsEnabled; YieldFade { leaving: preferencesButton.zoneHidden } }
+    // On the notch, past the screen edge it hangs in its zone's second row
+    // (zoneWrap): moved along the bar by wrapShift and down one bar, at once,
+    // and shown once the row's black has opened to its far end (wrapAt from
+    // the screen edge): a glide crossed its neighbours.
+    property bool wrapped: false
+    property real wrapShift: 0
+    property real wrapAt: 0
+    property Item wrapHanger: null
+    readonly property real wrapX: wrapped ? wrapShift : 0
+    readonly property real wrapY: wrapped ? root.barSize : 0
+    readonly property bool wrapShown: !wrapped || !wrapHanger || wrapHanger.reach >= wrapAt - 0.5
+    // Gone at once when it moves rows, then faded in as the black reaches it
+    // (a Behavior's duration read through a binding raced the change).
+    property real wrapOpacity: 1
+    onWrapShownChanged: {
+      wrapFade.stop()
+      if (wrapShown && root.animationsEnabled) wrapFade.start()
+      else wrapOpacity = wrapShown ? 1 : 0
+    }
+    NumberAnimation { id: wrapFade; target: preferencesButton; property: "wrapOpacity"; to: 1; duration: 90; easing.type: Easing.OutCubic }
     // A glyph cell like any icon widget: square highlight, one gutter (or one
     // equal gap) around its nine dots.
     readonly property real glyphSize: root.preferencesGlyphSize
@@ -4691,6 +4826,7 @@ Item {
     Grid {
       id: preferencesGlyph
       anchors.centerIn: parent
+      opacity: preferencesButton.wrapOpacity
       columns: 3; spacing: Style.spaceReal(2.5)
       Repeater {
         model: 9
@@ -5389,6 +5525,8 @@ Item {
       x: root.vertical ? 0 : contents.x + contents.width
       y: root.vertical ? contents.y + contents.height : 0
     }
+    // The slots, for the notch's second row (zoneWrap).
+    readonly property Item slotRow: contents
     Grid {
       id: contents
       x: root.vertical ? 0 : startGap.width + startHandle.width
@@ -5415,6 +5553,28 @@ Item {
     id: slot
 
     required property var record
+    // On the notch, past the screen edge it hangs in its zone's second row
+    // (zoneWrap): moved along the bar by wrapShift and down one bar, at once,
+    // and shown once the row's black has opened to its far end (wrapAt from
+    // the screen edge): a glide crossed its neighbours.
+    property bool wrapped: false
+    property real wrapShift: 0
+    property real wrapAt: 0
+    property Item wrapHanger: null
+    readonly property real wrapX: wrapped ? wrapShift : 0
+    readonly property real wrapY: wrapped ? root.barSize : 0
+    readonly property bool wrapShown: !wrapped || !wrapHanger || wrapHanger.reach >= wrapAt - 0.5
+    transform: Translate { x: slot.wrapX; y: slot.wrapY }
+    // Gone at once when it moves rows, then faded in as the black reaches it
+    // (a Behavior's duration read through a binding raced the change).
+    property real wrapOpacity: 1
+    onWrapShownChanged: {
+      wrapFade.stop()
+      if (wrapShown && root.animationsEnabled) wrapFade.start()
+      else wrapOpacity = wrapShown ? 1 : 0
+    }
+    NumberAnimation { id: wrapFade; target: slot; property: "wrapOpacity"; to: 1; duration: 90; easing.type: Easing.OutCubic }
+    opacity: wrapOpacity
     readonly property bool powerbarRetainedSlot: true
     readonly property var entry: record.entry
     property var homeWindow: null

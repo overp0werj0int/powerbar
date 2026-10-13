@@ -144,6 +144,20 @@ test('a centre expansion slides nothing over the camera', () => {
   assert.ok(Math.abs((s.notch[0] + s.notch[1]) / 2 - 756) < 1e-6, 'the notch slot stays put');
 });
 
+test('on the notch a zone expansion wraps: nothing yields or hides, and the screen edge is no fallback', () => {
+  const base = make({ length: 1512, notch: NOTCH, zones: { anchor: null, left: Array(40).fill(12), right: Array(6).fill(12) } });
+  const lasting = fit(base);
+  assert.ok(lasting.folded.left.length > 0);
+  const moment = Object.assign({}, base, { previous: lasting, transient: { zone: 'left', unfold: 'left' } });
+  const plain = fit(moment);
+  assert.ok(plain.hidden.center || plain.hidden.right || plain.fallbacks.length, 'two zones: the expansion runs into the notch');
+  const r = fit(Object.assign({}, moment, { wrap: true }));
+  assert.deepEqual(J(r.folded.left), [], 'its folded widgets come back');
+  assert.deepEqual(J(r.yielded), []);
+  assert.deepEqual(J(r.hidden), { left: false, center: false, right: false });
+  assert.deepEqual(J(r.fallbacks), []);
+});
+
 test('a zone springing out of the camera overshoots by the same few pixels at any length', () => {
   const nm = notch;
   const peak = (s) => 4 * s ** 3 / (27 * (s + 1) ** 2);
@@ -153,4 +167,24 @@ test('a zone springing out of the camera overshoots by the same few pixels at an
   }
   assert.ok(Math.abs(nm.backOvershoot(10, 4) - 1.70158) < 1e-3, 'Qt\'s default overshoot caps a short slide');
   assert.equal(nm.backOvershoot(0, 4), 0);
+});
+
+test('a notch zone past the screen edge wraps its outer widgets into a second row from the edge', () => {
+  const run = (from, widths) => { let x = from; return widths.map(w => { const s = { start: x, end: x + w }; x += w; return s; }); };
+  // Left zone ending at the camera, grown 88 px past the edge at 8.
+  const left = run(-80, [30, 30, 40, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50]);
+  const l = J(notch.wrapRow(left, 8, 'left'));
+  assert.deepEqual([l.from, l.to], [0, 3], 'every widget that starts before the edge wraps');
+  assert.equal(l.shift, 88);
+  assert.deepEqual(l.row, [8, 108], 'the outermost widget still meets the edge');
+  assert.equal(l.rest, 20, 'the first row now starts at the first widget that stayed');
+  // Right zone from the camera (870) to past the edge at 1504, the button last.
+  const right = run(870, [50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 40, 30]);
+  const r = J(notch.wrapRow(right, 1504, 'right'));
+  assert.deepEqual([r.from, r.to], [12, 14], 'every widget that ends past the edge wraps, the button too');
+  assert.equal(r.shift, -36);
+  assert.deepEqual(r.row, [1434, 1504], 'the button still meets the edge');
+  assert.equal(r.rest, 1470);
+  assert.equal(notch.wrapRow(run(100, [50, 50]), 8, 'left'), null, 'it fits: no second row');
+  assert.equal(notch.wrapRow([], 8, 'left'), null);
 });
