@@ -81,6 +81,15 @@ Sources: Preferences.qml, PreferencesModel.js, BentoModel.js, ShelfModel.js, Sli
 
 - **PREFS-34** All nine destinations (zone x shelf) are valid, and the entry keeps its settings and instance key through any number of moves. A stale move (the layout changed under it) or an unknown zone changes nothing (PREFS-5).
 
+- **PREFS-93** The header of the On the bar shelf has a Zones choice: "Three zones", "Two zones" and, when a screen has a notch (or the notch mode is already in use), "Notch". It is offered wherever the bar sits: the Notch mode moves the bar to the top. Choosing a mode writes `bar.powerbarZones` and swaps in that mode's own arrangement (layout-zones.md ZONE-72 to ZONE-74); the shelves redraw from it. Code: LayoutEditor ButtonGroup; Preferences.setZoneMode; Bar.qml screenNotch.
+
+- **PREFS-94** In two zones and on the notch, each shelf has two columns, Left and Right (Top and Bottom on a side bar). Several controls follow:
+  - The selected widget's Zone choice and the Groups page's Zone choice offer only those two.
+  - "Keep at screen center" is gone.
+  - On the notch the On the bar shelf's zones hug the middle, as each grows out of the camera.
+
+  Code: LayoutEditor twoZones, notchMode, zoneColumns, lineX; GroupsPreferences Zone options.
+
 ## Groups page
 
 - **PREFS-35** The Groups page has four tiles: "Groups" (every group drawn as the bar draws it, with name and count), the selected group's settings (title: its name; caption: "N widgets, on the bar at left"), "In the drawer" (its members as the drawer draws them, with "Widgets show" Icon/Name/Both, and Count/Urgent source fields for the selected member) and "Not in a group" (a filter and the widgets that are in no group). Groups, their faces and drawers: groups.md.
@@ -148,7 +157,7 @@ Sources: Preferences.qml, PreferencesModel.js, BentoModel.js, ShelfModel.js, Sli
 
 ## Bar page
 
-- **PREFS-64** The Bar page has eight tiles, in order: Style and position (8 of 12 columns), Size, Shape, Surface, Shadow, Behavior, On demand (4 each) and Keyboard (4; 6 of 6 at medium width). Every change shows on the bar at once.
+- **PREFS-64** The Bar page has eight tiles, in order: Style and position (8 of 12 columns), Size, Shape, Surface, Shadow, Behavior, On demand (4 each) and Keyboard (4; 6 of 6 at medium width). In two zones a Notch tile follows Shape (4; 3 of 6); on the notch it takes the place of Shape and Surface (PREFS-96). Every change shows on the bar at once.
 
 - **PREFS-65** Style and position: a picture of the screen where clicking an edge moves the bar there; Style (Flat "Edge to edge, like Omarchy", Floating "One bar, off the edges", Islands "A surface for each zone"); Screen edge (Top, Bottom, Left, Right); Pinned to screen center (None or a centre widget that is On the bar). Writes `bar.powerbarStyle`, `bar.position`, `bar.centerAnchor`. The default style is Flat, the default edge top.
 
@@ -160,11 +169,23 @@ Sources: Preferences.qml, PreferencesModel.js, BentoModel.js, ShelfModel.js, Sli
 
 - **PREFS-69** Shadow (under a Scope choice): Shadow (toggle), Softness (2 to 24, step 1, default 16) and Strength (5 to 60 %, step 5, default 30), both enabled only while Shadow is on.
 
-- **PREFS-70** Behavior: Autohide (`powerbarAutoHide`, default off), Show on widget activity (`powerbarAutoHideActivity`, default on; dimmed while Autohide is off), Readable over windows (`powerbarReadableOverlay`, default on) and Animations (`powerbarAnimations`, default on). These are not scoped.
+- **PREFS-70** Behavior: Autohide (`powerbarAutoHide`, default off), Show on widget activity (`powerbarAutoHideActivity`, default on; dimmed while Autohide is off), Readable over windows (`powerbarReadableOverlay`, default on; hidden on the notch, PREFS-96) and Animations (`powerbarAnimations`, default on). These are not scoped.
 
 - **PREFS-71** On demand: "Show them" In a drawer (the default, hovering a zone opens its drawer) or In the bar (behind dots, expanding in the bar; `powerbarOnDemand`), and "Count on the dots" (`powerbarDotsBadge`, default on). Timing: on-demand-drawers.md.
 
 - **PREFS-72** Keyboard: the "Bar keyboard" (`bar:keys`) and "Bar search" (`bar:search`) shortcut rows (bound on the first start where free, KEYS-84; otherwise SUPER + B and SUPER + CTRL + SLASH are only suggested, KEYS-66) and "Key legend" (`powerbarKeyLegend`, default on).
+
+- **PREFS-95** Notch (two zones and the notch): caption "The gap in the middle" in two zones, "Black, like the camera" on the notch. Its "Notch width" slider runs from 40 to 600 px in steps of 1 (layout-zones.md ZONE-77, ZONE-80). The default is the camera housing, or 185 without a notch, and choosing it removes `powerbarNotchWidth`. In two zones, "Pinned to screen center" is gone from Style and position.
+
+- **PREFS-96** On the notch, controls that cannot apply give way in place to what does (appearance.md LOOK-143):
+  - **Style and position:** the screen picture is disabled. Style and Screen edge give way to "On the notch" and the line "Black zones grow out of the camera at the top of the screen. Choose Three or Two zones on the Layout page for the other styles."
+  - **Size:** "Large bar" is hidden: the notch's bar is always as tall as the camera.
+  - **Shape:** the tile is hidden: the zones take the camera's corners and have no border.
+  - **Surface:** the tile gives way to the Notch tile. Shadow stays.
+  - **Behavior:** "Readable over windows" is hidden: the notch is always opaque, so there is no minimum to raise.
+  - **On demand:** "Show them" gives way to the line "Behind dots in their zone; they expand in the bar when you hover the dots. The notch has no drawers." "Count on the dots" stays.
+
+  The values these controls hold are kept for the other modes.
 
 ## Appearance scopes
 

@@ -76,7 +76,8 @@ Item {
   function landable(slot) {
     return slot.mainVisible && !slot.drawerHost && !slot.fitYielded && !keys.window.zoneHidden(slot.region)
   }
-  // Every stop on the bar, in bar order: { item, kind, zone }.
+  // Every stop on the bar, in bar order, row by row: { item, kind, zone, at,
+  // row } (row 1: a notch zone's second row, under the bar's own).
   function stops() {
     var w = keys.window
     if (!w || !w.contentItem) return []
@@ -84,14 +85,14 @@ Item {
     var vertical = bar.vertical
     function add(item, kind, zone) {
       var c = item.mapToItem(w.contentItem, item.width / 2, item.height / 2)
-      out.push({ item: item, kind: kind, zone: zone, at: vertical ? c.y : c.x })
+      out.push({ item: item, kind: kind, zone: zone, at: vertical ? c.y : c.x, row: w.notchLook && c.y > bar.barSize ? 1 : 0 })
     }
     ;(w.moduleItems || []).forEach(function(slot) {
       if (seen(slot)) add(slot, slot.groupHeader ? "group" : "widget", slot.region)
     })
     ;(w.foldHandles || []).forEach(function(h) { if (seen(h)) add(h, "dots", h.zone) })
     if (w.prefsButton && seen(w.prefsButton)) add(w.prefsButton, "prefs", "right")
-    out.sort(function(a, b) { return a.at - b.at })
+    out.sort(function(a, b) { return a.row - b.row || a.at - b.at })
     return out
   }
   function indexOf(list, item) {
@@ -220,8 +221,17 @@ Item {
   function moveBy(dir) {
     var list = stops(), i = at(list)
     if (i < 0) { if (list.length) put(list[dir > 0 ? 0 : list.length - 1].item, dir); return }
-    var to = KeysModel.step(list.length, i, dir)
+    var to = KeysModel.gridStep(list, i, dir, 0)
     if (to >= 0) put(list[to].item, dir)
+  }
+  // To the next row of the cursor's zone (a notch zone's second row): +1
+  // away from the screen edge. Whether there was one.
+  function moveRow(rows) {
+    var list = stops(), i = at(list)
+    var to = i >= 0 ? KeysModel.gridStep(list, i, 0, rows) : -1
+    if (to < 0) return false
+    put(list[to].item, rows)
+    return true
   }
   function zoneJump(dir) {
     var list = stops(), i = at(list)
@@ -465,7 +475,9 @@ Item {
     else if (it.zone) zoneJump(it.zone)
     else if (it.home) toEnd(false)
     else if (it.end) toEnd(true)
+    else if (it.out) moveRow(-1)
     else if (it.into) {
+      if (moveRow(1)) return true
       if (opensDrawer(cursor)) openDrawer(true)
       // Drawer mode: a zone's on-demand widgets wait in its drawer, entered
       // from any widget of the zone.

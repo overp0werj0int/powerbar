@@ -4,6 +4,7 @@ import Quickshell.Io
 import Quickshell.Wayland
 import QtQuick
 import QtQuick.Layouts
+import QtQuick.Effects
 import QtQml.Models as Models
 import qs.Commons
 import qs.Commons as Commons
@@ -18,6 +19,7 @@ import "DragModel.js" as DragModel
 import "HighlightModel.js" as HighlightModel
 import "CellModel.js" as CellModel
 import "ZoneFitModel.js" as ZoneFitModel
+import "NotchModel.js" as NotchModel
 import "InlineQueue.js" as InlineQueue
 import "RenderModel.js" as RenderModel
 import "ZoneOrderModel.js" as ZoneOrderModel
@@ -25,6 +27,7 @@ import "GlyphModel.js" as GlyphModel
 import "ShortcutModel.js" as ShortcutModel
 import "BarKeysModel.js" as KeysModel
 import "TooltipModel.js" as TooltipModel
+import "ZoneModeModel.js" as ZoneModeModel
 
 Item {
   id: root
@@ -440,7 +443,8 @@ Item {
   // On-demand widgets either open in a drawer island when their zone is
   // hovered ("drawer"), or wait behind the zone's dots and expand in the bar
   // when the dots are hovered ("inline"; docs/design/zone-fit.md).
-  readonly property bool onDemandInline: barOptions.onDemand === "inline"
+  // The notch has no drawers: its on-demand widgets expand in the bar.
+  readonly property bool onDemandInline: barOptions.onDemand === "inline" || notchMode
   // The keyboard mode's key strip (Preferences → Bar → Keyboard).
   readonly property bool keyLegend: barOptions.keyLegend
   // The count badge on a zone's dots (drawer handle and yield marker).
@@ -455,22 +459,21 @@ Item {
   // not activity, so peeks wait until the bar has settled.
   property real peekQuietUntil: Date.now() + 6000
   onBarConfigSerialChanged: peekQuietUntil = Date.now() + 6000
-  // Widget activity on an autohidden bar: slide out the widget's zone (islands)
-  // or the whole bar, and highlight the widget, or its group's icon, meanwhile.
+  // Widget activity on an autohidden bar: a badge brings out the widget, or
+  // its group's icon, alone (PeekBadge), and the bar highlights it meanwhile.
   function autoHidePeek(slot) {
     if (!autoHide || !autoHideActivity || barHidden || !slot) return
     if (!activityPeeksFor(slot.instanceKey, slot.moduleName)) return
     if (Date.now() < peekQuietUntil) return
     var window = slotWindow(slot)
     if (!window || typeof window.peek !== "function") return
-    var target = slot, zone = slot.region
+    var target = slot
     if (slot.memberGroup) {
-      zone = slot.memberGroup.section
       target = moduleSlots.find(function(s) {
         return s && s.groupHeader && s.entry.powerbarGroupId === slot.memberGroup.id && sameWindow(slotWindow(s), window)
       }) || slot
     }
-    window.peek(zone)
+    window.peek(target)
     target.flashActivity()
   }
   function reportActivity(key) {
@@ -501,6 +504,8 @@ Item {
   function ensureInstanceIds() {
     if (!canWriteConfig() || !barConfig.layout || lostKeysPending()) return
     var seen = {}, missing = barConfig.powerbarVisibilityDefault !== "shown"
+    // Two-zone modes have no centre: a widget another writer put there moves.
+    if (twoZones && (barConfig.layout.center || []).length) missing = true
     for (var zone of ["left", "center", "right"]) {
       for (var entry of (barConfig.layout[zone] || [])) {
         var key = entry && entry.powerbarInstance
@@ -514,6 +519,8 @@ Item {
       // suggested shortcuts where free, once (ShortcutStore offerSuggested).
       if (!ManagedModel.powerbarHasRun(config.bar)) config.bar.powerbarShortcutOffer = true
       ManagedModel.healVisibility(config.bar, root.thirdPartyEntry)
+      // New widgets (no instance key yet) take their mode's place first.
+      ZoneModeModel.settleNew(config.bar, function(entry) { return !entry.powerbarInstance })
       var used = {}
       for (var zone of ["left", "center", "right"]) {
         var entries = config.bar.layout[zone] || []
@@ -723,6 +730,13 @@ Item {
   // the bar just renders whatever it's handed. The bar font follows the
   // OS-level fontconfig monospace binding — it is not stored in shell.json.
   property var barConfig: ({})
+  // Three zones, two, or two growing out of the notch (ZoneModeModel.js).
+  readonly property string zoneMode: ZoneModeModel.modeOf(barConfig)
+  readonly property bool twoZones: ZoneModeModel.twoZones(zoneMode)
+  // The notch's zones are black and light-lettered on every screen: widgets
+  // take one bar colour, and the notched screen's zones blend into the camera.
+  // No shadow, blur or border there: the camera has none.
+  readonly property bool notchMode: zoneMode === "notch"
   // Injected by the host shell. Used for shell-wide actions such as opening
   // settings and persisting inline widget state.
   property var shell: null
@@ -902,7 +916,7 @@ Item {
   readonly property var foregroundPair: AppearanceModel.textPair(themeForeground, themeContrastForeground)
   // Over a transparent bar (Omarchy's `bar.transparent`), the colour Omarchy
   // reads from the wallpaper, as its own bar does.
-  property color barForeground: textOn(useTransparentForeground && AppearanceModel.wallpaperText(mainSurfaceColor.a, foregroundChoice)
+  property color barForeground: notchMode ? foregroundPair.light : textOn(useTransparentForeground && AppearanceModel.wallpaperText(mainSurfaceColor.a, foregroundChoice)
     ? transparentForeground : themeForeground)
   // The chosen colour, or `themeColor` (the theme's own for that place) when
   // the choice is the theme's.
@@ -1437,6 +1451,8 @@ Item {
   }
 
   function beginBarMove(window) {
+    // The notch keeps the bar at the top.
+    if (notchMode) return
     barMoveWindow = window
     barMoveScreen = window ? window.screen : null
     barMoveCandidate = position
@@ -1574,7 +1590,7 @@ Item {
   function onSpringPath(drawer, scenePoint) {
     if (!drawer || !drawer.opened || !scenePoint) return false
     var p = drawer.mapFromItem(null, scenePoint.x, scenePoint.y)
-    var reach = drawer.gap + root.barExtent + Style.space(8)
+    var reach = drawer.gap + root.extentOf(drawer.hostWindow) + Style.space(8)
     var margin = Style.space(12)
     return root.vertical
       ? p.y >= -margin && p.y <= drawer.height + margin && p.x >= -reach && p.x <= drawer.width + reach
@@ -1877,7 +1893,7 @@ Item {
             item.gap = Qt.binding(function() {
               var host = item.anchorWindow
               if (!host) return Style.gapsOut + record.gapOffset
-              return Style.gapsOut + record.gapOffset + root.barExtent - (root.vertical ? host.width : host.height)
+              return Style.gapsOut + record.gapOffset + root.extentOf(host) - (root.vertical ? host.width : host.height)
             })
           }
         }
@@ -1903,16 +1919,22 @@ Item {
     if (activePopout === owner) activePopout = null
   }
 
-  readonly property var surfaceEffects: AppearanceModel.effects(appearanceConfig, Commons.Color.bar.background.a)
+  readonly property var surfaceEffects: {
+    var effects = AppearanceModel.effects(appearanceConfig, Commons.Color.bar.background.a)
+    // The notch is opaque and unblurred; its shadow is the user's.
+    return notchMode ? Object.assign({}, effects, { blur: false, backgroundOpacity: 1 }) : effects
+  }
   // Drawers always lie over windows, and so does a bar that autohides; those
   // surfaces keep a readable minimum opacity (AppearanceModel.overlayOpacity).
   readonly property color overlaySurfaceColor: Qt.alpha(background, AppearanceModel.overlayOpacity(surfaceEffects))
-  readonly property color mainSurfaceColor: surfaceColorFor(surfaceEffects)
+  readonly property color mainSurfaceColor: notchMode ? "black" : surfaceColorFor(surfaceEffects)
   function surfaceColorFor(effects) {
     return Qt.alpha(background, AppearanceModel.barOpacity(effects, autoHide, transparent, glassy))
   }
 
-  readonly property string barStyle: barOptions.style
+  // The notch's zones are islands that grow out of the camera, on every
+  // screen (Preferences hides Style there).
+  readonly property string barStyle: notchMode ? "islands" : barOptions.style
   readonly property bool islands: barStyle === "islands"
   readonly property bool floating: barStyle === "floating"
   readonly property bool flat: barStyle === "flat"
@@ -1928,21 +1950,84 @@ Item {
   // The large bar is as thick as Preferences' Layout page draws it: the theme's
   // bar size plus a lip above and below each widget. Widgets keep their own
   // size and gain room around them; the islands' ends open up to match.
-  readonly property bool largeBar: barOptions.largeBar
+  // The notch has no small bar: its zones are as tall as the camera.
+  readonly property bool largeBar: barOptions.largeBar || notchMode
   readonly property real largeBarLip: Style.space(6)
   function barSizeFor(vertical, large) {
     // Omarchy asks by screen name (notifications clear the bar by it).
     if (typeof vertical === "string") return screenBarSizes[vertical] || barSize
-    return (vertical ? Style.bar.sizeVertical : Style.bar.sizeHorizontal) + ((large === undefined ? largeBar : large) ? largeBarLip * 2 : 0)
+    var big = large === undefined ? largeBar : large
+    // On the notch, the large bar is exactly as tall as the camera.
+    if (big && !vertical && notchMode && screenNotch) return screenNotch.height
+    return (vertical ? Style.bar.sizeVertical : Style.bar.sizeHorizontal) + (big ? largeBarLip * 2 : 0)
   }
   // Each screen's bar thickness by screen name, as Omarchy's bar reports it
-  // to plugins (barSizes); Powerbar's is the same on every screen.
+  // to plugins (barSizes): barSize, or the notch's height where a top bar
+  // has to reach past a camera notch.
   readonly property var screenBarSizes: {
     var sizes = ({})
     var screens = Quickshell.screens
-    for (var i = 0; i < screens.length; i++) sizes[screens[i].name] = barSize
+    for (var i = 0; i < screens.length; i++) {
+      var notch = notchFor(screens[i])
+      sizes[screens[i].name] = Math.max(barSize, notch ? notch.height : 0)
+    }
     return sizes
   }
+
+  // Camera notches (NotchModel.js, docs/behavior/layout-zones.md "Notch"):
+  // the panels Omarchy's platform package describes, read as the shell starts
+  // so a bar knows before it maps whether its screen may have one.
+  // POWERBAR_DISPLAY_CUTOUTS points at another file (tests in a box).
+  readonly property var displayCutouts: displayCutoutsFile.missing ? [] : NotchModel.parseCutouts(displayCutoutsFile.text())
+  FileView {
+    id: displayCutoutsFile
+    // A file that went away describes nothing, whatever text() still holds.
+    property bool missing: false
+    path: Quickshell.env("POWERBAR_DISPLAY_CUTOUTS") || "/usr/share/omarchy-platform/display-cutouts.json"
+    blockLoading: true
+    watchChanges: true
+    printErrors: false
+    onLoaded: missing = false
+    onLoadFailed: missing = true
+    onFileChanged: reload()
+  }
+  // Each panel's camera width, which Omarchy's file lacks (notch-panels.json).
+  readonly property var notchPanels: NotchModel.parsePanels(notchPanelsFile.text())
+  FileView {
+    id: notchPanelsFile
+    path: root.pluginDir + "/notch-panels.json"
+    blockLoading: true
+    printErrors: false
+  }
+  // The physical mode Hyprland reports for a screen; Qt's whole-number
+  // devicePixelRatio can't rebuild it at a fractional scale.
+  function panelModeFor(screen) {
+    var monitor = screen ? Hyprland.monitorFor(screen) : null
+    return monitor ? ({ width: monitor.width, height: monitor.height,
+      transform: monitor.lastIpcObject ? monitor.lastIpcObject.transform : 0 }) : null
+  }
+  // The notch a top bar meets on this screen ({ width, height } logical px),
+  // or null. Omarchy's [bar] notch-height calibrates the height; read by name
+  // since an Omarchy from before notches has no such token. edge: the bar's
+  // edge to ask about (default: where it is).
+  function notchFor(screen, edge) {
+    if (!screen) return null
+    return NotchModel.notchOf(displayCutouts, edge || position, screen.name, screen.width, screen.height, screen.devicePixelRatio,
+      panelModeFor(screen), barOptions.notchWidth, Style.bar["notchHeight"], notchPanels)
+  }
+  // The notch on the first screen that has one, for Preferences (null: none).
+  // Asked for a top bar wherever the bar is: the Notch mode moves it there,
+  // so a bar on another edge still offers it.
+  readonly property var screenNotch: {
+    var screens = Quickshell.screens
+    for (var i = 0; i < screens.length; i++) {
+      var notch = notchFor(screens[i], "top")
+      if (notch) return notch
+    }
+    return null
+  }
+  // A bar window's thickness: the bar's, or more where a notch floor raises it.
+  function extentOf(window) { return window && window.extent > 0 ? window.extent : barExtent }
   // One cell, one inset (docs/behavior/layout-zones.md): every item gets a cell along the
   // bar, square for glyphs, and the cell is its highlight. Equal slots puts
   // cells one gutter apart; Equal gaps puts the same air between glyphs.
@@ -1951,8 +2036,14 @@ Item {
   // A group drawn as a menu has one size on every bar: rows, padding and icon
   // cells as the large bar's (groups.md GROUP-96). The live drawer and
   // Preferences' drawing of it both read these.
-  function menuTokensFor(vertical) { return CellModel.tokens({ bar: barSizeFor(vertical, true), spacing: widgetSpacing, mode: spacingMode }) }
-  readonly property var menuTokens: menuTokensFor(vertical)
+  // Drawers (strips and menus) have one size on every bar, the large bar's
+  // own (never the notch's), and the bar's spacing.
+  function drawerTokensFor(vertical) {
+    return CellModel.tokens({ bar: (vertical ? Style.bar.sizeVertical : Style.bar.sizeHorizontal) + largeBarLip * 2, spacing: widgetSpacing, mode: spacingMode })
+  }
+  function menuTokensFor(vertical) { return drawerTokensFor(vertical) }
+  readonly property var drawerTokens: drawerTokensFor(vertical)
+  readonly property var menuTokens: drawerTokens
   readonly property real highlightRadius: CellModel.radius(cellTokens, islandRounding)
   // Compounds (several click targets in one widget) show a faint track over
   // the whole cell and a thumb over the hovered target.
@@ -2037,14 +2128,62 @@ Item {
     var s = strip.mapToItem(host, 0, 0)
     var start = (vertical ? origin.y : origin.x) + from + (own - cell) / 2
     var cross = vertical ? s.x + (strip.width - k.thickness) / 2 : s.y + (strip.height - k.thickness) / 2
+    // A widget in the notch's second row lights there.
+    if (!vertical && item.wrapY > 0) cross += item.wrapY
     return vertical ? { x: cross, y: start, width: k.thickness, height: cell, radius: highlightRadius }
       : { x: start, y: cross, width: cell, height: k.thickness, radius: highlightRadius }
+  }
+  // A notch zone's second row (NotchModel.wrapRow), or null: list is the
+  // zone's ModuleList, trail an item that ends it (the Preferences button).
+  function zoneWrap(list, trail, side, length) {
+    if (!list || !list.slotRow) return null
+    var kids = list.slotRow.children, base = list.x + list.slotRow.x, spans = [], items = []
+    for (var i = 0; i < kids.length; i++) {
+      var k = kids[i]
+      if (!k || k.cellSpill === undefined || !k.visible || !(k.width > 0)) continue
+      spans.push({ start: base + k.x, end: base + k.x + k.width })
+      items.push(k)
+    }
+    if (!items.length) return null
+    var edge = side === "left" ? islandScreenInset + cellEndPad(items[0].cellSpill)
+      : length - islandScreenInset - cellEndPad(items[items.length - 1].cellSpill)
+    // The trail (the Preferences button) never wraps: it keeps its corner at
+    // the screen edge, and the first row stops where it begins.
+    var align = edge
+    if (trail && trail.visible && trail.width > 0) edge = pinnedTrailX(trail, length)
+    var w = NotchModel.wrapRow(spans, edge, side, align)
+    if (!w) return null
+    w.items = items.slice(w.from, w.to)
+    w.spans = spans.slice(w.from, w.to)
+    w.spill = { first: items[w.from].cellSpill, last: items[w.to - 1].cellSpill }
+    return w
+  }
+  // Where the Preferences button sits at the screen edge on a top bar.
+  function pinnedTrailX(trail, length) { return length - islandScreenInset - cellEndPad(trail.cellSpill) - trail.width }
+  // Hang a zone's widgets as its wrap says, and bring the rest back.
+  function applyWrap(list, trail, wrap, hanger, side, length) {
+    var all = list && list.slotRow ? Array.prototype.slice.call(list.slotRow.children) : []
+    if (trail) all.push(trail)
+    all.forEach(function(k) {
+      if (!k || k.wrapped === undefined) return
+      var at = wrap ? wrap.items.indexOf(k) : -1
+      if (at >= 0) {
+        var span = wrap.spans[at]
+        k.wrapShift = wrap.shift
+        k.wrapHanger = hanger
+        k.wrapAt = side === "left" ? span.end + wrap.shift - islandScreenInset : length - islandScreenInset - (span.start + wrap.shift)
+      }
+      k.wrapped = at >= 0
+    })
   }
   function highlightInset(extent) { return Math.min(Style.space(3), Math.max(0, (extent - Style.space(16)) / 2)) }
   readonly property int barExtent: Math.ceil(barSize + (flat ? 0 : edgeGap * 2))
   readonly property real widgetSpacing: Style.space(AppearanceModel.clampTo(AppearanceModel.ranges.spacing, barConfig.powerbarSpacing))
   readonly property var themeIslandBorder: Border.surfaceSpec("popups", "border", Commons.Color.popups.border, 1)
-  readonly property real islandRounding: roundingFor(appearanceConfig)
+  // The notch mode's zones take the camera's corners (notchCorners), not the
+  // rounding setting.
+  readonly property real islandRounding: notchMode ? Math.min(notchCorners.radius, barSize / 2) : roundingFor(appearanceConfig)
+  readonly property var notchCorners: NotchModel.zoneCorners(screenNotch)
   // Every config delivery builds the spec afresh; an equal one keeps the last
   // object, so the islands, drawers, tooltip and strip that read it (through
   // Border.*) are not re-resolved for a change elsewhere in the config.
@@ -2108,7 +2247,8 @@ Item {
     var config = Util.isPlainObject(barConfig) ? barConfig : fallbackBarConfig
 
     updateGroups(config)
-    position = normalizePosition(config.position)
+    // The notch's zones grow out of a camera at the top of the screen.
+    position = ZoneModeModel.modeOf(config) === "notch" ? "top" : normalizePosition(config.position)
     var look = AppearanceModel.barBackground(config)
     backgroundLook = look
     setRequestedTransparency(look === "none")
@@ -2533,6 +2673,8 @@ Item {
   function barZoneAt(point, window) {
     var coordinate = root.vertical ? point.y : point.x
     var length = root.vertical ? window.height : window.width
+    // Two zones have no centre: each takes its half.
+    if (root.twoZones) return coordinate < length / 2 ? "left" : "right"
     return ["left", "center", "right"][Math.min(2, Math.max(0, Math.floor(coordinate * 3 / length)))]
   }
 
@@ -2547,7 +2689,7 @@ Item {
       var barPoint = content.mapFromItem(null, scenePoint.x, scenePoint.y)
       drawer = sourceWindow.managedDrawer
       var surface = DragModel.dropSurface(barPoint, { width: content.width, height: content.height },
-        { width: sourceWindow.width, height: sourceWindow.height }, root.position, root.barExtent, root.barSize,
+        { width: sourceWindow.width, height: sourceWindow.height }, root.position, root.extentOf(sourceWindow), root.barSize,
         drawer ? { open: drawer.opened, x: drawer.x, y: drawer.y, width: drawer.width, height: drawer.height } : null,
         !!(sourceSlot && sourceSlot.groupHeader && drawer && drawer.groupId))
       if (!surface) return null
@@ -2694,7 +2836,7 @@ Item {
   // (ZoneOrderModel.landsOnDemand).
   function barGapOnDemand(targetSlot, after, sourceSlot) {
     var g = barGap(targetSlot, after, sourceSlot)
-    return !!g && ZoneOrderModel.landsOnDemand(g.rest, g.gap, targetSlot.instanceKey)
+    return !!g && ZoneOrderModel.landsOnDemand(g.rest, g.gap, targetSlot.instanceKey, !!targetSlot.homeWindow.notchLook)
   }
   function barDropBefore(targetSlot, after, sourceSlot, managed) {
     var g = barGap(targetSlot, after, sourceSlot)
@@ -3152,7 +3294,7 @@ Item {
       }
       function onInlineHandleZoneChanged() { root.ev("dots", (barWindow.inlineHandleZone || "-") + " on " + barWindow.evScreen) }
       function onAutoHideShownChanged() { root.ev("strip", (barWindow.autoHideShown ? "out" : "away") + " on " + barWindow.evScreen, root.animationsEnabled ? (barWindow.autoHideShown ? 180 : 130) : 0) }
-      function onPeekingChanged() { root.ev("peek", (barWindow.peeking ? Object.keys(barWindow.peekZones).join(",") : "end") + " on " + barWindow.evScreen) }
+      function onPeekingChanged() { root.ev("peek", (barWindow.peeking ? Object.keys(barWindow.peekItems).join(",") : "end") + " on " + barWindow.evScreen) }
     }
     // The zone dots in this window, for drops (FoldHandle registers itself).
     property var foldHandles: []
@@ -3260,6 +3402,8 @@ Item {
         gap: root.zoneGap,
         momentGap: root.edgeGap,
         gutter: root.cellTokens.gutter,
+        notch: notchKeepOut,
+        wrap: notchLook,
         left: zoneFitList(leftModel), right: right,
         before: zoneFitList(beforeModel), anchor: anchors.length ? anchors[0] : null, after: zoneFitList(afterModel),
         center: zoneFitList(centerModel),
@@ -3272,6 +3416,8 @@ Item {
       var handle = CellModel.place(root.cellTokens, CellModel.TYPICAL_GLYPH, true)
       return {
         length: i.length, inset: i.inset, gap: i.gap, gutter: i.gutter, momentGap: i.momentGap,
+        notch: i.notch > 0 ? Math.max(1, i.notch - 2 * (root.cellEndPad(0) + i.gap)) : 0,
+        wrap: i.wrap,
         pad: function(spill) { return root.cellEndPad(spill) },
         handle: { extent: handle.extent, spill: handle.spill },
         zones: { left: i.left, right: i.right, before: i.before, anchor: i.anchor, after: i.after, center: i.center },
@@ -3531,7 +3677,7 @@ Item {
       var managed = function(item) { return item.managed }
       for (var name of names) {
         models.push(widgetModels[name])
-        lists.push(ZoneOrderModel.arrange(partition[name].map(function(key) { return widgetStore.get(key) }).filter(function(item) { return !!item }), managed, name))
+        lists.push(ZoneOrderModel.arrange(partition[name].map(function(key) { return widgetStore.get(key) }).filter(function(item) { return !!item }), managed, name, notchLook))
       }
       var items = records.map(function(record) { return widgetStore.get(record.key) }).filter(function(item) { return !!item })
       for (var item of items) {
@@ -3547,7 +3693,9 @@ Item {
       function onLayoutConfigChanged() { barWindow.reconcileWidgets() }
       function onCenterAnchorChanged() { barWindow.reconcileWidgets() }
     }
-    Component.onCompleted: { reconcileWidgets(); syncStrip(true) }
+    // The notch draws on-demand runs at the zones' far ends.
+    onNotchLookChanged: reconcileWidgets()
+    Component.onCompleted: { reconcileWidgets(); syncStrip(true); if (!notchPending) notchWaitOver = true }
 
     // Keep the Wayland surface stable across drawer opens/closes. Only the
     // input region and drawer visibility change; no full-bar buffer resize.
@@ -3560,7 +3708,58 @@ Item {
     // reveal has to rebuild them — new surface, re-shaped glyphs, re-uploaded
     // textures — which measures ~150ms against ~20ms to tear down. Parking
     // keeps the surface alive, so showing is only a margin change.
-    visible: !remapping
+    // A top bar that can't tell its notch yet waits for Hyprland's mode before
+    // it maps (NotchModel.pending), so it maps at its full height instead of
+    // growing once windows are laid out; two seconds at most, once.
+    visible: !remapping && (notchWaitOver || !notchPending)
+    readonly property var panelMode: root.panelModeFor(screen)
+    readonly property bool notchPending: !!screen && NotchModel.pending(root.displayCutouts, root.position, screen.name, screen.width, screen.height, screen.devicePixelRatio, panelMode)
+    property bool notchWaitOver: false
+    onNotchPendingChanged: if (!notchPending) notchWaitOver = true
+    Timer { interval: 2000; running: barWindow.notchPending && !barWindow.notchWaitOver; onTriggered: barWindow.notchWaitOver = true }
+    // The camera notch on this screen, or null; panelMode keeps it in step
+    // with Hyprland's answer.
+    readonly property var notch: { var m = panelMode; return root.notchFor(screen) }
+    // The gap two-zone modes keep in the middle of a horizontal bar: one
+    // notch wide, the camera's where there is one (ZoneFitModel's notch slot,
+    // less the zone gap and end pads the fit adds around it; zoneFitInput).
+    // On the notch it is the camera plus the inset a zone keeps from a screen
+    // edge on each side (the zones' black runs on to the camera).
+    readonly property real notchKeepOut: root.twoZones && !root.vertical
+      ? (notch ? notch.width : root.barOptions.notchWidth || NotchModel.DEFAULT_LOGICAL_WIDTH) + (notchLook ? root.islandScreenInset * 2 : 0) : 0
+    // The notch's zones grow out of this screen's camera, flush with its top.
+    readonly property bool notchLook: root.notchMode && !!notch
+    // The camera's edges along the strip.
+    readonly property real notchLeft: notchLook ? (width - notch.width) / 2 : 0
+    readonly property real notchRight: notchLook ? (width + notch.width) / 2 : 0
+    // How far each zone runs on under the camera, so the black it springs out
+    // with never parts from it: the spring's overshoot stays within it, and
+    // a zone as tall as the camera covers its round corner once out.
+    readonly property real notchTuck: {
+      if (!notchLook) return 0
+      var c = NotchModel.cornersOf(notch, notch.width)
+      return Math.max(Style.space(6), Math.ceil(c.shoulder + c.radius) + 1)
+    }
+    readonly property real notchOvershoot: Style.space(4)
+    // Each zone's length from inside the camera out, reported by the bar's
+    // contents: how far it slides to hide in the notch.
+    property real leftReach: 0
+    property real rightReach: 0
+    // A wrapped zone's second row, along the bar from the screen edge (0: none).
+    property real leftRow: 0
+    property real rightRow: 0
+    // The second row on a card's side of the camera, which the card keeps
+    // clear of as it does an open drawer (TooltipModel.place).
+    function wrapRowNear(box) {
+      var leftSide = box.x + box.width / 2 < width / 2, along = leftSide ? leftRow : rightRow
+      if (!notchLook || !(along > 0)) return null
+      return { x: leftSide ? root.islandScreenInset : width - root.islandScreenInset - along, y: mainStrip.y + root.barSize,
+        width: along, height: root.barSize, vertical: false }
+    }
+    // The strip is at least as tall as the notch, so no window peeks out
+    // beside the camera; widgets stay centred in it (at the top on the notch,
+    // where the zones are only as tall as the bar).
+    readonly property int extent: notchLook ? Math.max(root.barSize, notch.height) : Math.max(root.barExtent, notch ? notch.height : 0)
     // Hidden for a moment to remap (a blur change, a screen move). Widgets read
     // as invisible meanwhile, so the window freezes its slots' measurements
     // first and thaws them once the widgets have reported their sizes again.
@@ -3579,8 +3778,10 @@ Item {
       function onXChanged() { barWindow.freezeLayout() }
       function onYChanged() { barWindow.freezeLayout() }
     }
-    exclusionMode: root.barHidden ? ExclusionMode.Ignore : ExclusionMode.Normal
-    exclusiveZone: root.barHidden || root.autoHide ? 0 : root.barExtent
+    // On the notch, windows stop under the camera even while the bar hides.
+    exclusionMode: root.barHidden && !notchLook ? ExclusionMode.Ignore : ExclusionMode.Normal
+    exclusiveZone: notchLook ? (root.barHidden || root.autoHide ? notch.height : extent)
+      : root.barHidden || root.autoHide ? 0 : extent
 
     // Autohide overlays windows without reserving space. The surface stays
     // mapped and its content slides past the screen edge, leaving a thin edge
@@ -3604,9 +3805,7 @@ Item {
       interval: 400
       onTriggered: if (!barWindow.autoHideHeld) barWindow.autoHideRevealed = false
     }
-    readonly property real autoHideDistance: root.barExtent + root.surfaceEffects.shadowSize + Style.space(8)
-    // Zones slid out by widget activity: "all" for flat and floating bars, or
-    // single zones for islands. One timer ends them; new activity extends it.
+    readonly property real autoHideDistance: extent + root.surfaceEffects.shadowSize + Style.space(8)
     // Per-zone layers between the islands and the widgets, where bar item
     // highlights are drawn so a widget's own clipped slot cannot cut them.
     property var highlightLayers: ({})
@@ -3618,17 +3817,46 @@ Item {
       highlightLayers = layers
       zoneIslands = islands
     }
-    property var peekZones: ({})
-    function peek(zone) {
-      if (!autoHideActive) return
-      var next = Object.assign({}, peekZones)
-      next[root.islands ? zone : "all"] = true
-      peekZones = next
+    // Widgets brought out by activity, each on its own badge (PeekBadge),
+    // the latest last: { key: item }, in peekOrder. One timer ends them; new
+    // activity extends it. The strip itself stays away.
+    property var peekItems: ({})
+    property bool badgesOut: false
+    ListModel { id: peekOrder }
+    function peekKey(item) { return item.groupHeader ? "group:" + item.entry.powerbarGroupId : String(item.instanceKey || "") }
+    function peek(item) {
+      if (!autoHideActive || !item) return
+      var key = peekKey(item)
+      if (!key) return
+      var items = Object.assign({}, peekItems)
+      items[key] = item
+      peekItems = items
+      var known = false
+      for (var i = 0; i < peekOrder.count; i++) if (peekOrder.get(i).key === key) known = true
+      if (!known) peekOrder.append({ key: key })
+      if (item.region === "right") peekRight = item
+      else peekLeft = item
+      peekClear.stop()
+      badgesOut = true
       peekEnd.restart()
     }
-    Timer { id: peekEnd; interval: root.autoHidePeekMs; onTriggered: barWindow.peekZones = ({}) }
-    readonly property bool peeking: !!(peekZones.all || peekZones.left || peekZones.center || peekZones.right)
-    readonly property bool autoHideShown: !autoHideActive || autoHideRevealed || peeking
+    // On the notch one badge on each side of the camera: its latest widget.
+    property Item peekLeft: null
+    property Item peekRight: null
+    Timer { id: peekEnd; interval: root.autoHidePeekMs; onTriggered: { barWindow.badgesOut = false; peekClear.restart() } }
+    // Once the badges have slid away.
+    Timer {
+      id: peekClear
+      interval: 260
+      onTriggered: {
+        peekOrder.clear()
+        barWindow.peekItems = ({})
+        barWindow.peekLeft = null
+        barWindow.peekRight = null
+      }
+    }
+    readonly property bool peeking: badgesOut && peekOrder.count > 0
+    readonly property bool autoHideShown: !autoHideActive || autoHideRevealed
     property real autoHideOffset: 0
     // A drawer opening or closing under a tooltip moves it clear. A tooltip
     // on a drawer's row (the keyboard's name card after a search opened the
@@ -3660,26 +3888,32 @@ Item {
       function onWidthChanged() { Qt.callLater(barWindow.reanchorTooltip) }
       function onHeightChanged() { Qt.callLater(barWindow.reanchorTooltip) }
     }
-    // While one island peeks the strip is out, so the others are pushed back
-    // past the edge by the same distance, on the same curve.
-    function zoneTucked(zone) { return root.islands && autoHideActive && !autoHideRevealed && peeking && !peekZones[zone] }
+    // On the notch the strip stays and each zone slides sideways into the
+    // camera: out while the bar is revealed.
+    function zoneOut(zone) { return !autoHideActive || autoHideRevealed }
     property real leftShift: 0
     property real centerShift: 0
     property real rightShift: 0
     // The strip slides out over 180 ms, answering the pointer, and away over
-    // 130 (LOOK-104, 105); tucked islands move on its exact clock so the two
-    // cancel out. Durations read through bindings raced the slide's own
-    // binding (both follow autoHideShown) and could start a slide with the
-    // other's duration, the tucked islands then bobbing 10 px at every peek.
-    // So the four motions start together here, once the state has settled.
-    readonly property string stripState: [autoHideShown, zoneTucked("left"), zoneTucked("center"), zoneTucked("right"), autoHideDistance].join("|")
+    // 130 (LOOK-104, 105). Durations read through bindings raced the slide's
+    // own binding and could start a slide with the other's duration, so the
+    // motions start together here, once the state has settled.
+    readonly property string stripState: [autoHideShown, autoHideDistance,
+      notchLook, zoneOut("left"), zoneOut("right"), leftReach, rightReach].join("|")
     onStripStateChanged: Qt.callLater(barWindow.syncStrip)
     function syncStrip(now) {
+      if (notchLook) {
+        slideStrip(offsetMotion, 0, 0, true)
+        slideStrip(centerMotion, 0, 0, true)
+        slideNotch(leftMotion, zoneOut("left") ? 0 : leftReach, now)
+        slideNotch(rightMotion, zoneOut("right") ? 0 : rightReach, now)
+        return
+      }
       var ms = autoHideShown ? 180 : 130
       slideStrip(offsetMotion, autoHideShown ? 0 : autoHideDistance, ms, now)
-      slideStrip(leftMotion, zoneTucked("left") ? autoHideDistance : 0, ms, now)
-      slideStrip(centerMotion, zoneTucked("center") ? autoHideDistance : 0, ms, now)
-      slideStrip(rightMotion, zoneTucked("right") ? autoHideDistance : 0, ms, now)
+      slideStrip(leftMotion, 0, 0, true)
+      slideStrip(centerMotion, 0, 0, true)
+      slideStrip(rightMotion, 0, 0, true)
     }
     function slideStrip(motion, to, ms, now) {
       if (motion.running && motion.to === to) return
@@ -3687,6 +3921,26 @@ Item {
       if (now === true || !root.animationsEnabled) { barWindow[motion.property] = to; return }
       if (barWindow[motion.property] === to) return
       motion.duration = ms
+      motion.to = to
+      motion.start()
+    }
+    // A zone springs out of the camera over 220 ms, a few pixels past its
+    // place and back (the tuck hides the overshoot), and slips in over 140.
+    // Already hidden, it follows a change in its length at once.
+    function slideNotch(motion, to, now) {
+      if (motion.running && motion.to === to) return
+      var from = barWindow[motion.property]
+      if (now === true || !root.animationsEnabled || (!motion.running && from > 0.5 && to > 0)) {
+        motion.stop()
+        barWindow[motion.property] = to
+        return
+      }
+      if (from === to) return
+      motion.stop()
+      var out = to < from
+      motion.easing.type = out ? Easing.OutBack : Easing.OutCubic
+      motion.easing.overshoot = out ? NotchModel.backOvershoot(from - to, notchOvershoot) : 1.70158
+      motion.duration = out ? 220 : 140
       motion.to = to
       motion.start()
     }
@@ -3702,18 +3956,22 @@ Item {
     }
     function shiftX(amount) { return root.position === "left" ? -amount : root.position === "right" ? amount : 0 }
     function shiftY(amount) { return root.position === "top" ? -amount : root.position === "bottom" ? amount : 0 }
+    // A zone's slide: past the screen edge, or on the notch sideways into the camera.
+    function slideX(zone, amount) { return notchLook ? (zone === "left" ? amount : zone === "right" ? -amount : 0) : shiftX(amount) }
+    function slideY(zone, amount) { return notchLook ? 0 : shiftY(amount) }
     readonly property real autoHideEdge: 2
     // Mapping a surface stalls the bar's frames for a moment, so the keyboard
     // mode's own surface (the key legend) and any tooltip
     // wait until the bar has slid out: the slide is what the eye is on.
-    readonly property bool sliding: autoHideOffset > 0.5
+    readonly property bool sliding: notchLook ? (zoneOut("left") && leftShift > 0.5) || (zoneOut("right") && rightShift > 0.5)
+      : autoHideOffset > 0.5
 
     ScreenMoveRemap {
       id: remapGuard
       window: barWindow
     }
     // Omarchy's glassy background blurs too.
-    readonly property bool blurEnabled: root.surfaceEffects.blur || root.glassy
+    readonly property bool blurEnabled: !root.notchMode && (root.surfaceEffects.blur || root.glassy)
     onBlurEnabledChanged: {
       if (visible) { freezeLayout(); blurRemap.restart() }
     }
@@ -3722,10 +3980,10 @@ Item {
     Timer { id: blurRemap; interval: 60 }
 
     margins {
-      top: root.barHidden && root.position === "top" ? -(root.barExtent + drawerExtent) : 0
-      bottom: root.barHidden && root.position === "bottom" ? -(root.barExtent + drawerExtent) : 0
-      left: root.barHidden && root.position === "left" ? -(root.barExtent + drawerExtent) : 0
-      right: root.barHidden && root.position === "right" ? -(root.barExtent + drawerExtent) : 0
+      top: root.barHidden && root.position === "top" ? -(barWindow.extent + drawerExtent) : 0
+      bottom: root.barHidden && root.position === "bottom" ? -(barWindow.extent + drawerExtent) : 0
+      left: root.barHidden && root.position === "left" ? -(barWindow.extent + drawerExtent) : 0
+      right: root.barHidden && root.position === "right" ? -(barWindow.extent + drawerExtent) : 0
     }
 
     anchors {
@@ -3735,8 +3993,8 @@ Item {
       right: root.position === "right" || !root.vertical
     }
 
-    implicitWidth: root.vertical ? root.barExtent + drawerExtent : 0
-    implicitHeight: root.vertical ? 0 : root.barExtent + drawerExtent
+    implicitWidth: root.vertical ? extent + drawerExtent : 0
+    implicitHeight: root.vertical ? 0 : extent + drawerExtent
     color: "transparent"
     surfaceFormat.opaque: false
     WlrLayershell.namespace: blurEnabled ? "powerbar" : "powerbar-clear"
@@ -3781,11 +4039,63 @@ Item {
       ? (keysHere ? (keysFocusPrimed ? WlrKeyboardFocus.OnDemand : WlrKeyboardFocus.Exclusive) : WlrKeyboardFocus.None)
       : drawer.opened && drawer.keyboardMode ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
     WlrLayershell.keyboardFocus: keyboardFocusMode
+    // On the notch only the zones and the camera take the pointer: the bar's
+    // empty stretches to the screen edges let it through.
     mask: Region {
       x: mainStrip.x; y: mainStrip.y
-      width: mainStrip.width; height: mainStrip.height
+      width: barWindow.notchLook ? 0 : mainStrip.width
+      height: barWindow.notchLook ? 0 : mainStrip.height
       Region {
-        item: autoHideStrip
+        item: barWindow.notchLook ? null : autoHideStrip
+        intersection: Intersection.Combine
+      }
+      // On the notch the camera reveals the bar in its own shape (NotchShape):
+      // the screen beside its round corners stays the windows'. The band over
+      // its shoulders, where the top edge curves into it, is the full width.
+      Region {
+        readonly property var corners: NotchModel.cornersOf(barWindow.notch, autoHideStrip.width)
+        readonly property bool on: barWindow.notchLook && autoHideStrip.visible
+        x: autoHideStrip.x + Math.round(corners.shoulder)
+        y: autoHideStrip.y
+        width: on ? autoHideStrip.width - Math.round(corners.shoulder) * 2 : 0
+        height: on ? autoHideStrip.height : 0
+        bottomLeftRadius: Math.round(corners.radius)
+        bottomRightRadius: Math.round(corners.radius)
+        intersection: Intersection.Combine
+      }
+      Region {
+        x: autoHideStrip.x
+        y: autoHideStrip.y
+        width: barWindow.notchLook && autoHideStrip.visible ? autoHideStrip.width : 0
+        height: barWindow.notchLook ? Math.ceil(NotchModel.cornersOf(barWindow.notch, autoHideStrip.width).shoulder) : 0
+        intersection: Intersection.Combine
+      }
+      Region {
+        x: barWindow.notchLeft + barWindow.notchTuck - barWindow.leftReach + barWindow.leftShift
+        y: mainStrip.y
+        width: barWindow.notchLook ? Math.max(0, barWindow.leftReach - barWindow.leftShift) : 0
+        height: root.barSize
+        intersection: Intersection.Combine
+      }
+      Region {
+        x: barWindow.notchRight - barWindow.notchTuck
+        y: mainStrip.y
+        width: barWindow.notchLook ? Math.max(0, barWindow.rightReach - barWindow.rightShift) : 0
+        height: root.barSize
+        intersection: Intersection.Combine
+      }
+      Region {
+        x: root.islandScreenInset
+        y: mainStrip.y + root.barSize
+        width: barWindow.notchLook ? barWindow.leftRow : 0
+        height: root.barSize
+        intersection: Intersection.Combine
+      }
+      Region {
+        x: barWindow.width - root.islandScreenInset - barWindow.rightRow
+        y: mainStrip.y + root.barSize
+        width: barWindow.notchLook ? barWindow.rightRow : 0
+        height: root.barSize
         intersection: Intersection.Combine
       }
       // A drawer stepped aside for a member's panel takes no clicks.
@@ -3823,13 +4133,16 @@ Item {
       onCleared: drawer.close()
     }
     ManagedDrawer { id: drawer; bar: root; hostWindow: barWindow }
+    // On the notch the camera alone reveals the bar.
     Item {
       id: autoHideStrip
       visible: barWindow.autoHideActive
-      x: root.position === "right" ? barWindow.width - width : 0
+      x: barWindow.notchLook ? barWindow.notchLeft : root.position === "right" ? barWindow.width - width : 0
       y: root.position === "bottom" ? barWindow.height - height : 0
-      width: !visible ? 0 : root.vertical ? barWindow.autoHideEdge : barWindow.width
-      height: !visible ? 0 : root.vertical ? barWindow.height : barWindow.autoHideEdge
+      width: !visible ? 0 : barWindow.notchLook ? barWindow.notchRight - barWindow.notchLeft
+        : root.vertical ? barWindow.autoHideEdge : barWindow.width
+      height: !visible ? 0 : barWindow.notchLook ? barWindow.notch.height
+        : root.vertical ? barWindow.height : barWindow.autoHideEdge
       HoverHandler { id: edgeHover }
     }
     EffectSurface {
@@ -3838,11 +4151,11 @@ Item {
         : root.position === "left" ? -barWindow.autoHideOffset : 0
       y: root.position === "bottom" ? barWindow.drawerExtent + barWindow.autoHideOffset
         : root.position === "top" ? -barWindow.autoHideOffset : 0
-      width: root.vertical ? root.barExtent : barWindow.width
-      height: root.vertical ? barWindow.height : root.barExtent
+      width: root.vertical ? barWindow.extent : barWindow.width
+      height: root.vertical ? barWindow.height : barWindow.extent
       // A flat bar is this strip itself, square and edge to edge like
       // Omarchy's bar; the other styles draw their surfaces inside it.
-      color: root.flat ? root.mainSurfaceColor : "transparent"
+      color: root.flat && !barWindow.notchLook ? root.mainSurfaceColor : "transparent"
       shadowEnabled: root.flat && root.surfaceEffects.shadow
       shadowSize: root.surfaceEffects.shadowSize
       shadowOpacity: root.surfaceEffects.shadowOpacity
@@ -3851,9 +4164,9 @@ Item {
     }
     // A floating bar: one continuous surface, held off the edges like islands.
     EffectSurface {
-      visible: root.floating
-      x: mainStrip.x + (root.vertical ? (root.barExtent - root.barSize) / 2 : root.edgeGap)
-      y: mainStrip.y + (root.vertical ? root.edgeGap : (root.barExtent - root.barSize) / 2)
+      visible: root.floating && !barWindow.notchLook
+      x: mainStrip.x + (root.vertical ? (barWindow.extent - root.barSize) / 2 : root.edgeGap)
+      y: mainStrip.y + (root.vertical ? root.edgeGap : (barWindow.extent - root.barSize) / 2)
       width: root.vertical ? root.barSize : mainStrip.width - root.edgeGap * 2
       height: root.vertical ? mainStrip.height - root.edgeGap * 2 : root.barSize
       color: root.mainSurfaceColor
@@ -3863,11 +4176,27 @@ Item {
       radius: root.islandRounding
       borderSpec: root.islandBorder
     }
+    // The camera's own black, so the zones meet it however wide it really is,
+    // in the housing's shape. Zones as tall as it cover its corners as they
+    // come out (notchTuck).
+    NotchShape {
+      id: cameraShape
+      visible: barWindow.notchLook
+      x: mainStrip.x + barWindow.notchLeft
+      y: mainStrip.y
+      width: barWindow.notchRight - barWindow.notchLeft
+      height: barWindow.notch ? barWindow.notch.height : 0
+      notch: barWindow.notch
+      shadowEnabled: root.surfaceEffects.shadow
+      shadowSize: root.surfaceEffects.shadowSize
+      shadowOpacity: root.surfaceEffects.shadowOpacity
+    }
     Loader {
       x: mainStrip.x
       y: mainStrip.y
       width: mainStrip.width
-      height: mainStrip.height
+      // On the notch: the bar's row and room for a zone's second (zoneWrap).
+      height: barWindow.notchLook ? root.barSize * 2 : mainStrip.height
       transformOrigin: Item.TopLeft
       sourceComponent: barContents
 
@@ -3878,6 +4207,30 @@ Item {
         Component.onDestruction: if (hovered) root.setBarHovered(false)
       }
       HoverHandler { id: windowHover }
+    }
+    // Activity badges (PeekBadge): over the strip, so one stays in sight
+    // while the strip slides out under it. On the notch, one each side of
+    // the camera.
+    Repeater {
+      model: barWindow.notchLook ? null : peekOrder
+      PeekBadge {
+        required property string key
+        window: barWindow
+        target: barWindow.peekItems[key] || null
+        out: barWindow.badgesOut
+      }
+    }
+    PeekBadge {
+      window: barWindow
+      target: barWindow.notchLook ? barWindow.peekLeft : null
+      side: "left"
+      out: barWindow.badgesOut && !!target
+    }
+    PeekBadge {
+      window: barWindow
+      target: barWindow.notchLook ? barWindow.peekRight : null
+      side: "right"
+      out: barWindow.badgesOut && !!target
     }
     // The pointer over this window's bar, for areas that must know where it
     // is whatever widget sits on top (the centre's hover reveal).
@@ -4232,7 +4585,7 @@ Item {
           var size = { width: Math.ceil(tooltipBubble.implicitWidth), height: Math.ceil(tooltipBubble.implicitHeight) }
           var at = TooltipModel.place(root.position, { x: box.x, y: box.y, width: box.width, height: box.height },
             size, 6,
-            open ? { x: drawer.x, y: drawer.y, width: drawer.width, height: drawer.height, vertical: drawer.stripVertical } : null,
+            open ? { x: drawer.x, y: drawer.y, width: drawer.width, height: drawer.height, vertical: drawer.stripVertical } : barWindow.wrapRowNear(box),
             open && root.itemWithin(target, drawer), { width: barWindow.width, height: barWindow.height },
             { x: mainStrip.x, y: mainStrip.y, width: mainStrip.width, height: mainStrip.height }, root.overlayShadowPad)
           var pad = root.overlayShadowPad
@@ -4290,30 +4643,6 @@ Item {
             y: barWindow.shiftY(barWindow.centerShift) + (root.vertical ? barWindow.fitShift : 0)
           }
         }
-        IslandSurface {
-          id: leftIsland
-          zoneHidden: barWindow.zoneHidden("left")
-          transform: Translate { x: barWindow.shiftX(barWindow.leftShift); y: barWindow.shiftY(barWindow.leftShift) }
-          x: root.vertical ? (parent.width - width) / 2 : leftModules.x + leftModules.shownLead - root.islandEnd("left", leftModules.leadSpill)
-          y: root.vertical ? leftModules.y + leftModules.shownLead - root.islandEnd("left", leftModules.leadSpill) : (parent.height - height) / 2
-          width: root.vertical ? root.barSize : leftModules.width - leftModules.shownLead - leftModules.shownTrail + root.islandEnd("left", leftModules.leadSpill) + root.islandEnd("left", leftModules.trailSpill)
-          height: root.vertical ? leftModules.height - leftModules.shownLead - leftModules.shownTrail + root.islandEnd("left", leftModules.leadSpill) + root.islandEnd("left", leftModules.trailSpill) : root.barSize
-          visible: root.islands && leftModules.shownLength > 0 && opacity > 0
-        }
-        IslandSurface {
-          id: rightIsland
-          zoneHidden: barWindow.zoneHidden("right")
-          transform: Translate { x: barWindow.shiftX(barWindow.rightShift); y: barWindow.shiftY(barWindow.rightShift) }
-          readonly property real start: rightModules.shownLength > 0
-            ? (root.vertical ? rightModules.y : rightModules.x) + rightModules.shownLead - root.islandEnd("right", rightModules.leadSpill)
-            : (root.vertical ? preferencesButton.y : preferencesButton.x) - root.islandEnd("right", preferencesButton.cellSpill)
-          x: root.vertical ? (parent.width - width) / 2 : start
-          y: root.vertical ? start : (parent.height - height) / 2
-          // Measured from start, never from x or y: on a vertical bar x depends on
-          // width, so width depending on x would loop when the orientation flips.
-          width: root.vertical ? root.barSize : preferencesButton.x + preferencesButton.width + root.islandEnd("right", preferencesButton.cellSpill) - start
-          height: root.vertical ? preferencesButton.y + preferencesButton.height + root.islandEnd("right", preferencesButton.cellSpill) - start : root.barSize
-        }
         CenterModules {
           anchors.fill: parent
           homeWindow: barWindow
@@ -4325,42 +4654,167 @@ Item {
             y: barWindow.shiftY(barWindow.centerShift) + (root.vertical ? barWindow.fitShift : 0)
           }
         }
-        HighlightLayer { zone: "left"; island: leftIsland; transform: Translate { x: barWindow.shiftX(barWindow.leftShift); y: barWindow.shiftY(barWindow.leftShift) } }
-        HighlightLayer { zone: "right"; island: rightIsland; transform: Translate { x: barWindow.shiftX(barWindow.rightShift); y: barWindow.shiftY(barWindow.rightShift) } }
-        LeftModules {
-          id: leftModules
-          homeWindow: barWindow
+        // Each side's island, highlights and widgets in one layer. On the notch
+        // with autohide it clips at the camera's middle, so a zone sliding in
+        // vanishes under it rather than coming out the other side.
+        ZoneClip {
+          id: leftZone
           z: barWindow.inlineZoneName === "left" ? 1 : 0
-          transform: Translate { x: barWindow.shiftX(barWindow.leftShift); y: barWindow.shiftY(barWindow.leftShift) }
-          // Positioned with x/y, never with anchors switched by orientation: a
-          // switch passes through a state anchored both ways, and Qt then writes
-          // width/height directly, which removes their bindings for good.
-          x: root.vertical ? (parent.width - width) / 2 : root.islandScreenInset + root.cellEndPad(leadSpill)
-          y: root.vertical ? root.islandScreenInset + root.cellEndPad(leadSpill) : (parent.height - height) / 2
+          clipping: barWindow.notchLook && barWindow.autoHideActive
+          clipTo: barWindow.notchLeft + barWindow.notchTuck
+          rowHeight: barWindow.notchLook ? root.barSize : 0
+          // Past the screen edge the zone's outer widgets hang in a second row.
+          readonly property var wrap: barWindow.notchLook ? root.zoneWrap(leftModules, null, "left", barWindow.width) : null
+          onWrapChanged: root.applyWrap(leftModules, null, wrap, leftHanger, "left", barWindow.width)
+          NotchHanger {
+            id: leftHanger
+            bar: root
+            side: "left"
+            wrap: leftZone.wrap
+            width: parent.width
+            height: root.barSize * 2
+            inner: barWindow.notchLeft + barWindow.notchTuck
+            shadowEnabled: root.surfaceEffects.shadow
+            shadowSize: root.surfaceEffects.shadowSize
+            shadowOpacity: root.surfaceEffects.shadowOpacity
+            rowEnd: wrap ? wrap.row[1] + root.cellEndPad(wrap.spill.last) : 0
+            color: root.mainSurfaceColor
+            transform: Translate { x: barWindow.slideX("left", barWindow.leftShift) }
+          }
+          IslandSurface {
+            id: leftIsland
+            zoneHidden: barWindow.zoneHidden("left")
+            notchSide: barWindow.notchLook ? "left" : ""
+            transform: Translate { x: barWindow.slideX("left", barWindow.leftShift); y: barWindow.slideY("left", barWindow.leftShift) }
+            x: root.vertical ? (parent.width - width) / 2 : leftModules.x + leftModules.shownLead - root.islandEnd("left", leftModules.leadSpill)
+            y: root.vertical ? leftModules.y + leftModules.shownLead - root.islandEnd("left", leftModules.leadSpill) : (parent.height - height) / 2
+            width: root.vertical ? root.barSize : leftModules.width - leftModules.shownLead - leftModules.shownTrail + root.islandEnd("left", leftModules.leadSpill) + root.islandEnd("left", leftModules.trailSpill)
+              + (barWindow.notchLook ? root.islandScreenInset + barWindow.notchTuck : 0)
+            height: root.vertical ? leftModules.height - leftModules.shownLead - leftModules.shownTrail + root.islandEnd("left", leftModules.leadSpill) + root.islandEnd("left", leftModules.trailSpill) : root.barSize
+            visible: root.islands && leftModules.shownLength > 0 && opacity > 0 && !leftHanger.shown
+          }
+          HighlightLayer { zone: "left"; island: leftIsland; transform: Translate { x: barWindow.slideX("left", barWindow.leftShift); y: barWindow.slideY("left", barWindow.leftShift) } }
+          LeftModules {
+            id: leftModules
+            homeWindow: barWindow
+            z: barWindow.inlineZoneName === "left" ? 1 : 0
+            transform: Translate { x: barWindow.slideX("left", barWindow.leftShift); y: barWindow.slideY("left", barWindow.leftShift) }
+            // Positioned with x/y, never with anchors switched by orientation: a
+            // switch passes through a state anchored both ways, and Qt then writes
+            // width/height directly, which removes their bindings for good.
+            // On the notch its end meets the camera, one screen inset away.
+            x: root.vertical ? (parent.width - width) / 2
+              : barWindow.notchLook ? barWindow.notchLeft - root.islandScreenInset - width + shownTrail - root.islandEnd("left", trailSpill)
+              : root.islandScreenInset + root.cellEndPad(leadSpill)
+            y: root.vertical ? root.islandScreenInset + root.cellEndPad(leadSpill) : (parent.height - height) / 2
+          }
+          Binding { target: barWindow; property: "leftReach"; value: barWindow.notchLook ? barWindow.notchLeft + barWindow.notchTuck - leftIsland.x : 0 }
+          Binding { target: barWindow; property: "leftRow"; value: leftHanger.shown ? leftHanger.reach : 0 }
         }
-        PreferencesButton {
-          id: preferencesButton
-          zoneHidden: barWindow.zoneHidden("right")
-          // The keyboard mode's last stop on the bar.
-          Component.onCompleted: barWindow.prefsButton = preferencesButton
-          Component.onDestruction: if (barWindow.prefsButton === preferencesButton) barWindow.prefsButton = null
-          transform: Translate { x: barWindow.shiftX(barWindow.rightShift); y: barWindow.shiftY(barWindow.rightShift) }
-          x: root.vertical ? (parent.width - width) / 2 : parent.width - root.islandScreenInset - root.cellEndPad(cellSpill) - width
-          y: root.vertical ? parent.height - root.islandScreenInset - root.cellEndPad(cellSpill) - height : (parent.height - height) / 2
-        }
-        RightModules {
-          id: rightModules
-          homeWindow: barWindow
+        ZoneClip {
+          id: rightZone
           z: barWindow.inlineZoneName === "right" ? 1 : 0
-          transform: Translate { x: barWindow.shiftX(barWindow.rightShift); y: barWindow.shiftY(barWindow.rightShift) }
-          x: root.vertical ? (parent.width - width) / 2 : preferencesButton.x - width
-          y: root.vertical ? preferencesButton.y - height : (parent.height - height) / 2
+          clipping: barWindow.notchLook && barWindow.autoHideActive
+          clipFrom: barWindow.notchRight - barWindow.notchTuck
+          clipTo: barWindow.width
+          rowHeight: barWindow.notchLook ? root.barSize : 0
+          readonly property var wrap: barWindow.notchLook ? root.zoneWrap(rightModules, preferencesButton, "right", barWindow.width) : null
+          onWrapChanged: root.applyWrap(rightModules, preferencesButton, wrap, rightHanger, "right", barWindow.width)
+          NotchHanger {
+            id: rightHanger
+            bar: root
+            side: "right"
+            wrap: rightZone.wrap
+            width: parent.width
+            height: root.barSize * 2
+            inner: barWindow.notchRight - barWindow.notchTuck
+            shadowEnabled: root.surfaceEffects.shadow
+            shadowSize: root.surfaceEffects.shadowSize
+            shadowOpacity: root.surfaceEffects.shadowOpacity
+            rowEnd: wrap ? wrap.row[0] - root.cellEndPad(wrap.spill.first) : 0
+            color: root.mainSurfaceColor
+            transform: Translate { x: barWindow.slideX("right", barWindow.rightShift) }
+          }
+          IslandSurface {
+            id: rightIsland
+            visible: (root.islands || notchSide !== "") && opacity > 0 && !rightHanger.shown
+            zoneHidden: barWindow.zoneHidden("right")
+            notchSide: barWindow.notchLook ? "right" : ""
+            transform: Translate { x: barWindow.slideX("right", barWindow.rightShift); y: barWindow.slideY("right", barWindow.rightShift) }
+            readonly property real start: barWindow.notchLook ? barWindow.notchRight - barWindow.notchTuck
+              : rightModules.shownLength > 0
+              ? (root.vertical ? rightModules.y : rightModules.x) + rightModules.shownLead - root.islandEnd("right", rightModules.leadSpill)
+              : (root.vertical ? preferencesButton.y : preferencesButton.x) - root.islandEnd("right", preferencesButton.cellSpill)
+            x: root.vertical ? (parent.width - width) / 2 : start
+            y: root.vertical ? start : (parent.height - height) / 2
+            // Measured from start, never from x or y: on a vertical bar x depends on
+            // width, so width depending on x would loop when the orientation flips.
+            width: root.vertical ? root.barSize : preferencesButton.x + preferencesButton.width + root.islandEnd("right", preferencesButton.cellSpill) - start
+            height: root.vertical ? preferencesButton.y + preferencesButton.height + root.islandEnd("right", preferencesButton.cellSpill) - start : root.barSize
+          }
+          HighlightLayer { zone: "right"; island: rightIsland; transform: Translate { x: barWindow.slideX("right", barWindow.rightShift); y: barWindow.slideY("right", barWindow.rightShift) } }
+          PreferencesButton {
+            id: preferencesButton
+            zoneHidden: barWindow.zoneHidden("right")
+            // The keyboard mode's last stop on the bar.
+            Component.onCompleted: barWindow.prefsButton = preferencesButton
+            Component.onDestruction: if (barWindow.prefsButton === preferencesButton) barWindow.prefsButton = null
+            transform: [
+              Translate { x: barWindow.slideX("right", barWindow.rightShift); y: barWindow.slideY("right", barWindow.rightShift) },
+              Translate { x: preferencesButton.wrapX; y: preferencesButton.wrapY }
+            ]
+            // On the notch the right zone runs out from the camera and the
+            // button ends it, never further than its corner at the screen edge
+            // (the widgets past it wrap; zoneWrap).
+            x: root.vertical ? (parent.width - width) / 2
+              : barWindow.notchLook ? (rightModules.shownLength > 0 ? Math.min(rightModules.x + rightModules.width, root.pinnedTrailX(preferencesButton, parent.width))
+                : barWindow.notchRight + root.islandScreenInset + root.islandEnd("right", cellSpill))
+              : parent.width - root.islandScreenInset - root.cellEndPad(cellSpill) - width
+            y: root.vertical ? parent.height - root.islandScreenInset - root.cellEndPad(cellSpill) - height : (parent.height - height) / 2
+          }
+          RightModules {
+            id: rightModules
+            homeWindow: barWindow
+            z: barWindow.inlineZoneName === "right" ? 1 : 0
+            transform: Translate { x: barWindow.slideX("right", barWindow.rightShift); y: barWindow.slideY("right", barWindow.rightShift) }
+            x: root.vertical ? (parent.width - width) / 2
+              : barWindow.notchLook ? barWindow.notchRight + root.islandScreenInset - shownLead + root.islandEnd("right", leadSpill)
+              : preferencesButton.x - width
+            y: root.vertical ? preferencesButton.y - height : (parent.height - height) / 2
+          }
+          Binding { target: barWindow; property: "rightReach"; value: barWindow.notchLook ? rightIsland.width : 0 }
+          Binding { target: barWindow; property: "rightRow"; value: rightHanger.shown ? rightHanger.reach : 0 }
         }
       }
     }
   }
 
   Component { id: emptyModuleComponent; Item { implicitWidth: 0; implicitHeight: 0; visible: false } }
+
+  // A zone's own layer, the bar's size unless it clips (ZoneClip.clipping):
+  // then it covers clipFrom..clipTo along the bar. Its content keeps the bar's
+  // coordinates either way.
+  component ZoneClip: Item {
+    id: zoneClip
+    property real clipFrom: 0
+    property real clipTo: 0
+    property bool clipping: false
+    // The height its content is laid out in, when less than its own (the
+    // notch's first row, with room under it for the second).
+    property real rowHeight: 0
+    default property alias content: zoneLayer.data
+    x: clipping ? clipFrom : 0
+    width: clipping ? Math.max(0, clipTo - clipFrom) : (parent ? parent.width : 0)
+    // Room below for the surfaces' shadows when it clips.
+    height: (parent ? parent.height : 0) + (clipping && root.surfaceEffects.shadow ? Math.ceil(root.surfaceEffects.shadowSize) * 2 : 0)
+    clip: clipping
+    Item {
+      id: zoneLayer
+      x: -zoneClip.x
+      width: zoneClip.parent ? zoneClip.parent.width : 0
+      height: zoneClip.rowHeight > 0 ? zoneClip.rowHeight : zoneClip.height
+    }
+  }
 
   // The landing placeholder in an open drag gap: the dragged widget's own
   // highlight, outlined, centred in the gap.
@@ -4394,19 +4848,148 @@ Item {
     NumberAnimation { duration: leaving ? outMs : 160; easing.type: Easing.OutCubic }
   }
 
+  // A widget brought out alone by activity on an autohidden bar
+  // (appearance.md LOOK-63): a badge in the bar's shape, its thickness and
+  // rounding, holding a live picture of the widget (or its group's icon).
+  // It slides in from the screen edge where the widget sits, on the strip's
+  // curve and timing; on the notch it springs sideways out of the camera on
+  // the widget's side, one widget long, as the zones do. The strip sliding
+  // out over it takes over once it arrives.
+  component PeekBadge: Item {
+    id: badge
+    property var window: null
+    property Item target: null
+    property bool out: false
+    // On the notch: the camera's side it comes out of.
+    property string side: "left"
+    readonly property bool onNotch: !!window && window.notchLook
+    readonly property bool leftSide: side === "left"
+    readonly property real pad: target ? root.cellEndPad(target.cellSpill || 0) : 0
+    // The widget's place along the bar, measured where it sits in the strip.
+    property real along: 0
+    property real length: 0
+    function measure() {
+      if (!target || !window || !window.contentItem) return
+      var p = target.mapToItem(window.contentItem, 0, 0)
+      along = root.vertical ? p.y : p.x
+      length = root.vertical ? target.height : target.width
+    }
+    onTargetChanged: measure()
+    Component.onCompleted: slide()
+    GeometryObserver { target: badge.target; host: badge.window ? badge.window.contentItem : null; onChanged: badge.measure() }
+
+    // The body's length: the widget and its pads, and on the notch the inset
+    // a zone keeps from the camera and the tuck under it.
+    readonly property real bodyLength: length + pad * 2 + (onNotch ? root.islandScreenInset + window.notchTuck : 0)
+    // How far it is from its place: past the screen edge, or into the camera.
+    readonly property real hiddenOffset: onNotch ? bodyLength : (window ? window.autoHideDistance : 0)
+    property real offset: hiddenOffset
+    // Covered once the strip has come out over it.
+    readonly property bool covered: !!window && window.autoHideRevealed
+      && (onNotch ? (leftSide ? window.leftShift : window.rightShift) < 0.5 : window.autoHideOffset < 0.5)
+    visible: !!target && !covered && offset < hiddenOffset - 0.5
+    onOutChanged: slide()
+    onHiddenOffsetChanged: if (!out && !motion.running) offset = hiddenOffset
+    function slide() {
+      measure()
+      var to = out ? 0 : hiddenOffset
+      if (motion.running && motion.to === to) return
+      motion.stop()
+      if (!root.animationsEnabled || covered || offset === to) { offset = to; return }
+      if (onNotch) {
+        motion.easing.type = out ? Easing.OutBack : Easing.OutCubic
+        motion.easing.overshoot = out ? NotchModel.backOvershoot(offset - to, window.notchOvershoot) : 1.70158
+        motion.duration = out ? 220 : 140
+      } else {
+        motion.easing.type = Easing.OutCubic
+        motion.duration = out ? 180 : 130
+      }
+      motion.to = to
+      motion.start()
+    }
+    NumberAnimation { id: motion; target: badge; property: "offset" }
+
+    // On the notch: clipped at the camera's middle, so it slides in under it.
+    x: onNotch ? (leftSide ? 0 : window.notchRight - window.notchTuck) : 0
+    y: 0
+    width: onNotch ? (leftSide ? window.notchLeft + window.notchTuck : window.width - x) : (window ? window.width : 0)
+    height: window ? window.height : 0
+    clip: onNotch
+
+    // Where the body sits across the bar: as the islands do, in the strip.
+    readonly property bool nearEdgeFirst: root.position === "top" || root.position === "left"
+    readonly property real cross: (window ? (nearEdgeFirst ? 0 : window.drawerExtent) + (window.extent - root.barSize) / 2 : 0)
+      + (onNotch ? 0 : (nearEdgeFirst ? -offset : offset))
+    readonly property real start: onNotch
+      ? (leftSide ? window.notchLeft + window.notchTuck - bodyLength + offset : -offset)
+      : along - pad
+
+    EffectSurface {
+      id: body
+      x: root.vertical ? badge.cross : badge.start
+      y: root.vertical ? badge.start : (badge.onNotch ? 0 : badge.cross)
+      width: root.vertical ? root.barSize : badge.bodyLength
+      height: root.vertical ? badge.bodyLength : root.barSize
+      color: badge.onNotch ? "transparent" : root.mainSurfaceColor
+      shadowEnabled: root.surfaceEffects.shadow && !badge.onNotch
+      shadowSize: root.surfaceEffects.shadowSize
+      shadowOpacity: root.surfaceEffects.shadowOpacity
+      radius: root.islandRounding
+      borderSpec: root.notchMode ? Border.none() : root.islandBorder
+      // On the notch, a zone's black a widget long.
+      NotchEnd { visible: badge.onNotch; side: badge.side }
+      ShaderEffectSource {
+        sourceItem: badge.target
+        live: true
+        hideSource: false
+        width: badge.target ? badge.target.width : 0
+        height: badge.target ? badge.target.height : 0
+        x: root.vertical ? (parent.width - width) / 2
+          : badge.onNotch && !badge.leftSide ? root.islandScreenInset + badge.window.notchTuck + badge.pad : badge.pad
+        y: root.vertical ? badge.pad : (parent.height - height) / 2
+      }
+    }
+  }
+
   component IslandSurface: EffectSurface {
+    id: island
     // Hidden whole by an inline expansion: fades with its widgets, out fast,
     // back once the expansion has shrunk (the yield timings).
     property bool zoneHidden: false
+    // On the notched screen (barWindow.notchLook): "left" or "right", the
+    // side of the notch this zone grows from. Square where it meets the
+    // camera; its outer end has the camera's corners (NotchEnd).
+    property string notchSide: ""
     opacity: zoneHidden ? 0 : 1
     Behavior on opacity { enabled: root.animationsEnabled; YieldFade { leaving: zoneHidden } }
-    visible: root.islands && opacity > 0
+    visible: (root.islands || notchSide !== "") && opacity > 0
+    color: notchSide !== "" ? "transparent" : root.mainSurfaceColor
+    shadowEnabled: root.surfaceEffects.shadow && notchSide === ""
+    shadowSize: root.surfaceEffects.shadowSize
+    shadowOpacity: root.surfaceEffects.shadowOpacity
+    radius: root.islandRounding
+    borderSpec: root.notchMode ? Border.none() : root.islandBorder
+    NotchEnd { visible: island.notchSide !== ""; side: island.notchSide }
+  }
+
+  // A notch zone's or badge's black, filling its parent: square where it
+  // meets the camera, and at the outer end on `side` the camera's own
+  // corners, its shoulder running out past the end along the screen's top
+  // edge as the camera's does (appearance.md LOOK-143).
+  component NotchEnd: NotchShape {
+    property string side: "left"
+    readonly property bool leftSide: side === "left"
+    x: leftSide ? -root.notchCorners.shoulder : 0
+    width: (parent ? parent.width : 0) + root.notchCorners.shoulder
+    height: parent ? parent.height : 0
+    shoulderStart: leftSide ? root.notchCorners.shoulder : 0
+    shoulderEnd: leftSide ? 0 : root.notchCorners.shoulder
+    radiusStart: leftSide ? root.notchCorners.radius : 0
+    radiusEnd: leftSide ? 0 : root.notchCorners.radius
     color: root.mainSurfaceColor
     shadowEnabled: root.surfaceEffects.shadow
     shadowSize: root.surfaceEffects.shadowSize
     shadowOpacity: root.surfaceEffects.shadowOpacity
-    radius: root.islandRounding
-    borderSpec: root.islandBorder
   }
 
   component PreferencesButton: Item {
@@ -4419,6 +5002,25 @@ Item {
     opacity: zoneHidden ? 0 : 1
     enabled: !zoneHidden
     Behavior on opacity { enabled: root.animationsEnabled; YieldFade { leaving: preferencesButton.zoneHidden } }
+    // On the notch it never wraps (zoneWrap pins it at the screen edge), so
+    // these stay at rest; widgets carry the same state when they hang in
+    // their zone's second row.
+    property bool wrapped: false
+    property real wrapShift: 0
+    property real wrapAt: 0
+    property Item wrapHanger: null
+    readonly property real wrapX: wrapped ? wrapShift : 0
+    readonly property real wrapY: wrapped ? root.barSize : 0
+    readonly property bool wrapShown: !wrapped || !wrapHanger || wrapHanger.reach >= wrapAt - 0.5
+    // Gone at once when it moves rows, then faded in as the black reaches it
+    // (a Behavior's duration read through a binding raced the change).
+    property real wrapOpacity: 1
+    onWrapShownChanged: {
+      wrapFade.stop()
+      if (wrapShown && root.animationsEnabled) wrapFade.start()
+      else wrapOpacity = wrapShown ? 1 : 0
+    }
+    NumberAnimation { id: wrapFade; target: preferencesButton; property: "wrapOpacity"; to: 1; duration: 90; easing.type: Easing.OutCubic }
     // A glyph cell like any icon widget: square highlight, one gutter (or one
     // equal gap) around its nine dots.
     readonly property real glyphSize: root.preferencesGlyphSize
@@ -4451,6 +5053,7 @@ Item {
     Grid {
       id: preferencesGlyph
       anchors.centerIn: parent
+      opacity: preferencesButton.wrapOpacity
       columns: 3; spacing: Style.spaceReal(2.5)
       Repeater {
         model: 9
@@ -4749,7 +5352,7 @@ Item {
     pressAndHoldInterval: 200
 
     function startDrag(x, y) {
-      if (dragging) return
+      if (dragging || root.notchMode) return
       dragging = true
       root.beginBarMove(root.targetWindow(gestureArea))
       var scenePoint = gestureArea.mapToItem(null, x, y)
@@ -5049,9 +5652,9 @@ Item {
     readonly property var fitHandles: homeWindow && homeWindow.zoneFit ? homeWindow.zoneFit.handles : null
     readonly property bool centerStartDots: !!fitHandles && (fitHandles.center === "start" || fitHandles.center === "both")
     readonly property bool centerEndDots: !!fitHandles && (fitHandles.center === "end" || fitHandles.center === "both")
-    readonly property bool handleAtStart: !!fitHandles && ((listRole === "right" && fitHandles.right === "start")
+    readonly property bool handleAtStart: !!fitHandles && (((listRole === "left" || listRole === "right") && fitHandles[listRole] === "start")
       || ((listRole === "before" || listRole === "center") && centerStartDots))
-    readonly property bool handleAtEnd: !!fitHandles && ((listRole === "left" && fitHandles.left === "end")
+    readonly property bool handleAtEnd: !!fitHandles && (((listRole === "left" || listRole === "right") && fitHandles[listRole] === "end")
       || ((listRole === "after" || listRole === "center") && centerEndDots))
     width: root.vertical ? Math.max(root.barSize, contents.width) : startGap.width + startHandle.width + contents.width + endHandle.width + endGap.width
     height: root.vertical ? startGap.height + startHandle.height + contents.height + endHandle.height + endGap.height : Math.max(root.barSize, contents.height)
@@ -5149,6 +5752,8 @@ Item {
       x: root.vertical ? 0 : contents.x + contents.width
       y: root.vertical ? contents.y + contents.height : 0
     }
+    // The slots, for the notch's second row (zoneWrap).
+    readonly property Item slotRow: contents
     Grid {
       id: contents
       x: root.vertical ? 0 : startGap.width + startHandle.width
@@ -5175,6 +5780,27 @@ Item {
     id: slot
 
     required property var record
+    // On the notch it never wraps (zoneWrap pins it at the screen edge), so
+    // these stay at rest; widgets carry the same state when they hang in
+    // their zone's second row.
+    property bool wrapped: false
+    property real wrapShift: 0
+    property real wrapAt: 0
+    property Item wrapHanger: null
+    readonly property real wrapX: wrapped ? wrapShift : 0
+    readonly property real wrapY: wrapped ? root.barSize : 0
+    readonly property bool wrapShown: !wrapped || !wrapHanger || wrapHanger.reach >= wrapAt - 0.5
+    transform: Translate { x: slot.wrapX; y: slot.wrapY }
+    // Gone at once when it moves rows, then faded in as the black reaches it
+    // (a Behavior's duration read through a binding raced the change).
+    property real wrapOpacity: 1
+    onWrapShownChanged: {
+      wrapFade.stop()
+      if (wrapShown && root.animationsEnabled) wrapFade.start()
+      else wrapOpacity = wrapShown ? 1 : 0
+    }
+    NumberAnimation { id: wrapFade; target: slot; property: "wrapOpacity"; to: 1; duration: 90; easing.type: Easing.OutCubic }
+    opacity: wrapOpacity
     readonly property bool powerbarRetainedSlot: true
     readonly property var entry: record.entry
     property var homeWindow: null
@@ -5408,7 +6034,9 @@ Item {
     readonly property var ink: frozenMeasure ? frozenMeasure.ink : liveInk
     readonly property var crossInk: frozenMeasure ? frozenMeasure.crossInk : liveCrossInk
     // Only free text is capped: a compound (workspaces) or a vertical stack keeps its length.
-    readonly property var cellPlace: kept("place", CellModel.place(root.cellTokens, ink.length, CellModel.isGlyph(ink.length, ink.glyph),
+    // In a drawer the cell is the drawer's size (drawerTokens), not the bar's.
+    readonly property var slotTokens: drawerHost ? root.drawerTokens : root.cellTokens
+    readonly property var cellPlace: kept("place", CellModel.place(slotTokens, ink.length, CellModel.isGlyph(ink.length, ink.glyph),
       !root.vertical && compoundTargets.length < 2))
     readonly property real landingExtent: naturalWidth > 0 && naturalHeight > 0 ? cellPlace.extent : 0
     // A value that gets narrower keeps its width for a while, so flickering
@@ -5421,7 +6049,7 @@ Item {
     Timer { interval: 2000; running: true; onTriggered: slot.holdArmed = true }
     // The hold is for a value changing in place, not for a new layout: a
     // retained slot that changes orientation, bar size or spacing starts fresh.
-    readonly property string holdLayout: root.vertical + "|" + root.barSize + "|" + root.spacingMode + "|" + root.widgetSpacing
+    readonly property string holdLayout: root.vertical + "|" + slotTokens.bar + "|" + root.spacingMode + "|" + root.widgetSpacing
     property string heldLayout: ""
     onHoldLayoutChanged: Qt.callLater(updateHold)
     // The hold also waits out a remap freeze (measureFrozen).
@@ -5435,7 +6063,7 @@ Item {
       var holds = !(activeItem && activeItem.powerbarWidthHold === false)
       if (!(target > 0) || !baseVisible || !holdArmed || relayout || !holds) { heldExtent = target; shrinkAt = 0; holdTimer.stop(); return }
       var now = Date.now()
-      var h = CellModel.hold(heldExtent, target, now, root.widthHoldMs, shrinkAt, root.cellTokens.cell)
+      var h = CellModel.hold(heldExtent, target, now, root.widthHoldMs, shrinkAt, slotTokens.cell)
       heldExtent = h.value
       shrinkAt = h.shrinkAt
       if (shrinkAt > 0) { holdTimer.interval = Math.max(1, shrinkAt - now); holdTimer.restart() } else holdTimer.stop()

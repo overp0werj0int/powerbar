@@ -36,7 +36,10 @@ Item {
     return anchor ? entries.find(function(e) { return e.section === "center" && !e.groupId && e.id === anchor }) || null : null
   }
   readonly property int anchorIndex: anchorRecord ? anchorRecord.index : -1
-  function columnsFor(mode) { return Model.columns(mode, anchorIndex >= 0) }
+  // Two-zone modes (ZoneModeModel.js) have no centre column.
+  readonly property bool twoZones: !!bar && bar.twoZones
+  readonly property bool notchMode: !!bar && bar.zoneMode === "notch"
+  function columnsFor(mode) { return twoZones ? ["left", "right"] : Model.columns(mode, anchorIndex >= 0) }
   readonly property var cellEntries: {
     var cells = ({})
     for (var mode of Model.modes) for (var column of columnsFor(mode))
@@ -48,7 +51,7 @@ Item {
     return exclude ? items.filter(function(r) { return r.instanceKey !== exclude }) : items
   }
   readonly property var snapshots: preferences.snapshots
-  readonly property var sections: Model.sections
+  readonly property var sections: twoZones ? ["left", "right"] : Model.sections
   readonly property var modes: Model.modes
   readonly property bool sideBar: !!bar && bar.vertical
   readonly property string anchorTitle: anchorRecord ? preferences.title(anchorRecord) : "center"
@@ -400,6 +403,21 @@ Item {
     }
   }
 
+  // Three zones, two, or two around the notch: each keeps its own layout
+  // (ZoneModeModel.js). Notch is offered where a screen has one.
+  ButtonGroup {
+    parent: shelfShown.headerSlot
+    anchors.verticalCenter: parent ? parent.verticalCenter : undefined
+    options: [{ value: "three", label: "Three zones" }, { value: "two", label: "Two zones" }].concat(
+      editor.bar && (editor.bar.screenNotch || editor.notchMode) ? [{ value: "notch", label: "Notch" }] : [])
+    value: editor.bar ? editor.bar.zoneMode : "three"
+    foreground: Commons.Color.popups.text
+    background: "transparent"
+    fontSize: Style.font.caption
+    Accessible.name: "Zones"
+    onChanged: function(value) { editor.preferences.setZoneMode(value) }
+  }
+
   // The dragged item follows the pointer while its landing place is previewed.
   Tile {
     visible: editor.pointerLift && !!editor.lifted
@@ -428,6 +446,7 @@ Item {
     property string mode: "shown"
     property alias focusItem: shelfFocus
     readonly property bool stacked: shelfFocus.width < Style.space(560)
+    readonly property var zoneColumns: editor.sections
     title: editor.shelfInfo[mode].title
     caption: editor.shelfInfo[mode].caption
     span12: 12
@@ -461,7 +480,7 @@ Item {
           Layout.fillWidth: true
           spacing: bento.gap
           Repeater {
-            model: editor.sections
+            model: shelf.zoneColumns
             Text {
               required property string modelData
               text: editor.zoneNames[modelData]
@@ -479,11 +498,11 @@ Item {
 
         GridLayout {
           Layout.fillWidth: true
-          columns: shelf.stacked ? 1 : 3
+          columns: shelf.stacked ? 1 : shelf.zoneColumns.length
           columnSpacing: bento.gap
           rowSpacing: Style.space(6)
           Repeater {
-            model: editor.sections
+            model: shelf.zoneColumns
             // One zone's column: its cell, or the split centre's two, stacked.
             ColumnLayout {
               id: zoneColumn
@@ -588,7 +607,10 @@ Item {
     readonly property real lineGap: Style.space(4)
     function lineX(n) {
       var w = layout.lines[n] ? layout.lines[n].width : 0
-      return zone === "left" ? pad : zone === "right" ? well.width - pad - w : (well.width - w) / 2
+      // On the notch the zones grow out of the camera: each hugs the middle.
+      var start = editor.notchMode ? zone === "right" : zone === "left"
+      var end = editor.notchMode ? zone === "left" : zone === "right"
+      return start ? pad : end ? well.width - pad - w : (well.width - w) / 2
     }
     function lineY(n) { return pad + n * (editor.barThickness + lineGap) }
     function slotRect(index) {
@@ -954,6 +976,7 @@ Item {
         }
         PrefsToggle {
           id: centerToggle
+          visible: !editor.twoZones
           compact: true
           label: "Keep at screen center"
           enabled: !!panel.record && panel.record.section === "center" && panel.record.mode === "shown"
@@ -963,6 +986,7 @@ Item {
         }
         Hint {
           Layout.leftMargin: Style.spacing.rowPaddingX
+          visible: centerToggle.visible
           dim: !centerToggle.enabled
           text: centerToggle.enabled ? "Other center widgets arrange around it" : "For a widget on the bar in the center"
         }

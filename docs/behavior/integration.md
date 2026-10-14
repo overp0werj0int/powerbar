@@ -151,6 +151,8 @@ bar uses now, the stored value or its default:
 | `dotsBadge` | bool | `powerbarDotsBadge` | true |
 | `keyLegend` | bool | `powerbarKeyLegend` | true |
 | `frameLog` | bool | `powerbarFrameLog` | false |
+| `zones` | choice three, two, notch (layout-zones.md ZONE-72; a switch swaps layouts, `reset` returns to three) | `powerbarZones` | three |
+| `notchWidth` | number 40 to 600, step 1 (logical px; the gap two-zone modes keep) | `powerbarNotchWidth` | the camera housing (185 at scale 2), 185 on a machine without a notch; `get` answers the width in use, `null` with no notch and none set |
 | `revealSeconds` | number 1 to 60 | `powerbarManagedRevealSeconds` | 2.5 |
 | `entryGraceSeconds` | number 1 to 15 | `powerbarManagedEntryGraceSeconds` | 1 |
 | `exitGraceSeconds` | number 1 to 15 | `powerbarManagedExitGraceSeconds` | 1 |
@@ -166,17 +168,17 @@ bar uses now, the stored value or its default:
 | `shadow.strength` | number 5 to 60, step 5 | `powerbarAppearance` | 30 |
 | `shortcut.bar:keys`, `shortcut.bar:search`, `shortcut.group:<id>`, `shortcut.widget:<plugin id>` | keys text | `powerbarShortcuts` | see INTEG-125 |
 
-Setting names are those of Preferences. `set` of `style` also drops `powerbarIslands`.
+Setting names are those of Preferences. `set` of `style` also drops `powerbarIslands`. `get style` answers the style chosen, also in the notch mode, which draws islands whatever it is (appearance.md LOOK-143).
 
 ### Functions
 
 - **INTEG-122** `status` answers JSON `{bar, version, theme, settings: {<name>: value}, widgets, groups, shortcuts, runtime}`; `runtime` is `{barOff, hidden, held, screens: [{screen, shown, peeking}], keys, drawer: {zone, group} | null, preferences: {open, page}, registry, build}` (`page` is `Layout`, `Groups` or `Bar` while open, else `""`; `registry`: INTEG-143; `build`: the digest of INTEG-147).
 - **INTEG-123** `get <setting>` answers the value as JSON (`"top"`, `true`, `4`; a shortcut: INTEG-125).
-- **INTEG-126** `set <setting> <value>` writes the setting: bar options through `bar.<key>`; `style` through the style writer; appearance tiles through Preferences' scope and look writers. Answers `ok` or one of these errors:
+- **INTEG-126** `set <setting> <value>` writes the setting: bar options through `bar.<key>`; `style` through the style writer; `zones` through the zone-mode switch (layout-zones.md ZONE-73); appearance tiles through Preferences' scope and look writers. Answers `ok` or one of these errors:
   - `error: <name> is true or false` (switch), `error: <name> is one of <a, b, c>` (choice), `error: <name> is a text value`, `error: <name> is a number`, `error: <name> is from <min> to <max>`, `error: <name> moves in steps of <step>` (a numeric string such as `"4"` quoted is not a number).
   - appearance look settings while the tile follows the theme: `error: <tile> follows the theme; set <tile>.scope to all or this first`.
   - `scope` and `surface.text` before the theme is known: `error: the current theme is not known yet`.
-- **INTEG-127** `reset <setting>` returns it to its default: a bar option's key is deleted from `shell.json`; `style` deletes `powerbarStyle` and `powerbarIslands`; a scope returns to its default scope; a look value is deleted from the scope the tile follows (when the tile follows the theme: `ok`, nothing changes); `surface.text` returns to `theme`; a shortcut returns to its default (INTEG-125). Same unknown-setting and cannot-save errors.
+- **INTEG-127** `reset <setting>` returns it to its default: a bar option's key is deleted from `shell.json`; `style` deletes `powerbarStyle` and `powerbarIslands`; `zones` switches to three zones; a scope returns to its default scope; a look value is deleted from the scope the tile follows (when the tile follows the theme: `ok`, nothing changes); `surface.text` returns to `theme`; a shortcut returns to its default (INTEG-125). Same unknown-setting and cannot-save errors.
 - **INTEG-128** `toggle <setting>` flips a bool setting (`true` becomes `false`, anything else becomes `true`); other types: `error: <name> is not a switch`.
 - **INTEG-129** `settings` answers the table above as a JSON array plus the entry `{name: "shortcut.<target>", type: "shortcut", key: "bar.powerbarShortcuts", targets: ["bar:keys", "bar:search", "group:<id>", "widget:<plugin id>"]}`.
 - **INTEG-130** `widgets` answers a JSON array, one per layout entry in layout order: `{id, instance, name, zone, index, visibility, group, centered, activityPeek, badgeProperty, urgentProperty, settings}`; `visibility` is `shown`, `managed` or `hidden` (as drawn now); `group` is the group id or `""`; `centered` is true for the centre widget named by `centerAnchor`; `settings` holds the entry's own options (everything except `id` and `powerbar*` keys).

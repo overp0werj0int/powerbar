@@ -18,7 +18,7 @@ Storage: the look lives in `bar.powerbarAppearance` of shell.json: `all` (values
 
 - **LOOK-5** Shadow > "Strength" (stored `strength`) is clamped to 5 to 60 percent, 30 by default (0 gives 0.05, 70 gives 0.6). Code: AppearanceModel.ranges.shadowOpacity.
 
-- **LOOK-6** Readable minimum: with `powerbarReadableOverlay` unset or true (Behavior > "Readable over windows", default on) and blur off, surfaces that lie over windows are at least 88% opaque: drawers, the tooltip, name card and key legend when styled by Powerbar, and the bar itself while it autohides. An opacity of 50 is drawn as 0.88 there, 95 stays 0.95. The always-visible bar is not raised. Code: AppearanceModel.overlayOpacity, barOpacity; Bar.qml overlaySurfaceColor.
+- **LOOK-6** Readable minimum: with `powerbarReadableOverlay` unset or true (Behavior > "Readable over windows", default on) and blur off, surfaces that lie over windows are at least 88% opaque: drawers, the tooltip, name card and key legend when styled by Powerbar, and the bar itself while it autohides. An opacity of 50 is drawn as 0.88 there, 95 stays 0.95. The always-visible bar is not raised. In the Notch mode every surface is opaque, so the setting has nothing to do and Preferences hides it (preferences.md PREFS-96). Code: AppearanceModel.overlayOpacity, barOpacity; Bar.qml overlaySurfaceColor.
 
 - **LOOK-7** With `powerbarReadableOverlay: false` those surfaces use the chosen opacity as it is. The setting is not part of the appearance scopes: it is one flat key for every theme. Code: AppearanceModel.overlayOpacity (`readableOverlay !== false`).
 
@@ -162,9 +162,9 @@ Storage: the look lives in `bar.powerbarAppearance` of shell.json: `all` (values
 
 - **LOOK-62** It stays out during a widget drag, its settle, and a bar-move drag (layout-zones.md ZONE-38). Code: autoHideHeld (barDragSource, barDragSettling, barMoveActive).
 
-- **LOOK-63** With `powerbarAutoHideActivity` (Preferences > Behavior > "Show on widget activity", default on), a change in a widget's `text`, `icon`, `iconText`, `value`, `displayValue`, `powerbarIcon`, `powerbarValue`, `powerbarActivityRevision` (or its `powerbarActivity()` signal) slides the bar out and highlights that widget (or its group's icon); on an islands bar only that widget's island slides out and the others stay tucked, on flat and floating bars the whole bar slides out. It stays `powerbarManagedRevealSeconds` (default 2.5 s, 1 to 60) and each further activity restarts that time. Peeks are ignored for 6 s after the bar (re)builds or the layout changes, so loading values do not flash it. Code: Bar.qml autoHidePeek, peek(), peekQuietUntil; ManagedModel.snapshot.
+- **LOOK-63** With `powerbarAutoHideActivity` (Preferences > Behavior > "Show on widget activity", default on), a change in a widget's `text`, `icon`, `iconText`, `value`, `displayValue`, `powerbarIcon`, `powerbarValue`, `powerbarActivityRevision` (or its `powerbarActivity()` signal) brings out a badge with that widget (or its group's icon) and highlights it, and the bar stays hidden. The badge is the widget alone on a surface in the bar's shape: the bar's rounding, surface, border and shadow, one cell's padding at each end. It slides in from the screen edge at the widget's own place along the bar, as the bar slides (180 ms, ease-out); each widget that changes brings its own. It shows the widget live and takes no pointer: the edge strip still reveals the bar, and when the bar slides out it covers the badges. The badges stay `powerbarManagedRevealSeconds` (default 2.5 s, 1 to 60) and each further activity restarts that time. Peeks are ignored for 6 s after the bar (re)builds or the layout changes, so loading values do not flash it. Code: Bar.qml autoHidePeek, peek(), peekQuietUntil; ManagedModel.snapshot.
 
-- **LOOK-64** When the peek time ends with nothing else holding the bar, it slides away over 130 ms. Code: Bar.qml peekEnd, syncStrip.
+- **LOOK-64** When the peek time ends, the badges slide away together over 130 ms (ease-out). Code: Bar.qml peekEnd, peekClear, PeekBadge.
 
 - **LOOK-65** With `powerbarAutoHideActivity: false` activity never slides the bar out; only the pointer, drawers and the other holds do. Code: Bar.qml autoHidePeek, ActivityObserver enabledForActivity.
 
@@ -246,6 +246,29 @@ Storage: the look lives in `bar.powerbarAppearance` of shell.json: `all` (values
 - **LOOK-97** Widget icons keep their own size on a large bar; the extra room is space around them. Code: Bar.qml largeBar comment, cellTokens.
 
 - **LOOK-98** Previews of widgets grabbed on a large bar are trimmed of the lip (LOOK-76). Code: WidgetIcon.
+
+## Notch look
+
+- **LOOK-143** In the notch mode (layout-zones.md ZONE-82) the zones are black with the theme's light text on every screen, because a widget takes one colour across the bar.
+  - The look forces fully opaque surfaces with no blur or border; the Surface choices are kept for the other modes.
+  - The shadow is the user's (LOOK-3 to LOOK-5). The camera's body, each zone, a wrapped zone's two rows and the activity badges cast it.
+  - Islands are forced whatever the style.
+  - Each zone's outer end has the camera's own corners (layout-zones.md ZONE-80), whatever the rounding setting: a shoulder at the top, where the screen's top edge curves down into the zone as it does into the camera, and the camera's bottom radius below. Its inner end is square and runs on under the camera. On a screen without a notch the zones are islands with the camera's bottom radius at every corner (the default housing's, 8 px, with no notched screen).
+  - Highlights and cards nest in that radius, as in an island's rounding (LOOK-10). The rounding setting applies to the other modes only.
+  - On the notched screen the camera's own black is also drawn behind the zones, so they meet the camera however wide it really is. It has the housing's shape (layout-zones.md ZONE-80), round bottom corners, and shoulders where the screen's top edge curves into it. It shows whole when the zones are in, and below them under a bar shorter than the camera.
+
+  Code: Bar.qml notchMode (surfaceEffects, mainSurfaceColor, barForeground, barStyle), islandRounding, notchCorners, cameraShape, NotchEnd; NotchShape.qml; NotchHanger.qml; IslandSurface; NotchModel.zoneCorners.
+
+- **LOOK-144** Autohide on the notch:
+  - **The camera is the edge strip:** only the camera reveals the bar (not a strip along the screen edge, as in LOOK-56 and LOOK-67), in the housing's shape: the screen beside its round bottom corners does not.
+  - **Each zone slides on its own:** it slides sideways out of the camera and back into it, clipped at the camera's edge, instead of the strip leaving the screen.
+  - **Out:** 220 ms with a spring (OutBack) whose overshoot is held to 4 px, however long the zone. The zone runs on under the camera by 6 px, or by the shoulder and bottom radius plus 1 px when that is more (13 px at scale 2 on a Pro), so the overshoot never parts it from the camera and a zone as tall as the camera covers its round corner once out.
+  - **In:** 140 ms (ease-out).
+  - **Peeks:** an activity peek (LOOK-63) brings the widget out of the camera on its zone's side, alone on a black badge a single widget long, with the zones' timing and spring above. The badge is square where it meets the camera and has the camera's corners at its outer end, as a zone does. One badge per side: a newer change on that side takes its place.
+  - **Lengths:** a hidden zone that changes length follows at once.
+  - **Off:** without autohide the zones stay out, blended into the camera.
+
+  Code: Bar.qml slideNotch, notchTuck, notchOvershoot, zoneOut, autoHideStrip, the window mask, PeekBadge (peekLeft, peekRight); NotchModel.backOvershoot.
 
 ## Animations
 

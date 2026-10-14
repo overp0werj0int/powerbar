@@ -5,14 +5,19 @@
 //
 // Lists: "left", "after" and an anchorless "center" have their dots at the end;
 // "right" and "before" (the centre's side before its anchor) at the start.
+// On the notch (outward) the zones grow away from the camera and the dots sit
+// at their far ends: the left zone's start, the right zone's end.
 
-function dotsAtStart(list) { return list === "right" || list === "before" }
+function dotsAtStart(list, outward) {
+  if (outward && (list === "left" || list === "right")) return list === "left"
+  return list === "right" || list === "before"
+}
 
-function arrange(items, isManaged, list) {
+function arrange(items, isManaged, list, outward) {
   if (list === "anchor") return items.slice()
   var shown = [], managed = []
   items.forEach(function (item) { (isManaged(item) ? managed : shown).push(item) })
-  return dotsAtStart(list) ? managed.concat(shown) : shown.concat(managed)
+  return dotsAtStart(list, outward) ? managed.concat(shown) : shown.concat(managed)
 }
 
 // Where a drop lands in the saved layout, given the gap it opened in the
@@ -57,7 +62,7 @@ function neighbours(sequence, gap) {
   for (var j = gap; j < sequence.length && !next; j++) if (!sequence[j].hidden) next = sequence[j]
   return { prev: prev, next: next }
 }
-function landsOnDemand(sequence, gap, near) {
+function landsOnDemand(sequence, gap, near, outward) {
   var n = neighbours(sequence, gap), prev = n.prev, next = n.next
   var nearItem = near && prev && prev.key === near ? prev : near && next && next.key === near ? next : null
   var list = (prev || next || {}).list
@@ -65,7 +70,7 @@ function landsOnDemand(sequence, gap, near) {
     if (item) return item.expanded ? "demand" : "shown"
     return dotsHere ? "demand" : "edge"
   }
-  var before = side(prev, dotsAtStart(list)), after = side(next, !dotsAtStart(list) && list !== "anchor")
+  var before = side(prev, dotsAtStart(list, outward)), after = side(next, !dotsAtStart(list, outward) && list !== "anchor")
   if (nearItem && before !== after && (before === "shown" || after === "shown")) return !!nearItem.expanded
   if (before === "shown" || after === "shown") return false
   return before === "demand" || after === "demand"

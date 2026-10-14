@@ -11,13 +11,16 @@
 #                                  box applies it live
 #   box.sh path NAME               the box's shell.json
 #
+# BOX_UP_ARGS adds options to `up`'s omabox up (word-split), e.g.
+# BOX_UP_ARGS="--env POWERBAR_DISPLAY_CUTOUTS=/home/sbx/cutouts.json --monitor 3024x1964,scale=2"
+#
 # PLUGIN_DIR defaults to this checkout. Widgets from plugins the box lacks
 # show as placeholders, which is enough for layout and motion.
 set -u
 ID=p0werj0int.powerbar
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cmd=${1:-}; N=${2:-}
-[ -n "$cmd" ] && [ -n "$N" ] || { sed -n '2,17p' "$0"; exit 2; }
+[ -n "$cmd" ] && [ -n "$N" ] || { sed -n '2,20p' "$0"; exit 2; }
 SRC=${3:-$ROOT}
 
 home() { echo "$(omabox path "$N")/home"; }
@@ -36,7 +39,7 @@ ready() {
 
 case "$cmd" in
   up)
-    omabox up "$N" --size 1512x945 >/dev/null 2>&1 || { echo "box.sh: omabox up failed" >&2; exit 1; }
+    omabox up "$N" --size 1512x945 ${BOX_UP_ARGS:-} >/dev/null 2>&1 || { echo "box.sh: omabox up failed" >&2; exit 1; }
     copy
     omabox run -b "$N" -- omarchy bar use "$ID" >/dev/null 2>&1
     python3 - "$(home)/.config/omarchy/shell.json" "$ID" <<'PY'
@@ -73,5 +76,5 @@ PY
     omabox wait -b "$N" still >/dev/null 2>&1
     ;;
   path) echo "$(home)/.config/omarchy/shell.json" ;;
-  *) sed -n '2,17p' "$0"; exit 2 ;;
+  *) sed -n '2,20p' "$0"; exit 2 ;;
 esac

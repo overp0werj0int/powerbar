@@ -665,3 +665,12 @@ test('without an anchor, centre folds wait on the side they were taken from', ()
   r.centerFolded.start.forEach(k => assert.ok(keys.indexOf(k) < keys.indexOf(shown[0])));
   r.centerFolded.end.forEach(k => assert.ok(keys.indexOf(k) > keys.indexOf(shown[shown.length - 1])));
 });
+
+test('on the notch (wrap) a zone\'s dots sit at its far end', () => {
+  const input = make({ length: 1512, zones: { anchor: null, left: [12, 12], right: [12, 12] } });
+  const dots = { left: true, right: true };
+  const notch = zf.fit(withIn(input, { dots, wrap: true }));
+  assert.deepEqual([notch.handles.left, notch.handles.right], ['start', 'end']);
+  const two = zf.fit(withIn(input, { dots }));
+  assert.deepEqual([two.handles.left, two.handles.right], ['end', 'start']);
+});

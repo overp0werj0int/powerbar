@@ -5,6 +5,7 @@
 //
 // Writers: "option"  Preferences.setOption(key, value) (bar.<key>)
 //          "style"   Preferences.setBarStyle(value)
+//          "zones"   Preferences.setZoneMode(value)
 //          "scope"   Preferences.setScope(tile, value)
 //          "look"    Preferences.setLook(tile, look, value)
 //          "text"    Preferences.setText(value)
@@ -32,6 +33,10 @@ var settings = [
   { name: "entryGraceSeconds", key: "powerbarManagedEntryGraceSeconds", type: "number", min: 1, max: 15, writer: "option" },
   { name: "exitGraceSeconds", key: "powerbarManagedExitGraceSeconds", type: "number", min: 1, max: 15, writer: "option" },
   { name: "frameLog", key: "powerbarFrameLog", type: "bool", writer: "option" },
+  // Zone modes (layout-zones.md, "Zone modes"): each keeps its own layout.
+  { name: "zones", key: "powerbarZones", type: "choice", choices: ["three", "two", "notch"], writer: "zones" },
+  // A camera notch's width in logical px: the gap two-zone modes keep.
+  { name: "notchWidth", key: "powerbarNotchWidth", type: "number", min: 40, max: 600, step: 1, writer: "option" },
   // Appearance (bar.powerbarAppearance), in the scope each tile follows now.
   { name: "shape.scope", tile: "shape", type: "choice", choices: ["theme", "all", "this"], writer: "scope" },
   { name: "shape.rounding", tile: "shape", look: "rounding", type: "number", min: 0, max: "roundingMax", step: 1, writer: "look" },

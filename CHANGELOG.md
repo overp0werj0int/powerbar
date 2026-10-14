@@ -2,6 +2,54 @@
 
 ## Unreleased
 
+- **Zone modes: three zones, two, or Notch.** Preferences > Layout now has
+  three modes, and each keeps its own arrangement (where each widget sits,
+  in what order, and whether it's on the bar, on demand or hidden). Switching
+  back finds a mode as you left it. Two zones drop the centre: everything sits
+  left or right of a gap one notch wide (Bar > Notch > Notch width; 185 px by
+  default). The first time you use a two-zone mode, the centre splits at the
+  clock, and the clock and keyboard layout move beside the Preferences button.
+  `omarchy-shell powerbar set zones three|two|notch`.
+- **Notch**: on a MacBook screen Omarchy describes as notched
+  (`display-cutouts.json`), two black zones grow out of the camera. They are
+  shaped at their outer ends like the camera itself (its shoulders at the
+  top, its corner radius below, whatever the rounding setting), and the bar
+  is always
+  exactly as tall as the notch. Their dots sit at the far ends, by the screen
+  edges, windows stop under the camera even while the bar autohides, the bar
+  can't be dragged off the top, and a zone's second row is walked from the
+  keyboard as a grid. Each MacBook panel's notch width comes from
+  macOS readings, kept in `notch-panels.json`, with the housing's corner
+  radii: the camera keeps its real shape with the zones in, whatever the
+  bar's rounding, and only that shape reveals the bar.
+  - With autohide, pointing at the camera makes each zone spring out of it
+    sideways, and an activity peek springs only the widget that changed out
+    of the camera, on its own black badge beside it.
+  - A group's drawer slides down out of the bar like a zone out of the
+    camera: black, attached, its top corners curving into the bar and its
+    bottom corners the camera's.
+  - On-demand widgets expand in the bar (the notch has no drawers). A zone
+    that outgrows the screen wraps onto a second row at the edge, one black
+    shape with the first.
+  - On the Bar page, Style, Shape and Surface give way to the Notch tile,
+    and Readable over windows is hidden (the notch is always opaque).
+  - Other screens show the same two black zones.
+- **Activity peeks show just the widget**: with autohide, a widget that
+  changes no longer brings out its whole zone or the whole bar. It comes out
+  alone, on a badge in the bar's shape (its rounding, surface, border and
+  shadow), at its own place along the bar, with the bar's timing; the bar
+  stays hidden.
+- **Preferences stays in its corner on the notch**: when a zone wraps onto a
+  second row, the Preferences button keeps its place at the screen edge and
+  only the widgets before it wrap.
+- **Notch offered wherever the bar sits**: Preferences > Layout offered the
+  Notch mode only while the bar was at the top; it now does from any edge,
+  since the mode moves the bar there.
+- **Shadow on the notch**: the Shadow tile stays on the Bar page in the
+  Notch mode; the camera, the zones and their second rows cast it.
+- **Drawers are one size on every bar**: a group's strip or menu is always
+  the large bar's size, with the bar's spacing, whether the bar is small,
+  large or as tall as the notch (on the notch it was the camera's height).
 - **Glassy bar background**: Omarchy's bar now steps its background from
   clear to glassy to opaque (a double click on the bar, the menu's
   Transparency, `omarchy bar background`). Powerbar follows: glassy draws the

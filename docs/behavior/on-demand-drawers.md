@@ -64,7 +64,8 @@ In the default drawer mode a zone's On demand widgets (and widgets folded off th
 
 ## Drawer geometry and appearance
 
-- **DEMAND-28** A drawer is always drawn as an island, whatever the bar style: island border and rounding (at most half the bar's thickness), the extended surface colour and effects, bar-scaled widgets, and it floats one bar gap from the bar (a Flat bar adds the gap itself). It is an overlay: windows do not move and no space is reserved. Code: ManagedDrawer.qml:91-92.
+- **DEMAND-28** A drawer is always drawn as an island, whatever the bar style: island border and rounding (at most half its thickness), the extended surface colour and effects, and it floats one bar gap from the bar (a Flat bar adds the gap itself). It is an overlay: windows do not move and no space is reserved. On the notched screen it is the notch's instead (layout-zones.md ZONE-88). Code: ManagedDrawer.qml EffectSurface, gap.
+- **DEMAND-92** A drawer has one size on every bar: a strip is as thick as the large bar (38 px with the default theme), its cells are the large bar's cells with the bar's spacing, and a menu's rows are as in GROUP-96. The Large bar setting and the notch's height change the bar, never its drawers. Code: Bar.qml drawerTokensFor, slot slotTokens; ManagedDrawer.qml tokens, thickness.
 - **DEMAND-29** It opens toward the desktop: below a top bar, above a bottom bar, right of a left bar, left of a right bar. On a side bar it is vertical.
 - **DEMAND-30** A zone drawer has no source icon, so it lines up with the island's outer end: the island's start for Left, its end for Right, centred for Center. Without islands the "island" is the screen width minus one bar gap each side.
 - **DEMAND-31** Its length fits its contents but at most the screen axis minus two bar gaps; beyond that it scrolls along its axis, with a scroll bar only while it overflows. It stays on its source monitor.

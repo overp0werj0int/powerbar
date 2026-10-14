@@ -8,6 +8,7 @@ import qs.Commons as Commons
 import qs.Ui
 import "PreferencesModel.js" as Model
 import "BarModel.js" as BarModel
+import "ZoneModeModel.js" as ZoneModeModel
 import "AppearanceModel.js" as AppearanceModel
 import "GroupsModel.js" as Groups
 import "RenderModel.js" as RenderModel
@@ -263,7 +264,15 @@ Item {
     var result = bar.writeConfig(function(config) { BarModel.setBarStyle(config, value) })
     status = result === false ? "Could not save. Check that shell.json is writable." : ""
   }
+  // Zone modes swap layouts (ZoneModeModel.switchMode): one write.
+  function setZoneMode(value) {
+    if (!bar || !bar.shell) return
+    var result = bar.writeConfig(function(config) { ZoneModeModel.switchMode(config.bar, value) })
+    status = result === false ? "Could not save. Check that shell.json is writable." : ""
+  }
   readonly property var ranges: AppearanceModel.ranges
+  // The notch (ZoneModeModel.js): black, at the top, no drawers.
+  readonly property bool notchMode: !!bar && bar.notchMode
   readonly property bool motion: !bar || bar.animationsEnabled
   // Tiles sit apart like tiled windows: twice Hyprland's inner gap, read once
   // per opening; 8 px until it is known or when it cannot be read.
@@ -635,6 +644,7 @@ Item {
                       columnSpacing: Style.space(16)
                       rowSpacing: Style.space(8)
                       BarPlacement {
+                        enabled: !prefs.notchMode
                         Layout.alignment: Qt.AlignTop | Qt.AlignHCenter
                         bar: prefs.bar
                         source: prefs.wallpaper
@@ -645,7 +655,30 @@ Item {
                         Layout.fillWidth: true
                         Layout.alignment: Qt.AlignTop
                         spacing: Style.space(2)
+                        // The notch is its own look, at the top of the screen.
+                        Text {
+                          visible: prefs.notchMode
+                          text: "On the notch"
+                          textFormat: Text.PlainText
+                          color: Commons.Color.popups.text
+                          font.family: Style.font.family
+                          font.pixelSize: Style.font.body
+                          font.bold: true
+                          Layout.fillWidth: true
+                        }
+                        Text {
+                          visible: prefs.notchMode
+                          text: "Black zones grow out of the camera at the top of the screen. Choose Three or Two zones on the Layout page for the other styles."
+                          textFormat: Text.PlainText
+                          wrapMode: Text.WordWrap
+                          color: Qt.alpha(Commons.Color.popups.text, 0.6)
+                          font.family: Style.font.family
+                          font.pixelSize: Style.font.caption
+                          Layout.fillWidth: true
+                          Layout.rightMargin: Style.spacing.rowPaddingX
+                        }
                         PrefsChoice {
+                          visible: !prefs.notchMode
                           compact: true
                           Layout.leftMargin: 0
                           stacked: true
@@ -656,6 +689,7 @@ Item {
                           onChosen: function(value) { prefs.setBarStyle(value) }
                         }
                         PrefsChoice {
+                          visible: !prefs.notchMode
                           compact: true
                           Layout.leftMargin: 0
                           stacked: true
@@ -665,6 +699,8 @@ Item {
                           onChosen: function(value) { prefs.setOption("position", value) }
                         }
                         Text {
+                          // Two-zone modes have no centre to pin to.
+                          visible: !(prefs.bar && prefs.bar.twoZones)
                           Layout.topMargin: Style.space(4)
                           text: "Pinned to screen center"
                           textFormat: Text.PlainText
@@ -676,6 +712,7 @@ Item {
                           elide: Text.ElideRight
                         }
                         Dropdown {
+                          visible: !(prefs.bar && prefs.bar.twoZones)
                           label: "Pinned to screen center"
                           showLabel: false
                           Layout.fillWidth: true
@@ -692,7 +729,9 @@ Item {
                   PrefsTile {
                     title: "Size"
                     span12: 4; span6: 3
+                    // The notch's bar is always as tall as the camera.
                     PrefsToggle {
+                      visible: !prefs.notchMode
                       compact: true
                       label: "Large bar"
                       checked: prefs.bar ? prefs.bar.largeBar : false
@@ -717,9 +756,12 @@ Item {
                       onEdited: function(v) { prefs.setOption("powerbarSpacing", v) }
                     }
                   }
+                  // The notch's zones take the camera's corners and have no
+                  // border: nothing here applies to them.
                   PrefsTile {
                     id: shapeTile
                     readonly property bool editable: prefs.scopeOf("shape") !== "theme"
+                    visible: !prefs.notchMode
                     title: "Shape"
                     span12: 4; span6: 3
                     animate: prefs.motion
@@ -758,9 +800,31 @@ Item {
                       onEdited: function(v) { prefs.setLook("shape", "borderWidth", v) }
                     }
                   }
+                  // Two-zone modes keep a gap one notch wide in the middle; the
+                  // notch's zones blend into the camera, which takes the place
+                  // of Surface (black, no blur there).
+                  PrefsTile {
+                    id: notchTile
+                    readonly property var notch: prefs.bar ? prefs.bar.screenNotch : null
+                    visible: !!prefs.bar && prefs.bar.twoZones
+                    title: "Notch"
+                    caption: prefs.notchMode ? "Black, like the camera" : "The gap in the middle"
+                    span12: 4; span6: 3
+                    PrefsSlider {
+                      compact: true
+                      label: "Notch width"
+                      unit: "px"
+                      minimum: 40; maximum: 600; stepSize: 1
+                      defaultValue: notchTile.notch ? notchTile.notch.housing : 185
+                      value: notchTile.notch ? notchTile.notch.width : (prefs.options.notchWidth || 185)
+                      animate: prefs.motion
+                      onEdited: function(v) { prefs.setOption("powerbarNotchWidth", v === defaultValue ? undefined : v) }
+                    }
+                  }
                   PrefsTile {
                     id: surfaceTile
                     readonly property bool editable: prefs.scopeOf("surface") !== "theme"
+                    visible: !prefs.notchMode
                     title: "Surface"
                     span12: 4; span6: 3
                     animate: prefs.motion
@@ -860,8 +924,10 @@ Item {
                       onToggled: function(checked) { prefs.setOption("powerbarAutoHideActivity", checked) }
                     }
                     // Powerbar's safety minimum for surfaces over windows, not a theme
-                    // value, so it stays outside the appearance scopes.
+                    // value, so it stays outside the appearance scopes. The notch is
+                    // always opaque, so it has nothing to raise there.
                     PrefsToggle {
+                      visible: !prefs.notchMode
                       compact: true
                       label: "Readable over windows"
                       checked: prefs.bar ? prefs.bar.surfaceEffects.readableOverlay : true
@@ -878,6 +944,7 @@ Item {
                     title: "On demand"
                     span12: 4; span6: 3
                     PrefsChoice {
+                      visible: !prefs.notchMode
                       compact: true
                       stacked: bento.columns !== 12
                       label: "Show them"
@@ -887,6 +954,18 @@ Item {
                       options: [{ value: "drawer", label: "In a drawer" }, { value: "inline", label: "In the bar" }]
                       value: prefs.options.onDemand
                       onChosen: function(value) { prefs.setOption("powerbarOnDemand", value) }
+                    }
+                    Text {
+                      visible: prefs.notchMode
+                      text: "Behind dots in their zone; they expand in the bar when you hover the dots. The notch has no drawers."
+                      textFormat: Text.PlainText
+                      wrapMode: Text.WordWrap
+                      color: Qt.alpha(Commons.Color.popups.text, 0.6)
+                      font.family: Style.font.family
+                      font.pixelSize: Style.font.caption
+                      Layout.fillWidth: true
+                      Layout.leftMargin: Style.spacing.rowPaddingX
+                      Layout.rightMargin: Style.spacing.rowPaddingX
                     }
                     PrefsToggle {
                       compact: true

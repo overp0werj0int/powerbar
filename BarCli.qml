@@ -39,7 +39,7 @@ Item {
     case "background": return b.backgroundLook
     case "transparent": return b.requestedTransparent
     case "centerAnchor": return b.centerAnchor
-    case "style": return b.barStyle
+    case "style": return b.barOptions.style
     case "largeBar": return b.largeBar
     case "spacingMode": return b.spacingMode
     case "spacing": return AppearanceModel.clampTo(AppearanceModel.ranges.spacing, b.barConfig.powerbarSpacing)
@@ -51,6 +51,8 @@ Item {
     case "dotsBadge": return b.dotsBadge
     case "keyLegend": return b.keyLegend
     case "frameLog": return b.frameLog
+    case "notchWidth": return b.screenNotch ? b.screenNotch.width : b.barOptions.notchWidth || null
+    case "zones": return b.zoneMode
     case "revealSeconds": return b.managedRevealSeconds
     case "entryGraceSeconds": return b.managedEntrySeconds
     case "exitGraceSeconds": return b.managedExitSeconds
@@ -98,6 +100,7 @@ Item {
     switch (s.writer) {
     case "option": preferences.setOption(s.key, value); break
     case "style": preferences.setBarStyle(value); break
+    case "zones": preferences.setZoneMode(value); break
     case "scope":
       if (!bar.themeName) return fail("the current theme is not known yet")
       preferences.setScope(s.tile, value)
@@ -122,6 +125,7 @@ Item {
     if (cannot) return cannot
     switch (s.writer) {
     case "option": preferences.setOption(s.key, undefined); break
+    case "zones": preferences.setZoneMode("three"); break
     case "style":
       // Earlier versions' powerbarIslands goes too, as choosing a style drops it.
       preferences.setOption("powerbarStyle", undefined)
