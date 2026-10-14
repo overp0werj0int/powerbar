@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## 0.8.2 — 2026-10-14
+
+The drop outline glides from gap to gap while you drag.
 
 - **The drop outline slides.** Dragging a widget along a zone or a drawer, the
   outline of where it will land now glides from one gap to the next, as the
