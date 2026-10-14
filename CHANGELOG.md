@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## 0.9.0 — 2026-10-14
+
+Drag widgets from the keyboard: Shift with the arrows.
 
 - **Drag from the keyboard.** In the keyboard mode, Shift with the arrows
   (or Shift+h j k l) moves the widget or group icon under the cursor one
