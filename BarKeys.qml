@@ -252,12 +252,10 @@ Item {
   // drawer or expansion, with the out key back to the bar.
   function draggable(item) { var k = kindOf(item); return k === "widget" || k === "group" }
   function groupOf(slot) { return slot && slot.groupHeader ? slot.entry.powerbarGroupId : "" }
-  // shell.json waits until Shift is let go (or another key, the mode
-  // ending, a 2 s pause):
-  // Omarchy's handling of each write would stall the next move.
   // One drag: the open drawer kept through the edit, and every slot that
-  // moved gliding to its place. The write waits for the mode to end
-  // (Bar.qml barInUse).
+  // moved gliding to its place. The write to shell.json waits until the mode
+  // and the pointer have left the bar (Bar.qml barInUse): Omarchy's handling
+  // of each write would stall the next move.
   function dragEdit(source, drop, what) {
     bar.keepDrawerThroughEdit = true
     var moved = false

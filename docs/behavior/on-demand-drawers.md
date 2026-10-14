@@ -37,7 +37,7 @@ When an On demand widget has activity it appears in its zone for `powerbarManage
 
 ## Autohide activity peek
 
-- **DEMAND-14** On an autohidden bar (`powerbarAutoHide`), a widget's activity slides the bar out for the reveal duration and highlights the widget as if hovered: just that zone's island on Islands, the whole bar on Flat and Floating. A group member highlights its group icon, in the group's zone. It needs `powerbarAutoHideActivity` (default true; Bar > Behavior "Show on widget activity") and does not happen for a widget with `powerbarActivityPeek: false` or for the clock. With the bar switched off (`bar-off`) nothing slides out. Code: `Bar.autoHidePeek()`, `ManagedModel.peeksOnActivity()`.
+- **DEMAND-14** On an autohidden bar (`powerbarAutoHide`), a widget's activity brings that widget out alone, highlighted, on a badge in the bar's shape at its own place along the edge, for the reveal duration, while the bar stays hidden (LOOK-63, LOOK-64; on the notch it comes out of the camera, ZONE-87). A group member brings out its group icon instead. It needs `powerbarAutoHideActivity` (default true; Bar > Behavior "Show on widget activity") and does not happen for a widget with `powerbarActivityPeek: false` or for the clock. With the bar switched off (`bar-off`) nothing slides out. Code: `Bar.autoHidePeek()`, `PeekBadge`, `ManagedModel.peeksOnActivity()`.
 - **DEMAND-15** No peek for 6 s after the shell starts and for 6 s after each bar config change, so widgets loading their first values do not slide the bar out.
 - **DEMAND-16** Further activity while a peek runs restarts the peek timer; on Islands several zones can peek together, and all slide back when the timer ends.
 
