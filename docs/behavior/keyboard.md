@@ -119,6 +119,8 @@ The CLI as a whole (`status`, `shortcuts`, `help`, error format) is integration.
 
 - **KEYS-35** The arrows are named by the edge: top bar into = ↓, out = ↑; bottom into = ↑; right bar into = ←, out = →; left bar into = →. hjkl never appear on the strip.
 
+- **KEYS-87** Keycaps on the strip and the sheet share one height, taken from the font rather than the text, and their text sits on the font's baseline: the arrows come from a fallback font with a taller line, which made their caps taller than the rest, set the rest of the row (top-aligned) higher than its labels, and lifted the text in the arrow caps. Caps in a strip row are centred on it. Code: KeyCap.qml (FontMetrics); Bar.qml keysStrip.
+
 
 - **KEYS-37** The double Esc is listed on the drawer and search strips only, as "Esc Esc" "Leave"; the bar-level strip lists a single Esc "Leave".
 

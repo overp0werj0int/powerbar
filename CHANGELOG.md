@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- **Key legend lines up again.** The arrow keycaps in the keyboard mode's
+  strip were taller than the others and pushed the row out of line; every
+  cap now has one height and its text sits on the same baseline as the rest.
+
 ## 0.9.0 — 2026-10-14
 
 Drag widgets from the keyboard: Shift with the arrows.

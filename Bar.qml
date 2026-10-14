@@ -4552,7 +4552,7 @@ Item {
                 spacing: Style.space(5)
                 Repeater {
                   model: String(modelData.keys).split(" ")
-                  KeyCap { required property var modelData; text: modelData }
+                  KeyCap { required property var modelData; text: modelData; anchors.verticalCenter: parent.verticalCenter }
                 }
                 Text {
                   text: modelData.label
