@@ -7,7 +7,7 @@
 [![Hyprland](https://img.shields.io/badge/Hyprland-Wayland-58e1ff?style=flat-square&logo=hyprland&logoColor=white)](https://hypr.land)
 [![License: MIT](https://img.shields.io/badge/License-MIT-6aa84f?style=flat-square)](LICENSE)
 
-![Powerbar: Omarchy's bar with drawers, groups and a keyboard mode, on a live desktop](preview.png)
+![Powerbar on the nord theme: keyboard mode inside the System group, its name card and the key strip](preview.jpg)
 
 </div>
 

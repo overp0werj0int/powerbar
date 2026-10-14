@@ -99,11 +99,13 @@ omabox for desktop tests in a private Hyprland session
 
 ## README images
 
-`screenshots/` holds the README gallery, real captures only. `preview.png`
+`screenshots/` holds the README gallery, real captures only. `preview.jpg`
 (the README hero, the plugin's preview and the GitHub social card) is
 `tools/showcase/card.html` rendered by `tools/showcase/render.sh` (headless
-Chromium, 1200x630 at 2x) from `screenshots/hero.jpg` and its two callouts;
-re-run it after replacing them.
+Chromium, 1200x630 at 2x) from `screenshots/hero-nord.jpg`: a 2400x1260 box
+at scale 2.5 on the stock nord theme and its black-moon wallpaper, a layout
+of stock Omarchy widgets, keyboard mode inside the System group. The
+wordmark sits in the moon; re-run render.sh after replacing the capture.
 
 ## Skills
 
