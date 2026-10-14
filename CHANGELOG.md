@@ -1,6 +1,9 @@
 # Changelog
 
-## Unreleased
+## 0.8.1 — 2026-10-14
+
+A ready-made layout for two zones and the Notch on a fresh install, and
+highlights that hold up on a see-through bar.
 
 - **Highlights hold up on a see-through bar.** Hovering or walking the bar
   over a clear or glassy background now draws a deeper highlight (35% on a clear
