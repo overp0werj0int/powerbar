@@ -505,6 +505,8 @@ Item {
   Item {
     id: clipper
     readonly property real side: drawer.fromNotch ? bar.notchCorners.shoulder + Math.ceil(bar.surfaceEffects.shadowSize) * 2 : 0
+    // How far past its place the body is (OutBack's overshoot, a few px).
+    readonly property real overshoot: drawer.fromNotch ? Math.max(0, (drawer.reveal - 1) * drawer.height) : 0
     x: -side
     width: drawer.width + 2 * side
     height: drawer.height + side
@@ -527,12 +529,15 @@ Item {
       }
       // The notch's: its shoulders curve up into the bar's bottom edge either
       // side, as the screen's top edge curves into the camera, and its bottom
-      // corners are the camera's.
+      // corners are the camera's. While the spring overshoots, the body moves
+      // past its place and the shape reaches back up by as much, so its top
+      // stays on the bar and never shows a gap.
       NotchShape {
         visible: drawer.fromNotch
         x: -bar.notchCorners.shoulder
+        y: -clipper.overshoot
         width: parent.width + 2 * bar.notchCorners.shoulder
-        height: parent.height
+        height: parent.height + clipper.overshoot
         shoulderStart: bar.notchCorners.shoulder; shoulderEnd: bar.notchCorners.shoulder
         radiusStart: bar.notchCorners.radius; radiusEnd: bar.notchCorners.radius
         color: bar.mainSurfaceColor
