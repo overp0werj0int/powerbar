@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- **Saving waits until you leave the bar.** Omarchy freezes the shell for a
+  moment whenever the config is written, so a change made at the bar (a
+  drag, a keyboard drag, a menu action) is now saved once the pointer and
+  the keyboard mode have left the bar and its drawers, instead of 300 ms
+  after each drop. The bar shows the change at once as before; staying on
+  the bar, it is saved after 20 s.
 - **Key legend lines up again.** The arrow keycaps in the keyboard mode's
   strip were taller than the others and pushed the row out of line; every
   cap now has one height and its text sits on the same baseline as the rest.

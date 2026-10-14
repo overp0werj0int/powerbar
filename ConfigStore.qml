@@ -8,7 +8,9 @@ import "BarModel.js" as BarModel
 // whole shell for hundreds of milliseconds. So each edit is applied at once to
 // a copy of the host's config, exactly as the host applies a bar's edit (to a
 // copy of the bar subtree), shown as the bar's config, and queued; a quiet
-// moment (`settled`) then writes the queue as one config change.
+// moment then writes the queue as one config change: no gesture under way
+// (`settled`) and the user away from the bar (`idle`), or, still at the bar,
+// `idleWait` after the last edit.
 //
 // The bar's `barConfig` has two writers: the host, which assigns the config it
 // holds, and this store, which shows the host's config with the queued edits
@@ -33,7 +35,15 @@ QtObject {
   property var shown: ({})
   // No drag, glide or bar move under way: the queue may be written.
   property bool settled: true
+  // The pointer and the keys are away from the bar: a write's stall goes
+  // unseen. Not idle only delays the write, up to idleWait after the last edit.
+  property bool idle: true
   property int delay: 300
+  property int idleWait: 20000
+  property real lastEdit: 0
+  // Written `delay` after the moment comes, not at the next retry.
+  onSettledChanged: if (settled && pending) flushDelay.restart()
+  onIdleChanged: if (idle && pending) flushDelay.restart()
 
   // Ask the bar to show a config; the assignment comes back through delivered().
   signal show(var config)
@@ -48,7 +58,10 @@ QtObject {
 
   property Timer flushDelay: Timer {
     interval: store.delay
-    onTriggered: if (store.settled) store.flush(); else restart()
+    onTriggered: {
+      if (store.settled && (store.idle || Date.now() - store.lastEdit >= store.idleWait)) store.flush()
+      else restart()
+    }
   }
 
   function shellCanWrite() { return !!shell && typeof shell.mutateShellConfig === "function" }
@@ -60,6 +73,7 @@ QtObject {
     if (typeof mutator !== "function" || !canWrite()) return false
     if (!pending) host = shown
     edits = edits.concat([mutator])
+    lastEdit = Date.now()
     showEdits()
     flushDelay.restart()
     return edits.indexOf(mutator) >= 0
