@@ -82,6 +82,8 @@ Drag and drop on the live bar, into drawers and onto zone dots. The bar controll
 
 - **DRAG-31** Dropping on a widget row beside a group icon on the bar places the widget next to the group, not in it: it takes the group's place and the group re-anchors in front of it.
 
+- **DRAG-76** A widget dropped just before a group icon drawn right before it (the group is anchored on the widget itself, groups.md GROUP-27) passes the group: the group, and any drawn after it on the same widget, re-anchor on the entry after the widget, ahead of the groups already there, and the layout is unchanged. Only within one zone and one run (both shown or both On demand). Before, the drop resolved to the widget's own place and nothing moved, so Shift+Left (keyboard.md KEYS-86) could not take a widget past its group while Shift+Right could. A pointer drop there takes the same path (checked in a box: it lands before the group). Code: Bar.qml dropAt, passOwnGroup; GroupsModel.passGroups.
+
 - **DRAG-32** Releasing outside the bar and drawers, or back over the icon's own spot, changes nothing in the config; the image glides back to the source slot (DRAG-42).
 
 - **DRAG-33** A drag that starts on a drawer row leaves the drawer open throughout (drawers hold while `dragMotionActive`) and, after a drop into a drawer, as in DRAG-27.
@@ -164,7 +166,7 @@ Drag and drop on the live bar, into drawers and onto zone dots. The bar controll
 
 - **DRAG-72** Group spring path: see DRAG-15.
 
-- **DRAG-73** Drag is pointer only; there are no keyboard bindings for it (the keyboard mode's keys are in keyboard.md).
+- **DRAG-73** In the keyboard mode Shift with the arrows drags the widget under the cursor one place at a time, landing as a pointer drop at that gap would (keyboard.md KEYS-86). It opens no gap: the widgets that moved glide from their old places to the new ones (Bar.qml glideEdit), and the write waits until the drag ends.
 
 - **DRAG-74** Pressing and holding the clock's (centre anchor) empty area for 200 ms, or pressing it and moving 4 px, lifts the bar: an indicator shows on each screen edge, the one nearest the pointer (by the screen's diagonals) lights, and releasing writes `bar.position` to that edge (nothing if it is the current edge). Code: Bar.qml `CenterGestureArea`, `nearestScreenEdge()`; position: layout-zones.md ZONE-38.
 

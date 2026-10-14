@@ -43,6 +43,20 @@ The CLI as a whole (`status`, `shortcuts`, `help`, error format) is integration.
 
 - **KEYS-9** If the cursor's stop disappears (hidden, folded, yielded, its drawer or dots changed), the next movement starts from the first stop of the cursor's zone. The cursor is not moved by the disappearance itself.
 
+## Dragging from the keyboard
+
+- **KEYS-86** Shift with a key that moves the cursor drags the widget or group icon under it instead: it moves to where the cursor would have gone and the cursor goes with it. Shift+h, j, k, l (typed as capitals) count as their letters. Dots and the Preferences button are not dragged. A drag lands exactly as a pointer drop at the same gap would (drag-edit.md), and is saved the same way:
+  - **On the bar**, the along keys move it past the next stop in that direction, within its row. Past the last stop of its zone it lands at the near end of the next zone (going right, before that zone's first stop; going left, after its last). Nothing passes the Preferences button, and at the bar's ends it stays.
+  - **Onto the dots**, it goes On demand at the dots' side (DRAG-28). The zone then opens (In the bar: the expansion; in drawer mode: its drawer) with the cursor on the widget, as a search brings a widget in (BarKeys bringIn).
+  - **In an expansion**, it moves along the run and stays On demand. Out of the run's first or last place it lands beside the shown widget there and is shown again (DRAG-30).
+  - **In a drawer** (a zone's strip, a group's strip or menu), the key that moves the drawer's cursor to the next member moves the member past it: the along keys in a strip, the into and out keys along a menu's rows under a top or bottom bar. The drawer stays open.
+  - **Into a zone's drawer:** in drawer mode, with the zone's drawer showing (as a preview or entered), the into key puts the widget in the drawer beside the member nearest it along the bar (or into the empty drawer), enters the drawer and puts the cursor on it there.
+  - **Out of a drawer:** the out key from a zone's drawer puts the member on the bar beside the zone's stop nearest it (or into the zone when it has none), the drawer folds back to a preview and the cursor follows the widget onto the bar. From a group's drawer it puts the member on the bar just after the group's icon.
+  - **Across a run boundary (inline mode):** with the zone expanded, the into key on a shown widget makes it On demand beside the nearest widget of the run, and the out key on a run widget makes it shown beside the nearest shown widget. The widget may not move on screen; it changes runs.
+  - Otherwise the into and out keys do not drag.
+
+  Each drag glides: every widget whose place changed slides from where it was drawn to its new place in 170 ms (ease out), the dragged one above the rest, and the cursor's ring rides with it. The drawer the edit happens in stays open. The config is written once the drag ends: on Shift's release, on any key pressed without Shift, when the mode ends, or 2 s after the last drag; a held Shift sweeping a widget along writes nothing until then. Before, a drag swapped the two at once, every drag closed an open drawer, and each wrote shell.json at once, which made the next drag stall. Code: BarKeysModel.dragKey, dragDrop, besideNearest; BarKeys dragBy, dragInto, dragOut, dragOutOfRun, dragMember, dragEdit, holdWrites, releaseWrites, follow; Bar.qml glideEdit, keysDragHold, dropAt, dropBarModuleAtTarget; AnimatedSlot glideFrom.
+
 ## Into key: entering groups and drawers
 
 - **KEYS-10** On a group icon, the into-key (top bar: Down or j; bottom: Up or k; right bar: Left or h; left bar: Right or l) opens the group's drawer entered at its first member. The bar's key catcher keeps the window focus; the drawer takes the keys.
@@ -97,9 +111,9 @@ The CLI as a whole (`status`, `shortcuts`, `help`, error format) is integration.
 
 ## Key strip and shortcut sheet
 
-- **KEYS-32** While the mode is active and not suspended, a strip at the screen edge opposite the bar (24 px in) lists the keys for the current level, unless `powerbarKeyLegend` is false (default true; Preferences → Bar → Keyboard → Key legend). The strip is hidden while the bar is sliding. Bar level: the along arrows and the into arrow together "Move", in one keycap (←→↓ on a top bar; arrows in a keycap always run ← ↑ → ↓), Tab Shift+Tab "Zones", Enter "Open", / "Find", ? "Shortcuts", , "Preferences", Esc "Leave". Code: BarKeysModel.legend()
+- **KEYS-32** While the mode is active and not suspended, a strip at the screen edge opposite the bar (24 px in) lists the keys for the current level, unless `powerbarKeyLegend` is false (default true; Preferences → Bar → Keyboard → Key legend). The strip is hidden while the bar is sliding. Bar level: the along arrows and the into arrow together "Move", in one keycap (←→↓ on a top bar; arrows in a keycap always run ← ↑ → ↓), Shift with the along arrows "Drag" (KEYS-86), Tab Shift+Tab "Zones", Enter "Open", / "Find", ? "Shortcuts", , "Preferences", Esc "Leave". Code: BarKeysModel.legend()
 
-- **KEYS-33** Drawer level: Move, Enter "Open", Back, , "Preferences", Esc Esc "Leave". Move shows the along arrows for a strip, and for a menu on a side bar; for a menu on a top or bottom bar, the into and out arrows (↑↓ on top), one keycap. Back shows the out arrow and Esc, except for a menu on a top or bottom bar (Esc alone).
+- **KEYS-33** Drawer level: Move, Drag (Shift with the same arrows as Move), Enter "Open", Back, , "Preferences", Esc Esc "Leave". Move shows the along arrows for a strip, and for a menu on a side bar; for a menu on a top or bottom bar, the into and out arrows (↑↓ on top), one keycap. Back shows the out arrow and Esc, except for a menu on a top or bottom bar (Esc alone).
 
 - **KEYS-34** Search level: Tab "Next match", Enter "Open", Esc "Stop finding", Esc Esc "Leave".
 
@@ -108,7 +122,7 @@ The CLI as a whole (`status`, `shortcuts`, `help`, error format) is integration.
 
 - **KEYS-37** The double Esc is listed on the drawer and search strips only, as "Esc Esc" "Leave"; the bar-level strip lists a single Esc "Leave".
 
-- **KEYS-70** `?` shows the shortcut sheet in the strip, in two columns side by side with a thin rule between, the strip as wide as they need. Left, "Keyboard mode": every key of the mode for this edge, keycaps then what they do: first one "Movement" row: every arrow (along, into, out) in one keycap, then their vim letters in another (←↑→↓ and hjkl, on every edge), then Home ^ "First stop", End $ "Last stop", Tab PgDn "Next zone", Shift+Tab PgUp "Previous zone", Enter Space "Open", / "Find", , "Preferences" (KEYS-81), ? "This sheet", Esc "Back, or leave", Esc Esc "Leave from anywhere". Right, "Widgets and groups": every catalogue entry that has a shortcut, its name and its keys drawn as keycaps joined by "+"; with none, it reads "No widget on this bar has a shortcut yet. Set them in Preferences → Layout." The key legend row is hidden while the sheet shows. It shows even when the key legend is off. `?` or Esc closes it; any other key closes it and then does its usual job. Code: BarKeysModel.sheetKeys(); Bar.qml keysStrip
+- **KEYS-70** `?` shows the shortcut sheet in the strip, in two columns side by side with a thin rule between, the strip as wide as they need. Left, "Keyboard mode": every key of the mode for this edge, keycaps then what they do: first one "Movement" row: every arrow (along, into, out) in one keycap, then their vim letters in another (←↑→↓ and hjkl, on every edge), then Shift with every arrow and the capitals HJKL "Drag the widget" (KEYS-86), then Home ^ "First stop", End $ "Last stop", Tab PgDn "Next zone", Shift+Tab PgUp "Previous zone", Enter Space "Open", / "Find", , "Preferences" (KEYS-81), ? "This sheet", Esc "Back, or leave", Esc Esc "Leave from anywhere". Right, "Widgets and groups": every catalogue entry that has a shortcut, its name and its keys drawn as keycaps joined by "+"; with none, it reads "No widget on this bar has a shortcut yet. Set them in Preferences → Layout." The key legend row is hidden while the sheet shows. It shows even when the key legend is off. `?` or Esc closes it; any other key closes it and then does its usual job. Code: BarKeysModel.sheetKeys(); Bar.qml keysStrip
 
 ## Double Escape (quick exit)
 

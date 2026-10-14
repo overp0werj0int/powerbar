@@ -1,5 +1,22 @@
 # Changelog
 
+## Unreleased
+
+- **Drag from the keyboard.** In the keyboard mode, Shift with the arrows
+  (or Shift+h j k l) moves the widget or group icon under the cursor one
+  place along the bar, and the cursor goes with it. Past a zone's end it
+  moves into the next zone; onto the dots it goes On demand and the zone
+  opens with it; inside an expanded zone it moves along the run, and out of
+  the run it's shown again. In a drawer or a group's menu it reorders the
+  members. Shift with the into and out keys moves a widget into an open
+  zone drawer and back onto the bar. Every move glides, the drawer stays
+  open, and the config is saved once you let go of Shift, so a widget
+  swept along the bar never stalls. The key strip and the `?` sheet list
+  it.
+- **A widget passes its own group.** Shift+Left on a widget right after
+  a group icon now moves it past the group. Before, nothing happened,
+  though Shift+Right past a group worked.
+
 ## 0.8.2 — 2026-10-14
 
 The drop outline glides from gap to gap while you drag.

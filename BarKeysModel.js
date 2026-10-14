@@ -79,6 +79,38 @@ function drawerIntent(position, key, member, strip) {
   return null
 }
 
+// Shift with a key that moves the cursor drags the widget or group icon
+// under it instead, to where the cursor would go (docs/behavior/keyboard.md
+// KEYS-86). Shift+h j k l arrive as capitals and count as their letters.
+// → the key to read the move from, or "" when this is no drag.
+function dragKey(key, shift) {
+  if (!shift) return ""
+  if (["Left", "Right", "Up", "Down"].indexOf(key) >= 0) return key
+  if (["H", "J", "K", "L"].indexOf(key) >= 0) return key.toLowerCase()
+  return ""
+}
+
+// Where a stop dragged one step along the bar lands, beside the stop the
+// cursor would move to (to: { kind, zone }): past it in its own zone, at the
+// near end of another zone, or on the dots (it goes On demand, as a drop on
+// them does). Nothing passes the Preferences button.
+// → { after } (beside to), { dots: true }, or null.
+function dragDrop(fromZone, to, dir) {
+  if (!to || to.kind === "prefs") return null
+  if (to.kind === "dots") return { dots: true }
+  return { after: to.zone === fromZone ? dir > 0 : dir < 0 }
+}
+
+// Where a widget sent across (into a drawer or a run, or out to the bar)
+// lands: beside the one of `ats` (centres along the bar) nearest its own
+// centre `at`, on the side facing it. → { index, after }, or null when
+// there is nothing to land beside.
+function besideNearest(ats, at) {
+  var best = -1
+  for (var i = 0; i < ats.length; i++) if (best < 0 || Math.abs(ats[i] - at) < Math.abs(ats[best] - at)) best = i
+  return best < 0 ? null : { index: best, after: ats[best] < at }
+}
+
 // The next stop along the row, or -1 at either end: the cursor stops there
 // (no wrap), so the ends stay a landmark.
 function step(count, index, dir) {
@@ -246,13 +278,15 @@ function legend(position, state, strip) {
     { keys: "Tab", label: "Next match" }, { keys: "Enter", label: "Open" }, { keys: "Esc", label: "Stop finding" },
     { keys: "Esc Esc", label: "Leave" }
   ]
+  var rows = map.vertical || strip ? alongKeys : arrowCap([map.into[0], map.out[0]])
   if (state === "drawer") return [
-    { keys: map.vertical || strip ? alongKeys : arrowCap([map.into[0], map.out[0]]), label: "Move" },
+    { keys: rows, label: "Move" }, { keys: "Shift+" + rows, label: "Drag" },
     { keys: "Enter", label: "Open" }, { keys: map.vertical || strip ? arrows[map.out[0]] + " Esc" : "Esc", label: "Back" },
     { keys: PREFS_KEY, label: "Preferences" }, { keys: "Esc Esc", label: "Leave" }
   ]
   return [
-    { keys: arrowCap(along.concat([map.into[0]])), label: "Move" }, { keys: "Tab Shift+Tab", label: "Zones" },
+    { keys: arrowCap(along.concat([map.into[0]])), label: "Move" }, { keys: "Shift+" + alongKeys, label: "Drag" },
+    { keys: "Tab Shift+Tab", label: "Zones" },
     { keys: "Enter", label: "Open" }, { keys: "/", label: "Find" },
     { keys: "?", label: "Shortcuts" }, { keys: PREFS_KEY, label: "Preferences" }, { keys: "Esc", label: "Leave" }
   ]
@@ -268,6 +302,7 @@ function sheetKeys(position) {
   var vim = ["h", "j", "k", "l"].filter(function(k) { return keys.indexOf(k) >= 0 })
   return [
     { keys: arrowCap(keys) + " " + vim.join(""), label: "Movement" },
+    { keys: "Shift+" + arrowCap(keys) + " " + vim.join("").toUpperCase(), label: "Drag the widget" },
     { keys: "Home ^", label: "First stop" },
     { keys: "End $", label: "Last stop" },
     { keys: "Tab PgDn", label: "Next zone" },
@@ -299,4 +334,4 @@ function cardText(name, own, namedMenu) {
   return namedMenu && own && own !== name ? own : name
 }
 
-if (typeof module !== "undefined") module.exports = { ZONES, PREFS_KEY, keymap, barIntent, drawerIntent, step, gridStep, zoneStep, fuzzy, matches, searchText, route, legend, sheetKeys, startScreen, cardText }
+if (typeof module !== "undefined") module.exports = { ZONES, PREFS_KEY, keymap, barIntent, drawerIntent, dragKey, dragDrop, besideNearest, step, gridStep, zoneStep, fuzzy, matches, searchText, route, legend, sheetKeys, startScreen, cardText }

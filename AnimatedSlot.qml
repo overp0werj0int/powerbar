@@ -24,6 +24,29 @@ Item {
   width: implicitWidth
   height: implicitHeight
   clip: true
+  // Moved in the layout at once by a drag from the keyboard (keyboard.md
+  // KEYS-86): drawn from where it was, easing to its place (Bar.qml
+  // glideEdit). The dragged one passes over the others.
+  property real shiftX: 0
+  property real shiftY: 0
+  property bool shiftLead: false
+  transform: Translate { x: slot.shiftX; y: slot.shiftY }
+  z: shiftLead ? 1 : 0
+  function glideFrom(dx, dy, ms, lead) {
+    shiftAnim.stop()
+    shiftX = dx
+    shiftY = dy
+    shiftLead = !!lead
+    shiftAnim.duration = ms
+    shiftAnim.start()
+  }
+  ParallelAnimation {
+    id: shiftAnim
+    property int duration: 160
+    onStopped: slot.shiftLead = false
+    NumberAnimation { target: slot; property: "shiftX"; to: 0; duration: shiftAnim.duration; easing.type: Easing.OutCubic }
+    NumberAnimation { target: slot; property: "shiftY"; to: 0; duration: shiftAnim.duration; easing.type: Easing.OutCubic }
+  }
   Component.onCompleted: Qt.callLater(function() { slot.ready = true })
   Behavior on animatedWidth {
     enabled: slot.motionEnabled && slot.ready
