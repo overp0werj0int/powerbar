@@ -169,7 +169,7 @@ Sources: Preferences.qml, PreferencesModel.js, BentoModel.js, ShelfModel.js, Sli
 
 - **PREFS-69** Shadow (under a Scope choice): Shadow (toggle), Softness (2 to 24, step 1, default 16) and Strength (5 to 60 %, step 5, default 30), both enabled only while Shadow is on.
 
-- **PREFS-70** Behavior: Autohide (`powerbarAutoHide`, default off), Show on widget activity (`powerbarAutoHideActivity`, default on; dimmed while Autohide is off), Readable over windows (`powerbarReadableOverlay`, default on) and Animations (`powerbarAnimations`, default on). These are not scoped.
+- **PREFS-70** Behavior: Autohide (`powerbarAutoHide`, default off), Show on widget activity (`powerbarAutoHideActivity`, default on; dimmed while Autohide is off), Readable over windows (`powerbarReadableOverlay`, default on; hidden on the notch, PREFS-96) and Animations (`powerbarAnimations`, default on). These are not scoped.
 
 - **PREFS-71** On demand: "Show them" In a drawer (the default, hovering a zone opens its drawer) or In the bar (behind dots, expanding in the bar; `powerbarOnDemand`), and "Count on the dots" (`powerbarDotsBadge`, default on). Timing: on-demand-drawers.md.
 
@@ -182,6 +182,7 @@ Sources: Preferences.qml, PreferencesModel.js, BentoModel.js, ShelfModel.js, Sli
   - **Size:** "Large bar" is hidden: the notch's bar is always as tall as the camera.
   - **Shape:** the tile is hidden: the zones take the camera's corners and have no border.
   - **Surface:** the tile gives way to the Notch tile. Shadow stays.
+  - **Behavior:** "Readable over windows" is hidden: the notch is always opaque, so there is no minimum to raise.
   - **On demand:** "Show them" gives way to the line "Behind dots in their zone; they expand in the bar when you hover the dots. The notch has no drawers." "Count on the dots" stays.
 
   The values these controls hold are kept for the other modes.

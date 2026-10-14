@@ -31,7 +31,8 @@
   - On-demand widgets expand in the bar (the notch has no drawers). A zone
     that outgrows the screen wraps onto a second row at the edge, one black
     shape with the first.
-  - On the Bar page, Style, Shape and Surface give way to the Notch tile.
+  - On the Bar page, Style, Shape and Surface give way to the Notch tile,
+    and Readable over windows is hidden (the notch is always opaque).
   - Other screens show the same two black zones.
 - **Activity peeks show just the widget**: with autohide, a widget that
   changes no longer brings out its whole zone or the whole bar. It comes out

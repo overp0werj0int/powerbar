@@ -924,8 +924,10 @@ Item {
                       onToggled: function(checked) { prefs.setOption("powerbarAutoHideActivity", checked) }
                     }
                     // Powerbar's safety minimum for surfaces over windows, not a theme
-                    // value, so it stays outside the appearance scopes.
+                    // value, so it stays outside the appearance scopes. The notch is
+                    // always opaque, so it has nothing to raise there.
                     PrefsToggle {
+                      visible: !prefs.notchMode
                       compact: true
                       label: "Readable over windows"
                       checked: prefs.bar ? prefs.bar.surfaceEffects.readableOverlay : true
