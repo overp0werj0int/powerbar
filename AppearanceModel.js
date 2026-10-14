@@ -116,6 +116,17 @@ function barOpacity(effects, autoHide, transparent, glassy) {
   if (!autoHide) return base
   return overlayOpacity({ backgroundOpacity: base, blur: e.blur || glassy === true, readableOverlay: e.readableOverlay })
 }
+// The alpha of a highlight on the bar's own surface: Omarchy's fill alphas
+// are made for an opaque bar and all but vanish over a wallpaper, so as the
+// surface clears the alpha moves from Omarchy's (`base`) to `clear` (35% for
+// hover and selected) on a clear bar. Never lighter than Omarchy's.
+var clearHighlightAlpha = 0.35
+function highlightAlpha(base, surfaceAlpha, clear) {
+  var a = Number(surfaceAlpha)
+  a = isFinite(a) ? Math.max(0, Math.min(1, a)) : 1
+  var target = typeof clear === "number" ? clear : clearHighlightAlpha
+  return Math.max(base, base + (target - base) * (1 - a))
+}
 // Whether the bar's text takes the colour Omarchy reads from the wallpaper
 // behind a transparent bar: only where nothing is drawn behind it, and only
 // while Text and icons follow the theme (a Light or Dark choice wins).

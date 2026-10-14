@@ -237,3 +237,13 @@ test('a glassy bar is see-through at most as much as Omarchy\'s, and counts as b
   assert.equal(model.barOpacity({ backgroundOpacity: 0.9, readableOverlay: true }, true, false, true), 0.35,
     'an autohiding glassy bar is blurred, so it needs no readable minimum');
 });
+
+test('highlights on the bar deepen as its surface clears', () => {
+  assert.equal(model.highlightAlpha(0.08, 1), 0.08, 'opaque: Omarchy\'s fill');
+  assert.equal(model.highlightAlpha(0.08, 0), 0.35, 'clear: 35%');
+  assert.equal(model.highlightAlpha(0.18, 0), 0.35);
+  assert.ok(Math.abs(model.highlightAlpha(0.08, 0.5) - 0.215) < 1e-9, 'halfway');
+  assert.equal(model.highlightAlpha(0.06, 0, 0.12), 0.12, 'own target');
+  assert.equal(model.highlightAlpha(0.5, 0), 0.5, 'never lighter than Omarchy\'s');
+  assert.equal(model.highlightAlpha(0.08, undefined), 0.08, 'unknown reads as opaque');
+});

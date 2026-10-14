@@ -2114,6 +2114,12 @@ Item {
   // tiles: a fill in the bar's own foreground, nested inside island corners.
   readonly property color highlightHoverColor: Style.hoverFillFor(barForeground, Commons.Color.accent)
   readonly property color highlightSelectedColor: Style.selectedFillFor(barForeground, Commons.Color.accent)
+  // On the bar itself the highlight deepens as the surface clears
+  // (AppearanceModel.highlightAlpha); drawers and Preferences keep their own.
+  function deepened(c, clear) { return Qt.alpha(c, AppearanceModel.highlightAlpha(c.a, mainSurfaceColor.a, clear)) }
+  readonly property color onBarHoverColor: deepened(highlightHoverColor)
+  readonly property color onBarSelectedColor: deepened(highlightSelectedColor)
+  readonly property color onBarTrackColor: deepened(highlightTrackColor, 0.12)
   readonly property real highlightRounding: Math.max(Style.space(4), islandRounding - Style.space(3))
   // The highlight for a slot: its cell, centred on the slot along the bar, at
   // the cell thickness across it, in `host` coordinates.
@@ -4286,8 +4292,8 @@ Item {
               z: -1
               hovered: zoneHover.hovered && !root.barDragSource
               motionEnabled: root.animationsEnabled
-              hoverColor: root.highlightHoverColor
-              selectedColor: root.highlightSelectedColor
+              hoverColor: root.onBarHoverColor
+              selectedColor: root.onBarSelectedColor
               rounding: root.highlightRadius
             }
           }
@@ -5042,8 +5048,8 @@ Item {
       readonly property var hostWindow: root.targetWindow(preferencesButton)
       glide: hostWindow ? hostWindow.highlightGlide || null : null
       glideKey: "right"
-      hoverColor: root.highlightHoverColor
-      selectedColor: root.highlightSelectedColor
+      hoverColor: root.onBarHoverColor
+      selectedColor: root.onBarSelectedColor
       width: root.vertical ? root.cellTokens.thickness : preferencesButton.cellPlace.cell
       height: root.vertical ? preferencesButton.cellPlace.cell : root.cellTokens.thickness
       x: (preferencesButton.width - width) / 2
@@ -5500,8 +5506,8 @@ Item {
       readonly property var hostWindow: root.targetWindow(foldHandle)
       glide: hostWindow ? hostWindow.highlightGlide || null : null
       glideKey: foldHandle.zone
-      hoverColor: root.highlightHoverColor
-      selectedColor: root.highlightSelectedColor
+      hoverColor: root.onBarHoverColor
+      selectedColor: root.onBarSelectedColor
       width: root.vertical ? root.cellTokens.thickness : foldHandle.cellPlace.cell
       height: root.vertical ? foldHandle.cellPlace.cell : root.cellTokens.thickness
       x: (foldHandle.width - width) / 2
@@ -6281,8 +6287,8 @@ Item {
       motionEnabled: root.animationsEnabled
       glide: hostWindow ? hostWindow.highlightGlide || null : null
       glideKey: slot.region
-      hoverColor: slot.compoundTargets.length > 1 && !slot.activityFlash ? root.highlightTrackColor : root.highlightHoverColor
-      selectedColor: root.highlightSelectedColor
+      hoverColor: slot.compoundTargets.length > 1 && !slot.activityFlash ? root.onBarTrackColor : root.onBarHoverColor
+      selectedColor: root.onBarSelectedColor
       readonly property Item island: hostWindow && hostWindow.zoneIslands ? hostWindow.zoneIslands[slot.region] || null : null
       older: shown && root.spacingMode === "gaps" && (hostWindow && hostWindow.moduleItems || []).some(function(other) {
         var h = other && other.highlightItem
@@ -6357,7 +6363,7 @@ Item {
       width: geometry.side
       height: geometry.side
       radius: geometry.radius
-      color: root.highlightHoverColor
+      color: root.onBarHoverColor
       z: 1
       Accessible.ignored: true
       onVisibleChanged: place()

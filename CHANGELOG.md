@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- **Highlights hold up on a see-through bar.** Hovering or walking the bar
+  over a clear or glassy background now draws a deeper highlight (35% on a clear
+  bar), where it used to all but vanish over the wallpaper.
+
 - **A ready-made two-zone and Notch layout for a fresh install.** On Omarchy's
   stock bar, the first switch to two zones or Notch now lays the widgets out
   as a finished arrangement: menu, workspaces, indicators, updates, weather
