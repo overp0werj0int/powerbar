@@ -106,36 +106,20 @@ whose original copyright and MIT license notice are preserved in
 
 ## Screenshots
 
-<table>
-<tr>
-<td width="50%"><a href="screenshots/look-nord.jpg"><img src="screenshots/look-nord.jpg" alt="Powerbar on the nord theme: islands, pill corners, soft shadow"></a><br><sub><b>nord</b>: islands, pill corners, soft shadow</sub></td>
-<td width="50%"><a href="screenshots/look-hinterlands.jpg"><img src="screenshots/look-hinterlands.jpg" alt="Powerbar on the hinterlands theme: floating, blur, deeper shadow"></a><br><sub><b>hinterlands</b>: floating, blur, deeper shadow</sub></td>
-</tr>
-<tr>
-<td width="50%"><a href="screenshots/look-waffle-cat.jpg"><img src="screenshots/look-waffle-cat.jpg" alt="Powerbar on the waffle-cat theme: square islands, 2 px borders"></a><br><sub><b>waffle-cat</b>: square islands, 2 px borders</sub></td>
-<td width="50%"><a href="screenshots/look-venice-from-above.jpg"><img src="screenshots/look-venice-from-above.jpg" alt="Powerbar on the venice-from-above theme: floating, blur at 70%"></a><br><sub><b>venice-from-above</b>: floating, blur at 70%</sub></td>
-</tr>
-<tr>
-<td width="50%"><a href="screenshots/look-quattrocento-light.jpg"><img src="screenshots/look-quattrocento-light.jpg" alt="Powerbar on the quattrocento-light theme: large bar on a light theme"></a><br><sub><b>quattrocento-light</b>: large bar on a light theme</sub></td>
-<td width="50%"><a href="screenshots/look-everforest.jpg"><img src="screenshots/look-everforest.jpg" alt="Powerbar on the everforest theme: islands without borders, blur"></a><br><sub><b>everforest</b>: islands without borders, blur</sub></td>
-</tr>
-</table>
+Each is one untouched capture of Powerbar on a stock Omarchy theme and its
+own wallpaper.
 
-<table>
-<tr>
-<td width="33%"><a href="screenshots/keys-search.jpg"><img src="screenshots/keys-search.jpg" alt="Typing /sess opens the AI group with the cursor on Session Browser"></a><br><sub><code>/sess</code> opens the group and lands on the row</sub></td>
-<td width="33%"><a href="screenshots/keys-walk.jpg"><img src="screenshots/keys-walk.jpg" alt="The arrows walk the open menu, the name card follows"></a><br><sub>Arrows walk the menu; the name card follows</sub></td>
-<td width="33%"><a href="screenshots/keys-sheet.jpg"><img src="screenshots/keys-sheet.jpg" alt="The ? sheet lists every shortcut as keycaps"></a><br><sub><code>?</code> lists every shortcut as keycaps</sub></td>
-</tr>
-</table>
+<p><img src="screenshots/drawer-latte.jpg" alt="A floating bar on catppuccin-latte with the right zone's On demand widgets open in a drawer below it"><br>
+<sub><b>Floating</b>, catppuccin-latte: On demand widgets in their zone's drawer</sub></p>
 
-<details>
-<summary>More screenshots</summary>
+<p><img src="screenshots/search-tokyo-night.jpg" alt="A flat bar on tokyo-night; typing tail in the keyboard mode's search opens the System group with the cursor on Tailscale"><br>
+<sub><b>Flat</b>, tokyo-night: <code>/tail</code> opens the System group at Tailscale, with the key strip below</sub></p>
 
-<p><img src="screenshots/drawer.jpg" alt="On demand widgets in the right zone's drawer"><br><sub>On demand widgets in their zone's drawer</sub></p>
-<p><img src="screenshots/preferences.jpg" alt="Preferences, Bar page"><br><sub>Preferences: the Bar page</sub></p>
+<p><img src="screenshots/notch-kanagawa.jpg" alt="Notch mode on kanagawa: two black zones grow out of a MacBook's camera, a group's menu slides down from the bar"><br>
+<sub><b>Notch</b>, kanagawa, on a 14-inch MacBook screen: the zones grow out of the camera and a group slides down from it</sub></p>
 
-</details>
+<p><img src="screenshots/preferences.jpg" alt="Preferences, Layout page on osaka-jade: the bar as shelves (On the bar, On demand, Hidden) and the selected widget's settings"><br>
+<sub><b>Preferences</b>, osaka-jade: the Layout page, with the keys for what has focus along the bottom</sub></p>
 
 ## Install
 
