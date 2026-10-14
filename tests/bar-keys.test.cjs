@@ -170,14 +170,17 @@ test('a found widget comes into view the way the pointer would bring it', () => 
 test('the key strip names the keys of the edge', () => {
   const right = keys.legend('right', 'bar');
   assert.deepEqual(right[0], { keys: '←\u2009↑\u2009↓', label: 'Move' }, 'the along and into arrows share one Move, in one keycap (thin spaces part the arrows, a space parts keycaps)');
-  assert.deepEqual(right[1], { keys: 'Tab Shift+Tab', label: 'Zones' });
+  assert.deepEqual(right[1], { keys: 'Shift+↑\u2009↓', label: 'Drag' }, 'Shift with the along arrows drags');
+  assert.deepEqual(right[2], { keys: 'Tab Shift+Tab', label: 'Zones' });
   assert.equal(keys.legend('top', 'bar')[0].keys, '←\u2009→\u2009↓');
   assert.equal(keys.legend('top', 'drawer')[0].keys, '↑\u2009↓');
-  assert.equal(keys.legend('right', 'drawer')[2].keys, '→ Esc');
+  assert.deepEqual(keys.legend('top', 'drawer')[1], { keys: 'Shift+↑\u2009↓', label: 'Drag' }, 'a menu under the bar drags along its rows');
+  assert.equal(keys.legend('top', 'drawer', true)[1].keys, 'Shift+←\u2009→');
+  assert.equal(keys.legend('right', 'drawer')[3].keys, '→ Esc');
   assert.equal(keys.legend('top', 'drawer', true)[0].keys, '←\u2009→', 'a strip is walked along the bar');
   assert.equal(keys.legend('left', 'drawer', true)[0].keys, '↑\u2009↓');
-  assert.equal(keys.legend('top', 'drawer', true)[2].keys, '↑ Esc');
-  assert.equal(keys.legend('bottom', 'drawer', true)[2].keys, '↓ Esc');
+  assert.equal(keys.legend('top', 'drawer', true)[3].keys, '↑ Esc');
+  assert.equal(keys.legend('bottom', 'drawer', true)[3].keys, '↓ Esc');
   assert.deepEqual(keys.legend('top', 'drawer').at(-1), { keys: 'Esc Esc', label: 'Leave' }, 'a quick double Esc leaves from any depth');
   for (const state of ['bar', 'drawer']) {
     assert.deepEqual(keys.legend('top', state).at(-2), { keys: ',', label: 'Preferences' }, `${state}: , opens Preferences`);
@@ -191,7 +194,8 @@ test('the ? sheet lists every key of the mode for the edge', () => {
   // One keycap for the arrows, one for their vim letters, on every edge.
   for (const edge of ['top', 'bottom', 'left', 'right'])
     assert.deepEqual(keys.sheetKeys(edge)[0], { keys: '←\u2009↑\u2009→\u2009↓ hjkl', label: 'Movement' }, edge);
-  assert.equal(top[1].label, 'First stop');
+  assert.deepEqual(top[1], { keys: 'Shift+←\u2009↑\u2009→\u2009↓ HJKL', label: 'Drag the widget' });
+  assert.equal(top[2].label, 'First stop');
   const all = top.map(e => e.keys).join(' ').split(' ');
   for (const k of ['Home', '^', 'End', '$', 'Tab', 'PgDn', 'PgUp', 'Enter', '/', ',', '?', 'Esc']) assert.ok(all.includes(k), k);
 });
@@ -227,4 +231,24 @@ test('a notch zone with a second row walks as a grid', () => {
   const flat = [{ at: 1 }, { at: 2 }, { at: 3 }];
   assert.equal(keys.gridStep(flat, 1, 1, 0), 2, 'one row: as step');
   assert.equal(keys.gridStep(flat, 0, -1, 0), -1);
+});
+
+test('Shift with a movement key drags; Shift+h j k l arrive as capitals', () => {
+  assert.equal(keys.dragKey('Left', true), 'Left');
+  assert.equal(keys.dragKey('Down', true), 'Down');
+  assert.equal(keys.dragKey('L', true), 'l', 'Shift+l types L');
+  assert.equal(keys.dragKey('Left', false), '', 'no Shift: the cursor moves');
+  assert.equal(keys.dragKey('Tab', true), '', 'Shift+Tab stays Zones');
+  assert.equal(keys.dragKey('Home', true), '');
+  assert.equal(keys.dragKey('A', true), '');
+});
+
+test('a dragged stop lands past its neighbour, at the near end of another zone, or on the dots', () => {
+  assert.deepEqual(keys.dragDrop('left', { kind: 'widget', zone: 'left' }, 1), { after: true }, 'right: past the next widget');
+  assert.deepEqual(keys.dragDrop('left', { kind: 'group', zone: 'left' }, -1), { after: false }, 'left: before the one before');
+  assert.deepEqual(keys.dragDrop('left', { kind: 'widget', zone: 'center' }, 1), { after: false }, 'into the next zone: its first place');
+  assert.deepEqual(keys.dragDrop('right', { kind: 'widget', zone: 'center' }, -1), { after: true }, 'back into the zone before: its last place');
+  assert.deepEqual(keys.dragDrop('left', { kind: 'dots', zone: 'left' }, 1), { dots: true }, 'onto the dots: On demand');
+  assert.equal(keys.dragDrop('right', { kind: 'prefs', zone: 'right' }, 1), null, 'nothing passes Preferences');
+  assert.equal(keys.dragDrop('right', null, 1), null, 'at the end of the row it stays');
 });

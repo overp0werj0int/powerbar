@@ -164,7 +164,7 @@ Drag and drop on the live bar, into drawers and onto zone dots. The bar controll
 
 - **DRAG-72** Group spring path: see DRAG-15.
 
-- **DRAG-73** Drag is pointer only; there are no keyboard bindings for it (the keyboard mode's keys are in keyboard.md).
+- **DRAG-73** In the keyboard mode Shift with the arrows drags the widget under the cursor one place at a time, landing as a pointer drop at that gap would (keyboard.md KEYS-86); it opens no gap and has no glide.
 
 - **DRAG-74** Pressing and holding the clock's (centre anchor) empty area for 200 ms, or pressing it and moving 4 px, lifts the bar: an indicator shows on each screen edge, the one nearest the pointer (by the screen's diagonals) lights, and releasing writes `bar.position` to that edge (nothing if it is the current edge). Code: Bar.qml `CenterGestureArea`, `nearestScreenEdge()`; position: layout-zones.md ZONE-38.
 

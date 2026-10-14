@@ -243,6 +243,77 @@ Item {
     if (list.length) put(list[last ? list.length - 1 : 0].item, last ? -1 : 1)
   }
 
+  // ---- dragging (Shift+arrows, KEYS-86) ------------------------------------
+  // The widget or group icon under the cursor moves to where the arrow would
+  // move the cursor, landing as a pointer drop there lands (Bar.qml dropAt:
+  // inside an expansion's run it goes On demand, on the dots too), and the
+  // cursor goes with it.
+  function draggable(item) { var k = kindOf(item); return k === "widget" || k === "group" }
+  function dragBy(dir) {
+    var list = stops(), i = indexOf(list, cursor)
+    if (i < 0 || !draggable(cursor)) return
+    var to = KeysModel.gridStep(list, i, dir, 0)
+    var drop = to >= 0 ? KeysModel.dragDrop(list[i].zone, list[to], dir) : null
+    if (!drop) return
+    var source = cursor, target = list[to].item
+    var moved = drop.dots
+      ? bar.dropAt(source, { managedZone: target.zone, handle: true, handleToken: target.inlineToken, managedBefore: bar.handleDropBefore(target, source) })
+      : bar.dropAt(source, { slot: target, after: drop.after })
+    bar.ev("keys", "drag " + nameOf(source) + (drop.dots ? " dots " + target.zone : (drop.after ? " after " : " before ") + nameOf(target)) + (moved ? "" : " refused"))
+    if (moved) follow(source, drop.dots ? target.zone : list[to].zone)
+  }
+  // The dragged stop's slot after the edit, by what it is, in its new zone.
+  property var following: null
+  function follow(source, zone) {
+    following = { key: source.instanceKey, group: source.groupHeader ? source.entry.powerbarGroupId : "", zone: zone, tries: 0 }
+    Qt.callLater(checkFollow)
+  }
+  function followed(slot, f) {
+    if (!slot || slot.drawerHost || slot.region !== f.zone) return false
+    return f.group ? !!slot.groupHeader && slot.entry.powerbarGroupId === f.group : !slot.groupHeader && slot.instanceKey === f.key
+  }
+  function checkFollow() {
+    var f = following, w = window
+    if (!f || !w) return
+    var slot = (w.moduleItems || []).find(function(s) { return followed(s, f) }) || null
+    if (slot && seen(slot)) {
+      following = null
+      if (cursor !== slot) put(slot, 0)
+      else showCard()
+      return
+    }
+    // Gone behind its dots or into its zone's drawer: brought into view
+    // there, as a search brings a widget in.
+    if (++f.tries < 12) { followRetry.restart(); return }
+    following = null
+    if (slot) bringIn(slot)
+  }
+  Timer { id: followRetry; interval: 16; onTriggered: keys.checkFollow() }
+  // In a drawer: the member under the cursor moves one row or cell, and the
+  // cursor stays on it.
+  function dragMember(step) {
+    var d = drawer
+    if (!d || !d.cursorActive) return
+    var to = d.cursor + step
+    if (to < 0 || to >= d.slots.length) return
+    var source = d.slots[d.cursor], target = d.slots[to]
+    var key = source.instanceKey, group = source.groupHeader ? source.entry.powerbarGroupId : ""
+    var moved = bar.dropBarModuleAtTarget(source, { slot: target, after: step > 0 })
+    bar.ev("keys", "drag " + nameOf(source) + (step > 0 ? " after " : " before ") + nameOf(target) + " in drawer" + (moved ? "" : " refused"))
+    if (moved) Qt.callLater(function() { followMember(d, key, group, 0) })
+  }
+  function followMember(d, key, group, tries) {
+    if (drawer !== d) return
+    var at = d.slots.findIndex(function(s) {
+      return s && (group ? !!s.groupHeader && s.entry.powerbarGroupId === group : !s.groupHeader && s.instanceKey === key)
+    })
+    if (at < 0 && tries < 12) { Qt.callLater(function() { followMember(d, key, group, tries + 1) }); return }
+    if (at < 0) return
+    d.cursor = at
+    d.cursorActive = true
+    d.navigate(0)
+  }
+
   // Dots open the way the pointer opens them, and the cursor lands on the
   // first widget that appeared in the direction it was going (or on `key`).
   function openDots(token, dir, key) {
@@ -469,6 +540,12 @@ Item {
       sheet = false
       if (name === "Escape" || name === "?") return true
     }
+    var drag = KeysModel.dragKey(name, event.modifiers & Qt.ShiftModifier)
+    if (drag) {
+      var step = KeysModel.barIntent(position, drag)
+      if (step && step.move) dragBy(step.move)
+      return true
+    }
     var it = KeysModel.barIntent(position, name)
     if (!it) return true
     if (it.move) moveBy(it.move)
@@ -499,6 +576,12 @@ Item {
     if (!name || !here || !d) return false
     if (searching && searchKey(name)) return true
     if (sheet) { sheet = false; if (name === "Escape" || name === "?") return true }
+    var drag = KeysModel.dragKey(name, event.modifiers & Qt.ShiftModifier)
+    if (drag) {
+      var step = KeysModel.drawerIntent(position, drag, d.cursorActive ? d.cursor : 0, !d.namedMenu)
+      if (step && step.member) dragMember(step.member)
+      return true
+    }
     var it = KeysModel.drawerIntent(position, name, d.cursorActive ? d.cursor : 0, !d.namedMenu)
     if (!it) return true
     if (it.member) {
