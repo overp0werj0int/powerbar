@@ -139,8 +139,10 @@ Preferences.
 Back to Omarchy's bar at any time: `omarchy bar reset`. Your Powerbar
 settings stay in `~/.config/omarchy/shell.json` for when you come back.
 
-Needs Omarchy 4 (Quattro). Tested on Omarchy 4 (omarchy-dev r7017),
-Hyprland 0.56.2, Quickshell 0.3.2 and Qt 6.12, and kept compatible with
+Needs Omarchy 4 (Quattro) and nothing else: Powerbar is QML and shell
+scripts, with no compiled helpers, packages or build step. Tested on aarch64
+(Asahi) with Omarchy 4 (omarchy-dev r7017), Hyprland 0.56.2, Quickshell 0.3.2
+and Qt 6.12; x86_64 is not tested separately. It is kept compatible with
 Omarchy 4.0.4.
 
 ### Shortcuts for the keyboard mode
@@ -525,3 +527,5 @@ says how many changes were not saved.
 
 How every part behaves, precisely: [docs/behavior/](docs/behavior/README.md).
 Working on Powerbar itself: [DEVELOPMENT.md](DEVELOPMENT.md).
+Bugs and questions: [issues](https://github.com/overp0werj0int/powerbar/issues).
+Security problems: report them privately, as [SECURITY.md](SECURITY.md) describes.
