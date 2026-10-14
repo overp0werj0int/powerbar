@@ -75,6 +75,12 @@ Item {
     function onZoneFitReportsChanged() { root.ev("folded", JSON.stringify(root.zoneFitReports)) }
   }
   Connections {
+    target: configStore
+    enabled: root.frameLog
+    function onPendingChanged() { root.ev("config", configStore.pending ? "queued" : "written") }
+  }
+  onBarInUseChanged: ev("in-use", barInUse ? "yes" : "no")
+  Connections {
     target: barKeysItem
     enabled: root.frameLog
     function onActiveChanged() { root.ev("keys", barKeysItem.active ? "on" : "off") }
@@ -155,10 +161,20 @@ Item {
   // Config edits show at once and reach shell.json once the bar has settled
   // (ConfigStore.qml: the queue, the host's config under it, and the rule that
   // only a config naming Powerbar is written).
-  // Drags from the keyboard (keyboard.md KEYS-86) hold the write too, until
-  // Shift is let go: Omarchy's handling of a write stalls the shell.
-  property bool keysDragHold: false
-  readonly property bool configWriteSettled: !barDragSource && !barDragSettling && !barMoveActive && !keysDragHold
+  // No write mid-gesture (a drag, its settle, a bar move); and none while the
+  // user is at the bar either, since the write stalls the shell under them:
+  // the pointer on a bar or in a drawer, the keyboard mode, a widget's panel
+  // open. Those only delay it (ConfigStore idleWait).
+  readonly property bool configWriteSettled: !barDragSource && !barDragSettling && !barMoveActive
+  readonly property bool barInUse: barHovered || dropLinger || !!managedOwner || barKeys.active || !!activePopout
+  // A pointer drop leaves the pointer where it was, but the bar reads it as
+  // gone (hover out) until it moves again. So after a drop the bar counts as in
+  // use until the pointer shows on it again, when hover tells once more, or
+  // for 3 s, should it have left without crossing the bar.
+  property bool dropLinger: false
+  Timer { id: dropLingerTimer; interval: 3000; onTriggered: root.dropLinger = false }
+  onBarDragSourceChanged: if (!barDragSource) { dropLinger = true; dropLingerTimer.restart() }
+  onBarHoveredChanged: if (barHovered) { dropLinger = false; dropLingerTimer.stop() }
   signal configWriteFailed()
   readonly property string barId: manifest && manifest.id ? String(manifest.id) : "p0werj0int.powerbar"
   ConfigStore {
@@ -167,6 +183,7 @@ Item {
     barId: root.barId
     shown: root.barConfig
     settled: root.configWriteSettled
+    idle: !root.barInUse
     // Qt 6.12 hands a `var` signal argument over as a reference wrapper whose
     // lists fail Array.isArray, so Omarchy's normalizeLayout would read an
     // empty layout and every widget would be rebuilt: take a plain copy.
@@ -4303,7 +4320,7 @@ Item {
     Item {
       id: keyCatcherItem
       Keys.onPressed: function(event) { if (root.barKeys.barKey(event)) event.accepted = true }
-      Keys.onReleased: function(event) { if (!event.isAutoRepeat) root.barKeys.released(event) }
+      Keys.onReleased: function(event) { if (!event.isAutoRepeat) root.barKeys.released() }
     }
 
     Item {
@@ -4552,7 +4569,7 @@ Item {
                 spacing: Style.space(5)
                 Repeater {
                   model: String(modelData.keys).split(" ")
-                  KeyCap { required property var modelData; text: modelData }
+                  KeyCap { required property var modelData; text: modelData; anchors.verticalCenter: parent.verticalCenter }
                 }
                 Text {
                   text: modelData.label

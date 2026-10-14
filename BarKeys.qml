@@ -171,7 +171,6 @@ Item {
     active = false
     searching = false; query = ""; sheet = false; pending = null
     following = null
-    releaseWrites()
     dropQueued()
     cursor = null
     window = null
@@ -256,13 +255,10 @@ Item {
   // shell.json waits until Shift is let go (or another key, the mode
   // ending, a 2 s pause):
   // Omarchy's handling of each write would stall the next move.
-  function holdWrites() { bar.keysDragHold = true; writeHold.restart() }
-  function releaseWrites() { writeHold.stop(); bar.keysDragHold = false }
-  Timer { id: writeHold; interval: 2000; onTriggered: keys.releaseWrites() }
-  // One drag: the write held, the open drawer kept through the edit, and
-  // every slot that moved gliding to its place.
+  // One drag: the open drawer kept through the edit, and every slot that
+  // moved gliding to its place. The write waits for the mode to end
+  // (Bar.qml barInUse).
   function dragEdit(source, drop, what) {
-    holdWrites()
     bar.keepDrawerThroughEdit = true
     var moved = false
     try { moved = bar.glideEdit(window, source, function() { return bar.dropAt(source, drop) }) }
@@ -460,8 +456,7 @@ Item {
   // ---- drawers ------------------------------------------------------------
   // A group's drawer unfolds beside its icon, and a zone's beside the zone,
   // once the key is let go, so a held key sweeping past never flashes it.
-  function released(event) {
-    if (event && event.key === Qt.Key_Shift) releaseWrites()
+  function released() {
     if (!here || drawer || !previews(cursor)) return
     previewTimer.restart()
   }
@@ -627,9 +622,6 @@ Item {
       if (name === "Escape" || name === "?") return true
     }
     var drag = KeysModel.dragKey(name, event.modifiers & Qt.ShiftModifier)
-    // A key without Shift: the drags are over (its release can be lost as the
-    // keys move between the bar and a drawer).
-    if (!(event.modifiers & Qt.ShiftModifier)) releaseWrites()
     if (drag) {
       var step = KeysModel.barIntent(position, drag)
       if (step && step.move) dragBy(step.move)
@@ -668,9 +660,6 @@ Item {
     if (searching && searchKey(name)) return true
     if (sheet) { sheet = false; if (name === "Escape" || name === "?") return true }
     var drag = KeysModel.dragKey(name, event.modifiers & Qt.ShiftModifier)
-    // A key without Shift: the drags are over (its release can be lost as the
-    // keys move between the bar and a drawer).
-    if (!(event.modifiers & Qt.ShiftModifier)) releaseWrites()
     if (drag) {
       var step = KeysModel.drawerIntent(position, drag, d.cursorActive ? d.cursor : 0, !d.namedMenu)
       if (step && step.member) dragMember(step.member)
