@@ -227,7 +227,9 @@ function groupPatch(patch) {
     // was not kept whole (Groups keeps labels to 80 characters).
     if (k === "label" && v.trim().length > 80) return { error: "label is at most 80 characters" }
     if (k === "icon" && Array.from(v).length > 8) return { error: "icon is one glyph or emoji" }
-    if (k === "iconImage" && (v.charAt(0) !== "/" || v.length > 1024)) return { error: "iconImage is an absolute path to an SVG or PNG" }
+    // GroupsModel.imagePath()'s rule: a local file, never a URL.
+    if (k === "iconImage" && (v.length > 1024 || !/^\/[^\x00-\x1f\x7f]*\.(svg|png)$/i.test(v) || /(^|\/)\.\.(\/|$)/.test(v)))
+      return { error: "iconImage is an absolute path to an SVG or PNG" }
     if (k === "before" && typeof v !== "string") return { error: "before names a widget, or \"\" for the zone's end" }
     if (k === "zone") {
       if (sections.indexOf(v) < 0) return { error: "zone is one of " + sections.join(", ") }

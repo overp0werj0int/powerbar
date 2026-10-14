@@ -188,4 +188,6 @@ test('a group change refuses values it would not keep whole', () => {
   assert.equal(m.groupPatch({ icon: '👩‍💻' }).patch.icon, '👩‍💻');
   assert.match(m.groupPatch({ iconImage: 'relative.svg' }).error, /absolute path/);
   assert.equal(m.groupPatch({ iconImage: '/home/u/a.svg' }).patch.iconImage, '/home/u/a.svg');
+  for (const bad of ['http://example.com/a.svg', '/home/u/a.txt', '/home/u/../../etc/a.png', '/a\nb.svg', 'file:///a.svg'])
+    assert.match(m.groupPatch({ iconImage: bad }).error, /absolute path/, bad);
 });

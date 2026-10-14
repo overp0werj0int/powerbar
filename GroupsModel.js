@@ -5,6 +5,12 @@ var sections = ["left", "center", "right"]
 // widget's key starts with it.
 function groupKey(id) { return "group:" + id }
 function isGroupKey(key) { return typeof key === "string" && key.indexOf("group:") === 0 }
+// A group's own image: an absolute local path to an SVG or PNG, nothing else
+// (no URL, so drawing it never reaches the network). CliModel.js has the same rule.
+function imagePath(v) {
+  return typeof v === "string" && v.length <= 1024 && /^\/[^\x00-\x1f\x7f]*\.(svg|png)$/i.test(v)
+    && !/(^|\/)\.\.(\/|$)/.test(v) ? v : undefined
+}
 // Representative glyphs from the stock Omarchy bar widgets and indicators.
 var icons = [
   { name: "Group", glyph: "󰉋" },
@@ -95,7 +101,7 @@ function groups(bar) {
       memberDisplay: ["native", "name", "both"].indexOf(g.memberDisplay) >= 0 ? g.memberDisplay : "native",
       // Absent unless set, so groups that don't use them save as before.
       iconFont: g.iconFont === "omarchy" ? "omarchy" : undefined,
-      iconImage: typeof g.iconImage === "string" && g.iconImage ? g.iconImage : undefined,
+      iconImage: imagePath(g.iconImage),
       iconTint: g.iconTint === "own" ? "own" : undefined,
       items: (Array.isArray(g.items) ? g.items : []).filter(function(key) {
         if (typeof key !== "string" || !key || isGroupKey(key) || members.indexOf(key) >= 0) return false
@@ -137,7 +143,7 @@ function edit(config, id, patch) {
     group.iconImage = undefined
     group.iconTint = undefined
   }
-  if (typeof patch.iconImage === "string" && patch.iconImage) group.iconImage = patch.iconImage
+  if (imagePath(patch.iconImage)) group.iconImage = patch.iconImage
   if (patch.iconTint === "text" || patch.iconTint === "own") group.iconTint = patch.iconTint === "own" ? "own" : undefined
   if (sections.indexOf(patch.section) >= 0) { group.section = patch.section; group.before = "" }
   if (typeof patch.before === "string") group.before = patch.before

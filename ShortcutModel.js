@@ -275,7 +275,12 @@ function bindable(keys) {
   return { keys: format(sig) }
 }
 
-function luaString(s) { return '"' + String(s).replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\n/g, "\\n") + '"' }
+// Every other control character as a decimal escape (\013), so no line of the
+// block can break or end early whatever a name holds.
+function luaString(s) {
+  return '"' + String(s).replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\n/g, "\\n")
+    .replace(/[\x00-\x1f\x7f]/g, function(c) { return "\\" + ("00" + c.charCodeAt(0)).slice(-3) }) + '"'
+}
 // A widget's plugin id or a group's id, as it may appear in a shell command:
 // letters, digits, dot, dash and underscore only, so a target can never add
 // shell code to the bind it becomes.

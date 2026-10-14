@@ -305,3 +305,9 @@ test('keys only a submap or Powerbar\'s own block holds are free', () => {
   const r = m.offer({}, binds, {}, ['SUPER + CTRL + SLASH']);
   assert.deepEqual(plain(r.bound.map(s => s.target)), ['bar:keys', 'bar:search']);
 });
+
+test('Lua strings escape every control character, so a name can never break a line of the block', () => {
+  assert.equal(m.luaString('a"b\\c\nd'), '"a\\"b\\\\c\\nd"');
+  assert.equal(m.luaString('x\ry\x1b\x00z\x7f'), '"x\\013y\\027\\000z\\127"');
+  assert.ok(!/[\x00-\x1f\x7f]/.test(m.luaString('\r\n\t\v\f')));
+});

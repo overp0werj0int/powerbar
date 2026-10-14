@@ -4425,6 +4425,7 @@ Item {
             Column {
               spacing: Style.space(6)
               Text {
+                textFormat: Text.PlainText
                 text: "Keyboard mode"
                 color: keysStrip.ink
                 font.family: Style.font.family
@@ -4453,6 +4454,7 @@ Item {
                       }
                     }
                     Text {
+                      textFormat: Text.PlainText
                       id: keyLabel
                       visible: index % 2 === 1
                       anchors.verticalCenter: parent.verticalCenter
@@ -4473,6 +4475,7 @@ Item {
             Column {
               spacing: Style.space(6)
               Text {
+                textFormat: Text.PlainText
                 text: "Widgets and groups"
                 color: keysStrip.ink
                 font.family: Style.font.family
@@ -4480,6 +4483,7 @@ Item {
                 font.bold: true
               }
               Text {
+                textFormat: Text.PlainText
                 visible: keysStrip.sheetEntries.length === 0
                 width: Style.space(220)
                 wrapMode: Text.WordWrap
@@ -4500,6 +4504,7 @@ Item {
                     implicitWidth: index % 2 ? sheetCombo.implicitWidth : sheetName.implicitWidth
                     implicitHeight: Math.max(sheetCombo.implicitHeight, sheetName.implicitHeight)
                     Text {
+                      textFormat: Text.PlainText
                       id: sheetName
                       visible: index % 2 === 0
                       anchors.verticalCenter: parent.verticalCenter
@@ -4525,6 +4530,7 @@ Item {
             visible: keysStrip.keys.searching
             spacing: Style.space(8)
             Text {
+              textFormat: Text.PlainText
               text: "Find"
               color: Qt.alpha(keysStrip.ink, 0.7)
               font.family: Style.font.family
@@ -4539,6 +4545,7 @@ Item {
               color: Qt.alpha(keysStrip.ink, 0.06)
               borderSpec: Border.flat(Commons.Color.accent, 1)
               Text {
+                textFormat: Text.PlainText
                 id: queryText
                 x: Style.space(8)
                 anchors.verticalCenter: parent.verticalCenter
@@ -4549,6 +4556,7 @@ Item {
               }
             }
             Text {
+              textFormat: Text.PlainText
               readonly property bool none: keysStrip.keys.query !== "" && keysStrip.keys.matchCount === 0
               text: keysStrip.keys.query === "" ? "Type part of a name" : none ? "No widget named that"
                 : keysStrip.keys.matchCount === 1 ? "1 match" : (keysStrip.keys.matchIndex + 1) + " of " + keysStrip.keys.matchCount
@@ -4572,6 +4580,7 @@ Item {
                   KeyCap { required property var modelData; text: modelData; anchors.verticalCenter: parent.verticalCenter }
                 }
                 Text {
+                  textFormat: Text.PlainText
                   text: modelData.label
                   color: Qt.alpha(keysStrip.ink, 0.75)
                   font.family: Style.font.family

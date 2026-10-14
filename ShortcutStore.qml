@@ -94,6 +94,9 @@ Item {
   function notifyOffer() {
     var text = error ? error + " Set the bar's shortcuts in Preferences → Bar → Keyboard." : offerNote
     offerNote = ""
+    // Plain words only: notification daemons read markup in the body, and
+    // the text can carry Hyprland's error message.
+    text = String(text || "").replace(/[<>&\x00-\x1f\x7f]/g, " ").slice(0, 300)
     if (text) Quickshell.execDetached(["notify-send", "-a", "Powerbar", "Powerbar shortcuts", text])
   }
 
@@ -149,13 +152,13 @@ Item {
   Process {
     id: readProc
     command: ["bash", "-c", `
-      echo "@@BINDS"; hyprctl binds 2>/dev/null
+      echo "@@BINDS"; timeout 3s hyprctl binds 2>/dev/null | head -c 1048576
       for f in "\${OMARCHY_PATH:-/usr/share/omarchy}"/default/hypr/bindings/*.lua; do
-        [ -f "$f" ] && { echo "@@FILE omarchy $f"; cat "$f"; echo; }
+        [ -f "$f" ] && { echo "@@FILE omarchy $f"; head -c 1048576 -- "$f"; echo; }
       done
       for f in "\${POWERBAR_HYPR_DIR:-\${XDG_CONFIG_HOME:-$HOME/.config}/hypr}"/*.lua; do
         case "$f" in */powerbar.lua) continue ;; esac
-        [ -f "$f" ] && { echo "@@FILE config $f"; cat "$f"; echo; }
+        [ -f "$f" ] && { echo "@@FILE config $f"; head -c 1048576 -- "$f"; echo; }
       done`]
     stdout: StdioCollector {
       onStreamFinished: {

@@ -157,7 +157,10 @@ Item {
     var dest = destinationFor(path, ext)
     copier.name = path.split("/").pop()
     copier.dest = dest
-    copier.command = ["sh", "-c", 'f=$1; d=$2; [ -f "$f" ] || exit 3; [ "$(stat -c %s -- "$f")" -le 524288 ] || exit 4; mkdir -p -- "${d%/*}" && cp -- "$f" "$d"',
+    // Read once, capped, so a file that changes or grows meanwhile can't
+    // slip past the size check; a FIFO or device times out.
+    copier.command = ["sh", "-c", 'f=$1; d=$2; [ -f "$f" ] && [ -r "$f" ] || exit 3; mkdir -p -- "${d%/*}" || exit 5; '
+      + 'timeout 2s head -c 524289 -- "$f" > "$d" || { rm -f -- "$d"; exit 5; }; [ "$(stat -c %s -- "$d")" -le 524288 ] || { rm -f -- "$d"; exit 4; }',
       "sh", path, dest]
     copier.running = true
   }
@@ -189,8 +192,9 @@ Item {
       if (code === 0 && image) {
         var dest = picker.destinationFor(image, image === "image/png" ? "png" : "svg")
         clipImage.dest = dest
-        clipImage.command = ["sh", "-c", 'mkdir -p -- "${2%/*}" && timeout 2s wl-paste --type "$1" > "$2" && [ "$(stat -c %s -- "$2")" -le 524288 ] || { rm -f -- "$2"; exit 4; }',
-          "sh", image, dest]
+        clipImage.command = ["bash", "-c", 'mkdir -p -- "${2%/*}" || exit 1; timeout 2s wl-paste --type "$1" | head -c 524289 > "$2"; s=("${PIPESTATUS[@]}"); '
+          + '[ "$(stat -c %s -- "$2")" -le 524288 ] || { rm -f -- "$2"; exit 4; }; [ "${s[0]}" = 0 ] && [ "${s[1]}" = 0 ] && [ -s "$2" ] || { rm -f -- "$2"; exit 1; }',
+          "bash", image, dest]
         clipImage.running = true
       } else if (code === 0 && types.indexOf("text/uri-list") >= 0) {
         clipUri.running = true
@@ -208,7 +212,7 @@ Item {
   }
   Process {
     id: clipUri
-    command: ["wl-paste", "--type", "text/uri-list"]
+    command: ["sh", "-c", "timeout 2s wl-paste --type text/uri-list | head -c 65536"]
     stdout: StdioCollector {
       onStreamFinished: {
         var first = String(text).split(/\r?\n/).find(function(l) { return l.indexOf("file://") === 0 })
@@ -431,6 +435,7 @@ Item {
             width: parent.width - Style.space(40)
             spacing: Style.space(4)
             Text {
+              textFormat: Text.PlainText
               Layout.alignment: Qt.AlignHCenter
               text: "󰉍"
               color: Qt.alpha(Commons.Color.popups.text, 0.7)
@@ -554,6 +559,7 @@ Item {
         }
         KeyCap { text: "enter" }
         Text {
+          textFormat: Text.PlainText
           text: "Choose"
           color: Qt.alpha(Commons.Color.popups.text, 0.6)
           font.family: Style.font.family
