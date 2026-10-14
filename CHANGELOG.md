@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## 0.9.1 — 2026-10-14
+
+Saving waits until you leave the bar, and the key legend lines up again.
 
 - **Saving waits until you leave the bar.** Omarchy freezes the shell for a
   moment whenever the config is written, so a change made at the bar (a
