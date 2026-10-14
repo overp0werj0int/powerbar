@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+- **A ready-made two-zone and Notch layout for a fresh install.** On Omarchy's
+  stock bar, the first switch to two zones or Notch now lays the widgets out
+  as a finished arrangement: menu, workspaces, indicators, updates, weather
+  and agents on the left; Bluetooth, network, audio, power, monitor,
+  keyboard layout, clock and tray on the right. A three-zone layout you've
+  changed is still split at the clock as before.
+
 ## 0.8.0 — 2026-10-14
 
 Zone modes, with a Notch mode that grows the bar out of a MacBook's camera;

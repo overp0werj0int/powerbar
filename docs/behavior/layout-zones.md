@@ -179,7 +179,9 @@ Numbers below use Omarchy's default theme tokens: bar 26 px (horizontal) or 28 p
   - The keyboard layout and then the anchor end the right zone, beside the Preferences button.
   - A group moves with the widget it sits before. A group before the anchor goes to the end of the left zone; a group at the centre's end goes before the right zone's first widget.
 
-  Code: ZoneModeModel.derive.
+  - Exception: when the three-zone layout is still Omarchy's stock one (the same widgets in the same zones and order, no groups), `two` and `notch` both start from a fixed layout instead. Left: menu, workspaces, indicators, system update, weather, agents. Right: Bluetooth, network, audio, power, monitor, keyboard layout, clock, tray. System update, weather, agents, monitor and tray are explicitly On the bar.
+
+  Code: ZoneModeModel.derive, isStock, stockTwo.
 
 - **ZONE-75** A widget that the layout being entered does not know (it was added while another mode was in use) joins the end of its zone, with two exceptions. In two zones, a centre widget joins the end of the right zone. On the notch, a new left widget takes the start of the left zone, the end farthest from the camera. A widget removed meanwhile is gone from every layout it returns to. Code: ZoneModeModel.placeNew.
 

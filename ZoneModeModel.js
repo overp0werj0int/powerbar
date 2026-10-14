@@ -103,6 +103,50 @@ function derive(layout, groups, anchorId) {
   return { layout: out, groups: moved }
 }
 
+// Omarchy's stock three-zone layout, by widget id, and the two-zone layout
+// made for it (two and notch alike) instead of derive's split: what a fresh
+// install gets.
+var STOCK_THREE = {
+  left: ["omarchy.menu", "omarchy.workspaces"],
+  center: ["omarchy.indicators", CLOCK, KEYBOARD_LAYOUT, "omarchy.weather", "omarchy.system-update"],
+  right: ["omarchy.tray", "omarchy.agents", "omarchy.bluetooth", "omarchy.network", "omarchy.audio", "omarchy.monitor", "omarchy.power"]
+}
+var STOCK_TWO = {
+  left: ["omarchy.menu", "omarchy.workspaces", "omarchy.indicators",
+    { id: "omarchy.system-update", powerbarVisibility: "shown" },
+    { id: "omarchy.weather", powerbarVisibility: "shown" },
+    { id: "omarchy.agents", powerbarVisibility: "shown" }],
+  right: ["omarchy.bluetooth", "omarchy.network", "omarchy.audio", "omarchy.power",
+    { id: "omarchy.monitor", powerbarVisibility: "shown" }, KEYBOARD_LAYOUT, CLOCK,
+    { id: "omarchy.tray", powerbarVisibility: "shown" }]
+}
+
+// Whether a three-zone layout is still Omarchy's stock one: the same widgets
+// in the same zones and order, one of each, and no groups.
+function isStock(layout, groups) {
+  if (Object.keys(groupPlaces(groups)).length) return false
+  var z = zones(layout)
+  return ["left", "center", "right"].every(function(name) {
+    var ids = z[name].map(function(e) { return e && e.id })
+    return JSON.stringify(ids) === JSON.stringify(STOCK_THREE[name])
+  })
+}
+
+// The stock two-zone layout, carrying each widget's instance key from
+// `layout` so the switch finds it.
+function stockTwo(layout) {
+  var key = {}, z = zones(layout)
+  ;["left", "center", "right"].forEach(function(name) {
+    z[name].forEach(function(e) { if (e && e.id) key[e.id] = keyOf(e) })
+  })
+  var make = function(spec) {
+    var e = clone(entryOf(spec))
+    if (key[e.id] && key[e.id] !== "id:" + e.id) e.powerbarInstance = key[e.id]
+    return e
+  }
+  return { layout: { left: STOCK_TWO.left.map(make), center: [], right: STOCK_TWO.right.map(make) }, groups: {} }
+}
+
 // A widget the layout being entered does not know (added while another mode
 // was in use): two zones have no centre, so a centre widget joins the right
 // zone; the notch's zones grow outward, so a new widget takes the end
@@ -130,9 +174,11 @@ function switchMode(bar, target) {
   var saved = isObject(store[target]) ? store[target] : null
   if (!saved && twoZones(target)) {
     var three = current === "three" ? store.three : (isObject(store.three) ? store.three : store[current])
-    saved = derive(three.layout, three.groups ? Object.keys(three.groups).map(function(id) {
+    var threeGroups = three.groups ? Object.keys(three.groups).map(function(id) {
       return Object.assign({ id: id }, three.groups[id])
-    }) : [], bar.centerAnchor || CLOCK)
+    }) : []
+    saved = isStock(three.layout, threeGroups) ? stockTwo(three.layout)
+      : derive(three.layout, threeGroups, bar.centerAnchor || CLOCK)
   }
   if (!saved) saved = { layout: clone(bar.layout), groups: groupPlaces(bar.powerbarGroups) }
 

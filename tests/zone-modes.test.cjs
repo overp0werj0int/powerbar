@@ -38,6 +38,43 @@ test('the first two-zone layout splits the centre at the clock; keyboard layout 
   assert.equal(bar.centerAnchor, 'omarchy.clock', 'kept for three zones');
 });
 
+function omarchyStock() {
+  return {
+    centerAnchor: 'omarchy.clock',
+    layout: {
+      left: [w('omarchy.menu'), w('omarchy.workspaces')],
+      center: [w('omarchy.indicators'), w('omarchy.clock', { format: 'dddd HH:mm' }), w('omarchy.keyboard-layout'),
+        w('omarchy.weather'), w('omarchy.system-update')],
+      right: [w('omarchy.tray'), w('omarchy.agents'), w('omarchy.bluetooth'), w('omarchy.network'),
+        w('omarchy.audio'), w('omarchy.monitor'), w('omarchy.power')]
+    }
+  };
+}
+
+for (const mode of ['two', 'notch']) {
+  test(`Omarchy's stock layout gets the stock ${mode} layout the first time`, () => {
+    const bar = omarchyStock();
+    assert.equal(zm.switchMode(bar, mode), true);
+    assert.deepEqual(ids(bar.layout.left), ['omarchy.menu', 'omarchy.workspaces', 'omarchy.indicators',
+      'omarchy.system-update', 'omarchy.weather', 'omarchy.agents']);
+    assert.deepEqual(ids(bar.layout.center), []);
+    assert.deepEqual(ids(bar.layout.right), ['omarchy.bluetooth', 'omarchy.network', 'omarchy.audio', 'omarchy.power',
+      'omarchy.monitor', 'omarchy.keyboard-layout', 'omarchy.clock', 'omarchy.tray']);
+    const shown = [].concat(bar.layout.left, bar.layout.right).filter(e => e.powerbarVisibility === 'shown').map(e => e.id);
+    assert.deepEqual(J(shown.sort()), ['omarchy.agents', 'omarchy.monitor', 'omarchy.system-update', 'omarchy.tray', 'omarchy.weather']);
+    assert.equal(bar.layout.right[6].format, 'dddd HH:mm', 'settings travel with the widget');
+    assert.equal(bar.layout.right[6].powerbarInstance, 'k-omarchy.clock');
+  });
+}
+
+test('a three-zone layout changed from the stock one is split as before', () => {
+  const bar = omarchyStock();
+  bar.layout.right.reverse();
+  zm.switchMode(bar, 'two');
+  assert.deepEqual(ids(bar.layout.left), ['omarchy.menu', 'omarchy.workspaces', 'omarchy.indicators']);
+  assert.deepEqual(ids(bar.layout.right).slice(-2), ['omarchy.keyboard-layout', 'omarchy.clock']);
+});
+
 test('each mode keeps its own arrangement and visibility; settings are shared', () => {
   const bar = stock();
   zm.switchMode(bar, 'two');
