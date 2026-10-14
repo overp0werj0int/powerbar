@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "p0werj0int.powerbar",
   "name": "Powerbar",
-  "version": "0.7.0",
+  "version": "0.8.0",
   "author": "p0werj0int",
   "license": "MIT",
   "description": "Omarchy's bar plus on-demand widgets, groups, bar styles, autohide, a keyboard mode and a Preferences window.",

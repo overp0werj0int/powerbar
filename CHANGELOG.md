@@ -1,6 +1,11 @@
 # Changelog
 
-## Unreleased
+## 0.8.0 — 2026-10-14
+
+Zone modes, with a Notch mode that grows the bar out of a MacBook's camera;
+activity peeks that bring out just the widget that changed; drawers one size
+on every bar; and Powerbar kept working with Omarchy's glassy background and
+Qt 6.12.
 
 - **Zone modes: three zones, two, or Notch.** Preferences > Layout now has
   three modes, and each keeps its own arrangement (where each widget sits,
@@ -63,7 +68,6 @@
 - **Omarchy's panel shortcuts recognised again**: Omarchy now binds Super+Ctrl+A
   and the other panel keys in a new form, so Preferences showed Audio,
   Bluetooth and the rest without their shortcut. Both forms are read.
-
 - **Moving a widget no longer rebuilds the bar** (Qt 6.12): every move,
   on the bar or in Preferences, emptied the bar for a moment and built every
   widget again, so the icons blinked out and the bar seemed to reload. Qt
