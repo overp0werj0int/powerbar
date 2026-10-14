@@ -196,6 +196,25 @@ function reanchor(config, section, key, next) {
   if (changed) config.bar.powerbarGroups = list
   return changed
 }
+// A widget dropped before a group anchored on itself (the group drawn just
+// before it) passes that group: the group and the ones drawn after it on the
+// same widget re-anchor on the entry that follows the widget, drawn ahead of
+// the groups already there. Nothing in the layout moves.
+function passGroups(config, section, key, id) {
+  if (!config || !config.bar || !key) return false
+  var list = groups(config.bar)
+  var mine = list.filter(function(g) { return g.section === section && g.before === key })
+  var from = mine.findIndex(function(g) { return g.id === id })
+  if (from < 0) return false
+  var moving = mine.slice(from), next = nextAnchor(config, section, key)
+  var rest = list.filter(function(g) { return moving.indexOf(g) < 0 })
+  var at = rest.findIndex(function(g) { return g.section === section && g.before === next })
+  moving.forEach(function(g) { g.before = next })
+  if (at >= 0) rest.splice.apply(rest, [at, 0].concat(moving))
+  else rest = rest.concat(moving)
+  config.bar.powerbarGroups = rest
+  return true
+}
 function remove(config, id) {
   var list = groups(config.bar), next = list.filter(function(g) { return g.id !== id })
   if (next.length === list.length) return false

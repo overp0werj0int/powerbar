@@ -123,6 +123,23 @@ test('a group anchored on the last widget keeps the zone end when it leaves', ()
   assert.deepEqual(m.render(c.bar.layout, m.groups(c.bar)).left.map(e => e.powerbarInstance), ['one', 'two', 'group:a']);
 });
 
+test('a widget dropped before its own group passes it, ahead of the next widget\'s groups', () => {
+  const c = fixture();
+  m.create(c, 'a', 'A'); m.create(c, 'b', 'B'); m.create(c, 'c', 'C');
+  m.edit(c, 'c', { section: 'left', before: 'three' });
+  m.edit(c, 'a', { section: 'left', before: 'two' });
+  m.edit(c, 'b', { section: 'left', before: 'two' });
+  const at = () => m.render(c.bar.layout, m.groups(c.bar)).left.map(e => e.powerbarInstance);
+  assert.deepEqual(at(), ['one', 'group:a', 'group:b', 'two', 'group:c', 'three']);
+  const layout = JSON.stringify(c.bar.layout);
+  assert.equal(m.passGroups(c, 'left', 'two', 'b'), true);
+  assert.deepEqual(at(), ['one', 'group:a', 'two', 'group:b', 'group:c', 'three']);
+  assert.equal(m.passGroups(c, 'left', 'two', 'a'), true);
+  assert.deepEqual(at(), ['one', 'two', 'group:a', 'group:b', 'group:c', 'three']);
+  assert.equal(JSON.stringify(c.bar.layout), layout);
+  assert.equal(m.passGroups(c, 'left', 'two', 'c'), false);
+});
+
 test('a visibility change in place leaves the group anchored', () => {
   const c = fixture();
   m.create(c, 'a', 'A');

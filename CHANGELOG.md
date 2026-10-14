@@ -13,6 +13,9 @@
   open, and the config is saved once you let go of Shift, so a widget
   swept along the bar never stalls. The key strip and the `?` sheet list
   it.
+- **A widget passes its own group.** Shift+Left on a widget right after
+  a group icon now moves it past the group. Before, nothing happened,
+  though Shift+Right past a group worked.
 
 ## 0.8.2 — 2026-10-14
 

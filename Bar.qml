@@ -2679,6 +2679,16 @@ Item {
     return changed
   }
 
+  function passOwnGroup(source, groupId) {
+    if (!source || !root.canWriteConfig()) return false
+    var region = source.region, key = source.instanceKey
+    var changed = false
+    root.writeConfig(function(config) {
+      changed = GroupsModel.passGroups(config, region, key, groupId)
+    })
+    return changed
+  }
+
   function barZoneAt(point, window) {
     var coordinate = root.vertical ? point.y : point.x
     var length = root.vertical ? window.height : window.width
@@ -2936,6 +2946,11 @@ Item {
     }
     if (drop.zone) return root.dropBarModule(sourceSlot, drop.zone, "", "shown")
     if (drop.into) return root.assignGroup(sourceSlot.instanceKey, targetSlot.entry.powerbarGroupId)
+    // Before a group drawn just before the widget itself (anchored on it): the
+    // widget passes the group, which re-anchors after it. As a move in the
+    // layout it would be no move at all.
+    if (targetSlot.groupHeader && !afterTarget && !targetSlot.drawerHost && targetSlot.region === sourceSlot.region
+        && !sourceSlot.memberGroup && !!targetSlot.managed === !!sourceSlot.managed && root.passOwnGroup(sourceSlot, targetSlot.entry.powerbarGroupId)) return true
     // Inside an inline expansion's run the widget joins it On demand; where the
     // shown widgets meet the expansion it lands shown.
     var visibility = targetSlot.drawerHost || root.barGapOnDemand(targetSlot, afterTarget, sourceSlot) ? "managed" : "shown"
