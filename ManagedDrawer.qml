@@ -29,6 +29,8 @@ Item {
   // whatever closes it or changes its members; destroying that row would
   // leave the drag without its release (the bar stuck mid-drag).
   property Item dragMount: null
+  // A drag's landing outline slides on to the next landing spot (DRAG-75).
+  readonly property HighlightGlide dropGlide: HighlightGlide {}
   readonly property bool presenting: opened || reveal > 0.001 || !!dragMount
   onPresentingChanged: if (!presenting && bar.managedOwner === drawer) bar.managedOwner = null
   Behavior on reveal {
@@ -239,7 +241,7 @@ Item {
     var geometry = anchorRevision + anchorSlot.x + anchorSlot.y + anchorSlot.width + anchorSlot.height + anchorSlot.cellLength
     var p = anchorSlot.mapToItem(hostWindow.contentItem, 0, 0)
     var along = bar.vertical ? anchorSlot.height : anchorSlot.width
-    // The icon's own stretch of its slot, as the highlight (DRAG-64): a drop
+    // The icon's own stretch of its slot, as the highlight (DRAG-75): a drop
     // gap the slot holds is left out.
     var lead = anchorSlot.cellLead > 0 ? anchorSlot.cellLead : 0
     var own = anchorSlot.cellExtent > 0 ? Math.min(along - lead, anchorSlot.cellExtent) : along - lead
@@ -493,6 +495,8 @@ Item {
   // strip, a row in a menu.
   component DrawerOutline: DropOutline {
     bar: drawer.bar
+    glide: drawer.dropGlide
+    glideKey: "drawer"
     vertical: drawer.stripVertical
     cellAlong: drawer.namedMenu ? drawer.tokens.thickness : (drawer.bar.barDragSource ? drawer.bar.barDragSource.cellLength : drawer.tokens.cell)
     cellAcross: drawer.namedMenu ? drawer.menuRowWidth : drawer.tokens.thickness
@@ -631,7 +635,7 @@ Item {
                   readonly property real lengthAlong: drawer.stripVertical ? mount.height : mount.width
                   readonly property real insetAlong: drawer.stripVertical ? mount.animatedInsetY : mount.animatedInsetX
                   readonly property real base: drawer.stripVertical ? mount.baseHeight : mount.baseWidth
-                  readonly property bool open: drawer.opened && !mount.preview.hidden && (mount.preview.before || mount.preview.after)
+                  open: drawer.opened && !mount.preview.hidden && (mount.preview.before || mount.preview.after)
                   gapStart: mount.preview.before ? 0 : base
                   gapLength: !open ? 0 : mount.preview.before ? insetAlong : Math.max(0, lengthAlong - base)
                   fullGap: mount.dragGap
@@ -776,6 +780,7 @@ Item {
             targetHeight: drawer.stripVertical ? (gap ? (drawer.namedMenu ? drawer.rowPitch : bar.dragGapHeight) : 0) : drawer.thickness
             motionEnabled: bar.animationsEnabled && drawer.opened && !drawer.replaying && !bar.dragHandover
             DrawerOutline {
+              open: endGap.gap
               gapLength: drawer.stripVertical ? parent.height : parent.width
               fullGap: drawer.namedMenu ? drawer.rowPitch : drawer.stripVertical ? drawer.bar.dragGapHeight : drawer.bar.dragGapWidth
               landingOffset: drawer.namedMenu ? drawer.padding : -1

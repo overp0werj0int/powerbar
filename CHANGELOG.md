@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- **The drop outline slides.** Dragging a widget along a zone or a drawer, the
+  outline of where it will land now glides from one gap to the next, as the
+  hover highlight does, instead of shrinking away in one gap and growing in
+  the next. Where it first shows it fades in at its full size.
+
 ## 0.8.1 — 2026-10-14
 
 A ready-made layout for two zones and the Notch on a fresh install, and

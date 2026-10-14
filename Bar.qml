@@ -3288,6 +3288,8 @@ Item {
     property alias managedDrawer: drawer
     // The bar's highlights slide from one to the next within a zone (LOOK-139).
     readonly property HighlightGlide highlightGlide: HighlightGlide {}
+    // And so does a drag's landing outline (DRAG-75).
+    readonly property HighlightGlide dropGlide: HighlightGlide {}
     // The frame log's timeline for this screen's bar (FrameLog.qml).
     readonly property string evScreen: screen ? screen.name : "?"
     Connections {
@@ -5721,7 +5723,12 @@ Item {
       id: startGap
       targetWidth: root.vertical ? root.barSize : moduleListRoot.previewStartGap ? root.dragGapWidth : 0
       targetHeight: !root.vertical ? root.barSize : moduleListRoot.previewStartGap ? root.dragGapHeight : 0
-      DropOutline { bar: root; onDemand: root.barDragLandsOnDemand; gapLength: root.vertical ? parent.height : parent.width }
+      DropOutline {
+        bar: root; onDemand: root.barDragLandsOnDemand; gapLength: root.vertical ? parent.height : parent.width
+        open: moduleListRoot.previewStartGap
+        glide: moduleListRoot.homeWindow ? moduleListRoot.homeWindow.dropGlide || null : null
+        glideKey: moduleListRoot.region
+      }
       motionEnabled: root.animationsEnabled && !root.dragHandover
       motionDuration: root.dragMotionDuration; motionEasing: root.dragMotionEasing
     }
@@ -5776,7 +5783,12 @@ Item {
       y: root.vertical ? endHandle.y + endHandle.height : 0
       targetWidth: root.vertical ? root.barSize : moduleListRoot.previewEndGap ? root.dragGapWidth : 0
       targetHeight: !root.vertical ? root.barSize : moduleListRoot.previewEndGap ? root.dragGapHeight : 0
-      DropOutline { bar: root; onDemand: root.barDragLandsOnDemand; gapLength: root.vertical ? parent.height : parent.width }
+      DropOutline {
+        bar: root; onDemand: root.barDragLandsOnDemand; gapLength: root.vertical ? parent.height : parent.width
+        open: moduleListRoot.previewEndGap
+        glide: moduleListRoot.homeWindow ? moduleListRoot.homeWindow.dropGlide || null : null
+        glideKey: moduleListRoot.region
+      }
       motionEnabled: root.animationsEnabled && !root.dragHandover
       motionDuration: root.dragMotionDuration; motionEasing: root.dragMotionEasing
     }
@@ -6158,7 +6170,10 @@ Item {
       onDemand: root.barDragLandsOnDemand
       readonly property real slotLength: root.vertical ? slot.height : slot.width
       readonly property real insetLength: root.vertical ? slot.animatedInsetY : slot.animatedInsetX
-      readonly property bool open: !slot.drawerHost && slot.mainVisible && (slot.preview.before || slot.preview.after)
+      readonly property var hostWindow: root.targetWindow(slot)
+      open: !slot.drawerHost && slot.mainVisible && (slot.preview.before || slot.preview.after)
+      glide: hostWindow ? hostWindow.dropGlide || null : null
+      glideKey: slot.region
       gapStart: slot.preview.before ? 0 : slot.cellExtent + (root.vertical ? slot.settleExtraHeight : slot.settleExtraWidth)
       gapLength: !open ? 0 : slot.preview.before ? insetLength : Math.max(0, slotLength - gapStart)
     }
