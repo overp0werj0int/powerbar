@@ -472,7 +472,7 @@ Item {
   }
   // A key let go here after it took the keys back to the bar (an along key
   // out of a menu, Tab): the cursor's next drawer previews as from the bar.
-  Keys.onReleased: function(event) { if (!event.isAutoRepeat && bar.barKeys.heldBy(hostWindow)) bar.barKeys.released() }
+  Keys.onReleased: function(event) { if (!event.isAutoRepeat && bar.barKeys.heldBy(hostWindow)) bar.barKeys.released(event) }
   Keys.onPressed: function(event) {
     if (barKeysHeld && bar.barKeys.drawerKey(event)) { event.accepted = true; return }
     switch (event.key) {

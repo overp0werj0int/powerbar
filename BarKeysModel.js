@@ -101,6 +101,16 @@ function dragDrop(fromZone, to, dir) {
   return { after: to.zone === fromZone ? dir > 0 : dir < 0 }
 }
 
+// Where a widget sent across (into a drawer or a run, or out to the bar)
+// lands: beside the one of `ats` (centres along the bar) nearest its own
+// centre `at`, on the side facing it. → { index, after }, or null when
+// there is nothing to land beside.
+function besideNearest(ats, at) {
+  var best = -1
+  for (var i = 0; i < ats.length; i++) if (best < 0 || Math.abs(ats[i] - at) < Math.abs(ats[best] - at)) best = i
+  return best < 0 ? null : { index: best, after: ats[best] < at }
+}
+
 // The next stop along the row, or -1 at either end: the cursor stops there
 // (no wrap), so the ends stay a landmark.
 function step(count, index, dir) {
@@ -324,4 +334,4 @@ function cardText(name, own, namedMenu) {
   return namedMenu && own && own !== name ? own : name
 }
 
-if (typeof module !== "undefined") module.exports = { ZONES, PREFS_KEY, keymap, barIntent, drawerIntent, dragKey, dragDrop, step, gridStep, zoneStep, fuzzy, matches, searchText, route, legend, sheetKeys, startScreen, cardText }
+if (typeof module !== "undefined") module.exports = { ZONES, PREFS_KEY, keymap, barIntent, drawerIntent, dragKey, dragDrop, besideNearest, step, gridStep, zoneStep, fuzzy, matches, searchText, route, legend, sheetKeys, startScreen, cardText }

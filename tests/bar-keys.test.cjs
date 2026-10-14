@@ -252,3 +252,10 @@ test('a dragged stop lands past its neighbour, at the near end of another zone, 
   assert.equal(keys.dragDrop('right', { kind: 'prefs', zone: 'right' }, 1), null, 'nothing passes Preferences');
   assert.equal(keys.dragDrop('right', null, 1), null, 'at the end of the row it stays');
 });
+
+test('a widget sent into a drawer or a run, or out to the bar, lands beside the nearest, facing it', () => {
+  assert.deepEqual(keys.besideNearest([100, 140, 180], 150), { index: 1, after: true }, 'past the one just before it');
+  assert.deepEqual(keys.besideNearest([100, 140, 180], 170), { index: 2, after: false });
+  assert.deepEqual(keys.besideNearest([300], 20), { index: 0, after: false }, 'before a run that starts further on');
+  assert.equal(keys.besideNearest([], 20), null, 'nothing to land beside');
+});

@@ -170,6 +170,8 @@ Item {
     bar.hideCard()
     active = false
     searching = false; query = ""; sheet = false; pending = null
+    following = null
+    releaseWrites()
     dropQueued()
     cursor = null
     window = null
@@ -247,8 +249,38 @@ Item {
   // The widget or group icon under the cursor moves to where the arrow would
   // move the cursor, landing as a pointer drop there lands (Bar.qml dropAt:
   // inside an expansion's run it goes On demand, on the dots too), and the
-  // cursor goes with it.
+  // cursor goes with it. Shift with the into key sends it to its zone's open
+  // drawer or expansion, with the out key back to the bar.
   function draggable(item) { var k = kindOf(item); return k === "widget" || k === "group" }
+  function groupOf(slot) { return slot && slot.groupHeader ? slot.entry.powerbarGroupId : "" }
+  // shell.json waits until Shift is let go (or another key, the mode
+  // ending, a 2 s pause):
+  // Omarchy's handling of each write would stall the next move.
+  function holdWrites() { bar.keysDragHold = true; writeHold.restart() }
+  function releaseWrites() { writeHold.stop(); bar.keysDragHold = false }
+  Timer { id: writeHold; interval: 2000; onTriggered: keys.releaseWrites() }
+  // One drag: the write held, the open drawer kept through the edit, and
+  // every slot that moved gliding to its place.
+  function dragEdit(source, drop, what) {
+    holdWrites()
+    bar.keepDrawerThroughEdit = true
+    var moved = false
+    try { moved = bar.glideEdit(window, source, function() { return bar.dropAt(source, drop) }) }
+    finally { bar.keepDrawerThroughEdit = false }
+    bar.ev("keys", "drag " + nameOf(source) + " " + what + (moved ? "" : " refused"))
+    return moved
+  }
+  // Beside the slot of `list` nearest `source` along the bar, on its side
+  // facing `source`: { slot, after }, or null for an empty list.
+  function alongOf(slot) {
+    var item = slot.drawerHost || slot
+    var c = item.mapToItem(window.contentItem, item.width / 2, item.height / 2)
+    return bar.vertical ? c.y : c.x
+  }
+  function besideNearest(source, list) {
+    var spot = KeysModel.besideNearest(list.map(alongOf), alongOf(source))
+    return spot ? { slot: list[spot.index], after: spot.after } : null
+  }
   function dragBy(dir) {
     var list = stops(), i = indexOf(list, cursor)
     if (i < 0 || !draggable(cursor)) return
@@ -257,20 +289,51 @@ Item {
     if (!drop) return
     var source = cursor, target = list[to].item
     var moved = drop.dots
-      ? bar.dropAt(source, { managedZone: target.zone, handle: true, handleToken: target.inlineToken, managedBefore: bar.handleDropBefore(target, source) })
-      : bar.dropAt(source, { slot: target, after: drop.after })
-    bar.ev("keys", "drag " + nameOf(source) + (drop.dots ? " dots " + target.zone : (drop.after ? " after " : " before ") + nameOf(target)) + (moved ? "" : " refused"))
+      ? dragEdit(source, { managedZone: target.zone, handle: true, handleToken: target.inlineToken, managedBefore: bar.handleDropBefore(target, source) }, "dots " + target.zone)
+      : dragEdit(source, { slot: target, after: drop.after }, (drop.after ? "after " : "before ") + nameOf(target))
     if (moved) follow(source, drop.dots ? target.zone : list[to].zone)
   }
-  // The dragged stop's slot after the edit, by what it is, in its new zone.
+  // Into the zone's open drawer, beside its member nearest the widget, and
+  // the keys go in with it; or, In the bar, into the open expansion's run.
+  function dragInto() {
+    var source = cursor, w = window, d = drawer
+    if (!draggable(source) || !w) return
+    var spot, moved
+    if (d && d.opened && !d.groupId && d.zone === zone) {
+      var key = source.instanceKey, group = groupOf(source)
+      spot = besideNearest(source, d.slots.filter(function(m) { return m && m.drawerHost }))
+      moved = dragEdit(source, spot ? { slot: spot.slot, after: spot.after } : { drawer: d }, "into drawer " + d.zone)
+      // Entered, as the into key enters it, with the cursor on the newcomer.
+      if (moved) Qt.callLater(function() { if (keys.drawer === d && d.opened) { keys.openZoneDrawer(d.zone, key); keys.followMember(d, key, group, 0) } })
+      return
+    }
+    if (!bar.onDemandInline || source.managed || w.inlineZoneName !== zone) return
+    spot = besideNearest(source, (w.moduleItems || []).filter(function(s) {
+      return s && s !== source && s.region === source.region && s.managed && seen(s)
+    }))
+    if (!spot) return
+    moved = dragEdit(source, { slot: spot.slot, after: spot.after }, "into run " + (spot.after ? "after " : "before ") + nameOf(spot.slot))
+    if (moved) follow(source, source.region)
+  }
+  // Out of the open expansion's run, beside the zone's shown widget nearest it.
+  function dragOutOfRun() {
+    var source = cursor, w = window
+    if (!draggable(source) || !w || !source.managed || w.inlineZoneName !== zone) return
+    var spot = besideNearest(source, (w.moduleItems || []).filter(function(s) {
+      return s && s !== source && s.region === source.region && !s.managed && seen(s)
+    }))
+    var region = source.region
+    if (dragEdit(source, spot ? { slot: spot.slot, after: spot.after } : { zone: region }, "out of run")) follow(source, region)
+  }
+  // The slot after the edit, by what it is, in its new zone.
   property var following: null
   function follow(source, zone) {
-    following = { key: source.instanceKey, group: source.groupHeader ? source.entry.powerbarGroupId : "", zone: zone, tries: 0 }
+    following = { key: source.instanceKey, group: groupOf(source), zone: zone, tries: 0 }
     Qt.callLater(checkFollow)
   }
   function followed(slot, f) {
     if (!slot || slot.drawerHost || slot.region !== f.zone) return false
-    return f.group ? !!slot.groupHeader && slot.entry.powerbarGroupId === f.group : !slot.groupHeader && slot.instanceKey === f.key
+    return f.group ? groupOf(slot) === f.group : !slot.groupHeader && slot.instanceKey === f.key
   }
   function checkFollow() {
     var f = following, w = window
@@ -297,15 +360,37 @@ Item {
     var to = d.cursor + step
     if (to < 0 || to >= d.slots.length) return
     var source = d.slots[d.cursor], target = d.slots[to]
-    var key = source.instanceKey, group = source.groupHeader ? source.entry.powerbarGroupId : ""
-    var moved = bar.dropBarModuleAtTarget(source, { slot: target, after: step > 0 })
-    bar.ev("keys", "drag " + nameOf(source) + (step > 0 ? " after " : " before ") + nameOf(target) + " in drawer" + (moved ? "" : " refused"))
-    if (moved) Qt.callLater(function() { followMember(d, key, group, 0) })
+    var key = source.instanceKey, group = groupOf(source)
+    if (dragEdit(source, { slot: target, after: step > 0 }, (step > 0 ? "after " : "before ") + nameOf(target) + " in drawer"))
+      Qt.callLater(function() { followMember(d, key, group, 0) })
+  }
+  // Out of the drawer onto the bar: a zone's member beside the zone's stop
+  // nearest it, a group's beside its group's icon. The cursor goes with it
+  // and a zone's drawer folds back to its preview.
+  function dragOut() {
+    var d = drawer
+    if (!d || !d.cursorActive || !d.slots[d.cursor]) return
+    var source = d.slots[d.cursor], drop
+    if (d.groupId) {
+      var header = headerOf(source)
+      if (!header) return
+      drop = { slot: header, after: true }
+    } else {
+      var spot = besideNearest(source, stops().filter(function(st) {
+        return st.zone === d.zone && !st.row && (st.kind === "widget" || st.kind === "group")
+      }).map(function(st) { return st.item }))
+      drop = spot ? { slot: spot.slot, after: spot.after } : { zone: d.zone }
+    }
+    var region = d.groupId ? (headerOf(source) || source).region : d.zone
+    if (!dragEdit(source, drop, "out of drawer")) return
+    // A zone's drawer folds back to the preview the cursor gives it there.
+    if (!d.groupId) { d.openZone(d.zone, false); previewing = true }
+    follow(source, region)
   }
   function followMember(d, key, group, tries) {
     if (drawer !== d) return
     var at = d.slots.findIndex(function(s) {
-      return s && (group ? !!s.groupHeader && s.entry.powerbarGroupId === group : !s.groupHeader && s.instanceKey === key)
+      return s && (group ? groupOf(s) === group : !s.groupHeader && s.instanceKey === key)
     })
     if (at < 0 && tries < 12) { Qt.callLater(function() { followMember(d, key, group, tries + 1) }); return }
     if (at < 0) return
@@ -375,7 +460,8 @@ Item {
   // ---- drawers ------------------------------------------------------------
   // A group's drawer unfolds beside its icon, and a zone's beside the zone,
   // once the key is let go, so a held key sweeping past never flashes it.
-  function released() {
+  function released(event) {
+    if (event && event.key === Qt.Key_Shift) releaseWrites()
     if (!here || drawer || !previews(cursor)) return
     previewTimer.restart()
   }
@@ -541,9 +627,14 @@ Item {
       if (name === "Escape" || name === "?") return true
     }
     var drag = KeysModel.dragKey(name, event.modifiers & Qt.ShiftModifier)
+    // A key without Shift: the drags are over (its release can be lost as the
+    // keys move between the bar and a drawer).
+    if (!(event.modifiers & Qt.ShiftModifier)) releaseWrites()
     if (drag) {
       var step = KeysModel.barIntent(position, drag)
       if (step && step.move) dragBy(step.move)
+      else if (step && step.into) dragInto()
+      else if (step && step.out) dragOutOfRun()
       return true
     }
     var it = KeysModel.barIntent(position, name)
@@ -577,9 +668,13 @@ Item {
     if (searching && searchKey(name)) return true
     if (sheet) { sheet = false; if (name === "Escape" || name === "?") return true }
     var drag = KeysModel.dragKey(name, event.modifiers & Qt.ShiftModifier)
+    // A key without Shift: the drags are over (its release can be lost as the
+    // keys move between the bar and a drawer).
+    if (!(event.modifiers & Qt.ShiftModifier)) releaseWrites()
     if (drag) {
       var step = KeysModel.drawerIntent(position, drag, d.cursorActive ? d.cursor : 0, !d.namedMenu)
       if (step && step.member) dragMember(step.member)
+      else if (step && step.back) dragOut()
       return true
     }
     var it = KeysModel.drawerIntent(position, name, d.cursorActive ? d.cursor : 0, !d.namedMenu)

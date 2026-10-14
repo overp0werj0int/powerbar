@@ -155,7 +155,10 @@ Item {
   // Config edits show at once and reach shell.json once the bar has settled
   // (ConfigStore.qml: the queue, the host's config under it, and the rule that
   // only a config naming Powerbar is written).
-  readonly property bool configWriteSettled: !barDragSource && !barDragSettling && !barMoveActive
+  // Drags from the keyboard (keyboard.md KEYS-86) hold the write too, until
+  // Shift is let go: Omarchy's handling of a write stalls the shell.
+  property bool keysDragHold: false
+  readonly property bool configWriteSettled: !barDragSource && !barDragSettling && !barMoveActive && !keysDragHold
   signal configWriteFailed()
   readonly property string barId: manifest && manifest.id ? String(manifest.id) : "p0werj0int.powerbar"
   ConfigStore {
@@ -2853,6 +2856,40 @@ Item {
       layout: layout, source: sourceSlot.instanceKey, anchorKey: g.anchorKey })
   }
 
+  // A drag from the keyboard (keyboard.md KEYS-86): the edit moves the slots
+  // in the layout at once, then each one that moved (on the bar or in the
+  // open drawer) is drawn from where it was and glides to its new place, the
+  // dragged one over the rest. edit() returns whether it changed anything.
+  readonly property int keysGlideMs: 170
+  function glideEdit(window, lead, edit) {
+    if (!window || !animationsEnabled) return edit()
+    var hostOf = function(s) {
+      var host = s.drawerHost || s
+      return host.visible && host.width > 0 && host.height > 0 && (s.drawerHost || s.mainVisible) ? host : null
+    }
+    var before = []
+    ;(window.moduleItems || []).forEach(function(s) {
+      var host = s ? hostOf(s) : null
+      if (host) before.push({ slot: s, at: host.mapToItem(null, 0, 0) })
+    })
+    var changed = edit()
+    if (!changed) return changed
+    // Lay the rows out now, so each slot is measured where it goes.
+    var laid = []
+    ;(window.moduleItems || []).forEach(function(s) {
+      var row = s && (s.drawerHost || s).parent
+      if (row && laid.indexOf(row) < 0 && typeof row.forceLayout === "function") { laid.push(row); row.forceLayout() }
+    })
+    before.forEach(function(b) {
+      var host = hostOf(b.slot)
+      if (!host || typeof host.glideFrom !== "function") return
+      var now = host.mapToItem(null, 0, 0)
+      var dx = b.at.x - (now.x - host.shiftX), dy = b.at.y - (now.y - host.shiftY)
+      if (Math.abs(dx) + Math.abs(dy) > 0.5) host.glideFrom(dx, dy, root.keysGlideMs, b.slot === lead)
+    })
+    return changed
+  }
+
   function dropBarModuleAtTarget(sourceSlot, drop) {
     if (!sourceSlot || !drop) return false
     if (drop.source) return false
@@ -4251,7 +4288,7 @@ Item {
     Item {
       id: keyCatcherItem
       Keys.onPressed: function(event) { if (root.barKeys.barKey(event)) event.accepted = true }
-      Keys.onReleased: function(event) { if (!event.isAutoRepeat) root.barKeys.released() }
+      Keys.onReleased: function(event) { if (!event.isAutoRepeat) root.barKeys.released(event) }
     }
 
     Item {
@@ -5808,6 +5845,7 @@ Item {
     readonly property real wrapX: wrapped ? wrapShift : 0
     readonly property real wrapY: wrapped ? root.barSize : 0
     readonly property bool wrapShown: !wrapped || !wrapHanger || wrapHanger.reach >= wrapAt - 0.5
+    // With AnimatedSlot's own glide offset: transforms add up.
     transform: Translate { x: slot.wrapX; y: slot.wrapY }
     // Gone at once when it moves rows, then faded in as the black reaches it
     // (a Behavior's duration read through a binding raced the change).
@@ -6133,7 +6171,7 @@ Item {
     motionDelay: root.animationsEnabled && managed && (activityVisible || inlineShown && homeWindow.inlineGiveWay) && !hovered && !root.dragMotionActive ? 80 : 0
     motionEasing: root.dragMotionActive ? root.dragMotionEasing : Easing.OutCubic
     motionOvershoot: 0
-    z: modulePointer.dragging ? 100 : 0
+    z: modulePointer.dragging ? 100 : shiftLead ? 1 : 0
 
     // The whole slot, gutters included, is the widget's hover area on the bar.
     readonly property bool stopHovered: slotHover.hovered
