@@ -16,7 +16,7 @@ tests/cli.test.cjs; stock `/usr/share/omarchy/bin/omarchy-bar`,
 
 ## Plugin manifest
 
-- **INTEG-1** `manifest.json` declares `schemaVersion: 1`, `id: "p0werj0int.powerbar"`, `name: "Powerbar"`, `version: "0.8.1"`, author `p0werj0int`, license `MIT`, description `Status bar with widgets`, `kinds: ["bar"]`, `entryPoints.bar: "Bar.qml"`.
+- **INTEG-1** `manifest.json` declares `schemaVersion: 1`, `id: "p0werj0int.powerbar"`, `name: "Powerbar"`, `version: "0.8.2"`, author `p0werj0int`, license `MIT`, description `Status bar with widgets`, `kinds: ["bar"]`, `entryPoints.bar: "Bar.qml"`.
 - **INTEG-2** The manifest declares `omarchy.clonedFrom: "omarchy.bar"`.
 
 ## Startup
