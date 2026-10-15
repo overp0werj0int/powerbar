@@ -6,7 +6,7 @@
 [![Hyprland](https://img.shields.io/badge/Hyprland-Wayland-58e1ff?style=flat-square&logo=hyprland&logoColor=white)](https://hypr.land)
 [![License: MIT](https://img.shields.io/badge/License-MIT-6aa84f?style=flat-square)](LICENSE)
 
-![Powerbar on the nord theme: keyboard mode inside the System group, its name card and the key strip](preview.jpg)
+![Powerbar on the nord theme over a gradient of its colours: keyboard mode inside the System group, its name and the key strip](preview.jpg)
 
 </div>
 
@@ -106,7 +106,7 @@ whose original copyright and MIT license notice are preserved in
 ## Screenshots
 
 Each is one untouched capture of Powerbar on a stock Omarchy theme and its
-own wallpaper.
+own wallpaper. The themes and wallpapers are Omarchy's (MIT).
 
 <p><img src="screenshots/drawer-latte.jpg" alt="A floating bar on catppuccin-latte with the right zone's On demand widgets open in a drawer below it"><br>
 <sub><b>Floating</b>, catppuccin-latte: On demand widgets in their zone's drawer</sub></p>

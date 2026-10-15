@@ -101,12 +101,17 @@ omabox for desktop tests in a private Hyprland session
 ## README images
 
 `screenshots/` holds the README gallery, real captures only. `preview.jpg`
-(the README hero, the plugin's preview and the GitHub social card) is
-`tools/showcase/card.html` rendered by `tools/showcase/render.sh` (headless
-Chromium, 1200x630 at 2x) from `screenshots/hero-nord.jpg`: a 2400x1260 box
-at scale 2.5 on the stock nord theme and its black-moon wallpaper, a layout
-of stock Omarchy widgets, keyboard mode inside the System group. The
-wordmark sits in the moon; re-run render.sh after replacing the capture.
+(the README hero and the plugin's preview) is `tools/showcase/card.html`
+rendered by `tools/showcase/render.sh` (headless Chromium, 1200x675 at 2x:
+16:9, the marketplace card's shape). The page is a gradient of the nord
+theme's own colours with one capture laid in as a screen,
+`screenshots/hero-nord.jpg`: a 1920x1080 box at scale 2.5 on nord, a layout
+of stock Omarchy widgets, keyboard mode inside the System group (keysOn,
+Left, Down, Down). The box's background is the same gradient under the
+screen, from `render.sh --wall OUT.png` and `omarchy-theme-bg-set`. Keep
+what matters inside the screen: catalogue cards crop the picture to between
+about 1.5:1 and 2.4:1, which takes only gradient. Re-run render.sh after
+replacing the capture.
 
 The gallery shots are wide, readable captures from one omabox box
 (`omabox up gal --theme NAME --env POWERBAR_DISPLAY_CUTOUTS=/home/sbx/cutouts.json`),
