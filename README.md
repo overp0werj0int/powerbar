@@ -129,9 +129,9 @@ omarchy bar use p0werj0int.powerbar
 
 Until you change something, Powerbar draws Omarchy's bar plus one button:
 flat, on the edge `bar.position` names, at your theme's size, every widget in
-Omarchy's sections, order and spacing, nothing on demand. Two shortcuts are
-bound if their keys are free: Super+B for the keyboard mode and Super+Ctrl+/
-for its search (below).
+Omarchy's sections, order and spacing, nothing on demand. A notification
+offers two shortcuts, Super+B for the keyboard mode and Super+Ctrl+/ for its
+search; none is bound until you take it (below).
 The nine-dot button at the far right (bottom of a side bar) opens
 Preferences.
 
