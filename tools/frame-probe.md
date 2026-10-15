@@ -8,7 +8,7 @@ on each frame.
 Use it when something "looks jerky" on the live bar (a slide, a drawer, an
 expansion). It tells a main-thread stall (one long gap between frames) from a
 slow animation (frames arrive, but move too little each). Offscreen benches
-(docs/performance/bench) can't show this: the stall usually comes from mapping
+(`$POWERBAR_BENCH`, outside the plugin) can't show this: the stall usually comes from mapping
 Wayland surfaces, which only happens on a real compositor (or in omabox).
 
 ## How

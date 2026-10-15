@@ -81,7 +81,8 @@ omabox for desktop tests in a private Hyprland session
    `~/.claude/skills/omarchy-widget-debug/scripts/live.sh follow PB- 300`
    while they reproduce. Turn it off afterwards.
    For per-frame values of one motion, `tools/frame-probe.md`; for offscreen
-   whole-bar timings, `docs/performance/bench`. Measure before and after;
+   whole-bar timings, the bench (kept outside the plugin, see
+   `docs/performance/implementation.md`). Measure before and after;
    claim only measured gains.
 
 ## State over IPC

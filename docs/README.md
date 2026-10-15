@@ -6,7 +6,7 @@ For people working on Powerbar. Users start at the top-level README.md.
 |---|---|
 | [behavior/](behavior/README.md) | The behavior of record: what Powerbar does, one file per area, every behavior a stable ID. Code is the truth; these files say what the code does in words a behavioral test can check. |
 | [design/](design/) | Why things are the way they are: design notes and the implementation plans for groups, on-demand widgets, spacing and zone fit. History, not spec: where they disagree with `behavior/`, `behavior/` wins. |
-| [performance/](performance/) | The rendering audit (`plan.md`), what was measured and changed (`implementation.md`), the path probe (`probe.cjs`) and the offscreen whole-bar benchmark and profiler (`bench/`). |
+| [performance/](performance/) | The rendering audit (`plan.md`), what was measured and changed (`implementation.md`), the path probe (`probe.cjs`); the offscreen whole-bar benchmark and profiler live outside the plugin (`implementation.md`, Harness). |
 
 The glossary is `CONTEXT.md` at the top level; the development loop is
 `DEVELOPMENT.md`.
