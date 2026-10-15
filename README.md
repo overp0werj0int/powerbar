@@ -3,7 +3,6 @@
 # Powerbar
 
 [![Built for Omarchy: Plugin](https://raw.githubusercontent.com/tcballard/omarchy-badges/3ee85c9ea63c83845b992f8acb086c4a69cca12a/badges/v1/omarchy-plugin.svg)](https://github.com/tcballard/omarchy-badges)
-[![Supported Omarchy versions: 4.0.0+](https://raw.githubusercontent.com/tcballard/omarchy-badges/3ee85c9ea63c83845b992f8acb086c4a69cca12a/badges/v1/compatibility/omarchy-4.0.0-plus.svg)](https://github.com/tcballard/omarchy-badges)
 [![Hyprland](https://img.shields.io/badge/Hyprland-Wayland-58e1ff?style=flat-square&logo=hyprland&logoColor=white)](https://hypr.land)
 [![License: MIT](https://img.shields.io/badge/License-MIT-6aa84f?style=flat-square)](LICENSE)
 
@@ -141,9 +140,9 @@ settings stay in `~/.config/omarchy/shell.json` for when you come back.
 
 Needs Omarchy 4 (Quattro) and nothing else: Powerbar is QML and shell
 scripts, with no compiled helpers, packages or build step. Tested on aarch64
-(Asahi) with Omarchy 4 (omarchy-dev r7017), Hyprland 0.56.2, Quickshell 0.3.2
-and Qt 6.12; x86_64 is not tested separately. It is kept compatible with
-Omarchy 4.0.4.
+(Asahi) with Omarchy 4.0.4 and the next version's development build
+(omarchy-dev r7017, Hyprland 0.56.2, Quickshell 0.3.2, Qt 6.12); x86_64 is
+not tested separately.
 
 ### Shortcuts for the keyboard mode
 
@@ -328,9 +327,6 @@ omarchy-shell powerbar setGroup "$(omarchy-shell powerbar newGroup Sound | jq -r
 omarchy-shell powerbar set shortcut.bar:keys "SUPER + B"
 omarchy-shell powerbar set shortcut.bar:search "SUPER + CTRL + SLASH"
 ```
-
-An agent can do all of this for you: `agents/skills/powerbar/` is a skill
-that teaches it how.
 
 ## For theme authors: `powerbar.toml`
 

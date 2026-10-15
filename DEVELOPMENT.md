@@ -146,10 +146,10 @@ Without them, the loop above still holds: `tools/validate.sh`, `tests/run`,
 restarts the live shell; without it use `omarchy restart shell`, never while
 the session is locked.)
 
-`agents/skills/powerbar/` is the other kind: the skill a user's agent loads to
-*operate* Powerbar (CLI, settings, recipes). It ships on purpose. Keep
-development guidance out of it, and update it in the same commit as any change
-to `omarchy-shell powerbar` functions or settings.
+The skill a user's agent loads to *operate* Powerbar (CLI, settings, recipes)
+is kept outside the plugin, in its own repository: Omarchy's plugin review
+does not accept agent instructions in a plugin. Update it with any change to
+`omarchy-shell powerbar` functions or settings.
 
 ## Git
 
