@@ -128,8 +128,11 @@ master exactly in all thirteen scenarios.
 
 ### Harness
 
-`docs/performance/bench/` runs the real `Bar.qml`, `Preferences.qml` and
-Omarchy's own `Commons` and `Ui` modules in an offscreen Quickshell.
+The bench runs the real `Bar.qml`, `Preferences.qml` and Omarchy's own
+`Commons` and `Ui` modules in an offscreen Quickshell. It is kept outside the
+plugin, beside the agent skill (`$POWERBAR_BENCH`, by default
+`../powerbar-skill/bench` next to this checkout): Omarchy's plugin scanners
+flag a second shell entry point in a plugin.
 
 - **Copy.** It builds a copy of the plugin in which layer-shell windows become
   plain windows. It loads the user's layout from `shell.json`, and stand-in
@@ -148,9 +151,10 @@ Omarchy's own `Commons` and `Ui` modules in an offscreen Quickshell.
   --debug`), and `analyze.py` ranks self time per binding and function.
 
 ```sh
-docs/performance/bench/bench.py "$PWD" current 3          # medians of 3 runs
-docs/performance/bench/prof.sh "$PWD" churn 1 /tmp/churn.qtd
-docs/performance/bench/analyze.py /tmp/churn.qtd "$XDG_RUNTIME_DIR/powerbar-bench/prof-app.log" 30
+B=${POWERBAR_BENCH:-../powerbar-skill/bench}
+$B/bench.py "$PWD" current 3          # medians of 3 runs
+$B/prof.sh "$PWD" churn 1 /tmp/churn.qtd
+$B/analyze.py /tmp/churn.qtd "$XDG_RUNTIME_DIR/powerbar-bench/prof-app.log" 30
 ```
 
 ### Findings and changes

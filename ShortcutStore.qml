@@ -68,33 +68,58 @@ Item {
 
   // A first start (keyboard.md KEYS-84): Powerbar's first write on a config
   // it never ran on leaves bar.powerbarShortcutOffer. Once Hyprland's binds
-  // are read, the bar's suggested shortcuts that nothing holds are bound, a
-  // notification says which and what holds the others, and the flag goes.
+  // are read, a notification that stays until dismissed names the bar's
+  // suggested shortcuts, free or held by what; a click on it opens
+  // Preferences at them. Nothing is bound until the user takes them there.
   readonly property bool offerPending: !!bar && !!bar.barConfig && bar.barConfig.powerbarShortcutOffer === true
-  // The notification, sent once the write is done (or failed).
-  property string offerNote: ""
   // Finished reads of Hyprland's binds; the offer waits for one it asked for,
   // so it judges the binds as they are now, not as they were at start.
   property int reads: 0
   property int offerAfter: -1
   // Later, not inside the change: the offer writes the config offerPending reads.
-  onOfferPendingChanged: Qt.callLater(offerSuggested)
-  onReadsChanged: Qt.callLater(offerSuggested)
+  onOfferPendingChanged: offerLater.restart()
+  onReadsChanged: offerLater.restart()
+  // Owned Timers, not Qt.callLater closures: they stop with the store, so
+  // nothing writes bindings.lua for a bar that is going away.
+  Timer { id: offerLater; interval: 0; onTriggered: store.offerSuggested() }
+  Timer {
+    id: pruneLater
+    interval: 0
+    onTriggered: {
+      if (!store.staleGroups.length || store.busy) return
+      var next = store.config
+      store.staleGroups.forEach(function(t) { next = Shortcuts.restore(next, t) })
+      store.write(next)
+    }
+  }
+  property bool retired: false
   function offerSuggested() {
-    if (!offerPending || busy || offerNote) return
+    if (!offerPending || busy) return
     if (offerAfter < 0) { offerAfter = reads + 1; refresh(); return }
     if (reads < offerAfter || !bar.canWriteConfig()) return
     offerAfter = -1
-    var result = Shortcuts.offer(config, binds, names(config), ownKeys)
+    var text = Shortcuts.offerMessage(Shortcuts.offer(config, binds, names(config), ownKeys))
     preferences.setOption("powerbarShortcutOffer", undefined)
-    offerNote = Shortcuts.offerMessage(result)
-    if (result.bound.length) write(result.next)
-    else notifyOffer()
+    if (text) notifyOffer(text)
   }
-  function notifyOffer() {
-    var text = error ? error + " Set the bar's shortcuts in Preferences → Bar → Keyboard." : offerNote
-    offerNote = ""
-    if (text) Quickshell.execDetached(["notify-send", "-a", "Powerbar", "Powerbar shortcuts", text])
+  // Critical, so it stays until dismissed. A click runs Omarchy's
+  // omarchy-exec-argv (newer Omarchy, kept across shell restarts), or answers
+  // "default" to the --wait here (other daemons, Omarchy 4.0.4).
+  function notifyOffer(text) {
+    // Plain words only: notification daemons read markup in the body, and
+    // the text names other binds by their descriptions.
+    text = String(text || "").replace(/[<>&\x00-\x1f\x7f]/g, " ").slice(0, 300)
+    offerNotice.command = ["notify-send", "-a", "Powerbar", "-u", "critical", "--wait",
+      "--action=default=Open Preferences",
+      "-h", "string:omarchy-exec-argv:" + JSON.stringify(["omarchy-shell", "powerbar", "preferencesKeyboard"]),
+      "Powerbar shortcuts", text]
+    offerNotice.running = true
+  }
+  Process {
+    id: offerNotice
+    stdout: StdioCollector {
+      onStreamFinished: if (text.trim() === "default") store.bar.showPreferencesKeyboard()
+    }
   }
 
   function save(target, keys) { write(Shortcuts.assign(config, target, keys)) }
@@ -104,6 +129,11 @@ Item {
   // shortcuts always match the bound ones.
   property var previous: undefined
   function write(next) {
+    // The block follows the saved shortcuts: no config write, no block.
+    if (retired || !bar.canWriteConfig()) {
+      error = "Powerbar can't save its settings right now, so no shortcut changed."
+      return
+    }
     error = ""
     previous = Object.keys(config).length ? JSON.parse(JSON.stringify(config)) : undefined
     preferences.setOption("powerbarShortcuts", Object.keys(next).length ? next : undefined)
@@ -131,17 +161,12 @@ Item {
   })
   onStaleGroupsChanged: pruneStaleGroups()
   // Also once a write in flight is done: a group dissolved meanwhile.
-  onBusyChanged: if (!busy) { if (offerNote) notifyOffer(); pruneStaleGroups(); Qt.callLater(offerSuggested) }
+  onBusyChanged: if (!busy) { pruneStaleGroups(); offerLater.restart() }
   // Not again after a write that failed (error set): a refusal would put the
   // stale shortcut back and this would try forever; the next change retries.
   function pruneStaleGroups() {
     if (!staleGroups.length || busy || error) return
-    Qt.callLater(function() {
-      if (!store.staleGroups.length || store.busy) return
-      var next = store.config
-      store.staleGroups.forEach(function(t) { next = Shortcuts.restore(next, t) })
-      store.write(next)
-    })
+    pruneLater.restart()
   }
 
   // Hyprland's binds (plain text: its JSON drops code: keys), then every
@@ -149,13 +174,13 @@ Item {
   Process {
     id: readProc
     command: ["bash", "-c", `
-      echo "@@BINDS"; hyprctl binds 2>/dev/null
+      echo "@@BINDS"; timeout 3s hyprctl binds 2>/dev/null | head -c 1048576
       for f in "\${OMARCHY_PATH:-/usr/share/omarchy}"/default/hypr/bindings/*.lua; do
-        [ -f "$f" ] && { echo "@@FILE omarchy $f"; cat "$f"; echo; }
+        [ -f "$f" ] && { echo "@@FILE omarchy $f"; head -c 1048576 -- "$f"; echo; }
       done
       for f in "\${POWERBAR_HYPR_DIR:-\${XDG_CONFIG_HOME:-$HOME/.config}/hypr}"/*.lua; do
         case "$f" in */powerbar.lua) continue ;; esac
-        [ -f "$f" ] && { echo "@@FILE config $f"; cat "$f"; echo; }
+        [ -f "$f" ] && { echo "@@FILE config $f"; head -c 1048576 -- "$f"; echo; }
       done`]
     stdout: StdioCollector {
       onStreamFinished: {
@@ -206,5 +231,10 @@ Item {
     function exec(argv) { running = false; command = argv; running = true }
   }
 
-  Component.onDestruction: if (recording) Quickshell.execDetached(["hyprctl", "eval", Shortcuts.recordLua(false)])
+  Component.onDestruction: {
+    retired = true
+    offerLater.stop()
+    pruneLater.stop()
+    if (recording) Quickshell.execDetached(["hyprctl", "eval", Shortcuts.recordLua(false)])
+  }
 }

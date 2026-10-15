@@ -264,37 +264,34 @@ test('a shortcut set in Powerbar says whether Hyprland has it bound', () => {
   assert.equal(m.effective('bar:keys', config, {}, [{ keys: m.normalize('SUPER + B'), description: 'Powerbar keyboard' }]).live, true);
 });
 
-// First start (KEYS-84): the suggested bar shortcuts are bound where free.
-test('a first start binds each suggested bar shortcut that is free', () => {
+// First start (KEYS-84): the suggested bar shortcuts are offered, never bound.
+test('a first start offers each suggested bar shortcut that is free', () => {
   const r = m.offer({}, [], {}, []);
-  assert.deepEqual(plain(r.next), { 'bar:keys': 'SUPER + B', 'bar:search': 'SUPER + CTRL + SLASH' });
-  assert.deepEqual(plain(r.bound.map(s => s.target)), ['bar:keys', 'bar:search']);
+  assert.deepEqual(plain(r.free.map(s => s.target)), ['bar:keys', 'bar:search']);
   assert.deepEqual(plain(r.taken), []);
+  assert.equal(r.next, undefined, 'nothing is bound');
   assert.equal(m.offerMessage(r),
-    'Super + B starts the keyboard mode, Super + Ctrl + / starts it with its search open. Change them in Preferences → Bar → Keyboard.');
+    'Super + B (the keyboard mode) and Super + Ctrl + / (its search) are free. Click to turn on shortcuts in Preferences → Bar → Keyboard.');
 });
 
-test('a suggested key something else holds is left alone and named', () => {
+test('a suggested key something else holds is named with what holds it', () => {
   const binds = [{ keys: 'SUPER + B', description: 'Browser', submap: '' }];
   const r = m.offer({ 'widget:omarchy.audio': 'SUPER + CTRL + SLASH' }, binds, { 'widget:omarchy.audio': 'Audio' }, []);
-  assert.deepEqual(plain(r.next), { 'widget:omarchy.audio': 'SUPER + CTRL + SLASH' }, 'nothing bound, nothing taken over');
-  assert.deepEqual(plain(r.bound), []);
+  assert.deepEqual(plain(r.free), []);
   assert.deepEqual(plain(r.taken.map(s => [s.target, s.by])), [['bar:keys', 'Browser'], ['bar:search', 'Audio']]);
   assert.equal(m.offerMessage(r),
-    'Super + B (the keyboard mode) is taken by Browser; Super + Ctrl + / (its search) is taken by Audio. Choose keys in Preferences → Bar → Keyboard.');
+    'Super + B (the keyboard mode) is taken by Browser; Super + Ctrl + / (its search) is taken by Audio. Click to choose keys in Preferences → Bar → Keyboard.');
 });
 
-test('one free and one taken: the free one is bound, the other named', () => {
+test('one free and one taken: both named', () => {
   const r = m.offer({}, [{ keys: 'SUPER + B', description: 'Browser', submap: '' }], {}, []);
-  assert.deepEqual(plain(r.next), { 'bar:search': 'SUPER + CTRL + SLASH' });
   assert.equal(m.offerMessage(r),
-    'Super + Ctrl + / starts the keyboard mode with its search open. Super + B (the keyboard mode) is taken by Browser. Choose keys in Preferences → Bar → Keyboard.');
+    'Super + Ctrl + / (the keyboard mode\'s search) is free. Super + B (the keyboard mode) is taken by Browser. Click to turn on shortcuts in Preferences → Bar → Keyboard.');
 });
 
 test('a bar shortcut already decided is not offered again, removed ones included', () => {
   const r = m.offer({ 'bar:keys': '', 'bar:search': 'SUPER + F1' }, [], {}, []);
-  assert.deepEqual(plain(r.next), { 'bar:keys': '', 'bar:search': 'SUPER + F1' });
-  assert.deepEqual(plain(r.bound), []);
+  assert.deepEqual(plain(r.free), []);
   assert.deepEqual(plain(r.taken), []);
   assert.equal(m.offerMessage(r), '');
 });
@@ -303,5 +300,11 @@ test('keys only a submap or Powerbar\'s own block holds are free', () => {
   const binds = [{ keys: 'SUPER + B', description: 'record', submap: 'powerbar-record' },
     { keys: 'SUPER + CTRL + SLASH', description: 'Powerbar search', submap: '' }];
   const r = m.offer({}, binds, {}, ['SUPER + CTRL + SLASH']);
-  assert.deepEqual(plain(r.bound.map(s => s.target)), ['bar:keys', 'bar:search']);
+  assert.deepEqual(plain(r.free.map(s => s.target)), ['bar:keys', 'bar:search']);
+});
+
+test('Lua strings escape every control character, so a name can never break a line of the block', () => {
+  assert.equal(m.luaString('a"b\\c\nd'), '"a\\"b\\\\c\\nd"');
+  assert.equal(m.luaString('x\ry\x1b\x00z\x7f'), '"x\\013y\\027\\000z\\127"');
+  assert.ok(!/[\x00-\x1f\x7f]/.test(m.luaString('\r\n\t\v\f')));
 });

@@ -43,6 +43,10 @@ Item {
   onAutoHideChanged: if (!autoHide) cliShown = false
   readonly property bool preferencesOpen: preferencesPane.opened
   function showPreferences(screen) { preferencesPane.show(screen) }
+  function showPreferencesKeyboard() {
+    var name = focusedScreenName()
+    preferencesPane.showKeyboard(Quickshell.screens.find(function(s) { return s.name === name }) || Quickshell.screens[0])
+  }
   // The bar's options with their clean-config defaults (BarModel.options).
   readonly property var barOptions: BarModel.options(barConfig)
   readonly property bool animationsEnabled: barOptions.animations
@@ -535,8 +539,8 @@ Item {
     }
     if (!missing) return
     configStore.writeNow(function(config) {
-      // A config Powerbar never ran on: its shortcut store binds the bar's
-      // suggested shortcuts where free, once (ShortcutStore offerSuggested).
+      // A config Powerbar never ran on: its shortcut store offers the bar's
+      // suggested shortcuts in a notification, once (ShortcutStore offerSuggested).
       if (!ManagedModel.powerbarHasRun(config.bar)) config.bar.powerbarShortcutOffer = true
       ManagedModel.healVisibility(config.bar, root.thirdPartyEntry)
       // New widgets (no instance key yet) take their mode's place first.
@@ -554,7 +558,7 @@ Item {
       }
     })
   }
-  onShellChanged: Qt.callLater(ensureInstanceIds)
+  onShellChanged: configAfter.restart()
   function managedSlots(zone, window) {
     var slots = (window && window.moduleItems || []).filter(function(slot) {
       return slot && slot.moduleName && slot.region === zone && (slot.managed || slot.fitFolded) && !slot.memberGroup
@@ -650,6 +654,9 @@ Item {
       preferencesPane.show(screen)
     }
     function closePreferences(): void { preferencesPane.close() }
+    // Bar → Keyboard with the cursor on the keyboard mode's shortcut: where
+    // the first start's notification leads (KEYS-84).
+    function preferencesKeyboard(): void { root.showPreferencesKeyboard() }
     function preferencesPage(page: int): void {
       if (!preferencesPane.opened) preferences()
       preferencesPane.setPage(PreferencesModel.pageIndex(page, preferencesPane.pages.length))
@@ -866,7 +873,7 @@ Item {
     onLoadFailed: root.themeLook = ({})
     onFileChanged: reload()
   }
-  onThemeNameChanged: { themeLookFile.reload(); Qt.callLater(healAppearance) }
+  onThemeNameChanged: { themeLookFile.reload(); healLater.restart() }
   readonly property var appearance: AppearanceModel.resolve(AppearanceModel.appearanceOf(barConfig, themeName), themeName, themeLook)
   // The bar's config with the resolved values in the keys the drawing reads.
   readonly property var appearanceConfig: AppearanceModel.flatten(barConfig, themeName, themeLook)
@@ -903,7 +910,7 @@ Item {
   Process {
     id: installedThemesProc
     running: true
-    onExited: if (root.themesAgain) { root.themesAgain = false; Qt.callLater(root.refreshThemes) }
+    onExited: if (root.themesAgain) { root.themesAgain = false; themesLater.restart() }
     command: ["bash", "-c", "ls -1 \"${OMARCHY_PATH:-/usr/share/omarchy}/themes\" \"$HOME/.config/omarchy/themes\" 2>/dev/null"]
     stdout: StdioCollector {
       onStreamFinished: {
@@ -1264,7 +1271,10 @@ Item {
   onModuleSlotsChanged: Qt.callLater(prunePluginBarApis)
 
   Component.onDestruction: {
-    flushConfigWrites()
+    // Deferred work that writes stops here: the host invalidates this
+    // context before the object goes, and nothing may write after it.
+    configAfter.stop(); healLater.stop(); themesLater.stop(); lostKeysLater.stop()
+    configStore.retire()
     for (var id in pluginBarApis) {
       root.releasePluginObjects(id)
       if (pluginBarApis[id] && typeof pluginBarApis[id].destroy === "function")
@@ -2297,21 +2307,27 @@ Item {
   }
 
   onBarConfigChanged: {
-    if (AppearanceModel.legacyPresent(barConfig)) Qt.callLater(healAppearance)
+    if (AppearanceModel.legacyPresent(barConfig)) healLater.restart()
     // Only when the last list says a theme went: then read it again first.
     if (installedThemes.length && AppearanceModel.hasStaleThemes(barConfig, installedThemes.concat(themeName ? [themeName] : [])))
-      Qt.callLater(refreshThemes)
+      themesLater.restart()
     // A config from the host while edits wait to be written: the store shows
     // the edits on top of it rather than the host's config without them.
     if (configStore.delivered(barConfig)) return
     // An entry another writer saved without Powerbar's keys is not shown
     // until they are back, so its widget keeps its instance and groups.
-    if (lostKeysPending()) { Qt.callLater(restoreLostKeys); return }
+    if (lostKeysPending()) { lostKeysLater.restart(); return }
     applyBarConfig()
     shownLayout = JSON.parse(JSON.stringify(barConfig && barConfig.layout || {}))
-    Qt.callLater(ensureInstanceIds)
-    Qt.callLater(pruneGroupMembers)
+    configAfter.restart()
   }
+  // The config work that follows a change, next turn of the event loop. Owned
+  // Timers rather than Qt.callLater closures: they stop with the bar
+  // (Component.onDestruction), so none runs on a bar the host is tearing down.
+  Timer { id: configAfter; interval: 0; onTriggered: { root.ensureInstanceIds(); root.pruneGroupMembers() } }
+  Timer { id: healLater; interval: 0; onTriggered: root.healAppearance() }
+  Timer { id: themesLater; interval: 0; onTriggered: root.refreshThemes() }
+  Timer { id: lostKeysLater; interval: 0; onTriggered: root.restoreLostKeys() }
   // The layout last shown: where keys another writer dropped come back from
   // (BarModel.lostKeys; Omarchy's updateEntryInline keeps only a widget's id
   // and settings, INTEG-148).
@@ -2327,8 +2343,7 @@ Item {
     shownLayout = null
     applyBarConfig()
     shownLayout = JSON.parse(JSON.stringify(barConfig && barConfig.layout || {}))
-    Qt.callLater(ensureInstanceIds)
-    Qt.callLater(pruneGroupMembers)
+    configAfter.restart()
   }
   // Widgets uninstalled since they were grouped have already left every group
   // as read (GroupsModel.groups); their keys leave shell.json too, in one
@@ -4425,6 +4440,7 @@ Item {
             Column {
               spacing: Style.space(6)
               Text {
+                textFormat: Text.PlainText
                 text: "Keyboard mode"
                 color: keysStrip.ink
                 font.family: Style.font.family
@@ -4453,6 +4469,7 @@ Item {
                       }
                     }
                     Text {
+                      textFormat: Text.PlainText
                       id: keyLabel
                       visible: index % 2 === 1
                       anchors.verticalCenter: parent.verticalCenter
@@ -4473,6 +4490,7 @@ Item {
             Column {
               spacing: Style.space(6)
               Text {
+                textFormat: Text.PlainText
                 text: "Widgets and groups"
                 color: keysStrip.ink
                 font.family: Style.font.family
@@ -4480,6 +4498,7 @@ Item {
                 font.bold: true
               }
               Text {
+                textFormat: Text.PlainText
                 visible: keysStrip.sheetEntries.length === 0
                 width: Style.space(220)
                 wrapMode: Text.WordWrap
@@ -4500,6 +4519,7 @@ Item {
                     implicitWidth: index % 2 ? sheetCombo.implicitWidth : sheetName.implicitWidth
                     implicitHeight: Math.max(sheetCombo.implicitHeight, sheetName.implicitHeight)
                     Text {
+                      textFormat: Text.PlainText
                       id: sheetName
                       visible: index % 2 === 0
                       anchors.verticalCenter: parent.verticalCenter
@@ -4525,6 +4545,7 @@ Item {
             visible: keysStrip.keys.searching
             spacing: Style.space(8)
             Text {
+              textFormat: Text.PlainText
               text: "Find"
               color: Qt.alpha(keysStrip.ink, 0.7)
               font.family: Style.font.family
@@ -4539,6 +4560,7 @@ Item {
               color: Qt.alpha(keysStrip.ink, 0.06)
               borderSpec: Border.flat(Commons.Color.accent, 1)
               Text {
+                textFormat: Text.PlainText
                 id: queryText
                 x: Style.space(8)
                 anchors.verticalCenter: parent.verticalCenter
@@ -4549,6 +4571,7 @@ Item {
               }
             }
             Text {
+              textFormat: Text.PlainText
               readonly property bool none: keysStrip.keys.query !== "" && keysStrip.keys.matchCount === 0
               text: keysStrip.keys.query === "" ? "Type part of a name" : none ? "No widget named that"
                 : keysStrip.keys.matchCount === 1 ? "1 match" : (keysStrip.keys.matchIndex + 1) + " of " + keysStrip.keys.matchCount
@@ -4572,6 +4595,7 @@ Item {
                   KeyCap { required property var modelData; text: modelData; anchors.verticalCenter: parent.verticalCenter }
                 }
                 Text {
+                  textFormat: Text.PlainText
                   text: modelData.label
                   color: Qt.alpha(keysStrip.ink, 0.75)
                   font.family: Style.font.family

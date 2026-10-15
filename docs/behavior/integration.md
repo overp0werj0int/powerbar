@@ -16,7 +16,7 @@ tests/cli.test.cjs; stock `/usr/share/omarchy/bin/omarchy-bar`,
 
 ## Plugin manifest
 
-- **INTEG-1** `manifest.json` declares `schemaVersion: 1`, `id: "p0werj0int.powerbar"`, `name: "Powerbar"`, `version: "0.9.1"`, author `p0werj0int`, license `MIT`, description `Status bar with widgets`, `kinds: ["bar"]`, `entryPoints.bar: "Bar.qml"`.
+- **INTEG-1** `manifest.json` declares `schemaVersion: 1`, `id: "p0werj0int.powerbar"`, `name: "Powerbar"`, `version: "0.9.1"`, author `p0werj0int`, license `MIT`, description `Omarchy's bar plus on-demand widgets, groups, bar styles, autohide, a keyboard mode and a Preferences window.`, `kinds: ["bar"]`, `entryPoints.bar: "Bar.qml"`.
 - **INTEG-2** The manifest declares `omarchy.clonedFrom: "omarchy.bar"`.
 
 ## Startup
@@ -190,7 +190,7 @@ Setting names are those of Preferences. `set` of `style` also drops `powerbarIsl
   - `error: centered is for a widget on the bar in the center zone`; `centered: false` on the anchor clears `centerAnchor`.
 - **INTEG-132** `groups` answers a JSON array: `{id, label, icon, iconFont, iconImage, iconTint, zone, before, visibility, face, tooltip (bool, or null if unset), badge, badgeMode, memberDisplay, members: [{instance, id}]}`.
 - **INTEG-133** `newGroup <name>` makes a group named by the trimmed name (at most 80 characters; empty gives `New group`) and answers `{"id":"g-<time>-<random>"}`.
-- **INTEG-134** `setGroup <group> <json>` takes a group by id, or by name when unique, and an object with any of `label`, `icon`, `iconFont`, `iconImage`, `iconTint`, `zone`, `before`, `visibility`, `face`, `tooltip`, `badge`, `badgeMode`, `memberDisplay`, `members` (widget selectors; leavers go first, the rest are appended in the order given). Choices: `visibility` shown|managed|hidden; `face` glyph|text|both; `badgeMode` sum|members; `memberDisplay` native|name|both; `iconTint` text|own; `iconFont` omarchy or `""`. Errors: Values it would not keep whole are refused: a label over 80 characters (`error: label is at most 80 characters`), an icon of more than one glyph or emoji (`error: icon is one glyph or emoji`), an `iconImage` that is not an absolute path (`error: iconImage is an absolute path to an SVG or PNG`).
+- **INTEG-134** `setGroup <group> <json>` takes a group by id, or by name when unique, and an object with any of `label`, `icon`, `iconFont`, `iconImage`, `iconTint`, `zone`, `before`, `visibility`, `face`, `tooltip`, `badge`, `badgeMode`, `memberDisplay`, `members` (widget selectors; leavers go first, the rest are appended in the order given). Choices: `visibility` shown|managed|hidden; `face` glyph|text|both; `badgeMode` sum|members; `memberDisplay` native|name|both; `iconTint` text|own; `iconFont` omarchy or `""`. Errors: Values it would not keep whole are refused: a label over 80 characters (`error: label is at most 80 characters`), an icon of more than one glyph or emoji (`error: icon is one glyph or emoji`), an `iconImage` that is not an absolute path to a `.svg` or `.png` without `..` (a URL included: `error: iconImage is an absolute path to an SVG or PNG`).
   - `error: no group <sel>`, `error: <n> groups are called <sel>; name one by id: <id>, <id>`
   - `error: a group change is a JSON object such as {"label":"Media"}`, `error: unknown field <f>; fields are <list>`
   - `error: <field> is one of <choices>`, `error: tooltip is true or false` (same for `badge`), `error: label is a name`, `error: <icon|iconImage> is a glyph or an image path`, `error: zone is one of left, center, right`, `error: before names a widget, or "" for the zone's end`, `error: members is a list of widgets, by id or instance`, `error: iconFont goes with icon`
@@ -212,6 +212,7 @@ Setting names are those of Preferences. `set` of `style` also drops `powerbarIsl
 
 - **INTEG-46** `preferences` opens Preferences on the focused monitor, or on the first screen when none is focused. `closePreferences` closes it.
 - **INTEG-48** `preferencesPage <n>` opens Preferences (if closed) at page `n`: 1 Layout, 2 Groups, 3 Bar; `n` above 3 opens Bar; 0 or negative changes nothing (the window still opens). Code: `setPage(min(n, pages) - 1)` ignores an index below 0.
+- **INTEG-150** `preferencesKeyboard` opens Preferences (if closed) on the focused monitor at the Bar page, the cursor on the "Bar keyboard" shortcut row; when Preferences are open it switches to that page. The first start's notification runs it (KEYS-84).
 - **INTEG-54** `groupsPreferences` opens Preferences at Groups (page 2).
 - **INTEG-49** `managed <left|center|right>` opens that zone's On demand drawer for the keyboard on the focused monitor's bar (another monitor's only while no monitor is focused, as `keys` picks it); any other zone, or a focused monitor with no bar, does nothing and answers nothing. `closeManaged` closes the open drawer or group menu.
 - **INTEG-52** `group <id>` opens that group's drawer on the focused monitor's bar for the keyboard (chosen as `managed` does); nothing happens if the id or monitor is unknown. `toggleGroup <id>` closes it when that group's drawer is open, else opens it.

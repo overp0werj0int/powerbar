@@ -195,51 +195,46 @@ function restore(config, target) {
   return next
 }
 
-// The bar's own shortcuts Preferences suggests (faded, "Suggested"), and a
-// first start binds where free (KEYS-84): what each does, said in full, and
-// shorter after the keyboard mode was named.
+// The bar's own shortcuts Preferences suggests (faded, "Suggested") and a
+// first start's notification offers (KEYS-84), with what each opens, said in
+// full and shorter after the keyboard mode was named.
 var SUGGESTED = [
-  { target: "bar:keys", keys: "SUPER + B", does: "starts the keyboard mode", what: "the keyboard mode" },
-  { target: "bar:search", keys: "SUPER + CTRL + SLASH", does: "starts the keyboard mode with its search open",
-    doesAfter: "starts it with its search open", what: "the keyboard mode's search", whatAfter: "its search" }
+  { target: "bar:keys", keys: "SUPER + B", what: "the keyboard mode" },
+  { target: "bar:search", keys: "SUPER + CTRL + SLASH", what: "the keyboard mode's search", whatAfter: "its search" }
 ]
 function suggested(target) {
   var s = SUGGESTED.find(function(x) { return x.target === target })
   return s ? s.keys : ""
 }
 
-// A first start's offer: each suggested target the config has no entry for
-// (an entry, even "" for none, means the user decided) gets its keys when
-// nothing else answers them (conflicts). → { next, bound: [suggestion],
-// taken: [suggestion + by] }; next is config with the bound ones assigned.
+// A first start's offer: of the suggested targets the config has no entry for
+// (an entry, even "" for none, means the user decided), which keys are free
+// and which something holds (as conflicts() judges). Nothing is bound: the
+// user takes them in Preferences.
 function offer(config, binds, names, own) {
-  var next = config || {}, bound = [], taken = []
+  var free = [], taken = []
   SUGGESTED.forEach(function(s) {
-    if (Object.prototype.hasOwnProperty.call(next, s.target)) return
-    var by = conflicts(s.keys, s.target, next, binds, names, own)
+    if (Object.prototype.hasOwnProperty.call(config || {}, s.target)) return
+    var by = conflicts(s.keys, s.target, config || {}, binds, names, own)
     if (by.length) taken.push(Object.assign({ by: by.map(function(c) { return c.description }).join(", ") }, s))
-    else { next = assign(next, s.target, s.keys); bound.push(s) }
+    else free.push(s)
   })
-  return { next: next, bound: bound, taken: taken }
+  return { free: free, taken: taken }
 }
 
-// The offer told in one notification: what was bound, what was taken and by
-// what, and where to change them. "" when nothing was offered.
+// The offer told in one notification: which keys are free, which are taken
+// and by what, and that a click leads to them. "" when nothing is offered.
 function offerMessage(result) {
-  var keys = function(s) { return caps(s.keys).join(" + ") }
-  var out = []
-  if (result.bound.length) {
-    out.push(result.bound.map(function(s, i) {
-      return keys(s) + " " + (i > 0 && s.doesAfter ? s.doesAfter : s.does)
-    }).join(", ") + ".")
+  var named = function(s, i) { return caps(s.keys).join(" + ") + " (" + (i > 0 && s.whatAfter ? s.whatAfter : s.what) + ")" }
+  var out = [], n = 0
+  if (result.free.length) {
+    out.push(result.free.map(function(s) { return named(s, n++) }).join(" and ") + (result.free.length > 1 ? " are" : " is") + " free.")
   }
   if (result.taken.length) {
-    out.push(result.taken.map(function(s, i) {
-      return keys(s) + " (" + (i > 0 && s.whatAfter ? s.whatAfter : s.what) + ") is taken by " + s.by
-    }).join("; ") + ". Choose keys in Preferences → Bar → Keyboard.")
-  } else if (result.bound.length) {
-    out.push((result.bound.length > 1 ? "Change them" : "Change it") + " in Preferences → Bar → Keyboard.")
+    out.push(result.taken.map(function(s) { return named(s, n++) + " is taken by " + s.by }).join("; ") + ".")
   }
+  if (!out.length) return ""
+  out.push(result.free.length ? "Click to turn on shortcuts in Preferences → Bar → Keyboard." : "Click to choose keys in Preferences → Bar → Keyboard.")
   return out.join(" ")
 }
 
@@ -275,7 +270,12 @@ function bindable(keys) {
   return { keys: format(sig) }
 }
 
-function luaString(s) { return '"' + String(s).replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\n/g, "\\n") + '"' }
+// Every other control character as a decimal escape (\013), so no line of the
+// block can break or end early whatever a name holds.
+function luaString(s) {
+  return '"' + String(s).replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\n/g, "\\n")
+    .replace(/[\x00-\x1f\x7f]/g, function(c) { return "\\" + ("00" + c.charCodeAt(0)).slice(-3) }) + '"'
+}
 // A widget's plugin id or a group's id, as it may appear in a shell command:
 // letters, digits, dot, dash and underscore only, so a target can never add
 // shell code to the bind it becomes.

@@ -79,4 +79,5 @@ omabox down $B
 
 See also `tools/smoke.sh` (IPC basics in a throwaway box),
 `tools/frame-probe.md` (frame gaps on the live bar) and
-`docs/performance/bench` (the offscreen bench `benchdiff.sh` runs).
+the offscreen bench `benchdiff.sh` runs (`$POWERBAR_BENCH`, by default
+`../powerbar-skill/bench` beside the checkout; kept outside the plugin).

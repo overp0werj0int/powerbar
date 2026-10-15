@@ -3,7 +3,6 @@
 # Powerbar
 
 [![Built for Omarchy: Plugin](https://raw.githubusercontent.com/tcballard/omarchy-badges/3ee85c9ea63c83845b992f8acb086c4a69cca12a/badges/v1/omarchy-plugin.svg)](https://github.com/tcballard/omarchy-badges)
-[![Supported Omarchy versions: 4.0.0+](https://raw.githubusercontent.com/tcballard/omarchy-badges/3ee85c9ea63c83845b992f8acb086c4a69cca12a/badges/v1/compatibility/omarchy-4.0.0-plus.svg)](https://github.com/tcballard/omarchy-badges)
 [![Hyprland](https://img.shields.io/badge/Hyprland-Wayland-58e1ff?style=flat-square&logo=hyprland&logoColor=white)](https://hypr.land)
 [![License: MIT](https://img.shields.io/badge/License-MIT-6aa84f?style=flat-square)](LICENSE)
 
@@ -16,24 +15,30 @@ On a fresh install it looks like the bar you already have, down to the
 spacing, with one small button at the far end. From there you can tuck
 widgets away in drawers of two kinds: a Bartender-style strip of live icons
 that slides out beside the bar, or a menu whose rows show each widget's name,
-on its own or next to its icon. Everything below waits until you turn it on,
+on its own or next to its icon. Everything below waits until you turn it on
+(only its two keyboard shortcuts are bound for you, where the keys are free),
 and then behaves the same way every time. Things move with some care, too:
 drawers grow out of the bar and neighbours slide aside for a dragged widget,
-all of it carefully timed, so the bar never feels slow. If you'd rather it didn't move at all, one switch turns animation
-off.
+all of it carefully timed, so the bar never feels slow. If you'd rather it
+didn't move at all, one switch turns animation off.
 
 ### What you get
 
 - Widgets you rarely read can go On demand. They leave the bar and slide back
   for a couple of seconds when something in them changes, so a pending update
-  still catches your eye. Hover their zone and they open in a drawer.
+  still catches your eye (each widget has its own *Show on activity* switch).
+  Hover their zone and they open in a drawer beside the bar, or, if you
+  prefer, unfold in place behind the zone's dots.
 - Related widgets can share one icon as a group, opening as a strip or a named
   menu, with a badge that adds up their unread counts.
 - The bar can stay flat like Omarchy's, float as one surface, or split into
-  islands, and it can autohide until you push the pointer to the edge. On an
-  islands bar, activity slides out only the island that changed, with the
-  widget highlighted for a couple of seconds, while the others stay tucked
-  away.
+  islands, and it can autohide until you push the pointer to the edge. With
+  autohide, a widget that changes comes out alone for a couple of seconds,
+  on a small badge in the bar's shape at its own place along the edge, while
+  the bar stays hidden.
+- Omarchy's clear, glassy and opaque backgrounds all work: a double click on
+  the bar steps through them, and highlights deepen on a see-through bar so
+  they still show over the wallpaper.
 - Large bar adds a 6 px lip above and below every widget, so a 28 px side bar
   becomes 40 px wide. Icons and text keep their size and get room to breathe,
   and the hover highlights grow with the bar. It helps most on a left or right
@@ -43,13 +48,16 @@ off.
   of the camera: with autohide they spring out of it when you point at the
   camera, and a zone that outgrows the screen wraps onto a second row at the
   edge. Each mode keeps its own arrangement, so switching back finds your bar
-  as you left it.
+  as you left it, and on Omarchy's stock layout the first switch to two zones
+  or Notch lays the widgets out for you.
 - Rounding, borders, blur and shadow follow each theme until you change them,
   for every theme at once or just the one you're on.
 - You never need the mouse. A shortcut puts a cursor on the bar; the arrows
   walk it, Tab jumps zone to zone, the key that points into the screen opens a
-  group or a drawer, and Enter opens what's under the cursor. Esc steps back
-  one level, and Esc twice gives the keyboard back to your window.
+  group or a drawer, and Enter opens what's under the cursor. Shift with the
+  arrows drags the widget under the cursor along the bar, into the next zone,
+  onto the dots or into a drawer. Esc steps back one level, and Esc twice
+  gives the keyboard back to your window.
 - `/` is a fuzzy finder. Type a few letters of a name in order and the best
   match comes first: `/pm` finds Plugin Manager, and a group's name finds its
   members. It reaches every widget you haven't hidden, wherever it sits, and
@@ -64,7 +72,7 @@ off.
 ### What went into the details
 
 - Every glyph sits in a square cell of
-  the same size, so hover circles match from one icon to the next, menu rows
+  the same size, so hover highlights match from one icon to the next, menu rows
   are inset so their corners follow the menu's, and on a flat bar the end
   icons land exactly where Omarchy puts them.
 - Spacing is measured from what each icon actually paints. Switch to Equal
@@ -74,20 +82,22 @@ off.
   centre. Equal slots, the default, keeps the even grid of Omarchy's bar.
 - Motion is tuned to distance. Neighbours make room for a dragged widget a
   little longer the further they have to move, the widget glides into its
-  slot, and drawers close faster than they open. Turn Animations off and all
-  of it happens at once.
-- It stays quick. Drop a widget and the bar shows it in place in about 8 ms,
-  without waiting the 400 or so it takes Omarchy to save the change. Widgets
+  slot, and drawers close faster than they open. The hover highlight and the
+  outline of where a drag will land slide from one place to the next instead
+  of blinking. Turn Animations off and all of it happens at once.
+- It stays quick. Drop a widget and the bar shows it in place in about 8 ms.
+  Saving the change stalls Omarchy's shell for 400 ms or so, so Powerbar
+  saves once you've moved off the bar, where you don't see it. Widgets
   in drawers stay loaded, and Powerbar notices their changes as they happen
   instead of checking on a timer.
 - Keys are named by where they point, so they mean the same thing on a top,
   bottom or side bar, and a name card beside the cursor tells you what you're
   on.
-- It tries hard not to surprise you. On first start it binds only its two
-  bar shortcuts, and only keys nothing else holds (it tells you which); any
-  other shortcut waits until you accept it. Omarchy's `omarchy bar` commands keep working, a shortcut Hyprland
-  rejects puts your files back as they were, and settings for an uninstalled
-  widget clean themselves up.
+- It tries hard not to surprise you. It binds no key until you accept one:
+  on first start a notification offers its two bar shortcuts and opens
+  Preferences at them. Omarchy's `omarchy bar` commands
+  keep working, a shortcut Hyprland rejects puts your files back as they
+  were, and settings for an uninstalled widget clean themselves up.
 
 Powerbar is based on the [Omarchy bar](https://github.com/omacom/omarchy/tree/quattro/shell/plugins/bar),
 whose original copyright and MIT license notice are preserved in
@@ -95,36 +105,20 @@ whose original copyright and MIT license notice are preserved in
 
 ## Screenshots
 
-<table>
-<tr>
-<td width="50%"><a href="screenshots/look-nord.jpg"><img src="screenshots/look-nord.jpg" alt="Powerbar on the nord theme: islands, pill corners, soft shadow"></a><br><sub><b>nord</b>: islands, pill corners, soft shadow</sub></td>
-<td width="50%"><a href="screenshots/look-hinterlands.jpg"><img src="screenshots/look-hinterlands.jpg" alt="Powerbar on the hinterlands theme: floating, blur, deeper shadow"></a><br><sub><b>hinterlands</b>: floating, blur, deeper shadow</sub></td>
-</tr>
-<tr>
-<td width="50%"><a href="screenshots/look-waffle-cat.jpg"><img src="screenshots/look-waffle-cat.jpg" alt="Powerbar on the waffle-cat theme: square islands, 2 px borders"></a><br><sub><b>waffle-cat</b>: square islands, 2 px borders</sub></td>
-<td width="50%"><a href="screenshots/look-venice-from-above.jpg"><img src="screenshots/look-venice-from-above.jpg" alt="Powerbar on the venice-from-above theme: floating, blur at 70%"></a><br><sub><b>venice-from-above</b>: floating, blur at 70%</sub></td>
-</tr>
-<tr>
-<td width="50%"><a href="screenshots/look-quattrocento-light.jpg"><img src="screenshots/look-quattrocento-light.jpg" alt="Powerbar on the quattrocento-light theme: large bar on a light theme"></a><br><sub><b>quattrocento-light</b>: large bar on a light theme</sub></td>
-<td width="50%"><a href="screenshots/look-everforest.jpg"><img src="screenshots/look-everforest.jpg" alt="Powerbar on the everforest theme: islands without borders, blur"></a><br><sub><b>everforest</b>: islands without borders, blur</sub></td>
-</tr>
-</table>
+Each is one untouched capture of Powerbar on a stock Omarchy theme and its
+own wallpaper.
 
-<table>
-<tr>
-<td width="33%"><a href="screenshots/keys-search.jpg"><img src="screenshots/keys-search.jpg" alt="Typing /sess opens the AI group with the cursor on Session Browser"></a><br><sub><code>/sess</code> opens the group and lands on the row</sub></td>
-<td width="33%"><a href="screenshots/keys-walk.jpg"><img src="screenshots/keys-walk.jpg" alt="The arrows walk the open menu, the name card follows"></a><br><sub>Arrows walk the menu; the name card follows</sub></td>
-<td width="33%"><a href="screenshots/keys-sheet.jpg"><img src="screenshots/keys-sheet.jpg" alt="The ? sheet lists every shortcut as keycaps"></a><br><sub><code>?</code> lists every shortcut as keycaps</sub></td>
-</tr>
-</table>
+<p><img src="screenshots/drawer-latte.jpg" alt="A floating bar on catppuccin-latte with the right zone's On demand widgets open in a drawer below it"><br>
+<sub><b>Floating</b>, catppuccin-latte: On demand widgets in their zone's drawer</sub></p>
 
-<details>
-<summary>More screenshots</summary>
+<p><img src="screenshots/search-tokyo-night.jpg" alt="A flat bar on tokyo-night; typing tail in the keyboard mode's search opens the System group with the cursor on Tailscale"><br>
+<sub><b>Flat</b>, tokyo-night: <code>/tail</code> opens the System group at Tailscale, with the key strip below</sub></p>
 
-<p><img src="screenshots/drawer.jpg" alt="On demand widgets in the right zone's drawer"><br><sub>On demand widgets in their zone's drawer</sub></p>
-<p><img src="screenshots/preferences.jpg" alt="Preferences, Bar page"><br><sub>Preferences: the Bar page</sub></p>
+<p><img src="screenshots/notch-kanagawa.jpg" alt="Notch mode on kanagawa: two black zones grow out of a MacBook's camera, a group's menu slides down from the bar"><br>
+<sub><b>Notch</b>, kanagawa, on a 14-inch MacBook screen: the zones grow out of the camera and a group slides down from it</sub></p>
 
-</details>
+<p><img src="screenshots/preferences.jpg" alt="Preferences, Layout page on osaka-jade: the bar as shelves (On the bar, On demand, Hidden) and the selected widget's settings"><br>
+<sub><b>Preferences</b>, osaka-jade: the Layout page, with the keys for what has focus along the bottom</sub></p>
 
 ## Install
 
@@ -144,17 +138,20 @@ Preferences.
 Back to Omarchy's bar at any time: `omarchy bar reset`. Your Powerbar
 settings stay in `~/.config/omarchy/shell.json` for when you come back.
 
-Needs Omarchy 4 (Quattro). Tested on Omarchy 4.0.4-1, Hyprland 0.56.2 and
-Quickshell 0.3.1.
+Needs Omarchy 4 (Quattro) and nothing else: Powerbar is QML and shell
+scripts, with no compiled helpers, packages or build step. Tested on aarch64
+(Asahi) with Omarchy 4.0.4 and the next version's development build
+(omarchy-dev r7017, Hyprland 0.56.2, Quickshell 0.3.2, Qt 6.12); x86_64 is
+not tested separately.
 
 ### Shortcuts for the keyboard mode
 
-On its first start Powerbar binds Super+B to the keyboard mode and
-Super+Ctrl+/ to the mode with its search (/) open, each only if nothing else
-already answers those keys, and a notification says what it bound. A key that
-is taken stays with what holds it; the notification names it, and you choose
-other keys in Preferences → Bar → Keyboard. To bind them yourself (or again,
-after an upgrade from a version that bound nothing):
+Powerbar binds no keys by itself. On its first start a notification offers
+Super+B for the keyboard mode and Super+Ctrl+/ for the mode with its search
+(/) open, and names whatever already holds either one. It stays until you
+dismiss it; click it and Preferences opens at Bar → Keyboard, where Enter
+takes the suggested keys and Space lets you choose others. To bind them from
+the command line instead:
 
 ```sh
 omarchy-shell powerbar set shortcut.bar:keys "SUPER + B"
@@ -172,8 +169,9 @@ clearShortcuts` removes it.
 omarchy plugin update p0werj0int.powerbar
 ```
 
-It shows what changed and asks before applying it (`--yes` skips the
+It shows the code changes and asks before applying them (`--yes` skips the
 question); the shell then reloads its plugins and the bar redraws once.
+`omarchy-shell powerbar build` tells you which version the shell is running.
 
 ## Remove
 
@@ -183,16 +181,21 @@ omarchy plugin remove p0werj0int.powerbar
 ```
 
 The first line takes Powerbar's shortcuts out of Hyprland; it needs Powerbar
-running, so do it before removing. Removing deletes the plugin's folder and,
-if Powerbar was your bar, puts Omarchy's bar back.
+running as your bar, so do it before removing (and before `omarchy bar
+reset`). Removing deletes the plugin's folder and, if Powerbar was your bar,
+puts Omarchy's bar back.
 
 What stays behind is harmless to Omarchy's bar and is picked up again if you
-reinstall. To remove it too:
+reinstall. Omarchy's bar shows every widget, so ones you hid or put On
+demand in Powerbar are back on it; in two zones or Notch, switch back to
+three zones first if you want Omarchy's bar to get that arrangement. To
+remove the rest too:
 
 | What | Where | To clean |
 | --- | --- | --- |
 | Settings | `bar.powerbar*` keys, and `powerbar*` keys in each widget entry of `bar.layout`, in `~/.config/omarchy/shell.json` | The `jq` command below |
 | Shortcuts | The block from `-- >>> powerbar: …` to `-- <<< powerbar` in `~/.config/hypr/bindings.lua` | `omarchy-shell powerbar clearShortcuts` before removing (or clear each one in Preferences); afterwards, delete the block, markers included, and `hyprctl reload` |
+| Blur rules you added | The `powerbar` layer rules from [Backdrop blur](#backdrop-blur) in your Hyprland config | Delete them |
 | Theme files you wrote | `powerbar.toml` in `~/.config/omarchy/themes/<name>/` (Powerbar only reads them) | Delete them |
 | Icons you added to groups | `$XDG_DATA_HOME/powerbar/icons` (`~/.local/share/powerbar/icons`) | `rm -r ~/.local/share/powerbar` |
 | Images of your widgets | `$XDG_CACHE_HOME/powerbar` (`~/.cache/powerbar`) | `rm -r ~/.cache/powerbar` |
@@ -211,31 +214,37 @@ Three pages, all usable from the keyboard (the footer lists the keys for
 whatever has focus):
 
 - **Layout**: your bar as shelves (On the bar, On demand, Hidden), each with
-  your zones, and the choice of three zones, two, or Notch. Drag or pick up
+  your zones, and the choice of three zones, two, or Notch (offered when a
+  screen has a notch). Drag or pick up
   widgets to move them; the tile below holds the selected widget's zone,
   visibility, *Show on activity*, centring, group and shortcut.
 - **Groups**: make, name and arrange groups; pick an icon from your widgets'
   glyphs, Omarchy's icons and emoji, or drop in your own SVG or PNG.
 - **Bar**: style and edge, size and spacing, Shape, Surface, Shadow,
-  Behavior (autohide, readable over windows, animations), On demand, Notch
-  (in two zones: the gap's width) and Keyboard. On the notch, what can't apply
-  there gives way to what does. Changes show on the bar as you make them.
+  Behavior (autohide, show on widget activity, readable over windows,
+  animations), On demand, Notch (in two zones and on the notch: the gap's
+  width) and Keyboard (the mode's shortcuts and its key legend). On the
+  notch, what can't apply there gives way to what does. Changes show on the
+  bar as you make them.
 
 | Where | Keys |
 | --- | --- |
-| Anywhere | `1`–`3` switch pages, Ctrl+Tab cycles them, Tab / Shift+Tab move between controls, Esc or `,` closes (`,` back to the keyboard mode when it came from there) |
-| Forms | `j` / `k` move between controls, `h` / `l` adjust (Shift for larger steps), Space / Enter toggle or choose |
-| Sliders | Home / End for the ends, Backspace for the default, Esc undoes a value not yet applied |
-| Layout shelves | `h` `j` `k` `l` move; Space picks up a widget, then `h` / `l` move it and `j` / `k` change its shelf; Space drops it, Esc puts it back; `x` hides or restores; `g` edits its group |
+| Anywhere | `1`–`3` switch pages (Ctrl+`1`–`3` while typing), Ctrl+Tab cycles them, Tab / Shift+Tab jump from tile to tile, Esc or `,` closes (`,` back to the keyboard mode when it came from there) |
+| Forms | `j` / `k` move between controls, `h` / `l` adjust, Space / Enter toggle or choose |
+| Sliders | `h` / `l` step (Shift or Page Up / Down for larger steps), Home / End for the ends, Backspace for the default, Enter applies at once, Esc undoes a value not yet applied |
+| Layout shelves | `h` `j` `k` `l` move; Space picks up a widget, then `h` / `l` move it and `j` / `k` change its shelf; Space or Enter drops it, Esc puts it back; Enter on a widget goes to its settings; `x` hides or restores; `g` on a group opens it on the Groups page |
 | Groups shelf | `h` / `l` choose, `n` makes a group, `x` twice dissolves it, Enter goes to its icon |
 | Icon picker | Type to search, arrows move, Enter chooses, Tab changes the source, Ctrl+V pastes an image or a glyph |
 
 ## Keyboard mode
 
-Super+B starts it, when it was free on Powerbar's first start (otherwise
-Preferences → Bar → Keyboard offers it). The cursor starts on the clock, or on the widget whose panel is
-open. Keys are named by direction relative to the bar, so they mean the same
-on every edge:
+Super+B starts it, once you take that shortcut in Preferences → Bar →
+Keyboard (the first start's notification leads there). The cursor starts on the widget
+whose panel is open, else on the widget pinned to the screen centre (the
+clock by default). A name card beside the cursor says what it's on, and a
+strip along the far edge of the screen shows the keys you can press now
+(Preferences → Bar → Keyboard → Key legend turns it off). Keys are named by
+direction relative to the bar, so they mean the same on every edge:
 
 - The arrows (or h j k l) along the bar move the cursor; Home / End (or `^` /
   `$`) jump to the ends, in a drawer too; Tab / Shift+Tab (or Page Down / Page
@@ -243,25 +252,34 @@ on every edge:
 - A zone's drawer unfolds as the cursor reaches the zone, as it does for the
   pointer. The key that points into the screen (↓ on a top bar) goes into it
   or into a group, and the opposite key comes back. A strip of icons is walked
-  along the bar, like the bar itself; a menu of names, row by row.
-- Enter or Space opens the widget, a group or Preferences (the last stop).
+  along the bar, like the bar itself; a menu of names, row by row. On the
+  notch, a zone's second row is walked as a grid.
+- Enter or Space opens the widget, a group, a zone's dots or Preferences (the
+  last stop).
+- Shift with the arrows (or Shift+h j k l) drags the widget or group icon
+  under the cursor one place at a time, and the cursor goes with it. Past a
+  zone's end it moves into the next zone; onto the dots it goes On demand and
+  the zone opens with it; in a drawer or a group's menu it reorders the
+  members. Shift with the into and out keys moves a widget into an open zone
+  drawer and back onto the bar. The change is saved once you leave the bar.
 - `/` finds a widget by name, fuzzily (`/pm` finds Plugin Manager), and opens
-  the way to it, into a group, a drawer or behind dots.
-  To jump straight there, bind the search too: Preferences → Bar → Keyboard
-  offers Super+Ctrl+/ ("Bar search"), which starts the mode with the search
-  open (`omarchy-shell powerbar keysSearch`); press it again to leave.
-- `?` lists every widget's and group's shortcut.
+  the way to it, into a group, a drawer or behind dots. Super+Ctrl+/ starts
+  the mode with the search already open (`omarchy-shell powerbar
+  keysSearch`; offered in Preferences → Bar → Keyboard as "Bar search"); pressed during a search, it leaves.
+- `?` shows a sheet of every key in the mode and every widget's and group's
+  shortcut.
 - `,` opens Preferences; `,` there closes them and brings the cursor back
   where it was.
 - Esc closes the innermost thing; Esc twice quickly ends everything and gives
-  the keys back to your window. So does Super+B again.
+  the keys back to your window. So does Super+B again, a click outside the
+  bar, or a new window opening.
 
 ## Shortcuts
 
 A widget's or group's settings show the shortcut that opens it, whether it
 comes from Omarchy, your Hyprland files or Powerbar. Press Enter on it to
 record new keys; keys already in use are named and you choose whether to take
-them. Powerbar writes its shortcuts the way Omarchy plugins do, as a marked
+them. `x` removes a shortcut and Backspace restores Omarchy's. Powerbar writes its shortcuts the way Omarchy plugins do, as a marked
 block in `~/.config/hypr/bindings.lua` (everything outside the markers is left
 alone), so Super+K lists them.
 
@@ -282,14 +300,15 @@ Preferences.
 | `get <setting>` / `set <setting> <value>` / `reset <setting>` / `toggle <setting>` | Read, change, restore the default, flip a switch |
 | `widgets` / `setWidget <widget> <json>` | The layout; move or change one (`zone`, `visibility`, `before`, `group`, `activityPeek`, `badgeProperty`, `urgentProperty`, `centered`) |
 | `groups` / `newGroup <name>` / `setGroup <group> <json>` / `removeGroup <group>` | Groups and their members |
-| `shortcuts` | Powerbar's shortcuts and Omarchy's panel shortcuts |
+| `shortcuts` / `clearShortcuts` | Every shortcut on the bar and where its keys come from; remove all of Powerbar's |
 | `show` / `hide` | Hold an autohidden bar out until `hide`; or switch the bar on and off |
 | `keys` / `keysOn` / `keysOff` / `keysStatus` | The keyboard mode |
 | `keysSearch` | The keyboard mode with its search (`/`) open; ends it while a search is open |
 | `managed <zone>` / `group <id>` / `toggleGroup <id>` / `closeManaged` | Open or close a drawer |
 | `drawerStatus` / `managedStatus` / `popupStatus` | The open drawer, On demand widgets, the open panel |
-| `preferences` / `preferencesPage <1-3>` / `groupsPreferences` / `closePreferences` | Preferences |
+| `preferences` / `preferencesPage <1-3>` / `preferencesKeyboard` / `groupsPreferences` / `closePreferences` | Preferences (`preferencesKeyboard`: at the keyboard mode's shortcuts) |
 | `build` | The code this shell is running: version, a digest of the files it loaded, git commit, when it loaded |
+| `help` | Every function, with what it does |
 
 Settings are named as in Preferences (`style`, `autoHide`, `onDemand`,
 `spacing`, `shape.rounding`, `surface.opacity`, `shadow.scope`…), plus a few
@@ -308,15 +327,15 @@ omarchy-shell powerbar set shortcut.bar:keys "SUPER + B"
 omarchy-shell powerbar set shortcut.bar:search "SUPER + CTRL + SLASH"
 ```
 
-An agent can do all of this for you: `agents/skills/powerbar/` is a skill
-that teaches it how.
-
 ## For theme authors: `powerbar.toml`
 
 A theme can ship `powerbar.toml`, and you can add or change one for any theme
 in Omarchy's overlay folder (`~/.config/omarchy/themes/<name>/powerbar.toml`).
 Every key is optional; what it leaves out comes from Omarchy and Hyprland. It
-applies while a tile is set to *Theme*.
+applies in full while a tile is set to *Theme*, and under *Everywhere* or
+*Just here* for any value you haven't set. An edit in the overlay folder
+takes effect the next time the theme is applied (`omarchy theme set
+<name>`).
 
 ```toml
 [shape]
@@ -325,14 +344,14 @@ borders = true
 border-width = 1
 
 [surface]
-opacity = 85         # percent
+opacity = 85         # percent, 0–100
 blur = true
 text = "light"       # theme | light | dark
 
 [shadow]
 enabled = true
-softness = 10
-strength = 30
+softness = 10        # 2–24
+strength = 30        # percent, 5–60
 ```
 
 ## Backdrop blur
@@ -340,7 +359,9 @@ strength = 30
 Blur behind the bar (Surface > Background blur, or Omarchy's glassy bar
 background) needs these layer rules in your Hyprland Lua
 configuration (for example `~/.config/hypr/looknfeel.lua`). `blur_popups`
-blurs the bar's tooltips too.
+blurs the bar's tooltips too. Drawers, peeks and menus are drawn in the bar's
+own layer and need nothing more. The notch is always opaque and never
+blurs.
 
 ```lua
 hl.layer_rule({
@@ -365,9 +386,13 @@ Widgets need nothing special to work in Powerbar. To show activity on demand,
 Powerbar watches `text`, `icon`, `iconText`, `value`, `displayValue`,
 `powerbarIcon`, `powerbarValue` and `powerbarActivityRevision` on your widget
 and its bar buttons, or a `signal powerbarActivity()` for repeated events.
-Group badges read `unseenCount`, `downCount`, `updateCount`, `badgeCount`,
-`notificationCount`, `unreadCount`, `alertCount`, `pendingCount` or `count`.
-Powerbar adds no polling.
+Only text, number and true/false values count. Group badges read the first
+positive number among `unseenCount`, `downCount`, `updateCount`,
+`badgeCount`, `notificationCount`, `unreadCount`, `alertCount`,
+`pendingCount` and `count`, and turn urgent on `hasUnseenPerson`, `urgent`,
+`isUrgent`, `critical`, `hasAlert` or `severe`. A user can point a widget at
+other properties (`badgeProperty`, `urgentProperty`). Powerbar adds no
+polling.
 
 ## Known limitations
 
@@ -375,13 +400,13 @@ Powerbar adds no polling.
   replacement bar, Powerbar included.** Some widget plugins come in two parts,
   a bar widget and a service that does the work (kinds `bar-widget` and
   `service`; for example OmaSettings, Everything, Omapop, Notification Center,
-  Omatop, Side Panel). The widget reaches its service with
+  Omatop, Reprieve). The widget reaches its service with
   `bar.shell.serviceFor()`. Since Omarchy 4.0.3 that only works under
   Omarchy's own bar: widgets hosted by any third-party bar get a
   "service-less" facade on purpose, so a bar from outside can't get at other
   plugins' services ([#9618](https://github.com/omacom/omarchy/pull/9618);
-  Omarchy's shell README, "Widgets rendered by a third-party replacement
-  bar…"). Under Powerbar such a widget shows, but its button does nothing, its
+  Omarchy's [shell reference](https://github.com/omacom/omarchy/blob/quattro/docs/omarchy-shell.md),
+  "A third-party replacement bar…"). Under Powerbar such a widget shows, but its button does nothing, its
   panel waits forever ("warming up", "Reading the archive…") or it draws empty;
   the service itself keeps running, and its own shortcuts and commands still
   work. Powerbar can't fix this from its side; it needs a change in Omarchy.
@@ -400,14 +425,12 @@ Powerbar adds no polling.
 - **Scrolling layout: a click on the bar can scroll the view.** This is
   Hyprland's: its scrolling layout scrolls the focused window into view on
   every mouse button release over any part of it, even when the click landed
-  on a bar drawn over it ([hyprwm/Hyprland#13558](https://github.com/hyprwm/Hyprland/discussions/13558)).
+  on a bar drawn over it ([hyprwm/Hyprland#13558](https://github.com/hyprwm/Hyprland/discussions/13558);
+  a partial fix in Hyprland 0.56 does not cover clicks on a bar).
   Powerbar meets it wherever a window sits under the bar: with autohide on,
   and on a side bar. Until Hyprland fixes it, `scrolling:follow_focus = false`
   stops it, at the cost of clicks and hovers no longer bringing a partly
   hidden window into view.
-- **Switching bars** back and forth makes Powerbar ask the shell to reload its
-  plugins (at most three times a login, a minute apart), so the bar disappears for a few
-  seconds.
 - **The notch's width comes from macOS readings.** Omarchy describes how
   tall a notch is, not how wide, so Powerbar keeps each MacBook panel's
   width in `notch-panels.json`, from readings people took on macOS (the 15"
@@ -427,27 +450,31 @@ keyboard focus in the keyboard mode, through Quickshell's Hyprland module.
 
 | File | Read | Written |
 | --- | --- | --- |
-| `~/.config/omarchy/shell.json` | Its settings and Omarchy's bar keys | Through the shell, only under `bar`: its `powerbar*` keys, and on first start a `powerbarInstance` id on each widget entry. Omarchy's bar commands write it as they always do |
-| `~/.config/hypr/bindings.lua` | With your other `~/.config/hypr/*.lua` files, Omarchy's default bindings and `hyprctl binds`, to show every shortcut | Only its marked block, when you set a shortcut: replaced in one step, and put back if Hyprland then reports a new config error. Once Hyprland has taken the block, it also removes the marked loader in `hyprland.lua` (backed up first) and the `~/.config/hypr/powerbar.lua` it loads, left by early Powerbar builds; a damaged loader is left alone |
-| `~/.local/state/omarchy/` | `current/theme/powerbar.toml`, `current/theme.name`, `toggles/bar-off` | `toggles/bar-off` is cleared when Omarchy's bar toggle slides an autohidden bar out |
-| `~/.config/omarchy/themes/`, `$OMARCHY_PATH` | Installed themes (to drop settings for themes you removed), Omarchy's emoji list | Nothing |
+| `~/.config/omarchy/shell.json` | Its settings and Omarchy's bar keys | Through the shell, only under `bar`: its own `powerbar*` keys, the bar keys you change in Powerbar (`layout`, `position`, `background` / `transparent`, `centerAnchor`), and on first start a `powerbarInstance` id on each widget entry. Edits made at the bar are saved together once you leave it (at most 20 s after the last one), and nothing is written while the config names another bar. Omarchy's bar commands write it as they always do |
+| `~/.config/hypr/bindings.lua` | With your other `~/.config/hypr/*.lua` files, Omarchy's default bindings and `hyprctl binds`, to show every shortcut | Only its marked block, when you set a shortcut: replaced in one step (through a symlink, in the file it points to), and put back if Hyprland then reports a new config error. Once Hyprland has taken the block, it also removes the marked loader in `hyprland.lua` (backed up first) and the `~/.config/hypr/powerbar.lua` it loads, left by early Powerbar builds (only when it still has their generated header); a damaged loader is left alone |
+| `~/.local/state/omarchy/` | `current/theme/powerbar.toml`, `current/theme.name`, `toggles/bar-off` | `toggles/bar-off`, only through Omarchy's own toggle commands: `powerbar show` / `hide`, and Omarchy's bar toggle on an autohidden bar |
+| `~/.config/omarchy/themes/`, `$OMARCHY_PATH` | Installed themes (to drop settings for themes you removed), Omarchy's emoji list, whether Omarchy has the glassy background | Nothing |
+| `/usr/share/omarchy-platform/display-cutouts.json` | Which screens have a notch, and how tall, as Omarchy's bar reads it | Nothing |
 | The folder of a widget's plugin (`~/.config/omarchy/plugins/<id>`, `$OMARCHY_PATH/shell/plugins/…`) | Only when the shell's widget list has lost that widget's component: its `manifest.json` and the bar widget QML it names, as the shell loads them | Nothing |
-| `$XDG_DATA_HOME/powerbar/icons` | | Icons you add to groups (SVG or PNG, 512 KB at most); unused ones are deleted |
+| `$XDG_DATA_HOME/powerbar/icons` | The image you pick or paste | Icons you add to groups (SVG or PNG, 512 KB at most); unused ones are deleted |
 | `$XDG_CACHE_HOME/powerbar` | | Images of your widgets for Preferences, `faces.json`, `glyphs.json` |
 
 | Command | When |
 | --- | --- |
 | `omarchy-toggle-bar`, `omarchy-toggle bar-off off` | `omarchy-shell powerbar show` / `hide`; Omarchy's bar toggle on an autohidden bar |
 | `omarchy-bar-text-color` | A transparent bar picks its text colour over the wallpaper, as Omarchy's does |
+| `omarchy-bar background`, `omarchy-bar sync-glass` | The bar's background changes, on an Omarchy with the glassy background |
+| `notify-send` | First start: offers the bar shortcuts (free, or what holds them) in a notification that stays until dismissed; a click opens Preferences at them |
 | `hyprctl binds`, `cat` | Reading shortcuts (Preferences, the keyboard mode, `shortcuts`) |
 | `hyprctl reload config-only`, `hyprctl configerrors` | After writing the shortcut block (`ShortcutApply.sh`, with `grep`, `awk`, `cp`, `mv`, `readlink`) |
 | `hyprctl eval` | Recording a shortcut: a temporary submap so the keys reach Preferences, for 15 s at most |
 | `hyprctl binds -j` with `jq`, `hyprctl repl` | Omarchy's bar toggle on an autohidden bar: finds the toggle's key and checks every 50 ms whether it is still held, for 60 s at most |
 | `hyprctl -j getoption general:gaps_in` | Opening Preferences, to space its tiles like your windows |
-| `wl-paste` (under `timeout 2s`) | Ctrl+V in the icon picker |
-| `ls`, `mkdir`, `cp`, `stat`, `rm` | The icon and image folders above |
+| `wl-paste` | Ctrl+V in the icon picker (the image read under `timeout 2s`) |
+| `ls`, `mkdir`, `cp`, `stat`, `rm` | The icon and image folders above, and the list of installed themes |
+| `[[ -f … ]]` (in `bash -c`) | Whether `toggles/bar-off` is set, at load and when it changes |
 | `BuildStamp.sh` (`find`, `sha256sum`, `git rev-parse`, `git status`) | Once as the bar loads, on Powerbar's own folder only, for `omarchy-shell powerbar build` |
-| Your custom modules' `exec`, `onClick`… | Command modules in your layout, through `bash -lc`, as on Omarchy's bar |
+| Your custom modules' `exec`, `onClick`…, and commands widgets ask the bar to run | Through `bash -lc`, as on Omarchy's bar |
 
 ## Troubleshooting
 
@@ -470,19 +497,30 @@ settings; `omarchy bar use p0werj0int.powerbar` comes back.
 **Widgets show placeholders.** The shell can hand Powerbar a copy of its
 widget list in which some widgets have lost their component (switching bars
 does this). Powerbar loads those widgets from their own plugins at once.
-`omarchy-shell powerbar status` lists them under `runtime.registry`; one it
-could not load is under `failed`, with the reason, and named in the shell log.
+`omarchy-shell powerbar status` lists them under `runtime.registry.repaired`;
+one it could not load is under `runtime.registry.failed`, with the reason,
+and named in the shell log.
 If placeholders remain, `omarchy restart shell`.
 
 **A shortcut does nothing.** `omarchy-shell powerbar shortcuts` lists each
 one with its `source` (`yours` for one set in Powerbar, `omarchy` or `config`
 for Omarchy's and your Hyprland files') and, for yours, `live`: whether
-Hyprland has those keys bound right now. `live: false` means Hyprland did not
+Hyprland has those keys bound right now (`ready: false` means Powerbar
+hasn't read Hyprland's binds yet). `live: false` means Hyprland did not
 take the block: look in `~/.config/hypr/bindings.lua` for a damaged Powerbar
 block (a marker without its pair; Preferences names it) and `hyprctl
 configerrors`. A key another bind holds is only taken when you choose to.
+
+**A change isn't in shell.json yet.** The bar shows an edit at once and saves
+it once the pointer, the keyboard mode and any widget panel have left the
+bar, or 20 s after your last edit if you stay; Preferences saves within
+a moment.
+Nothing is saved while `shell.json` names another bar: the shell log then
+says how many changes were not saved.
 
 ## More
 
 How every part behaves, precisely: [docs/behavior/](docs/behavior/README.md).
 Working on Powerbar itself: [DEVELOPMENT.md](DEVELOPMENT.md).
+Bugs and questions: [issues](https://github.com/overp0werj0int/powerbar/issues).
+Security problems: report them privately, as [SECURITY.md](SECURITY.md) describes.

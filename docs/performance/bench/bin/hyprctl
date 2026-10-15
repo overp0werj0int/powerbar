@@ -1,9 +1,0 @@
-#!/bin/bash
-# Bench stand-in for hyprctl: nothing reaches the live compositor. `binds`
-# prints $BENCH_BINDS (a saved `hyprctl binds`) when set; every other call
-# is logged to $BENCH_HYPRCTL_LOG and succeeds quietly.
-case "$1" in
-  binds) [ -n "${BENCH_BINDS:-}" ] && cat "$BENCH_BINDS" ;;
-  *) echo "$*" >> "${BENCH_HYPRCTL_LOG:-/dev/null}" ;;
-esac
-exit 0

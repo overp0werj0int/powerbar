@@ -81,7 +81,8 @@ omabox for desktop tests in a private Hyprland session
    `~/.claude/skills/omarchy-widget-debug/scripts/live.sh follow PB- 300`
    while they reproduce. Turn it off afterwards.
    For per-frame values of one motion, `tools/frame-probe.md`; for offscreen
-   whole-bar timings, `docs/performance/bench`. Measure before and after;
+   whole-bar timings, the bench (kept outside the plugin, see
+   `docs/performance/implementation.md`). Measure before and after;
    claim only measured gains.
 
 ## State over IPC
@@ -107,6 +108,24 @@ at scale 2.5 on the stock nord theme and its black-moon wallpaper, a layout
 of stock Omarchy widgets, keyboard mode inside the System group. The
 wordmark sits in the moon; re-run render.sh after replacing the capture.
 
+The gallery shots are wide, readable captures from one omabox box
+(`omabox up gal --theme NAME --env POWERBAR_DISPLAY_CUTOUTS=/home/sbx/cutouts.json`),
+with the plugin copied into the box HOME, `omarchy bar use p0werj0int.powerbar`
+and `tools/showcase/seed.py` writing a bar of stock widgets. Set the screen
+per shot with `omabox -b gal hyprctl eval 'hl.monitor({ output = "HEADLESS-2",
+mode = "2400x275@60", position = "0x0", scale = 2.5 })'`; do that again after a
+`omarchy-theme-set`, which resets it. Keep shots wide (the key strip needs
+about 240 logical px of height) and only Preferences tall:
+
+| Shot | Theme, mode | State |
+| --- | --- | --- |
+| `drawer-latte.jpg` | catppuccin-latte, 2400x275 at 2.5 | floating; `powerbar managed right` |
+| `search-tokyo-night.jpg` | tokyo-night, 2400x600 at 2.5 | flat; `keysSearch`, type `tail` |
+| `notch-kanagawa.jpg` | kanagawa, 3024x1964 at 2, `shot -g 290,0,932,200` | `set zones notch`; `group g-show-system`. `cutouts.json`: `{"panels":[{"connector":"HEADLESS","width":3024,"height":1964,"top":64}]}` |
+| `preferences.jpg` | osaka-jade, 2560x1600 at 2 | islands; `preferencesPage 1` |
+
+Park the pointer where it hovers nothing. JPEG at quality 88.
+
 ## Skills
 
 Development skills are not part of the plugin: `omarchy plugin add` clones
@@ -128,10 +147,10 @@ Without them, the loop above still holds: `tools/validate.sh`, `tests/run`,
 restarts the live shell; without it use `omarchy restart shell`, never while
 the session is locked.)
 
-`agents/skills/powerbar/` is the other kind: the skill a user's agent loads to
-*operate* Powerbar (CLI, settings, recipes). It ships on purpose. Keep
-development guidance out of it, and update it in the same commit as any change
-to `omarchy-shell powerbar` functions or settings.
+The skill a user's agent loads to *operate* Powerbar (CLI, settings, recipes)
+is kept outside the plugin, in its own repository: Omarchy's plugin review
+does not accept agent instructions in a plugin. Update it with any change to
+`omarchy-shell powerbar` functions or settings.
 
 ## Git
 

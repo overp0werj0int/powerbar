@@ -210,6 +210,16 @@ test('a glyph replacing your own image drops its tint, so the next image starts 
   assert.equal(m.groups(c.bar)[0].iconTint, undefined);
 });
 
+test('a group image is a local SVG or PNG path; a URL or anything else is dropped', () => {
+  const c = fixture(); m.create(c, 'a', 'Tools');
+  m.edit(c, 'a', { iconImage: 'http://example.com/a.svg' });
+  assert.equal(m.groups(c.bar)[0].iconImage, undefined);
+  c.bar.powerbarGroups[0].iconImage = 'https://example.com/a.png';
+  assert.equal(m.groups(c.bar)[0].iconImage, undefined);
+  for (const bad of ['/fifo', '/a/../b.svg', 'a.svg', '/a.svg\n']) assert.equal(m.imagePath(bad), undefined, bad);
+  assert.equal(m.imagePath('/home/u/Icon.PNG'), '/home/u/Icon.PNG');
+});
+
 test('icons in Powerbar\'s folder that no group uses are swept; others and outside files never', () => {
   const c = fixture(), dir = '/home/u/.local/share/powerbar/icons';
   m.create(c, 'a', 'Tools'); m.edit(c, 'a', { iconImage: dir + '/used.svg' });

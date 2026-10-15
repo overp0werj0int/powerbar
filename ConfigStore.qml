@@ -65,7 +65,15 @@ QtObject {
   }
 
   function shellCanWrite() { return !!shell && typeof shell.mutateShellConfig === "function" }
-  function canWrite() { return shellCanWrite() && BarModel.ownsBarConfig(pending ? host : shown, barId) }
+  function canWrite() { return !retired && shellCanWrite() && BarModel.ownsBarConfig(pending ? host : shown, barId) }
+
+  // The bar is going away (its Component.onDestruction): what is queued is
+  // saved now, and nothing is written after, whatever still runs late.
+  property bool retired: false
+  function retire() {
+    flush()
+    retired = true
+  }
 
   // Queue an edit and show it at once. False when it cannot be written, or
   // when it threw on the host's config.
@@ -136,7 +144,7 @@ QtObject {
       failed()
       return
     }
-    var saved = shellCanWrite() && shell.mutateShellConfig(function(config) {
+    var saved = !retired && shellCanWrite() && shell.mutateShellConfig(function(config) {
       for (var edit of queued) {
         try { edit(config) } catch (error) { console.warn("powerbar: a config change failed and was dropped: " + error) }
       }
