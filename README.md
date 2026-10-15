@@ -93,9 +93,9 @@ didn't move at all, one switch turns animation off.
 - Keys are named by where they point, so they mean the same thing on a top,
   bottom or side bar, and a name card beside the cursor tells you what you're
   on.
-- It tries hard not to surprise you. On first start it binds only its two
-  bar shortcuts, and only keys nothing else holds (it tells you which); any
-  other shortcut waits until you accept it. Omarchy's `omarchy bar` commands
+- It tries hard not to surprise you. It binds no key until you accept one:
+  on first start a notification offers its two bar shortcuts and opens
+  Preferences at them. Omarchy's `omarchy bar` commands
   keep working, a shortcut Hyprland rejects puts your files back as they
   were, and settings for an uninstalled widget clean themselves up.
 
@@ -146,12 +146,12 @@ not tested separately.
 
 ### Shortcuts for the keyboard mode
 
-On its first start Powerbar binds Super+B to the keyboard mode and
-Super+Ctrl+/ to the mode with its search (/) open, each only if nothing else
-already answers those keys, and a notification says what it bound. A key that
-is taken stays with what holds it; the notification names it, and you choose
-other keys in Preferences → Bar → Keyboard. To bind them yourself (or again,
-after an upgrade from a version that bound nothing):
+Powerbar binds no keys by itself. On its first start a notification offers
+Super+B for the keyboard mode and Super+Ctrl+/ for the mode with its search
+(/) open, and names whatever already holds either one. It stays until you
+dismiss it; click it and Preferences opens at Bar → Keyboard, where Enter
+takes the suggested keys and Space lets you choose others. To bind them from
+the command line instead:
 
 ```sh
 omarchy-shell powerbar set shortcut.bar:keys "SUPER + B"
@@ -238,8 +238,8 @@ whatever has focus):
 
 ## Keyboard mode
 
-Super+B starts it, when it was free on Powerbar's first start (otherwise
-Preferences → Bar → Keyboard offers it). The cursor starts on the widget
+Super+B starts it, once you take that shortcut in Preferences → Bar →
+Keyboard (the first start's notification leads there). The cursor starts on the widget
 whose panel is open, else on the widget pinned to the screen centre (the
 clock by default). A name card beside the cursor says what it's on, and a
 strip along the far edge of the screen shows the keys you can press now
@@ -265,8 +265,7 @@ direction relative to the bar, so they mean the same on every edge:
 - `/` finds a widget by name, fuzzily (`/pm` finds Plugin Manager), and opens
   the way to it, into a group, a drawer or behind dots. Super+Ctrl+/ starts
   the mode with the search already open (`omarchy-shell powerbar
-  keysSearch`; bound on first start when free, else offered in Preferences →
-  Bar → Keyboard as "Bar search"); pressed during a search, it leaves.
+  keysSearch`; offered in Preferences → Bar → Keyboard as "Bar search"); pressed during a search, it leaves.
 - `?` shows a sheet of every key in the mode and every widget's and group's
   shortcut.
 - `,` opens Preferences; `,` there closes them and brings the cursor back
@@ -307,7 +306,7 @@ Preferences.
 | `keysSearch` | The keyboard mode with its search (`/`) open; ends it while a search is open |
 | `managed <zone>` / `group <id>` / `toggleGroup <id>` / `closeManaged` | Open or close a drawer |
 | `drawerStatus` / `managedStatus` / `popupStatus` | The open drawer, On demand widgets, the open panel |
-| `preferences` / `preferencesPage <1-3>` / `groupsPreferences` / `closePreferences` | Preferences |
+| `preferences` / `preferencesPage <1-3>` / `preferencesKeyboard` / `groupsPreferences` / `closePreferences` | Preferences (`preferencesKeyboard`: at the keyboard mode's shortcuts) |
 | `build` | The code this shell is running: version, a digest of the files it loaded, git commit, when it loaded |
 | `help` | Every function, with what it does |
 
@@ -452,7 +451,7 @@ keyboard focus in the keyboard mode, through Quickshell's Hyprland module.
 | File | Read | Written |
 | --- | --- | --- |
 | `~/.config/omarchy/shell.json` | Its settings and Omarchy's bar keys | Through the shell, only under `bar`: its own `powerbar*` keys, the bar keys you change in Powerbar (`layout`, `position`, `background` / `transparent`, `centerAnchor`), and on first start a `powerbarInstance` id on each widget entry. Edits made at the bar are saved together once you leave it (at most 20 s after the last one), and nothing is written while the config names another bar. Omarchy's bar commands write it as they always do |
-| `~/.config/hypr/bindings.lua` | With your other `~/.config/hypr/*.lua` files, Omarchy's default bindings and `hyprctl binds`, to show every shortcut | Only its marked block, when you set a shortcut and on first start for the two bar shortcuts where their keys are free: replaced in one step (through a symlink, in the file it points to), and put back if Hyprland then reports a new config error. Once Hyprland has taken the block, it also removes the marked loader in `hyprland.lua` (backed up first) and the `~/.config/hypr/powerbar.lua` it loads, left by early Powerbar builds (only when it still has their generated header); a damaged loader is left alone |
+| `~/.config/hypr/bindings.lua` | With your other `~/.config/hypr/*.lua` files, Omarchy's default bindings and `hyprctl binds`, to show every shortcut | Only its marked block, when you set a shortcut: replaced in one step (through a symlink, in the file it points to), and put back if Hyprland then reports a new config error. Once Hyprland has taken the block, it also removes the marked loader in `hyprland.lua` (backed up first) and the `~/.config/hypr/powerbar.lua` it loads, left by early Powerbar builds (only when it still has their generated header); a damaged loader is left alone |
 | `~/.local/state/omarchy/` | `current/theme/powerbar.toml`, `current/theme.name`, `toggles/bar-off` | `toggles/bar-off`, only through Omarchy's own toggle commands: `powerbar show` / `hide`, and Omarchy's bar toggle on an autohidden bar |
 | `~/.config/omarchy/themes/`, `$OMARCHY_PATH` | Installed themes (to drop settings for themes you removed), Omarchy's emoji list, whether Omarchy has the glassy background | Nothing |
 | `/usr/share/omarchy-platform/display-cutouts.json` | Which screens have a notch, and how tall, as Omarchy's bar reads it | Nothing |
@@ -465,7 +464,7 @@ keyboard focus in the keyboard mode, through Quickshell's Hyprland module.
 | `omarchy-toggle-bar`, `omarchy-toggle bar-off off` | `omarchy-shell powerbar show` / `hide`; Omarchy's bar toggle on an autohidden bar |
 | `omarchy-bar-text-color` | A transparent bar picks its text colour over the wallpaper, as Omarchy's does |
 | `omarchy-bar background`, `omarchy-bar sync-glass` | The bar's background changes, on an Omarchy with the glassy background |
-| `notify-send` | First start: which bar shortcuts it bound, and what holds a key it left alone |
+| `notify-send` | First start: offers the bar shortcuts (free, or what holds them) in a notification that stays until dismissed; a click opens Preferences at them |
 | `hyprctl binds`, `cat` | Reading shortcuts (Preferences, the keyboard mode, `shortcuts`) |
 | `hyprctl reload config-only`, `hyprctl configerrors` | After writing the shortcut block (`ShortcutApply.sh`, with `grep`, `awk`, `cp`, `mv`, `readlink`) |
 | `hyprctl eval` | Recording a shortcut: a temporary submap so the keys reach Preferences, for 15 s at most |

@@ -286,6 +286,7 @@ var functions = [
   ["popupStatus", "", "the open widget panel, as JSON"],
   ["preferences", "", "open Preferences on the focused monitor"],
   ["preferencesPage", "<1-3>", "open Preferences at Layout (1), Groups (2) or Bar (3)"],
+  ["preferencesKeyboard", "", "open Preferences at the keyboard mode's shortcuts (Bar → Keyboard)"],
   ["groupsPreferences", "", "open Preferences at Groups"],
   ["closePreferences", "", "close Preferences"],
   ["build", "", "the code this shell is running: version, digest of the loaded files, git commit, when it loaded (tools/build-check.sh compares it with a checkout)"],

@@ -43,6 +43,10 @@ Item {
   onAutoHideChanged: if (!autoHide) cliShown = false
   readonly property bool preferencesOpen: preferencesPane.opened
   function showPreferences(screen) { preferencesPane.show(screen) }
+  function showPreferencesKeyboard() {
+    var name = focusedScreenName()
+    preferencesPane.showKeyboard(Quickshell.screens.find(function(s) { return s.name === name }) || Quickshell.screens[0])
+  }
   // The bar's options with their clean-config defaults (BarModel.options).
   readonly property var barOptions: BarModel.options(barConfig)
   readonly property bool animationsEnabled: barOptions.animations
@@ -535,8 +539,8 @@ Item {
     }
     if (!missing) return
     configStore.writeNow(function(config) {
-      // A config Powerbar never ran on: its shortcut store binds the bar's
-      // suggested shortcuts where free, once (ShortcutStore offerSuggested).
+      // A config Powerbar never ran on: its shortcut store offers the bar's
+      // suggested shortcuts in a notification, once (ShortcutStore offerSuggested).
       if (!ManagedModel.powerbarHasRun(config.bar)) config.bar.powerbarShortcutOffer = true
       ManagedModel.healVisibility(config.bar, root.thirdPartyEntry)
       // New widgets (no instance key yet) take their mode's place first.
@@ -650,6 +654,9 @@ Item {
       preferencesPane.show(screen)
     }
     function closePreferences(): void { preferencesPane.close() }
+    // Bar → Keyboard with the cursor on the keyboard mode's shortcut: where
+    // the first start's notification leads (KEYS-84).
+    function preferencesKeyboard(): void { root.showPreferencesKeyboard() }
     function preferencesPage(page: int): void {
       if (!preferencesPane.opened) preferences()
       preferencesPane.setPage(PreferencesModel.pageIndex(page, preferencesPane.pages.length))

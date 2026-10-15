@@ -68,11 +68,10 @@ Item {
 
   // A first start (keyboard.md KEYS-84): Powerbar's first write on a config
   // it never ran on leaves bar.powerbarShortcutOffer. Once Hyprland's binds
-  // are read, the bar's suggested shortcuts that nothing holds are bound, a
-  // notification says which and what holds the others, and the flag goes.
+  // are read, a notification that stays until dismissed names the bar's
+  // suggested shortcuts, free or held by what; a click on it opens
+  // Preferences at them. Nothing is bound until the user takes them there.
   readonly property bool offerPending: !!bar && !!bar.barConfig && bar.barConfig.powerbarShortcutOffer === true
-  // The notification, sent once the write is done (or failed).
-  property string offerNote: ""
   // Finished reads of Hyprland's binds; the offer waits for one it asked for,
   // so it judges the binds as they are now, not as they were at start.
   property int reads: 0
@@ -81,23 +80,32 @@ Item {
   onOfferPendingChanged: Qt.callLater(offerSuggested)
   onReadsChanged: Qt.callLater(offerSuggested)
   function offerSuggested() {
-    if (!offerPending || busy || offerNote) return
+    if (!offerPending || busy) return
     if (offerAfter < 0) { offerAfter = reads + 1; refresh(); return }
     if (reads < offerAfter || !bar.canWriteConfig()) return
     offerAfter = -1
-    var result = Shortcuts.offer(config, binds, names(config), ownKeys)
+    var text = Shortcuts.offerMessage(Shortcuts.offer(config, binds, names(config), ownKeys))
     preferences.setOption("powerbarShortcutOffer", undefined)
-    offerNote = Shortcuts.offerMessage(result)
-    if (result.bound.length) write(result.next)
-    else notifyOffer()
+    if (text) notifyOffer(text)
   }
-  function notifyOffer() {
-    var text = error ? error + " Set the bar's shortcuts in Preferences → Bar → Keyboard." : offerNote
-    offerNote = ""
+  // Critical, so it stays until dismissed. A click runs Omarchy's
+  // omarchy-exec-argv (newer Omarchy, kept across shell restarts), or answers
+  // "default" to the --wait here (other daemons, Omarchy 4.0.4).
+  function notifyOffer(text) {
     // Plain words only: notification daemons read markup in the body, and
-    // the text can carry Hyprland's error message.
+    // the text names other binds by their descriptions.
     text = String(text || "").replace(/[<>&\x00-\x1f\x7f]/g, " ").slice(0, 300)
-    if (text) Quickshell.execDetached(["notify-send", "-a", "Powerbar", "Powerbar shortcuts", text])
+    offerNotice.command = ["notify-send", "-a", "Powerbar", "-u", "critical", "--wait",
+      "--action=default=Open Preferences",
+      "-h", "string:omarchy-exec-argv:" + JSON.stringify(["omarchy-shell", "powerbar", "preferencesKeyboard"]),
+      "Powerbar shortcuts", text]
+    offerNotice.running = true
+  }
+  Process {
+    id: offerNotice
+    stdout: StdioCollector {
+      onStreamFinished: if (text.trim() === "default") store.bar.showPreferencesKeyboard()
+    }
   }
 
   function save(target, keys) { write(Shortcuts.assign(config, target, keys)) }
@@ -134,7 +142,7 @@ Item {
   })
   onStaleGroupsChanged: pruneStaleGroups()
   // Also once a write in flight is done: a group dissolved meanwhile.
-  onBusyChanged: if (!busy) { if (offerNote) notifyOffer(); pruneStaleGroups(); Qt.callLater(offerSuggested) }
+  onBusyChanged: if (!busy) { pruneStaleGroups(); Qt.callLater(offerSuggested) }
   // Not again after a write that failed (error set): a refusal would put the
   // stale shortcut back and this would try forever; the next change retries.
   function pruneStaleGroups() {

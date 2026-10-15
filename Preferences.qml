@@ -114,6 +114,13 @@ Item {
     if (bar && bar.barKeys) Qt.callLater(bar.barKeys.backFromPreferences)
   }
   function show(screen) { targetScreen = screen; open("{}") }
+  // Bar → Keyboard, the cursor on the keyboard mode's shortcut row.
+  property bool pendingKeyboard: false
+  function showKeyboard(screen) {
+    pendingKeyboard = true
+    if (opened) setPage(2)
+    else { page = 2; show(screen) }
+  }
   function showGroup(screen, id) { if (id) selectGroup(id); page = 1; show(screen) }
   function openGroup(id) { selectGroup(id); setPage(1) }
   function setPage(index) {
@@ -121,7 +128,12 @@ Item {
     page = index
     Qt.callLater(focusPage)
   }
-  function focusPage() { if (pageItems[page]) pageItems[page].focusFirst() }
+  function focusPage() {
+    var item = pageItems[page]
+    if (!item) return
+    if (pendingKeyboard && item.keyboardRow) { pendingKeyboard = false; item.keyboardRow.forceActiveFocus(Qt.OtherFocusReason) }
+    else item.focusFirst()
+  }
   function publishSnapshots() {
     if (!opened || !Object.keys(snapshotBatch).length) return
     snapshots = Object.assign({}, snapshots, snapshotBatch)
@@ -623,6 +635,7 @@ Item {
             sourceComponent: Component {
               PrefsForm {
                   maxContentWidth: Infinity
+                  readonly property Item keyboardRow: barKeysRow
 
                 PrefsBento {
                   id: bento
@@ -974,12 +987,13 @@ Item {
                       onToggled: function(checked) { prefs.setOption("powerbarDotsBadge", checked) }
                     }
                   }
-                  // The keyboard mode (docs/behavior/keyboard.md): its shortcuts (bound
-                  // on a first start where free, else offered) and its strip of keys.
+                  // The keyboard mode (docs/behavior/keyboard.md): its shortcuts (offered,
+                  // never bound until taken here; KEYS-84) and its strip of keys.
                   PrefsTile {
                     title: "Keyboard"
                     span12: 4; span6: 6
                     ShortcutRow {
+                      id: barKeysRow
                       label: "Bar keyboard"
                       store: prefs.shortcuts
                       target: "bar:keys"
