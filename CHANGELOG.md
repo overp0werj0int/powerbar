@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.9.4 — 2026-10-15
+
+A new description.
+
+- **One line says what Powerbar is:** "A replacement bar for Omarchy with
+  drawers, in-bar expansion, notch support, configurable visibility, a
+  sophisticated keyboard mode, autohide and a polished Preferences window."
+  It is the plugin's description and the tagline in `preview.jpg`.
+- **README:** the intro says the two shortcuts are offered in a notification
+  on the first start, no longer bound.
+
 ## 0.9.3 — 2026-10-15
 
 The marketplace preview, redrawn.
