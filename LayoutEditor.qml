@@ -274,7 +274,9 @@ Item {
   }
   // Deferred: entries can be re-evaluated lazily while cursorItems is being
   // computed, and moving the cursor there would change cursorItems' own input.
-  onEntriesChanged: Qt.callLater(syncCursor)
+  // A Timer the editor owns, not a closure: it stops with the editor.
+  onEntriesChanged: syncLater.restart()
+  Timer { id: syncLater; interval: 0; onTriggered: editor.syncCursor() }
 
   function moveCursor(dx, dy) {
     if (lifted) liftTarget = Model.stepLift(count, liftTarget, dx, dy, columnsFor)

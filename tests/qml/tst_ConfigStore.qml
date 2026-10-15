@@ -41,6 +41,7 @@ TestCase {
   SignalSpy { id: failedSpy; target: store; signalName: "failed" }
 
   function init() {
+    store.retired = false
     store.flush()
     shell.refuse = false
     shell.config = { version: 1, plugins: [{ id: "keep" }], bar: { id: "p0werj0int.powerbar", spacing: 1 } }
@@ -114,5 +115,17 @@ TestCase {
     verify(store.writeNow(function(config) { config.bar.ids = true }))
     compare(shell.writes, 1)
     compare(host.barConfig.ids, true)
+  }
+  function test_retireSavesTheQueueThenRefusesEveryWrite() {
+    set("spacing", 7)
+    store.retire()
+    compare(shell.writes, 1, "the queued edit is saved on the way out")
+    compare(shell.config.bar.spacing, 7)
+    verify(!store.canWrite())
+    verify(!set("spacing", 9), "no edit is queued after")
+    verify(!store.writeNow(function(config) { config.bar.ids = true }), "nor written directly")
+    store.flush()
+    compare(shell.writes, 1)
+    compare(shell.config.bar.spacing, 7)
   }
 }

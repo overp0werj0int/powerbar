@@ -77,8 +77,22 @@ Item {
   property int reads: 0
   property int offerAfter: -1
   // Later, not inside the change: the offer writes the config offerPending reads.
-  onOfferPendingChanged: Qt.callLater(offerSuggested)
-  onReadsChanged: Qt.callLater(offerSuggested)
+  onOfferPendingChanged: offerLater.restart()
+  onReadsChanged: offerLater.restart()
+  // Owned Timers, not Qt.callLater closures: they stop with the store, so
+  // nothing writes bindings.lua for a bar that is going away.
+  Timer { id: offerLater; interval: 0; onTriggered: store.offerSuggested() }
+  Timer {
+    id: pruneLater
+    interval: 0
+    onTriggered: {
+      if (!store.staleGroups.length || store.busy) return
+      var next = store.config
+      store.staleGroups.forEach(function(t) { next = Shortcuts.restore(next, t) })
+      store.write(next)
+    }
+  }
+  property bool retired: false
   function offerSuggested() {
     if (!offerPending || busy) return
     if (offerAfter < 0) { offerAfter = reads + 1; refresh(); return }
@@ -115,6 +129,11 @@ Item {
   // shortcuts always match the bound ones.
   property var previous: undefined
   function write(next) {
+    // The block follows the saved shortcuts: no config write, no block.
+    if (retired || !bar.canWriteConfig()) {
+      error = "Powerbar can't save its settings right now, so no shortcut changed."
+      return
+    }
     error = ""
     previous = Object.keys(config).length ? JSON.parse(JSON.stringify(config)) : undefined
     preferences.setOption("powerbarShortcuts", Object.keys(next).length ? next : undefined)
@@ -142,17 +161,12 @@ Item {
   })
   onStaleGroupsChanged: pruneStaleGroups()
   // Also once a write in flight is done: a group dissolved meanwhile.
-  onBusyChanged: if (!busy) { pruneStaleGroups(); Qt.callLater(offerSuggested) }
+  onBusyChanged: if (!busy) { pruneStaleGroups(); offerLater.restart() }
   // Not again after a write that failed (error set): a refusal would put the
   // stale shortcut back and this would try forever; the next change retries.
   function pruneStaleGroups() {
     if (!staleGroups.length || busy || error) return
-    Qt.callLater(function() {
-      if (!store.staleGroups.length || store.busy) return
-      var next = store.config
-      store.staleGroups.forEach(function(t) { next = Shortcuts.restore(next, t) })
-      store.write(next)
-    })
+    pruneLater.restart()
   }
 
   // Hyprland's binds (plain text: its JSON drops code: keys), then every
@@ -217,5 +231,10 @@ Item {
     function exec(argv) { running = false; command = argv; running = true }
   }
 
-  Component.onDestruction: if (recording) Quickshell.execDetached(["hyprctl", "eval", Shortcuts.recordLua(false)])
+  Component.onDestruction: {
+    retired = true
+    offerLater.stop()
+    pruneLater.stop()
+    if (recording) Quickshell.execDetached(["hyprctl", "eval", Shortcuts.recordLua(false)])
+  }
 }

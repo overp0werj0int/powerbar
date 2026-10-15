@@ -558,7 +558,7 @@ Item {
       }
     })
   }
-  onShellChanged: Qt.callLater(ensureInstanceIds)
+  onShellChanged: configAfter.restart()
   function managedSlots(zone, window) {
     var slots = (window && window.moduleItems || []).filter(function(slot) {
       return slot && slot.moduleName && slot.region === zone && (slot.managed || slot.fitFolded) && !slot.memberGroup
@@ -873,7 +873,7 @@ Item {
     onLoadFailed: root.themeLook = ({})
     onFileChanged: reload()
   }
-  onThemeNameChanged: { themeLookFile.reload(); Qt.callLater(healAppearance) }
+  onThemeNameChanged: { themeLookFile.reload(); healLater.restart() }
   readonly property var appearance: AppearanceModel.resolve(AppearanceModel.appearanceOf(barConfig, themeName), themeName, themeLook)
   // The bar's config with the resolved values in the keys the drawing reads.
   readonly property var appearanceConfig: AppearanceModel.flatten(barConfig, themeName, themeLook)
@@ -910,7 +910,7 @@ Item {
   Process {
     id: installedThemesProc
     running: true
-    onExited: if (root.themesAgain) { root.themesAgain = false; Qt.callLater(root.refreshThemes) }
+    onExited: if (root.themesAgain) { root.themesAgain = false; themesLater.restart() }
     command: ["bash", "-c", "ls -1 \"${OMARCHY_PATH:-/usr/share/omarchy}/themes\" \"$HOME/.config/omarchy/themes\" 2>/dev/null"]
     stdout: StdioCollector {
       onStreamFinished: {
@@ -1271,7 +1271,10 @@ Item {
   onModuleSlotsChanged: Qt.callLater(prunePluginBarApis)
 
   Component.onDestruction: {
-    flushConfigWrites()
+    // Deferred work that writes stops here: the host invalidates this
+    // context before the object goes, and nothing may write after it.
+    configAfter.stop(); healLater.stop(); themesLater.stop(); lostKeysLater.stop()
+    configStore.retire()
     for (var id in pluginBarApis) {
       root.releasePluginObjects(id)
       if (pluginBarApis[id] && typeof pluginBarApis[id].destroy === "function")
@@ -2304,21 +2307,27 @@ Item {
   }
 
   onBarConfigChanged: {
-    if (AppearanceModel.legacyPresent(barConfig)) Qt.callLater(healAppearance)
+    if (AppearanceModel.legacyPresent(barConfig)) healLater.restart()
     // Only when the last list says a theme went: then read it again first.
     if (installedThemes.length && AppearanceModel.hasStaleThemes(barConfig, installedThemes.concat(themeName ? [themeName] : [])))
-      Qt.callLater(refreshThemes)
+      themesLater.restart()
     // A config from the host while edits wait to be written: the store shows
     // the edits on top of it rather than the host's config without them.
     if (configStore.delivered(barConfig)) return
     // An entry another writer saved without Powerbar's keys is not shown
     // until they are back, so its widget keeps its instance and groups.
-    if (lostKeysPending()) { Qt.callLater(restoreLostKeys); return }
+    if (lostKeysPending()) { lostKeysLater.restart(); return }
     applyBarConfig()
     shownLayout = JSON.parse(JSON.stringify(barConfig && barConfig.layout || {}))
-    Qt.callLater(ensureInstanceIds)
-    Qt.callLater(pruneGroupMembers)
+    configAfter.restart()
   }
+  // The config work that follows a change, next turn of the event loop. Owned
+  // Timers rather than Qt.callLater closures: they stop with the bar
+  // (Component.onDestruction), so none runs on a bar the host is tearing down.
+  Timer { id: configAfter; interval: 0; onTriggered: { root.ensureInstanceIds(); root.pruneGroupMembers() } }
+  Timer { id: healLater; interval: 0; onTriggered: root.healAppearance() }
+  Timer { id: themesLater; interval: 0; onTriggered: root.refreshThemes() }
+  Timer { id: lostKeysLater; interval: 0; onTriggered: root.restoreLostKeys() }
   // The layout last shown: where keys another writer dropped come back from
   // (BarModel.lostKeys; Omarchy's updateEntryInline keeps only a widget's id
   // and settings, INTEG-148).
@@ -2334,8 +2343,7 @@ Item {
     shownLayout = null
     applyBarConfig()
     shownLayout = JSON.parse(JSON.stringify(barConfig && barConfig.layout || {}))
-    Qt.callLater(ensureInstanceIds)
-    Qt.callLater(pruneGroupMembers)
+    configAfter.restart()
   }
   // Widgets uninstalled since they were grouped have already left every group
   // as read (GroupsModel.groups); their keys leave shell.json too, in one
