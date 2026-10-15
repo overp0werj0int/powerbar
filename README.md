@@ -16,7 +16,7 @@ spacing, with one small button at the far end. From there you can tuck
 widgets away in drawers of two kinds: a Bartender-style strip of live icons
 that slides out beside the bar, or a menu whose rows show each widget's name,
 on its own or next to its icon. Everything below waits until you turn it on
-(only its two keyboard shortcuts are bound for you, where the keys are free),
+(only its two keyboard shortcuts are offered, in a notification on the first start),
 and then behaves the same way every time. Things move with some care, too:
 drawers grow out of the bar and neighbours slide aside for a dragged widget,
 all of it carefully timed, so the bar never feels slow. If you'd rather it

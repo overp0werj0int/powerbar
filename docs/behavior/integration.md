@@ -16,7 +16,7 @@ tests/cli.test.cjs; stock `/usr/share/omarchy/bin/omarchy-bar`,
 
 ## Plugin manifest
 
-- **INTEG-1** `manifest.json` declares `schemaVersion: 1`, `id: "p0werj0int.powerbar"`, `name: "Powerbar"`, `version: "0.9.3"`, author `p0werj0int`, license `MIT`, description `Omarchy's bar plus on-demand widgets, groups, bar styles, autohide, a keyboard mode and a Preferences window.`, `kinds: ["bar"]`, `entryPoints.bar: "Bar.qml"`.
+- **INTEG-1** `manifest.json` declares `schemaVersion: 1`, `id: "p0werj0int.powerbar"`, `name: "Powerbar"`, `version: "0.9.3"`, author `p0werj0int`, license `MIT`, description `A replacement bar for Omarchy with drawers, in-bar expansion, notch support, configurable visibility, a sophisticated keyboard mode, autohide and a polished Preferences window.`, `kinds: ["bar"]`, `entryPoints.bar: "Bar.qml"`.
 - **INTEG-2** The manifest declares `omarchy.clonedFrom: "omarchy.bar"`.
 
 ## Startup
