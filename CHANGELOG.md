@@ -1,5 +1,37 @@
 # Changelog
 
+## 0.9.2 — 2026-10-15
+
+Ready for the Omarchy plugin marketplace: Powerbar asks before it binds a
+key, and a security pass.
+
+- **Shortcuts are offered, not bound.** On its first start Powerbar no
+  longer writes Super+B and Super+Ctrl+/ into `bindings.lua` by itself. A
+  notification offers them (or names what already holds them) and stays
+  until you dismiss it; click it and Preferences opens at Bar → Keyboard on
+  the keyboard mode's shortcut, where Enter takes it. New command:
+  `omarchy-shell powerbar preferencesKeyboard`.
+- **Names are shown as written.** A group or widget name that holds markup
+  is shown as plain text everywhere, never read as rich text (which could
+  load an image from the network).
+- **Group images are local files.** A group's own icon is an absolute path to
+  an `.svg` or `.png`; a URL is refused by `setGroup` and dropped from the
+  config. Imported and pasted icons are read once, capped at 512 KB, with a
+  timeout.
+- **Safer shortcut writes.** The block in `bindings.lua` is written through a
+  fresh temporary file, so a link planted beside it can't redirect the write;
+  an old `powerbar.lua` is removed only when Powerbar wrote it; names with
+  control characters can't break the block.
+- **Nothing writes while the bar goes away.** Switching to another bar (or
+  the shell reloading) no longer logs "canWriteConfig is not a function", and
+  no late change can reach `shell.json` or `bindings.lua` after Powerbar is
+  replaced.
+- **README and screenshots** checked against this version, with four new
+  wide captures on stock themes. The Omarchy version badge is gone; Powerbar
+  was tested on Omarchy 4.0.4 and the next version's development build.
+- **For developers:** the agent skill and the offscreen bench now live
+  outside the plugin; `SECURITY.md` says how to report a vulnerability.
+
 ## 0.9.1 — 2026-10-14
 
 Saving waits until you leave the bar, and the key legend lines up again.
