@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.9.3 — 2026-10-15
+
+The marketplace preview, redrawn.
+
+- **A 16:9 preview on the theme's own colours.** `preview.jpg` is now the
+  marketplace card's shape and uses no wallpaper: Powerbar on nord, laid in
+  as a screen on a gradient of nord's colours. The catalogue's card crops
+  take only gradient.
+- **README:** the install section says the shortcuts are offered, not bound,
+  and the gallery credits Omarchy for its themes and wallpapers.
+
 ## 0.9.2 — 2026-10-15
 
 Ready for the Omarchy plugin marketplace: Powerbar asks before it binds a
