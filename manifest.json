@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "p0werj0int.powerbar",
   "name": "Powerbar",
-  "version": "0.9.5",
+  "version": "0.9.6",
   "author": "p0werj0int",
   "license": "MIT",
   "description": "A replacement bar for Omarchy with drawers, in-bar expansion, notch support, configurable visibility, a sophisticated keyboard mode, autohide and a polished Preferences window.",
