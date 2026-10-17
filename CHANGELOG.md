@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## 0.9.6 — 2026-10-17
+
+Private folders for existing installs, from the marketplace review.
 
 - **Folders an earlier version made are closed too.** On every start
   Powerbar makes its cache and icon folders 0700 and the files in them 0600,
