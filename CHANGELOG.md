@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- **Folders an earlier version made are closed too.** On every start
+  Powerbar makes its cache and icon folders 0700 and the files in them 0600,
+  so an install from before 0.9.5 needs no `chmod` by hand.
+
 ## 0.9.5 — 2026-10-17
 
 Private widget images, from the marketplace review.
