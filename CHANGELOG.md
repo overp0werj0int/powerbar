@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## 0.9.5 — 2026-10-17
+
+Private widget images, from the marketplace review.
 
 - **Powerbar's folders are private.** The widget images Preferences keeps
   (they can show a window title or other private text), `faces.json` and
