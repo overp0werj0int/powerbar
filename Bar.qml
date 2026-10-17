@@ -262,10 +262,18 @@ Item {
     })
     imageCaptures.enqueue(jobs)
   }
-  // Widget images can show private text (a window title, a track), so the
-  // folder is made its user's alone as it is made: 0700, with Powerbar's
-  // cache folder above it, before anything is written there.
-  Process { running: true; command: ["sh", "-c", 'umask 077; mkdir -p -- "$1"', "sh", root.widgetImageDir] }
+  // Widget images can show private text (a window title, a track), so
+  // Powerbar's folders are its user's alone before anything is written there:
+  // the cache folder is made 0700, and on every start the cache and icon
+  // folders are closed again (go=), which also closes those an earlier
+  // version made 0755 with files 0644. A link or a folder owned by someone
+  // else is left alone.
+  Process {
+    running: true
+    command: ["sh", "-c", 'umask 077; mkdir -p -- "$1" || exit 1; ' +
+      'for d in "${1%/*}" "$2"; do [ -d "$d" ] && [ ! -L "$d" ] && [ -O "$d" ] && chmod -R go= -- "$d"; done; true',
+      "sh", root.widgetImageDir, (Quickshell.env("XDG_DATA_HOME") || root.home + "/.local/share") + "/powerbar"]
+  }
   // Seed the image cache once the bar has settled, so widgets hidden later
   // keep a real look even if Preferences was never opened while they showed.
   Timer {
