@@ -159,7 +159,9 @@ Item {
     copier.dest = dest
     // Read once, capped, so a file that changes or grows meanwhile can't
     // slip past the size check; a FIFO or device times out.
-    copier.command = ["sh", "-c", 'f=$1; d=$2; [ -f "$f" ] && [ -r "$f" ] || exit 3; mkdir -p -- "${d%/*}" || exit 5; '
+    // The copy is the user's alone: umask 077 makes the icon folders 0700
+    // and the file 0600 as they are made.
+    copier.command = ["sh", "-c", 'f=$1; d=$2; umask 077; [ -f "$f" ] && [ -r "$f" ] || exit 3; mkdir -p -- "${d%/*}" || exit 5; '
       + 'timeout 2s head -c 524289 -- "$f" > "$d" || { rm -f -- "$d"; exit 5; }; [ "$(stat -c %s -- "$d")" -le 524288 ] || { rm -f -- "$d"; exit 4; }',
       "sh", path, dest]
     copier.running = true
@@ -192,7 +194,7 @@ Item {
       if (code === 0 && image) {
         var dest = picker.destinationFor(image, image === "image/png" ? "png" : "svg")
         clipImage.dest = dest
-        clipImage.command = ["bash", "-c", 'mkdir -p -- "${2%/*}" || exit 1; timeout 2s wl-paste --type "$1" | head -c 524289 > "$2"; s=("${PIPESTATUS[@]}"); '
+        clipImage.command = ["bash", "-c", 'umask 077; mkdir -p -- "${2%/*}" || exit 1; timeout 2s wl-paste --type "$1" | head -c 524289 > "$2"; s=("${PIPESTATUS[@]}"); '
           + '[ "$(stat -c %s -- "$2")" -le 524288 ] || { rm -f -- "$2"; exit 4; }; [ "${s[0]}" = 0 ] && [ "${s[1]}" = 0 ] && [ -s "$2" ] || { rm -f -- "$2"; exit 1; }',
           "bash", image, dest]
         clipImage.running = true

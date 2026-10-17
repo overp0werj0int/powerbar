@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+- **Powerbar's folders are private.** The widget images Preferences keeps
+  (they can show a window title or other private text), `faces.json` and
+  `glyphs.json` are written in folders Powerbar now makes 0700, so no other
+  user can open them; the icons you add to groups are 0600 in 0700 folders.
+  Folders an earlier version made keep their mode; this closes them:
+  `chmod -R go= ~/.cache/powerbar ~/.local/share/powerbar`.
+
 ## 0.9.4 — 2026-10-15
 
 A new description.

@@ -262,7 +262,10 @@ Item {
     })
     imageCaptures.enqueue(jobs)
   }
-  Process { running: true; command: ["mkdir", "-p", root.widgetImageDir] }
+  // Widget images can show private text (a window title, a track), so the
+  // folder is made its user's alone as it is made: 0700, with Powerbar's
+  // cache folder above it, before anything is written there.
+  Process { running: true; command: ["sh", "-c", 'umask 077; mkdir -p -- "$1"', "sh", root.widgetImageDir] }
   // Seed the image cache once the bar has settled, so widgets hidden later
   // keep a real look even if Preferences was never opened while they showed.
   Timer {

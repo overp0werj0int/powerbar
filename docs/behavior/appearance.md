@@ -184,7 +184,7 @@ Storage: the look lives in `bar.powerbarAppearance` of shell.json: `all` (values
 
 - **LOOK-72** While a widget is loaded on a horizontal bar, Preferences shows a live image of it at the bar's own look; Preferences never captures a side bar. Code: Bar.qml captureWidgetImages; WidgetIcon.qml live.
 
-- **LOOK-73** A widget not loaded shows the last image Powerbar saved: `~/.cache/powerbar/widgets/<key>.png` (`$XDG_CACHE_HOME` honoured). Code: Bar.qml widgetImageFile; WidgetIcon cachedUrl.
+- **LOOK-73** A widget not loaded shows the last image Powerbar saved: `~/.cache/powerbar/widgets/<key>.png` (`$XDG_CACHE_HOME` honoured). The folder is private (made 0700; INTEG-151). Code: Bar.qml widgetImageFile; WidgetIcon cachedUrl.
 
 - **LOOK-74** With neither, the widget's own glyph is shown (in its own font); with no recorded glyph, a stock glyph for its widget id. Code: Preferences.qml icon(); PreferencesModel.icon.
 
