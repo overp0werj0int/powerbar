@@ -159,7 +159,16 @@ does not accept agent instructions in a plugin. Update it with any change to
 
 ## Git
 
-- One branch per item; merge to master with `--no-ff`, then push.
+- `develop` is the working branch: one branch per item off `develop`, merged
+  back with `--no-ff`, then pushed. User-facing changes go under
+  `## Unreleased` in CHANGELOG.md.
+- `master` holds releases only. It stays the GitHub default branch, because
+  `omarchy-plugin-update` installs and updates from the remote's HEAD, so
+  every commit there reaches users. A release: on `release-X` off `develop`,
+  bump `manifest.json` and INTEG-1 and turn Unreleased into `## X — date`;
+  merge it into `develop`, then `develop` into `master` (`--no-ff`, "Release
+  X"), tag `vX` on master, push `master`, `develop` and the tag, and run the
+  release preflight.
 - Commit as the repo's GitHub noreply address; never edit the user's git
   config.
 - Commit messages: what changed and why, measured numbers where there are any.
