@@ -103,18 +103,24 @@ function derive(layout, groups, anchorId) {
   return { layout: out, groups: moved }
 }
 
-// Omarchy's stock three-zone layout, by widget id, and the two-zone layout
-// made for it (two and notch alike) instead of derive's split: what a fresh
-// install gets.
-var STOCK_THREE = {
+// Omarchy's stock three-zone layouts, by widget id (its centre sections read
+// as one centre list, SectionsModel), and the two-zone layout made for them
+// (two and notch alike) instead of derive's split: what a fresh install gets.
+// The first is Omarchy's since its six sections, the second the one before.
+var STOCK_THREE = [{
+  left: ["omarchy.menu", "omarchy.workspaces"],
+  center: ["omarchy.indicators", CLOCK, "omarchy.elsewhen", "omarchy.weather", "omarchy.system-update"],
+  right: ["omarchy.tray", KEYBOARD_LAYOUT, "omarchy.agents", "omarchy.bluetooth", "omarchy.network", "omarchy.audio", "omarchy.monitor", "omarchy.power"]
+}, {
   left: ["omarchy.menu", "omarchy.workspaces"],
   center: ["omarchy.indicators", CLOCK, KEYBOARD_LAYOUT, "omarchy.weather", "omarchy.system-update"],
   right: ["omarchy.tray", "omarchy.agents", "omarchy.bluetooth", "omarchy.network", "omarchy.audio", "omarchy.monitor", "omarchy.power"]
-}
+}]
 var STOCK_TWO = {
   left: ["omarchy.menu", "omarchy.workspaces", "omarchy.indicators",
     { id: "omarchy.system-update", powerbarVisibility: "shown" },
     { id: "omarchy.weather", powerbarVisibility: "shown" },
+    { id: "omarchy.elsewhen", powerbarVisibility: "shown" },
     { id: "omarchy.agents", powerbarVisibility: "shown" }],
   right: ["omarchy.bluetooth", "omarchy.network", "omarchy.audio", "omarchy.power",
     { id: "omarchy.monitor", powerbarVisibility: "shown" }, KEYBOARD_LAYOUT, CLOCK,
@@ -126,14 +132,16 @@ var STOCK_TWO = {
 function isStock(layout, groups) {
   if (Object.keys(groupPlaces(groups)).length) return false
   var z = zones(layout)
-  return ["left", "center", "right"].every(function(name) {
-    var ids = z[name].map(function(e) { return e && e.id })
-    return JSON.stringify(ids) === JSON.stringify(STOCK_THREE[name])
+  return STOCK_THREE.some(function(stock) {
+    return ["left", "center", "right"].every(function(name) {
+      var ids = z[name].map(function(e) { return e && e.id })
+      return JSON.stringify(ids) === JSON.stringify(stock[name])
+    })
   })
 }
 
-// The stock two-zone layout, carrying each widget's instance key from
-// `layout` so the switch finds it.
+// The stock two-zone layout of the widgets `layout` has, carrying each one's
+// instance key so the switch finds it.
 function stockTwo(layout) {
   var key = {}, z = zones(layout)
   ;["left", "center", "right"].forEach(function(name) {
@@ -144,7 +152,8 @@ function stockTwo(layout) {
     if (key[e.id] && key[e.id] !== "id:" + e.id) e.powerbarInstance = key[e.id]
     return e
   }
-  return { layout: { left: STOCK_TWO.left.map(make), center: [], right: STOCK_TWO.right.map(make) }, groups: {} }
+  var has = function(spec) { return entryOf(spec).id in key }
+  return { layout: { left: STOCK_TWO.left.filter(has).map(make), center: [], right: STOCK_TWO.right.filter(has).map(make) }, groups: {} }
 }
 
 // A widget the layout being entered does not know (added while another mode

@@ -22,6 +22,7 @@ import "ZoneFitModel.js" as ZoneFitModel
 import "NotchModel.js" as NotchModel
 import "InlineQueue.js" as InlineQueue
 import "RenderModel.js" as RenderModel
+import "SectionsModel.js" as SectionsModel
 import "ZoneOrderModel.js" as ZoneOrderModel
 import "GlyphModel.js" as GlyphModel
 import "ShortcutModel.js" as ShortcutModel
@@ -2318,6 +2319,12 @@ Item {
   }
 
   onBarConfigChanged: {
+    // Omarchy's six sections are read as Powerbar's three zones (SectionsModel):
+    // the folded copy comes back through here.
+    if (SectionsModel.needsFold(barConfig)) {
+      barConfig = SectionsModel.fold(JSON.parse(JSON.stringify(barConfig)))
+      return
+    }
     if (AppearanceModel.legacyPresent(barConfig)) healLater.restart()
     // Only when the last list says a theme went: then read it again first.
     if (installedThemes.length && AppearanceModel.hasStaleThemes(barConfig, installedThemes.concat(themeName ? [themeName] : [])))
@@ -3519,7 +3526,8 @@ Item {
       var handle = CellModel.place(root.cellTokens, CellModel.TYPICAL_GLYPH, true)
       return {
         length: i.length, inset: i.inset, gap: i.gap, gutter: i.gutter, momentGap: i.momentGap,
-        notch: i.notch > 0 ? Math.max(1, i.notch - 2 * (root.cellEndPad(0) + i.gap)) : 0,
+        notch: notchSlotOf(i.notch),
+        notchPads: notchSplit,
         wrap: i.wrap,
         pad: function(spill) { return root.cellEndPad(spill) },
         handle: { extent: handle.extent, spill: handle.spill },
@@ -3828,8 +3836,20 @@ Item {
     // less the zone gap and end pads the fit adds around it; zoneFitInput).
     // On the notch it is the camera plus the inset a zone keeps from a screen
     // edge on each side (the zones' black runs on to the camera).
+    // Three zones on a screen with a camera at the top split the centre
+    // around it (notchSplit): the run before the anchor ends at the camera,
+    // the anchor and the rest start past it, each a screen edge's inset away.
     readonly property real notchKeepOut: root.twoZones && !root.vertical
-      ? (notch ? notch.width : root.barOptions.notchWidth || NotchModel.DEFAULT_LOGICAL_WIDTH) + (notchLook ? root.islandScreenInset * 2 : 0) : 0
+      ? (notch ? notch.width : root.barOptions.notchWidth || NotchModel.DEFAULT_LOGICAL_WIDTH) + (notchLook ? root.islandScreenInset * 2 : 0)
+      : notchSplit ? notch.width + root.islandScreenInset * 2 : 0
+    readonly property bool notchSplit: root.zoneMode === "three" && !root.vertical && !!notch
+    // The fit's notch slot. Two zones: the keep-out less the end pads and zone
+    // gaps their zones add around it. Three: the keep-out itself; the fit adds
+    // the end pads of the centre's cells on either side (notchPads).
+    function notchSlotOf(keepOut) {
+      if (!(keepOut > 0)) return 0
+      return root.twoZones ? Math.max(1, keepOut - 2 * (root.cellEndPad(0) + root.zoneGap)) : keepOut
+    }
     // The notch's zones grow out of this screen's camera, flush with its top.
     readonly property bool notchLook: root.notchMode && !!notch
     // The camera's edges along the strip.
@@ -5368,18 +5388,36 @@ Item {
     readonly property var anchorEntry: root.findCenterAnchorEntry()
     readonly property var anchorPreview: anchorEntry
       ? DragModel.slot(root.dragPreview, anchorEntry.powerbarInstance, "bar:center") : ({ before: false, after: false })
+    // Three zones under a camera (notchSplit): the camera's slot sits at the
+    // middle, the run before the anchor ends at it and the anchor (or the
+    // whole centre, without one) starts past it, each on its own island.
+    // Each side's island edge keeps the keep-out, from its own end pad.
+    readonly property real split: homeWindow && homeWindow.notchSplit ? homeWindow.notchKeepOut : 0
+    readonly property bool splitBefore: split > 0 && hasAnchor
+    readonly property real middle: (root.vertical ? height : width) / 2
+    IslandSurface {
+      id: centerBeginIsland
+      zoneHidden: centerIsland.zoneHidden
+      readonly property real start: beforeModules.x + beforeModules.shownLead
+      readonly property real end: beforeModules.x + beforeModules.width - beforeModules.shownTrail
+      x: start - root.islandEnd("center", beforeModules.leadSpill)
+      y: (parent.height - height) / 2
+      width: end - start + root.islandEnd("center", beforeModules.leadSpill) + root.islandEnd("center", beforeModules.trailSpill)
+      height: root.barSize
+      visible: root.islands && centerRoot.splitBefore && beforeModules.shownLength > 0 && end > start && opacity > 0
+    }
     IslandSurface {
       id: centerIsland
       zoneHidden: !!centerRoot.homeWindow && centerRoot.homeWindow.zoneHidden("center")
       readonly property real start: centerRoot.hasAnchor
-        ? (beforeModules.shownLength > 0 ? (root.vertical ? beforeModules.y : beforeModules.x) + beforeModules.shownLead : (root.vertical ? centerAnchorModule.y : centerAnchorModule.x))
+        ? (beforeModules.shownLength > 0 && !centerRoot.splitBefore ? (root.vertical ? beforeModules.y : beforeModules.x) + beforeModules.shownLead : (root.vertical ? centerAnchorModule.y : centerAnchorModule.x))
         : (root.vertical ? groupModules.y : groupModules.x) + groupModules.shownLead
       readonly property real end: centerRoot.hasAnchor
         ? (afterModules.shownLength > 0 ? (root.vertical ? afterModules.y + afterModules.height : afterModules.x + afterModules.width) - afterModules.shownTrail
           : (root.vertical ? centerAnchorModule.y + centerAnchorModule.height : centerAnchorModule.x + centerAnchorModule.width))
         : (root.vertical ? groupModules.y + groupModules.height : groupModules.x + groupModules.width) - groupModules.shownTrail
       readonly property real leadSpill: centerRoot.hasAnchor
-        ? (beforeModules.shownLength > 0 ? beforeModules.leadSpill : centerAnchorModule.cellSpill) : groupModules.leadSpill
+        ? (beforeModules.shownLength > 0 && !centerRoot.splitBefore ? beforeModules.leadSpill : centerAnchorModule.cellSpill) : groupModules.leadSpill
       readonly property real trailSpill: centerRoot.hasAnchor
         ? (afterModules.shownLength > 0 ? afterModules.trailSpill : centerAnchorModule.cellSpill) : groupModules.trailSpill
       x: root.vertical ? (parent.width - width) / 2 : start - root.islandEnd("center", leadSpill)
@@ -5390,9 +5428,10 @@ Item {
     }
     HighlightLayer { zone: "center"; island: centerIsland }
     Item {
-      x: root.vertical ? 0 : centerIsland.x
+      readonly property real from: centerBeginIsland.visible ? centerBeginIsland.x : centerIsland.x
+      x: root.vertical ? 0 : from
       y: root.vertical ? centerIsland.y : 0
-      width: root.vertical ? parent.width : Math.max(0, centerIsland.width)
+      width: root.vertical ? parent.width : Math.max(0, centerIsland.x + centerIsland.width - from)
       height: root.vertical ? Math.max(0, centerIsland.height) : parent.height
       // The pointer on the centre island, widgets included: read from the
       // bar's own hover, since a handler here sits below the widgets and
@@ -5416,6 +5455,8 @@ Item {
       visible: !centerRoot.hasAnchor
       region: "center"
       anchors.centerIn: parent
+      anchors.horizontalCenterOffset: centerRoot.split > 0
+        ? centerRoot.split / 2 + root.islandEnd("center", leadSpill) - shownLead + width / 2 : 0
     }
     ModuleList {
       id: beforeModules
@@ -5425,7 +5466,9 @@ Item {
       previewEnd: false
       previewAnchorEnd: centerRoot.anchorPreview.before
       region: "center"
-      x: root.vertical ? centerAnchorModule.x + (centerAnchorModule.width - width) / 2 : centerAnchorModule.x - width
+      x: root.vertical ? centerAnchorModule.x + (centerAnchorModule.width - width) / 2
+        : centerRoot.splitBefore ? centerRoot.middle - centerRoot.split / 2 - root.islandEnd("center", trailSpill) + shownTrail - width
+        : centerAnchorModule.x - width
       y: root.vertical ? centerAnchorModule.y - height : centerAnchorModule.y + (centerAnchorModule.height - height) / 2
     }
     Item {
@@ -5436,6 +5479,7 @@ Item {
       visible: centerRoot.hasAnchor
       width: slot ? slot.width : 0; height: slot ? slot.height : 0
       anchors.centerIn: parent
+      anchors.horizontalCenterOffset: centerRoot.split > 0 ? centerRoot.split / 2 + root.islandEnd("center", cellSpill) + width / 2 : 0
       Repeater { model: centerAnchorModule.model }
     }
     ModuleList {

@@ -225,3 +225,13 @@ test('the notch mode zones take the camera corners, or the default housing at sc
   assert.deepEqual(J(notch.zoneCorners({ radius: 9, shoulder: 3.5 })), { radius: 9, shoulder: 3.5 });
   assert.deepEqual(J(notch.zoneCorners(null)), { radius: 8, shoulder: 4 });
 });
+
+test("three zones: the camera's slot also holds the centre cells' end pads (notchPads)", () => {
+  const plain = make({ length: 1512, notch: NOTCH, zones: { before: [12, 12], anchor: 90, after: [12] } });
+  const padded = Object.assign({}, plain, { notchPads: true });
+  const a = fit(plain), b = fit(padded);
+  const pads = padded.pad(padded.zones.before[1].spill) + padded.pad(padded.zones.anchor.spill);
+  assert.equal(b.fits, true);
+  assert.ok(Math.abs((a.centerStart - b.centerStart) - pads / 2) < 1e-6, 'the centre starts half the pads further out');
+  assert.equal(b.centerShift, 0, 'the slot stays on the camera');
+});

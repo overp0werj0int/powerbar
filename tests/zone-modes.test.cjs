@@ -163,3 +163,21 @@ test('Omarchy adding a widget in a two-zone mode: a centre one joins the right, 
   three.layout.center.push({ id: 'x.c' });
   assert.equal(zm.settleNew(three, () => true), false, 'three zones keep Omarchy\'s place');
 });
+
+test("Omarchy's stock layout, old and new, gets the stock two-zone layout of its own widgets", () => {
+  const make = spec => ({ left: spec.left.map(id => w(id)), center: spec.center.map(id => w(id)), right: spec.right.map(id => w(id)) });
+  const fresh = make({
+    left: ['omarchy.menu', 'omarchy.workspaces'],
+    center: ['omarchy.indicators', 'omarchy.clock', 'omarchy.elsewhen', 'omarchy.weather', 'omarchy.system-update'],
+    right: ['omarchy.tray', 'omarchy.keyboard-layout', 'omarchy.agents', 'omarchy.bluetooth', 'omarchy.network', 'omarchy.audio', 'omarchy.monitor', 'omarchy.power']
+  });
+  const older = make({
+    left: ['omarchy.menu', 'omarchy.workspaces'],
+    center: ['omarchy.indicators', 'omarchy.clock', 'omarchy.keyboard-layout', 'omarchy.weather', 'omarchy.system-update'],
+    right: ['omarchy.tray', 'omarchy.agents', 'omarchy.bluetooth', 'omarchy.network', 'omarchy.audio', 'omarchy.monitor', 'omarchy.power']
+  });
+  assert.ok(zm.isStock(fresh, {}));
+  assert.ok(zm.isStock(older, {}));
+  assert.ok(ids(zm.stockTwo(fresh).layout.left).includes('omarchy.elsewhen'));
+  assert.ok(!ids(zm.stockTwo(older).layout.left).includes('omarchy.elsewhen'), 'a widget the layout lacks is not added');
+});

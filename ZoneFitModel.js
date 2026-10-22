@@ -29,7 +29,12 @@ function hasNotch(input) { return input.notch > 0 }
 function zoneItems(input, name) {
   var z = input.zones
   if (name !== "center") return z[name]
-  var n = hasNotch(input) ? [{ key: NOTCH, extent: input.notch, spill: 0 }] : []
+  var next = z.anchor || z.center[0], prev = z.anchor ? z.before[z.before.length - 1] : null
+  // With notchPads (three zones) the centre's own cells meet the slot, so it
+  // also holds the island end pads on either side of the keep-out.
+  var extent = input.notchPads
+    ? input.notch + input.pad(prev ? prev.spill : 0) + input.pad(next ? next.spill : 0) : input.notch
+  var n = hasNotch(input) ? [{ key: NOTCH, extent: extent, spill: 0 }] : []
   return z.anchor ? z.before.concat(n, [z.anchor], z.after) : n.concat(z.center)
 }
 

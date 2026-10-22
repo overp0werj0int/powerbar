@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+- **Omarchy's new bar sections.** Widgets Omarchy places in `centerBegin`,
+  `centerEnd` or its tray drawer show on Powerbar again. Omarchy puts every
+  newly installed widget in `centerEnd`, so these used to vanish. Powerbar
+  saves the layout in Omarchy's shape, so the stock bar reads it the same way.
+- **Three zones split around the notch.** On a MacBook's notched screen the
+  centre runs on either side of the camera: what comes before the clock ends
+  at the camera, and the clock and the rest start past it.
+
 ## 0.9.6 — 2026-10-17
 
 Private folders for existing installs, from the marketplace review.
