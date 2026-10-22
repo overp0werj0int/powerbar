@@ -2055,7 +2055,7 @@ Item {
   function notchFor(screen, edge) {
     if (!screen) return null
     return NotchModel.notchOf(displayCutouts, edge || position, screen.name, screen.width, screen.height, screen.devicePixelRatio,
-      panelModeFor(screen), barOptions.notchWidth, Style.bar["notchHeight"], notchPanels)
+      panelModeFor(screen), barOptions.notchWidth, Style.bar["notchHeight"], notchPanels, barOptions.notchHeight)
   }
   // The notch on the first screen that has one, for Preferences (null: none).
   // Asked for a top bar wherever the bar is: the Notch mode moves it there,
