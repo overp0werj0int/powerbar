@@ -1,6 +1,9 @@
 // Groups reference existing widget instances; settings and enablement stay in
 // bar.layout. Removing a group therefore cannot delete a widget or its service.
-var sections = ["left", "center", "right"]
+// The bar's zone lists (SectionsModel.lists); a group sits in one of them.
+var sections = ["left", "centerBegin", "center", "centerEnd", "right"]
+// Where widgets can be: the zone lists and Omarchy's tray section.
+var holders = sections.concat(["tray"])
 // A group's icon takes a place in the layout under this instance key; no
 // widget's key starts with it.
 function groupKey(id) { return "group:" + id }
@@ -66,7 +69,7 @@ function needsRuns(group, face) {
 function layoutKeys(bar) {
   var layout = bar && bar.layout, keys = {}, any = false
   if (!layout || typeof layout !== "object") return null
-  sections.forEach(function(section) {
+  holders.forEach(function(section) {
     (Array.isArray(layout[section]) ? layout[section] : []).forEach(function(entry) {
       if (entry && typeof entry.powerbarInstance === "string" && entry.powerbarInstance) { keys[entry.powerbarInstance] = true; any = true }
     })
@@ -229,7 +232,7 @@ function remove(config, id) {
 function assign(config, key, id, before) {
   var list = groups(config.bar), destination = list.find(function(g) { return g.id === id })
   if (id && !destination) return false
-  var exists = sections.some(function(section) {
+  var exists = holders.some(function(section) {
     return (config.bar.layout[section] || []).some(function(e) { return e && e.powerbarInstance === key })
   })
   if (!exists || isGroupKey(key)) return false

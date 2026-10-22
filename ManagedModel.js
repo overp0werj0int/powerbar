@@ -19,7 +19,8 @@ function mode(entry, metadata, legacy) {
 }
 function layoutEntries(bar) {
   var layout = bar && bar.layout || {}
-  return [].concat(layout.left || [], layout.center || [], layout.right || [])
+  return [].concat(layout.left || [], layout.centerBegin || [], layout.center || [],
+    layout.centerEnd || [], layout.right || [], layout.tray || [])
 }
 // Whether Powerbar has run on this config: it gives every entry an instance
 // id on its first run and keeps its own settings in powerbar* keys. A config
@@ -41,7 +42,7 @@ function legacyDefaults(bar) {
 function healVisibility(bar, thirdParty) {
   if (!bar || typeof bar !== "object" || bar.powerbarVisibilityDefault === "shown") return false
   if (legacyDefaults(bar)) {
-    ["left", "center", "right"].forEach(function(section) {
+    ["left", "centerBegin", "center", "centerEnd", "right", "tray"].forEach(function(section) {
       var entries = bar.layout && bar.layout[section]
       if (!Array.isArray(entries)) return
       for (var i = 0; i < entries.length; i++) {

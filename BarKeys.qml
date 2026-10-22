@@ -283,7 +283,7 @@ Item {
     if (!drop) return
     var source = cursor, target = list[to].item
     var moved = drop.dots
-      ? dragEdit(source, { managedZone: target.zone, handle: true, handleToken: target.inlineToken, managedBefore: bar.handleDropBefore(target, source) }, "dots " + target.zone)
+      ? dragEdit(source, { managedZone: target.zone, managedList: bar.handleList(target), handle: true, handleToken: target.inlineToken, managedBefore: bar.handleDropBefore(target, source) }, "dots " + target.zone)
       : dragEdit(source, { slot: target, after: drop.after }, (drop.after ? "after " : "before ") + nameOf(target))
     if (moved) follow(source, drop.dots ? target.zone : list[to].zone)
   }
