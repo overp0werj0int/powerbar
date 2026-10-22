@@ -58,6 +58,10 @@ didn't move at all, one switch turns animation off.
   arrows drags the widget under the cursor along the bar, into the next zone,
   onto the dots or into a drawer. Esc steps back one level, and Esc twice
   gives the keyboard back to your window.
+- Apps' tray icons can leave Omarchy's tray and live on the bar like any
+  widget: on the bar, on demand, hidden or in a group, with the same click,
+  right-click menu and scroll as in the tray. Put one back and the tray
+  shows it again.
 - `/` is a fuzzy finder. Type a few letters of a name in order and the best
   match comes first: `/pm` finds Plugin Manager, and a group's name finds its
   members. It reaches every widget you haven't hidden, wherever it sits, and
@@ -217,7 +221,9 @@ whatever has focus):
   your zones, and the choice of three zones, two, or Notch (offered when a
   screen has a notch). Drag or pick up
   widgets to move them; the tile below holds the selected widget's zone,
-  visibility, *Show on activity*, centring, group and shortcut.
+  visibility, *Show on activity*, centring, group and shortcut. A fourth
+  shelf, In the tray, lists the icons in Omarchy's tray: drag one onto a
+  shelf above to move it out of the tray, or back to return it.
 - **Groups**: make, name and arrange groups; pick an icon from your widgets'
   glyphs, Omarchy's icons and emoji, or drop in your own SVG or PNG.
 - **Bar**: style and edge, size and spacing, Shape, Surface, Shadow,
@@ -451,7 +457,7 @@ keyboard focus in the keyboard mode, through Quickshell's Hyprland module.
 
 | File | Read | Written |
 | --- | --- | --- |
-| `~/.config/omarchy/shell.json` | Its settings and Omarchy's bar keys | Through the shell, only under `bar`: its own `powerbar*` keys, the bar keys you change in Powerbar (`layout`, `position`, `background` / `transparent`, `centerAnchor`), and on first start a `powerbarInstance` id on each widget entry. Edits made at the bar are saved together once you leave it (at most 20 s after the last one), and nothing is written while the config names another bar. Omarchy's bar commands write it as they always do |
+| `~/.config/omarchy/shell.json` | Its settings and Omarchy's bar keys | Through the shell, only under `bar`: its own `powerbar*` keys, the bar keys you change in Powerbar (`layout`, including the tray's `hidden` and `pinned` lists when you move an icon out of it or back, `position`, `background` / `transparent`, `centerAnchor`), and on first start a `powerbarInstance` id on each widget entry. Edits made at the bar are saved together once you leave it (at most 20 s after the last one), and nothing is written while the config names another bar. Omarchy's bar commands write it as they always do |
 | `~/.config/hypr/bindings.lua` | With your other `~/.config/hypr/*.lua` files, Omarchy's default bindings and `hyprctl binds`, to show every shortcut | Only its marked block, when you set a shortcut: replaced in one step (through a symlink, in the file it points to), and put back if Hyprland then reports a new config error. Once Hyprland has taken the block, it also removes the marked loader in `hyprland.lua` (backed up first) and the `~/.config/hypr/powerbar.lua` it loads, left by early Powerbar builds (only when it still has their generated header); a damaged loader is left alone |
 | `~/.local/state/omarchy/` | `current/theme/powerbar.toml`, `current/theme.name`, `toggles/bar-off` | `toggles/bar-off`, only through Omarchy's own toggle commands: `powerbar show` / `hide`, and Omarchy's bar toggle on an autohidden bar |
 | `~/.config/omarchy/themes/`, `$OMARCHY_PATH` | Installed themes (to drop settings for themes you removed), Omarchy's emoji list, whether Omarchy has the glassy background | Nothing |

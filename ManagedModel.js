@@ -61,6 +61,8 @@ function healVisibility(bar, thirdParty) {
 // itself, and so it does here until the user puts it somewhere: On the bar by
 // choice (an explicit "shown"), or On demand, where the drawer must show it.
 function placeholder(entry, mode) {
+  // A tray icon comes and goes with its app, as it does in the tray.
+  if (entry && entry.type === "trayItem") return false
   if (mode === "managed") return true
   return mode === "shown" && !!entry && typeof entry === "object" && entry.powerbarVisibility === "shown"
 }

@@ -27,7 +27,8 @@ Item {
   // Bento columns for the window (12, 6 or 1), set by Preferences.
   property int columns: 12
   readonly property var bar: preferences.bar
-  readonly property var entries: preferences.layoutEntries
+  // The layout's widgets, then the icons still in Omarchy's tray (its row).
+  readonly property var entries: preferences.layoutEntries.concat(preferences.trayEntries)
   // With a centre anchor, the centre's On demand cell splits at it: the
   // widgets before it wait behind the dots at the centre's start, those after
   // it behind the dots at its end (Model.columns).
@@ -39,10 +40,14 @@ Item {
   // Two-zone modes (ZoneModeModel.js) have no centre column.
   readonly property bool twoZones: !!bar && bar.twoZones
   readonly property bool notchMode: !!bar && bar.zoneMode === "notch"
-  function columnsFor(mode) { return twoZones ? ["left", "right"] : Model.columns(mode, anchorIndex >= 0) }
+  function columnsFor(mode) { return mode === "tray" ? ["tray"] : twoZones ? ["left", "right"] : Model.columns(mode, anchorIndex >= 0) }
+  // The rows: the three visibilities, then the tray. Only a tray icon can be
+  // lifted into the tray's row.
+  readonly property var rows: Model.rows
+  readonly property var liftRows: lifted && lifted.trayItem ? Model.rows : Model.modes
   readonly property var cellEntries: {
     var cells = ({})
-    for (var mode of Model.modes) for (var column of columnsFor(mode))
+    for (var mode of Model.rows) for (var column of columnsFor(mode))
       cells[column + ":" + mode] = Model.cell(entries, column, mode, "", anchorIndex)
     return cells
   }
@@ -55,7 +60,7 @@ Item {
   readonly property var modes: Model.modes
   readonly property bool sideBar: !!bar && bar.vertical
   readonly property string anchorTitle: anchorRecord ? preferences.title(anchorRecord) : "center"
-  readonly property var zoneNames: ({ left: sideBar ? "Top" : "Left", center: "Center", right: sideBar ? "Bottom" : "Right",
+  readonly property var zoneNames: ({ left: sideBar ? "Top" : "Left", center: "Center", right: sideBar ? "Bottom" : "Right", tray: "Tray",
     "center:start": (sideBar ? "Above " : "Left of ") + anchorTitle,
     "center:end": (sideBar ? "Below " : "Right of ") + anchorTitle })
   // Preferences draws a horizontal bar, at the size it has on a top edge.
@@ -184,8 +189,14 @@ Item {
     managed: { title: "On demand", caption: editor.bar && editor.bar.onDemandInline
       ? "Behind the zone's dots; shown on activity, or when you hover the dots"
       : "In the zone's drawer when you hover it, or briefly on activity" },
-    hidden: { title: "Hidden", caption: "Kept off the bar" }
+    hidden: { title: "Hidden", caption: "Kept off the bar" },
+    tray: { title: "In the tray", caption: "Omarchy's tray icons. Drag one onto a row above to place it like a widget" }
   })
+  // The zone a tray icon goes to when moved without a place: the tray's own.
+  readonly property string trayZone: {
+    var tray = entries.find(function(e) { return e.id === "omarchy.tray" && !e.groupId })
+    return tray && sections.indexOf(tray.section) >= 0 ? tray.section : sections[sections.length - 1]
+  }
 
   property var cursorCell: ({ section: "left", mode: "shown", pos: 0 })
   property string cursorKey: ""
@@ -205,6 +216,7 @@ Item {
   readonly property var cursorItems: members(cursorCell.section, cursorCell.mode, liftedKey)
   readonly property var cursorRecord: lifted || cursorItems[cursorCell.pos] || null
   readonly property bool gridFocused: shelfShown.focusItem.activeFocus || shelfManaged.focusItem.activeFocus || shelfHidden.focusItem.activeFocus
+    || shelfTray.focusItem.activeFocus
   readonly property var hints: lifted ? [
     { keys: "h l", label: "Reorder" }, { keys: "j k", label: "Shelf" },
     { keys: "space", label: "Drop" }, { keys: "esc", label: "Cancel" }
@@ -214,7 +226,7 @@ Item {
     { keys: "tab shift+tab", label: "Next, previous tile" }, { keys: "1-3", label: "Pages" }, { keys: "esc", label: "Close" }
   ] : form.hints
 
-  function shelfFor(mode) { return mode === "shown" ? shelfShown : mode === "managed" ? shelfManaged : shelfHidden }
+  function shelfFor(mode) { return mode === "shown" ? shelfShown : mode === "managed" ? shelfManaged : mode === "tray" ? shelfTray : shelfHidden }
   function focusShelf(mode, reason) {
     focusMoving = true
     shelfFor(mode).focusItem.forceActiveFocus(reason === undefined ? Qt.OtherFocusReason : reason)
@@ -231,13 +243,17 @@ Item {
     var cols = columnsFor(mode)
     if (cols.indexOf(section) >= 0) return section
     var zone = Model.sectionOf(section)
-    return cols.indexOf(zone) >= 0 ? zone : zone + ":start"
+    if (cols.indexOf(zone) >= 0) return zone
+    // The tray's one column meets the last zone, as j and k do.
+    return cols.indexOf(zone + ":start") >= 0 ? zone + ":start" : cols[cols.length - 1]
   }
   function shelfFocusChanged(mode, focused) {
     if (focused) {
       if (focusMoving) return
       // Tab or Shift+Tab: the cursor (or the lifted widget) moves to this shelf.
       if (lifted) {
+        // Only a tray icon can be carried into the tray's row.
+        if (liftRows.indexOf(mode) < 0) return
         if (liftTarget && liftTarget.mode !== mode) liftTarget = { section: columnOn(mode, liftTarget.section), mode: mode, pos: 0 }
       } else if (cursorCell.mode !== mode) place({ section: columnOn(mode, cursorCell.section), mode: mode, pos: 0 })
       return
@@ -259,10 +275,10 @@ Item {
   }
   function syncCursor() {
     if (lifted) return
-    for (var m = 0; m < modes.length; m++) for (var column of columnsFor(modes[m])) {
-      var list = members(column, modes[m], "")
+    for (var m = 0; m < rows.length; m++) for (var column of columnsFor(rows[m])) {
+      var list = members(column, rows[m], "")
       for (var i = 0; i < list.length; i++) if (list[i].instanceKey === cursorKey) {
-        cursorCell = { section: column, mode: modes[m], pos: i }
+        cursorCell = { section: column, mode: rows[m], pos: i }
         return
       }
     }
@@ -279,8 +295,8 @@ Item {
   Timer { id: syncLater; interval: 0; onTriggered: editor.syncCursor() }
 
   function moveCursor(dx, dy) {
-    if (lifted) liftTarget = Model.stepLift(count, liftTarget, dx, dy, columnsFor)
-    else place(Model.stepCursor(count, cursorCell, dx, dy, columnsFor))
+    if (lifted) liftTarget = Model.stepLift(count, liftTarget, dx, dy, columnsFor, liftRows)
+    else place(Model.stepCursor(count, cursorCell, dx, dy, columnsFor, rows))
     followCursor()
   }
   function lift(record, cell) {
@@ -304,13 +320,23 @@ Item {
     pointerLift = false
     cursorKey = record.instanceKey
     cursorCell = target
-    if (!unchanged) preferences.move(record, Model.sectionOf(target.section), target.mode, before)
+    if (unchanged) return
+    // Out of the tray, back into it, or within it (the tray keeps its order).
+    if (origin.mode === "tray") {
+      if (target.mode !== "tray") cursorKey = preferences.takeFromTray(record, Model.sectionOf(target.section), target.mode, before)
+    } else if (target.mode === "tray") preferences.returnToTray(record)
+    else preferences.move(record, Model.sectionOf(target.section), target.mode, before)
   }
   // Keep an item's place in its zone when only its visibility changes.
   // Rows widgets were hidden from this session, so showing one again restores it.
   property var hiddenFrom: ({})
   function setPlacement(record, section, mode) {
     if (!record || (record.section === section && record.mode === mode)) return
+    if (record.mode === "tray") {
+      if (mode !== "tray") cursorKey = preferences.takeFromTray(record, section === "tray" ? trayZone : section, mode, -1)
+      return
+    }
+    if (mode === "tray") { preferences.returnToTray(record); return }
     if (mode === "hidden" && record.mode !== "hidden") {
       var remembered = Object.assign({}, hiddenFrom)
       remembered[record.instanceKey] = record.mode
@@ -381,7 +407,7 @@ Item {
     pointer = point
     if (!pointerLift) return
     var cell = cellAt(point)
-    if (cell) {
+    if (cell && liftRows.indexOf(cell.mode) >= 0) {
       var next = { section: cell.section, mode: cell.mode, pos: gapAt(cell, point) }
       if (!liftTarget || next.section !== liftTarget.section || next.mode !== liftTarget.mode || next.pos !== liftTarget.pos) liftTarget = next
     }
@@ -401,6 +427,7 @@ Item {
       Shelf { id: shelfShown; mode: "shown" }
       Shelf { id: shelfManaged; mode: "managed" }
       Shelf { id: shelfHidden; mode: "hidden" }
+      Shelf { id: shelfTray; mode: "tray" }
       Settings { id: settingsTile }
     }
   }
@@ -448,7 +475,7 @@ Item {
     property string mode: "shown"
     property alias focusItem: shelfFocus
     readonly property bool stacked: shelfFocus.width < Style.space(560)
-    readonly property var zoneColumns: editor.sections
+    readonly property var zoneColumns: mode === "tray" ? ["tray"] : editor.sections
     title: editor.shelfInfo[mode].title
     caption: editor.shelfInfo[mode].caption
     span12: 12
@@ -869,13 +896,16 @@ Item {
     readonly property var record: editor.lifted ? null : editor.cursorRecord
     readonly property bool isGroup: !!record && !!record.groupId
     readonly property var group: isGroup ? editor.bar.groups.find(function(g) { return g.id === record.groupId }) || null : null
+    // A tray icon, and whether it is still in Omarchy's tray.
+    readonly property bool trayIcon: !!record && !!record.trayItem
+    readonly property bool inTray: !!record && record.mode === "tray"
     function focusFirst() {
       var next = bento.firstControl(panel)
       if (next) next.forceActiveFocus(Qt.TabFocusReason)
     }
     title: record ? editor.preferences.title(record) : "Nothing selected"
     caption: isGroup ? (group ? group.items.length + (group.items.length === 1 ? " widget" : " widgets") + " in this group" : "")
-      : record ? record.id : ""
+      : trayIcon ? (inTray ? "In Omarchy's tray" : "Moved out of Omarchy's tray") : record ? record.id : ""
     span12: 12
     span6: 6
     animate: editor.bar ? editor.bar.animationsEnabled : true
@@ -887,6 +917,7 @@ Item {
       Layout.rightMargin: Style.spacing.rowPaddingX
       Layout.bottomMargin: Style.space(6)
       text: editor.lifted ? "Moving " + editor.preferences.title(editor.lifted) + ". Space drops it, Esc puts it back."
+        : editor.cursorCell.mode === "tray" ? "Nothing in the tray. Apps put their icons here while they run."
         : "Nothing " + (editor.cursorCell.mode === "shown" ? "on the bar in " : editor.cursorCell.mode === "managed" ? "on demand in " : "hidden in ")
           + editor.zoneNames[editor.cursorCell.section] + " yet. Pick up a widget with Space, or drag one here."
       textFormat: Text.PlainText
@@ -927,20 +958,29 @@ Item {
           Layout.leftMargin: 0
           label: "Zone"
           options: editor.sections.map(function(s) { return { value: s, label: editor.zoneNames[s] } })
-          value: panel.record ? panel.record.section : ""
-          onChosen: function(value) { editor.setPlacement(panel.record, value, panel.record.mode) }
+          value: panel.record && !panel.inTray ? panel.record.section : ""
+          // Out of the tray, an icon waits on demand until placed otherwise.
+          onChosen: function(value) { editor.setPlacement(panel.record, value, panel.inTray ? "managed" : panel.record.mode) }
         }
         PrefsChoice {
           compact: true
-          stacked: !settingsGrid.roomy
+          // A tray icon's fourth choice needs the row to itself.
+          stacked: !settingsGrid.roomy || panel.trayIcon
           Layout.leftMargin: 0
           label: "Visibility"
           options: [{ value: "shown", label: "On the bar" }, { value: "managed", label: "On demand" }, { value: "hidden", label: "Hidden" }]
+            .concat(panel.trayIcon ? [{ value: "tray", label: "In the tray" }] : [])
           value: panel.record ? panel.record.mode : ""
           onChosen: function(value) { editor.setPlacement(panel.record, panel.record.section, value) }
         }
+        Hint {
+          visible: panel.inTray
+          Layout.leftMargin: Style.spacing.rowPaddingX
+          text: "Placed on the bar, it leaves the tray and works as it does there: click, right-click menu, scroll"
+        }
         // Opens its panel (a group: its drawer) from anywhere.
         ShortcutRow {
+          visible: !panel.inTray
           padding: 0
           store: editor.preferences.shortcuts
           target: !panel.record ? "" : panel.isGroup ? "group:" + panel.record.groupId : "widget:" + panel.record.id
@@ -953,7 +993,7 @@ Item {
 
       // How it behaves on the bar.
       ColumnLayout {
-        visible: !panel.isGroup
+        visible: !panel.isGroup && !panel.inTray
         Layout.fillWidth: true
         Layout.preferredWidth: 1
         Layout.alignment: Qt.AlignTop
@@ -1026,6 +1066,7 @@ Item {
 
       // Its group.
       ColumnLayout {
+        visible: !panel.inTray
         Layout.fillWidth: true
         Layout.preferredWidth: 1
         Layout.alignment: Qt.AlignTop
