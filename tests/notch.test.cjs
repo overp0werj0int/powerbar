@@ -91,8 +91,8 @@ function make(o) {
     zones: {
       left: mk('L', z.left || [12]), right: mk('R', z.right || [12]),
       before: mk('B', z.before || []),
-      anchor: z.anchor === null ? null : mk('A', [z.anchor === undefined ? 40 : z.anchor])[0],
-      after: mk('F', z.after || []), center: mk('C', z.center || [])
+      box: z.anchor === null ? mk('C', z.center || []) : mk('A', [z.anchor === undefined ? 40 : z.anchor]),
+      after: mk('F', z.after || [])
     },
     previous: o.previous || null, transient: o.transient || null
   };
@@ -102,7 +102,7 @@ function centreSpans(input, r) {
   const fold = new Set(r.folded.center);
   const z = input.zones;
   const n = { key: 'notch', extent: input.notch, spill: 0 };
-  let slots = (z.anchor ? z.before.concat([n, z.anchor], z.after) : [n].concat(z.center)).filter(s => !fold.has(s.key));
+  let slots = z.before.concat([n], z.box, z.after).filter(s => !fold.has(s.key));
   const h = key => ({ key, extent: input.handle.extent, spill: input.handle.spill });
   if (['start', 'both'].includes(r.handles.center)) slots = [h('handle:center:start')].concat(slots);
   if (['end', 'both'].includes(r.handles.center)) slots = slots.concat([h('handle:center:end')]);
@@ -147,7 +147,7 @@ test('a long right zone folds on the right, the centre after-run included', () =
   assert.ok(!r.folded.center.includes('A0'), 'the anchor never folds');
 });
 
-test('without an anchor every centre widget sits right of the notch', () => {
+test('every widget of the box sits right of the notch', () => {
   const input = make({ length: 1512, notch: NOTCH, zones: { anchor: null, center: [12, 30, 12] } });
   const r = fit(input);
   const s = centreSpans(input, r);
@@ -232,7 +232,7 @@ test("three zones: the camera's slot also holds the centre cells' end pads (notc
   const plain = make({ length: 1512, notch: NOTCH, zones: { before: [12, 12], anchor: 90, after: [12] } });
   const padded = Object.assign({}, plain, { notchPads: true });
   const a = fit(plain), b = fit(padded);
-  const pads = padded.pad(padded.zones.before[1].spill) + padded.pad(padded.zones.anchor.spill);
+  const pads = padded.pad(padded.zones.before[1].spill) + padded.pad(padded.zones.box[0].spill);
   assert.equal(b.fits, true);
   assert.ok(Math.abs((a.centerStart - b.centerStart) - pads / 2) < 1e-6, 'the centre starts half the pads further out');
   assert.equal(b.centerShift, 0, 'the slot stays on the camera');

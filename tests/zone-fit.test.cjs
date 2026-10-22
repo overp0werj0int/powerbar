@@ -25,21 +25,24 @@ function make(o) {
       left: mk('L', z.left || [12]),
       right: mk('R', z.right || [12]),
       before: mk('B', z.before || []),
-      anchor: z.anchor === null ? null : mk('A', [z.anchor === undefined ? 40 : z.anchor])[0],
-      after: mk('F', z.after || []),
-      center: mk('C', z.center || [])
+      // The box: its own widgets, or the anchor alone (A0), or the old
+      // anchorless centre (C0…) as one box.
+      box: z.box ? mk('A', z.box) : z.anchor === null ? mk('C', z.center || []) : mk('A', [z.anchor === undefined ? 40 : z.anchor]),
+      after: mk('F', z.after || [])
     },
     previous: o.previous || null, transient: o.transient || null
   };
 }
 const withIn = (input, over) => Object.assign({}, input, over);
+// The solver's name for a test's zone list: the anchorless centre is the box.
+const inKey = l => l === 'center' ? 'box' : l;
 
 // Independent geometry: visible islands of each zone from a result.
 function islands(input, r) {
   const fold = new Set([].concat(r.folded.left, r.folded.center, r.folded.right));
   const yielded = new Set(r.yielded);
   const zl = n => input.zones[n];
-  const centre = input.zones.anchor ? input.zones.before.concat([input.zones.anchor], input.zones.after) : input.zones.center;
+  const centre = input.zones.before.concat(input.zones.box, input.zones.after);
   const items = { left: zl('left'), right: zl('right'), center: centre };
   const out = {};
   for (const n of ['left', 'center', 'right']) {
@@ -80,7 +83,7 @@ function assertClear(input, r, tol = 1e-6) {
 function assertHiddenWhole(input, r, label) {
   const yielded = new Set(r.yielded);
   const keysOf = n => {
-    const centre = input.zones.anchor ? input.zones.before.concat([input.zones.anchor], input.zones.after) : input.zones.center;
+    const centre = input.zones.before.concat(input.zones.box, input.zones.after);
     const items = n === 'center' ? centre : input.zones[n];
     const folded = new Set(r.folded[n]);
     const handles = n !== 'center' ? (r.handles[n] ? ['handle:' + n] : [])
@@ -91,7 +94,7 @@ function assertHiddenWhole(input, r, label) {
     const keys = keysOf(n);
     if (r.hidden[n]) assert.ok(keys.every(k => yielded.has(k)), `${label}: hidden ${n} yields everything`);
   }
-  const anchors = { left: input.zones.left[0] && input.zones.left[0].key, right: input.zones.right.length && input.zones.right[input.zones.right.length - 1].key, center: input.zones.anchor && input.zones.anchor.key };
+  const anchors = { left: input.zones.left[0] && input.zones.left[0].key, right: input.zones.right.length && input.zones.right[input.zones.right.length - 1].key, center: input.zones.box[0] && input.zones.box[0].key };
   for (const n in anchors) if (anchors[n] && yielded.has(anchors[n])) assert.ok(r.hidden[n], `${label}: ${n} anchor yields only with its zone`);
 }
 const lens = (input, r) => { const i = islands(input, r); return { L: i.left ? i.left[1] - i.left[0] : 0, C: i.center ? i.center[1] - i.center[0] : 0, R: i.right ? i.right[1] - i.right[0] : 0 }; };
@@ -185,7 +188,7 @@ test('hysteresis: small growth does not unfold, large growth does, no flicker at
   let previous = prev, changes = 0, last = JSON.stringify(prev.folded);
   for (let n = 0; n < 20; n++) {
     const inp = withIn(base, { previous });
-    inp.zones = Object.assign({}, base.zones, { anchor: Object.assign({}, base.zones.anchor, { extent: base.zones.anchor.extent + (n % 2 ? 1 : -1) }) });
+    inp.zones = Object.assign({}, base.zones, { box: [Object.assign({}, base.zones.box[0], { extent: base.zones.box[0].extent + (n % 2 ? 1 : -1) })] });
     previous = zf.fit(inp);
     const now = JSON.stringify(previous.folded);
     if (now !== last) changes++;
@@ -403,11 +406,11 @@ test('fuzz: 2000 inline expansions stay clear or fall back', () => {
       transient: { zone, sourceKey: null, unfold: zone }
     });
     // Keep the old keys: rename the new widgets.
-    const grownList = input.zones[list];
+    const grownList = input.zones[inKey(list)];
     const at = zone === 'right' ? 0 : grownList.length - extra.length;
     for (let k = 0; k < extra.length; k++) grownList[at + k] = Object.assign({}, grownList[at + k], { key: 'X' + k });
     const base = make(o);
-    if (zone === 'right') for (let k = extra.length; k < grownList.length; k++) grownList[k].key = base.zones[list][k - extra.length].key;
+    if (zone === 'right') for (let k = extra.length; k < grownList.length; k++) grownList[k].key = base.zones[inKey(list)][k - extra.length].key;
     const r = zf.fit(input);
     // Alone, an expansion gives way only to the bar line itself.
     if (r.fallback) { assert.equal(r.fallback.reason, 'screen', `case ${n}`); continue; }
@@ -539,9 +542,9 @@ test('fuzz: 3000 concurrent moments never overlap once fallbacks are withdrawn',
       const base = make(o).zones;
       for (const list in extra) {
         const e = extra[list];
-        input.zones[list] = input.zones[list].map((it, k) => k >= e.at && k < e.at + e.n
+        input.zones[inKey(list)] = input.zones[inKey(list)].map((it, k) => k >= e.at && k < e.at + e.n
           ? Object.assign({}, it, { key: 'X' + e.zone + (k - e.at) })
-          : Object.assign({}, it, { key: base[list][k < e.at ? k : k - e.n].key }));
+          : Object.assign({}, it, { key: base[inKey(list)][k < e.at ? k : k - e.n].key }));
       }
       return input;
     };
@@ -655,15 +658,31 @@ test('a centre side expands alone: only that side unfolds, the other end stays p
   assertHiddenWhole(input, r, 'side');
 });
 
-test('without an anchor, centre folds wait on the side they were taken from', () => {
-  const zones = { left: [12, 60], right: [12, 60, 60, 60], before: [], anchor: null, after: [], center: [40, 40, 40, 40, 40, 40] };
+test('a box of several widgets is centred as a group; its first never folds, the rest wait at the end', () => {
+  const zones = { left: [12, 60], right: [12, 60, 60, 60], before: [], box: [40, 40, 40, 40, 40, 40] };
+  const roomy = zf.fit(make({ length: 1600, zones }));
+  const input = make({ length: 1600, zones });
+  const isl = islands(input, roomy).center;
+  assert.ok(Math.abs((isl[0] + isl[1]) / 2 - 800) < 1e-6, 'the box sits over the middle');
   let L = 600, r = zf.fit(make({ length: L, zones }));
   while (!r.folded.center.length && L > 200) r = zf.fit(make({ length: --L, zones }));
   assert.ok(r.folded.center.length);
-  const keys = make({ length: L, zones }).zones.center.map(s => s.key);
-  const shown = keys.filter(k => !r.folded.center.includes(k));
-  r.centerFolded.start.forEach(k => assert.ok(keys.indexOf(k) < keys.indexOf(shown[0])));
-  r.centerFolded.end.forEach(k => assert.ok(keys.indexOf(k) > keys.indexOf(shown[shown.length - 1])));
+  assert.ok(!r.folded.center.includes('A0'));
+  assert.deepEqual(r.centerFolded.start, []);
+  assert.deepEqual(r.centerFolded.end.slice().sort(), r.folded.center.slice().sort());
+});
+
+test('an empty box: before and after meet at the middle', () => {
+  const input = make({ length: 1600, zones: { left: [12], right: [12], before: [12, 40], box: [], after: [60] } });
+  const r = zf.fit(input);
+  const start = r.centerStart, before = input.zones.before, pad = input.pad(before[0].spill);
+  const seam = start + pad + before.reduce((a, s) => a + s.extent, 0);
+  assert.ok(Math.abs(seam - 800) < 1e-6, `seam ${seam}`);
+  const alone = zf.fit(make({ length: 1600, zones: { left: [12], right: [12], before: [], box: [], after: [60, 12] } }));
+  const a = make({ length: 1600, zones: { left: [12], right: [12], before: [], box: [], after: [60, 12] } });
+  assert.ok(Math.abs(alone.centerStart + a.pad(a.zones.after[0].spill) - 800) < 1e-6, 'after starts at the middle');
+  const none = zf.fit(make({ length: 1600, zones: { left: [12], right: [12], before: [], box: [], after: [] } }));
+  assert.deepEqual(none.folded.center, []);
 });
 
 test('on the notch (wrap) a zone\'s dots sit at its far end', () => {
