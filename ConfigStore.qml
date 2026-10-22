@@ -1,6 +1,7 @@
 import QtQuick
 import qs.Commons
 import "BarModel.js" as BarModel
+import "SectionsModel.js" as SectionsModel
 
 // The bar's config edits, from the moment they show to the moment shell.json
 // has them. Omarchy handles a config write by re-registering every bar widget,
@@ -65,6 +66,15 @@ QtObject {
   }
 
   function shellCanWrite() { return !!shell && typeof shell.mutateShellConfig === "function" }
+  // Edits run on Powerbar's three zones; shell.json keeps Omarchy's sections
+  // (SectionsModel), so each write folds the saved layout first and unfolds it
+  // after.
+  function mutate(mutator) {
+    return shell.mutateShellConfig(function(config) {
+      if (Util.isPlainObject(config.bar)) SectionsModel.fold(config.bar)
+      try { mutator(config) } finally { if (Util.isPlainObject(config.bar)) SectionsModel.unfold(config.bar) }
+    })
+  }
   function canWrite() { return !retired && shellCanWrite() && BarModel.ownsBarConfig(pending ? host : shown, barId) }
 
   // The bar is going away (its Component.onDestruction): what is queued is
@@ -91,7 +101,7 @@ QtObject {
   // as new instance ids, which would differ if invented twice.
   function writeNow(mutator) {
     if (typeof mutator !== "function" || !canWrite()) return false
-    return shell.mutateShellConfig(mutator) !== false
+    return mutate(mutator) !== false
   }
 
   // Every assignment to the bar's config. True when it came from the host
@@ -144,7 +154,7 @@ QtObject {
       failed()
       return
     }
-    var saved = !retired && shellCanWrite() && shell.mutateShellConfig(function(config) {
+    var saved = !retired && shellCanWrite() && mutate(function(config) {
       for (var edit of queued) {
         try { edit(config) } catch (error) { console.warn("powerbar: a config change failed and was dropped: " + error) }
       }

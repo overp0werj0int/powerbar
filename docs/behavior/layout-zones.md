@@ -203,6 +203,14 @@ Numbers below use Omarchy's default theme tokens: bar 26 px (horizontal) or 28 p
 
   Code: Bar.qml barZoneAt; BarKeysModel.zoneStep (zones without stops are skipped).
 
+- **ZONE-89** On a notched screen with a top bar, three zones split the centre around the camera:
+  - The run before the anchor ends at the camera's left edge. The anchor and the run after it start at its right edge. Without an anchor, the whole centre starts at the right edge.
+  - The keep-out is the camera's width (ZONE-80) plus a screen edge's inset (`islandScreenInset`) on each side. Each side's island edge sits exactly on it, from its own end pad.
+  - The fit places the keep-out as the same fixed slot two zones use (ZONE-77), just before the anchor, padded by the end pads of the cells beside it (`notchPads`). So the centre never slides over the camera, and widgets fold towards their own side.
+  - In islands style each side is its own island. A screen without a notch keeps one centre as before.
+
+  Code: Bar.qml notchSplit, notchKeepOut, notchSlotOf, CenterModules (split, centerBeginIsland); ZoneFitModel zoneItems.
+
 ## Notch
 
 - **ZONE-79** A screen has a notch when Omarchy's platform package describes it in `/usr/share/omarchy-platform/display-cutouts.json` (`{ "panels": [ { "connector", "width", "height", "top" } ] }`). The screen's connector name must start with `connector`, and its physical mode, as Hyprland reports it, must be `width` x `height` within 4 px.
