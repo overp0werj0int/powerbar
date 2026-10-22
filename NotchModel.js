@@ -18,7 +18,8 @@
 // corners and that of its shoulders, the inside curves where the screen's top
 // edge turns down into it. Below the shoulders the housing is width - 2 x
 // shoulder wide. A panel it lacks takes the MacBook Pro's, and
-// powerbarNotchWidth (logical px) sets the width for a panel that differs.
+// powerbarNotchWidth and powerbarNotchHeight (logical px) set the size for a
+// panel that differs.
 var DEFAULT_WIDTH = 370
 var DEFAULT_RADIUS = 16
 var DEFAULT_SHOULDER = 8
@@ -114,22 +115,25 @@ function panelOf(cutouts, screenName, logicalWidth, logicalHeight, devicePixelRa
 // The notch a top bar on this screen meets, in logical px: { housing, width,
 // height, radius, shoulder }, or null (no notch, or a bar on another edge).
 // width: a positive powerbarNotchWidth, else the panel's housing (`panels`,
-// from parsePanels); height: a positive calibrated height (Omarchy's [bar]
-// notch-height), else the described rows; radius and shoulder: the housing's
-// corners, kept within its height.
-function notchOf(cutouts, position, screenName, logicalWidth, logicalHeight, devicePixelRatio, mode, width, calibratedHeight, panels) {
+// from parsePanels); height: a positive powerbarNotchHeight, else a positive
+// calibrated height (Omarchy's [bar] notch-height), else the described rows;
+// radius and shoulder: the housing's corners, kept within its height.
+function notchOf(cutouts, position, screenName, logicalWidth, logicalHeight, devicePixelRatio, mode, width, calibratedHeight, panels, setHeight) {
   if (position !== "top") return null
   var found = panelOf(cutouts, screenName, logicalWidth, logicalHeight, devicePixelRatio, mode)
   if (!found) return null
   var ratio = Number(logicalWidth) / found.physicalWidth
   var shape = housingOf(panels, found.panel)
   var housing = Math.ceil(shape.notchWidth * ratio)
-  var height = Number(calibratedHeight) > 0 ? Math.round(Number(calibratedHeight)) : Math.ceil(found.panel.top * ratio)
+  var detected = Number(calibratedHeight) > 0 ? Math.round(Number(calibratedHeight)) : Math.ceil(found.panel.top * ratio)
+  var height = Number(setHeight) > 0 ? Math.round(Number(setHeight)) : detected
   var shoulder = Math.min(shape.shoulder * ratio, height / 2)
   return {
     // housing: the default width, what an unset width falls back to.
     housing: housing,
     width: Number(width) > 0 ? Math.round(Number(width)) : housing,
+    // detectedHeight: the default height, what an unset height falls back to.
+    detectedHeight: detected,
     height: height,
     radius: Math.min(shape.radius * ratio, height - shoulder),
     shoulder: shoulder

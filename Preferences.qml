@@ -815,13 +815,14 @@ Item {
                   }
                   // Two-zone modes keep a gap one notch wide in the middle; the
                   // notch's zones blend into the camera, which takes the place
-                  // of Surface (black, no blur there).
+                  // of Surface (black, no blur there). On a notched screen the
+                  // camera's size also shapes three zones and the large bar.
                   PrefsTile {
                     id: notchTile
                     readonly property var notch: prefs.bar ? prefs.bar.screenNotch : null
-                    visible: !!prefs.bar && prefs.bar.twoZones
+                    visible: !!prefs.bar && (prefs.bar.twoZones || !!notch)
                     title: "Notch"
-                    caption: prefs.notchMode ? "Black, like the camera" : "The gap in the middle"
+                    caption: prefs.notchMode ? "Black, like the camera" : prefs.bar && prefs.bar.twoZones ? "The gap in the middle" : "The camera's size"
                     span12: 4; span6: 3
                     PrefsSlider {
                       compact: true
@@ -832,6 +833,17 @@ Item {
                       value: notchTile.notch ? notchTile.notch.width : (prefs.options.notchWidth || 185)
                       animate: prefs.motion
                       onEdited: function(v) { prefs.setOption("powerbarNotchWidth", v === defaultValue ? undefined : v) }
+                    }
+                    PrefsSlider {
+                      visible: !!notchTile.notch
+                      compact: true
+                      label: "Notch height"
+                      unit: "px"
+                      minimum: 16; maximum: 96; stepSize: 1
+                      defaultValue: notchTile.notch ? notchTile.notch.detectedHeight : 32
+                      value: notchTile.notch ? notchTile.notch.height : 32
+                      animate: prefs.motion
+                      onEdited: function(v) { prefs.setOption("powerbarNotchHeight", v === defaultValue ? undefined : v) }
                     }
                   }
                   PrefsTile {

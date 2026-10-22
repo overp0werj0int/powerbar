@@ -153,6 +153,7 @@ bar uses now, the stored value or its default:
 | `frameLog` | bool | `powerbarFrameLog` | false |
 | `zones` | choice three, two, notch (layout-zones.md ZONE-72; a switch swaps layouts, `reset` returns to three) | `powerbarZones` | three |
 | `notchWidth` | number 40 to 600, step 1 (logical px; the gap two-zone modes keep) | `powerbarNotchWidth` | the camera housing (185 at scale 2), 185 on a machine without a notch; `get` answers the width in use, `null` with no notch and none set |
+| `notchHeight` | number 16 to 96, step 1 (logical px; on a notched screen) | `powerbarNotchHeight` | the detected height (Omarchy's `[bar] notch-height`, else the described rows: 32 at scale 2); `get` answers the height in use, `null` with no notch and none set |
 | `revealSeconds` | number 1 to 60 | `powerbarManagedRevealSeconds` | 2.5 |
 | `entryGraceSeconds` | number 1 to 15 | `powerbarManagedEntryGraceSeconds` | 1 |
 | `exitGraceSeconds` | number 1 to 15 | `powerbarManagedExitGraceSeconds` | 1 |

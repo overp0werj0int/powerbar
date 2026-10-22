@@ -436,7 +436,8 @@ polling.
   width in `notch-panels.json`, from readings people took on macOS (the 15"
   Air's is inferred from the 13" one). If the zones overlap the camera or
   leave a gap beside it, set Preferences > Bar > Notch > Notch width
-  (`omarchy-shell powerbar set notchWidth N`).
+  (`omarchy-shell powerbar set notchWidth N`); Notch height
+  (`notchHeight N`) does the same for the height.
 - **One zone mode for every screen.** Notch shows as two black zones on a
   screen without a notch.
 - Multi-monitor setups are less tested than single-monitor ones.

@@ -52,6 +52,7 @@ Item {
     case "keyLegend": return b.keyLegend
     case "frameLog": return b.frameLog
     case "notchWidth": return b.screenNotch ? b.screenNotch.width : b.barOptions.notchWidth || null
+    case "notchHeight": return b.screenNotch ? b.screenNotch.height : b.barOptions.notchHeight || null
     case "zones": return b.zoneMode
     case "revealSeconds": return b.managedRevealSeconds
     case "entryGraceSeconds": return b.managedEntrySeconds
