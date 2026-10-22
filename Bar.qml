@@ -2005,16 +2005,22 @@ Item {
   }
   // Each screen's bar thickness by screen name, as Omarchy's bar reports it
   // to plugins (barSizes): barSize, or the notch's height where a top bar
-  // has to reach past a camera notch.
+  // has to reach past a camera notch, exactly that for a large flat bar.
   readonly property var screenBarSizes: {
     var sizes = ({})
     var screens = Quickshell.screens
     for (var i = 0; i < screens.length; i++) {
       var notch = notchFor(screens[i])
-      sizes[screens[i].name] = Math.max(barSize, notch ? notch.height : 0)
+      sizes[screens[i].name] = fitsNotch(notch) ? notch.height : Math.max(barSize, notch ? notch.height : 0)
     }
     return sizes
   }
+  // A large flat top bar on a notched screen is exactly as tall as the camera
+  // (layout-zones.md ZONE-90); other screens keep the large bar's size.
+  function fitsNotch(notch) { return !!notch && !vertical && flat && largeBar && !notchMode }
+  // A bar window's own thickness and its cells', where it differs (notchFit).
+  function sizeIn(window) { return window && window.barSize > 0 ? window.barSize : barSize }
+  function thicknessIn(window) { return window && window.cellThickness > 0 ? window.cellThickness : cellTokens.thickness }
 
   // Camera notches (NotchModel.js, docs/behavior/layout-zones.md "Notch"):
   // the panels Omarchy's platform package describes, read as the shell starts
@@ -2168,18 +2174,18 @@ Item {
   // The cell centres on the item's own stretch: past `lead` and at most `span`
   // long, so a drop gap the slot holds before or after its widget is left out.
   function cellHighlight(item, host, strip, cell, lead, span) {
-    var k = cellTokens
+    var thickness = thicknessIn(targetWindow(strip))
     var origin = item.mapToItem(host, 0, 0)
     var along = vertical ? item.height : item.width
     var from = lead > 0 ? lead : 0
     var own = span > 0 ? Math.min(along - from, span) : along - from
     var s = strip.mapToItem(host, 0, 0)
     var start = (vertical ? origin.y : origin.x) + from + (own - cell) / 2
-    var cross = vertical ? s.x + (strip.width - k.thickness) / 2 : s.y + (strip.height - k.thickness) / 2
+    var cross = vertical ? s.x + (strip.width - thickness) / 2 : s.y + (strip.height - thickness) / 2
     // A widget in the notch's second row lights there.
     if (!vertical && item.wrapY > 0) cross += item.wrapY
-    return vertical ? { x: cross, y: start, width: k.thickness, height: cell, radius: highlightRadius }
-      : { x: start, y: cross, width: cell, height: k.thickness, radius: highlightRadius }
+    return vertical ? { x: cross, y: start, width: thickness, height: cell, radius: highlightRadius }
+      : { x: start, y: cross, width: cell, height: thickness, radius: highlightRadius }
   }
   // A notch zone's second row (NotchModel.wrapRow), or null: list is the
   // zone's ModuleList, trail an item that ends it (the Preferences button).
@@ -3881,8 +3887,16 @@ Item {
     }
     // The strip is at least as tall as the notch, so no window peeks out
     // beside the camera; widgets stay centred in it (at the top on the notch,
-    // where the zones are only as tall as the bar).
-    readonly property int extent: notchLook ? Math.max(root.barSize, notch.height) : Math.max(root.barExtent, notch ? notch.height : 0)
+    // where the zones are only as tall as the bar). A large flat bar there is
+    // exactly as tall as the camera (notchFit, ZONE-90): its cells keep their
+    // length along the bar and lose thickness across it.
+    readonly property int extent: notchLook ? Math.max(root.barSize, notch.height)
+      : notchFit ? notch.height : Math.max(root.barExtent, notch ? notch.height : 0)
+    readonly property bool notchFit: root.fitsNotch(notch)
+    // This bar's thickness and its cells' (Bar.sizeIn, thicknessIn).
+    readonly property int barSize: notchFit ? notch.height : root.barSize
+    readonly property real cellThickness: notchFit
+      ? Math.max(0, Math.min(root.cellTokens.thickness, notch.height - 2 * root.cellTokens.inset)) : root.cellTokens.thickness
     // Hidden for a moment to remap (a blur change, a screen move). Widgets read
     // as invisible meanwhile, so the window freezes its slots' measurements
     // first and thaws them once the widgets have reported their sizes again.
@@ -5050,7 +5064,7 @@ Item {
 
     // Where the body sits across the bar: as the islands do, in the strip.
     readonly property bool nearEdgeFirst: root.position === "top" || root.position === "left"
-    readonly property real cross: (window ? (nearEdgeFirst ? 0 : window.drawerExtent) + (window.extent - root.barSize) / 2 : 0)
+    readonly property real cross: (window ? (nearEdgeFirst ? 0 : window.drawerExtent) + (window.extent - root.sizeIn(window)) / 2 : 0)
       + (onNotch ? 0 : (nearEdgeFirst ? -offset : offset))
     readonly property real start: onNotch
       ? (leftSide ? window.notchLeft + window.notchTuck - bodyLength + offset : -offset)
@@ -5061,7 +5075,7 @@ Item {
       x: root.vertical ? badge.cross : badge.start
       y: root.vertical ? badge.start : (badge.onNotch ? 0 : badge.cross)
       width: root.vertical ? root.barSize : badge.bodyLength
-      height: root.vertical ? badge.bodyLength : root.barSize
+      height: root.vertical ? badge.bodyLength : root.sizeIn(badge.window)
       color: badge.onNotch ? "transparent" : root.mainSurfaceColor
       shadowEnabled: root.surfaceEffects.shadow && !badge.onNotch
       shadowSize: root.surfaceEffects.shadowSize
@@ -5177,7 +5191,7 @@ Item {
       hoverColor: root.onBarHoverColor
       selectedColor: root.onBarSelectedColor
       width: root.vertical ? root.cellTokens.thickness : preferencesButton.cellPlace.cell
-      height: root.vertical ? preferencesButton.cellPlace.cell : root.cellTokens.thickness
+      height: root.vertical ? preferencesButton.cellPlace.cell : root.thicknessIn(hostWindow)
       x: (preferencesButton.width - width) / 2
       y: (preferencesButton.height - height) / 2
       rounding: root.highlightRadius
@@ -5659,7 +5673,7 @@ Item {
       hoverColor: root.onBarHoverColor
       selectedColor: root.onBarSelectedColor
       width: root.vertical ? root.cellTokens.thickness : foldHandle.cellPlace.cell
-      height: root.vertical ? foldHandle.cellPlace.cell : root.cellTokens.thickness
+      height: root.vertical ? foldHandle.cellPlace.cell : root.thicknessIn(hostWindow)
       x: (foldHandle.width - width) / 2
       y: (foldHandle.height - height) / 2
       rounding: root.highlightRadius
@@ -5749,7 +5763,7 @@ Item {
       font.pixelSize: Style.font.body
     }
     Rectangle {
-      readonly property real thick: root.cellTokens.thickness
+      readonly property real thick: root.thicknessIn(root.targetWindow(yieldMarker))
       readonly property var spot: CellModel.badge(
         { x: (yieldMarker.width - (root.vertical ? thick : yieldMarker.cellPlace.cell)) / 2,
           y: (yieldMarker.height - (root.vertical ? yieldMarker.cellPlace.cell : thick)) / 2,

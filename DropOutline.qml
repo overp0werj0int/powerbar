@@ -23,7 +23,7 @@ Item {
   property bool open: gapLength > 1
   // The landing cell: its length along the run and its thickness across.
   property real cellAlong: bar ? (bar.barDragSource ? bar.barDragSource.cellLength : bar.cellTokens.cell) : 0
-  property real cellAcross: bar ? bar.cellTokens.thickness : 0
+  property real cellAcross: bar ? bar.thicknessIn(bar.targetWindow(outline)) : 0
   // The run's size across; the cell centres in it.
   property real crossLength: vertical ? (parent ? parent.width : 0) : (parent ? parent.height : 0)
   // Where the cell starts in the gap; below zero it centres. A menu row lands
