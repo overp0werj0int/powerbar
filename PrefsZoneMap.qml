@@ -59,7 +59,7 @@ GridLayout {
       property int cursor: -1
       readonly property real cellHeight: Style.space(24)
       readonly property real gap: Style.space(3)
-      readonly property real cameraWidth: Style.space(10)
+      readonly property real cameraWidth: cellHeight
       readonly property bool camera: row.cameraAfter !== "" && row.indexOf(row.cameraAfter) >= 0
       readonly property real total: row.zones.reduce(function(sum, z) { return sum + z.share }, 0)
       implicitWidth: Style.space(232)
@@ -127,17 +127,24 @@ GridLayout {
           }
         }
       }
-      // The camera, as the Layout page draws it.
+      // The camera, as the Layout page draws it: a black square with a lens.
       Rectangle {
         visible: map.camera
         readonly property var before: map.camera ? map.span(row.indexOf(row.cameraAfter)) : ({ x: 0, width: 0 })
         x: before.x + before.width + map.gap
         width: map.cameraWidth
         height: map.cellHeight
-        radius: width / 2
+        radius: Style.space(4)
         color: "black"
-        border.width: 1
-        border.color: Qt.alpha(Commons.Color.popups.text, 0.2)
+        Rectangle {
+          anchors.centerIn: parent
+          width: Math.round(parent.width * 0.3)
+          height: width
+          radius: width / 2
+          color: "#1d2433"
+          border.width: 1
+          border.color: "#2a3348"
+        }
       }
     }
     Text {

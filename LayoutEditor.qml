@@ -501,9 +501,10 @@ Item {
     readonly property bool stacked: editor.sideBar || shelfFocus.width < Style.space(560)
     readonly property var zoneColumns: mode === "tray" ? ["tray"] : editor.sections
     // The camera's slot between Left of center and Center, on a preview of a
-    // screen that has one.
+    // screen that has one: room for a bar-sized square on the bar shelf, kept
+    // empty on the others so their columns line up with it.
     readonly property bool camera: editor.previewCamera && !stacked && mode !== "tray"
-    readonly property real cameraSlot: camera ? Style.space(24) : 0
+    readonly property real cameraSlot: camera ? editor.barThickness + bento.gap : 0
     readonly property real gridWidth: Math.max(1, shelfFocus.width)
     // Shares of the row, mirrored about its middle: Right of center is as
     // wide as Left of center and the camera's slot together, so Center stays
@@ -590,10 +591,11 @@ Item {
               }
             }
           }
-          // The camera: a dark capsule on the bar shelf, a dotted seam below.
-          Item {
-            id: cameraMark
-            visible: shelf.camera
+          // The camera, on the bar shelf only: a black rounded square the
+          // bar's size with a lens, level with the first island. A sign of
+          // where the camera is, not its size.
+          Rectangle {
+            visible: shelf.camera && shelf.mode === "shown"
             readonly property var cell: {
               for (var i = 0; i < cellRepeater.count; i++) {
                 var c = cellRepeater.itemAt(i)
@@ -602,25 +604,19 @@ Item {
               return null
             }
             x: cell ? cell.x + cell.width + (shelf.cameraSlot + bento.gap - width) / 2 : 0
-            y: 0
-            width: Style.space(14)
-            height: zoneGrid.height
+            y: cell ? cell.y + cell.firstLineY : 0
+            width: editor.barThickness
+            height: width
+            radius: Math.round(width / 4)
+            color: "black"
             Rectangle {
-              visible: shelf.mode === "shown"
-              anchors.fill: parent
+              anchors.centerIn: parent
+              width: Math.round(parent.width * 0.3)
+              height: width
               radius: width / 2
-              color: "black"
+              color: "#1d2433"
               border.width: 1
-              border.color: Qt.alpha(Commons.Color.popups.text, 0.2)
-            }
-            Column {
-              visible: shelf.mode !== "shown"
-              anchors.horizontalCenter: parent.horizontalCenter
-              spacing: Style.space(4)
-              Repeater {
-                model: Math.max(0, Math.floor(cameraMark.height / Style.space(8)))
-                Rectangle { width: 1; height: Style.space(4); color: Qt.alpha(Commons.Color.popups.text, 0.3) }
-              }
+              border.color: "#2a3348"
             }
           }
         }
@@ -714,6 +710,8 @@ Item {
     readonly property var faces: barRow ? list.map(function(value) { return editor.barFace(value.record) }) : []
     readonly property var layout: barRow ? ShelfModel.zone(CellModel, editor.barTokens, faces, Math.max(1, well.width - pad * 2)) : ({ lines: [], width: 0 })
     readonly property real lineGap: Style.space(4)
+    // The top of the first island, in the cell.
+    readonly property real firstLineY: well.y + lineY(0)
     // Each line packs from the side its zone grows from (editor.zonePack).
     function lineX(n) {
       var w = layout.lines[n] ? layout.lines[n].width : 0
