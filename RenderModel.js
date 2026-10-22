@@ -36,30 +36,39 @@ function reconcileLists(models, lists, parking) {
     }
   }
 }
-function records(layout) {
+// The bar's zone lists in order (SectionsModel.lists), and the zone each one
+// belongs to: the three center lists share the center zone. Under the Notch
+// style's camera (ears) there are two zones, one each side of the camera:
+// Left with Left of center, and the box with Right of center and Right.
+var lists = ["left", "centerBegin", "center", "centerEnd", "right"]
+function zoneOf(list, ears) {
+  if (ears) return list === "left" || list === "centerBegin" ? "left" : "right"
+  return list === "centerBegin" || list === "centerEnd" ? "center" : list
+}
+// One record per entry: its zone (region), the list it is drawn in, and the
+// list it is saved in (an entry of Omarchy's tray section is drawn beside the
+// tray, powerbarList "tray").
+function records(layout, ears) {
   var result = []
-  for (var zone of ["left", "center", "right"]) {
-    var entries = layout && Array.isArray(layout[zone]) ? layout[zone] : []
+  for (var list of lists) {
+    var entries = layout && Array.isArray(layout[list]) ? layout[list] : []
     for (var i = 0; i < entries.length; i++) {
       var entry = entries[i]
       if (typeof entry !== "string" && (!entry || typeof entry !== "object")) continue
       var id = typeof entry === "string" ? entry : entry.id
       if (!id) continue
-      result.push({ key: entry.powerbarInstance || id + ":" + zone + ":" + i, region: zone, entry: entry })
+      var saved = typeof entry === "object" && entry.powerbarList === "tray" ? "tray" : list
+      result.push({ key: entry.powerbarInstance || id + ":" + list + ":" + i, region: zoneOf(list, ears), drawn: list, list: saved, entry: entry })
     }
   }
   return result
 }
-function split(records, anchorId) {
-  var lists = { left: [], right: [], center: [], before: [], anchor: [], after: [] }
-  var anchored = false
-  var hasAnchor = records.some(function(r) { return r.region === "center" && (typeof r.entry === "string" ? r.entry : r.entry.id) === anchorId })
-  records.forEach(function(r) {
-    if (r.region !== "center" || !hasAnchor) lists[r.region].push(r.key)
-    else if (!anchored && (typeof r.entry === "string" ? r.entry : r.entry.id) === anchorId) { lists.anchor.push(r.key); anchored = true }
-    else lists[anchored ? "after" : "before"].push(r.key)
-  })
-  return lists
+// The record keys of each list, as drawn.
+function split(records) {
+  var out = {}
+  lists.forEach(function(list) { out[list] = [] })
+  records.forEach(function(r) { out[r.drawn].push(r.key) })
+  return out
 }
 function groupIndex(groups) {
   var byId = Object.create(null), owner = Object.create(null)
@@ -83,8 +92,11 @@ function captureDelta(previous, next) {
   delete oldChrome.powerbarBackgroundOpacity; delete newChrome.powerbarBackgroundOpacity
   if (!equal(oldChrome, newChrome)) return null
   function indexed(layout) {
-    var entries = Object.create(null), positions = {left: 0, center: 0, right: 0}
-    records(layout).forEach(function(r) { entries[r.key] = { record: r, index: positions[r.region]++ } })
+    var entries = Object.create(null), positions = Object.create(null)
+    records(layout).forEach(function(r) {
+      positions[r.drawn] = (positions[r.drawn] || 0) + 1
+      entries[r.key] = { record: r, index: positions[r.drawn] - 1 }
+    })
     return entries
   }
   var oldEntries = indexed(previous && previous.layout), newEntries = indexed(next && next.layout)
@@ -92,4 +104,4 @@ function captureDelta(previous, next) {
   for (var key in newEntries) if (!equal(oldEntries[key], newEntries[key])) keys.push(key)
   return keys
 }
-if (typeof module !== "undefined") module.exports = { equal, shallowSame, sameItems, reconcileLists, records, split, groupIndex, entryIndex, captureDelta }
+if (typeof module !== "undefined") module.exports = { lists, zoneOf, equal, shallowSame, sameItems, reconcileLists, records, split, groupIndex, entryIndex, captureDelta }

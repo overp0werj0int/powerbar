@@ -55,15 +55,15 @@ Sources: Preferences.qml, PreferencesModel.js, BentoModel.js, ShelfModel.js, Sli
 
 - **PREFS-21** The Layout page draws the bar as three shelves, top to bottom: "On the bar" (caption "Always visible", or the zone-fit notes when a zone gave way), "On demand" (caption: "Behind the zone's dots; shown on activity, or when you hover the dots" in inline mode, "In the zone's drawer when you hover it, or briefly on activity" in drawer mode), "Hidden" ("Kept off the bar"). They correspond to `powerbarVisibility` `shown`, `managed`, `hidden`; a widget with no saved value is On the bar. Groups appear in the shelf their visibility names.
 
-- **PREFS-22** Each shelf has the three zones as columns (Left, Center, Right; on a side bar Top, Center, Bottom), lined up from shelf to shelf. The On the bar shelf is drawn as the bar draws it: the bar's cell geometry at its top-edge thickness, text colour, font, surface, rounding and border; a zone too long for its column wraps onto another island line instead of shrinking. A widget is drawn from, in order, its live image, a saved image in the current text colour, a group's face, the glyph the widget draws itself, a saved image recoloured, Powerbar's stock glyph. Code: ShelfModel.zone()
+- **PREFS-22** Each shelf has the five zones as columns, in bar order: Left, Left of center, Center, Right of center, Right (on a side bar Top, Above center, Center, Below center, Bottom), lined up from shelf to shelf. A column's width is its zone's share (30, 17, 15, 17 and 30 of 109 with the tray's), and the columns mirror about the shelf's middle: Center sits on it, Left and Right match, and with a camera slot Right of center is as wide as Left of center and the slot together, the slot's width taken from Left and Right. On the On the bar shelf the slot holds the camera, drawn as a black rounded square the bar's thickness with a lens dot, level with the first island; it marks where the camera is, not its size. The other shelves keep the slot empty, so their columns line up with the bar's. Its items pack the way the zone grows on the bar: Left and Right of center from the box outward, Right towards the right edge, Center in the middle. The On the bar shelf is drawn as the bar draws it: the bar's cell geometry at its top-edge thickness, text colour, font, surface, rounding and border; a zone too long for its column wraps onto another island line instead of shrinking. A widget is drawn from, in order, its live image, a saved image in the current text colour, a group's face, the glyph the widget draws itself, a saved image recoloured, Powerbar's stock glyph. Code: ShelfModel.zone(); LayoutEditor zoneShares, zonePack.
 
-- **PREFS-23** A side bar is edited drawn horizontally, at the thickness of a top bar.
+- **PREFS-23** On a side bar the editor turns: the shelves stand side by side, each a column, and the zones are rows down them, Top first; a zone's row is as tall as its tallest cell on any shelf, so rows line up across shelves. Widgets are still drawn horizontally, at the thickness of a top bar. h/l change shelf and j/k walk the zones. The shelves' captions shorten ("Behind the dots" or "In a drawer"; the tray shelf has none). Code: LayoutEditor stacked, rowHeight.
 
-- **PREFS-24** Columns line up across shelves; the On demand shelf's centre column splits in two when a widget is pinned to the screen centre (PREFS-25).
+- **PREFS-24** Between Left of center and Center sits the camera's slot. On a screen with a camera at the top it is drawn on the On the bar shelf as a black capsule, and on the other shelves as a dotted seam; elsewhere the slot stays empty. A caption under the On the bar shelf says how the center sits: "Left of center sits left of the camera; Center and Right of center sit right of it.", or "Center sits over the screen's middle; Left of center and Right of center hang off it." (on a side bar "Above center and Below center", with "No camera on this edge: " first when a screen has one at the top). Code: LayoutEditor cameraMark, barCaption.
 
-- **PREFS-25** With a centre anchor (Pinned to screen center, `bar.centerAnchor`), the On demand shelf's centre column splits into "Left of <widget>" (`center:start`; "Above <widget>" on a side bar) and "Right of <widget>" (`center:end`), the widgets that wait behind the dots before and after the anchor. Code: PreferencesModel.columns()
+- **PREFS-25** One layout serves every screen. When the screens differ (one has a camera, another not), the On the bar shelf's header has a Preview choice of screens, labelled with the screen's name and "(camera)" on a notched one; it changes the picture (the camera slot, the caption, the Zone notes), never the layout. It starts on the screen Preferences opened on. Code: LayoutEditor previewName, previewScreen, screensDiffer.
 
-- **PREFS-26** Under the shelves a tile titled with the selected widget (caption: its plugin id, or "N widgets in this group") holds: Zone (Left/Center/Right), Visibility (On the bar/On demand/Hidden), the widget's shortcut row, Show on activity, Keep at screen center, and Group (a dropdown, "Not grouped" plus every group; choosing a group puts the widget in its drawer; a group's own tile shows Members and an "Edit group" button instead). Show on activity is enabled only with Autohide and its activity option on and a widget that is not clock-driven (hints: "Applies while the bar autohides", "Turned off for every widget on the Bar page", "It changes on a clock, so it never brings the bar out"); Keep at screen center only for a widget on the bar in the centre.
+- **PREFS-26** Under the shelves a tile titled with the selected widget (caption: its plugin id, or "N widgets in this group") holds: Zone, Visibility (On the bar/On demand/Hidden), the widget's shortcut row, Show on activity, and Group (a dropdown, "Not grouped" plus every group; choosing a group puts the widget in its drawer; a group's own tile shows Members and an "Edit group" button instead). Zone is a small map of the bar (PrefsZoneMap): five cells in the shelves' proportions, mirrored the same way, with the camera between Left of center and Center when the preview has one, the chosen cell filled and marked with the widget's icon; h/l or the arrows walk it, Space or Enter chooses, a click chooses at once. Its caption names the zone under the cursor, with "left of the camera" or "right of the camera" for the center's zones on a notched preview ("on <screen>" when the screens differ). Show on activity is enabled only with Autohide and its activity option on and a widget that is not clock-driven (hints: "Applies while the bar autohides", "Turned off for every widget on the Bar page", "It changes on a clock, so it never brings the bar out"). Code: PrefsZoneMap.qml; LayoutEditor zoneChoices, cameraNote.
 
 - **PREFS-27** Keyboard move: h/j/k/l or the arrows move the cursor across items, empty cells (valid resting places) and shelves; Space lifts the item under the cursor; h/l then reorder it and step across zones, j/k change shelf; Space or Enter drops it, Esc (or losing focus) cancels. Pointer: press an item and move more than 6 px to lift it, release to drop; a press elsewhere cancels a lift. The empty tile says "Nothing on the bar in <zone> yet. Pick up a widget with Space, or drag one here."
 
@@ -79,20 +79,15 @@ Sources: Preferences.qml, PreferencesModel.js, BentoModel.js, ShelfModel.js, Sli
 
 - **PREFS-33** Enter on an item (or double-click) moves focus to the first control of its settings tile; Esc there returns to the shelf.
 
-- **PREFS-34** All nine destinations (zone x shelf) are valid, and the entry keeps its settings and instance key through any number of moves. A stale move (the layout changed under it) or an unknown zone changes nothing (PREFS-5).
+- **PREFS-34** All fifteen destinations (zone x shelf) are valid, and the entry keeps its settings and instance key through any number of moves. A stale move (the layout changed under it) or an unknown zone changes nothing (PREFS-5).
 
-- **PREFS-93** The header of the On the bar shelf has a Zones choice: "Three zones", "Two zones" and, when a screen has a notch (or the notch mode is already in use), "Notch". It is offered wherever the bar sits: the Notch mode moves the bar to the top. Choosing a mode writes `bar.powerbarZones` and swaps in that mode's own arrangement (layout-zones.md ZONE-72 to ZONE-74); the shelves redraw from it. Code: LayoutEditor ButtonGroup; Preferences.setZoneMode; Bar.qml screenNotch.
+- **PREFS-93** There is no zone mode to choose: the zones are always five, wherever the bar sits (layout-zones.md ZONE-91). A notched screen's look is the Notch style (PREFS-65). Code: LayoutEditor columnsFor; PreferencesModel.sections.
 
-- **PREFS-94** In two zones and on the notch, each shelf has two columns, Left and Right (Top and Bottom on a side bar). Several controls follow:
-  - The selected widget's Zone choice and the Groups page's Zone choice offer only those two.
-  - "Keep at screen center" is gone.
-  - On the notch the On the bar shelf's zones hug the middle, as each grows out of the camera.
-
-  Code: LayoutEditor twoZones, notchMode, zoneColumns, lineX; GroupsPreferences Zone options.
+- **PREFS-94** The Groups page's Zone is the same map as a widget's (PREFS-26). Code: GroupsPreferences Zone.
 
 - **PREFS-97** Under the Hidden shelf a fourth shelf, "In the tray" (caption "Omarchy's tray icons. Drag one onto a row above to place it like a widget"), lists the icons Omarchy's tray draws now: every running app's icon except passive ones, those Omarchy's own widgets draw (LocalSend; Dropbox and Superwhisper while their widget is on the bar) and those already moved out (INTEG-153). Each shows the app's live tray icon and its tray name. The shelf has one column and joins the shelves' lift and drag: an icon picked up there can land in any zone of the three shelves above, and a tray icon on a shelf above can be dropped back into it; the cursor, j/k and the arrows reach it like any shelf. Empty: "Nothing in the tray. Apps put their icons here while they run." Code: TrayItemsModel.trayRows; LayoutEditor shelfTray, trayEntries, drop(); PreferencesModel rows.
 
-- **PREFS-98** The tile of a tray icon still in the tray (caption "In Omarchy's tray") offers Zone and Visibility, with a fourth Visibility choice, "In the tray", selected. Choosing a zone or another visibility moves the icon out (On demand when only a zone was chosen); the hint says it then works as it does in the tray. A moved icon's tile (caption "Moved out of Omarchy's tray") has the usual controls, plus "In the tray" to put it back. Shortcut, centring and group controls appear only once the icon is out. An app that quit between showing and choosing: "That app has left the tray." Code: Preferences.qml takeFromTray, returnToTray; LayoutEditor setPlacement and its settings tile.
+- **PREFS-98** The tile of a tray icon still in the tray (caption "In Omarchy's tray") offers Zone and Visibility, with a fourth Visibility choice, "In the tray", selected. Choosing a zone or another visibility moves the icon out (On demand when only a zone was chosen); the hint says it then works as it does in the tray. A moved icon's tile (caption "Moved out of Omarchy's tray") has the usual controls, plus "In the tray" to put it back. Shortcut and group controls appear only once the icon is out. An app that quit between showing and choosing: "That app has left the tray." Code: Preferences.qml takeFromTray, returnToTray; LayoutEditor setPlacement and its settings tile.
 
 ## Groups page
 
@@ -155,15 +150,15 @@ Sources: Preferences.qml, PreferencesModel.js, BentoModel.js, ShelfModel.js, Sli
 
 - **PREFS-61** A toggle flips on Space, Enter or a click and applies at once.
 
-- **PREFS-62** A choice is a row of chips (one focus stop): h/l or Left/Right walk them, Space or Enter chooses. The two dropdowns (Pinned to screen center, and Group on the Layout page; Omarchy's Dropdown) open a list to choose from.
+- **PREFS-62** A choice is a row of chips (one focus stop): h/l or Left/Right walk them, Space or Enter chooses. The Group dropdown on the Layout page (Omarchy's Dropdown) opens a list to choose from.
 
 - **PREFS-63** Esc closes an open dropdown without changing the value; clicking elsewhere closes it too; scrolling the page closes it.
 
 ## Bar page
 
-- **PREFS-64** The Bar page has eight tiles, in order: Style and position (8 of 12 columns), Size, Shape, Surface, Shadow, Behavior, On demand (4 each) and Keyboard (4; 6 of 6 at medium width). In two zones a Notch tile follows Shape (4; 3 of 6); on the notch it takes the place of Shape and Surface (PREFS-96). Every change shows on the bar at once.
+- **PREFS-64** The Bar page has eight tiles, in order: Style and position (8 of 12 columns), Size, Shape, Surface, Shadow, Behavior, On demand (4 each) and Keyboard (4; 6 of 6 at medium width). With a notched screen a Notch tile follows Shape (4; 3 of 6); while the Notch style draws it takes the place of Shape and Surface (PREFS-96). Every change shows on the bar at once.
 
-- **PREFS-65** Style and position: a picture of the screen where clicking an edge moves the bar there; Style (Flat "Edge to edge, like Omarchy", Floating "One bar, off the edges", Islands "A surface for each zone"); Screen edge (Top, Bottom, Left, Right); Pinned to screen center (None or a centre widget that is On the bar). Writes `bar.powerbarStyle`, `bar.position`, `bar.centerAnchor`. The default style is Flat, the default edge top.
+- **PREFS-65** Style and position: a picture of the screen where clicking an edge moves the bar there; Style (Flat "Edge to edge, like Omarchy", Floating "One bar, off the edges", Islands "A surface for each zone", and, with a notched screen or while it is in use, Notch "Notch applies on the top edge of the notched screen; elsewhere it draws as islands"); Screen edge (Top, Bottom, Left, Right). Writes `bar.powerbarStyle` and `bar.position`. The default style is Flat, the default edge top. Code: Preferences.qml Style choice; layout-zones.md ZONE-41, ZONE-82.
 
 - **PREFS-66** Size: Large bar (`powerbarLargeBar`, default off), Spacing (Equal slots, the default, or Equal gaps; `powerbarSpacingMode`) and "Space between widgets" (`powerbarSpacing`, 0 to 16 in steps of 1, default 4, "None" at 0). Layout meaning: layout-zones.md.
 
@@ -173,23 +168,22 @@ Sources: Preferences.qml, PreferencesModel.js, BentoModel.js, ShelfModel.js, Sli
 
 - **PREFS-69** Shadow (under a Scope choice): Shadow (toggle), Softness (2 to 24, step 1, default 16) and Strength (5 to 60 %, step 5, default 30), both enabled only while Shadow is on.
 
-- **PREFS-70** Behavior: Autohide (`powerbarAutoHide`, default off), Show on widget activity (`powerbarAutoHideActivity`, default on; peeks on an autohidden bar and on one switched off with Omarchy's bar toggle, so it is never dimmed), Readable over windows (`powerbarReadableOverlay`, default on; hidden on the notch, PREFS-96) and Animations (`powerbarAnimations`, default on). These are not scoped.
+- **PREFS-70** Behavior: Autohide (`powerbarAutoHide`, default off), Show on widget activity (`powerbarAutoHideActivity`, default on; peeks on an autohidden bar and on one switched off with Omarchy's bar toggle, so it is never dimmed), Readable over windows (`powerbarReadableOverlay`, default on; hidden while the Notch style draws, PREFS-96) and Animations (`powerbarAnimations`, default on). These are not scoped.
 
 - **PREFS-71** On demand: "Show them" In a drawer (the default, hovering a zone opens its drawer) or In the bar (behind dots, expanding in the bar; `powerbarOnDemand`), and "Count on the dots" (`powerbarDotsBadge`, default on). Timing: on-demand-drawers.md.
 
 - **PREFS-72** Keyboard: the "Bar keyboard" (`bar:keys`) and "Bar search" (`bar:search`) shortcut rows (SUPER + B and SUPER + CTRL + SLASH are suggested until the user takes or changes them, KEYS-66; the first start's notification opens Preferences here, KEYS-84) and "Key legend" (`powerbarKeyLegend`, default on).
 
-- **PREFS-95** Notch (two zones, the notch, and any mode on a machine with a notched screen): caption "The gap in the middle" in two zones, "Black, like the camera" on the notch, "The camera's size" otherwise. Its "Notch width" slider runs from 40 to 600 px in steps of 1 (layout-zones.md ZONE-77, ZONE-80). The default is the camera housing, or 185 without a notch, and choosing it removes `powerbarNotchWidth`. With a notched screen a "Notch height" slider follows, 16 to 96 px in steps of 1; its default is the detected height (Omarchy's calibration, else the described rows), and choosing it removes `powerbarNotchHeight`. In two zones, "Pinned to screen center" is gone from Style and position.
+- **PREFS-95** Notch (on a machine with a notched screen): caption "Black, like the camera" while the Notch style draws there, "The camera's size" otherwise. Its "Notch width" slider runs from 40 to 600 px in steps of 1 (layout-zones.md ZONE-80, ZONE-89). The default is the camera housing, and choosing it removes `powerbarNotchWidth`. A "Notch height" slider follows, 16 to 96 px in steps of 1; its default is the detected height (Omarchy's calibration, else the described rows), and choosing it removes `powerbarNotchHeight`. Code: Preferences.qml notchTile.
 
-- **PREFS-96** On the notch, controls that cannot apply give way in place to what does (appearance.md LOOK-143):
-  - **Style and position:** the screen picture is disabled. Style and Screen edge give way to "On the notch" and the line "Black zones grow out of the camera at the top of the screen. Choose Three or Two zones on the Layout page for the other styles."
+- **PREFS-96** While the Notch style draws (the bar at the top, a screen with a notch), controls that cannot apply give way (appearance.md LOOK-143); they return when the bar moves to another edge:
   - **Size:** "Large bar" is hidden: the notch's bar is always as tall as the camera.
-  - **Shape:** the tile is hidden: the zones take the camera's corners and have no border.
+  - **Shape:** the tile is hidden: the ears take the camera's corners and have no border.
   - **Surface:** the tile gives way to the Notch tile. Shadow stays.
   - **Behavior:** "Readable over windows" is hidden: the notch is always opaque, so there is no minimum to raise.
   - **On demand:** "Show them" gives way to the line "Behind dots in their zone; they expand in the bar when you hover the dots. The notch has no drawers." "Count on the dots" stays.
 
-  The values these controls hold are kept for the other modes.
+  The values these controls hold are kept for the other styles and edges. Code: Preferences.qml notchMode.
 
 ## Appearance scopes
 

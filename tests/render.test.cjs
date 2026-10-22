@@ -3,12 +3,13 @@ const assert = require('node:assert/strict');
 const model = require('../RenderModel.js');
 const entry = (key, extra = {}) => ({ id: 'duplicate', powerbarInstance: key, ...extra });
 const config = () => ({ transparent: false, layout: { left: [entry('a'), entry('b')], center: [], right: [] } });
-test('retention keys distinguish duplicate IDs and anchor only the first matching instance', () => {
-  const layout = { left: [entry('a')], center: [entry('b'), entry('c')], right: [] };
+test('records keep duplicate ids apart and carry their zone and list', () => {
+  const layout = { left: [entry('a')], centerBegin: [entry('b')], center: [entry('c')], centerEnd: [entry('d'), entry('t', { powerbarList: 'tray' })], right: [] };
   const records = model.records(layout);
-  assert.deepEqual(records.map(r => r.key), ['a', 'b', 'c']);
-  assert.deepEqual(model.split(records, 'duplicate'), { left: ['a'], right: [], center: [], before: [], anchor: ['b'], after: ['c'] });
-  assert.deepEqual(model.split(records, ''), { left: ['a'], right: [], center: ['b', 'c'], before: [], anchor: [], after: [] });
+  assert.deepEqual(records.map(r => [r.key, r.region, r.drawn, r.list]), [
+    ['a', 'left', 'left', 'left'], ['b', 'center', 'centerBegin', 'centerBegin'], ['c', 'center', 'center', 'center'],
+    ['d', 'center', 'centerEnd', 'centerEnd'], ['t', 'center', 'centerEnd', 'tray']]);
+  assert.deepEqual(model.split(records), { left: ['a'], centerBegin: ['b'], center: ['c'], centerEnd: ['d', 't'], right: [] });
 });
 test('capture invalidation distinguishes identical reloads, surface alpha, settings, moves and unknown changes', () => {
   const original = config(), next = config();

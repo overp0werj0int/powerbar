@@ -10,7 +10,7 @@
 
 var type = "trayItem"
 var trayId = "omarchy.tray"
-var zones = ["left", "center", "right"]
+var zones = ["left", "centerBegin", "center", "centerEnd", "right"]
 
 function isObject(value) { return !!value && typeof value === "object" && !Array.isArray(value) }
 function idOf(entry) { return typeof entry === "string" ? entry : (entry && entry.id) || "" }

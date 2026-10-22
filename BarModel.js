@@ -3,9 +3,10 @@ function isPlainObject(value) {
 }
 
 // Bar style: "flat" hugs the screen edges like Omarchy's own bar, "floating"
-// is one continuous surface held off the edges, "islands" floats each zone.
+// is one continuous surface held off the edges, "islands" floats each zone,
+// "notch" grows the centre out of a camera (islands where there is none).
 // Configs from before styles existed kept only the islands switch.
-var barStyles = ["flat", "floating", "islands"]
+var barStyles = ["flat", "floating", "islands", "notch"]
 function barStyle(config) {
   var value = config && config.powerbarStyle
   if (barStyles.indexOf(value) >= 0) return value
@@ -136,6 +137,9 @@ function entryId(entry) {
   return ""
 }
 
+// The bar's zone lists in order (SectionsModel.lists).
+var zoneLists = ["left", "centerBegin", "center", "centerEnd", "right"]
+
 function pinTrayToInner(entries, section) {
   var trayEntry = null
   var result = []
@@ -145,7 +149,7 @@ function pinTrayToInner(entries, section) {
     else result.push(values[i])
   }
   if (trayEntry) {
-    if (section === "right") result.unshift(trayEntry)
+    if (section === "right" || section === "centerEnd") result.unshift(trayEntry)
     else result.push(trayEntry)
   }
   return result
@@ -161,8 +165,9 @@ function entryIndex(entries, name) {
 
 function moveInstanceInConfig(config, fromRegion, instanceKey, toRegion, beforeKey, visibility) {
   var layout = config && config.bar && config.bar.layout
-  if (!isPlainObject(layout) || ["left", "center", "right"].indexOf(fromRegion) < 0 ||
-      ["left", "center", "right"].indexOf(toRegion) < 0 || !instanceKey) return false
+  // A widget of Omarchy's tray section can leave it; nothing lands there.
+  if (!isPlainObject(layout) || zoneLists.concat(["tray"]).indexOf(fromRegion) < 0 ||
+      zoneLists.indexOf(toRegion) < 0 || !instanceKey) return false
   var from = layout[fromRegion], to = layout[toRegion]
   if (!Array.isArray(from) || !Array.isArray(to)) return false
   var fromIndex = from.findIndex(function(entry) { return entry && entry.powerbarInstance === instanceKey })
@@ -189,7 +194,7 @@ function moveInstanceInConfig(config, fromRegion, instanceKey, toRegion, beforeK
 // a duplicated id makes the push ambiguous.
 function inlineSettingsDelta(current, next) {
   if (!isPlainObject(current) || !isPlainObject(next)) return null
-  var regions = ["left", "center", "right"]
+  var regions = zoneLists
   var counts = {}
   for (var r = 0; r < regions.length; r++) {
     var entries = Array.isArray(next[regions[r]]) ? next[regions[r]] : []
@@ -248,9 +253,8 @@ function customModulePath(entry, home, configDir) {
   return source
 }
 
-// A center module is mounted twice once an anchor is set: the copy that is
-// actually drawn, and a zero-size placeholder holding its place in the flow
-// beside the anchor. Panel routing has to pick the drawn one — it is the only
+// A widget can be mounted more than once (a copy per screen, a placeholder
+// holding its place while it is drawn elsewhere). Panel routing has to pick the drawn one — it is the only
 // one that can anchor a popup, carry the open-panel mark, or be found again
 // by switchPanelFrom — and fall back to the placeholder only when nothing is
 // on screen. The order the two are registered in is not stable across a live
@@ -306,11 +310,11 @@ function pickPanelSlot(candidates, focusedScreen, prefer) {
 // and its place in them, so the keys come back from the layout the bar showed
 // before: each entry without an instance gets the powerbar* keys it lacks from
 // a previous entry of the same id whose instance is not in use now, the same
-// zone and position first, then the same zone, then anywhere.
-// Returns [{zone, index, id, keys}], plain values for applyLostKeys.
+// list and position first, then the same list, then anywhere.
+// Returns [{zone, index, id, keys}] (zone: the list), plain values for applyLostKeys.
 function lostKeys(previous, next) {
   if (!isPlainObject(previous) || !isPlainObject(next)) return []
-  var zones = ["left", "center", "right"]
+  var zones = zoneLists.concat(["tray"])
   var used = {}, candidates = []
   for (var z = 0; z < zones.length; z++) {
     var now = Array.isArray(next[zones[z]]) ? next[zones[z]] : []

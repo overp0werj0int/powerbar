@@ -18,7 +18,7 @@ Storage: the look lives in `bar.powerbarAppearance` of shell.json: `all` (values
 
 - **LOOK-5** Shadow > "Strength" (stored `strength`) is clamped to 5 to 60 percent, 30 by default (0 gives 0.05, 70 gives 0.6). Code: AppearanceModel.ranges.shadowOpacity.
 
-- **LOOK-6** Readable minimum: with `powerbarReadableOverlay` unset or true (Behavior > "Readable over windows", default on) and blur off, surfaces that lie over windows are at least 88% opaque: drawers, the tooltip, name card and key legend when styled by Powerbar, and the bar itself while it autohides. An opacity of 50 is drawn as 0.88 there, 95 stays 0.95. The always-visible bar is not raised. In the Notch mode every surface is opaque, so the setting has nothing to do and Preferences hides it (preferences.md PREFS-96). Code: AppearanceModel.overlayOpacity, barOpacity; Bar.qml overlaySurfaceColor.
+- **LOOK-6** Readable minimum: with `powerbarReadableOverlay` unset or true (Behavior > "Readable over windows", default on) and blur off, surfaces that lie over windows are at least 88% opaque: drawers, the tooltip, name card and key legend when styled by Powerbar, and the bar itself while it autohides. An opacity of 50 is drawn as 0.88 there, 95 stays 0.95. The always-visible bar is not raised. In the Notch style on the notch every surface is opaque, so the setting has nothing to do and Preferences hides it (preferences.md PREFS-96). Code: AppearanceModel.overlayOpacity, barOpacity; Bar.qml overlaySurfaceColor.
 
 - **LOOK-7** With `powerbarReadableOverlay: false` those surfaces use the chosen opacity as it is. The setting is not part of the appearance scopes: it is one flat key for every theme. Code: AppearanceModel.overlayOpacity (`readableOverlay !== false`).
 
@@ -236,6 +236,7 @@ Storage: the look lives in `bar.powerbarAppearance` of shell.json: `all` (values
 - **LOOK-139** A highlight moving within one zone of a bar, or within one drawer, slides instead of fading: the mark that lights next starts where the last one was drawn, at its size, and glides to its own cell over 100 to 170 ms (90 ms + 0.15 ms per px travelled, OutCubic), while the last one goes out at once. It slides when the last mark went out under 160 ms before (a pointer crossing the gap between two cells) or is going out in the same turn (the keyboard cursor). A pointer sweeping across many cells retargets the slide from wherever the fill is drawn, so it trails the pointer smoothly instead of jumping cell to cell; it never sweeps across a zone gap: a move to another zone, the first light after a pause, or a light while the last mark stays lit for its own reason (a hover beside the keyboard cursor, an open panel) fades in place as before (90 ms). Animations off: no slide. Code: HoverHighlight.qml (`slideFrom`, `handOff`), HighlightGlide.qml (one per bar window, keyed by zone; one per drawer)
 
 - **LOOK-145** Highlights on the bar itself (hover, keyboard cursor, open panel, compound track and thumb) deepen as the bar's surface clears, so they stay visible over the wallpaper: hover and selected go from Omarchy's fill alphas on an opaque bar (and the notch) to 35% on a clear one, the compound track to 12%, in proportion to how clear the surface is; never lighter than Omarchy's. Drawers and Preferences keep Omarchy's fills. Code: AppearanceModel.highlightAlpha; Bar.qml deepened, onBarHoverColor.
+- **LOOK-146** A widget is a compound (a track over the whole cell, a thumb over one part) only while two or more of its targets are drawn in its slot: shown, not faded to nothing and not cut off by a clipping parent. The indicators keep their folded icons in a zero-width, transparent area, so folded they are one cell with no thumb, and revealed each icon is a part. Parts are in bar order. The thumb follows the pointer, or the keyboard cursor's part (keyboard.md KEYS-88); a cursor resting on a compound without the pointer never shows a thumb at a stale pointer position. Code: Bar.qml targetPainted, compoundTargets, compoundThumb parts.
 
 ## Large bar
 
@@ -251,12 +252,11 @@ Storage: the look lives in `bar.powerbarAppearance` of shell.json: `all` (values
 
 ## Notch look
 
-- **LOOK-143** In the notch mode (layout-zones.md ZONE-82) the zones are black with the theme's light text on every screen, because a widget takes one colour across the bar.
-  - The look forces fully opaque surfaces with no blur or border; the Surface choices are kept for the other modes.
+- **LOOK-143** In the Notch style on a top bar with a notched screen (layout-zones.md ZONE-82) the zones are black with the theme's light text on every screen, because a widget takes one colour across the bar. On another edge the style draws as Islands with the bar's own look.
+  - The look forces fully opaque surfaces with no blur or border; the Surface choices are kept for the other styles and edges.
   - The shadow is the user's (LOOK-3 to LOOK-5). The camera's body, each zone, a wrapped zone's two rows and the activity badges cast it.
-  - Islands are forced whatever the style.
   - Each zone's outer end has the camera's own corners (layout-zones.md ZONE-80), whatever the rounding setting: a shoulder at the top, where the screen's top edge curves down into the zone as it does into the camera, and the camera's bottom radius below. Its inner end is square and runs on under the camera. On a screen without a notch the zones are islands with the camera's bottom radius at every corner (the default housing's, 8 px, with no notched screen).
-  - Highlights and cards nest in that radius, as in an island's rounding (LOOK-10). The rounding setting applies to the other modes only.
+  - Highlights and cards nest in that radius, as in an island's rounding (LOOK-10). The rounding setting applies to the other styles and edges only.
   - On the notched screen the camera's own black is also drawn behind the zones, so they meet the camera however wide it really is. It has the housing's shape (layout-zones.md ZONE-80), round bottom corners, and shoulders where the screen's top edge curves into it. It shows whole when the zones are in, and below them under a bar shorter than the camera.
 
   Code: Bar.qml notchMode (surfaceEffects, mainSurfaceColor, barForeground, barStyle), islandRounding, notchCorners, cameraShape, NotchEnd; NotchShape.qml; NotchHanger.qml; IslandSurface; NotchModel.zoneCorners.

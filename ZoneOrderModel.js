@@ -3,47 +3,41 @@
 // saved order; every other widget keeps its saved order and never moves when
 // they appear. The saved layout is not rewritten: only the drawing differs.
 //
-// Lists: "left", "after" and an anchorless "center" have their dots at the end;
-// "right" and "before" (the centre's side before its anchor) at the start.
+// Lists: "left", "center" and "centerEnd" have their dots at the end; "right"
+// and "centerBegin" (the centre's side before its box) at the start.
 // On the notch (outward) the zones grow away from the camera and the dots sit
 // at their far ends: the left zone's start, the right zone's end.
 
 function dotsAtStart(list, outward) {
   if (outward && (list === "left" || list === "right")) return list === "left"
-  return list === "right" || list === "before"
+  return list === "right" || list === "centerBegin"
 }
 
 function arrange(items, isManaged, list, outward) {
-  if (list === "anchor") return items.slice()
   var shown = [], managed = []
   items.forEach(function (item) { (isManaged(item) ? managed : shown).push(item) })
   return dotsAtStart(list, outward) ? managed.concat(shown) : shown.concat(managed)
 }
 
 // Where a drop lands in the saved layout, given the gap it opened in the
-// drawn order. The widget joins the run of its visibility in the gap's list,
-// so it lands exactly at the gap: before the first widget of that run after
-// the gap, else after the last one before it, else (an empty run) beside the
-// anchor on the gap's side, or at the zone's end.
+// drawn order. The widget joins the list of the widget it is dropped beside,
+// in the run of its visibility, so it lands exactly at the gap: before the
+// first widget of that run after the gap, else after the last one before it,
+// else at the list's end.
 //   o.sequence  the zone as drawn: [{ key, list, managed, group }]
 //   o.gap       index into the sequence without the source
+//   o.list      the list it lands in
 //   o.managed   the widget lands On demand
-//   o.layout    the zone's saved keys, in saved order (no group icons)
+//   o.layout    the list's saved keys, in saved order (no group icons)
 //   o.source    the moving widget's key
-//   o.anchorKey the centre anchor's key, or ""
-// Returns the key to insert before, or "" for the zone's end.
+// Returns the key to insert before, or "" for the list's end.
 function dropBefore(o) {
   var seq = o.sequence.filter(function (item) { return item.key !== o.source })
   var gap = Math.max(0, Math.min(o.gap, seq.length))
-  var anchorAt = -1
-  for (var a = 0; a < seq.length; a++) if (seq[a].list === "anchor") { anchorAt = a; break }
-  var near = seq[gap - 1] || seq[gap] || null
-  var list = anchorAt >= 0 ? (gap <= anchorAt ? "before" : "after") : near ? near.list : ""
-  if (list === "anchor") list = "after"
-  function peer(item) { return item.list === list && !!item.managed === !!o.managed && !item.group }
+  function peer(item) { return item.list === o.list && !!item.managed === !!o.managed && !item.group }
   for (var i = gap; i < seq.length; i++) if (peer(seq[i])) return seq[i].key
   for (var j = gap - 1; j >= 0; j--) if (peer(seq[j])) return successor(o.layout, seq[j].key, o.source)
-  return list === "before" && o.anchorKey && o.anchorKey !== o.source ? o.anchorKey : ""
+  return ""
 }
 
 // Whether a drop into a gap lands On demand. Only inside the expansion's run:
@@ -70,7 +64,7 @@ function landsOnDemand(sequence, gap, near, outward) {
     if (item) return item.expanded ? "demand" : "shown"
     return dotsHere ? "demand" : "edge"
   }
-  var before = side(prev, dotsAtStart(list, outward)), after = side(next, !dotsAtStart(list, outward) && list !== "anchor")
+  var before = side(prev, dotsAtStart(list, outward)), after = side(next, !dotsAtStart(list, outward))
   if (nearItem && before !== after && (before === "shown" || after === "shown")) return !!nearItem.expanded
   if (before === "shown" || after === "shown") return false
   return before === "demand" || after === "demand"

@@ -66,13 +66,14 @@ QtObject {
   }
 
   function shellCanWrite() { return !!shell && typeof shell.mutateShellConfig === "function" }
-  // Edits run on Powerbar's three zones; shell.json keeps Omarchy's sections
-  // (SectionsModel), so each write folds the saved layout first and unfolds it
-  // after.
+  // Edits run on the five zone lists (SectionsModel): each write reads the
+  // saved layout into them first, and writes them back in the shape this
+  // Omarchy keeps.
   function mutate(mutator) {
+    var six = SectionsModel.sixSections(Util.barSections)
     return shell.mutateShellConfig(function(config) {
-      if (Util.isPlainObject(config.bar)) SectionsModel.fold(config.bar)
-      try { mutator(config) } finally { if (Util.isPlainObject(config.bar)) SectionsModel.unfold(config.bar) }
+      if (Util.isPlainObject(config.bar)) SectionsModel.read(config.bar)
+      try { mutator(config) } finally { if (Util.isPlainObject(config.bar)) SectionsModel.write(config.bar, six) }
     })
   }
   function canWrite() { return !retired && shellCanWrite() && BarModel.ownsBarConfig(pending ? host : shown, barId) }

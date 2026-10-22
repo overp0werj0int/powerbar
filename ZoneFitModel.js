@@ -12,9 +12,14 @@
 // falls back. An inline expansion that would need a neighbour's anchor to
 // yield hides that whole neighbour instead (result.hidden), then the zone past
 // it if it still collides; it falls back only when it can't fit the bar line.
+// The centre is three runs (input.zones before, box, after): the box is
+// centred on the middle of the bar line as a group, the other two hang off
+// its edges. The box's first widget is the centre's anchor: it never folds or
+// yields, and the rest of the box folds with the widgets after it. An empty
+// box leaves a mark of no length where before meets after.
 // A screen with a camera notch (input.notch, the keep-out's extent) puts an
-// empty slot in the centre, just before the anchor (before every centre
-// widget without one), that stays at the middle of the bar line: the centre
+// empty slot in the centre, just before the box, that stays at the middle of
+// the bar line: the centre
 // never slides there, and the widgets on either side fold towards their own
 // neighbour instead (the left zone or the centre's before-run on the left,
 // the right zone or its after-run on the right). The camera is a hard stop:
@@ -26,18 +31,36 @@
 // See docs/behavior/layout-zones.md for the specification.
 
 var NOTCH = "notch"
+var BOX = "box"
 function hasNotch(input) { return input.notch > 0 }
+
+function list(value) { return Array.isArray(value) ? value : [] }
+
+// The zones as the solver walks them: the centre's anchor (the box's first
+// widget, or the mark of an empty box) and the widgets after it, the rest of
+// the box first. The mark takes the spill of the run it ends, so the island
+// it closes is drawn as if it were not there.
+function prepare(zones) {
+  var before = list(zones.before), box = list(zones.box), after = list(zones.after)
+  var anchor = box[0] || null
+  if (!anchor && (before.length || after.length)) {
+    var edge = !after.length ? before[before.length - 1] : !before.length ? after[0] : null
+    anchor = { key: BOX, extent: 0, spill: edge ? edge.spill : 0, mark: true }
+  }
+  return { prepared: true, left: list(zones.left), right: list(zones.right), before: before, anchor: anchor,
+    after: box.slice(1).concat(after), box: box.map(function (it) { return it.key }) }
+}
 
 function zoneItems(input, name) {
   var z = input.zones
   if (name !== "center") return z[name]
-  var next = z.anchor || z.center[0], prev = z.anchor ? z.before[z.before.length - 1] : null
+  var next = z.anchor && !z.anchor.mark ? z.anchor : z.after[0], prev = z.before[z.before.length - 1]
   // With notchPads (three zones) the centre's own cells meet the slot, so it
   // also holds the island end pads on either side of the keep-out.
   var extent = input.notchPads
     ? input.notch + input.pad(prev ? prev.spill : 0) + input.pad(next ? next.spill : 0) : input.notch
   var n = hasNotch(input) ? [{ key: NOTCH, extent: extent, spill: 0 }] : []
-  return z.anchor ? z.before.concat(n, [z.anchor], z.after) : n.concat(z.center)
+  return z.anchor ? z.before.concat(n, [z.anchor], z.after) : n
 }
 
 function isFolded(st, key) { return st.folded[key] === true }
@@ -55,21 +78,12 @@ function centerDots(input) {
   return { start: d === "start" || d === "both", end: d === true || d === "end" || d === "both" }
 }
 
-// The centre's folded widgets by the side they wait on. With an anchor that is
-// their side of it; without one, folds are taken from the ends, so those
-// before the first widget still showing wait at the start.
+// The centre's folded widgets by the side they wait on: before the box at the
+// start, the box's own and those after it at the end.
 function centerFoldSides(input, st) {
   var z = input.zones, out = { start: [], end: [] }
-  if (z.anchor) {
-    z.before.forEach(function (it) { if (isFolded(st, it.key)) out.start.push(it.key) })
-    z.after.forEach(function (it) { if (isFolded(st, it.key)) out.end.push(it.key) })
-    return out
-  }
-  var seen = false
-  z.center.forEach(function (it) {
-    if (!isFolded(st, it.key)) seen = true
-    else out[seen ? "end" : "start"].push(it.key)
-  })
+  z.before.forEach(function (it) { if (isFolded(st, it.key)) out.start.push(it.key) })
+  z.after.forEach(function (it) { if (isFolded(st, it.key)) out.end.push(it.key) })
   return out
 }
 
@@ -105,15 +119,23 @@ function zoneLength(pad, slots) {
 }
 
 // Where along the centre its fixed point sits: the notch's middle, else the
-// anchor's, else the centre's own.
+// middle of the box's widgets still on the bar (the mark of an empty box).
 function anchorOffsetOf(input, slots, len) {
-  var a = input.zones.anchor
-  var key = hasNotch(input) ? NOTCH : a ? a.key : null
-  if (!key) return len / 2
-  for (var i = 0; i < slots.length; i++) {
-    if (slots[i].key === key) return input.pad(slots[0].spill) + sumExtent(slots, i) + slots[i].extent / 2
+  var z = input.zones
+  if (!slots.length) return len / 2
+  var start = function (i) { return input.pad(slots[0].spill) + sumExtent(slots, i) }
+  if (hasNotch(input) || !z.anchor || z.anchor.mark) {
+    var key = hasNotch(input) ? NOTCH : z.anchor ? z.anchor.key : null
+    for (var i = 0; i < slots.length; i++) if (slots[i].key === key) return start(i) + slots[i].extent / 2
+    return len / 2
   }
-  return len / 2
+  var first = -1, last = -1
+  for (var j = 0; j < slots.length; j++) {
+    if (z.box.indexOf(slots[j].key) < 0) continue
+    if (first < 0) first = j
+    last = j
+  }
+  return first < 0 ? len / 2 : (start(first) + start(last) + slots[last].extent) / 2
 }
 
 function layout(input, st) {
@@ -148,20 +170,19 @@ function unfoldedOf(input, name, st) {
 // Beside a notch: fold on the side that collides, from the longer of the
 // side zone and the centre's run on that side. The anchor never folds.
 function foldBeside(input, st, g) {
-  var z = input.zones, anchor = z.anchor
+  var z = input.zones
   var leftSide = g.lo > g.target + 1e-6
   var cand = []
   if (leftSide) {
     var ul = unfoldedOf(input, "left", st)
-    var before = anchor ? z.before.filter(function (it) { return !isFolded(st, it.key) }) : []
+    var before = z.before.filter(function (it) { return !isFolded(st, it.key) })
     if (ul.length > 1) cand.push({ len: g.lenL, key: ul[ul.length - 1].key })
     if (before.length) cand.push({ len: g.off - input.notch / 2, key: before[0].key })
   } else {
     var ur = unfoldedOf(input, "right", st)
-    var after = anchor ? z.after.filter(function (it) { return !isFolded(st, it.key) })
-      : z.center.filter(function (it) { return !isFolded(st, it.key) })
+    var after = z.after.filter(function (it) { return !isFolded(st, it.key) })
     if (ur.length > 1) cand.push({ len: g.lenR, key: ur[0].key })
-    if (after.length > (anchor ? 0 : 1)) cand.push({ len: g.lenC - g.off - input.notch / 2, key: after[after.length - 1].key })
+    if (after.length) cand.push({ len: g.lenC - g.off - input.notch / 2, key: after[after.length - 1].key })
   }
   if (!cand.length) return false
   var pick = cand[0]
@@ -173,29 +194,22 @@ function foldBeside(input, st, g) {
 
 function foldOne(input, st, g) {
   if (hasNotch(input)) return foldBeside(input, st, g)
-  var z = input.zones, anchor = z.anchor
+  var z = input.zones
   var ul = unfoldedOf(input, "left", st)
   var ur = unfoldedOf(input, "right", st)
   var cand = []
   if (ul.length > 1) cand.push({ name: "left", len: g.lenL })
   if (ur.length > 1) cand.push({ name: "right", len: g.lenR })
-  var before = [], after = [], uc = []
-  if (anchor) {
-    before = z.before.filter(function (it) { return !isFolded(st, it.key) })
-    after = z.after.filter(function (it) { return !isFolded(st, it.key) })
-    if (before.length + after.length > 0) cand.push({ name: "center", len: g.lenC })
-  } else {
-    uc = unfoldedOf(input, "center", st)
-    if (uc.length >= 2) cand.push({ name: "center", len: g.lenC })
-  }
+  var before = z.before.filter(function (it) { return !isFolded(st, it.key) })
+  var after = z.after.filter(function (it) { return !isFolded(st, it.key) })
+  if (before.length + after.length > 0) cand.push({ name: "center", len: g.lenC })
   if (!cand.length) return false
   var pick = cand[0]
   for (var i = 1; i < cand.length; i++) if (cand[i].len > pick.len) pick = cand[i]
   var key
   if (pick.name === "left") key = ul[ul.length - 1].key
   else if (pick.name === "right") key = ur[0].key
-  else if (anchor) key = before.length >= after.length ? before[0].key : after[after.length - 1].key
-  else key = g.lenL >= g.lenR ? uc[0].key : uc[uc.length - 1].key
+  else key = before.length >= after.length ? before[0].key : after[after.length - 1].key
   st.folded[key] = true
   st.order.push(key)
   return true
@@ -486,7 +500,14 @@ function fitMoment(input) {
 
 // fit(input) -> { fits, centerStart, anchorOffset, centerShift, folded, order,
 //                 handles, centerFolded, yielded, fallback, fallbacks (moments) }.
-//                 See the lab for the input shape.
+//                 input.zones: { left, before, box, after, right }, each a list
+//                 of { key, extent, spill } in bar order.
 function fit(input) {
+  if (!input.zones.prepared) {
+    var o = {}
+    for (var k in input) o[k] = input[k]
+    o.zones = prepare(input.zones)
+    input = o
+  }
   return input.transient ? fitMoment(input) : fitLasting(input)
 }

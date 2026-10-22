@@ -141,7 +141,7 @@ test('clean config folds nothing on a 1920 px screen', () => {
     length: 1920, inset: cell.flatEdge(k, 8, OMARCHY_ICON_SLOT), gap: k.cell + k.spacing, gutter: k.gutter,
     pad: s => cell.endPad(k, s), handle: { extent: h.extent, spill: h.spill },
     zones: { left: mk('L', [13, 100]), right: mk('R', [14, 14, 13, 13]), before: [],
-      anchor: mk('A', [92])[0], after: mk('F', [14]), center: [] },
+      box: mk('A', [92]), after: mk('F', [14]) },
     previous: null, transient: null
   }));
   assert.deepEqual(r.folded, { left: [], center: [], right: [] });

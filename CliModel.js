@@ -5,7 +5,6 @@
 //
 // Writers: "option"  Preferences.setOption(key, value) (bar.<key>)
 //          "style"   Preferences.setBarStyle(value)
-//          "zones"   Preferences.setZoneMode(value)
 //          "scope"   Preferences.setScope(tile, value)
 //          "look"    Preferences.setLook(tile, look, value)
 //          "text"    Preferences.setText(value)
@@ -16,8 +15,7 @@ var settings = [
   { name: "background", key: "background", type: "choice", choices: ["opaque", "glassy", "none"], writer: "option" },
   // The older on/off form of background: none or opaque.
   { name: "transparent", key: "transparent", type: "bool", writer: "option" },
-  { name: "centerAnchor", key: "centerAnchor", type: "string", writer: "option" },
-  { name: "style", key: "powerbarStyle", type: "choice", choices: ["flat", "floating", "islands"], writer: "style" },
+  { name: "style", key: "powerbarStyle", type: "choice", choices: ["flat", "floating", "islands", "notch"], writer: "style" },
   { name: "largeBar", key: "powerbarLargeBar", type: "bool", writer: "option" },
   { name: "spacingMode", key: "powerbarSpacingMode", type: "choice", choices: ["slots", "gaps"], writer: "option" },
   { name: "spacing", key: "powerbarSpacing", type: "number", min: 0, max: 16, step: 1, writer: "option" },
@@ -33,9 +31,7 @@ var settings = [
   { name: "entryGraceSeconds", key: "powerbarManagedEntryGraceSeconds", type: "number", min: 1, max: 15, writer: "option" },
   { name: "exitGraceSeconds", key: "powerbarManagedExitGraceSeconds", type: "number", min: 1, max: 15, writer: "option" },
   { name: "frameLog", key: "powerbarFrameLog", type: "bool", writer: "option" },
-  // Zone modes (layout-zones.md, "Zone modes"): each keeps its own layout.
-  { name: "zones", key: "powerbarZones", type: "choice", choices: ["three", "two", "notch"], writer: "zones" },
-  // A camera notch's width in logical px: the gap two-zone modes keep.
+  // A camera notch's width in logical px.
   { name: "notchWidth", key: "powerbarNotchWidth", type: "number", min: 40, max: 600, step: 1, writer: "option" },
   // Its height in logical px, on a notched screen.
   { name: "notchHeight", key: "powerbarNotchHeight", type: "number", min: 16, max: 96, step: 1, writer: "option" },
@@ -56,6 +52,13 @@ var settings = [
 // Shortcuts: "shortcut.bar:keys", "shortcut.bar:search", "shortcut.group:<id>", "shortcut.widget:<id>".
 var shortcutPrefix = "shortcut."
 
+// Settings earlier versions had, and what took their place.
+var retired = {
+  zones: "zones are always five; see set style notch",
+  powerbarZones: "zones are always five; see set style notch",
+  centerAnchor: "the center box is the Center zone; move a widget there with setWidget <widget> {\"zone\":\"center\"}"
+}
+function retiredNote(name) { return retired[String(name || "").trim()] || "" }
 // A setting by its name or its shell.json key (powerbarAutoHide), or a
 // shortcut setting; null when there is none.
 function find(name) {
@@ -147,9 +150,10 @@ function widgetRecord(records, selector) {
     + byId.map(function(r) { return r.instanceKey }).join(", ") }
   return { error: "no widget " + sel + " in the layout" }
 }
-var sections = ["left", "center", "right"]
+// The five zones (SectionsModel.lists).
+var sections = ["left", "centerBegin", "center", "centerEnd", "right"]
 var visibilities = ["shown", "managed", "hidden"]
-var widgetFields = ["zone", "visibility", "before", "group", "activityPeek", "badgeProperty", "urgentProperty", "centered"]
+var widgetFields = ["zone", "visibility", "before", "group", "activityPeek", "badgeProperty", "urgentProperty"]
 // A widget change from the command line, checked whole before anything is
 // written. → { patch } or { error }. ctx: { groups: [ids] }.
 function widgetPatch(patch, ctx) {
@@ -161,7 +165,7 @@ function widgetPatch(patch, ctx) {
   if (patch.before !== undefined && typeof patch.before !== "string") return { error: "before names a widget, or \"\" for the zone's end" }
   if (patch.group !== undefined && (typeof patch.group !== "string" || (patch.group && (ctx && ctx.groups || []).indexOf(patch.group) < 0)))
     return { error: "group is a group's id, or \"\" for none" }
-  var flags = ["activityPeek", "centered"], props = ["badgeProperty", "urgentProperty"]
+  var flags = ["activityPeek"], props = ["badgeProperty", "urgentProperty"]
   for (var i = 0; i < flags.length; i++)
     if (patch[flags[i]] !== undefined && typeof patch[flags[i]] !== "boolean") return { error: flags[i] + " is true or false" }
   for (var j = 0; j < props.length; j++)
@@ -265,7 +269,7 @@ var functions = [
   ["toggle", "<setting>", "flip a true/false setting"],
   ["settings", "", "every setting with its type, values and shell.json key"],
   ["widgets", "", "the layout: each widget's zone, visibility, group and settings"],
-  ["setWidget", "<widget> <json>", "move or change a widget: zone, visibility, before, group, activityPeek, badgeProperty, urgentProperty, centered"],
+  ["setWidget", "<widget> <json>", "move or change a widget: zone, visibility, before, group, activityPeek, badgeProperty, urgentProperty"],
   ["groups", "", "every group, with its members"],
   ["newGroup", "<name>", "make a group; answers its id"],
   ["setGroup", "<group> <json>", "change a group: label, icon, zone, visibility, face, badge, members…"],
@@ -279,7 +283,7 @@ var functions = [
   ["keysOff", "", "end the keyboard mode"],
   ["keysSearch", "", "start the keyboard mode with its search (/) open, or end it while a search is open"],
   ["keysStatus", "", "the keyboard mode's state, as JSON"],
-  ["managed", "<zone>", "open a zone's On demand drawer for the keyboard"],
+  ["managed", "<zone>", "open a zone's On demand drawer for the keyboard (left, centerBegin, center, centerEnd, right)"],
   ["closeManaged", "", "close the open drawer or group menu"],
   ["group", "<id>", "open a group's drawer"],
   ["toggleGroup", "<id>", "open or close a group's drawer"],

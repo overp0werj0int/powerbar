@@ -49,8 +49,16 @@ test('values are checked as Preferences offers them', () => {
   assert.deepEqual(J(m.check(m.find('revealSeconds'), 2.5)), { value: 2.5 });
   assert.match(m.check(m.find('revealSeconds'), 0).error, /from 1 to 60/);
   assert.match(m.check(m.find('spacing'), '4').error, /is a number/);
-  assert.deepEqual(J(m.check(m.find('centerAnchor'), '')), { value: '' });
-  assert.ok(m.check(m.find('centerAnchor'), 3).error);
+});
+
+test('retired settings say what took their place', () => {
+  for (const name of ['zones', 'powerbarZones', 'centerAnchor']) {
+    assert.equal(m.find(name), null, name);
+    assert.ok(m.retiredNote(name), name);
+  }
+  assert.match(m.retiredNote('zones'), /always five; see set style notch/);
+  assert.equal(m.retiredNote('spacing'), '');
+  assert.ok(m.find('style').choices.includes('notch'));
 });
 
 test('shortcut values: keys, none, or a confirmed replacement', () => {
@@ -93,7 +101,9 @@ test('a widget change is checked whole', () => {
   const ctx = { groups: ['g-1'] };
   assert.deepEqual(J(m.widgetPatch({ visibility: 'managed' }, ctx)), { patch: { visibility: 'managed' } });
   assert.match(m.widgetPatch({ visibility: 'gone' }, ctx).error, /shown, managed, hidden/);
-  assert.match(m.widgetPatch({ zone: 'top' }, ctx).error, /left, center, right/);
+  assert.match(m.widgetPatch({ zone: 'top' }, ctx).error, /left, centerBegin, center, centerEnd, right/);
+  assert.deepEqual(J(m.widgetPatch({ zone: 'centerEnd' }, ctx)), { patch: { zone: 'centerEnd' } });
+  assert.match(m.widgetPatch({ centered: true }, ctx).error, /unknown field centered/);
   assert.match(m.widgetPatch({ colour: 'red' }, ctx).error, /unknown field colour/);
   assert.match(m.widgetPatch({ group: 'g-2' }, ctx).error, /group/);
   assert.deepEqual(J(m.widgetPatch({ group: '' }, ctx)), { patch: { group: '' } });

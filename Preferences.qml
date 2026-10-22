@@ -9,7 +9,6 @@ import qs.Commons as Commons
 import qs.Ui
 import "PreferencesModel.js" as Model
 import "BarModel.js" as BarModel
-import "ZoneModeModel.js" as ZoneModeModel
 import "AppearanceModel.js" as AppearanceModel
 import "GroupsModel.js" as Groups
 import "RenderModel.js" as RenderModel
@@ -279,14 +278,10 @@ Item {
     var result = bar.writeConfig(function(config) { BarModel.setBarStyle(config, value) })
     status = result === false ? "Could not save. Check that shell.json is writable." : ""
   }
-  // Zone modes swap layouts (ZoneModeModel.switchMode): one write.
-  function setZoneMode(value) {
-    if (!bar || !bar.shell) return
-    var result = bar.writeConfig(function(config) { ZoneModeModel.switchMode(config.bar, value) })
-    status = result === false ? "Could not save. Check that shell.json is writable." : ""
-  }
   readonly property var ranges: AppearanceModel.ranges
-  // The notch (ZoneModeModel.js): black, at the top, no drawers.
+  // The Notch style: black ears around the camera, at the top of a notched
+  // screen, no drawers; other screens and edges draw it as islands. Settings
+  // that only the islands use hide when every screen has the notch look.
   readonly property bool notchMode: !!bar && bar.notchMode
   readonly property bool motion: !bar || bar.animationsEnabled
   // Tiles sit apart like tiled windows: twice Hyprland's inner gap, read once
@@ -329,7 +324,7 @@ Item {
       }
       var layout = config.bar.layout
       if (!record.instanceKey) { changed = Model.move(config, record, section, mode, Math.ceil(before)); return }
-      var from = ["left", "center", "right"].find(function(zone) {
+      var from = Model.sections.find(function(zone) {
         return (layout[zone] || []).some(function(entry) { return entry && entry.powerbarInstance === record.instanceKey })
       })
       var to = layout[section] || []
@@ -694,7 +689,6 @@ Item {
                       columnSpacing: Style.space(16)
                       rowSpacing: Style.space(8)
                       BarPlacement {
-                        enabled: !prefs.notchMode
                         Layout.alignment: Qt.AlignTop | Qt.AlignHCenter
                         bar: prefs.bar
                         source: prefs.wallpaper
@@ -705,41 +699,20 @@ Item {
                         Layout.fillWidth: true
                         Layout.alignment: Qt.AlignTop
                         spacing: Style.space(2)
-                        // The notch is its own look, at the top of the screen.
-                        Text {
-                          visible: prefs.notchMode
-                          text: "On the notch"
-                          textFormat: Text.PlainText
-                          color: Commons.Color.popups.text
-                          font.family: Style.font.family
-                          font.pixelSize: Style.font.body
-                          font.bold: true
-                          Layout.fillWidth: true
-                        }
-                        Text {
-                          visible: prefs.notchMode
-                          text: "Black zones grow out of the camera at the top of the screen. Choose Three or Two zones on the Layout page for the other styles."
-                          textFormat: Text.PlainText
-                          wrapMode: Text.WordWrap
-                          color: Qt.alpha(Commons.Color.popups.text, 0.6)
-                          font.family: Style.font.family
-                          font.pixelSize: Style.font.caption
-                          Layout.fillWidth: true
-                          Layout.rightMargin: Style.spacing.rowPaddingX
-                        }
                         PrefsChoice {
-                          visible: !prefs.notchMode
                           compact: true
                           Layout.leftMargin: 0
                           stacked: true
                           label: "Style"
-                          description: value === "islands" ? "A surface for each zone" : value === "floating" ? "One bar, off the edges" : "Edge to edge, like Omarchy"
+                          description: value === "islands" ? "A surface for each zone" : value === "floating" ? "One bar, off the edges"
+                            : value === "notch" ? "Notch applies on the top edge of the notched screen; elsewhere it draws as islands" : "Edge to edge, like Omarchy"
+                          // Notch is offered where a screen has one.
                           options: [{ value: "flat", label: "Flat" }, { value: "floating", label: "Floating" }, { value: "islands", label: "Islands" }]
-                          value: prefs.bar ? prefs.bar.barStyle : "flat"
+                            .concat(prefs.bar && (prefs.bar.screenNotch || prefs.bar.notchStyle) ? [{ value: "notch", label: "Notch" }] : [])
+                          value: prefs.bar ? (prefs.bar.notchStyle ? "notch" : prefs.bar.barStyle) : "flat"
                           onChosen: function(value) { prefs.setBarStyle(value) }
                         }
                         PrefsChoice {
-                          visible: !prefs.notchMode
                           compact: true
                           Layout.leftMargin: 0
                           stacked: true
@@ -747,31 +720,6 @@ Item {
                           options: [{ value: "top", label: "Top" }, { value: "bottom", label: "Bottom" }, { value: "left", label: "Left" }, { value: "right", label: "Right" }]
                           value: prefs.bar ? prefs.bar.position : "top"
                           onChosen: function(value) { prefs.setOption("position", value) }
-                        }
-                        Text {
-                          // Two-zone modes have no centre to pin to.
-                          visible: !(prefs.bar && prefs.bar.twoZones)
-                          Layout.topMargin: Style.space(4)
-                          text: "Pinned to screen center"
-                          textFormat: Text.PlainText
-                          color: Commons.Color.popups.text
-                          font.family: Style.font.family
-                          font.pixelSize: Style.font.body
-                          font.bold: true
-                          Layout.fillWidth: true
-                          elide: Text.ElideRight
-                        }
-                        Dropdown {
-                          visible: !(prefs.bar && prefs.bar.twoZones)
-                          label: "Pinned to screen center"
-                          showLabel: false
-                          Layout.fillWidth: true
-                          Layout.rightMargin: Style.spacing.rowPaddingX
-                          options: [{ label: "None", value: "" }].concat(prefs.layoutEntries.filter(function(e) {
-                            return e.section === "center" && e.mode === "shown" && !e.groupId
-                          }).map(function(e) { return { label: prefs.title(e), value: e.id } }))
-                          value: prefs.bar ? prefs.bar.centerAnchor : ""
-                          onChanged: function(value) { prefs.setOption("centerAnchor", value) }
                         }
                       }
                     }
@@ -850,16 +798,15 @@ Item {
                       onEdited: function(v) { prefs.setLook("shape", "borderWidth", v) }
                     }
                   }
-                  // Two-zone modes keep a gap one notch wide in the middle; the
-                  // notch's zones blend into the camera, which takes the place
-                  // of Surface (black, no blur there). On a notched screen the
-                  // camera's size also shapes three zones and the large bar.
+                  // The Notch style's ears blend into the camera, which takes the
+                  // place of Surface (black, no blur there). In every style the
+                  // camera's size places the center and the large bar.
                   PrefsTile {
                     id: notchTile
                     readonly property var notch: prefs.bar ? prefs.bar.screenNotch : null
-                    visible: !!prefs.bar && (prefs.bar.twoZones || !!notch)
+                    visible: !!notch
                     title: "Notch"
-                    caption: prefs.notchMode ? "Black, like the camera" : prefs.bar && prefs.bar.twoZones ? "The gap in the middle" : "The camera's size"
+                    caption: prefs.notchMode ? "Black, like the camera" : "The camera's size"
                     span12: 4; span6: 3
                     PrefsSlider {
                       compact: true

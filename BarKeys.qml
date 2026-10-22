@@ -23,6 +23,17 @@ Item {
   property var window: null
   // The stop under the cursor: a slot, or a zone's dots (FoldHandle).
   property var cursor: null
+  // The part of a widget with several targets (workspaces, revealed
+  // indicators) the cursor is on, counted from the end the cursor came in at:
+  // walking along the bar visits each, as the pointer's thumb does.
+  property int part: 0
+  property bool partFromEnd: false
+  // A new stop starts at its first part; put() and the pointer then choose.
+  onCursorChanged: { part = 0; partFromEnd = false }
+  // The cursor in the center zone counts as the pointer there, so the
+  // indicators reveal their folded icons to it as they do to a hover.
+  readonly property bool inCenter: here && !!cursor && !cursorIsDots && zone === "center"
+  onInCenterChanged: bar.setCenterSectionHovered(inCenter)
   // A drawer opened from the cursor: a group's, or a zone's (drawer mode).
   property var drawer: null
   // The drawer is unfolded beside the icon but not entered.
@@ -55,6 +66,7 @@ Item {
     var d = drawer
     return { active: active, suspended: suspended, screen: window && window.screen ? String(window.screen.name) : "",
       cursor: !cursor ? "" : cursorIsDots ? "dots:" + cursor.inlineToken : nameOf(cursor), kind: kindOf(cursor), zone: zone,
+      part: partIn(cursor), parts: partsOf(cursor).map(function(p) { return String(p.target.tooltipText || "") }),
       cursorState: cursor && !cursorIsDots ? { managed: cursor.managed, inlineShown: cursor.inlineShown, activity: cursor.activityVisible, hovered: cursor.hovered, token: cursor.inlineToken } : null,
       stops: active ? stops().map(function(s) { return s.kind === "dots" ? "dots:" + s.item.inlineToken : nameOf(s.item) }) : [],
       drawer: d ? { group: d.groupId, zone: d.zone, previewing: previewing, aside: d.steppedAside, cursor: d.cursorActive ? d.cursor : -1,
@@ -107,6 +119,15 @@ Item {
     for (var j = 0; j < list.length; j++) if (list[j].zone === zone) return j
     return -1
   }
+  // The parts of a stop, in bar order ([] for one target).
+  function partsOf(item) { return kindOf(item) === "widget" && item.compoundParts && item.compoundParts.length > 1 ? item.compoundParts : [] }
+  // The part the cursor is on in `slot`, or -1.
+  function partIn(slot) {
+    var n = partsOf(slot).length
+    if (n < 2) return -1
+    var i = Math.min(part, n - 1)
+    return partFromEnd ? n - 1 - i : i
+  }
   function kindOf(item) { return !item ? "" : item.isFoldHandle ? "dots" : item.isPrefsButton ? "prefs" : item.groupHeader ? "group" : "widget" }
   // What the cursor's stop is called on the card and in a search.
   function nameOf(item) { return !item ? "" : item.isFoldHandle || item.isPrefsButton ? item.label : bar.slotName(item) }
@@ -147,10 +168,10 @@ Item {
     active = true
     searching = false; query = ""; sheet = false; drawer = null; previewing = false; pending = null
     bar.refreshShortcuts()
-    // Start on the widget whose panel is open, else the clock, else the middle.
+    // Start on the widget whose panel is open, else the center box's first, else the middle.
     var list = stops()
     var open = list.find(function(s) { return s.item.panelOpen })
-    var anchor = list.find(function(s) { return s.item.centerAnchorSlot })
+    var anchor = list.find(function(s) { return s.item.drawnList === "center" })
     var back = at ? list.find(function(s) { return s.item === at }) : null
     var start = back || open || anchor || list[Math.floor(list.length / 2)]
     cursor = start ? start.item : null
@@ -212,6 +233,8 @@ Item {
     var d = drawer
     if (!(d && previewing && !d.groupId && previewZone(item) === d.zone)) closeDrawer(false)
     cursor = item
+    part = 0
+    partFromEnd = dir < 0
     // Leaving an expanded zone folds it behind its dots again.
     var w = window
     if (w && w.inlineZone && w.inlineZoneName !== zone) w.inlineAsk("")
@@ -220,6 +243,14 @@ Item {
     focusLater()
   }
   function moveBy(dir) {
+    // Along a widget's parts first, then on to the next stop.
+    var p = partIn(cursor), n = partsOf(cursor).length
+    if (p >= 0 && p + dir >= 0 && p + dir < n) {
+      part = p + dir
+      partFromEnd = false
+      showCard()
+      return
+    }
     var list = stops(), i = at(list)
     if (i < 0) { if (list.length) put(list[dir > 0 ? 0 : list.length - 1].item, dir); return }
     var to = KeysModel.gridStep(list, i, dir, 0)
@@ -283,7 +314,7 @@ Item {
     if (!drop) return
     var source = cursor, target = list[to].item
     var moved = drop.dots
-      ? dragEdit(source, { managedZone: target.zone, handle: true, handleToken: target.inlineToken, managedBefore: bar.handleDropBefore(target, source) }, "dots " + target.zone)
+      ? dragEdit(source, { managedZone: target.zone, managedList: bar.handleList(target), handle: true, handleToken: target.inlineToken, managedBefore: bar.handleDropBefore(target, source) }, "dots " + target.zone)
       : dragEdit(source, { slot: target, after: drop.after }, (drop.after ? "after " : "before ") + nameOf(target))
     if (moved) follow(source, drop.dots ? target.zone : list[to].zone)
   }
@@ -541,6 +572,14 @@ Item {
     handOffEnd.restart()
     slot.activate()
   }
+  // Enter on a part presses that target, as a click on it would.
+  function pressPart(target) {
+    if (!bar.moduleTargetClickable(target)) return
+    bar.hideCard()
+    handOff = true
+    handOffEnd.restart()
+    target.triggerPress(Qt.LeftButton)
+  }
   Timer { id: handOffEnd; interval: 400; onTriggered: { keys.handOff = false; if (keys.active && !keys.suspended) { keys.showCard(); keys.focusLater() } } }
 
   // A window or layer that is not the bar's opens (from Enter, or any other
@@ -574,6 +613,8 @@ Item {
     // Preferences takes the keyboard: the mode ends until , brings it back.
     if (item.isPrefsButton) { openPreferences(); return }
     if (item.isFoldHandle) { openDots(item.inlineToken, 1, ""); return }
+    var p = partIn(item)
+    if (p >= 0) { pressPart(partsOf(item)[p].target); return }
     activate(item)
   }
 
@@ -879,6 +920,14 @@ Item {
     } else if (here && cursor && !opensDrawer(cursor)) { slot = cursor; target = cursor }
     if (!target) { cardTarget = null; bar.hideCard(); return }
     var name = nameOf(slot)
+    // On a part, the card is the part's own tooltip.
+    var p = target === cursor ? partIn(cursor) : -1
+    var own = p >= 0 ? partsOf(cursor)[p].target : null
+    if (own && own.tooltipText) {
+      cardTarget = own
+      bar.showCard(own, String(own.tooltipText))
+      return
+    }
     var menuRow = !!(here && d && d.namedMenu && target !== slot)
     var own = menuRow && typeof target.ownTooltip === "function" ? target.ownTooltip() : ""
     cardTarget = target
@@ -927,7 +976,13 @@ Item {
       for (var i = 0; i < list.length; i++) {
         var item = list[i].item, local = item.mapFromItem(p.parent, pos.x, pos.y)
         if (local.x >= 0 && local.y >= 0 && local.x < item.width && local.y < item.height) {
-          if (item !== keys.cursor) { keys.cursor = item; keys.showCard() }
+          var p = typeof item.partAt === "function" && keys.partsOf(item).length ? item.partAt(bar.vertical ? local.y : local.x) : -1
+          if (item !== keys.cursor || p >= 0 && p !== keys.partIn(item)) {
+            keys.cursor = item
+            keys.part = Math.max(0, p)
+            keys.partFromEnd = false
+            keys.showCard()
+          }
           return
         }
       }

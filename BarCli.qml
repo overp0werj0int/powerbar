@@ -38,7 +38,6 @@ Item {
     case "position": return b.position
     case "background": return b.backgroundLook
     case "transparent": return b.requestedTransparent
-    case "centerAnchor": return b.centerAnchor
     case "style": return b.barOptions.style
     case "largeBar": return b.largeBar
     case "spacingMode": return b.spacingMode
@@ -53,7 +52,6 @@ Item {
     case "frameLog": return b.frameLog
     case "notchWidth": return b.screenNotch ? b.screenNotch.width : b.barOptions.notchWidth || null
     case "notchHeight": return b.screenNotch ? b.screenNotch.height : b.barOptions.notchHeight || null
-    case "zones": return b.zoneMode
     case "revealSeconds": return b.managedRevealSeconds
     case "entryGraceSeconds": return b.managedEntrySeconds
     case "exitGraceSeconds": return b.managedExitSeconds
@@ -79,7 +77,7 @@ Item {
   }
   function get(name) {
     var s = Cli.find(name)
-    if (!s) return fail("no setting " + name + "; omarchy-shell powerbar settings lists them")
+    if (!s) return fail(Cli.retiredNote(name) || "no setting " + name + "; omarchy-shell powerbar settings lists them")
     if (s.type === "shortcut") {
       var bad = Cli.shortcutTarget(s.target, ctx())
       if (bad) return fail(bad)
@@ -91,7 +89,7 @@ Item {
   }
   function set(name, text) {
     var s = Cli.find(name)
-    if (!s) return fail("no setting " + name + "; omarchy-shell powerbar settings lists them")
+    if (!s) return fail(Cli.retiredNote(name) || "no setting " + name + "; omarchy-shell powerbar settings lists them")
     var cannot = begin()
     if (cannot) return cannot
     var checked = Cli.check(s, Cli.parseValue(text), ctx())
@@ -101,7 +99,6 @@ Item {
     switch (s.writer) {
     case "option": preferences.setOption(s.key, value); break
     case "style": preferences.setBarStyle(value); break
-    case "zones": preferences.setZoneMode(value); break
     case "scope":
       if (!bar.themeName) return fail("the current theme is not known yet")
       preferences.setScope(s.tile, value)
@@ -121,12 +118,11 @@ Item {
   }
   function reset(name) {
     var s = Cli.find(name)
-    if (!s) return fail("no setting " + name + "; omarchy-shell powerbar settings lists them")
+    if (!s) return fail(Cli.retiredNote(name) || "no setting " + name + "; omarchy-shell powerbar settings lists them")
     var cannot = begin()
     if (cannot) return cannot
     switch (s.writer) {
     case "option": preferences.setOption(s.key, undefined); break
-    case "zones": preferences.setZoneMode("three"); break
     case "style":
       // Earlier versions' powerbarIslands goes too, as choosing a style drops it.
       preferences.setOption("powerbarStyle", undefined)
@@ -151,7 +147,7 @@ Item {
   }
   function toggle(name) {
     var s = Cli.find(name)
-    if (!s) return fail("no setting " + name + "; omarchy-shell powerbar settings lists them")
+    if (!s) return fail(Cli.retiredNote(name) || "no setting " + name + "; omarchy-shell powerbar settings lists them")
     var next = Cli.toggled(s, valueOf(s))
     if (next.error) return fail(next.error)
     var cannot = begin()
@@ -172,7 +168,7 @@ Item {
       for (var k in entry) if (k !== "id" && k.indexOf("powerbar") !== 0) own[k] = entry[k]
       var group = bar.groupFor(r.instanceKey)
       return { id: r.id, instance: r.instanceKey, name: preferences.title(r), zone: r.section, index: r.index,
-        visibility: liveMode(r), group: group ? group.id : "", centered: r.section === "center" && bar.centerAnchor === r.id,
+        visibility: liveMode(r), group: group ? group.id : "",
         activityPeek: bar.activityPeeksFor(r.instanceKey, r.id), badgeProperty: r.badgeProperty,
         urgentProperty: r.urgentProperty, settings: own }
     })
@@ -199,8 +195,6 @@ Item {
     for (var field of ["badgeProperty", "urgentProperty"])
       if (p[field] && !GroupBadgeModel.propertyName(p[field], field === "badgeProperty"))
         return fail(p[field] + " is not a property name")
-    if (p.centered === true && (place.section !== "center" || place.mode !== "shown"))
-      return fail("centered is for a widget on the bar in the center zone")
     if (place.changed) {
       preferences.move(r, place.section, place.mode, place.before)
       if (preferences.status) return fail(preferences.status)
@@ -209,8 +203,6 @@ Item {
     if (p.activityPeek !== undefined) bar.setActivityPeek(r.instanceKey, p.activityPeek)
     if (p.badgeProperty !== undefined) bar.editMemberBadge(r.instanceKey, "badgeProperty", p.badgeProperty)
     if (p.urgentProperty !== undefined) bar.editMemberBadge(r.instanceKey, "urgentProperty", p.urgentProperty)
-    if (p.centered === true) preferences.setOption("centerAnchor", r.id)
-    else if (p.centered === false && bar.centerAnchor === r.id) preferences.setOption("centerAnchor", "")
     return written()
   }
 

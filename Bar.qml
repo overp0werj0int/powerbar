@@ -28,7 +28,6 @@ import "GlyphModel.js" as GlyphModel
 import "ShortcutModel.js" as ShortcutModel
 import "BarKeysModel.js" as KeysModel
 import "TooltipModel.js" as TooltipModel
-import "ZoneModeModel.js" as ZoneModeModel
 
 Item {
   id: root
@@ -127,7 +126,7 @@ Item {
   // Per-widget opt-out from sliding an autohidden bar out on activity.
   function setActivityPeek(key, enabled) {
     return writeConfig(function(config) {
-      for (var section of ["left", "center", "right"]) {
+      for (var section of SectionsModel.lists) {
         for (var entry of (config.bar.layout[section] || [])) {
           if (entry && entry.powerbarInstance === key) {
             if (enabled) delete entry.powerbarActivityPeek
@@ -143,7 +142,7 @@ Item {
     var safe = GroupBadgeModel.propertyName(value, field === "badgeProperty")
     if (value.trim() && !safe) return false
     return editGroups(function(config) {
-      for (var section of ["left", "center", "right"]) {
+      for (var section of SectionsModel.lists) {
         for (var entry of (config.bar.layout[section] || [])) {
           if (entry && entry.powerbarInstance === key) {
             var name = field === "badgeProperty" ? "powerbarBadgeProperty" : "powerbarUrgentProperty"
@@ -306,7 +305,7 @@ Item {
       face.inkStart = slot.ink.start
       face.inkLength = slot.ink.length
       face.glyph = CellModel.isGlyph(slot.ink.length, slot.ink.glyph)
-      face.cap = slot.compoundTargets.length < 2
+      face.cap = !slot.manyTargets
     }
     return face
   }
@@ -359,7 +358,7 @@ Item {
     interval: 1000
     onTriggered: {
       var keys = {}
-      for (var zone of ["left", "center", "right"])
+      for (var zone of SectionsModel.lists)
         for (var entry of ((root.barConfig.layout || {})[zone] || [])) if (entry && entry.powerbarInstance) keys[entry.powerbarInstance] = true
       var kept = {}
       for (var key in root.widgetFaces) if (keys[key] || !Object.keys(keys).length) kept[key] = root.widgetFaces[key]
@@ -418,7 +417,7 @@ Item {
       store = found ? GlyphModel.merge(store, slot.instanceKey, found) : GlyphModel.forget(store, slot.instanceKey)
     }
     var keys = []
-    for (var zone of ["left", "center", "right"])
+    for (var zone of SectionsModel.lists)
       for (var entry of ((barConfig.layout || {})[zone] || [])) if (entry && entry.powerbarInstance) keys.push(entry.powerbarInstance)
     if (keys.length) store = GlyphModel.prune(store, keys)
     if (store === widgetGlyphs) return
@@ -460,7 +459,7 @@ Item {
   // that was destroyed. Runs after widgets (re)load (glyphReadDelay).
   function pruneSessionMaps() {
     var listed = Object.create(null), any = false
-    for (var zone of ["left", "center", "right"])
+    for (var zone of SectionsModel.lists)
       for (var entry of ((barConfig.layout || {})[zone] || [])) if (entry && entry.powerbarInstance) { listed[entry.powerbarInstance] = true; any = true }
     if (any) for (var known in lookKnownKeys) if (!listed[known] && !slotCopies[known]) delete lookKnownKeys[known]
     var now = Date.now()
@@ -542,9 +541,9 @@ Item {
   function ensureInstanceIds() {
     if (!canWriteConfig() || !barConfig.layout || lostKeysPending()) return
     var seen = {}, missing = barConfig.powerbarVisibilityDefault !== "shown"
-    // Two-zone modes have no centre: a widget another writer put there moves.
-    if (twoZones && (barConfig.layout.center || []).length) missing = true
-    for (var zone of ["left", "center", "right"]) {
+    // The tray section's widgets too: Powerbar draws them beside the tray.
+    var holders = SectionsModel.lists.concat(["tray"])
+    for (var zone of holders) {
       for (var entry of (barConfig.layout[zone] || [])) {
         var key = entry && entry.powerbarInstance
         if (!key || seen[key]) missing = true
@@ -557,10 +556,8 @@ Item {
       // suggested shortcuts in a notification, once (ShortcutStore offerSuggested).
       if (!ManagedModel.powerbarHasRun(config.bar)) config.bar.powerbarShortcutOffer = true
       ManagedModel.healVisibility(config.bar, root.thirdPartyEntry)
-      // New widgets (no instance key yet) take their mode's place first.
-      ZoneModeModel.settleNew(config.bar, function(entry) { return !entry.powerbarInstance })
       var used = {}
-      for (var zone of ["left", "center", "right"]) {
+      for (var zone of holders) {
         var entries = config.bar.layout[zone] || []
         for (var i = 0; i < entries.length; i++) {
           var entry = typeof entries[i] === "string" ? { id: entries[i] } : entries[i]
@@ -581,6 +578,23 @@ Item {
     return slots.filter(function(slot) { return slot.fitFolded }).concat(slots.filter(function(slot) { return !slot.fitFolded }))
   }
   function targetsForSlot(slot) { return slot ? slot.slotTargets : [] }
+  // Whether a target is drawn in its slot: shown, not faded out, and not cut
+  // off by a clipping parent (the indicators keep their folded icons in a
+  // zero-width clip, transparent).
+  function targetPainted(target, slot) {
+    if (!target || !target.visible || target.width <= 0 || target.height <= 0 || target.concealed === true) return false
+    var opacity = 1
+    for (var p = target; p && p !== slot; p = p.parent) {
+      if (!p.visible) return false
+      opacity *= p.opacity
+      if (opacity <= 0.01) return false
+      if (p !== target && p.clip) {
+        var c = target.mapToItem(p, target.width / 2, target.height / 2)
+        if (p.width <= 0 || p.height <= 0 || c.x < 0 || c.y < 0 || c.x > p.width || c.y > p.height) return false
+      }
+    }
+    return true
+  }
   property var targetSlots: []
   property var pendingTargets: []
   property var targetWatches: []
@@ -653,7 +667,10 @@ Item {
   }
   // The keyboard's commands pick their bar one way (focusedBarWindow): the
   // focused monitor's, another only while no monitor is focused.
+  // A zone by its list (centerBegin) or its drawer (center): the center's
+  // three lists share the center's drawer.
   function openManagedZone(zone) {
+    zone = SectionsModel.zoneOf(zone)
     if (["left", "center", "right"].indexOf(zone) < 0) return
     var window = focusedBarWindow()
     if (window && window.managedDrawer) window.managedDrawer.openZone(zone, true)
@@ -767,17 +784,18 @@ Item {
   // not otherwise need it, but declaring it keeps clone construction atomic.
   property var pluginRegistry: null
   // Injected by the host shell every time shell.json is reloaded. Holds the
-  // `bar:` subtree: position, centerAnchor, layout. The host owns file IO;
+  // `bar:` subtree: position, layout. The host owns file IO;
   // the bar just renders whatever it's handed. The bar font follows the
   // OS-level fontconfig monospace binding — it is not stored in shell.json.
   property var barConfig: ({})
-  // Three zones, two, or two growing out of the notch (ZoneModeModel.js).
-  readonly property string zoneMode: ZoneModeModel.modeOf(barConfig)
-  readonly property bool twoZones: ZoneModeModel.twoZones(zoneMode)
-  // The notch's zones are black and light-lettered on every screen: widgets
-  // take one bar colour, and the notched screen's zones blend into the camera.
-  // No shadow, blur or border there: the camera has none.
-  readonly property bool notchMode: zoneMode === "notch"
+  // The Notch style: on the top edge of a notched screen the centre's two
+  // sides grow out of the camera as its ears (Left of center with Left, the
+  // box and Right of center with Right). Elsewhere it draws as islands.
+  // Its zones are black and light-lettered on every screen: widgets take one
+  // bar colour, and the notched screen's zones blend into the camera. No
+  // shadow, blur or border there: the camera has none.
+  readonly property bool notchStyle: barOptions.style === "notch"
+  readonly property bool notchMode: notchStyle && position === "top" && !!screenNotch
   // Injected by the host shell. Used for shell-wide actions such as opening
   // settings and persisting inline widget state.
   property var shell: null
@@ -804,11 +822,9 @@ Item {
   property var fallbackBarConfig: ({
     position: "top",
     transparent: false,
-    centerAnchor: "omarchy.clock",
-    layout: { left: [], center: [], right: [] }
+    layout: { left: [], centerBegin: [], center: [], centerEnd: [], right: [] }
   })
   property var layoutConfig: fallbackBarConfig.layout
-  property string centerAnchor: ""
   property bool requestedTransparent: false
   property bool useTransparentForeground: false
   property bool transparent: false
@@ -1357,6 +1373,7 @@ Item {
       out.push({
         id: slot.moduleName,
         section: slot.region,
+        list: slot.drawnList,
         x: Math.round(point.x),
         y: Math.round(point.y),
         width: Math.round(slot.width),
@@ -1496,8 +1513,6 @@ Item {
   }
 
   function beginBarMove(window) {
-    // The notch keeps the bar at the top.
-    if (notchMode) return
     barMoveWindow = window
     barMoveScreen = window ? window.screen : null
     barMoveCandidate = position
@@ -1800,7 +1815,7 @@ Item {
       var p = drawerTarget.landingPoint(sourceSlot, host || null)
       return { item: p.item, local: p.local, fade: false }
     }
-    if (!target || target.drawerHost || target.centerAnchorSlot) return null
+    if (!target || target.drawerHost) return null
     var start = drop.after === true ? target.cellExtent : 0
     var centre = start + sourceSlot.inkShift + (root.vertical ? sourceSlot.naturalHeight : sourceSlot.naturalWidth) / 2
     var local = root.vertical
@@ -1979,7 +1994,7 @@ Item {
 
   // The notch's zones are islands that grow out of the camera, on every
   // screen (Preferences hides Style there).
-  readonly property string barStyle: notchMode ? "islands" : barOptions.style
+  readonly property string barStyle: notchStyle ? "islands" : barOptions.style
   readonly property bool islands: barStyle === "islands"
   readonly property bool floating: barStyle === "floating"
   readonly property bool flat: barStyle === "flat"
@@ -2018,12 +2033,19 @@ Item {
     }
     return sizes
   }
-  // A large flat top bar on a notched screen is exactly as tall as the camera
-  // (layout-zones.md ZONE-90); other screens keep the large bar's size.
-  function fitsNotch(notch) { return !!notch && !vertical && flat && largeBar && !notchMode }
-  // A bar window's own thickness and its cells', where it differs (notchFit).
+  // A flat top bar on a notched screen is exactly as tall as the camera, large
+  // or small (layout-zones.md ZONE-90); other screens keep the bar's size.
+  function fitsNotch(notch) { return !!notch && !vertical && flat && !notchMode }
+  // A bar window's own thickness and cells, where they differ (notchFit), and
+  // what follows from them: the inset off the screen's sides, the island end
+  // pad, the gap between zones and the highlight's radius.
   function sizeIn(window) { return window && window.barSize > 0 ? window.barSize : barSize }
-  function thicknessIn(window) { return window && window.cellThickness > 0 ? window.cellThickness : cellTokens.thickness }
+  function tokensIn(window) { return window && window.cellTokens ? window.cellTokens : cellTokens }
+  function thicknessIn(window) { return tokensIn(window).thickness }
+  function screenInsetIn(window) { return flat ? CellModel.flatEdge(tokensIn(window), Style.space(8), Style.bar.iconSlot) : edgeGap }
+  function endPadIn(window, spill) { return CellModel.endPad(tokensIn(window), spill) }
+  function zoneGapIn(window) { return tokensIn(window).cell + widgetSpacing }
+  function highlightRadiusIn(window) { return CellModel.radius(tokensIn(window), islandRounding) }
 
   // Camera notches (NotchModel.js, docs/behavior/layout-zones.md "Notch"):
   // the panels Omarchy's platform package describes, read as the shell starts
@@ -2084,6 +2106,13 @@ Item {
   // cells one gutter apart; Equal gaps puts the same air between glyphs.
   readonly property string spacingMode: barOptions.spacingMode
   readonly property var cellTokens: CellModel.tokens({ bar: barSize, spacing: widgetSpacing, mode: spacingMode })
+  // A bar fitted to a notch has the large bar's cells, as thick as the notch
+  // leaves room for, whether or not the bar is large: the strip is the
+  // camera's height either way, so the setting changes nothing there.
+  function notchTokensFor(notch) {
+    var large = CellModel.tokens({ bar: barSizeFor(false, true), spacing: widgetSpacing, mode: spacingMode })
+    return Object.assign({}, large, { thickness: Math.max(0, Math.min(large.thickness, notch.height - 2 * large.inset)) })
+  }
   // A group drawn as a menu has one size on every bar: rows, padding and icon
   // cells as the large bar's (groups.md GROUP-96). The live drawer and
   // Preferences' drawing of it both read these.
@@ -2103,8 +2132,6 @@ Item {
   // flat bar runs edge to edge, and its zones keep the end glyphs where
   // Omarchy's bar has them (CellModel.flatEdge).
   readonly property real islandScreenInset: flat ? CellModel.flatEdge(cellTokens, Style.space(8), Style.bar.iconSlot) : edgeGap
-  // Preferences' layout preview pads its zones like an island end.
-  readonly property real islandPadding: cellTokens.inset
   // Padding past the first or last slot so the end cell sits one inset from
   // the island's end and its curve runs parallel to the island's.
   function cellEndPad(spill) { return CellModel.endPad(cellTokens, spill) }
@@ -2121,9 +2148,6 @@ Item {
     else delete next[screenName]
     if (!RenderModel.equal(next, zoneFitReports)) zoneFitReports = next
   }
-  // Island ends are the same during a drag: the outlined placeholder shows
-  // where a widget lands, so islands no longer grow a landing lip.
-  function islandEnd(zone, spill) { return cellEndPad(spill) }
   // The kit button that paints a widget's glyph, if any (depth-limited): an
   // icon button, or a text button showing a glyph (placeholders, group icons).
   // Only when that button is the widget's whole content: the search follows a
@@ -2177,7 +2201,8 @@ Item {
   // The cell centres on the item's own stretch: past `lead` and at most `span`
   // long, so a drop gap the slot holds before or after its widget is left out.
   function cellHighlight(item, host, strip, cell, lead, span) {
-    var thickness = thicknessIn(targetWindow(strip))
+    var window = targetWindow(strip)
+    var thickness = thicknessIn(window), radius = highlightRadiusIn(window)
     var origin = item.mapToItem(host, 0, 0)
     var along = vertical ? item.height : item.width
     var from = lead > 0 ? lead : 0
@@ -2187,8 +2212,8 @@ Item {
     var cross = vertical ? s.x + (strip.width - thickness) / 2 : s.y + (strip.height - thickness) / 2
     // A widget in the notch's second row lights there.
     if (!vertical && item.wrapY > 0) cross += item.wrapY
-    return vertical ? { x: cross, y: start, width: thickness, height: cell, radius: highlightRadius }
-      : { x: start, y: cross, width: cell, height: thickness, radius: highlightRadius }
+    return vertical ? { x: cross, y: start, width: thickness, height: cell, radius: radius }
+      : { x: start, y: cross, width: cell, height: thickness, radius: radius }
   }
   // A notch zone's second row (NotchModel.wrapRow), or null: list is the
   // zone's ModuleList, trail an item that ends it (the Preferences button).
@@ -2278,18 +2303,31 @@ Item {
 
   // Apply tray-pinning on top of the shared layout normalization so the
   // bar host and scriptable config helpers can't drift on entry shape.
+  // The five zone lists; widgets of Omarchy's tray section are drawn on
+  // demand right after the tray (powerbarList "tray": a drag takes them out).
+  // Each list is normalized on its own, so an Omarchy that knows only three
+  // sections keeps the center's other two.
   function normalizeLayout(layout) {
-    var normalized = Util.normalizeLayout(Util.isPlainObject(layout) ? layout : fallbackBarConfig.layout)
-    for (var section in normalized) {
-      normalized[section] = normalized[section].filter(function(entry) {
+    var source = Util.isPlainObject(layout) ? layout : fallbackBarConfig.layout
+    var shown = function(name) {
+      return Util.normalizeLayout({ left: source[name] }).left.filter(function(entry) {
         return PreferencesModel.mode(entry) !== "hidden"
       })
     }
-    return GroupsModel.render({
-      left:   pinTrayToInner(normalized.left,   "left"),
-      center: pinTrayToInner(normalized.center, "center"),
-      right:  pinTrayToInner(normalized.right,  "right")
-    }, GroupsModel.groups(barConfig))
+    var lists = {}
+    for (var name of SectionsModel.lists) lists[name] = pinTrayToInner(shown(name), name)
+    var tray = shown("tray").map(function(entry) {
+      return Object.assign({ powerbarVisibility: "managed" }, entry, { powerbarList: "tray" })
+    })
+    if (tray.length) {
+      var placed = SectionsModel.lists.some(function(name) {
+        var at = lists[name].findIndex(function(entry) { return entryId(entry) === "omarchy.tray" })
+        if (at >= 0) lists[name] = lists[name].slice(0, at + 1).concat(tray, lists[name].slice(at + 1))
+        return at >= 0
+      })
+      if (!placed) lists.right = lists.right.concat(tray)
+    }
+    return GroupsModel.render(lists, GroupsModel.groups(barConfig))
   }
 
   // The tray drawer reveals inward (away from the bar edge). Place it at the
@@ -2304,14 +2342,12 @@ Item {
     var config = Util.isPlainObject(barConfig) ? barConfig : fallbackBarConfig
 
     updateGroups(config)
-    // The notch's zones grow out of a camera at the top of the screen.
-    position = ZoneModeModel.modeOf(config) === "notch" ? "top" : normalizePosition(config.position)
+    position = normalizePosition(config.position)
     var look = AppearanceModel.barBackground(config)
     backgroundLook = look
     setRequestedTransparency(look === "none")
     if (look !== "none") glassy = look === "glassy"
     syncGlass()
-    centerAnchor = Util.canonicalWidgetId(config.centerAnchor || "")
 
     var next = normalizeLayout(config.layout)
     if (RenderModel.equal(layoutConfig, next)) return
@@ -2328,10 +2364,11 @@ Item {
   }
 
   onBarConfigChanged: {
-    // Omarchy's six sections are read as Powerbar's three zones (SectionsModel):
-    // the folded copy comes back through here.
-    if (SectionsModel.needsFold(barConfig)) {
-      barConfig = SectionsModel.fold(JSON.parse(JSON.stringify(barConfig)))
+    // Older shapes are read into the five zone lists (SectionsModel): the read
+    // copy comes back through here.
+    if (SectionsModel.needsRead(barConfig)) {
+      retireZoneModes(barConfig)
+      barConfig = SectionsModel.read(JSON.parse(JSON.stringify(barConfig)))
       return
     }
     if (AppearanceModel.legacyPresent(barConfig)) healLater.restart()
@@ -2355,6 +2392,26 @@ Item {
   Timer { id: healLater; interval: 0; onTriggered: root.healAppearance() }
   Timer { id: themesLater; interval: 0; onTriggered: root.refreshThemes() }
   Timer { id: lostKeysLater; interval: 0; onTriggered: root.restoreLostKeys() }
+  // A config from the retired zone modes is saved in the five lists once, after
+  // the arrangements each mode kept are copied to the cache folder (never read
+  // back): zone-layouts-<date>.json.
+  property bool zoneModesRetired: false
+  function retireZoneModes(bar) {
+    if (zoneModesRetired || !("powerbarZones" in bar || "powerbarZoneLayouts" in bar)) return
+    zoneModesRetired = true
+    var kept = SectionsModel.zoneLayouts(bar)
+    zoneLayoutsBackup.command = ["sh", "-c", 'umask 077; mkdir -p -- "${1%/*}" || exit 1; [ -z "$2" ] || [ -e "$1" ] || printf "%s\\n" "$2" > "$1"',
+      "sh", widgetImageDir.slice(0, widgetImageDir.lastIndexOf("/")) + "/zone-layouts-" + Qt.formatDate(new Date(), "yyyy-MM-dd") + ".json",
+      kept ? JSON.stringify(kept, null, 2) : ""]
+    zoneLayoutsBackup.running = true
+  }
+  Process {
+    id: zoneLayoutsBackup
+    onExited: function(code) {
+      if (code === 0) configStore.writeNow(function(config) {})
+      else console.warn("powerbar: could not copy the zone modes' arrangements to the cache folder; shell.json keeps them")
+    }
+  }
   // The layout last shown: where keys another writer dropped come back from
   // (BarModel.lostKeys; Omarchy's updateEntryInline keeps only a widget's id
   // and settings, INTEG-148).
@@ -2383,10 +2440,33 @@ Item {
     })
   }
 
-  function layoutEntries(region) {
+  function layoutEntries(list) {
     var serial = barConfigSerial
-    var entries = layoutConfig ? layoutConfig[region] : null
+    var entries = layoutConfig ? layoutConfig[list] : null
     return Array.isArray(entries) ? entries : []
+  }
+  // A zone's lists in bar order, and their entries as one run (ears: under
+  // the Notch style's camera, RenderModel.zoneOf).
+  function zoneLists(zone, ears) {
+    return SectionsModel.lists.filter(function(list) { return RenderModel.zoneOf(list, ears) === zone })
+  }
+  function zoneEntries(zone, ears) {
+    return [].concat.apply([], zoneLists(zone, ears).map(function(list) { return layoutEntries(list) }))
+  }
+  // The saved keys of a list in order, without group icons and the tray
+  // section's widgets drawn in it.
+  function savedKeys(list) {
+    return layoutEntries(list).filter(function(entry) {
+      return entry && !entry.powerbarGroupId && entry.powerbarInstance && entry.powerbarList !== "tray"
+    }).map(function(entry) { return entry.powerbarInstance })
+  }
+  // The list a drop lands in: on a zone, the zone's own (the centre's box);
+  // in a zone's drawer, its list (Right of center for the centre's); on dots,
+  // the list they sit at the end of.
+  function zoneDropList(zone) { return zone }
+  function drawerList(zone) { return zone === "center" ? "centerEnd" : zone }
+  function handleList(handle) {
+    return handle.zone !== "center" ? handle.zone : handle.side === "start" ? "centerBegin" : "centerEnd"
   }
 
   // Tab order for the panels in one bar region. Scoped to a single bar surface
@@ -2405,7 +2485,7 @@ Item {
       if (slot.instanceKey && !byKey[slot.instanceKey]) byKey[slot.instanceKey] = slot
       if (slot.moduleName && !byId[slot.moduleName]) byId[slot.moduleName] = slot
     }
-    var entries = layoutEntries(region)
+    var entries = zoneEntries(region, !!window && !!window.notchLook)
     var slots = []
     for (var i = 0; i < entries.length; i++) {
       // A widget on the bar twice is told apart by its instance.
@@ -2686,11 +2766,11 @@ Item {
   }
 
   function dropBarModule(source, toRegion, beforeKey, visibility) {
-    if (!source || !source.region || !source.instanceKey || !toRegion) return false
+    if (!source || !source.savedList || !source.instanceKey || !toRegion) return false
     if (!root.canWriteConfig()) return false
 
     // Plain values: the edit runs again later, after the slot has moved.
-    var region = source.region, key = source.instanceKey, grouped = !!source.memberGroup
+    var region = source.savedList, key = source.instanceKey, grouped = !!source.memberGroup
     var changed = false
     root.writeConfig(function(config) {
       var layout = config.bar && config.bar.layout
@@ -2720,7 +2800,7 @@ Item {
   function dropAfterGroup(source, groupId, visibility) {
     if (!source || !root.canWriteConfig()) return false
     // Plain values: the edit runs again later, after the slot has moved.
-    var region = source.region, key = source.instanceKey, grouped = !!source.memberGroup
+    var region = source.savedList, key = source.instanceKey, grouped = !!source.memberGroup
     var changed = false
     root.writeConfig(function(config) {
       changed = false
@@ -2740,7 +2820,7 @@ Item {
 
   function passOwnGroup(source, groupId) {
     if (!source || !root.canWriteConfig()) return false
-    var region = source.region, key = source.instanceKey
+    var region = source.savedList, key = source.instanceKey
     var changed = false
     root.writeConfig(function(config) {
       changed = GroupsModel.passGroups(config, region, key, groupId)
@@ -2751,8 +2831,6 @@ Item {
   function barZoneAt(point, window) {
     var coordinate = root.vertical ? point.y : point.x
     var length = root.vertical ? window.height : window.width
-    // Two zones have no centre: each takes its half.
-    if (root.twoZones) return coordinate < length / 2 ? "left" : "right"
     return ["left", "center", "right"][Math.min(2, Math.max(0, Math.floor(coordinate * 3 / length)))]
   }
 
@@ -2838,7 +2916,8 @@ Item {
       alongColumn: alongColumn, previous: shown && shown.slot ? { slot: shown.slot, after: shown.after } : null,
       deadZone: root.dragDeadZone, inDrawer: inDrawer, zone: zone })
     // The dots: the widget joins the zone's on-demand widgets on their side.
-    if (drop.handle) return { managedZone: handle.zone, handle: true, handleToken: handle.inlineToken, managedBefore: root.handleDropBefore(handle, sourceSlot) }
+    if (drop.handle) return { managedZone: handle.zone, managedList: root.handleList(handle), handle: true,
+      handleToken: handle.inlineToken, managedBefore: root.handleDropBefore(handle, sourceSlot) }
     if (drop.drawer) return { drawer: drawer }
     return drop
   }
@@ -2846,19 +2925,16 @@ Item {
   // Dots at a zone's start take the widget at the start of the zone's list.
   function handleDropBefore(handle, sourceSlot) {
     if (handle.side !== "start") return ""
-    var entries = layoutEntries(handle.zone)
-    for (var i = 0; i < entries.length; i++) {
-      var key = entries[i].powerbarInstance
-      if (key && (!sourceSlot || key !== sourceSlot.instanceKey)) return key
-    }
+    var keys = savedKeys(handleList(handle))
+    for (var i = 0; i < keys.length; i++) if (!sourceSlot || keys[i] !== sourceSlot.instanceKey) return keys[i]
     return ""
   }
 
-  function visibleModuleSlot(region, key, sourceSlot, inDrawer) {
+  function visibleModuleSlot(list, key, sourceSlot, inDrawer) {
     var sourceWindow = root.slotWindow(sourceSlot) || root.barDragWindow
     for (var i = 0; i < moduleSlots.length; i++) {
       var slot = moduleSlots[i]
-      if (!slot || slot === sourceSlot || slot.region !== region || slot.instanceKey !== key ||
+      if (!slot || slot === sourceSlot || slot.drawnList !== list || slot.instanceKey !== key ||
           slot.groupHeader || !!slot.drawerHost !== inDrawer || !slot.visible) continue
       var item = slot.drawerHost || slot
       if (item.width <= 0 || item.height <= 0 || (!slot.mainVisible && !slot.drawerHost)) continue
@@ -2869,17 +2945,17 @@ Item {
     return null
   }
 
-  function nextVisibleModuleKey(region, afterKey, sourceSlot, inDrawer) {
-    var entries = layoutEntries(region)
+  function nextVisibleModuleKey(list, afterKey, sourceSlot, inDrawer) {
+    var keys = savedKeys(list)
     var found = false
-    for (var i = 0; i < entries.length; i++) {
-      var key = entries[i].powerbarInstance
+    for (var i = 0; i < keys.length; i++) {
+      var key = keys[i]
       if (!found) {
         found = key === afterKey
         continue
       }
 
-      if (visibleModuleSlot(region, key, sourceSlot, inDrawer)) return key
+      if (visibleModuleSlot(list, key, sourceSlot, inDrawer)) return key
     }
 
     return ""
@@ -2892,22 +2968,21 @@ Item {
   function barGap(targetSlot, after, sourceSlot) {
     var window = targetSlot.homeWindow
     if (!window) return null
-    var models = window.widgetModels, region = targetSlot.region
-    var lists = region !== "center" ? [region] : models.anchor.count ? ["before", "anchor", "after"] : ["center"]
-    var sequence = [], anchorKey = ""
-    for (var name of lists) {
-      for (var i = 0; i < models[name].count; i++) {
-        var s = models[name].get(i)
+    var sequence = []
+    // A widget of the tray section is drawn here but saved elsewhere: it is
+    // nobody's neighbour in the saved list.
+    for (var model of window.zoneModels(targetSlot.region)) {
+      for (var i = 0; i < model.count; i++) {
+        var s = model.get(i)
         if (!s) continue
-        if (name === "anchor") anchorKey = s.instanceKey
-        sequence.push({ key: s.instanceKey, list: name, managed: s.managed, group: s.groupHeader,
+        sequence.push({ key: s.instanceKey, list: s.savedList, managed: s.managed, group: s.groupHeader,
           expanded: s.inlineShown && s.mainVisible, hidden: !s.mainVisible })
       }
     }
     var rest = sequence.filter(function(item) { return item.key !== sourceSlot.instanceKey })
     var at = rest.findIndex(function(item) { return item.key === targetSlot.instanceKey })
     if (at < 0) return null
-    return { sequence: sequence, rest: rest, gap: at + (after ? 1 : 0), anchorKey: anchorKey, region: region }
+    return { sequence: sequence, rest: rest, gap: at + (after ? 1 : 0), list: targetSlot.drawnList }
   }
   // A gap inside an expansion's run lands On demand; where the shown widgets
   // meet the expansion it joins the run of the widget the pointer is on
@@ -2919,10 +2994,8 @@ Item {
   function barDropBefore(targetSlot, after, sourceSlot, managed) {
     var g = barGap(targetSlot, after, sourceSlot)
     if (!g) return ""
-    var layout = layoutEntries(g.region).filter(function(entry) { return entry && !entry.powerbarGroupId && entry.powerbarInstance })
-      .map(function(entry) { return entry.powerbarInstance })
-    return ZoneOrderModel.dropBefore({ sequence: g.sequence, gap: g.gap, managed: managed,
-      layout: layout, source: sourceSlot.instanceKey, anchorKey: g.anchorKey })
+    return ZoneOrderModel.dropBefore({ sequence: g.sequence, gap: g.gap, list: g.list, managed: managed,
+      layout: savedKeys(g.list), source: sourceSlot.instanceKey })
   }
 
   // A drag from the keyboard (keyboard.md KEYS-86): the edit moves the slots
@@ -2978,11 +3051,11 @@ Item {
     if (sourceSlot.groupHeader) {
       var id = sourceSlot.entry.powerbarGroupId
       if (drop.managedZone) return root.editGroups(function(config) {
-        GroupsModel.moveHeader(config, id, drop.managedZone, drop.managedBefore || "", "", false, "managed")
+        GroupsModel.moveHeader(config, id, drop.managedList, drop.managedBefore || "", "", false, "managed")
       })
       if (drop.drawer) {
         if (drop.drawer.groupId) return false
-        var drawerZone = drop.drawer.zone
+        var drawerZone = root.drawerList(drop.drawer.zone)
         return root.editGroups(function(config) {
           GroupsModel.moveHeader(config, id, drawerZone, "", "", false, "managed")
         })
@@ -2991,24 +3064,24 @@ Item {
       var headerMode = targetSlot && (targetSlot.drawerHost || root.barGapOnDemand(targetSlot, afterTarget, sourceSlot)) ? "managed" : "shown"
       var before = !targetSlot ? ""
         : !targetSlot.drawerHost ? root.barDropBefore(targetSlot, afterTarget, sourceSlot, headerMode === "managed")
-        : !afterTarget ? targetSlot.instanceKey : nextVisibleModuleKey(targetSlot.region, targetSlot.instanceKey, sourceSlot, true)
-      var section = targetSlot ? targetSlot.region : drop.zone
+        : !afterTarget ? targetSlot.instanceKey : nextVisibleModuleKey(targetSlot.drawnList, targetSlot.instanceKey, sourceSlot, true)
+      var section = targetSlot ? targetSlot.drawnList : root.zoneDropList(drop.zone)
       var besideGroup = targetSlot && targetSlot.groupHeader ? targetSlot.entry.powerbarGroupId : ""
       return root.editGroups(function(config) {
         GroupsModel.moveHeader(config, id, section, before, besideGroup, afterTarget, headerMode)
       })
     }
-    if (drop.managedZone) return root.dropBarModule(sourceSlot, drop.managedZone, drop.managedBefore || "", "managed")
+    if (drop.managedZone) return root.dropBarModule(sourceSlot, drop.managedList, drop.managedBefore || "", "managed")
     if (drop.drawer) {
       if (drop.drawer.groupId) return root.assignGroup(sourceSlot.instanceKey, drop.drawer.groupId, "", true)
-      return root.dropBarModule(sourceSlot, drop.drawer.zone, "", "managed")
+      return root.dropBarModule(sourceSlot, root.drawerList(drop.drawer.zone), "", "managed")
     }
-    if (drop.zone) return root.dropBarModule(sourceSlot, drop.zone, "", "shown")
+    if (drop.zone) return root.dropBarModule(sourceSlot, root.zoneDropList(drop.zone), "", "shown")
     if (drop.into) return root.assignGroup(sourceSlot.instanceKey, targetSlot.entry.powerbarGroupId)
     // Before a group drawn just before the widget itself (anchored on it): the
     // widget passes the group, which re-anchors after it. As a move in the
     // layout it would be no move at all.
-    if (targetSlot.groupHeader && !afterTarget && !targetSlot.drawerHost && targetSlot.region === sourceSlot.region
+    if (targetSlot.groupHeader && !afterTarget && !targetSlot.drawerHost && targetSlot.drawnList === sourceSlot.savedList
         && !sourceSlot.memberGroup && !!targetSlot.managed === !!sourceSlot.managed && root.passOwnGroup(sourceSlot, targetSlot.entry.powerbarGroupId)) return true
     // Inside an inline expansion's run the widget joins it On demand; where the
     // shown widgets meet the expansion it lands shown.
@@ -3030,8 +3103,8 @@ Item {
       return root.assignGroup(sourceSlot.instanceKey, group.id, group.items[index] || "", true)
     }
     var beforeKey = !targetSlot.drawerHost ? root.barDropBefore(targetSlot, afterTarget, sourceSlot, visibility === "managed")
-      : afterTarget ? nextVisibleModuleKey(targetSlot.region, targetSlot.instanceKey, sourceSlot, true) : targetSlot.instanceKey
-    return dropBarModule(sourceSlot, targetSlot.region, beforeKey, visibility)
+      : afterTarget ? nextVisibleModuleKey(targetSlot.drawnList, targetSlot.instanceKey, sourceSlot, true) : targetSlot.instanceKey
+    return dropBarModule(sourceSlot, targetSlot.drawnList, beforeKey, visibility)
   }
 
   function moduleTargetClickable(target) {
@@ -3432,8 +3505,8 @@ Item {
       return null
     }
     property alias widgetStore: widgetStore
-    property var widgetModels: ({ left: leftModel, right: rightModel, center: centerModel,
-      before: beforeModel, anchor: anchorModel, after: afterModel })
+    property var widgetModels: ({ left: leftModel, centerBegin: centerBeginModel, center: centerModel,
+      centerEnd: centerEndModel, right: rightModel })
     property var moduleItems: []
     // The zone fit for this window (docs/design/zone-fit.md): the one
     // place that decides which widgets fold into their zone's drawer, which
@@ -3509,38 +3582,36 @@ Item {
     }
     // Everything the fit reads; any change schedules one refit.
     readonly property var zoneFitInputs: {
-      var anchors = zoneFitList(anchorModel)
-      var prefs = CellModel.place(root.cellTokens, root.preferencesGlyphSize, true)
+      var prefs = CellModel.place(barWindow.cellTokens, root.preferencesGlyphSize, true)
       var right = zoneFitList(rightModel)
       right.push({ key: "prefs", extent: prefs.extent, spill: prefs.spill })
       var hidden = inlineHidden
       var aged = zoneFitAged
       return {
         length: (root.vertical ? mainStrip.height : mainStrip.width),
-        inset: root.islandScreenInset,
-        gap: root.zoneGap,
+        inset: barWindow.screenInset,
+        gap: barWindow.zoneGap,
         momentGap: root.edgeGap,
-        gutter: root.cellTokens.gutter,
+        gutter: barWindow.cellTokens.gutter,
         notch: notchKeepOut,
         wrap: notchLook,
         left: zoneFitList(leftModel), right: right,
-        before: zoneFitList(beforeModel), anchor: anchors.length ? anchors[0] : null, after: zoneFitList(afterModel),
-        center: zoneFitList(centerModel),
+        before: zoneFitList(centerBeginModel), box: zoneFitList(centerModel), after: zoneFitList(centerEndModel),
         dots: { left: hidden.left > 0, center: { start: hidden.centerStart > 0, end: hidden.centerEnd > 0 }, right: hidden.right > 0 },
         moments: zoneFitMoments.filter(function(m) { return !aged[barWindow.zoneFitMomentId(m)] })
       }
     }
     onZoneFitInputsChanged: Qt.callLater(barWindow.refit)
     function zoneFitInput(i, transient) {
-      var handle = CellModel.place(root.cellTokens, CellModel.TYPICAL_GLYPH, true)
+      var handle = CellModel.place(barWindow.cellTokens, CellModel.TYPICAL_GLYPH, true)
       return {
         length: i.length, inset: i.inset, gap: i.gap, gutter: i.gutter, momentGap: i.momentGap,
         notch: notchSlotOf(i.notch),
         notchPads: notchSplit,
         wrap: i.wrap,
-        pad: function(spill) { return root.cellEndPad(spill) },
+        pad: function(spill) { return barWindow.endPad(spill) },
         handle: { extent: handle.extent, spill: handle.spill },
-        zones: { left: i.left, right: i.right, before: i.before, anchor: i.anchor, after: i.after, center: i.center },
+        zones: { left: i.left, right: i.right, before: i.before, box: i.box, after: i.after },
         dots: i.dots,
         previous: zoneFitLasting,
         transient: transient && transient.length ? transient : null
@@ -3606,7 +3677,7 @@ Item {
     // growing the moment the zone opens, before the bar is fitted again.
     property bool inlineGiveWay: false
     // Each zone's on-demand widgets waiting behind its dots (folded ones apart),
-    // the centre's also by the side of its anchor they wait on.
+    // the centre's also by the side of the box they wait on.
     readonly property var inlineHidden: {
       var out = { left: 0, center: 0, right: 0, centerStart: 0, centerEnd: 0 }
       if (!root.onDemandInline) return out
@@ -3706,10 +3777,10 @@ Item {
       var i = Object.assign({}, zoneFitInputs)
       var zone = token.split(":")[0], side = token.split(":")[1] || ""
       var models = zone === "left" ? { left: leftModel } : zone === "right" ? { right: rightModel }
-        : { before: beforeModel, after: afterModel, center: centerModel }
+        : { before: centerBeginModel, box: centerModel, after: centerEndModel }
       for (var name in models) i[name] = zoneFitList(models[name], token)
       if (zone === "right") {
-        var prefs = CellModel.place(root.cellTokens, root.preferencesGlyphSize, true)
+        var prefs = CellModel.place(barWindow.cellTokens, root.preferencesGlyphSize, true)
         i.right.push({ key: "prefs", extent: prefs.extent, spill: prefs.spill })
       }
       i.dots = Object.assign({}, i.dots)
@@ -3738,7 +3809,7 @@ Item {
     // The zone's expanded widgets in drawn order, grown or not yet.
     function inlineSlots(token) {
       var zone = token.split(":")[0], out = []
-      var models = zone === "left" ? [leftModel] : zone === "right" ? [rightModel] : [beforeModel, centerModel, afterModel]
+      var models = zone === "left" ? [leftModel] : zone === "right" ? [rightModel] : [centerBeginModel, centerModel, centerEndModel]
       models.forEach(function(model) {
         for (var i = 0; i < model.count; i++) {
           var s = model.get(i)
@@ -3774,11 +3845,10 @@ Item {
       function onZoneChanged() { if (drawer.presenting && !drawer.groupId) barWindow.inlineCollapseNow() }
     }
     Models.ObjectModel { id: leftModel }
-    Models.ObjectModel { id: rightModel }
+    Models.ObjectModel { id: centerBeginModel }
     Models.ObjectModel { id: centerModel }
-    Models.ObjectModel { id: beforeModel }
-    Models.ObjectModel { id: anchorModel }
-    Models.ObjectModel { id: afterModel }
+    Models.ObjectModel { id: centerEndModel }
+    Models.ObjectModel { id: rightModel }
     RetainedStore {
       id: widgetStore
       factory: Component {
@@ -3787,23 +3857,28 @@ Item {
         }
       }
     }
+    // The models a zone draws from, in bar order: under the Notch style's
+    // camera each ear is one model, so it draws, fits and wraps as one run.
+    function zoneModels(zone) {
+      return (notchLook ? [zone] : root.zoneLists(zone)).map(function(name) { return widgetModels[name] })
+    }
     function reconcileWidgets() {
-      var records = RenderModel.records(root.layoutConfig)
+      var records = RenderModel.records(root.layoutConfig, notchLook)
       widgetStore.reconcile(records)
-      var partition = RenderModel.split(records, root.centerAnchor)
-      var names = ["left", "right", "center", "before", "anchor", "after"]
+      var partition = RenderModel.split(records)
+      var keys = {}
+      for (var list of SectionsModel.lists) {
+        var into = notchLook ? RenderModel.zoneOf(list, true) : list
+        keys[into] = (keys[into] || []).concat(partition[list])
+      }
       var models = [], lists = []
       // On-demand widgets draw as one run at their dots (ZoneOrderModel).
       var managed = function(item) { return item.managed }
-      for (var name of names) {
+      for (var name of SectionsModel.lists) {
         models.push(widgetModels[name])
-        lists.push(ZoneOrderModel.arrange(partition[name].map(function(key) { return widgetStore.get(key) }).filter(function(item) { return !!item }), managed, name, notchLook))
+        lists.push(ZoneOrderModel.arrange((keys[name] || []).map(function(key) { return widgetStore.get(key) }).filter(function(item) { return !!item }), managed, name, notchLook))
       }
       var items = records.map(function(record) { return widgetStore.get(record.key) }).filter(function(item) { return !!item })
-      for (var item of items) {
-        item.centerAnchorSlot = partition.anchor.indexOf(item.instanceKey) >= 0
-        item.centerSide = partition.before.indexOf(item.instanceKey) >= 0 ? "start" : "end"
-      }
       RenderModel.reconcileLists(models, lists, widgetStore)
       if (!RenderModel.sameItems(moduleItems, items)) moduleItems = items
       widgetStore.sweep()
@@ -3811,7 +3886,6 @@ Item {
     Connections {
       target: root
       function onLayoutConfigChanged() { barWindow.reconcileWidgets() }
-      function onCenterAnchorChanged() { barWindow.reconcileWidgets() }
     }
     // The notch draws on-demand runs at the zones' far ends.
     onNotchLookChanged: reconcileWidgets()
@@ -3840,24 +3914,20 @@ Item {
     // The camera notch on this screen, or null; panelMode keeps it in step
     // with Hyprland's answer.
     readonly property var notch: { var m = panelMode; return root.notchFor(screen) }
-    // The gap two-zone modes keep in the middle of a horizontal bar: one
-    // notch wide, the camera's where there is one (ZoneFitModel's notch slot,
-    // less the zone gap and end pads the fit adds around it; zoneFitInput).
-    // On the notch it is the camera plus the inset a zone keeps from a screen
-    // edge on each side (the zones' black runs on to the camera).
-    // Three zones on a screen with a camera at the top split the centre
-    // around it (notchSplit): the run before the anchor ends at the camera,
-    // the anchor and the rest start past it, each a screen edge's inset away.
-    readonly property real notchKeepOut: root.twoZones && !root.vertical
-      ? (notch ? notch.width : root.barOptions.notchWidth || NotchModel.DEFAULT_LOGICAL_WIDTH) + (notchLook ? root.islandScreenInset * 2 : 0)
-      : notchSplit ? notch.width + root.islandScreenInset * 2 : 0
-    readonly property bool notchSplit: root.zoneMode === "three" && !root.vertical && !!notch
-    // The fit's notch slot. Two zones: the keep-out less the end pads and zone
-    // gaps their zones add around it. Three: the keep-out itself; the fit adds
-    // the end pads of the centre's cells on either side (notchPads).
+    // The gap a horizontal bar keeps around a camera at the top of its
+    // screen: the camera plus the inset a zone keeps from a screen edge on
+    // each side. The Notch style's two sides grow out of it (their black runs
+    // on to the camera); otherwise it splits the centre (notchSplit): Left of
+    // center ends at the camera, the box and Right of center start past it.
+    readonly property real notchKeepOut: !root.vertical && !!notch ? notch.width + barWindow.screenInset * 2 : 0
+    readonly property bool notchSplit: !root.vertical && !!notch && !notchLook
+    // The fit's notch slot. The Notch style: the keep-out less the end pads
+    // and zone gaps its two sides add around it. Otherwise the keep-out
+    // itself; the fit adds the end pads of the centre's cells on either side
+    // (notchPads).
     function notchSlotOf(keepOut) {
       if (!(keepOut > 0)) return 0
-      return root.twoZones ? Math.max(1, keepOut - 2 * (root.cellEndPad(0) + root.zoneGap)) : keepOut
+      return notchLook ? Math.max(1, keepOut - 2 * (barWindow.endPad(0) + barWindow.zoneGap)) : keepOut
     }
     // The notch's zones grow out of this screen's camera, flush with its top.
     readonly property bool notchLook: root.notchMode && !!notch
@@ -3885,21 +3955,24 @@ Item {
     function wrapRowNear(box) {
       var leftSide = box.x + box.width / 2 < width / 2, along = leftSide ? leftRow : rightRow
       if (!notchLook || !(along > 0)) return null
-      return { x: leftSide ? root.islandScreenInset : width - root.islandScreenInset - along, y: mainStrip.y + root.barSize,
+      return { x: leftSide ? barWindow.screenInset : width - barWindow.screenInset - along, y: mainStrip.y + root.barSize,
         width: along, height: root.barSize, vertical: false }
     }
     // The strip is at least as tall as the notch, so no window peeks out
     // beside the camera; widgets stay centred in it (at the top on the notch,
-    // where the zones are only as tall as the bar). A large flat bar there is
-    // exactly as tall as the camera (notchFit, ZONE-90): its cells keep their
-    // length along the bar and lose thickness across it.
+    // where the zones are only as tall as the bar). A flat bar there is
+    // exactly as tall as the camera, large or small (notchFit, ZONE-90): its
+    // cells are the large bar's along it, as thick as the camera leaves room for.
     readonly property int extent: notchLook ? Math.max(root.barSize, notch.height)
       : notchFit ? notch.height : Math.max(root.barExtent, notch ? notch.height : 0)
     readonly property bool notchFit: root.fitsNotch(notch)
-    // This bar's thickness and its cells' (Bar.sizeIn, thicknessIn).
+    // This bar's thickness and its cells (Bar.sizeIn, tokensIn).
     readonly property int barSize: notchFit ? notch.height : root.barSize
-    readonly property real cellThickness: notchFit
-      ? Math.max(0, Math.min(root.cellTokens.thickness, notch.height - 2 * root.cellTokens.inset)) : root.cellTokens.thickness
+    readonly property var cellTokens: notchFit ? root.notchTokensFor(notch) : root.cellTokens
+    readonly property real screenInset: root.screenInsetIn(barWindow)
+    readonly property real zoneGap: root.zoneGapIn(barWindow)
+    readonly property real highlightRadius: root.highlightRadiusIn(barWindow)
+    function endPad(spill) { return root.endPadIn(barWindow, spill) }
     // Hidden for a moment to remap (a blur change, a screen move). Widgets read
     // as invisible meanwhile, so the window freezes its slots' measurements
     // first and thaws them once the widgets have reported their sizes again.
@@ -4224,14 +4297,14 @@ Item {
         intersection: Intersection.Combine
       }
       Region {
-        x: root.islandScreenInset
+        x: barWindow.screenInset
         y: mainStrip.y + root.barSize
         width: barWindow.notchLook ? barWindow.leftRow : 0
         height: root.barSize
         intersection: Intersection.Combine
       }
       Region {
-        x: barWindow.width - root.islandScreenInset - barWindow.rightRow
+        x: barWindow.width - barWindow.screenInset - barWindow.rightRow
         y: mainStrip.y + root.barSize
         width: barWindow.notchLook ? barWindow.rightRow : 0
         height: root.barSize
@@ -4427,7 +4500,7 @@ Item {
               motionEnabled: root.animationsEnabled
               hoverColor: root.onBarHoverColor
               selectedColor: root.onBarSelectedColor
-              rounding: root.highlightRadius
+              rounding: barWindow.highlightRadius
             }
           }
         }
@@ -4825,7 +4898,7 @@ Item {
             shadowEnabled: root.surfaceEffects.shadow
             shadowSize: root.surfaceEffects.shadowSize
             shadowOpacity: root.surfaceEffects.shadowOpacity
-            rowEnd: wrap ? wrap.row[1] + root.cellEndPad(wrap.spill.last) : 0
+            rowEnd: wrap ? wrap.row[1] + barWindow.endPad(wrap.spill.last) : 0
             color: root.mainSurfaceColor
             transform: Translate { x: barWindow.slideX("left", barWindow.leftShift) }
           }
@@ -4834,11 +4907,11 @@ Item {
             zoneHidden: barWindow.zoneHidden("left")
             notchSide: barWindow.notchLook ? "left" : ""
             transform: Translate { x: barWindow.slideX("left", barWindow.leftShift); y: barWindow.slideY("left", barWindow.leftShift) }
-            x: root.vertical ? (parent.width - width) / 2 : leftModules.x + leftModules.shownLead - root.islandEnd("left", leftModules.leadSpill)
-            y: root.vertical ? leftModules.y + leftModules.shownLead - root.islandEnd("left", leftModules.leadSpill) : (parent.height - height) / 2
-            width: root.vertical ? root.barSize : leftModules.width - leftModules.shownLead - leftModules.shownTrail + root.islandEnd("left", leftModules.leadSpill) + root.islandEnd("left", leftModules.trailSpill)
-              + (barWindow.notchLook ? root.islandScreenInset + barWindow.notchTuck : 0)
-            height: root.vertical ? leftModules.height - leftModules.shownLead - leftModules.shownTrail + root.islandEnd("left", leftModules.leadSpill) + root.islandEnd("left", leftModules.trailSpill) : root.barSize
+            x: root.vertical ? (parent.width - width) / 2 : leftModules.x + leftModules.shownLead - barWindow.endPad(leftModules.leadSpill)
+            y: root.vertical ? leftModules.y + leftModules.shownLead - barWindow.endPad(leftModules.leadSpill) : (parent.height - height) / 2
+            width: root.vertical ? root.barSize : leftModules.width - leftModules.shownLead - leftModules.shownTrail + barWindow.endPad(leftModules.leadSpill) + barWindow.endPad(leftModules.trailSpill)
+              + (barWindow.notchLook ? barWindow.screenInset + barWindow.notchTuck : 0)
+            height: root.vertical ? leftModules.height - leftModules.shownLead - leftModules.shownTrail + barWindow.endPad(leftModules.leadSpill) + barWindow.endPad(leftModules.trailSpill) : root.barSize
             visible: root.islands && leftModules.shownLength > 0 && opacity > 0 && !leftHanger.shown
           }
           HighlightLayer { zone: "left"; island: leftIsland; transform: Translate { x: barWindow.slideX("left", barWindow.leftShift); y: barWindow.slideY("left", barWindow.leftShift) } }
@@ -4852,9 +4925,9 @@ Item {
             // width/height directly, which removes their bindings for good.
             // On the notch its end meets the camera, one screen inset away.
             x: root.vertical ? (parent.width - width) / 2
-              : barWindow.notchLook ? barWindow.notchLeft - root.islandScreenInset - width + shownTrail - root.islandEnd("left", trailSpill)
-              : root.islandScreenInset + root.cellEndPad(leadSpill)
-            y: root.vertical ? root.islandScreenInset + root.cellEndPad(leadSpill) : (parent.height - height) / 2
+              : barWindow.notchLook ? barWindow.notchLeft - barWindow.screenInset - width + shownTrail - barWindow.endPad(trailSpill)
+              : barWindow.screenInset + barWindow.endPad(leadSpill)
+            y: root.vertical ? barWindow.screenInset + barWindow.endPad(leadSpill) : (parent.height - height) / 2
           }
           Binding { target: barWindow; property: "leftReach"; value: barWindow.notchLook ? barWindow.notchLeft + barWindow.notchTuck - leftIsland.x : 0 }
           Binding { target: barWindow; property: "leftRow"; value: leftHanger.shown ? leftHanger.reach : 0 }
@@ -4879,7 +4952,7 @@ Item {
             shadowEnabled: root.surfaceEffects.shadow
             shadowSize: root.surfaceEffects.shadowSize
             shadowOpacity: root.surfaceEffects.shadowOpacity
-            rowEnd: wrap ? wrap.row[0] - root.cellEndPad(wrap.spill.first) : 0
+            rowEnd: wrap ? wrap.row[0] - barWindow.endPad(wrap.spill.first) : 0
             color: root.mainSurfaceColor
             transform: Translate { x: barWindow.slideX("right", barWindow.rightShift) }
           }
@@ -4891,14 +4964,14 @@ Item {
             transform: Translate { x: barWindow.slideX("right", barWindow.rightShift); y: barWindow.slideY("right", barWindow.rightShift) }
             readonly property real start: barWindow.notchLook ? barWindow.notchRight - barWindow.notchTuck
               : rightModules.shownLength > 0
-              ? (root.vertical ? rightModules.y : rightModules.x) + rightModules.shownLead - root.islandEnd("right", rightModules.leadSpill)
-              : (root.vertical ? preferencesButton.y : preferencesButton.x) - root.islandEnd("right", preferencesButton.cellSpill)
+              ? (root.vertical ? rightModules.y : rightModules.x) + rightModules.shownLead - barWindow.endPad(rightModules.leadSpill)
+              : (root.vertical ? preferencesButton.y : preferencesButton.x) - barWindow.endPad(preferencesButton.cellSpill)
             x: root.vertical ? (parent.width - width) / 2 : start
             y: root.vertical ? start : (parent.height - height) / 2
             // Measured from start, never from x or y: on a vertical bar x depends on
             // width, so width depending on x would loop when the orientation flips.
-            width: root.vertical ? root.barSize : preferencesButton.x + preferencesButton.width + root.islandEnd("right", preferencesButton.cellSpill) - start
-            height: root.vertical ? preferencesButton.y + preferencesButton.height + root.islandEnd("right", preferencesButton.cellSpill) - start : root.barSize
+            width: root.vertical ? root.barSize : preferencesButton.x + preferencesButton.width + barWindow.endPad(preferencesButton.cellSpill) - start
+            height: root.vertical ? preferencesButton.y + preferencesButton.height + barWindow.endPad(preferencesButton.cellSpill) - start : root.barSize
           }
           HighlightLayer { zone: "right"; island: rightIsland; transform: Translate { x: barWindow.slideX("right", barWindow.rightShift); y: barWindow.slideY("right", barWindow.rightShift) } }
           PreferencesButton {
@@ -4916,9 +4989,9 @@ Item {
             // (the widgets past it wrap; zoneWrap).
             x: root.vertical ? (parent.width - width) / 2
               : barWindow.notchLook ? (rightModules.shownLength > 0 ? Math.min(rightModules.x + rightModules.width, root.pinnedTrailX(preferencesButton, parent.width))
-                : barWindow.notchRight + root.islandScreenInset + root.islandEnd("right", cellSpill))
-              : parent.width - root.islandScreenInset - root.cellEndPad(cellSpill) - width
-            y: root.vertical ? parent.height - root.islandScreenInset - root.cellEndPad(cellSpill) - height : (parent.height - height) / 2
+                : barWindow.notchRight + barWindow.screenInset + barWindow.endPad(cellSpill))
+              : parent.width - barWindow.screenInset - barWindow.endPad(cellSpill) - width
+            y: root.vertical ? parent.height - barWindow.screenInset - barWindow.endPad(cellSpill) - height : (parent.height - height) / 2
           }
           RightModules {
             id: rightModules
@@ -4926,7 +4999,7 @@ Item {
             z: barWindow.inlineZoneName === "right" ? 1 : 0
             transform: Translate { x: barWindow.slideX("right", barWindow.rightShift); y: barWindow.slideY("right", barWindow.rightShift) }
             x: root.vertical ? (parent.width - width) / 2
-              : barWindow.notchLook ? barWindow.notchRight + root.islandScreenInset - shownLead + root.islandEnd("right", leadSpill)
+              : barWindow.notchLook ? barWindow.notchRight + barWindow.screenInset - shownLead + barWindow.endPad(leadSpill)
               : preferencesButton.x - width
             y: root.vertical ? preferencesButton.y - height : (parent.height - height) / 2
           }
@@ -5012,7 +5085,7 @@ Item {
     property string side: "left"
     readonly property bool onNotch: !!window && window.notchLook
     readonly property bool leftSide: side === "left"
-    readonly property real pad: target ? root.cellEndPad(target.cellSpill || 0) : 0
+    readonly property real pad: target ? root.endPadIn(window, target.cellSpill || 0) : 0
     // The widget's place along the bar, measured where it sits in the strip.
     property real along: 0
     property real length: 0
@@ -5028,7 +5101,7 @@ Item {
 
     // The body's length: the widget and its pads, and on the notch the inset
     // a zone keeps from the camera and the tuck under it.
-    readonly property real bodyLength: length + pad * 2 + (onNotch ? root.islandScreenInset + window.notchTuck : 0)
+    readonly property real bodyLength: length + pad * 2 + (onNotch ? root.screenInsetIn(window) + window.notchTuck : 0)
     // How far it is from its place: past the screen edge, or into the camera.
     readonly property real hiddenOffset: onNotch ? bodyLength : (window ? window.autoHideDistance : 0)
     property real offset: hiddenOffset
@@ -5093,7 +5166,7 @@ Item {
         width: badge.target ? badge.target.width : 0
         height: badge.target ? badge.target.height : 0
         x: root.vertical ? (parent.width - width) / 2
-          : badge.onNotch && !badge.leftSide ? root.islandScreenInset + badge.window.notchTuck + badge.pad : badge.pad
+          : badge.onNotch && !badge.leftSide ? root.screenInsetIn(badge.window) + badge.window.notchTuck + badge.pad : badge.pad
         y: root.vertical ? badge.pad : (parent.height - height) / 2
       }
     }
@@ -5172,7 +5245,8 @@ Item {
     // A glyph cell like any icon widget: square highlight, one gutter (or one
     // equal gap) around its nine dots.
     readonly property real glyphSize: root.preferencesGlyphSize
-    readonly property var cellPlace: CellModel.place(root.cellTokens, glyphSize, true)
+    readonly property var hostWindow: root.targetWindow(preferencesButton)
+    readonly property var cellPlace: CellModel.place(root.tokensIn(hostWindow), glyphSize, true)
     readonly property real cellSpill: cellPlace.spill
     implicitWidth: root.vertical ? root.barSize : cellPlace.extent
     implicitHeight: root.vertical ? cellPlace.extent : root.barSize
@@ -5187,16 +5261,16 @@ Item {
       outlined: preferencesButton.keysCursor && hovered
       selected: preferencesPane.opened
       motionEnabled: root.animationsEnabled
-      readonly property var hostWindow: root.targetWindow(preferencesButton)
+      readonly property var hostWindow: preferencesButton.hostWindow
       glide: hostWindow ? hostWindow.highlightGlide || null : null
       glideKey: "right"
       hoverColor: root.onBarHoverColor
       selectedColor: root.onBarSelectedColor
-      width: root.vertical ? root.cellTokens.thickness : preferencesButton.cellPlace.cell
+      width: root.vertical ? root.thicknessIn(hostWindow) : preferencesButton.cellPlace.cell
       height: root.vertical ? preferencesButton.cellPlace.cell : root.thicknessIn(hostWindow)
       x: (preferencesButton.width - width) / 2
       y: (preferencesButton.height - height) / 2
-      rounding: root.highlightRadius
+      rounding: root.highlightRadiusIn(hostWindow)
     }
     Grid {
       id: preferencesGlyph
@@ -5380,12 +5454,6 @@ Item {
     }
   }
 
-  function findCenterAnchorEntry() {
-    var entries = root.layoutEntries("center")
-    var idx = root.entryIndex(entries, root.centerAnchor)
-    return idx === -1 ? null : entries[idx]
-  }
-
   component LeftModules: ModuleList {
     entries: root.layoutEntries("left")
     region: "left"
@@ -5396,51 +5464,51 @@ Item {
     region: "right"
   }
 
+  // The centre zone: Left of center, the center box and Right of center
+  // (SectionsModel.lists). The box is centred on the bar as one group, its two
+  // neighbours hang off its edges. Under a camera (notchSplit) the box starts
+  // right of the camera's slot and Left of center ends left of it, each side
+  // on its own island, each island edge keeping the slot from its own end pad.
   component CenterModules: Item {
     id: centerRoot
     property var homeWindow: null
-    property var entries: root.layoutEntries("center")
-    readonly property bool hasAnchor: root.entryIndex(entries, root.centerAnchor) !== -1
-    readonly property var anchorEntry: root.findCenterAnchorEntry()
-    readonly property var anchorPreview: anchorEntry
-      ? DragModel.slot(root.dragPreview, anchorEntry.powerbarInstance, "bar:center") : ({ before: false, after: false })
-    // Three zones under a camera (notchSplit): the camera's slot sits at the
-    // middle, the run before the anchor ends at it and the anchor (or the
-    // whole centre, without one) starts past it, each on its own island.
-    // Each side's island edge keeps the keep-out, from its own end pad.
     readonly property real split: homeWindow && homeWindow.notchSplit ? homeWindow.notchKeepOut : 0
-    readonly property bool splitBefore: split > 0 && hasAnchor
     readonly property real middle: (root.vertical ? height : width) / 2
+    function along(list) { return root.vertical ? list.y : list.x }
+    // Where a run of lists shows along the bar, past the yielded slots at its
+    // ends, or null when none of them shows anything.
+    function span(lists) {
+      var shown = lists.filter(function(list) { return list.shownLength > 0 })
+      if (!shown.length) return null
+      var first = shown[0], last = shown[shown.length - 1]
+      return { start: along(first) + first.shownLead, end: along(last) + last.listLength - last.shownTrail,
+        leadSpill: first.leadSpill, trailSpill: last.trailSpill }
+    }
+    readonly property var beginSpan: split > 0 ? span([beginModules]) : null
+    readonly property var mainSpan: split > 0 ? span([boxModules, endModules]) : span([beginModules, boxModules, endModules])
     IslandSurface {
       id: centerBeginIsland
+      readonly property var span: centerRoot.beginSpan
+      readonly property real lead: span ? root.endPadIn(centerRoot.homeWindow, span.leadSpill) : 0
+      readonly property real length: span ? span.end - span.start + lead + root.endPadIn(centerRoot.homeWindow, span.trailSpill) : 0
       zoneHidden: centerIsland.zoneHidden
-      readonly property real start: beforeModules.x + beforeModules.shownLead
-      readonly property real end: beforeModules.x + beforeModules.width - beforeModules.shownTrail
-      x: start - root.islandEnd("center", beforeModules.leadSpill)
-      y: (parent.height - height) / 2
-      width: end - start + root.islandEnd("center", beforeModules.leadSpill) + root.islandEnd("center", beforeModules.trailSpill)
-      height: root.barSize
-      visible: root.islands && centerRoot.splitBefore && beforeModules.shownLength > 0 && end > start && opacity > 0
+      x: root.vertical ? (parent.width - width) / 2 : span ? span.start - lead : 0
+      y: root.vertical ? (span ? span.start - lead : 0) : (parent.height - height) / 2
+      width: root.vertical ? root.barSize : length
+      height: root.vertical ? length : root.barSize
+      visible: root.islands && !!span && span.end > span.start && opacity > 0
     }
     IslandSurface {
       id: centerIsland
+      readonly property var span: centerRoot.mainSpan
+      readonly property real lead: span ? root.endPadIn(centerRoot.homeWindow, span.leadSpill) : 0
+      readonly property real length: span ? span.end - span.start + lead + root.endPadIn(centerRoot.homeWindow, span.trailSpill) : 0
       zoneHidden: !!centerRoot.homeWindow && centerRoot.homeWindow.zoneHidden("center")
-      readonly property real start: centerRoot.hasAnchor
-        ? (beforeModules.shownLength > 0 && !centerRoot.splitBefore ? (root.vertical ? beforeModules.y : beforeModules.x) + beforeModules.shownLead : (root.vertical ? centerAnchorModule.y : centerAnchorModule.x))
-        : (root.vertical ? groupModules.y : groupModules.x) + groupModules.shownLead
-      readonly property real end: centerRoot.hasAnchor
-        ? (afterModules.shownLength > 0 ? (root.vertical ? afterModules.y + afterModules.height : afterModules.x + afterModules.width) - afterModules.shownTrail
-          : (root.vertical ? centerAnchorModule.y + centerAnchorModule.height : centerAnchorModule.x + centerAnchorModule.width))
-        : (root.vertical ? groupModules.y + groupModules.height : groupModules.x + groupModules.width) - groupModules.shownTrail
-      readonly property real leadSpill: centerRoot.hasAnchor
-        ? (beforeModules.shownLength > 0 && !centerRoot.splitBefore ? beforeModules.leadSpill : centerAnchorModule.cellSpill) : groupModules.leadSpill
-      readonly property real trailSpill: centerRoot.hasAnchor
-        ? (afterModules.shownLength > 0 ? afterModules.trailSpill : centerAnchorModule.cellSpill) : groupModules.trailSpill
-      x: root.vertical ? (parent.width - width) / 2 : start - root.islandEnd("center", leadSpill)
-      y: root.vertical ? start - root.islandEnd("center", leadSpill) : (parent.height - height) / 2
-      width: root.vertical ? root.barSize : end - start + root.islandEnd("center", leadSpill) + root.islandEnd("center", trailSpill)
-      height: root.vertical ? end - start + root.islandEnd("center", leadSpill) + root.islandEnd("center", trailSpill) : root.barSize
-      visible: root.islands && end > start && opacity > 0
+      x: root.vertical ? (parent.width - width) / 2 : span ? span.start - lead : 0
+      y: root.vertical ? (span ? span.start - lead : 0) : (parent.height - height) / 2
+      width: root.vertical ? root.barSize : length
+      height: root.vertical ? length : root.barSize
+      visible: root.islands && !!span && span.end > span.start && opacity > 0
     }
     HighlightLayer { zone: "center"; island: centerIsland }
     Item {
@@ -5465,48 +5533,40 @@ Item {
       Component.onDestruction: if (pointerInside) root.setCenterSectionHovered(false)
     }
     ModuleList {
-      id: groupModules
+      id: beginModules
+      homeWindow: centerRoot.homeWindow
+      listRole: "centerBegin"
+      region: "center"
+      previewEnd: false
+      readonly property real trailEdge: centerRoot.split > 0
+        ? centerRoot.middle - centerRoot.split / 2 - root.endPadIn(centerRoot.homeWindow, trailSpill) + shownTrail
+        : centerRoot.along(boxModules)
+      x: root.vertical ? (parent.width - width) / 2 : trailEdge - width
+      y: root.vertical ? trailEdge - height : (parent.height - height) / 2
+    }
+    ModuleList {
+      id: boxModules
       homeWindow: centerRoot.homeWindow
       listRole: "center"
-      visible: !centerRoot.hasAnchor
       region: "center"
-      anchors.centerIn: parent
-      anchors.horizontalCenterOffset: centerRoot.split > 0
-        ? centerRoot.split / 2 + root.islandEnd("center", leadSpill) - shownLead + width / 2 : 0
-    }
-    ModuleList {
-      id: beforeModules
-      homeWindow: centerRoot.homeWindow
-      listRole: "before"
-      visible: centerRoot.hasAnchor
       previewEnd: false
-      previewAnchorEnd: centerRoot.anchorPreview.before
-      region: "center"
-      x: root.vertical ? centerAnchorModule.x + (centerAnchorModule.width - width) / 2
-        : centerRoot.splitBefore ? centerRoot.middle - centerRoot.split / 2 - root.islandEnd("center", trailSpill) + shownTrail - width
-        : centerAnchorModule.x - width
-      y: root.vertical ? centerAnchorModule.y - height : centerAnchorModule.y + (centerAnchorModule.height - height) / 2
-    }
-    Item {
-      id: centerAnchorModule
-      readonly property var model: centerRoot.homeWindow ? centerRoot.homeWindow.widgetModels.anchor : null
-      readonly property var slot: model && model.count ? model.get(0) : null
-      readonly property real cellSpill: slot ? slot.cellSpill : 0
-      visible: centerRoot.hasAnchor
-      width: slot ? slot.width : 0; height: slot ? slot.height : 0
-      anchors.centerIn: parent
-      anchors.horizontalCenterOffset: centerRoot.split > 0 ? centerRoot.split / 2 + root.islandEnd("center", cellSpill) + width / 2 : 0
-      Repeater { model: centerAnchorModule.model }
+      readonly property real lead: centerRoot.split > 0
+        ? centerRoot.middle + centerRoot.split / 2 + root.endPadIn(centerRoot.homeWindow, leadSpill) - shownLead
+        : centerRoot.middle - listLength / 2
+      x: root.vertical ? (parent.width - width) / 2 : lead
+      y: root.vertical ? lead : (parent.height - height) / 2
     }
     ModuleList {
-      id: afterModules
+      id: endModules
       homeWindow: centerRoot.homeWindow
-      listRole: "after"
-      visible: centerRoot.hasAnchor
-      previewAnchorStart: centerRoot.anchorPreview.after
+      listRole: "centerEnd"
       region: "center"
-      x: root.vertical ? centerAnchorModule.x + (centerAnchorModule.width - width) / 2 : centerAnchorModule.x + centerAnchorModule.width
-      y: root.vertical ? centerAnchorModule.y + centerAnchorModule.height : centerAnchorModule.y + (centerAnchorModule.height - height) / 2
+      // An empty box under a camera: Right of center starts right of it.
+      readonly property real lead: centerRoot.split > 0 && !(boxModules.listLength > 0)
+        ? centerRoot.middle + centerRoot.split / 2 + root.endPadIn(centerRoot.homeWindow, leadSpill) - shownLead
+        : centerRoot.along(boxModules) + boxModules.listLength
+      x: root.vertical ? (parent.width - width) / 2 : lead
+      y: root.vertical ? lead : (parent.height - height) / 2
     }
   }
 
@@ -5524,7 +5584,7 @@ Item {
     pressAndHoldInterval: 200
 
     function startDrag(x, y) {
-      if (dragging || root.notchMode) return
+      if (dragging) return
       dragging = true
       root.beginBarMove(root.targetWindow(gestureArea))
       var scenePoint = gestureArea.mapToItem(null, x, y)
@@ -5623,7 +5683,7 @@ Item {
     // widgets pushed it out (on-demand-drawers.md DEMAND-90).
     readonly property int giveWayMs: !!homeWindow && homeWindow.inlineZone !== "" && homeWindow.inlineZone === inlineToken
       && homeWindow.inlineGiveWay ? 80 : 0
-    readonly property var cellPlace: CellModel.place(root.cellTokens, CellModel.TYPICAL_GLYPH, true)
+    readonly property var cellPlace: CellModel.place(root.tokensIn(homeWindow), CellModel.TYPICAL_GLYPH, true)
     readonly property real cellSpill: cellPlace.spill
     readonly property bool fitYielded: !!(homeWindow && homeWindow.zoneFitYielded["handle:" + (zone === "center" ? "center:" + side : zone)])
     readonly property var drawerRef: homeWindow ? homeWindow.managedDrawer : null
@@ -5674,11 +5734,11 @@ Item {
       glideKey: foldHandle.zone
       hoverColor: root.onBarHoverColor
       selectedColor: root.onBarSelectedColor
-      width: root.vertical ? root.cellTokens.thickness : foldHandle.cellPlace.cell
+      width: root.vertical ? root.thicknessIn(hostWindow) : foldHandle.cellPlace.cell
       height: root.vertical ? foldHandle.cellPlace.cell : root.thicknessIn(hostWindow)
       x: (foldHandle.width - width) / 2
       y: (foldHandle.height - height) / 2
-      rounding: root.highlightRadius
+      rounding: root.highlightRadiusIn(hostWindow)
     }
     Text {
       anchors.centerIn: parent
@@ -5691,7 +5751,7 @@ Item {
     Rectangle {
       id: handleBadge
       readonly property var spot: CellModel.badge(
-        { x: handleHighlight.x, y: handleHighlight.y, width: handleHighlight.width, height: handleHighlight.height, radius: root.highlightRadius },
+        { x: handleHighlight.x, y: handleHighlight.y, width: handleHighlight.width, height: handleHighlight.height, radius: handleHighlight.rounding },
         { width: foldHandle.width, height: foldHandle.height }, { width: width, height: height })
       visible: root.dotsBadge && foldHandle.shownCount > 0
       width: Math.max(Style.space(12), handleBadgeLabel.implicitWidth + Style.space(5))
@@ -5748,7 +5808,7 @@ Item {
     property string zone: ""
     property int count: 0
     readonly property bool shown: count > 0
-    readonly property var cellPlace: CellModel.place(root.cellTokens, CellModel.TYPICAL_GLYPH, true)
+    readonly property var cellPlace: CellModel.place(root.tokensIn(homeWindow), CellModel.TYPICAL_GLYPH, true)
     width: root.vertical ? root.barSize : cellPlace.extent
     height: root.vertical ? cellPlace.extent : root.barSize
     opacity: shown ? 1 : 0
@@ -5770,7 +5830,7 @@ Item {
         { x: (yieldMarker.width - (root.vertical ? thick : yieldMarker.cellPlace.cell)) / 2,
           y: (yieldMarker.height - (root.vertical ? yieldMarker.cellPlace.cell : thick)) / 2,
           width: root.vertical ? thick : yieldMarker.cellPlace.cell, height: root.vertical ? yieldMarker.cellPlace.cell : thick,
-          radius: root.highlightRadius },
+          radius: root.highlightRadiusIn(yieldMarker.homeWindow) },
         { width: yieldMarker.width, height: yieldMarker.height }, { width: width, height: height })
       visible: root.dotsBadge
       width: Math.max(Style.space(12), yieldBadgeLabel.implicitWidth + Style.space(5))
@@ -5816,22 +5876,20 @@ Item {
     property string listRole: region
     readonly property var slotModel: homeWindow ? homeWindow.widgetModels[listRole] : null
     property bool previewEnd: true
-    property bool previewAnchorStart: false
-    property bool previewAnchorEnd: false
-    readonly property bool previewStartGap: previewAnchorStart
-    readonly property bool previewEndGap: previewAnchorEnd || (previewEnd && DragModel.endGap(root.dragPreview, "bar:" + region))
+    readonly property bool previewEndGap: previewEnd && DragModel.endGap(root.dragPreview, "bar:" + region)
     // Where this list draws its zone's drawer handle, as the zone fit says.
     readonly property var fitHandles: homeWindow && homeWindow.zoneFit ? homeWindow.zoneFit.handles : null
     readonly property bool centerStartDots: !!fitHandles && (fitHandles.center === "start" || fitHandles.center === "both")
     readonly property bool centerEndDots: !!fitHandles && (fitHandles.center === "end" || fitHandles.center === "both")
+    // The centre's dots sit at its outer ends: before Left of center, after
+    // Right of center.
     readonly property bool handleAtStart: !!fitHandles && (((listRole === "left" || listRole === "right") && fitHandles[listRole] === "start")
-      || ((listRole === "before" || listRole === "center") && centerStartDots))
+      || (listRole === "centerBegin" && centerStartDots))
     readonly property bool handleAtEnd: !!fitHandles && (((listRole === "left" || listRole === "right") && fitHandles[listRole] === "end")
-      || ((listRole === "after" || listRole === "center") && centerEndDots))
-    width: root.vertical ? Math.max(root.barSize, contents.width) : startGap.width + startHandle.width + contents.width + endHandle.width + endGap.width
-    height: root.vertical ? startGap.height + startHandle.height + contents.height + endHandle.height + endGap.height : Math.max(root.barSize, contents.height)
-    readonly property real leadSpill: previewStartGap && root.barDragSource ? root.barDragSource.cellSpill
-      : leadRun > 0 ? markerPlace.spill
+      || (listRole === "centerEnd" && centerEndDots))
+    width: root.vertical ? Math.max(root.barSize, contents.width) : startHandle.width + contents.width + endHandle.width + endGap.width
+    height: root.vertical ? startHandle.height + contents.height + endHandle.height + endGap.height : Math.max(root.barSize, contents.height)
+    readonly property real leadSpill: leadRun > 0 ? markerPlace.spill
       : startHandle.shown && !startHandle.fitYielded ? startHandle.cellSpill : root.edgeSpill(contents, false)
     readonly property real trailSpill: previewEndGap && root.barDragSource ? root.barDragSource.cellSpill
       : trailRun > 0 ? markerPlace.spill
@@ -5864,15 +5922,15 @@ Item {
       return count
     }
     // When the whole list yields, the run faces the moment from one side only:
-    // lists that end next to the moment (left, after) yield from their end.
+    // lists that end next to the moment (left, centerEnd) yield from their end.
     readonly property real listLength: root.vertical ? height : width
-    readonly property bool yieldsFromEnd: listRole === "left" || listRole === "after"
+    readonly property bool yieldsFromEnd: listRole === "left" || listRole === "centerEnd"
     readonly property bool allYielded: yieldLead > 0 && yieldLead >= listLength - 0.5
     readonly property real leadRun: allYielded && yieldsFromEnd ? 0 : yieldLead
     readonly property real trailRun: allYielded && !yieldsFromEnd ? 0 : yieldTrail
     // The yielded widgets leave a marker (dots and their count) in the first
     // freed cell, next to the widgets still showing; the island ends past it.
-    readonly property var markerPlace: CellModel.place(root.cellTokens, CellModel.TYPICAL_GLYPH, true)
+    readonly property var markerPlace: CellModel.place(root.tokensIn(homeWindow), CellModel.TYPICAL_GLYPH, true)
     // A zone hidden whole leaves no marker; its island fades where it stands.
     readonly property bool zoneHidden: !!homeWindow && homeWindow.zoneHidden(region)
     readonly property real trimLead: leadRun > 0 && !zoneHidden ? leadRun - markerPlace.extent : 0
@@ -5883,27 +5941,14 @@ Item {
     property real shownTrail: trimTrail
     Behavior on shownLead { enabled: root.animationsEnabled; NumberAnimation { duration: 150; easing.type: Easing.OutCubic } }
     Behavior on shownTrail { enabled: root.animationsEnabled; NumberAnimation { duration: 150; easing.type: Easing.OutCubic } }
-    AnimatedSlot {
-      id: startGap
-      targetWidth: root.vertical ? root.barSize : moduleListRoot.previewStartGap ? root.dragGapWidth : 0
-      targetHeight: !root.vertical ? root.barSize : moduleListRoot.previewStartGap ? root.dragGapHeight : 0
-      DropOutline {
-        bar: root; onDemand: root.barDragLandsOnDemand; gapLength: root.vertical ? parent.height : parent.width
-        open: moduleListRoot.previewStartGap
-        glide: moduleListRoot.homeWindow ? moduleListRoot.homeWindow.dropGlide || null : null
-        glideKey: moduleListRoot.region
-      }
-      motionEnabled: root.animationsEnabled && !root.dragHandover
-      motionDuration: root.dragMotionDuration; motionEasing: root.dragMotionEasing
-    }
     FoldHandle {
       id: startHandle
       homeWindow: moduleListRoot.homeWindow
       zone: moduleListRoot.region
       side: "start"
       active: moduleListRoot.handleAtStart
-      x: root.vertical ? 0 : startGap.width
-      y: root.vertical ? startGap.height : 0
+      x: 0
+      y: 0
     }
     YieldMarker {
       homeWindow: moduleListRoot.homeWindow
@@ -5933,8 +5978,8 @@ Item {
     readonly property Item slotRow: contents
     Grid {
       id: contents
-      x: root.vertical ? 0 : startGap.width + startHandle.width
-      y: root.vertical ? startGap.height + startHandle.height : 0
+      x: root.vertical ? 0 : startHandle.width
+      y: root.vertical ? startHandle.height : 0
       // Only columns follows orientation (rows stays automatic), so a switch
       // never passes through a 1 × 1 grid.
       columns: root.vertical ? 1 : 100000
@@ -5988,9 +6033,12 @@ Item {
     readonly property var entry: record.entry
     property var homeWindow: null
     readonly property string region: record.region
-    property bool centerAnchorSlot: false
-    // The side of the centre's anchor it sits on, and so the dots it waits behind.
-    property string centerSide: "end"
+    // The list it is drawn in, and the one it is saved in: they differ only
+    // for a widget of Omarchy's tray section, drawn beside the tray.
+    readonly property string drawnList: record.drawn
+    readonly property string savedList: record.list
+    // The side of the centre's box it waits on, and so the dots it waits behind.
+    readonly property string centerSide: SectionsModel.sideOf(drawnList) || "end"
     // The expansion that shows it in inline mode: its zone, the centre by side.
     readonly property string inlineToken: region === "center" ? "center:" + centerSide : region
     readonly property string moduleName: root.entryId(entry)
@@ -6220,9 +6268,9 @@ Item {
     readonly property var crossInk: frozenMeasure ? frozenMeasure.crossInk : liveCrossInk
     // Only free text is capped: a compound (workspaces) or a vertical stack keeps its length.
     // In a drawer the cell is the drawer's size (drawerTokens), not the bar's.
-    readonly property var slotTokens: drawerHost ? root.drawerTokens : root.cellTokens
+    readonly property var slotTokens: drawerHost ? root.drawerTokens : root.tokensIn(homeWindow)
     readonly property var cellPlace: kept("place", CellModel.place(slotTokens, ink.length, CellModel.isGlyph(ink.length, ink.glyph),
-      !root.vertical && compoundTargets.length < 2))
+      !root.vertical && !manyTargets))
     readonly property real landingExtent: naturalWidth > 0 && naturalHeight > 0 ? cellPlace.extent : 0
     // A value that gets narrower keeps its width for a while, so flickering
     // values never make the bar breathe; it grows at once.
@@ -6267,22 +6315,32 @@ Item {
     // centres on the bar's centre line, whatever box the widget laid out.
     readonly property real inkShift: cellPlace.inkStart + heldPad / 2 - ink.start
     readonly property real crossShift: crossInk && crossInk.length > 0 ? naturalWidth / 2 - (crossInk.start + crossInk.length / 2) : 0
+    // A widget built of several targets keeps its length (no cap). Sizing
+    // reads only this count: what is drawn depends on the size.
+    readonly property bool manyTargets: !!activeItem && root.targetsForSlot(slot).length > 1
+    // The targets drawn in the slot, when there are several (workspaces,
+    // revealed indicators); their order along the bar is compoundParts'.
     readonly property var compoundTargets: {
-      var targets = activeItem ? root.targetsForSlot(slot) : []
+      var targets = activeItem ? root.targetsForSlot(slot).filter(function(t) { return root.targetPainted(t, slot) }) : []
       return targets.length > 1 ? targets : []
     }
+    readonly property var compoundParts: compoundThumb.parts
+    // The part the keyboard cursor is on (BarKeys), or -1.
+    readonly property int keysPart: keysCursor ? root.barKeys.partIn(slot) : -1
+    // The part nearest a point along the slot, or -1.
+    function partAt(along) { return compoundThumb.nearest(along) }
     // While settling, the committed slot keeps the extent of the drop gap it
     // replaces, then eases to its own size so neighbours never step.
-    readonly property real settleExtraWidth: settleHidden && !centerAnchorSlot
+    readonly property real settleExtraWidth: settleHidden
       ? Math.max(0, root.dragGapWidth - cellExtent) : 0
-    readonly property real settleExtraHeight: settleHidden && !centerAnchorSlot
+    readonly property real settleExtraHeight: settleHidden
       ? Math.max(0, root.dragGapHeight - cellExtent) : 0
     // The slot's length along the bar by its own rules: the zone fit's input,
     // so it never depends on the fit's result. A folded slot takes no space;
     // a yielded one keeps its space.
     readonly property real fitExtent: baseVisible && (!preview.hidden || preview.holdSpace)
       ? cellExtent + (root.vertical ? settleExtraHeight : settleExtraWidth)
-        + (!centerAnchorSlot && (preview.before || preview.after) ? (root.vertical ? root.dragGapHeight : root.dragGapWidth) : 0) : 0
+        + ((preview.before || preview.after) ? (root.vertical ? root.dragGapHeight : root.dragGapWidth) : 0) : 0
     readonly property real layoutExtent: fitFolded ? 0 : fitExtent
     targetWidth: root.vertical ? naturalWidth : layoutExtent
     // Across a horizontal bar every slot is at least the bar's thickness and the
@@ -6291,8 +6349,8 @@ Item {
     readonly property real crossLength: naturalHeight > 0 ? Math.max(naturalHeight, root.barSize) : 0
     readonly property real crossCentre: (crossLength - naturalHeight) / 2
     targetHeight: !root.vertical ? crossLength : layoutExtent
-    targetInsetX: !root.vertical && !centerAnchorSlot && preview.before ? root.dragGapWidth : 0
-    targetInsetY: root.vertical && !centerAnchorSlot && preview.before ? root.dragGapHeight : 0
+    targetInsetX: !root.vertical && preview.before ? root.dragGapWidth : 0
+    targetInsetY: root.vertical && preview.before ? root.dragGapHeight : 0
     motionEnabled: root.animationsEnabled && !drawerHost && !root.dragHandover
     motionDuration: root.dragMotionActive ? root.dragMotionDuration : 120
     // An activity reveal opens after its neighbours have yielded (80 ms), an
@@ -6509,38 +6567,44 @@ Item {
       }
     }
 
-    // The thumb over the hovered target of a compound, nested at the track's
-    // curve: side min(T, pitch − 1).
+    // The thumb over the hovered target of a compound (the pointer's, or the
+    // keyboard cursor's part), nested at the track's curve: side
+    // min(T, pitch − 1).
     Rectangle {
       id: compoundThumb
       readonly property var targets: slot.compoundTargets
       property int metricsRevision: 0
       function refreshCentres() { metricsRevision++ }
-      readonly property var centres: {
+      // The targets inside the slot, in bar order, with their centres.
+      readonly property var parts: {
         var revision = metricsRevision
         if (!barHighlight.hovered || barHighlight.selected || slot.activityFlash) return []
         var along = root.vertical ? slot.height : slot.width
         return targets.map(function(t) {
           var p = t.mapToItem(slot, t.width / 2, t.height / 2)
-          return root.vertical ? p.y : p.x
-        }).filter(function(c) { return c >= 0 && c <= along })
+          return { target: t, centre: root.vertical ? p.y : p.x }
+        }).filter(function(part) { return part.centre >= 0 && part.centre <= along })
+          .sort(function(a, b) { return a.centre - b.centre })
       }
+      readonly property var centres: parts.map(function(part) { return part.centre })
       readonly property real pitch: {
         var d = []
         for (var n = 1; n < centres.length; n++) d.push(Math.abs(centres[n] - centres[n - 1]))
         d.sort(function(a, b) { return a - b })
-        return d.length ? d[Math.floor(d.length / 2)] : root.cellTokens.thickness
+        return d.length ? d[Math.floor(d.length / 2)] : slot.slotTokens.thickness
       }
-      readonly property var geometry: CellModel.thumb(root.cellTokens, pitch, root.islandRounding)
+      readonly property var geometry: CellModel.thumb(slot.slotTokens, pitch, root.islandRounding)
       readonly property real pointer: root.vertical ? slotHover.point.position.y : slotHover.point.position.x
-      readonly property int index: {
+      function nearest(at) {
         var best = -1, distance = Infinity
         for (var n = 0; n < centres.length; n++) {
-          var d = Math.abs(centres[n] - pointer)
+          var d = Math.abs(centres[n] - at)
           if (d < distance) { distance = d; best = n }
         }
         return best
       }
+      readonly property int index: slot.keysPart >= 0 && slot.keysPart < centres.length ? slot.keysPart
+        : slotHover.hovered ? nearest(pointer) : -1
       parent: barHighlight.hostLayer || slot
       visible: centres.length > 1 && index >= 0 && barHighlight.hovered && !barHighlight.selected && !slot.activityFlash
       width: geometry.side

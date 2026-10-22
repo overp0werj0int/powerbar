@@ -126,7 +126,7 @@ about 240 logical px of height) and only Preferences tall:
 | --- | --- | --- |
 | `drawer-latte.jpg` | catppuccin-latte, 2400x275 at 2.5 | floating; `powerbar managed right` |
 | `search-tokyo-night.jpg` | tokyo-night, 2400x600 at 2.5 | flat; `keysSearch`, type `tail` |
-| `notch-kanagawa.jpg` | kanagawa, 3024x1964 at 2, `shot -g 290,0,932,200` | `set zones notch`; `group g-show-system`. `cutouts.json`: `{"panels":[{"connector":"HEADLESS","width":3024,"height":1964,"top":64}]}` |
+| `notch-kanagawa.jpg` | kanagawa, 3024x1964 at 2, `shot -g 290,0,932,200` | `set style notch`; `group g-show-system`. `cutouts.json`: `{"panels":[{"connector":"HEADLESS","width":3024,"height":1964,"top":64}]}` |
 | `preferences.jpg` | osaka-jade, 2560x1600 at 2 | islands; `preferencesPage 1` |
 
 Park the pointer where it hovers nothing. JPEG at quality 88.

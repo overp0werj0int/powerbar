@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Window
 import QtQuick.Layouts
+import Quickshell
 import qs.Commons
 import qs.Commons as Commons
 import qs.Ui
@@ -29,18 +30,8 @@ Item {
   readonly property var bar: preferences.bar
   // The layout's widgets, then the icons still in Omarchy's tray (its row).
   readonly property var entries: preferences.layoutEntries.concat(preferences.trayEntries)
-  // With a centre anchor, the centre's On demand cell splits at it: the
-  // widgets before it wait behind the dots at the centre's start, those after
-  // it behind the dots at its end (Model.columns).
-  readonly property var anchorRecord: {
-    var anchor = editor.bar ? editor.bar.centerAnchor : ""
-    return anchor ? entries.find(function(e) { return e.section === "center" && !e.groupId && e.id === anchor }) || null : null
-  }
-  readonly property int anchorIndex: anchorRecord ? anchorRecord.index : -1
-  // Two-zone modes (ZoneModeModel.js) have no centre column.
-  readonly property bool twoZones: !!bar && bar.twoZones
-  readonly property bool notchMode: !!bar && bar.zoneMode === "notch"
-  function columnsFor(mode) { return mode === "tray" ? ["tray"] : twoZones ? ["left", "right"] : Model.columns(mode, anchorIndex >= 0) }
+  // Every shelf has the five zones (Model.sections); the tray's row one column.
+  function columnsFor(mode) { return mode === "tray" ? ["tray"] : Model.sections }
   // The rows: the three visibilities, then the tray. Only a tray icon can be
   // lifted into the tray's row.
   readonly property var rows: Model.rows
@@ -48,7 +39,7 @@ Item {
   readonly property var cellEntries: {
     var cells = ({})
     for (var mode of Model.rows) for (var column of columnsFor(mode))
-      cells[column + ":" + mode] = Model.cell(entries, column, mode, "", anchorIndex)
+      cells[column + ":" + mode] = Model.cell(entries, column, mode, "")
     return cells
   }
   function members(section, mode, exclude) {
@@ -56,13 +47,36 @@ Item {
     return exclude ? items.filter(function(r) { return r.instanceKey !== exclude }) : items
   }
   readonly property var snapshots: preferences.snapshots
-  readonly property var sections: twoZones ? ["left", "right"] : Model.sections
+  readonly property var sections: Model.sections
   readonly property var modes: Model.modes
   readonly property bool sideBar: !!bar && bar.vertical
-  readonly property string anchorTitle: anchorRecord ? preferences.title(anchorRecord) : "center"
-  readonly property var zoneNames: ({ left: sideBar ? "Top" : "Left", center: "Center", right: sideBar ? "Bottom" : "Right", tray: "Tray",
-    "center:start": (sideBar ? "Above " : "Left of ") + anchorTitle,
-    "center:end": (sideBar ? "Below " : "Right of ") + anchorTitle })
+  readonly property var zoneNames: ({ left: sideBar ? "Top" : "Left", centerBegin: sideBar ? "Above center" : "Left of center",
+    center: "Center", centerEnd: sideBar ? "Below center" : "Right of center", right: sideBar ? "Bottom" : "Right", tray: "Tray" })
+  // A zone's share of the shelf's width (300/170/150/170/300 at 1100 px).
+  readonly property var zoneShares: ({ left: 30, centerBegin: 17, center: 15, centerEnd: 17, right: 30, tray: 1 })
+  // Which way a zone grows on the bar, so its items pack from that side: Left
+  // and Right of center hang off the box, Center is centred on the middle.
+  // The screen the shelves picture: the bar is the same on every screen, but
+  // a camera moves the center. Preferences' own screen unless another is picked.
+  property string previewName: ""
+  readonly property var screens: Quickshell.screens
+  readonly property var previewScreen: screens.find(function(s) { return s.name === previewName }) || preferences.targetScreen || screens[0] || null
+  function cameraOn(screen) { return !!bar && !sideBar && !!screen && !!bar.notchFor(screen) }
+  readonly property bool previewCamera: cameraOn(previewScreen)
+  // Only screens that look different get a switcher.
+  readonly property bool screensDiffer: screens.some(function(s) { return editor.cameraOn(s) }) && screens.some(function(s) { return !editor.cameraOn(s) })
+  readonly property string barCaption: sideBar
+    ? (screens.some(function(s) { return !!editor.bar && !!editor.bar.notchFor(s, "top") }) ? "No camera on this edge: Center sits over the middle; Above center and Below center hang off it."
+      : "Center sits over the screen's middle; Above center and Below center hang off it.")
+    : previewCamera ? "Left of center sits left of the camera; Center and Right of center sit right of it."
+    : "Center sits over the screen's middle; Left of center and Right of center hang off it."
+  // Where a zone sits by the camera, for the Zone choice.
+  function cameraNote(zone) {
+    if (!previewCamera || zone === "left" || zone === "right") return ""
+    return (zone === "centerBegin" ? "left of the camera" : "right of the camera") + (screensDiffer && previewScreen ? " on " + previewScreen.name : "")
+  }
+  readonly property var zoneChoices: sections.map(function(s) { return { value: s, label: editor.zoneNames[s], share: editor.zoneShares[s] } })
+  function zonePack(zone) { return zone === "left" || zone === "centerEnd" ? "start" : zone === "right" || zone === "centerBegin" ? "end" : "middle" }
   // Preferences draws a horizontal bar, at the size it has on a top edge.
   readonly property real barThickness: bar ? bar.barSizeFor(false) : Style.bar.sizeHorizontal
   readonly property real iconSize: Style.bar.sizeHorizontal
@@ -186,11 +200,13 @@ Item {
   readonly property var fitNotes: editor.bar ? ZoneFitNotice.lines(editor.bar.zoneFitReports) : []
   readonly property var shelfInfo: ({
     shown: { title: "On the bar", caption: fitNotes.length ? fitNotes.join(" ") : "Always visible" },
-    managed: { title: "On demand", caption: editor.bar && editor.bar.onDemandInline
+    // Side by side on a side bar, the shelves have room for a few words.
+    managed: { title: "On demand", caption: sideBar ? (editor.bar && editor.bar.onDemandInline ? "Behind the dots" : "In a drawer")
+      : editor.bar && editor.bar.onDemandInline
       ? "Behind the zone's dots; shown on activity, or when you hover the dots"
       : "In the zone's drawer when you hover it, or briefly on activity" },
     hidden: { title: "Hidden", caption: "Kept off the bar" },
-    tray: { title: "In the tray", caption: "Omarchy's tray icons. Drag one onto a row above to place it like a widget" }
+    tray: { title: "In the tray", caption: sideBar ? "" : "Omarchy's tray icons. Drag one onto a row above to place it like a widget" }
   })
   // The zone a tray icon goes to when moved without a place: the tray's own.
   readonly property string trayZone: {
@@ -218,7 +234,7 @@ Item {
   readonly property bool gridFocused: shelfShown.focusItem.activeFocus || shelfManaged.focusItem.activeFocus || shelfHidden.focusItem.activeFocus
     || shelfTray.focusItem.activeFocus
   readonly property var hints: lifted ? [
-    { keys: "h l", label: "Reorder" }, { keys: "j k", label: "Shelf" },
+    { keys: sideBar ? "j k" : "h l", label: "Reorder" }, { keys: sideBar ? "h l" : "j k", label: "Shelf" },
     { keys: "space", label: "Drop" }, { keys: "esc", label: "Cancel" }
   ] : gridFocused ? [
     { keys: "h j k l", label: "Move" }, { keys: "space", label: "Pick up" },
@@ -238,14 +254,11 @@ Item {
     var mode = lifted && liftTarget ? liftTarget.mode : cursorCell.mode
     if (gridFocused && !shelfFor(mode).focusItem.activeFocus) focusShelf(mode)
   }
-  // The column a zone has on another shelf: the split centre meets the whole one.
+  // The column a zone has on another shelf; the tray's one column meets the
+  // last zone, as j and k do.
   function columnOn(mode, section) {
     var cols = columnsFor(mode)
-    if (cols.indexOf(section) >= 0) return section
-    var zone = Model.sectionOf(section)
-    if (cols.indexOf(zone) >= 0) return zone
-    // The tray's one column meets the last zone, as j and k do.
-    return cols.indexOf(zone + ":start") >= 0 ? zone + ":start" : cols[cols.length - 1]
+    return cols.indexOf(section) >= 0 ? section : cols[cols.length - 1]
   }
   function shelfFocusChanged(mode, focused) {
     if (focused) {
@@ -282,9 +295,7 @@ Item {
         return
       }
     }
-    // The split appeared or went away under the cursor.
-    if (columnsFor(cursorCell.mode).indexOf(cursorCell.section) < 0) cursorCell = { section: Model.sectionOf(cursorCell.section), mode: cursorCell.mode, pos: 0 }
-    if (columnsFor(cursorCell.mode).indexOf(cursorCell.section) < 0) cursorCell = { section: cursorCell.section + ":start", mode: cursorCell.mode, pos: 0 }
+    if (columnsFor(cursorCell.mode).indexOf(cursorCell.section) < 0) cursorCell = { section: columnOn(cursorCell.mode, cursorCell.section), mode: cursorCell.mode, pos: 0 }
     var n = count(cursorCell.section, cursorCell.mode)
     place({ section: cursorCell.section, mode: cursorCell.mode, pos: Math.max(0, Math.min(cursorCell.pos, n - 1)) })
   }
@@ -315,7 +326,7 @@ Item {
     if (!lifted) return
     var record = lifted, target = liftTarget, origin = liftOrigin
     var unchanged = target.section === origin.section && target.mode === origin.mode && target.pos === origin.pos
-    var before = Model.dropBefore(members(target.section, target.mode, record.instanceKey), target.pos, target.section, anchorIndex)
+    var before = Model.dropBefore(members(target.section, target.mode, record.instanceKey), target.pos)
     lifted = null
     pointerLift = false
     cursorKey = record.instanceKey
@@ -323,9 +334,9 @@ Item {
     if (unchanged) return
     // Out of the tray, back into it, or within it (the tray keeps its order).
     if (origin.mode === "tray") {
-      if (target.mode !== "tray") cursorKey = preferences.takeFromTray(record, Model.sectionOf(target.section), target.mode, before)
+      if (target.mode !== "tray") cursorKey = preferences.takeFromTray(record, target.section, target.mode, before)
     } else if (target.mode === "tray") preferences.returnToTray(record)
-    else preferences.move(record, Model.sectionOf(target.section), target.mode, before)
+    else preferences.move(record, target.section, target.mode, before)
   }
   // Keep an item's place in its zone when only its visibility changes.
   // Rows widgets were hidden from this session, so showing one again restores it.
@@ -349,10 +360,12 @@ Item {
   function keyPressed(event) {
     if (event.modifiers & (Qt.ControlModifier | Qt.AltModifier)) return
     var key = event.key, t = event.text
-    if (key === Qt.Key_Left || t === "h") moveCursor(-1, 0)
-    else if (key === Qt.Key_Right || t === "l") moveCursor(1, 0)
-    else if (key === Qt.Key_Up || t === "k") moveCursor(0, -1)
-    else if (key === Qt.Key_Down || t === "j") moveCursor(0, 1)
+    // Turned for a side bar, the zones run down and the shelves across:
+    // h and l change shelf, j and k walk the zones.
+    if (key === Qt.Key_Left || t === "h") sideBar ? moveCursor(0, -1) : moveCursor(-1, 0)
+    else if (key === Qt.Key_Right || t === "l") sideBar ? moveCursor(0, 1) : moveCursor(1, 0)
+    else if (key === Qt.Key_Up || t === "k") sideBar ? moveCursor(-1, 0) : moveCursor(0, -1)
+    else if (key === Qt.Key_Down || t === "j") sideBar ? moveCursor(1, 0) : moveCursor(0, 1)
     else if (key === Qt.Key_Space) {
       if (lifted) drop()
       else lift(cursorRecord, cursorCell)
@@ -432,19 +445,18 @@ Item {
     }
   }
 
-  // Three zones, two, or two around the notch: each keeps its own layout
-  // (ZoneModeModel.js). Notch is offered where a screen has one.
+  // Which screen the shelves picture, when screens differ (a camera on one):
+  // it changes the picture only, never the layout.
   ButtonGroup {
-    parent: shelfShown.headerSlot
-    anchors.verticalCenter: parent ? parent.verticalCenter : undefined
-    options: [{ value: "three", label: "Three zones" }, { value: "two", label: "Two zones" }].concat(
-      editor.bar && (editor.bar.screenNotch || editor.notchMode) ? [{ value: "notch", label: "Notch" }] : [])
-    value: editor.bar ? editor.bar.zoneMode : "three"
+    // Parented only when shown, so the header keeps no empty slot.
+    parent: editor.screensDiffer ? shelfShown.headerSlot : null
+    options: editor.screens.map(function(s) { return { value: s.name, label: s.name + (editor.cameraOn(s) ? " (camera)" : "") } })
+    value: editor.previewScreen ? editor.previewScreen.name : ""
     foreground: Commons.Color.popups.text
     background: "transparent"
     fontSize: Style.font.caption
-    Accessible.name: "Zones"
-    onChanged: function(value) { editor.preferences.setZoneMode(value) }
+    Accessible.name: "Preview"
+    onChanged: function(value) { editor.previewName = value }
   }
 
   // The dragged item follows the pointer while its landing place is previewed.
@@ -458,6 +470,15 @@ Item {
     z: 100
   }
 
+  // A zone's row on a side bar: its tallest cell on the three zone shelves.
+  function rowHeight(zone) {
+    var h = 0
+    for (var i = 0; i < cellRepeater.count; i++) {
+      var c = cellRepeater.itemAt(i)
+      if (c && c.section === zone) h = Math.max(h, c.naturalWell)
+    }
+    return h
+  }
   QtObject {
     id: cellRepeater
     property var cells: []
@@ -468,18 +489,35 @@ Item {
   }
 
   // -------------------------------------------------------------- components
-  // One visibility: the three zones side by side (one under another in a
-  // narrow window). The shelf is a Tab stop; the cursor lives in its cells.
+  // One visibility: the five zones side by side, sized and packed as the bar
+  // has them (one under another in a narrow window). On a side bar the editor
+  // turns with it: the shelves stand side by side and the zones are rows,
+  // each the height of its tallest cell. The shelf is a Tab stop; the cursor
+  // lives in its cells.
   component Shelf: PrefsTile {
     id: shelf
     property string mode: "shown"
     property alias focusItem: shelfFocus
-    readonly property bool stacked: shelfFocus.width < Style.space(560)
+    readonly property bool stacked: editor.sideBar || shelfFocus.width < Style.space(560)
     readonly property var zoneColumns: mode === "tray" ? ["tray"] : editor.sections
+    // The camera's slot between Left of center and Center, on a preview of a
+    // screen that has one: room for a bar-sized square on the bar shelf, kept
+    // empty on the others so their columns line up with it.
+    readonly property bool camera: editor.previewCamera && !stacked && mode !== "tray"
+    readonly property real cameraSlot: camera ? editor.barThickness + bento.gap : 0
+    readonly property real gridWidth: Math.max(1, shelfFocus.width)
+    // Shares of the row, mirrored about its middle: Right of center is as
+    // wide as Left of center and the camera's slot together, so Center stays
+    // on the middle and the two sides match on every shelf.
+    function columnWidth(zone) {
+      var free = gridWidth - bento.gap * (zoneColumns.length - 1) - 2 * cameraSlot
+      var total = zoneColumns.reduce(function(sum, z) { return sum + editor.zoneShares[z] }, 0)
+      return Math.max(1, free * editor.zoneShares[zone] / total + (zone === "centerEnd" ? cameraSlot : 0))
+    }
     title: editor.shelfInfo[mode].title
     caption: editor.shelfInfo[mode].caption
-    span12: 12
-    span6: 6
+    span12: editor.sideBar ? 3 : 12
+    span6: editor.sideBar ? 3 : 6
     animate: editor.bar ? editor.bar.animationsEnabled : true
     borderSpec: Border.flat(Qt.alpha(Commons.Color.popups.text, shelfFocus.activeFocus ? 0.28 : 0.1), 1)
 
@@ -503,8 +541,8 @@ Item {
         width: parent.width
         spacing: Style.space(4)
 
-        // The zones, named once, over the bar shelf.
-        RowLayout {
+        // The zones, named once, over the bar shelf, each where its items pack.
+        Row {
           visible: shelf.mode === "shown" && !shelf.stacked
           Layout.fillWidth: true
           spacing: bento.gap
@@ -512,50 +550,86 @@ Item {
             model: shelf.zoneColumns
             Text {
               required property string modelData
+              width: shelf.columnWidth(modelData) + (modelData === "centerBegin" ? shelf.cameraSlot : 0)
+              rightPadding: modelData === "centerBegin" ? shelf.cameraSlot : 0
               text: editor.zoneNames[modelData]
               textFormat: Text.PlainText
-              color: Model.sectionOf(editor.cursorCell.section) === modelData ? Commons.Color.popups.text : Qt.alpha(Commons.Color.popups.text, 0.6)
+              color: editor.cursorCell.section === modelData ? Commons.Color.popups.text : Qt.alpha(Commons.Color.popups.text, 0.6)
               font.family: Style.font.family
               font.pixelSize: Style.font.caption
-              font.bold: Model.sectionOf(editor.cursorCell.section) === modelData
-              Layout.fillWidth: true
-              Layout.preferredWidth: 1
-              horizontalAlignment: modelData === "left" ? Text.AlignLeft : modelData === "right" ? Text.AlignRight : Text.AlignHCenter
+              font.bold: editor.cursorCell.section === modelData
+              elide: Text.ElideRight
+              horizontalAlignment: editor.zonePack(modelData) === "start" ? Text.AlignLeft : editor.zonePack(modelData) === "end" ? Text.AlignRight : Text.AlignHCenter
             }
           }
         }
 
-        GridLayout {
+        Item {
           Layout.fillWidth: true
-          columns: shelf.stacked ? 1 : shelf.zoneColumns.length
-          columnSpacing: bento.gap
-          rowSpacing: Style.space(6)
-          Repeater {
-            model: shelf.zoneColumns
-            // One zone's column: its cell, or the split centre's two, stacked.
-            ColumnLayout {
-              id: zoneColumn
-              required property string modelData
-              readonly property var cells: editor.columnsFor(shelf.mode).filter(function(column) { return Model.sectionOf(column) === zoneColumn.modelData })
-              Layout.fillWidth: true
-              Layout.preferredWidth: 1
-              Layout.alignment: Qt.AlignTop
-              spacing: Style.space(4)
-              Repeater {
-                model: zoneColumn.cells
-                Cell {
-                  required property string modelData
-                  section: modelData
-                  mode: shelf.mode
-                  caption: zoneColumn.cells.length > 1 || shelf.stacked ? editor.zoneNames[modelData] : ""
-                  Layout.fillWidth: true
-                  Layout.preferredWidth: 1
-                  Component.onCompleted: cellRepeater.register(this)
-                  Component.onDestruction: cellRepeater.unregister(this)
-                }
+          implicitHeight: zoneGrid.implicitHeight
+          GridLayout {
+            id: zoneGrid
+            width: parent.width
+            columns: shelf.stacked ? 1 : shelf.zoneColumns.length
+            columnSpacing: bento.gap
+            rowSpacing: Style.space(6)
+            Repeater {
+              model: shelf.zoneColumns
+              Cell {
+                required property string modelData
+                section: modelData
+                mode: shelf.mode
+                caption: shelf.stacked && modelData !== "tray" ? editor.zoneNames[modelData] : ""
+                // Turned, a zone's row is as tall as its tallest cell on any shelf.
+                rowHeight: editor.sideBar ? editor.rowHeight(modelData) : 0
+                Layout.fillWidth: shelf.stacked
+                Layout.preferredWidth: shelf.stacked ? -1 : shelf.columnWidth(modelData)
+                Layout.rightMargin: modelData === "centerBegin" ? shelf.cameraSlot : 0
+                Layout.alignment: Qt.AlignTop
+                Component.onCompleted: cellRepeater.register(this)
+                Component.onDestruction: cellRepeater.unregister(this)
               }
             }
           }
+          // The camera, on the bar shelf only: a black rounded square the
+          // bar's size with a lens, level with the first island. A sign of
+          // where the camera is, not its size.
+          Rectangle {
+            visible: shelf.camera && shelf.mode === "shown"
+            readonly property var cell: {
+              for (var i = 0; i < cellRepeater.count; i++) {
+                var c = cellRepeater.itemAt(i)
+                if (c && c.mode === shelf.mode && c.section === "centerBegin") return c
+              }
+              return null
+            }
+            x: cell ? cell.x + cell.width + (shelf.cameraSlot + bento.gap - width) / 2 : 0
+            y: cell ? cell.y + cell.firstLineY : 0
+            width: editor.barThickness
+            height: width
+            radius: Math.round(width / 4)
+            color: "black"
+            Rectangle {
+              anchors.centerIn: parent
+              width: Math.round(parent.width * 0.3)
+              height: width
+              radius: width / 2
+              color: "#1d2433"
+              border.width: 1
+              border.color: "#2a3348"
+            }
+          }
+        }
+
+        Text {
+          visible: shelf.mode === "shown"
+          Layout.fillWidth: true
+          text: editor.barCaption
+          textFormat: Text.PlainText
+          color: Qt.alpha(Commons.Color.popups.text, 0.6)
+          font.family: Style.font.family
+          font.pixelSize: Style.font.caption
+          wrapMode: Text.WordWrap
         }
       }
 
@@ -621,6 +695,8 @@ Item {
     property string section: ""
     property string mode: ""
     property string caption: ""
+    // At least this tall, to line up with the zone's cells on other shelves.
+    property real rowHeight: 0
     readonly property var tiles: content.item ? content.item.repeater : null
     readonly property var list: editor.cellList(section, mode)
     readonly property bool barRow: mode === "shown"
@@ -629,19 +705,25 @@ Item {
     readonly property bool cursorHere: !editor.lifted && editor.cursorCell.section === section && editor.cursorCell.mode === mode
     readonly property real pad: Style.space(4)
     readonly property real radius: Math.max(0, Style.cornerRadius - Math.round(Style.spacing.rowPaddingX / 2))
-    readonly property string zone: Model.sectionOf(section)
+    readonly property string pack: editor.zonePack(section)
     // The bar shelf: every widget's face, and where the bar would put it.
     readonly property var faces: barRow ? list.map(function(value) { return editor.barFace(value.record) }) : []
     readonly property var layout: barRow ? ShelfModel.zone(CellModel, editor.barTokens, faces, Math.max(1, well.width - pad * 2)) : ({ lines: [], width: 0 })
     readonly property real lineGap: Style.space(4)
+    // The top of the first island, in the cell.
+    readonly property real firstLineY: well.y + lineY(0)
+    // Each line packs from the side its zone grows from (editor.zonePack).
     function lineX(n) {
       var w = layout.lines[n] ? layout.lines[n].width : 0
-      // On the notch the zones grow out of the camera: each hugs the middle.
-      var start = editor.notchMode ? zone === "right" : zone === "left"
-      var end = editor.notchMode ? zone === "left" : zone === "right"
-      return start ? pad : end ? well.width - pad - w : (well.width - w) / 2
+      return pack === "start" ? pad : pack === "end" ? well.width - pad - w : (well.width - w) / 2
     }
-    function lineY(n) { return pad + n * (editor.barThickness + lineGap) }
+    function lineY(n) {
+      var spare = well.height - naturalWell
+      return pad + n * (editor.barThickness + lineGap) + (pack === "start" ? 0 : pack === "end" ? spare : spare / 2)
+    }
+    readonly property real naturalWell: barRow
+      ? Math.max(1, layout.lines.length) * (editor.barThickness + lineGap) - lineGap + pad * 2
+      : Math.max(Style.space(42), (content.item ? content.item.height : 0) + pad * 2)
     function slotRect(index) {
       var at = ShelfModel.slotOf(layout, index)
       return at ? { x: lineX(at.line) + at.slot.x, y: lineY(at.line) } : { x: 0, y: 0 }
@@ -663,9 +745,7 @@ Item {
       id: well
       y: captionText.visible ? captionText.implicitHeight + Style.space(3) : 0
       width: parent.width
-      height: cell.barRow
-        ? Math.max(1, cell.layout.lines.length) * (editor.barThickness + cell.lineGap) - cell.lineGap + cell.pad * 2
-        : Math.max(Style.space(42), (content.item ? content.item.height : 0) + cell.pad * 2)
+      height: Math.max(cell.naturalWell, cell.rowHeight)
       radius: cell.radius
       color: Qt.alpha(Commons.Color.popups.text, 0.04)
       // An empty well waiting for a drop is outlined the way the bar outlines
@@ -952,12 +1032,21 @@ Item {
         Layout.preferredWidth: 1
         Layout.alignment: Qt.AlignTop
         spacing: Style.space(2)
-        PrefsChoice {
+        PrefsZoneMap {
           compact: true
           stacked: !settingsGrid.roomy
           Layout.leftMargin: 0
-          label: "Zone"
-          options: editor.sections.map(function(s) { return { value: s, label: editor.zoneNames[s] } })
+          zones: editor.zoneChoices
+          cameraAfter: editor.previewCamera ? "centerBegin" : ""
+          noteFor: function(zone) { return editor.cameraNote(zone) }
+          marker: Component {
+            WidgetIcon {
+              preferences: editor.preferences
+              record: panel.record || ({})
+              size: Math.round(editor.iconSize * 0.6)
+              maxAspect: 1.6
+            }
+          }
           value: panel.record && !panel.inTray ? panel.record.section : ""
           // Out of the tray, an icon waits on demand until placed otherwise.
           onChosen: function(value) { editor.setPlacement(panel.record, value, panel.inTray ? "managed" : panel.record.mode) }
@@ -1015,22 +1104,6 @@ Item {
             : !editor.bar.autoHide ? "Applies while the bar autohides"
             : !editor.bar.autoHideActivity ? "Turned off for every widget on the Bar page"
             : "Slide the bar out briefly when it changes"
-        }
-        PrefsToggle {
-          id: centerToggle
-          visible: !editor.twoZones
-          compact: true
-          label: "Keep at screen center"
-          enabled: !!panel.record && panel.record.section === "center" && panel.record.mode === "shown"
-          opacity: enabled ? 1 : 0.45
-          checked: !!panel.record && editor.bar.centerAnchor === panel.record.id
-          onToggled: function(checked) { editor.preferences.setOption("centerAnchor", checked ? panel.record.id : "") }
-        }
-        Hint {
-          Layout.leftMargin: Style.spacing.rowPaddingX
-          visible: centerToggle.visible
-          dim: !centerToggle.enabled
-          text: centerToggle.enabled ? "Other center widgets arrange around it" : "For a widget on the bar in the center"
         }
       }
 

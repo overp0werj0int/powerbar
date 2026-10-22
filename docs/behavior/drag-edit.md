@@ -94,9 +94,9 @@ Drag and drop on the live bar, into drawers and onto zone dots. The bar controll
 
 - **DRAG-35** On release the image stays visible and glides to its target over 180 ms (`dragSettleDuration`, OutCubic), following the target slot frame by frame if it is still moving. With animations off there is no glide.
 
-- **DRAG-36** Drops with an open gap to aim at (a bar gap beside a slot that is not the clock, a group icon, a drawer gap) glide into the open gap with the gap still drawn, then commit; the commit rebuilds every slot in one frame, swapping gap and slot. A change from outside Powerbar that removes the dragged widget during the glide discards the drop (nothing is written from inside that rebuild); any other interruption (a new press, a cancel) still commits it. Code: Bar.qml clearBarDrag(discard).
+- **DRAG-36** Drops with an open gap to aim at (a bar gap beside a slot, a group icon, a drawer gap) glide into the open gap with the gap still drawn, then commit; the commit rebuilds every slot in one frame, swapping gap and slot. A change from outside Powerbar that removes the dragged widget during the glide discards the drop (nothing is written from inside that rebuild); any other interruption (a new press, a cancel) still commits it. Code: Bar.qml clearBarDrag(discard).
 
-- **DRAG-37** Drops with no gap to aim at (a zone's end, the dots, beside the clock/centre anchor) commit first, then the image glides from the release point to the widget's new slot.
+- **DRAG-37** Drops with no gap to aim at (a zone's end, the dots) commit first, then the image glides from the release point to the widget's new slot.
 
 - **DRAG-38** A widget whose new home is not visible glides into its group icon and fades there when it joined a group, or fades where released when it has no visible home.
 
@@ -134,7 +134,7 @@ Drag and drop on the live bar, into drawers and onto zone dots. The bar controll
 
 - **DRAG-55** Every drop writes the visibility it implies: bar and "shown" spots `"shown"`, drawer, dots and on-demand run spots `"managed"`, group drawers membership only. A drop never writes `"hidden"`.
 
-- **DRAG-57** The clock (centre anchor) stays centred: a gap beside it opens in the neighbouring list, not in its own slot, and a drop beside it commits first (DRAG-37).
+- **DRAG-57** The center box stays centred while a gap opens in it: the box grows by the gap on both sides, and Left and Right of center move with its edges (layout-zones.md ZONE-3).
 
 - **DRAG-58** The bar applies the edit to its own copy of the config at once and writes shell.json once, after the drag, glide and settle have finished (`configWriteSettled`); a bar move (DRAG-74) also holds writes.
 
@@ -168,7 +168,7 @@ Drag and drop on the live bar, into drawers and onto zone dots. The bar controll
 
 - **DRAG-73** In the keyboard mode Shift with the arrows drags the widget under the cursor one place at a time, landing as a pointer drop at that gap would (keyboard.md KEYS-86). It opens no gap: the widgets that moved glide from their old places to the new ones (Bar.qml glideEdit), and the write waits until the keyboard mode ends (integration.md INTEG-149).
 
-- **DRAG-74** Pressing and holding the clock's (centre anchor) empty area for 200 ms, or pressing it and moving 4 px, lifts the bar: an indicator shows on each screen edge, the one nearest the pointer (by the screen's diagonals) lights, and releasing writes `bar.position` to that edge (nothing if it is the current edge). Code: Bar.qml `CenterGestureArea`, `nearestScreenEdge()`; position: layout-zones.md ZONE-38.
+- **DRAG-74** Pressing and holding the bar's empty space for 200 ms, or pressing it and moving 4 px, lifts the bar: an indicator shows on each screen edge, the one nearest the pointer (by the screen's diagonals) lights, and releasing writes `bar.position` to that edge (nothing if it is the current edge). Code: Bar.qml `CenterGestureArea`, `nearestScreenEdge()`; position: layout-zones.md ZONE-38.
 
 ## Doc drift
 

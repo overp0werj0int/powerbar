@@ -2,20 +2,43 @@
 
 ## Unreleased
 
+- **Five zones.** The bar's zones are Omarchy's sections: Left, Left of
+  center, Center, Right of center and Right. Center sits over the middle of
+  the bar, or first right of the camera on a notched screen. Preferences >
+  Layout shows the five as columns sized like the bar, with the camera
+  between Left of center and Center; it turns for a side bar, and picks the
+  screen to picture when one has a camera and another not. A widget's Zone
+  is a small map of the bar.
+- **Notch is a style.** Preferences > Bar > Style offers Notch on a MacBook:
+  black ears on the notched screen's top edge, islands elsewhere. The bar
+  can now move to another edge in it.
+- **Zone modes are gone.** Three zones, Two zones, "Pinned to screen center"
+  and "Keep at screen center" make way for the five zones. Your layout is
+  read into them once: the pinned widget becomes Center, what was before it
+  Left of center, what was after it Right of center; a notch layout's zones
+  become Left and Right of center. The arrangements each mode kept are
+  copied to `~/.cache/powerbar/zone-layouts-<date>.json` before they leave
+  `shell.json`. `set zones` and `set centerAnchor` say what replaced them;
+  `setWidget` takes `centerBegin` and `centerEnd` zones and drops `centered`.
+- **Older Omarchy.** Where Omarchy's bar has only left, center and right,
+  Powerbar writes those three, Center holding one widget (the one Omarchy's
+  bar centres), and keeps the split beside them.
 - **Omarchy's new bar sections.** Widgets Omarchy places in `centerBegin`,
   `centerEnd` or its tray drawer show on Powerbar again. Omarchy puts every
   newly installed widget in `centerEnd`, so these used to vanish. Powerbar
   saves the layout in Omarchy's shape, so the stock bar reads it the same way.
-- **Three zones split around the notch.** On a MacBook's notched screen the
-  centre runs on either side of the camera: what comes before the clock ends
-  at the camera, and the clock and the rest start past it.
 - **Notch height.** Preferences > Bar > Notch has a height slider next to
   the width (`omarchy-shell powerbar set notchHeight N`), defaulting to the
   detected height. The tile now shows on any machine with a notched screen.
-- **A large flat bar fits the notch.** On a notched screen a large flat top
-  bar is exactly as tall as the camera, so it ends level with it; other
-  screens keep the large bar's height.
-- **Expansions stop at the notch.** In two and three zones an inline
+- **Indicators under the keyboard.** The cursor on the indicators reveals
+  them, and the keys along the bar walk their icons (and Workspaces') one
+  by one before moving on; Enter presses the one under the cursor. Their
+  highlight no longer lands on a folded icon beside the widget.
+- **A flat bar fits the notch.** On a notched screen a flat top bar, large
+  or small, is exactly as tall as the camera, so it ends level with it. Both
+  draw the same there: the large bar's spacing, with highlights sized to the
+  strip. Other screens keep the bar's own size.
+- **Expansions stop at the notch.** An inline
   expansion that would run over the camera opens its drawer instead, as a
   second island under the bar, the way it does when the bar is full.
 - **Activity peeks while the bar is off.** With the bar switched off

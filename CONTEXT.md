@@ -5,7 +5,20 @@ Powerbar organizes desktop widgets by placement and visibility.
 ## Language
 
 **Zone**:
-A widget's placement along the bar: Left, Center, or Right. On a vertical bar these correspond to the top, middle, and bottom groups.
+A widget's placement along the bar, one of Omarchy's five sections: Left, Left
+of center, Center, Right of center, or Right (on a vertical bar Top, Above
+center, Center, Below center, Bottom). The three center lists fit as one
+center zone around the center box.
+
+**Center box**:
+The Center list. It sits over the middle of the bar, or first right of the
+camera on a notched top screen; Left of center hangs off its start and Right of
+center off its end. Its widgets wait on demand with Right of center's.
+
+**Notch style**:
+A bar style for a notched screen's top edge: two black ears grow out of the
+camera, Left and Left of center in the left one, the rest in the right one.
+Elsewhere it draws as islands.
 
 **Visibility mode**:
 The rule governing a widget's presence: Always shown, Managed, or Always hidden. It is independent of its zone.
@@ -26,18 +39,18 @@ is hovered ("drawer", the default), or by an inline expansion ("inline").
 **On-demand run**:
 Wherever a zone's Managed widgets appear on the bar (an inline expansion, an
 activity reveal), they draw as one run at the zone's dots end, in their saved
-order: the left zone's end, the right zone's start, and in the centre on their
-side of the center anchor (left of it at the centre's start, right of it at its
-end). Always shown widgets never move to make room for them. The saved layout
-is not rewritten; Preferences splits the centre's On demand cell at the anchor.
+order: the left zone's end, the right zone's start, and in the centre at Left of
+center's start or Right of center's end (the box's own with Right of center's).
+Always shown widgets never move to make room for them. The saved layout is not
+rewritten.
 
 **Inline expansion**:
 In the inline display, a zone's Managed widgets wait behind its dots (shared
 with widgets folded for lack of room) and expand in the main island, as the
 zone's On-demand run, while the dots, then the zone, are hovered. Dots show
-only while something waits behind them. The centre has dots on each side of its
-anchor, and each side expands on its own. It is a zone-fit moment: neighbours yield.
-A neighbour whose anchor would have to yield hides whole, then the zone past it
+only while something waits behind them. The centre has dots at each end, Left of
+center's start and Right of center's end, and each side expands on its own. It is a zone-fit moment: neighbours yield.
+A neighbour whose never-folded widget would have to yield hides whole, then the zone past it
 if needed; an expanding centre may slide back onto the bar. It falls back to
 the Managed drawer only when the expanded zone can't fit the bar line.
 
@@ -103,8 +116,8 @@ stays hidden until the glide ends and holds the drop gap's extent meanwhile, so
 neighbours ease rather than step. An icon whose new home is not visible glides
 into and fades over its group icon, or fades where it was released. A cancelled
 drop glides back to the source as its space reopens.
-The host config changes once on a valid drop. The center
-anchor opens its gap in the neighboring list so the anchored icon stays centered.
+The host config changes once on a valid drop. A gap in the center box widens
+it on both sides, so the box stays centred.
 
 | From | To | Result |
 | --- | --- | --- |
@@ -119,7 +132,7 @@ anchor opens its gap in the neighboring list so the anchored icon stays centered
 | Managed drawer | Group icon | Add group membership |
 | Group icon | Main island or another group icon | Move or reorder the group header |
 | Group icon | Open managed drawer or a zone's dots | Set group visibility to Managed |
-| Any icon | A zone's dots | Move the instance to the dots' end of its On-demand run (the centre: on that dots' side of the anchor), set Managed (On demand) |
+| Any icon | A zone's dots | Move the instance to the dots' end of its On-demand run (the centre: Left of center's start or Right of center's end), set Managed (On demand) |
 | Any icon | Resting 400 ms on a zone's dots | Open the zone: inline expansion or its drawer, by the on-demand display |
 | Any icon | Inside an inline expansion's run (between two widgets it shows, or between one and the dots) | Move the instance there, set Managed; where the shown widgets meet the expansion it lands Always shown |
 | Any icon | Any gap on the bar | Lands at the gap as drawn: it joins the run of its visibility on the gap's side, so the saved order follows the drawn order |
