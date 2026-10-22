@@ -408,7 +408,7 @@ polling.
   replacement bar, Powerbar included.** Some widget plugins come in two parts,
   a bar widget and a service that does the work (kinds `bar-widget` and
   `service`; for example OmaSettings, Everything, Omapop, Notification Center,
-  Omatop, Reprieve). The widget reaches its service with
+  Omatop, Reprieve, Plume). The widget reaches its service with
   `bar.shell.serviceFor()`. Since Omarchy 4.0.3 that only works under
   Omarchy's own bar: widgets hosted by any third-party bar get a
   "service-less" facade on purpose, so a bar from outside can't get at other
@@ -423,12 +423,19 @@ polling.
   [#11796](https://github.com/omacom/omarchy/issues/11796),
   [#12648](https://github.com/omacom/omarchy/issues/12648),
   [#13289](https://github.com/omacom/omarchy/issues/13289) and
-  [#14101](https://github.com/omacom/omarchy/issues/14101)
-  ([#11949](https://github.com/omacom/omarchy/issues/11949) was closed); fixes
-  proposed in [#11970](https://github.com/omacom/omarchy/pull/11970),
-  [#13194](https://github.com/omacom/omarchy/pull/13194) and
-  [#12260](https://github.com/omacom/omarchy/pull/12260), not merged as of
-  October 2026. Until then, use such a widget's own shortcut or command, or
+  [#13794](https://github.com/omacom/omarchy/issues/13794)
+  ([#11949](https://github.com/omacom/omarchy/issues/11949) was closed, and
+  [#14101](https://github.com/omacom/omarchy/issues/14101) as a duplicate of
+  #11051); fixes proposed in
+  [#13633](https://github.com/omacom/omarchy/pull/13633) (each widget reaches
+  only its own plugin's service),
+  [#13194](https://github.com/omacom/omarchy/pull/13194),
+  [#13471](https://github.com/omacom/omarchy/pull/13471),
+  [#11970](https://github.com/omacom/omarchy/pull/11970) and
+  [#12260](https://github.com/omacom/omarchy/pull/12260), none merged as of
+  October 23, 2026. [#13842](https://github.com/omacom/omarchy/pull/13842)
+  would log a warning when such a lookup is refused, so the failure shows in
+  the shell log. Until then, use such a widget's own shortcut or command, or
   `omarchy bar reset` to go back to Omarchy's bar.
 - **Scrolling layout: a click on the bar can scroll the view.** This is
   Hyprland's: its scrolling layout scrolls the focused window into view on
