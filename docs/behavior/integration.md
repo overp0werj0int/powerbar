@@ -86,7 +86,7 @@ Omarchy's commands edit `shell.json` (or ask the host shell) and Powerbar
 follows the re-injected `barConfig`; none reaches Powerbar's IPC.
 
 - **INTEG-42** The flag file `~/.local/state/omarchy/toggles/bar-off` means the bar is off; a watch on the `toggles` directory re-reads it.
-- **INTEG-43** With the flag set, the bar parks just past its screen edge with no reserved space; while the keyboard mode is active the bar shows anyway and the flag is untouched. Code: `barHidden`.
+- **INTEG-43** With the flag set, the bar's strip slides past its screen edge as an autohidden bar's does (130 ms out of sight; 180 ms back when the flag goes), with no reserved space (on the notch, the camera's height only, ZONE-82) and no edge strip: the pointer does not bring it back. Its window stays mapped, so widget activity still peeks on badges (on-demand-drawers.md DEMAND-14). While the keyboard mode is active the bar shows anyway and the flag is untouched. Code: `barHidden`; BarPanel `stripAway`, `autoHideShown`.
 - **INTEG-44** `omarchy toggle bar [toggle|on|off]` flips the flag, then calls `omarchy-shell -q omarchy.bar syncHidden`.
 - **INTEG-45** `omarchy.bar syncHidden` (IPC target `omarchy.bar`, no output) re-reads the flag at once, even if the directory watch went quiet, so a quick on/off pair cannot strand the bar off screen.
 - **INTEG-116** While `bar.powerbarAutoHide` is on, `omarchy toggle bar` does not hide the bar: the flag reads as off again and the bar slides out as at its edge, held while the toggle's key (or any modifier if the bind is not found) is down, up to 60 s, and slides away the usual delay after release (a tap: at once). Code: `revealFromToggle`.

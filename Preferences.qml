@@ -936,15 +936,11 @@ Item {
                       checked: prefs.options.autoHide
                       onToggled: function(checked) { prefs.setOption("powerbarAutoHide", checked) }
                     }
-                    // Only matters while the bar autohides, so it sits under
-                    // Autohide and dims in place when that is off.
+                    // Peeks on an autohidden bar and on one switched off
+                    // (Super+Shift+Space), so it holds whether Autohide is on.
                     PrefsToggle {
                       compact: true
-                      Layout.leftMargin: Style.spacing.rowPaddingX
                       label: "Show on widget activity"
-                      enabled: prefs.options.autoHide
-                      opacity: enabled ? 1 : 0.45
-                      Behavior on opacity { enabled: prefs.motion; NumberAnimation { duration: 120 } }
                       checked: prefs.options.autoHideActivity
                       onToggled: function(checked) { prefs.setOption("powerbarAutoHideActivity", checked) }
                     }

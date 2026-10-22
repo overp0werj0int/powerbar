@@ -18,6 +18,10 @@
 - **Expansions stop at the notch.** In two and three zones an inline
   expansion that would run over the camera opens its drawer instead, as a
   second island under the bar, the way it does when the bar is full.
+- **Activity peeks while the bar is off.** With the bar switched off
+  (Super+Shift+Space), a widget that changes still comes out alone on its
+  badge, as on an autohidden bar. Show on widget activity now applies with
+  or without Autohide.
 
 ## 0.9.6 — 2026-10-17
 

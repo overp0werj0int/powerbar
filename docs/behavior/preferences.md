@@ -49,7 +49,7 @@ Sources: Preferences.qml, PreferencesModel.js, BentoModel.js, ShelfModel.js, Sli
 
 - **PREFS-19** The Groups settings tile has the action Dissolve (key x, or the button) asked twice: the first press changes it to "Again to dissolve" and the footer to "Again to dissolve", a second press within 3 s runs it, otherwise it lapses.
 
-- **PREFS-20** A control that does not apply is dimmed to 45 % but stays where it is, (Border thickness while Borders is off, Softness and Strength while Shadow is off, Show on widget activity while Autohide is off), with a one-line reason where there is one (PREFS-26), so the layout does not move as focus does.
+- **PREFS-20** A control that does not apply is dimmed to 45 % but stays where it is, (Border thickness while Borders is off, Softness and Strength while Shadow is off), with a one-line reason where there is one (PREFS-26), so the layout does not move as focus does.
 
 ## Layout page
 
@@ -169,7 +169,7 @@ Sources: Preferences.qml, PreferencesModel.js, BentoModel.js, ShelfModel.js, Sli
 
 - **PREFS-69** Shadow (under a Scope choice): Shadow (toggle), Softness (2 to 24, step 1, default 16) and Strength (5 to 60 %, step 5, default 30), both enabled only while Shadow is on.
 
-- **PREFS-70** Behavior: Autohide (`powerbarAutoHide`, default off), Show on widget activity (`powerbarAutoHideActivity`, default on; dimmed while Autohide is off), Readable over windows (`powerbarReadableOverlay`, default on; hidden on the notch, PREFS-96) and Animations (`powerbarAnimations`, default on). These are not scoped.
+- **PREFS-70** Behavior: Autohide (`powerbarAutoHide`, default off), Show on widget activity (`powerbarAutoHideActivity`, default on; peeks on an autohidden bar and on one switched off with Omarchy's bar toggle, so it is never dimmed), Readable over windows (`powerbarReadableOverlay`, default on; hidden on the notch, PREFS-96) and Animations (`powerbarAnimations`, default on). These are not scoped.
 
 - **PREFS-71** On demand: "Show them" In a drawer (the default, hovering a zone opens its drawer) or In the bar (behind dots, expanding in the bar; `powerbarOnDemand`), and "Count on the dots" (`powerbarDotsBadge`, default on). Timing: on-demand-drawers.md.
 

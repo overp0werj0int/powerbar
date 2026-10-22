@@ -495,10 +495,12 @@ Item {
   // not activity, so peeks wait until the bar has settled.
   property real peekQuietUntil: Date.now() + 6000
   onBarConfigSerialChanged: peekQuietUntil = Date.now() + 6000
-  // Widget activity on an autohidden bar: a badge brings out the widget, or
-  // its group's icon, alone (PeekBadge), and the bar highlights it meanwhile.
+  // Widget activity on an autohidden or switched-off bar: a badge brings out
+  // the widget, or its group's icon, alone (PeekBadge), and the bar
+  // highlights it meanwhile (DEMAND-14).
+  readonly property bool activityPeeks: autoHideActivity && (autoHide || barOffFlag)
   function autoHidePeek(slot) {
-    if (!autoHide || !autoHideActivity || barHidden || !slot) return
+    if (!activityPeeks || !slot) return
     if (!activityPeeksFor(slot.instanceKey, slot.moduleName)) return
     if (Date.now() < peekQuietUntil) return
     var window = slotWindow(slot)
@@ -789,8 +791,9 @@ Item {
     function metadataFor(id) { return null }
   }
   // Mirrors the on-disk `bar-off` flag so the user can hide the bar without
-  // killing the entire shell. Hidden panels stay mapped but park off-screen
-  // without an exclusion zone; updated by the FileView watcher further down.
+  // killing the entire shell. Hidden bars stay mapped and slide their strip
+  // past the screen edge, without an exclusion zone, so activity can still
+  // peek; updated by the FileView watcher further down.
   property bool barOffFlag: false
   // The keyboard mode shows a switched-off bar while it lasts; the flag itself
   // is never touched.
@@ -3820,11 +3823,11 @@ Item {
     readonly property real drawerExtent: drawer.thickness + drawer.gap + effectPadding
       + (root.groups.some(function(g) { return ManagedModel.groupMenu(g) }) ? Style.space(300) : 0)
 
-    // Hiding parks the bar just past its screen edge instead of unmapping it.
-    // Unmapping frees the layer surface and the whole scene graph, so every
-    // reveal has to rebuild them — new surface, re-shaped glyphs, re-uploaded
-    // textures — which measures ~150ms against ~20ms to tear down. Parking
-    // keeps the surface alive, so showing is only a margin change.
+    // Hiding slides the strip past its screen edge instead of unmapping the
+    // bar (stripAway). Unmapping frees the layer surface and the whole scene
+    // graph, so every reveal has to rebuild them — new surface, re-shaped
+    // glyphs, re-uploaded textures — which measures ~150ms against ~20ms to
+    // tear down. Keeping the surface alive makes showing only a slide.
     // A top bar that can't tell its notch yet waits for Hyprland's mode before
     // it maps (NotchModel.pending), so it maps at its full height instead of
     // growing once windows are laid out; two seconds at most, once.
@@ -3923,7 +3926,10 @@ Item {
     // Autohide overlays windows without reserving space. The surface stays
     // mapped and its content slides past the screen edge, leaving a thin edge
     // strip in the input region to catch the pointer and slide it back.
+    // Switched off (bar-off), the strip slides away the same way with no edge
+    // strip, so widget activity can still peek (stripAway, DEMAND-14).
     readonly property bool autoHideActive: root.autoHide && !root.barHidden
+    readonly property bool stripAway: autoHideActive || root.barHidden
     readonly property bool autoHideHeld: windowHover.hovered || edgeHover.hovered || drawer.opened
       || (!!root.activePopout && root.sameWindow(root.targetWindow(root.activePopout), barWindow))
       || !!root.barDragSource || root.barDragSettling || root.barMoveActive || preferencesPane.opened || root.toggleHeld
@@ -3962,7 +3968,7 @@ Item {
     ListModel { id: peekOrder }
     function peekKey(item) { return item.groupHeader ? "group:" + item.entry.powerbarGroupId : String(item.instanceKey || "") }
     function peek(item) {
-      if (!autoHideActive || !item) return
+      if (!stripAway || !item) return
       var key = peekKey(item)
       if (!key) return
       var items = Object.assign({}, peekItems)
@@ -3993,7 +3999,10 @@ Item {
       }
     }
     readonly property bool peeking: badgesOut && peekOrder.count > 0
-    readonly property bool autoHideShown: !autoHideActive || autoHideRevealed
+    // Out over the screen: always, unless it autohides or is switched off;
+    // then only while autohide reveals it.
+    readonly property bool stripRevealed: autoHideActive && autoHideRevealed
+    readonly property bool autoHideShown: !stripAway || stripRevealed
     property real autoHideOffset: 0
     // A drawer opening or closing under a tooltip moves it clear. A tooltip
     // on a drawer's row (the keyboard's name card after a search opened the
@@ -4027,7 +4036,7 @@ Item {
     }
     // On the notch the strip stays and each zone slides sideways into the
     // camera: out while the bar is revealed.
-    function zoneOut(zone) { return !autoHideActive || autoHideRevealed }
+    function zoneOut(zone) { return autoHideShown }
     property real leftShift: 0
     property real centerShift: 0
     property real rightShift: 0
@@ -4115,13 +4124,6 @@ Item {
     // The layer-shell namespace is fixed at map time. Remap only for an
     // explicit blur preference change, never for drawer transitions.
     Timer { id: blurRemap; interval: 60 }
-
-    margins {
-      top: root.barHidden && root.position === "top" ? -(barWindow.extent + drawerExtent) : 0
-      bottom: root.barHidden && root.position === "bottom" ? -(barWindow.extent + drawerExtent) : 0
-      left: root.barHidden && root.position === "left" ? -(barWindow.extent + drawerExtent) : 0
-      right: root.barHidden && root.position === "right" ? -(barWindow.extent + drawerExtent) : 0
-    }
 
     anchors {
       top: root.position === "top" || root.vertical
@@ -4801,12 +4803,12 @@ Item {
           }
         }
         // Each side's island, highlights and widgets in one layer. On the notch
-        // with autohide it clips at the camera's middle, so a zone sliding in
+        // with autohide (or switched off) it clips at the camera's middle, so a zone sliding in
         // vanishes under it rather than coming out the other side.
         ZoneClip {
           id: leftZone
           z: barWindow.inlineZoneName === "left" ? 1 : 0
-          clipping: barWindow.notchLook && barWindow.autoHideActive
+          clipping: barWindow.notchLook && barWindow.stripAway
           clipTo: barWindow.notchLeft + barWindow.notchTuck
           rowHeight: barWindow.notchLook ? root.barSize : 0
           // Past the screen edge the zone's outer widgets hang in a second row.
@@ -4860,7 +4862,7 @@ Item {
         ZoneClip {
           id: rightZone
           z: barWindow.inlineZoneName === "right" ? 1 : 0
-          clipping: barWindow.notchLook && barWindow.autoHideActive
+          clipping: barWindow.notchLook && barWindow.stripAway
           clipFrom: barWindow.notchRight - barWindow.notchTuck
           clipTo: barWindow.width
           rowHeight: barWindow.notchLook ? root.barSize : 0
@@ -5031,7 +5033,7 @@ Item {
     readonly property real hiddenOffset: onNotch ? bodyLength : (window ? window.autoHideDistance : 0)
     property real offset: hiddenOffset
     // Covered once the strip has come out over it.
-    readonly property bool covered: !!window && window.autoHideRevealed
+    readonly property bool covered: !!window && window.stripRevealed
       && (onNotch ? (leftSide ? window.leftShift : window.rightShift) < 0.5 : window.autoHideOffset < 0.5)
     visible: !!target && !covered && offset < hiddenOffset - 0.5
     onOutChanged: slide()
@@ -6091,7 +6093,7 @@ Item {
         required property int index
         target: slot.activityMounted.list[index]
         readonly property bool reveals: slot.managed || !!(slot.memberGroup && slot.memberGroup.visibility === "managed")
-        enabledForActivity: reveals || (root.autoHide && root.autoHideActivity && root.activityPeeksFor(slot.instanceKey, slot.moduleName))
+        enabledForActivity: reveals || (root.activityPeeks && root.activityPeeksFor(slot.instanceKey, slot.moduleName))
         onActivity: {
           if (root.reconcilingStructure) return
           if (reveals) root.reportActivity(slot.instanceKey)
@@ -6457,7 +6459,7 @@ Item {
       // A slot still at no width has no place yet (positioners skip it until
       // it grows): an expansion's widget the keyboard cursor lands on lights
       // once its zone has placed it, not for a frame at the zone's start.
-      hovered: (slot.hovered || slot.activityFlash || slot.preview.into || slot.keysCursor) && slot.mainVisible && slot.width > 0 && !slot.dragSource && !root.barHidden && !preferencesPane.opened
+      hovered: (slot.hovered || slot.activityFlash || slot.preview.into || slot.keysCursor) && slot.mainVisible && slot.width > 0 && !slot.dragSource && (!root.barHidden || slot.activityFlash) && !preferencesPane.opened
       outlined: slot.keysCursor && hovered
       // A group icon shows the open fill while its drawer is open. Only on
       // the bar: a member's panel opened from its drawer lights its row.
