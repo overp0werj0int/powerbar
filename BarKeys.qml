@@ -147,10 +147,10 @@ Item {
     active = true
     searching = false; query = ""; sheet = false; drawer = null; previewing = false; pending = null
     bar.refreshShortcuts()
-    // Start on the widget whose panel is open, else the clock, else the middle.
+    // Start on the widget whose panel is open, else the center box's first, else the middle.
     var list = stops()
     var open = list.find(function(s) { return s.item.panelOpen })
-    var anchor = list.find(function(s) { return s.item.centerAnchorSlot })
+    var anchor = list.find(function(s) { return s.item.drawnList === "center" })
     var back = at ? list.find(function(s) { return s.item === at }) : null
     var start = back || open || anchor || list[Math.floor(list.length / 2)]
     cursor = start ? start.item : null

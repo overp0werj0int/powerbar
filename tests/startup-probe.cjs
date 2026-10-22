@@ -64,8 +64,7 @@ TestCase {
       property var initialItems: members("left", "shown", "")
       property var entries: [{section: "left", mode: "shown", index: 0, instanceKey: "first"}]
       property var preferences: ({})
-      property int anchorIndex: -1
-      function columnsFor(mode) { return Model.columns(mode, anchorIndex >= 0) }
+      function columnsFor(mode) { return mode === "tray" ? ["tray"] : Model.sections }
       ${cells}
       ${members}
     }

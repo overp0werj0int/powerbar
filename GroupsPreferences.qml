@@ -300,12 +300,13 @@ Item {
           }
           // Column 2: Zone, Visibility and what it means
           Cell {
-            PrefsChoice {
+            PrefsZoneMap {
               compact: true
               Layout.alignment: Qt.AlignVCenter
               stacked: !settingsGrid.roomy
-              label: "Zone"
-              options: (pane.bar && pane.bar.twoZones ? ["left", "right"] : ["left", "center", "right"]).map(function(s) { return { value: s, label: pane.zoneNames[s] } })
+              zones: pane.layout ? pane.layout.zoneChoices : []
+              cameraAfter: pane.layout && pane.layout.previewCamera ? "centerBegin" : ""
+              noteFor: function(zone) { return pane.layout ? pane.layout.cameraNote(zone) : "" }
               value: pane.selectedGroup ? pane.selectedGroup.section : ""
               onChosen: function(value) { pane.edit({ section: value }) }
             }
@@ -1008,7 +1009,7 @@ Item {
       if (pane.bar.groupFor(e.instanceKey)) return false
       var q = filter.text.trim().toLowerCase()
       return !q || pane.preferences.title(e).toLowerCase().indexOf(q) >= 0 || String(e.id).toLowerCase().indexOf(q) >= 0
-    }).sort(function(a, b) { return ["left", "center", "right"].indexOf(a.section) - ["left", "center", "right"].indexOf(b.section) || a.index - b.index })
+    }).sort(function(a, b) { return Model.sections.indexOf(a.section) - Model.sections.indexOf(b.section) || a.index - b.index })
     onItemsChanged: cursor = Math.max(0, Math.min(cursor, items.length - 1))
     // The list as drawn: a zone's name before its first widget.
     readonly property var display: {
