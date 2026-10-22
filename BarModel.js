@@ -3,9 +3,10 @@ function isPlainObject(value) {
 }
 
 // Bar style: "flat" hugs the screen edges like Omarchy's own bar, "floating"
-// is one continuous surface held off the edges, "islands" floats each zone.
+// is one continuous surface held off the edges, "islands" floats each zone,
+// "notch" grows the centre out of a camera (islands where there is none).
 // Configs from before styles existed kept only the islands switch.
-var barStyles = ["flat", "floating", "islands"]
+var barStyles = ["flat", "floating", "islands", "notch"]
 function barStyle(config) {
   var value = config && config.powerbarStyle
   if (barStyles.indexOf(value) >= 0) return value

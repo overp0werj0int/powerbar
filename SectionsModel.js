@@ -137,6 +137,23 @@ function zoneLayouts(bar) {
   return isObject(bar) && isObject(bar.powerbarZoneLayouts) ? bar.powerbarZoneLayouts : null
 }
 
+// An Omarchy without the center's sections centres one widget, its anchor:
+// the box keeps its first widget and the rest lead Right of center, with the
+// groups drawn among them.
+function oneInBox(bar) {
+  var layout = bar.layout, box = layout.center
+  if (box.length < 2) return
+  var moved = box.slice(1), keys = moved.map(function(entry) { return entry && entry.powerbarInstance })
+  var after = layout.centerEnd.length && layout.centerEnd[0] && layout.centerEnd[0].powerbarInstance || ""
+  layout.center = box.slice(0, 1)
+  layout.centerEnd = moved.concat(layout.centerEnd)
+  list(bar.powerbarGroups).forEach(function(group) {
+    if (!isObject(group) || group.section !== "center") return
+    if (keys.indexOf(group.before) >= 0) group.section = "centerEnd"
+    else if (!group.before) { group.section = "centerEnd"; group.before = after }
+  })
+}
+
 // The five lists back into the config, in place. An Omarchy with the center's
 // sections takes them as they are. One without gets one center list, its box
 // named as the anchor, and the split kept beside it for the next read.
@@ -147,6 +164,7 @@ function write(bar, six) {
   delete bar.centerAnchor
   delete bar.powerbarFiveZones
   if (six) return bar
+  oneInBox(bar)
   var begin = layout.centerBegin, box = layout.center
   layout.center = begin.concat(box, layout.centerEnd)
   delete layout.centerBegin

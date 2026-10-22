@@ -37,13 +37,18 @@ function reconcileLists(models, lists, parking) {
   }
 }
 // The bar's zone lists in order (SectionsModel.lists), and the zone each one
-// belongs to: the three center lists share the center zone.
+// belongs to: the three center lists share the center zone. Under the Notch
+// style's camera (ears) there are two zones, one each side of the camera:
+// Left with Left of center, and the box with Right of center and Right.
 var lists = ["left", "centerBegin", "center", "centerEnd", "right"]
-function zoneOf(list) { return list === "centerBegin" || list === "centerEnd" ? "center" : list }
+function zoneOf(list, ears) {
+  if (ears) return list === "left" || list === "centerBegin" ? "left" : "right"
+  return list === "centerBegin" || list === "centerEnd" ? "center" : list
+}
 // One record per entry: its zone (region), the list it is drawn in, and the
 // list it is saved in (an entry of Omarchy's tray section is drawn beside the
 // tray, powerbarList "tray").
-function records(layout) {
+function records(layout, ears) {
   var result = []
   for (var list of lists) {
     var entries = layout && Array.isArray(layout[list]) ? layout[list] : []
@@ -53,7 +58,7 @@ function records(layout) {
       var id = typeof entry === "string" ? entry : entry.id
       if (!id) continue
       var saved = typeof entry === "object" && entry.powerbarList === "tray" ? "tray" : list
-      result.push({ key: entry.powerbarInstance || id + ":" + list + ":" + i, region: zoneOf(list), drawn: list, list: saved, entry: entry })
+      result.push({ key: entry.powerbarInstance || id + ":" + list + ":" + i, region: zoneOf(list, ears), drawn: list, list: saved, entry: entry })
     }
   }
   return result

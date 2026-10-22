@@ -768,10 +768,14 @@ Item {
   // the bar just renders whatever it's handed. The bar font follows the
   // OS-level fontconfig monospace binding — it is not stored in shell.json.
   property var barConfig: ({})
-  // The notch's zones are black and light-lettered on every screen: widgets
-  // take one bar colour, and the notched screen's zones blend into the camera.
-  // No shadow, blur or border there: the camera has none.
-  readonly property bool notchMode: barOptions.style === "notch"
+  // The Notch style: on the top edge of a notched screen the centre's two
+  // sides grow out of the camera as its ears (Left of center with Left, the
+  // box and Right of center with Right). Elsewhere it draws as islands.
+  // Its zones are black and light-lettered on every screen: widgets take one
+  // bar colour, and the notched screen's zones blend into the camera. No
+  // shadow, blur or border there: the camera has none.
+  readonly property bool notchStyle: barOptions.style === "notch"
+  readonly property bool notchMode: notchStyle && position === "top" && !!screenNotch
   // Injected by the host shell. Used for shell-wide actions such as opening
   // settings and persisting inline widget state.
   property var shell: null
@@ -1489,8 +1493,6 @@ Item {
   }
 
   function beginBarMove(window) {
-    // The notch keeps the bar at the top.
-    if (notchMode) return
     barMoveWindow = window
     barMoveScreen = window ? window.screen : null
     barMoveCandidate = position
@@ -1972,7 +1974,7 @@ Item {
 
   // The notch's zones are islands that grow out of the camera, on every
   // screen (Preferences hides Style there).
-  readonly property string barStyle: notchMode ? "islands" : barOptions.style
+  readonly property string barStyle: notchStyle ? "islands" : barOptions.style
   readonly property bool islands: barStyle === "islands"
   readonly property bool floating: barStyle === "floating"
   readonly property bool flat: barStyle === "flat"
@@ -2413,12 +2415,13 @@ Item {
     var entries = layoutConfig ? layoutConfig[list] : null
     return Array.isArray(entries) ? entries : []
   }
-  // A zone's lists in bar order, and their entries as one run.
-  function zoneLists(zone) {
-    return SectionsModel.lists.filter(function(list) { return SectionsModel.zoneOf(list) === zone })
+  // A zone's lists in bar order, and their entries as one run (ears: under
+  // the Notch style's camera, RenderModel.zoneOf).
+  function zoneLists(zone, ears) {
+    return SectionsModel.lists.filter(function(list) { return RenderModel.zoneOf(list, ears) === zone })
   }
-  function zoneEntries(zone) {
-    return [].concat.apply([], zoneLists(zone).map(function(list) { return layoutEntries(list) }))
+  function zoneEntries(zone, ears) {
+    return [].concat.apply([], zoneLists(zone, ears).map(function(list) { return layoutEntries(list) }))
   }
   // The saved keys of a list in order, without group icons and the tray
   // section's widgets drawn in it.
@@ -2452,7 +2455,7 @@ Item {
       if (slot.instanceKey && !byKey[slot.instanceKey]) byKey[slot.instanceKey] = slot
       if (slot.moduleName && !byId[slot.moduleName]) byId[slot.moduleName] = slot
     }
-    var entries = zoneEntries(region)
+    var entries = zoneEntries(region, !!window && !!window.notchLook)
     var slots = []
     for (var i = 0; i < entries.length; i++) {
       // A widget on the bar twice is told apart by its instance.
@@ -2935,13 +2938,12 @@ Item {
   function barGap(targetSlot, after, sourceSlot) {
     var window = targetSlot.homeWindow
     if (!window) return null
-    var models = window.widgetModels
     var sequence = []
     // A widget of the tray section is drawn here but saved elsewhere: it is
     // nobody's neighbour in the saved list.
-    for (var name of root.zoneLists(targetSlot.region)) {
-      for (var i = 0; i < models[name].count; i++) {
-        var s = models[name].get(i)
+    for (var model of window.zoneModels(targetSlot.region)) {
+      for (var i = 0; i < model.count; i++) {
+        var s = model.get(i)
         if (!s) continue
         sequence.push({ key: s.instanceKey, list: s.savedList, managed: s.managed, group: s.groupHeader,
           expanded: s.inlineShown && s.mainVisible, hidden: !s.mainVisible })
@@ -3825,16 +3827,26 @@ Item {
         }
       }
     }
+    // The models a zone draws from, in bar order: under the Notch style's
+    // camera each ear is one model, so it draws, fits and wraps as one run.
+    function zoneModels(zone) {
+      return (notchLook ? [zone] : root.zoneLists(zone)).map(function(name) { return widgetModels[name] })
+    }
     function reconcileWidgets() {
-      var records = RenderModel.records(root.layoutConfig)
+      var records = RenderModel.records(root.layoutConfig, notchLook)
       widgetStore.reconcile(records)
       var partition = RenderModel.split(records)
+      var keys = {}
+      for (var list of SectionsModel.lists) {
+        var into = notchLook ? RenderModel.zoneOf(list, true) : list
+        keys[into] = (keys[into] || []).concat(partition[list])
+      }
       var models = [], lists = []
       // On-demand widgets draw as one run at their dots (ZoneOrderModel).
       var managed = function(item) { return item.managed }
       for (var name of SectionsModel.lists) {
         models.push(widgetModels[name])
-        lists.push(ZoneOrderModel.arrange(partition[name].map(function(key) { return widgetStore.get(key) }).filter(function(item) { return !!item }), managed, name, notchLook))
+        lists.push(ZoneOrderModel.arrange((keys[name] || []).map(function(key) { return widgetStore.get(key) }).filter(function(item) { return !!item }), managed, name, notchLook))
       }
       var items = records.map(function(record) { return widgetStore.get(record.key) }).filter(function(item) { return !!item })
       RenderModel.reconcileLists(models, lists, widgetStore)
@@ -5538,7 +5550,7 @@ Item {
     pressAndHoldInterval: 200
 
     function startDrag(x, y) {
-      if (dragging || root.notchMode) return
+      if (dragging) return
       dragging = true
       root.beginBarMove(root.targetWindow(gestureArea))
       var scenePoint = gestureArea.mapToItem(null, x, y)

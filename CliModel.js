@@ -17,7 +17,7 @@ var settings = [
   // The older on/off form of background: none or opaque.
   { name: "transparent", key: "transparent", type: "bool", writer: "option" },
   { name: "centerAnchor", key: "centerAnchor", type: "string", writer: "option" },
-  { name: "style", key: "powerbarStyle", type: "choice", choices: ["flat", "floating", "islands"], writer: "style" },
+  { name: "style", key: "powerbarStyle", type: "choice", choices: ["flat", "floating", "islands", "notch"], writer: "style" },
   { name: "largeBar", key: "powerbarLargeBar", type: "bool", writer: "option" },
   { name: "spacingMode", key: "powerbarSpacingMode", type: "choice", choices: ["slots", "gaps"], writer: "option" },
   { name: "spacing", key: "powerbarSpacing", type: "number", min: 0, max: 16, step: 1, writer: "option" },

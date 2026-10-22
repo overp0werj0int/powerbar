@@ -153,3 +153,14 @@ test("groups Powerbar wrote for the older Omarchy are already in the five lists"
   m.read(bar);
   assert.equal(bar.powerbarGroups[0].section, 'center');
 });
+
+test('without the six sections the box keeps one widget; the rest lead Right of center', () => {
+  const e = k => ({ id: 'w.' + k, powerbarInstance: k });
+  const bar = { powerbarGroups: [{ id: 'g', section: 'center', before: 'b2' }, { id: 'h', section: 'center', before: '' }],
+    layout: { left: [], centerBegin: [e('a')], center: [e('b1'), e('b2')], centerEnd: [e('c')], right: [] } };
+  m.write(bar, false);
+  assert.equal(bar.centerAnchor, 'w.b1');
+  m.read(bar);
+  assert.deepEqual(five(bar), [[], ['w.a'], ['w.b1'], ['w.b2', 'w.c'], []]);
+  assert.deepEqual(J(bar.powerbarGroups).map(g => [g.id, g.section, g.before]), [['g', 'centerEnd', 'b2'], ['h', 'centerEnd', 'c']]);
+});
