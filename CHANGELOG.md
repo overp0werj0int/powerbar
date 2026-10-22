@@ -15,6 +15,9 @@
 - **A large flat bar fits the notch.** On a notched screen a large flat top
   bar is exactly as tall as the camera, so it ends level with it; other
   screens keep the large bar's height.
+- **Expansions stop at the notch.** In two and three zones an inline
+  expansion that would run over the camera opens its drawer instead, as a
+  second island under the bar, the way it does when the bar is full.
 
 ## 0.9.6 — 2026-10-17
 

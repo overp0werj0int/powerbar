@@ -176,7 +176,8 @@ test('on the notch a zone expansion wraps: nothing yields or hides, and the scre
   assert.ok(lasting.folded.left.length > 0);
   const moment = Object.assign({}, base, { previous: lasting, transient: { zone: 'left', unfold: 'left' } });
   const plain = fit(moment);
-  assert.ok(plain.hidden.center || plain.hidden.right || plain.fallbacks.length, 'two zones: the expansion runs into the notch');
+  assert.deepEqual(J(plain.fallbacks), [{ zone: 'left', reason: 'notch' }], 'two zones: an expansion that would cross the camera opens as a drawer');
+  assert.deepEqual(J(plain.hidden), { left: false, center: false, right: false }, 'nothing hides behind it');
   const r = fit(Object.assign({}, moment, { wrap: true }));
   assert.deepEqual(J(r.folded.left), [], 'its folded widgets come back');
   assert.deepEqual(J(r.yielded), []);
@@ -235,4 +236,17 @@ test("three zones: the camera's slot also holds the centre cells' end pads (notc
   assert.equal(b.fits, true);
   assert.ok(Math.abs((a.centerStart - b.centerStart) - pads / 2) < 1e-6, 'the centre starts half the pads further out');
   assert.equal(b.centerShift, 0, 'the slot stays on the camera');
+});
+
+test('three zones: a side expansion makes the before-run yield up to the camera, never past it', () => {
+  const base = make({ length: 1512, notch: NOTCH, zones: { left: Array(20).fill(12), before: Array(4).fill(12), anchor: 90, after: [12] } });
+  const lasting = fit(base);
+  const grow = (n) => fit(Object.assign({}, make({ length: 1512, notch: NOTCH, zones: { left: Array(n).fill(12), before: Array(4).fill(12), anchor: 90, after: [12] } }),
+    { previous: lasting, transient: { zone: 'left', unfold: 'left' } }));
+  const some = grow(24);
+  assert.deepEqual(J(some.fallbacks), [], 'room before the camera: it expands');
+  assert.deepEqual(J(some.yielded), ['B0', 'B1'], 'the before-run yields from its start');
+  const far = grow(28);
+  assert.deepEqual(J(far.fallbacks), [{ zone: 'left', reason: 'notch' }], 'past the camera: the drawer');
+  assert.equal(far.hidden.center, false);
 });

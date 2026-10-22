@@ -74,13 +74,13 @@ Numbers below use Omarchy's default theme tokens: bar 26 px (horizontal) or 28 p
 
 - **ZONE-30** Where widgets yielded, a quiet marker (the dots at 45% opacity, not interactive) takes the first freed cell, with the count of widgets out of view (badge as ZONE-16). Resting the pointer on the marker for 90 ms ends the moment that made them give way. Code: Bar.qml YieldMarker, releaseYield.
 
-- **ZONE-31** An inline expansion whose neighbour would have to yield its anchor hides that whole neighbour zone instead (dots included; its island fades with no marker); if the zone past it still collides, it yields in turn or hides whole. An expanding center that would run off the bar slides back onto it by the least distance. Code: fitMoment attempt(), hide().
+- **ZONE-31** An inline expansion whose neighbour would have to yield its anchor hides that whole neighbour zone instead (dots included; its island fades with no marker); if the zone past it still collides, it yields in turn or hides whole. A notch slot is never hidden or crossed (the camera, or the gap two zones keep in the middle of every screen, ZONE-77): an expansion that would need the centre, with its notch slot, to hide falls back to its drawer (ZONE-34, reason `notch`). An expanding center that would run off the bar slides back onto it by the least distance. Code: fitMoment attempt(), hide().
 
 - **ZONE-32** When two growing zones meet, the higher-priority one keeps its growing widget and yields the rest towards the other; if it cannot (an anchor would have to yield), the lower one falls back. Code: fitMoment attempt().
 
 - **ZONE-33** A moment keeps a smaller gap than a lasting fit: `momentGap = edgeGap = 4 px` (not a share of the zone gap), so hovering the indicators does not hide neighbours that still fit. Code: Bar.qml zoneFitInputs momentGap.
 
-- **ZONE-34** A moment that cannot be served falls back, for one reason: `folded` (its source widget is folded), `screen` (the zone would run off the bar line), `anchor` (an anchor would have to yield and the moment is not an inline expansion) or `neighbour` (two growing zones meet and the other cannot yield). An inline expansion that falls back collapses and the zone's drawer opens instead. Code: fitMoment fallbacks; Bar.qml refit().
+- **ZONE-34** A moment that cannot be served falls back, for one reason: `folded` (its source widget is folded), `screen` (the zone would run off the bar line), `anchor` (an anchor would have to yield and the moment is not an inline expansion), `neighbour` (two growing zones meet and the other cannot yield) or `notch` (an inline expansion in two or three zones would run over the camera, ZONE-31). An inline expansion that falls back collapses and the zone's drawer opens instead. Code: fitMoment fallbacks; Bar.qml refit().
 
 ## Inline expansion in the fit
 
@@ -207,6 +207,7 @@ Numbers below use Omarchy's default theme tokens: bar 26 px (horizontal) or 28 p
   - The run before the anchor ends at the camera's left edge. The anchor and the run after it start at its right edge. Without an anchor, the whole centre starts at the right edge.
   - The keep-out is the camera's width (ZONE-80) plus a screen edge's inset (`islandScreenInset`) on each side. Each side's island edge sits exactly on it, from its own end pad.
   - The fit places the keep-out as the same fixed slot two zones use (ZONE-77), just before the anchor, padded by the end pads of the cells beside it (`notchPads`). So the centre never slides over the camera, and widgets fold towards their own side.
+  - An inline expansion of the left zone makes the run before the anchor yield up to the camera, never past it; one that still collides opens its drawer, as a second island under the bar (ZONE-31).
   - In islands style each side is its own island. A screen without a notch keeps one centre as before.
 
   Code: Bar.qml notchSplit, notchKeepOut, notchSlotOf, CenterModules (split, centerBeginIsland); ZoneFitModel zoneItems.
@@ -283,7 +284,7 @@ Numbers below use Omarchy's default theme tokens: bar 26 px (horizontal) or 28 p
 
 - docs/design/zone-fit.md:218 says the fit's `inset` is "0 on Flat, edgeGap otherwise". Code: a flat bar's inset is `CellModel.flatEdge` (8.5 px on the 26 px bar), Bar.qml:1848.
 - docs/design/spacing.md:102 puts the "Spacing" choice in a "Style section"; in Preferences it is in the Size tile (Preferences.qml:633, :644).
-- CONTEXT.md ("Inline expansion") says the zone falls back to the drawer "only when the expanded zone can't fit the bar line"; the fit also falls back when the source widget is folded or when two growing zones meet and the other cannot yield (ZoneFitModel.js fitMoment, reasons `folded` and `neighbour`).
+- CONTEXT.md ("Inline expansion") says the zone falls back to the drawer "only when the expanded zone can't fit the bar line"; the fit also falls back when the source widget is folded, when two growing zones meet and the other cannot yield, or when it would run over a camera notch (ZoneFitModel.js fitMoment, reasons `folded`, `neighbour` and `notch`).
 
 ## Open questions
 
