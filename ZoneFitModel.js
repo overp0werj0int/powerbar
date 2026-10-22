@@ -17,7 +17,9 @@
 // widget without one), that stays at the middle of the bar line: the centre
 // never slides there, and the widgets on either side fold towards their own
 // neighbour instead (the left zone or the centre's before-run on the left,
-// the right zone or its after-run on the right).
+// the right zone or its after-run on the right). The camera is a hard stop:
+// an inline expansion that could only fit by hiding the centre, and with it
+// the notch slot, falls back to its drawer instead (reason "notch").
 // On the notch (input.wrap) each zone grows away from the camera and wraps
 // onto a second row at the screen edge, so a moment never makes another zone
 // yield or hide, and running past the screen edge is no reason to fall back.
@@ -446,6 +448,8 @@ function fitMoment(input) {
       var ys = yieldFrom(other, ga, limit, centerRange)
       if (ys) { y = y.concat(ys); continue }
       if (!unfolding[grower]) return { fail: grower, reason: "anchor" }
+      // Nothing runs over the camera: the expansion opens as a drawer.
+      if (other === "center" && hasNotch(input)) return { fail: grower, reason: "notch" }
       hide(other)
       // Past the hidden zone, the next one gives way to the expansion too.
       var beyond = names[ga ? p + 2 : p - 1]
