@@ -1,6 +1,9 @@
 // Pure layout operations. Address entries by section + index so duplicates remain distinct.
 var sections = ["left", "center", "right"]
 var modes = ["shown", "managed", "hidden"]
+// The rows of the Layout page: the visibilities, then Omarchy's tray, whose
+// icons can be moved out onto the bar (TrayItemsModel.js).
+var rows = modes.concat(["tray"])
 
 function id(entry) { return typeof entry === "string" ? entry : String(entry.id || "") }
 // As ManagedModel.mode, without its pending state: a widget with no saved
@@ -16,7 +19,8 @@ function records(layout, metadataFor, legacy) {
   sections.forEach(function(section) {
     var entries = layout && Array.isArray(layout[section]) ? layout[section] : []
     entries.forEach(function(entry, index) {
-      result.push({ section: section, index: index, id: id(entry), instanceKey: entry && entry.powerbarInstance || "", badgeProperty: entry && entry.powerbarBadgeProperty || "", urgentProperty: entry && entry.powerbarUrgentProperty || "", mode: mode(entry, metadataFor ? metadataFor(id(entry)) : null, legacy), fingerprint: JSON.stringify(entry) })
+      result.push({ section: section, index: index, id: id(entry), instanceKey: entry && entry.powerbarInstance || "", badgeProperty: entry && entry.powerbarBadgeProperty || "", urgentProperty: entry && entry.powerbarUrgentProperty || "", mode: mode(entry, metadataFor ? metadataFor(id(entry)) : null, legacy), fingerprint: JSON.stringify(entry),
+        trayItem: entry && entry.type === "trayItem" ? String(entry.item || "") : "", trayTitle: entry && entry.type === "trayItem" ? String(entry.title || "") : "" })
     })
   })
   return result
@@ -85,50 +89,55 @@ function across(list, column, count, mode) {
   var section = sectionOf(column)
   if (list.indexOf(section) >= 0) return section
   var start = section + ":start", end = section + ":end"
+  // The tray's one row meets the zone the tray usually sits in, the last.
+  if (list.indexOf(start) < 0) return list[list.length - 1]
   return count(start, mode) === 0 && count(end, mode) > 0 ? end : start
 }
 // Cursor over existing items. Walking past a cell's edge continues into the
 // neighbouring column on the same row; empty cells are valid resting places.
-// columnsFor(mode) lists a row's columns (zones by default).
-function stepCursor(count, cursor, dx, dy, columnsFor) {
+// columnsFor(mode) lists a row's columns (zones by default); rowList the rows
+// (the visibilities by default).
+function stepCursor(count, cursor, dx, dy, columnsFor, rowList) {
   columnsFor = columnsFor || zonesOnly
-  var m = modes.indexOf(cursor.mode), column = cursor.section, pos = cursor.pos
+  var list = rowList || modes
+  var m = list.indexOf(cursor.mode), column = cursor.section, pos = cursor.pos
   if (dy) {
-    m = clamp(m + dy, 0, modes.length - 1)
-    column = across(columnsFor(modes[m]), column, count, modes[m])
-    pos = clamp(pos, 0, Math.max(0, count(column, modes[m]) - 1))
+    m = clamp(m + dy, 0, list.length - 1)
+    column = across(columnsFor(list[m]), column, count, list[m])
+    pos = clamp(pos, 0, Math.max(0, count(column, list[m]) - 1))
   }
-  var cols = columnsFor(modes[m]), s = Math.max(0, cols.indexOf(column))
+  var cols = columnsFor(list[m]), s = Math.max(0, cols.indexOf(column))
   if (dx) {
     pos += dx
     if (pos < 0) {
-      if (s > 0) { s--; pos = Math.max(0, count(cols[s], modes[m]) - 1) } else pos = 0
-    } else if (pos > Math.max(0, count(cols[s], modes[m]) - 1)) {
-      if (s < cols.length - 1) { s++; pos = 0 } else pos = Math.max(0, count(cols[s], modes[m]) - 1)
+      if (s > 0) { s--; pos = Math.max(0, count(cols[s], list[m]) - 1) } else pos = 0
+    } else if (pos > Math.max(0, count(cols[s], list[m]) - 1)) {
+      if (s < cols.length - 1) { s++; pos = 0 } else pos = Math.max(0, count(cols[s], list[m]) - 1)
     }
   }
-  return { section: cols[s], mode: modes[m], pos: pos }
+  return { section: cols[s], mode: list[m], pos: pos }
 }
 // Insertion point for a lifted item; count excludes the lifted item, so every
 // cell offers count + 1 slots and the far edge of a cell hands over to the next.
-function stepLift(count, target, dx, dy, columnsFor) {
+function stepLift(count, target, dx, dy, columnsFor, rowList) {
   columnsFor = columnsFor || zonesOnly
-  var m = modes.indexOf(target.mode), column = target.section, pos = target.pos
+  var list = rowList || modes
+  var m = list.indexOf(target.mode), column = target.section, pos = target.pos
   if (dy) {
-    m = clamp(m + dy, 0, modes.length - 1)
-    column = across(columnsFor(modes[m]), column, count, modes[m])
-    pos = clamp(pos, 0, count(column, modes[m]))
+    m = clamp(m + dy, 0, list.length - 1)
+    column = across(columnsFor(list[m]), column, count, list[m])
+    pos = clamp(pos, 0, count(column, list[m]))
   }
-  var cols = columnsFor(modes[m]), s = Math.max(0, cols.indexOf(column))
+  var cols = columnsFor(list[m]), s = Math.max(0, cols.indexOf(column))
   if (dx) {
     pos += dx
     if (pos < 0) {
-      if (s > 0) { s--; pos = count(cols[s], modes[m]) } else pos = 0
-    } else if (pos > count(cols[s], modes[m])) {
-      if (s < cols.length - 1) { s++; pos = 0 } else pos = count(cols[s], modes[m])
+      if (s > 0) { s--; pos = count(cols[s], list[m]) } else pos = 0
+    } else if (pos > count(cols[s], list[m])) {
+      if (s < cols.length - 1) { s++; pos = 0 } else pos = count(cols[s], list[m])
     }
   }
-  return { section: cols[s], mode: modes[m], pos: pos }
+  return { section: cols[s], mode: list[m], pos: pos }
 }
 // The layout index to insert before, or -1 for the end of the zone. Past the
 // last item before the centre anchor, that is the anchor.

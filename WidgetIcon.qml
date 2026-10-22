@@ -43,8 +43,12 @@ Item {
   readonly property real aspect: Math.max(1, imageWidth - trimX * 2) / Math.max(1, imageHeight - trimY * 2)
   // A group shows its icon: a glyph in its own font, or your own image.
   readonly property bool isGroup: !!(record && record.groupId)
-  implicitHeight: hasImage ? size : isGroup ? groupFace.implicitHeight : glyph.implicitHeight
-  implicitWidth: hasImage ? Math.min(size * maxAspect, size * aspect) : isGroup ? groupFace.implicitWidth : glyph.implicitWidth
+  // A tray icon with no image of its own yet: the app's icon while it runs
+  // (Preferences.trayIcon).
+  readonly property string trayUrl: !hasImage && record && record.trayItem ? preferences.trayIcon(record) : ""
+  readonly property bool trayShown: trayUrl !== ""
+  implicitHeight: hasImage || trayShown ? size : isGroup ? groupFace.implicitHeight : glyph.implicitHeight
+  implicitWidth: hasImage ? Math.min(size * maxAspect, size * aspect) : trayShown ? size : isGroup ? groupFace.implicitWidth : glyph.implicitWidth
   clip: hasImage && (trimX > 0 || trimY > 0)
   Accessible.ignored: true
 
@@ -83,10 +87,23 @@ Item {
     fontSize: Math.round(icon.size * 0.72)
     imageSize: Math.round(icon.size * 0.72)
   }
+  TintedImage {
+    anchors.centerIn: parent
+    visible: icon.trayShown
+    width: Math.round(icon.size * 0.8)
+    height: width
+    fillMode: Image.PreserveAspectFit
+    sourceSize.width: Math.round(width * Screen.devicePixelRatio)
+    sourceSize.height: Math.round(height * Screen.devicePixelRatio)
+    source: icon.trayUrl
+    // Symbolic icons take the text colour, as on the bar.
+    tint: icon.trayUrl.split("?")[0].slice(-9) === "-symbolic"
+    color: icon.color
+  }
   Text {
     id: glyph
     anchors.centerIn: parent
-    visible: !icon.hasImage && !icon.isGroup
+    visible: !icon.hasImage && !icon.isGroup && !icon.trayShown
     text: icon.key ? icon.preferences.icon(icon.record) : ""
     textFormat: Text.PlainText
     color: icon.record && icon.record.groupId ? Commons.Color.accent : icon.color

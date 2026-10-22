@@ -22,6 +22,12 @@
   (Super+Shift+Space), a widget that changes still comes out alone on its
   badge, as on an autohidden bar. Show on widget activity now applies with
   or without Autohide.
+- **Tray icons on the bar.** Preferences > Layout has an In the tray shelf
+  with the icons in Omarchy's tray. Drag one onto the bar, On demand, Hidden
+  or into a group and it leaves the tray and works as a widget, with the
+  tray's click, right-click menu and scroll. Drag it back and the tray shows
+  it again. On Omarchy's own bar such an icon stays hidden in the tray, where
+  its Manage list can bring it back.
 
 ## 0.9.6 — 2026-10-17
 

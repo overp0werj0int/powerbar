@@ -264,3 +264,13 @@ test('a move names its new neighbour by instance key, so a replay after an outsi
   assert.equal(barModel.moveInstanceInConfig(config, 'left', 'A', 'left', model.anchorKey(shown, 'left', 2, 'A'), 'shown'), true);
   assert.deepEqual(config.bar.layout.left.map((e) => e.powerbarInstance), ['N', 'B', 'A', 'C']);
 });
+test("the tray's row sits under Hidden, one column wide, and leads back to the last zone", () => {
+  const count = counter('');
+  const columnsFor = mode => mode === 'tray' ? ['tray'] : ['left', 'center', 'right'];
+  const rows = [...model.rows];
+  assert.deepEqual(rows, ['shown', 'managed', 'hidden', 'tray']);
+  assert.deepEqual({ ...model.stepCursor(count, { section: 'left', mode: 'hidden', pos: 0 }, 0, 1, columnsFor, rows) }, { section: 'tray', mode: 'tray', pos: 0 });
+  assert.deepEqual({ ...model.stepCursor(count, { section: 'tray', mode: 'tray', pos: 0 }, 0, -1, columnsFor, rows) }, { section: 'right', mode: 'hidden', pos: 0 });
+  assert.deepEqual({ ...model.stepCursor(count, { section: 'left', mode: 'hidden', pos: 0 }, 0, 1, columnsFor) }, { section: 'left', mode: 'hidden', pos: 0 }, 'without the tray row the cursor stops at Hidden');
+  assert.deepEqual({ ...model.stepLift(count, { section: 'tray', mode: 'tray', pos: 0 }, 0, -3, columnsFor, rows) }, { section: 'right', mode: 'shown', pos: 0 });
+});

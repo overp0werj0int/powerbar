@@ -6012,6 +6012,7 @@ Item {
     }
     readonly property bool qmlCustom: customType === "qml"
     readonly property bool commandCustom: customType === "command"
+    readonly property bool trayCustom: customType === "trayItem"
     readonly property bool registered: registryComponent !== null
     readonly property var activeItem: {
       if (registered) return registryLoader.item
@@ -6101,7 +6102,8 @@ Item {
         }
       }
     }
-    readonly property string displayName: BarModel.widgetName(registryMetadata, moduleName)
+    readonly property string displayName: trayCustom && moduleSettings.title ? String(moduleSettings.title)
+      : BarModel.widgetName(registryMetadata, moduleName)
       || String(moduleName).split(".").pop()
     // A widget that hid itself (the update widget with nothing pending) still
     // has its own button; its placeholder presses that, as a click on the
@@ -6412,7 +6414,8 @@ Item {
     Loader {
       id: componentLoader
       active: !slot.qmlCustom && !slot.registered
-      sourceComponent: slot.groupHeader ? groupButtonComponent : slot.commandCustom ? customCommandModuleComponent : emptyModuleComponent
+      sourceComponent: slot.groupHeader ? groupButtonComponent : slot.commandCustom ? customCommandModuleComponent
+        : slot.trayCustom ? trayItemComponent : emptyModuleComponent
       anchors.fill: parent
       onLoaded: {
         slot.injectProps()
@@ -6802,6 +6805,12 @@ Item {
     Component {
       id: customCommandModuleComponent
       CustomCommandModule { entry: slot.entry }
+    }
+
+    // An icon moved out of Omarchy's tray (TrayItemsModel.js).
+    Component {
+      id: trayItemComponent
+      TrayItemWidget { host: root; entry: slot.entry }
     }
   }
 

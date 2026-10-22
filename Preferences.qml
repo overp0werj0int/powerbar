@@ -3,6 +3,7 @@ import QtQuick.Layouts
 import Quickshell
 import Quickshell.Io
 import Quickshell.Wayland
+import Quickshell.Services.SystemTray
 import qs.Commons
 import qs.Commons as Commons
 import qs.Ui
@@ -13,6 +14,7 @@ import "AppearanceModel.js" as AppearanceModel
 import "GroupsModel.js" as Groups
 import "RenderModel.js" as RenderModel
 import "BentoModel.js" as BentoModel
+import "TrayItemsModel.js" as TrayItemsModel
 
 // Powerbar preferences. Everything is reachable from the keyboard: 1-3 switch
 // pages, Tab and j/k walk controls, h/l adjust them, Esc closes. The footer
@@ -151,6 +153,7 @@ Item {
   onTargetScreenChanged: if (opened) { captureEpoch++; snapshotBatch = ({}); refreshSnapshots() }
   function title(record) {
     if (record.groupId) return record.label
+    if (record.trayTitle) return record.trayTitle
     if (record.label) return record.label
     var metadata = metadataFor(record.id)
     return BarModel.widgetName(metadata, record.id)
@@ -340,6 +343,40 @@ Item {
     })
     status = accepted === false ? "Could not save the layout. Check that shell.json is writable."
       : changed || inPlace ? "" : "The layout changed elsewhere. Try again."
+  }
+
+  // Omarchy's tray icons (TrayItemsModel.js): the ones still in the tray, as
+  // the Layout page's last row, and each icon's live image.
+  readonly property var trayEntries: TrayItemsModel.trayRows(SystemTray.items.values, config.layout, Status.Passive)
+  function trayIcon(record) {
+    if (!record || !record.trayItem) return ""
+    var item = TrayItemsModel.find(SystemTray.items.values, { item: record.trayItem, title: record.trayTitle })
+    return item ? String(item.icon || "") : ""
+  }
+  // Moves a tray icon out onto the bar, before layout index `before` of
+  // `section`; returns the new entry's instance key ("" when it did not move).
+  function takeFromTray(record, section, mode, before) {
+    if (!record || !bar || !bar.shell) return ""
+    var item = TrayItemsModel.find(SystemTray.items.values, { item: record.trayItem, title: record.trayTitle })
+    if (!item) { status = "That app has left the tray."; return "" }
+    var beforeKey = Model.anchorKey(config.layout, section, before, "")
+    var key = "pw-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2)
+    var moved = false
+    var accepted = bar.writeConfig(function(config) {
+      moved = !!TrayItemsModel.moveOut(config, item, section, mode, beforeKey, key)
+    })
+    status = accepted === false ? "Could not save the layout. Check that shell.json is writable." : ""
+    return accepted !== false && moved ? key : ""
+  }
+  // Puts a moved icon back in the tray. A group anchored on it moves on to
+  // the widget after it.
+  function returnToTray(record) {
+    if (!record || !record.instanceKey || !bar || !bar.shell) return
+    var accepted = bar.writeConfig(function(config) {
+      var next = Groups.nextAnchor(config, record.section, record.instanceKey)
+      if (TrayItemsModel.moveBack(config, record.instanceKey)) Groups.reanchor(config, record.section, record.instanceKey, next)
+    })
+    status = accepted === false ? "Could not save the layout. Check that shell.json is writable." : ""
   }
 
   Timer {
