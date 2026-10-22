@@ -486,8 +486,9 @@ replacement bars, not a fault in the widget: see Known limitations.
 **The bar is gone.** If it was switched off with Omarchy's bar toggle
 (Super+Shift+Space, `omarchy toggle bar`), `omarchy-shell powerbar show`
 brings it back, as does `omarchy toggle bar off` (the word names Omarchy's
-`bar-off` flag, so `off` shows the bar). With autohide on, the toggle never
-hides the bar: it slides out while you hold the keys. An autohidden bar comes
+`bar-off` flag, so `off` shows the bar). While it is off, widgets still peek
+out on their own when they change (Show on widget activity). With autohide
+on, the toggle never hides the bar: it slides out while you hold the keys. An autohidden bar comes
 out when the pointer reaches its edge; `omarchy-shell powerbar show` holds it
 out until `hide`, and `omarchy-shell powerbar set autoHide off` ends
 autohide. If `omarchy-shell powerbar status` does not answer, run `omarchy

@@ -256,9 +256,9 @@ Numbers below use Omarchy's default theme tokens: bar 26 px (horizontal) or 28 p
 
 - **ZONE-86** The second row opens from the screen edge over 200 ms (ease-out). Moved items take their places at once and fade in over 90 ms as the black reaches them. When the expansion ends, they return to the first row at once and the empty row closes back into the edge over 200 ms. The keyboard cursor, its highlight and hover cards follow the items into the second row, and a card from the first row keeps clear of the second. Code: NotchHanger reach; Bar.qml wrapOpacity, cellHighlight, wrapRowNear.
 
-- **ZONE-87** With autohide on the notch (appearance.md LOOK-144):
+- **ZONE-87** With autohide on the notch, or with the bar switched off there (appearance.md LOOK-144):
   - The strip does not slide off the screen. Each zone slides sideways into the camera and is clipped at the camera's edge.
-  - The camera alone reveals the bar.
+  - The camera alone reveals an autohidden bar; a switched-off bar stays in.
   - An activity peek brings the widget that changed out of the camera on its own badge; the zones stay in.
 
   Code: Bar.qml slideNotch, zoneOut, autoHideStrip, PeekBadge; ZoneClip.
