@@ -19,6 +19,10 @@ TestCase {
     property bool dragHandover: false
     property int dragMotionDuration: 150
     property real highlightRadius: 6
+    function targetWindow(item) { return null }
+    function tokensIn(window) { return cellTokens }
+    function thicknessIn(window) { return cellTokens.thickness }
+    function highlightRadiusIn(window) { return highlightRadius }
     property string fontFamily: "sans"
   }
 

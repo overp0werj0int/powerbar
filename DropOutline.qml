@@ -22,8 +22,9 @@ Item {
   // The drop lands here: the gap is opening or open (it may still be short).
   property bool open: gapLength > 1
   // The landing cell: its length along the run and its thickness across.
-  property real cellAlong: bar ? (bar.barDragSource ? bar.barDragSource.cellLength : bar.cellTokens.cell) : 0
-  property real cellAcross: bar ? bar.thicknessIn(bar.targetWindow(outline)) : 0
+  readonly property var hostWindow: bar ? bar.targetWindow(outline) : null
+  property real cellAlong: bar ? (bar.barDragSource ? bar.barDragSource.cellLength : bar.tokensIn(hostWindow).cell) : 0
+  property real cellAcross: bar ? bar.thicknessIn(hostWindow) : 0
   // The run's size across; the cell centres in it.
   property real crossLength: vertical ? (parent ? parent.width : 0) : (parent ? parent.height : 0)
   // Where the cell starts in the gap; below zero it centres. A menu row lands
@@ -119,7 +120,7 @@ Item {
     y: Math.round(outline.offY)
     width: Math.max(0, Math.round(outline.width + outline.offW))
     height: Math.max(0, Math.round(outline.height + outline.offH))
-    radius: outline.bar ? outline.bar.highlightRadius : 0
+    radius: outline.bar ? outline.bar.highlightRadiusIn(outline.hostWindow) : 0
     color: "transparent"
     border.width: 1
     border.color: Qt.rgba(outline.ink.r, outline.ink.g, outline.ink.b, 0.45)

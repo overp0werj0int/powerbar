@@ -78,15 +78,20 @@ GridLayout {
         } else return
         event.accepted = true
       }
-      // Cell n's left edge and width: shares of what the gaps and camera leave.
+      // Cell n's left edge and width: shares of what the gaps and camera
+      // leave. The cell mirroring the one before the camera grows by it, so
+      // the map stays symmetric about its middle, as the Layout page's
+      // shelves are.
+      readonly property int cameraAt: camera ? row.indexOf(row.cameraAfter) : -1
+      readonly property real slot: camera ? cameraWidth + gap : 0
+      function widthOf(i) {
+        var free = width - gap * (row.zones.length - 1) - 2 * slot
+        return free * row.zones[i].share / total + (cameraAt >= 0 && i === row.zones.length - 1 - cameraAt ? slot : 0)
+      }
       function span(n) {
-        var free = width - gap * (row.zones.length - 1) - (camera ? cameraWidth + gap : 0)
         var x = 0
-        for (var i = 0; i < n; i++) {
-          x += free * row.zones[i].share / total + gap
-          if (camera && row.zones[i].value === row.cameraAfter) x += cameraWidth + gap
-        }
-        return { x: x, width: free * row.zones[n].share / total }
+        for (var i = 0; i < n; i++) x += widthOf(i) + gap + (i === cameraAt ? slot : 0)
+        return { x: x, width: widthOf(n) }
       }
 
       Repeater {

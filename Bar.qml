@@ -2016,12 +2016,19 @@ Item {
     }
     return sizes
   }
-  // A large flat top bar on a notched screen is exactly as tall as the camera
-  // (layout-zones.md ZONE-90); other screens keep the large bar's size.
-  function fitsNotch(notch) { return !!notch && !vertical && flat && largeBar && !notchMode }
-  // A bar window's own thickness and its cells', where it differs (notchFit).
+  // A flat top bar on a notched screen is exactly as tall as the camera, large
+  // or small (layout-zones.md ZONE-90); other screens keep the bar's size.
+  function fitsNotch(notch) { return !!notch && !vertical && flat && !notchMode }
+  // A bar window's own thickness and cells, where they differ (notchFit), and
+  // what follows from them: the inset off the screen's sides, the island end
+  // pad, the gap between zones and the highlight's radius.
   function sizeIn(window) { return window && window.barSize > 0 ? window.barSize : barSize }
-  function thicknessIn(window) { return window && window.cellThickness > 0 ? window.cellThickness : cellTokens.thickness }
+  function tokensIn(window) { return window && window.cellTokens ? window.cellTokens : cellTokens }
+  function thicknessIn(window) { return tokensIn(window).thickness }
+  function screenInsetIn(window) { return flat ? CellModel.flatEdge(tokensIn(window), Style.space(8), Style.bar.iconSlot) : edgeGap }
+  function endPadIn(window, spill) { return CellModel.endPad(tokensIn(window), spill) }
+  function zoneGapIn(window) { return tokensIn(window).cell + widgetSpacing }
+  function highlightRadiusIn(window) { return CellModel.radius(tokensIn(window), islandRounding) }
 
   // Camera notches (NotchModel.js, docs/behavior/layout-zones.md "Notch"):
   // the panels Omarchy's platform package describes, read as the shell starts
@@ -2082,6 +2089,13 @@ Item {
   // cells one gutter apart; Equal gaps puts the same air between glyphs.
   readonly property string spacingMode: barOptions.spacingMode
   readonly property var cellTokens: CellModel.tokens({ bar: barSize, spacing: widgetSpacing, mode: spacingMode })
+  // A bar fitted to a notch has the large bar's cells, as thick as the notch
+  // leaves room for, whether or not the bar is large: the strip is the
+  // camera's height either way, so the setting changes nothing there.
+  function notchTokensFor(notch) {
+    var large = CellModel.tokens({ bar: barSizeFor(false, true), spacing: widgetSpacing, mode: spacingMode })
+    return Object.assign({}, large, { thickness: Math.max(0, Math.min(large.thickness, notch.height - 2 * large.inset)) })
+  }
   // A group drawn as a menu has one size on every bar: rows, padding and icon
   // cells as the large bar's (groups.md GROUP-96). The live drawer and
   // Preferences' drawing of it both read these.
@@ -2101,8 +2115,6 @@ Item {
   // flat bar runs edge to edge, and its zones keep the end glyphs where
   // Omarchy's bar has them (CellModel.flatEdge).
   readonly property real islandScreenInset: flat ? CellModel.flatEdge(cellTokens, Style.space(8), Style.bar.iconSlot) : edgeGap
-  // Preferences' layout preview pads its zones like an island end.
-  readonly property real islandPadding: cellTokens.inset
   // Padding past the first or last slot so the end cell sits one inset from
   // the island's end and its curve runs parallel to the island's.
   function cellEndPad(spill) { return CellModel.endPad(cellTokens, spill) }
@@ -2119,9 +2131,6 @@ Item {
     else delete next[screenName]
     if (!RenderModel.equal(next, zoneFitReports)) zoneFitReports = next
   }
-  // Island ends are the same during a drag: the outlined placeholder shows
-  // where a widget lands, so islands no longer grow a landing lip.
-  function islandEnd(zone, spill) { return cellEndPad(spill) }
   // The kit button that paints a widget's glyph, if any (depth-limited): an
   // icon button, or a text button showing a glyph (placeholders, group icons).
   // Only when that button is the widget's whole content: the search follows a
@@ -2175,7 +2184,8 @@ Item {
   // The cell centres on the item's own stretch: past `lead` and at most `span`
   // long, so a drop gap the slot holds before or after its widget is left out.
   function cellHighlight(item, host, strip, cell, lead, span) {
-    var thickness = thicknessIn(targetWindow(strip))
+    var window = targetWindow(strip)
+    var thickness = thicknessIn(window), radius = highlightRadiusIn(window)
     var origin = item.mapToItem(host, 0, 0)
     var along = vertical ? item.height : item.width
     var from = lead > 0 ? lead : 0
@@ -2185,8 +2195,8 @@ Item {
     var cross = vertical ? s.x + (strip.width - thickness) / 2 : s.y + (strip.height - thickness) / 2
     // A widget in the notch's second row lights there.
     if (!vertical && item.wrapY > 0) cross += item.wrapY
-    return vertical ? { x: cross, y: start, width: thickness, height: cell, radius: highlightRadius }
-      : { x: start, y: cross, width: cell, height: thickness, radius: highlightRadius }
+    return vertical ? { x: cross, y: start, width: thickness, height: cell, radius: radius }
+      : { x: start, y: cross, width: cell, height: thickness, radius: radius }
   }
   // A notch zone's second row (NotchModel.wrapRow), or null: list is the
   // zone's ModuleList, trail an item that ends it (the Preferences button).
@@ -3555,17 +3565,17 @@ Item {
     }
     // Everything the fit reads; any change schedules one refit.
     readonly property var zoneFitInputs: {
-      var prefs = CellModel.place(root.cellTokens, root.preferencesGlyphSize, true)
+      var prefs = CellModel.place(barWindow.cellTokens, root.preferencesGlyphSize, true)
       var right = zoneFitList(rightModel)
       right.push({ key: "prefs", extent: prefs.extent, spill: prefs.spill })
       var hidden = inlineHidden
       var aged = zoneFitAged
       return {
         length: (root.vertical ? mainStrip.height : mainStrip.width),
-        inset: root.islandScreenInset,
-        gap: root.zoneGap,
+        inset: barWindow.screenInset,
+        gap: barWindow.zoneGap,
         momentGap: root.edgeGap,
-        gutter: root.cellTokens.gutter,
+        gutter: barWindow.cellTokens.gutter,
         notch: notchKeepOut,
         wrap: notchLook,
         left: zoneFitList(leftModel), right: right,
@@ -3576,13 +3586,13 @@ Item {
     }
     onZoneFitInputsChanged: Qt.callLater(barWindow.refit)
     function zoneFitInput(i, transient) {
-      var handle = CellModel.place(root.cellTokens, CellModel.TYPICAL_GLYPH, true)
+      var handle = CellModel.place(barWindow.cellTokens, CellModel.TYPICAL_GLYPH, true)
       return {
         length: i.length, inset: i.inset, gap: i.gap, gutter: i.gutter, momentGap: i.momentGap,
         notch: notchSlotOf(i.notch),
         notchPads: notchSplit,
         wrap: i.wrap,
-        pad: function(spill) { return root.cellEndPad(spill) },
+        pad: function(spill) { return barWindow.endPad(spill) },
         handle: { extent: handle.extent, spill: handle.spill },
         zones: { left: i.left, right: i.right, before: i.before, box: i.box, after: i.after },
         dots: i.dots,
@@ -3753,7 +3763,7 @@ Item {
         : { before: centerBeginModel, box: centerModel, after: centerEndModel }
       for (var name in models) i[name] = zoneFitList(models[name], token)
       if (zone === "right") {
-        var prefs = CellModel.place(root.cellTokens, root.preferencesGlyphSize, true)
+        var prefs = CellModel.place(barWindow.cellTokens, root.preferencesGlyphSize, true)
         i.right.push({ key: "prefs", extent: prefs.extent, spill: prefs.spill })
       }
       i.dots = Object.assign({}, i.dots)
@@ -3892,7 +3902,7 @@ Item {
     // each side. The Notch style's two sides grow out of it (their black runs
     // on to the camera); otherwise it splits the centre (notchSplit): Left of
     // center ends at the camera, the box and Right of center start past it.
-    readonly property real notchKeepOut: !root.vertical && !!notch ? notch.width + root.islandScreenInset * 2 : 0
+    readonly property real notchKeepOut: !root.vertical && !!notch ? notch.width + barWindow.screenInset * 2 : 0
     readonly property bool notchSplit: !root.vertical && !!notch && !notchLook
     // The fit's notch slot. The Notch style: the keep-out less the end pads
     // and zone gaps its two sides add around it. Otherwise the keep-out
@@ -3900,7 +3910,7 @@ Item {
     // (notchPads).
     function notchSlotOf(keepOut) {
       if (!(keepOut > 0)) return 0
-      return notchLook ? Math.max(1, keepOut - 2 * (root.cellEndPad(0) + root.zoneGap)) : keepOut
+      return notchLook ? Math.max(1, keepOut - 2 * (barWindow.endPad(0) + barWindow.zoneGap)) : keepOut
     }
     // The notch's zones grow out of this screen's camera, flush with its top.
     readonly property bool notchLook: root.notchMode && !!notch
@@ -3928,21 +3938,24 @@ Item {
     function wrapRowNear(box) {
       var leftSide = box.x + box.width / 2 < width / 2, along = leftSide ? leftRow : rightRow
       if (!notchLook || !(along > 0)) return null
-      return { x: leftSide ? root.islandScreenInset : width - root.islandScreenInset - along, y: mainStrip.y + root.barSize,
+      return { x: leftSide ? barWindow.screenInset : width - barWindow.screenInset - along, y: mainStrip.y + root.barSize,
         width: along, height: root.barSize, vertical: false }
     }
     // The strip is at least as tall as the notch, so no window peeks out
     // beside the camera; widgets stay centred in it (at the top on the notch,
-    // where the zones are only as tall as the bar). A large flat bar there is
-    // exactly as tall as the camera (notchFit, ZONE-90): its cells keep their
-    // length along the bar and lose thickness across it.
+    // where the zones are only as tall as the bar). A flat bar there is
+    // exactly as tall as the camera, large or small (notchFit, ZONE-90): its
+    // cells are the large bar's along it, as thick as the camera leaves room for.
     readonly property int extent: notchLook ? Math.max(root.barSize, notch.height)
       : notchFit ? notch.height : Math.max(root.barExtent, notch ? notch.height : 0)
     readonly property bool notchFit: root.fitsNotch(notch)
-    // This bar's thickness and its cells' (Bar.sizeIn, thicknessIn).
+    // This bar's thickness and its cells (Bar.sizeIn, tokensIn).
     readonly property int barSize: notchFit ? notch.height : root.barSize
-    readonly property real cellThickness: notchFit
-      ? Math.max(0, Math.min(root.cellTokens.thickness, notch.height - 2 * root.cellTokens.inset)) : root.cellTokens.thickness
+    readonly property var cellTokens: notchFit ? root.notchTokensFor(notch) : root.cellTokens
+    readonly property real screenInset: root.screenInsetIn(barWindow)
+    readonly property real zoneGap: root.zoneGapIn(barWindow)
+    readonly property real highlightRadius: root.highlightRadiusIn(barWindow)
+    function endPad(spill) { return root.endPadIn(barWindow, spill) }
     // Hidden for a moment to remap (a blur change, a screen move). Widgets read
     // as invisible meanwhile, so the window freezes its slots' measurements
     // first and thaws them once the widgets have reported their sizes again.
@@ -4267,14 +4280,14 @@ Item {
         intersection: Intersection.Combine
       }
       Region {
-        x: root.islandScreenInset
+        x: barWindow.screenInset
         y: mainStrip.y + root.barSize
         width: barWindow.notchLook ? barWindow.leftRow : 0
         height: root.barSize
         intersection: Intersection.Combine
       }
       Region {
-        x: barWindow.width - root.islandScreenInset - barWindow.rightRow
+        x: barWindow.width - barWindow.screenInset - barWindow.rightRow
         y: mainStrip.y + root.barSize
         width: barWindow.notchLook ? barWindow.rightRow : 0
         height: root.barSize
@@ -4470,7 +4483,7 @@ Item {
               motionEnabled: root.animationsEnabled
               hoverColor: root.onBarHoverColor
               selectedColor: root.onBarSelectedColor
-              rounding: root.highlightRadius
+              rounding: barWindow.highlightRadius
             }
           }
         }
@@ -4868,7 +4881,7 @@ Item {
             shadowEnabled: root.surfaceEffects.shadow
             shadowSize: root.surfaceEffects.shadowSize
             shadowOpacity: root.surfaceEffects.shadowOpacity
-            rowEnd: wrap ? wrap.row[1] + root.cellEndPad(wrap.spill.last) : 0
+            rowEnd: wrap ? wrap.row[1] + barWindow.endPad(wrap.spill.last) : 0
             color: root.mainSurfaceColor
             transform: Translate { x: barWindow.slideX("left", barWindow.leftShift) }
           }
@@ -4877,11 +4890,11 @@ Item {
             zoneHidden: barWindow.zoneHidden("left")
             notchSide: barWindow.notchLook ? "left" : ""
             transform: Translate { x: barWindow.slideX("left", barWindow.leftShift); y: barWindow.slideY("left", barWindow.leftShift) }
-            x: root.vertical ? (parent.width - width) / 2 : leftModules.x + leftModules.shownLead - root.islandEnd("left", leftModules.leadSpill)
-            y: root.vertical ? leftModules.y + leftModules.shownLead - root.islandEnd("left", leftModules.leadSpill) : (parent.height - height) / 2
-            width: root.vertical ? root.barSize : leftModules.width - leftModules.shownLead - leftModules.shownTrail + root.islandEnd("left", leftModules.leadSpill) + root.islandEnd("left", leftModules.trailSpill)
-              + (barWindow.notchLook ? root.islandScreenInset + barWindow.notchTuck : 0)
-            height: root.vertical ? leftModules.height - leftModules.shownLead - leftModules.shownTrail + root.islandEnd("left", leftModules.leadSpill) + root.islandEnd("left", leftModules.trailSpill) : root.barSize
+            x: root.vertical ? (parent.width - width) / 2 : leftModules.x + leftModules.shownLead - barWindow.endPad(leftModules.leadSpill)
+            y: root.vertical ? leftModules.y + leftModules.shownLead - barWindow.endPad(leftModules.leadSpill) : (parent.height - height) / 2
+            width: root.vertical ? root.barSize : leftModules.width - leftModules.shownLead - leftModules.shownTrail + barWindow.endPad(leftModules.leadSpill) + barWindow.endPad(leftModules.trailSpill)
+              + (barWindow.notchLook ? barWindow.screenInset + barWindow.notchTuck : 0)
+            height: root.vertical ? leftModules.height - leftModules.shownLead - leftModules.shownTrail + barWindow.endPad(leftModules.leadSpill) + barWindow.endPad(leftModules.trailSpill) : root.barSize
             visible: root.islands && leftModules.shownLength > 0 && opacity > 0 && !leftHanger.shown
           }
           HighlightLayer { zone: "left"; island: leftIsland; transform: Translate { x: barWindow.slideX("left", barWindow.leftShift); y: barWindow.slideY("left", barWindow.leftShift) } }
@@ -4895,9 +4908,9 @@ Item {
             // width/height directly, which removes their bindings for good.
             // On the notch its end meets the camera, one screen inset away.
             x: root.vertical ? (parent.width - width) / 2
-              : barWindow.notchLook ? barWindow.notchLeft - root.islandScreenInset - width + shownTrail - root.islandEnd("left", trailSpill)
-              : root.islandScreenInset + root.cellEndPad(leadSpill)
-            y: root.vertical ? root.islandScreenInset + root.cellEndPad(leadSpill) : (parent.height - height) / 2
+              : barWindow.notchLook ? barWindow.notchLeft - barWindow.screenInset - width + shownTrail - barWindow.endPad(trailSpill)
+              : barWindow.screenInset + barWindow.endPad(leadSpill)
+            y: root.vertical ? barWindow.screenInset + barWindow.endPad(leadSpill) : (parent.height - height) / 2
           }
           Binding { target: barWindow; property: "leftReach"; value: barWindow.notchLook ? barWindow.notchLeft + barWindow.notchTuck - leftIsland.x : 0 }
           Binding { target: barWindow; property: "leftRow"; value: leftHanger.shown ? leftHanger.reach : 0 }
@@ -4922,7 +4935,7 @@ Item {
             shadowEnabled: root.surfaceEffects.shadow
             shadowSize: root.surfaceEffects.shadowSize
             shadowOpacity: root.surfaceEffects.shadowOpacity
-            rowEnd: wrap ? wrap.row[0] - root.cellEndPad(wrap.spill.first) : 0
+            rowEnd: wrap ? wrap.row[0] - barWindow.endPad(wrap.spill.first) : 0
             color: root.mainSurfaceColor
             transform: Translate { x: barWindow.slideX("right", barWindow.rightShift) }
           }
@@ -4934,14 +4947,14 @@ Item {
             transform: Translate { x: barWindow.slideX("right", barWindow.rightShift); y: barWindow.slideY("right", barWindow.rightShift) }
             readonly property real start: barWindow.notchLook ? barWindow.notchRight - barWindow.notchTuck
               : rightModules.shownLength > 0
-              ? (root.vertical ? rightModules.y : rightModules.x) + rightModules.shownLead - root.islandEnd("right", rightModules.leadSpill)
-              : (root.vertical ? preferencesButton.y : preferencesButton.x) - root.islandEnd("right", preferencesButton.cellSpill)
+              ? (root.vertical ? rightModules.y : rightModules.x) + rightModules.shownLead - barWindow.endPad(rightModules.leadSpill)
+              : (root.vertical ? preferencesButton.y : preferencesButton.x) - barWindow.endPad(preferencesButton.cellSpill)
             x: root.vertical ? (parent.width - width) / 2 : start
             y: root.vertical ? start : (parent.height - height) / 2
             // Measured from start, never from x or y: on a vertical bar x depends on
             // width, so width depending on x would loop when the orientation flips.
-            width: root.vertical ? root.barSize : preferencesButton.x + preferencesButton.width + root.islandEnd("right", preferencesButton.cellSpill) - start
-            height: root.vertical ? preferencesButton.y + preferencesButton.height + root.islandEnd("right", preferencesButton.cellSpill) - start : root.barSize
+            width: root.vertical ? root.barSize : preferencesButton.x + preferencesButton.width + barWindow.endPad(preferencesButton.cellSpill) - start
+            height: root.vertical ? preferencesButton.y + preferencesButton.height + barWindow.endPad(preferencesButton.cellSpill) - start : root.barSize
           }
           HighlightLayer { zone: "right"; island: rightIsland; transform: Translate { x: barWindow.slideX("right", barWindow.rightShift); y: barWindow.slideY("right", barWindow.rightShift) } }
           PreferencesButton {
@@ -4959,9 +4972,9 @@ Item {
             // (the widgets past it wrap; zoneWrap).
             x: root.vertical ? (parent.width - width) / 2
               : barWindow.notchLook ? (rightModules.shownLength > 0 ? Math.min(rightModules.x + rightModules.width, root.pinnedTrailX(preferencesButton, parent.width))
-                : barWindow.notchRight + root.islandScreenInset + root.islandEnd("right", cellSpill))
-              : parent.width - root.islandScreenInset - root.cellEndPad(cellSpill) - width
-            y: root.vertical ? parent.height - root.islandScreenInset - root.cellEndPad(cellSpill) - height : (parent.height - height) / 2
+                : barWindow.notchRight + barWindow.screenInset + barWindow.endPad(cellSpill))
+              : parent.width - barWindow.screenInset - barWindow.endPad(cellSpill) - width
+            y: root.vertical ? parent.height - barWindow.screenInset - barWindow.endPad(cellSpill) - height : (parent.height - height) / 2
           }
           RightModules {
             id: rightModules
@@ -4969,7 +4982,7 @@ Item {
             z: barWindow.inlineZoneName === "right" ? 1 : 0
             transform: Translate { x: barWindow.slideX("right", barWindow.rightShift); y: barWindow.slideY("right", barWindow.rightShift) }
             x: root.vertical ? (parent.width - width) / 2
-              : barWindow.notchLook ? barWindow.notchRight + root.islandScreenInset - shownLead + root.islandEnd("right", leadSpill)
+              : barWindow.notchLook ? barWindow.notchRight + barWindow.screenInset - shownLead + barWindow.endPad(leadSpill)
               : preferencesButton.x - width
             y: root.vertical ? preferencesButton.y - height : (parent.height - height) / 2
           }
@@ -5055,7 +5068,7 @@ Item {
     property string side: "left"
     readonly property bool onNotch: !!window && window.notchLook
     readonly property bool leftSide: side === "left"
-    readonly property real pad: target ? root.cellEndPad(target.cellSpill || 0) : 0
+    readonly property real pad: target ? root.endPadIn(window, target.cellSpill || 0) : 0
     // The widget's place along the bar, measured where it sits in the strip.
     property real along: 0
     property real length: 0
@@ -5071,7 +5084,7 @@ Item {
 
     // The body's length: the widget and its pads, and on the notch the inset
     // a zone keeps from the camera and the tuck under it.
-    readonly property real bodyLength: length + pad * 2 + (onNotch ? root.islandScreenInset + window.notchTuck : 0)
+    readonly property real bodyLength: length + pad * 2 + (onNotch ? root.screenInsetIn(window) + window.notchTuck : 0)
     // How far it is from its place: past the screen edge, or into the camera.
     readonly property real hiddenOffset: onNotch ? bodyLength : (window ? window.autoHideDistance : 0)
     property real offset: hiddenOffset
@@ -5136,7 +5149,7 @@ Item {
         width: badge.target ? badge.target.width : 0
         height: badge.target ? badge.target.height : 0
         x: root.vertical ? (parent.width - width) / 2
-          : badge.onNotch && !badge.leftSide ? root.islandScreenInset + badge.window.notchTuck + badge.pad : badge.pad
+          : badge.onNotch && !badge.leftSide ? root.screenInsetIn(badge.window) + badge.window.notchTuck + badge.pad : badge.pad
         y: root.vertical ? badge.pad : (parent.height - height) / 2
       }
     }
@@ -5215,7 +5228,8 @@ Item {
     // A glyph cell like any icon widget: square highlight, one gutter (or one
     // equal gap) around its nine dots.
     readonly property real glyphSize: root.preferencesGlyphSize
-    readonly property var cellPlace: CellModel.place(root.cellTokens, glyphSize, true)
+    readonly property var hostWindow: root.targetWindow(preferencesButton)
+    readonly property var cellPlace: CellModel.place(root.tokensIn(hostWindow), glyphSize, true)
     readonly property real cellSpill: cellPlace.spill
     implicitWidth: root.vertical ? root.barSize : cellPlace.extent
     implicitHeight: root.vertical ? cellPlace.extent : root.barSize
@@ -5230,16 +5244,16 @@ Item {
       outlined: preferencesButton.keysCursor && hovered
       selected: preferencesPane.opened
       motionEnabled: root.animationsEnabled
-      readonly property var hostWindow: root.targetWindow(preferencesButton)
+      readonly property var hostWindow: preferencesButton.hostWindow
       glide: hostWindow ? hostWindow.highlightGlide || null : null
       glideKey: "right"
       hoverColor: root.onBarHoverColor
       selectedColor: root.onBarSelectedColor
-      width: root.vertical ? root.cellTokens.thickness : preferencesButton.cellPlace.cell
+      width: root.vertical ? root.thicknessIn(hostWindow) : preferencesButton.cellPlace.cell
       height: root.vertical ? preferencesButton.cellPlace.cell : root.thicknessIn(hostWindow)
       x: (preferencesButton.width - width) / 2
       y: (preferencesButton.height - height) / 2
-      rounding: root.highlightRadius
+      rounding: root.highlightRadiusIn(hostWindow)
     }
     Grid {
       id: preferencesGlyph
@@ -5458,8 +5472,8 @@ Item {
     IslandSurface {
       id: centerBeginIsland
       readonly property var span: centerRoot.beginSpan
-      readonly property real lead: span ? root.islandEnd("center", span.leadSpill) : 0
-      readonly property real length: span ? span.end - span.start + lead + root.islandEnd("center", span.trailSpill) : 0
+      readonly property real lead: span ? root.endPadIn(centerRoot.homeWindow, span.leadSpill) : 0
+      readonly property real length: span ? span.end - span.start + lead + root.endPadIn(centerRoot.homeWindow, span.trailSpill) : 0
       zoneHidden: centerIsland.zoneHidden
       x: root.vertical ? (parent.width - width) / 2 : span ? span.start - lead : 0
       y: root.vertical ? (span ? span.start - lead : 0) : (parent.height - height) / 2
@@ -5470,8 +5484,8 @@ Item {
     IslandSurface {
       id: centerIsland
       readonly property var span: centerRoot.mainSpan
-      readonly property real lead: span ? root.islandEnd("center", span.leadSpill) : 0
-      readonly property real length: span ? span.end - span.start + lead + root.islandEnd("center", span.trailSpill) : 0
+      readonly property real lead: span ? root.endPadIn(centerRoot.homeWindow, span.leadSpill) : 0
+      readonly property real length: span ? span.end - span.start + lead + root.endPadIn(centerRoot.homeWindow, span.trailSpill) : 0
       zoneHidden: !!centerRoot.homeWindow && centerRoot.homeWindow.zoneHidden("center")
       x: root.vertical ? (parent.width - width) / 2 : span ? span.start - lead : 0
       y: root.vertical ? (span ? span.start - lead : 0) : (parent.height - height) / 2
@@ -5508,7 +5522,7 @@ Item {
       region: "center"
       previewEnd: false
       readonly property real trailEdge: centerRoot.split > 0
-        ? centerRoot.middle - centerRoot.split / 2 - root.islandEnd("center", trailSpill) + shownTrail
+        ? centerRoot.middle - centerRoot.split / 2 - root.endPadIn(centerRoot.homeWindow, trailSpill) + shownTrail
         : centerRoot.along(boxModules)
       x: root.vertical ? (parent.width - width) / 2 : trailEdge - width
       y: root.vertical ? trailEdge - height : (parent.height - height) / 2
@@ -5520,7 +5534,7 @@ Item {
       region: "center"
       previewEnd: false
       readonly property real lead: centerRoot.split > 0
-        ? centerRoot.middle + centerRoot.split / 2 + root.islandEnd("center", leadSpill) - shownLead
+        ? centerRoot.middle + centerRoot.split / 2 + root.endPadIn(centerRoot.homeWindow, leadSpill) - shownLead
         : centerRoot.middle - listLength / 2
       x: root.vertical ? (parent.width - width) / 2 : lead
       y: root.vertical ? lead : (parent.height - height) / 2
@@ -5532,7 +5546,7 @@ Item {
       region: "center"
       // An empty box under a camera: Right of center starts right of it.
       readonly property real lead: centerRoot.split > 0 && !(boxModules.listLength > 0)
-        ? centerRoot.middle + centerRoot.split / 2 + root.islandEnd("center", leadSpill) - shownLead
+        ? centerRoot.middle + centerRoot.split / 2 + root.endPadIn(centerRoot.homeWindow, leadSpill) - shownLead
         : centerRoot.along(boxModules) + boxModules.listLength
       x: root.vertical ? (parent.width - width) / 2 : lead
       y: root.vertical ? lead : (parent.height - height) / 2
@@ -5652,7 +5666,7 @@ Item {
     // widgets pushed it out (on-demand-drawers.md DEMAND-90).
     readonly property int giveWayMs: !!homeWindow && homeWindow.inlineZone !== "" && homeWindow.inlineZone === inlineToken
       && homeWindow.inlineGiveWay ? 80 : 0
-    readonly property var cellPlace: CellModel.place(root.cellTokens, CellModel.TYPICAL_GLYPH, true)
+    readonly property var cellPlace: CellModel.place(root.tokensIn(homeWindow), CellModel.TYPICAL_GLYPH, true)
     readonly property real cellSpill: cellPlace.spill
     readonly property bool fitYielded: !!(homeWindow && homeWindow.zoneFitYielded["handle:" + (zone === "center" ? "center:" + side : zone)])
     readonly property var drawerRef: homeWindow ? homeWindow.managedDrawer : null
@@ -5703,11 +5717,11 @@ Item {
       glideKey: foldHandle.zone
       hoverColor: root.onBarHoverColor
       selectedColor: root.onBarSelectedColor
-      width: root.vertical ? root.cellTokens.thickness : foldHandle.cellPlace.cell
+      width: root.vertical ? root.thicknessIn(hostWindow) : foldHandle.cellPlace.cell
       height: root.vertical ? foldHandle.cellPlace.cell : root.thicknessIn(hostWindow)
       x: (foldHandle.width - width) / 2
       y: (foldHandle.height - height) / 2
-      rounding: root.highlightRadius
+      rounding: root.highlightRadiusIn(hostWindow)
     }
     Text {
       anchors.centerIn: parent
@@ -5720,7 +5734,7 @@ Item {
     Rectangle {
       id: handleBadge
       readonly property var spot: CellModel.badge(
-        { x: handleHighlight.x, y: handleHighlight.y, width: handleHighlight.width, height: handleHighlight.height, radius: root.highlightRadius },
+        { x: handleHighlight.x, y: handleHighlight.y, width: handleHighlight.width, height: handleHighlight.height, radius: handleHighlight.rounding },
         { width: foldHandle.width, height: foldHandle.height }, { width: width, height: height })
       visible: root.dotsBadge && foldHandle.shownCount > 0
       width: Math.max(Style.space(12), handleBadgeLabel.implicitWidth + Style.space(5))
@@ -5777,7 +5791,7 @@ Item {
     property string zone: ""
     property int count: 0
     readonly property bool shown: count > 0
-    readonly property var cellPlace: CellModel.place(root.cellTokens, CellModel.TYPICAL_GLYPH, true)
+    readonly property var cellPlace: CellModel.place(root.tokensIn(homeWindow), CellModel.TYPICAL_GLYPH, true)
     width: root.vertical ? root.barSize : cellPlace.extent
     height: root.vertical ? cellPlace.extent : root.barSize
     opacity: shown ? 1 : 0
@@ -5799,7 +5813,7 @@ Item {
         { x: (yieldMarker.width - (root.vertical ? thick : yieldMarker.cellPlace.cell)) / 2,
           y: (yieldMarker.height - (root.vertical ? yieldMarker.cellPlace.cell : thick)) / 2,
           width: root.vertical ? thick : yieldMarker.cellPlace.cell, height: root.vertical ? yieldMarker.cellPlace.cell : thick,
-          radius: root.highlightRadius },
+          radius: root.highlightRadiusIn(yieldMarker.homeWindow) },
         { width: yieldMarker.width, height: yieldMarker.height }, { width: width, height: height })
       visible: root.dotsBadge
       width: Math.max(Style.space(12), yieldBadgeLabel.implicitWidth + Style.space(5))
@@ -5899,7 +5913,7 @@ Item {
     readonly property real trailRun: allYielded && !yieldsFromEnd ? 0 : yieldTrail
     // The yielded widgets leave a marker (dots and their count) in the first
     // freed cell, next to the widgets still showing; the island ends past it.
-    readonly property var markerPlace: CellModel.place(root.cellTokens, CellModel.TYPICAL_GLYPH, true)
+    readonly property var markerPlace: CellModel.place(root.tokensIn(homeWindow), CellModel.TYPICAL_GLYPH, true)
     // A zone hidden whole leaves no marker; its island fades where it stands.
     readonly property bool zoneHidden: !!homeWindow && homeWindow.zoneHidden(region)
     readonly property real trimLead: leadRun > 0 && !zoneHidden ? leadRun - markerPlace.extent : 0
@@ -6237,7 +6251,7 @@ Item {
     readonly property var crossInk: frozenMeasure ? frozenMeasure.crossInk : liveCrossInk
     // Only free text is capped: a compound (workspaces) or a vertical stack keeps its length.
     // In a drawer the cell is the drawer's size (drawerTokens), not the bar's.
-    readonly property var slotTokens: drawerHost ? root.drawerTokens : root.cellTokens
+    readonly property var slotTokens: drawerHost ? root.drawerTokens : root.tokensIn(homeWindow)
     readonly property var cellPlace: kept("place", CellModel.place(slotTokens, ink.length, CellModel.isGlyph(ink.length, ink.glyph),
       !root.vertical && compoundTargets.length < 2))
     readonly property real landingExtent: naturalWidth > 0 && naturalHeight > 0 ? cellPlace.extent : 0
@@ -6546,9 +6560,9 @@ Item {
         var d = []
         for (var n = 1; n < centres.length; n++) d.push(Math.abs(centres[n] - centres[n - 1]))
         d.sort(function(a, b) { return a - b })
-        return d.length ? d[Math.floor(d.length / 2)] : root.cellTokens.thickness
+        return d.length ? d[Math.floor(d.length / 2)] : slot.slotTokens.thickness
       }
-      readonly property var geometry: CellModel.thumb(root.cellTokens, pitch, root.islandRounding)
+      readonly property var geometry: CellModel.thumb(slot.slotTokens, pitch, root.islandRounding)
       readonly property real pointer: root.vertical ? slotHover.point.position.y : slotHover.point.position.x
       readonly property int index: {
         var best = -1, distance = Infinity

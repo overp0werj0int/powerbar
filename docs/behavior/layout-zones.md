@@ -206,7 +206,7 @@ Numbers below use Omarchy's default theme tokens: bar 26 px (horizontal) or 28 p
 
   Code: NotchModel.notchOf, parsePanels, housingOf, cornersOf; notch-panels.json.
 
-- **ZONE-81** On a notched screen, the strip is at least as tall as the notch in every style (exactly as tall for a large flat bar, ZONE-90). That way no window peeks out beside the camera. The exclusive zone, popups, drawers and the autohide distance all use that extent, and Omarchy's notch-height reports per screen take the same value (`screenBarSizes`). Code: Bar.qml extent, extentOf, screenBarSizes.
+- **ZONE-81** On a notched screen, the strip is at least as tall as the notch in every style (exactly as tall for a flat bar, ZONE-90). That way no window peeks out beside the camera. The exclusive zone, popups, drawers and the autohide distance all use that extent, and Omarchy's notch-height reports per screen take the same value (`screenBarSizes`). Code: Bar.qml extent, extentOf, screenBarSizes.
 
 - **ZONE-82** The Notch style (`powerbarStyle: "notch"`) grows the bar out of the camera:
   - On the notched screen's top edge the bar has two ears. The left ear holds Left and Left of center and ends at the camera's left edge; the right ear holds Center, Right of center and Right and starts at its right edge. Both are drawn as black islands that run on under the camera. Their outer ends have the camera's corners: its shoulder at the top, its bottom radius below (appearance.md LOOK-143).
@@ -248,13 +248,13 @@ Numbers below use Omarchy's default theme tokens: bar 26 px (horizontal) or 28 p
 
   Code: ManagedDrawer.qml fromNotch, clipper (overshoot), Behavior on reveal; NotchShape.qml.
 
-- **ZONE-90** A large flat top bar on a notched screen is exactly as tall as the notch (32 px on a 14" MacBook Pro at scale 2, or the set height, ZONE-80), not the large bar's 38. It lines up with the camera's bottom edge, like macOS's menu bar.
-  - Only on the notched screen: other screens keep the large bar's size, so bars on different screens can differ in height.
-  - Cells keep their length along the bar; across it they shrink to the strip less the usual 3 px inset on each side (26 px in a 32 px strip). Highlights, drop outlines, the dots' badge and the peek badge follow.
+- **ZONE-90** A flat top bar on a notched screen, large or small, is exactly as tall as the notch (32 px on a 14" MacBook Pro at scale 2, or the set height, ZONE-80). It lines up with the camera's bottom edge, like macOS's menu bar.
+  - The two look the same there: "Large bar" changes nothing on that screen, since the strip is the camera's height either way. Cells are the large bar's along the bar (its cell, gaps and the inset off the screen's sides); across it they are the strip less the usual 3 px inset on each side (26 px in a 32 px strip). Highlights, drop outlines, the dots, their badge, the yield marker and the peek badge follow.
+  - Only on the notched screen: other screens keep the bar's own size and cells, so bars on different screens can differ.
   - The exclusive zone and Omarchy's per-screen bar size (`screenBarSizes`, read by notifications) take the notch's height.
-  - The islands and floating styles, the small bar, and the Notch style keep their own rules (ZONE-81, ZONE-83).
+  - The islands and floating styles and the Notch style keep their own rules (ZONE-81, ZONE-83).
 
-  Code: Bar.qml fitsNotch, sizeIn, thicknessIn, cellHighlight; barWindow notchFit, barSize, cellThickness, extent.
+  Code: Bar.qml fitsNotch, notchTokensFor, tokensIn, sizeIn, thicknessIn, screenInsetIn, endPadIn, zoneGapIn, highlightRadiusIn, cellHighlight; barWindow notchFit, barSize, cellTokens, extent.
 
 ## Retired IDs
 

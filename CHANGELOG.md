@@ -30,9 +30,10 @@
 - **Notch height.** Preferences > Bar > Notch has a height slider next to
   the width (`omarchy-shell powerbar set notchHeight N`), defaulting to the
   detected height. The tile now shows on any machine with a notched screen.
-- **A large flat bar fits the notch.** On a notched screen a large flat top
-  bar is exactly as tall as the camera, so it ends level with it; other
-  screens keep the large bar's height.
+- **A flat bar fits the notch.** On a notched screen a flat top bar, large
+  or small, is exactly as tall as the camera, so it ends level with it. Both
+  draw the same there: the large bar's spacing, with highlights sized to the
+  strip. Other screens keep the bar's own size.
 - **Expansions stop at the notch.** An inline
   expansion that would run over the camera opens its drawer instead, as a
   second island under the bar, the way it does when the bar is full.

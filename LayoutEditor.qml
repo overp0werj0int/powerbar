@@ -505,10 +505,13 @@ Item {
     readonly property bool camera: editor.previewCamera && !stacked && mode !== "tray"
     readonly property real cameraSlot: camera ? Style.space(24) : 0
     readonly property real gridWidth: Math.max(1, shelfFocus.width)
+    // Shares of the row, mirrored about its middle: Right of center is as
+    // wide as Left of center and the camera's slot together, so Center stays
+    // on the middle and the two sides match on every shelf.
     function columnWidth(zone) {
-      var free = gridWidth - bento.gap * (zoneColumns.length - 1) - cameraSlot
+      var free = gridWidth - bento.gap * (zoneColumns.length - 1) - 2 * cameraSlot
       var total = zoneColumns.reduce(function(sum, z) { return sum + editor.zoneShares[z] }, 0)
-      return Math.max(1, free * editor.zoneShares[zone] / total)
+      return Math.max(1, free * editor.zoneShares[zone] / total + (zone === "centerEnd" ? cameraSlot : 0))
     }
     title: editor.shelfInfo[mode].title
     caption: editor.shelfInfo[mode].caption
