@@ -1,18 +1,18 @@
 # Layout zones behavior
 
-Powerbar organizes widgets into three zones (left, center, right on a horizontal bar; top, middle, bottom on a vertical one). Zones never overlap: a solver keeps one zone gap (the icon cell plus the widget spacing) between them, folding widgets behind a drawer handle when the bar is too short. This file owns zones, placement and order, spacing, zone fit, dots, bar position and bar size. Preferences controls for these are in preferences.md; the CLI and IPC calls (`set spacing`, `set largeBar`, `set style`, `set position`, `managed <zone>`, `keysStatus`, `drawerStatus`, `managedStatus`) are in integration.md.
+Powerbar organizes widgets into five zones, Omarchy's sections: Left, Left of center, Center, Right of center and Right on a horizontal bar (Top, Above center, Center, Below center and Bottom on a vertical one). For the fit, Left of center, Center and Right of center make one center zone around the center box. Zones never overlap: a solver keeps one zone gap (the icon cell plus the widget spacing) between them, folding widgets behind a drawer handle when the bar is too short. This file owns zones, placement and order, spacing, zone fit, dots, bar position and bar size. Preferences controls for these are in preferences.md; the CLI and IPC calls (`set spacing`, `set largeBar`, `set style`, `set position`, `managed <zone>`, `keysStatus`, `drawerStatus`, `managedStatus`) are in integration.md.
 
-Sources: ZoneFitModel.js (fit, fitLasting, fitMoment), CellModel.js (tokens, flatEdge), ZoneOrderModel.js, ZoneFitNotice.js, BarModel.js (options, barStyle, pinTrayToInner), AppearanceModel.js (ranges.spacing), Bar.qml (grep: zoneFit, zoneGap, edgeGap, islandScreenInset, barSizeFor, FoldHandle, YieldMarker, beginBarMove), tests/zone-fit.test.cjs, tests/zone-order.test.cjs, tests/cell.test.cjs, tests/zone-fit-notice.test.cjs, tests/clean-defaults.test.cjs.
+Sources: SectionsModel.js (read, write), ZoneFitModel.js (fit, fitLasting, fitMoment), CellModel.js (tokens, flatEdge), ZoneOrderModel.js, ZoneFitNotice.js, BarModel.js (options, barStyle, pinTrayToInner), AppearanceModel.js (ranges.spacing), Bar.qml (grep: zoneFit, zoneGap, edgeGap, islandScreenInset, barSizeFor, FoldHandle, YieldMarker, beginBarMove), tests/zone-fit.test.cjs, tests/zone-order.test.cjs, tests/cell.test.cjs, tests/zone-fit-notice.test.cjs, tests/clean-defaults.test.cjs.
 
 Numbers below use Omarchy's default theme tokens: bar 26 px (horizontal) or 28 px (vertical), icon slot 27 px, and Powerbar's default spacing 4.
 
 ## Zones and placement
 
-- **ZONE-1** Widgets are stored per zone in `bar.layout.left`, `bar.layout.center` and `bar.layout.right` of shell.json. On a vertical bar (`bar.position` left or right) the same lists draw as top, middle and bottom. Code: Bar.qml normalizeLayout.
+- **ZONE-1** Widgets are stored per zone in `bar.layout.left`, `centerBegin`, `center`, `centerEnd` and `right` of shell.json, in that order along the bar; `bar.layout.tray` holds the widgets Omarchy draws in its tray's drawer. On a vertical bar (`bar.position` left or right) the same lists draw top to bottom. Every edit works on these five lists; an Omarchy without the new sections gets three lists back (ZONE-93). Code: SectionsModel.lists; Bar.qml normalizeLayout.
 
 - **ZONE-2** A zone with nothing to draw has no island and adds no gap: with an empty center, left and right keep one zone gap from each other; with an empty left or right zone, the remaining zones are limited only by the screen inset (ZONE-66). Code: ZoneFitModel.layout (a zone of length 0 adds no gap).
 
-- **ZONE-3** `bar.centerAnchor` names one widget id in the center zone (the anchor). With room, the anchor's centre sits exactly at the middle of the bar line, with the center's widgets saved before it drawn before it and those saved after it drawn after it. If the left or right zone needs the room, the whole center slides by the least distance that keeps one zone gap, then widgets fold (ZONE-9). A missing, empty or unmatched `centerAnchor` means no anchor: the center is one list, centred as a whole. Code: RenderModel.split; ZoneFitModel.resultOf (centerShift).
+- **ZONE-3** The center box is `bar.layout.center`. With room, the box is centred on the middle of the bar line; Left of center (`centerBegin`) hangs off its start, growing away from it, and Right of center (`centerEnd`) off its end. If the left or right zone needs the room, the whole center slides by the least distance that keeps one zone gap, then widgets fold (ZONE-9). An empty box is a mark of no length where the two sides meet, at the middle. Code: Bar.qml CenterModules; ZoneFitModel.zoneItems, resultOf (centerShift).
 
 - **ZONE-5** Zones never overlap along the bar line: two neighbouring visible islands are at least the zone gap apart, `zoneGap = cell + spacing` (default 20 + 4 = 24 px on the 26 px bar), and every zone stays inside the screen inset. Moments (ZONE-29) keep a smaller gap (ZONE-33). Code: Bar.qml zoneGap; tests/zone-fit.test.cjs assertClear.
 
@@ -24,15 +24,15 @@ Numbers below use Omarchy's default theme tokens: bar 26 px (horizontal) or 28 p
 
 ## Folding: longest zone first, from the far end
 
-- **ZONE-9** When the line is too short, one widget folds at a time, from the longest zone, until the zones fit (ties go to left, then right, then center). From the left zone the last widget folds; from the right zone the first; from the center with an anchor, the first widget before the anchor or the last after it, taken from the side with more shown widgets (before on a tie); from the center without an anchor, its first widget if the left zone is at least as long as the right, else its last. Code: ZoneFitModel.foldOne.
+- **ZONE-9** When the line is too short, one widget folds at a time, from the longest zone, until the zones fit (ties go to left, then right, then center). From the left zone the last widget folds; from the right zone the first; from the center, the first widget of Left of center or the last of the box and Right of center together, taken from the side with more shown widgets (Left of center on a tie). Code: ZoneFitModel.foldOne.
 
-- **ZONE-10** Folded widgets wait behind the zone's drawer handle (dots), at the end facing the gap: the left zone's last cell, the right zone's first cell. The center has one handle per side that has folded or hidden on-demand widgets: at its start, at its end, or both (with an anchor, by the side of the anchor; without, folds taken from the start wait at the start). Code: ZoneFitModel.handlesOf, centerHandles.
+- **ZONE-10** Folded widgets wait behind the zone's drawer handle (dots), at the end facing the gap: the left zone's last cell, the right zone's first cell. The center has one handle per side that has folded or hidden on-demand widgets: at the start of Left of center, at the end of Right of center, or both. Folded widgets of the box wait with Right of center's. Code: ZoneFitModel.handlesOf, centerHandles.
 
 - **ZONE-11** Unfolding runs in reverse order of folding: when the bar grows enough (ZONE-8), the most recently folded widget returns first. Code: fitLasting.
 
 - **ZONE-12** If nothing more can fold and the zones still collide, the fit reports `fits: false`; the center then sits directly after the left zone and may overlap the right zone. Nothing is dropped. Code: foldOne returns false; resultOf.
 
-- **ZONE-13** Never folded: the center anchor, the left zone's first widget, and the right zone's last widget (always the Preferences button, ZONE-69). A side zone folds only while it holds more than one unfolded widget. Code: foldOne.
+- **ZONE-13** Never folded: the box's first widget, the left zone's first widget, and the right zone's last widget (always the Preferences button, ZONE-69). A side zone folds only while it holds more than one unfolded widget. Code: foldOne.
 
 ## Dots (drawer handle) and counts
 
@@ -62,9 +62,9 @@ Numbers below use Omarchy's default theme tokens: bar 26 px (horizontal) or 28 p
 
 - **ZONE-25** On-demand widgets draw as one run at their zone's dots end, in saved order: the left zone's end, the right zone's start. Always-shown widgets keep their saved order and never move when on-demand widgets appear (an expansion, an activity reveal, a drop preview). The saved layout is not rewritten; only the drawing differs. Code: ZoneOrderModel.arrange.
 
-- **ZONE-26** With a center anchor, each on-demand widget stays on its saved side: those saved before the anchor draw as a run at the center's start, those saved after at its end. Without an anchor the center's run is at its end. Code: ZoneOrderModel.arrange (lists "before", "after", "center").
+- **ZONE-26** Each on-demand widget of the center waits behind its own side's dots: Left of center's at its start, Right of center's at its end. The box's on-demand widgets are counted on Right of center's dots and draw with its run. Code: ZoneOrderModel.arrange (lists `centerBegin`, `center`, `centerEnd`); SectionsModel.sideOf.
 
-- **ZONE-27** A drop into a bar gap writes the widget into the saved layout so it lands exactly at the gap: before the first widget of its own run (always-shown or on-demand) after the gap; else after the last such widget before the gap; else beside the anchor on the gap's side (before the anchor for a gap before it); else at the zone's end. Code: ZoneOrderModel.dropBefore; tests/zone-order.test.cjs.
+- **ZONE-27** A drop into a bar gap writes the widget into the saved layout so it lands exactly at the gap: into the list of the widget it lands beside, before the first widget of its own run (always-shown or on-demand) after the gap; else after the last such widget before the gap; else at the list's end. Code: ZoneOrderModel.dropBefore; tests/zone-order.test.cjs.
 
 - **ZONE-28** A drop on a zone's dots makes the widget On demand at that zone's dots end: see drag-edit.md DRAG-28 and DRAG-29.
 
@@ -74,19 +74,19 @@ Numbers below use Omarchy's default theme tokens: bar 26 px (horizontal) or 28 p
 
 - **ZONE-30** Where widgets yielded, a quiet marker (the dots at 45% opacity, not interactive) takes the first freed cell, with the count of widgets out of view (badge as ZONE-16). Resting the pointer on the marker for 90 ms ends the moment that made them give way. Code: Bar.qml YieldMarker, releaseYield.
 
-- **ZONE-31** An inline expansion whose neighbour would have to yield its anchor hides that whole neighbour zone instead (dots included; its island fades with no marker); if the zone past it still collides, it yields in turn or hides whole. A notch slot is never hidden or crossed (the camera, or the gap two zones keep in the middle of every screen, ZONE-77): an expansion that would need the centre, with its notch slot, to hide falls back to its drawer (ZONE-34, reason `notch`). An expanding center that would run off the bar slides back onto it by the least distance. Code: fitMoment attempt(), hide().
+- **ZONE-31** An inline expansion whose neighbour would have to yield its anchor (a widget that never folds, ZONE-13) hides that whole neighbour zone instead (dots included; its island fades with no marker); if the zone past it still collides, it yields in turn or hides whole. The camera's slot is never hidden or crossed (ZONE-89): an expansion that would need the centre, with that slot, to hide falls back to its drawer (ZONE-34, reason `notch`). An expanding center that would run off the bar slides back onto it by the least distance. Code: fitMoment attempt(), hide().
 
 - **ZONE-32** When two growing zones meet, the higher-priority one keeps its growing widget and yields the rest towards the other; if it cannot (an anchor would have to yield), the lower one falls back. Code: fitMoment attempt().
 
 - **ZONE-33** A moment keeps a smaller gap than a lasting fit: `momentGap = edgeGap = 4 px` (not a share of the zone gap), so hovering the indicators does not hide neighbours that still fit. Code: Bar.qml zoneFitInputs momentGap.
 
-- **ZONE-34** A moment that cannot be served falls back, for one reason: `folded` (its source widget is folded), `screen` (the zone would run off the bar line), `anchor` (an anchor would have to yield and the moment is not an inline expansion), `neighbour` (two growing zones meet and the other cannot yield) or `notch` (an inline expansion in two or three zones would run over the camera, ZONE-31). An inline expansion that falls back collapses and the zone's drawer opens instead. Code: fitMoment fallbacks; Bar.qml refit().
+- **ZONE-34** A moment that cannot be served falls back, for one reason: `folded` (its source widget is folded), `screen` (the zone would run off the bar line), `anchor` (an anchor would have to yield and the moment is not an inline expansion), `neighbour` (two growing zones meet and the other cannot yield) or `notch` (an inline expansion would run over the camera, ZONE-31). An inline expansion that falls back collapses and the zone's drawer opens instead. Code: fitMoment fallbacks; Bar.qml refit().
 
 ## Inline expansion in the fit
 
 - **ZONE-35** An inline expansion counts the zone's hidden on-demand widgets as shown at their measured size (they stay loaded at opacity 0), unfolds that zone's folded widgets, and drops that zone's dots for the moment. Code: Bar.qml zoneFitList(expand), inlinePlan; fitMoment unfold.
 
-- **ZONE-36** A center with an anchor expands one side at a time: the dots at its start expand and unfold the before-anchor run, the dots at its end the after-anchor run (tokens `center:start`, `center:end`); the other side's folds stay folded. Code: fitMoment sides; Bar.qml inlineToken.
+- **ZONE-36** The center expands one side at a time: the dots at Left of center's start expand and unfold its run, the dots at Right of center's end the run of the box and Right of center (tokens `center:start`, `center:end`); the other side's folds stay folded. Code: fitMoment sides; Bar.qml inlineToken.
 
 - **ZONE-37** Before expanding, the bar fits the zone as if expanded beside every other moment running; if that would fall back, the zone's drawer opens instead and the bar does not change. Code: Bar.qml inlinePlan.
 
@@ -96,9 +96,9 @@ Numbers below use Omarchy's default theme tokens: bar 26 px (horizontal) or 28 p
 
 - **ZONE-39** A layout entry has `id` (widget id), `powerbarInstance` (a unique key Powerbar assigns once) and optionally `powerbarVisibility` (`shown`, `managed`, `hidden`). A widget with no `powerbarVisibility` is shown, third-party widgets included; see on-demand-drawers.md, "Managed widget modes", for the modes, and integration.md, "Config healing", for the one-time heal (`bar.powerbarVisibilityDefault: "shown"`) that keeps older configs' third-party widgets on demand. Code: ManagedModel.mode, healVisibility.
 
-- **ZONE-40** The anchor is `bar.centerAnchor` (a widget id). Preferences > Bar > "Pinned to screen center" lists the center's always-shown widgets; "None" clears it. Empty or missing means no anchor (ZONE-3). Code: Bar.qml applyBarConfig.
+- **ZONE-40** There is no pinned widget: what sits in the center box is centred. Earlier versions' `bar.centerAnchor` ("Pinned to screen center") is read once as the box (ZONE-91) and is gone after the next write, except on an Omarchy without the new sections (ZONE-93). Code: SectionsModel.read.
 
-- **ZONE-41** `bar.powerbarStyle` is `flat` (default), `floating` or `islands`; for any other value, `powerbarIslands: true` (older configs) reads as islands, else flat. **Flat**: one square, borderless surface edge to edge, like Omarchy's bar. **Floating**: one rounded, bordered surface held 4 px off the edge and the screen's sides. **Islands**: each zone with something to draw on its own such surface. Rounding and borders apply to floating and islands, not to the flat strip. Code: BarModel.barStyle; Bar.qml mainStrip, floating surface, IslandSurface.
+- **ZONE-41** `bar.powerbarStyle` is `flat` (default), `floating`, `islands` or `notch`; for any other value, `powerbarIslands: true` (older configs) reads as islands, else flat. **Flat**: one square, borderless surface edge to edge, like Omarchy's bar. **Floating**: one rounded, bordered surface held 4 px off the edge and the screen's sides. **Islands**: each zone with something to draw on its own such surface. **Notch**: black ears around the camera on a notched screen's top edge, islands everywhere else (ZONE-82). Rounding and borders apply to floating and islands, not to the flat strip. Code: BarModel.barStyle; Bar.qml notchStyle, barStyle, mainStrip, floating surface, IslandSurface.
 
 - **ZONE-42** Default spacing is 4 (ZONE-22): a shell.json with no `powerbarSpacing` draws icons 27 px apart.
 
@@ -140,7 +140,7 @@ Numbers below use Omarchy's default theme tokens: bar 26 px (horizontal) or 28 p
 
 - **ZONE-60** A zone with one widget shows it whatever `fits` says (ZONE-13).
 
-- **ZONE-61** A center whose widgets are all on demand or all folded still draws its dots; with no anchor, a center that is only its dots keeps them like an anchor when other zones yield. Code: fitMoment centerAnchor.
+- **ZONE-61** A center whose widgets are all on demand or all folded still draws its dots; an empty box keeps its mark at the middle, so the two sides keep their places when other zones yield. Code: ZoneFitModel.zoneItems (the box's mark); fitMoment.
 
 - **ZONE-63** Hidden on-demand widgets take no room in the lasting fit; only their dots do, and only in inline mode. Folding is decided first, then on-demand widgets wait behind the dots. Code: Bar.qml zoneFitList (hidden widgets have fitExtent 0).
 
@@ -162,55 +162,32 @@ Numbers below use Omarchy's default theme tokens: bar 26 px (horizontal) or 28 p
 
 - **ZONE-71** Each monitor's bar fits independently from its own length: a short monitor folds widgets that a long one shows. Code: Bar.qml zoneFitInputs (per bar window).
 
-## Zone modes
+## Five zones and older configs
 
-- **ZONE-72** `bar.powerbarZones` sets one zone mode for every screen (Preferences > Layout, the choice above the shelves; `omarchy-shell powerbar set zones three|two|notch`). If it is absent or unknown, the bar has three zones (left, centre, right), as described above. `"two"` gives two zones, left and right, with no centre. `"notch"` gives two zones that grow out of a camera notch (ZONE-82). Code: ZoneModeModel.modeOf; Bar.qml zoneMode, twoZones, notchMode.
+- **ZONE-91** Every config is read into the five lists before it is drawn or edited (`SectionsModel.read`):
+  - Omarchy's six sections are read as they are.
+  - Powerbar's three zones with `bar.centerAnchor`: the center splits at the anchor, which becomes the box; what was before it becomes Left of center, what was after it Right of center. Groups go with the list their widget went to. Without an anchor (missing, empty or not in the center), the whole center is the box.
+  - The retired zone modes (`bar.powerbarZones`): two zones keep their left and right lists; the notch's left and right become Left of center and Right of center, in the Notch style (ZONE-82).
+  - `centerAnchor`, `powerbarZones` and `powerbarZoneLayouts` are gone after the next write.
 
-- **ZONE-73** Each mode keeps its own arrangement: the zone each widget and group sits in, their order, and each one's visibility (on the bar, on demand or hidden).
-  - Only the mode in use lives in `bar.layout` and the groups' `section`, `before` and `visibility`, so every editor works on it unchanged, Omarchy's included.
-  - The other modes wait in `bar.powerbarZoneLayouts.<mode>` as `{ layout, groups }`.
-  - A widget's other settings are shared (format, size, shortcut, instance key): a switch carries them over from the layout being left. A switch is one config write.
+  Code: SectionsModel.read, needsRead; ConfigStore.mutate.
 
-  Code: ZoneModeModel.switchMode; Preferences.setZoneMode.
+- **ZONE-92** The arrangements the zone modes kept for the modes not in use (`bar.powerbarZoneLayouts`) are not used. The first time Powerbar starts on such a config, it copies them to `~/.cache/powerbar/zone-layouts-<date>.json` (private to the user, never overwritten, never read back), then saves the config in the five lists. If the copy fails, shell.json keeps them. Code: Bar.qml retireZoneModes.
 
-- **ZONE-74** The first time a two-zone mode is used, it is made from the three-zone layout. `two` and `notch` are each made separately, both from three zones:
-  - The centre splits at its anchor, or at the clock when nothing is pinned.
-  - What comes before the split point joins the end of the left zone. What comes after it starts the right zone.
-  - The keyboard layout and then the anchor end the right zone, beside the Preferences button.
-  - A group moves with the widget it sits before. A group before the anchor goes to the end of the left zone; a group at the centre's end goes before the right zone's first widget.
+- **ZONE-93** An Omarchy without the new sections (`Util.barSections` lacks them) keeps `left`, `center` and `right`. Powerbar writes the three center lists there as one `center` list, with `bar.centerAnchor` naming the box's widget and `bar.powerbarFiveZones` (`{ begin, center }`, the lengths of Left of center and the box) beside it, so the next read finds the same five lists. Omarchy's own bar centres that anchor, so the box holds one widget there: when it holds more, the others lead Right of center, with their groups. A count that no longer fits (another writer changed the center) falls back to the anchor. Code: SectionsModel.write, oneInBox.
 
-  - Exception: when the three-zone layout is still Omarchy's stock one (the same widgets in the same zones and order, no groups), `two` and `notch` both start from a fixed layout instead. Left: menu, workspaces, indicators, system update, weather, agents. Right: Bluetooth, network, audio, power, monitor, keyboard layout, clock, tray. System update, weather, agents, monitor and tray are explicitly On the bar.
+- **ZONE-94** One layout serves every screen and every edge; nothing is kept per screen or per style. Code: Bar.qml normalizeLayout.
 
-  Code: ZoneModeModel.derive, isStock, stockTwo.
+- **ZONE-95** A drag dropped on the bar away from any widget goes to the zone it is over: the left, the center or the right third of the bar, and in the center the side of the box it is on. Code: Bar.qml barZoneAt, zoneDropList.
 
-- **ZONE-75** A widget that the layout being entered does not know (it was added while another mode was in use) joins the end of its zone, with two exceptions. In two zones, a centre widget joins the end of the right zone. On the notch, a new left widget takes the start of the left zone, the end farthest from the camera. A widget removed meanwhile is gone from every layout it returns to. Code: ZoneModeModel.placeNew.
-
-- **ZONE-76** Another writer may add a widget while a two-zone mode is in use. Omarchy, for example, puts a newly installed widget with no instance key at the end of its zone. The widget moves before it gets its key: a centre one goes to the end of the right zone, and on the notch a new left one goes to the start of the left zone. Code: ZoneModeModel.settleNew; Bar.qml ensureInstanceIds.
-
-- **ZONE-77** In two zones the zones keep a gap at the middle of a horizontal bar, one notch wide:
-  - The width is `powerbarNotchWidth` when set, otherwise the camera housing on a notched screen (ZONE-80), otherwise 185 px.
-  - The fit places it as a fixed slot in the empty centre, so the centre never slides and moments never move it.
-  - A zone that runs out of room folds on its own side, from its end nearest the middle; it never pushes into the other zone.
-  - Side bars keep no gap.
-
-  Code: ZoneFitModel zoneItems (the `notch` slot), roomy, foldBeside; Bar.qml notchKeepOut, zoneFitInput.
-
-- **ZONE-78** In two zones the bar has no centre to land on:
-  - A drag dropped on the bar away from any widget goes to the zone on that half of the bar.
-  - Tab and Page Down jump straight from one zone to the other (keyboard.md KEYS-7).
-  - The Layout page has two columns (preferences.md PREFS-94).
-  - "Pinned to screen center" is gone; `centerAnchor` is kept for three zones.
-
-  Code: Bar.qml barZoneAt; BarKeysModel.zoneStep (zones without stops are skipped).
-
-- **ZONE-89** On a notched screen with a top bar, three zones split the centre around the camera:
-  - The run before the anchor ends at the camera's left edge. The anchor and the run after it start at its right edge. Without an anchor, the whole centre starts at the right edge.
+- **ZONE-89** On a notched screen with a top bar, in the Flat, Floating and Islands styles, the center splits around the camera:
+  - Left of center ends at the camera's left edge. The box and Right of center start at its right edge.
   - The keep-out is the camera's width (ZONE-80) plus a screen edge's inset (`islandScreenInset`) on each side. Each side's island edge sits exactly on it, from its own end pad.
-  - The fit places the keep-out as the same fixed slot two zones use (ZONE-77), just before the anchor, padded by the end pads of the cells beside it (`notchPads`). So the centre never slides over the camera, and widgets fold towards their own side.
-  - An inline expansion of the left zone makes the run before the anchor yield up to the camera, never past it; one that still collides opens its drawer, as a second island under the bar (ZONE-31).
-  - In islands style each side is its own island. A screen without a notch keeps one centre as before.
+  - The fit places the keep-out as a fixed slot just before the box, padded by the end pads of the cells beside it (`notchPads`). So the center never slides over the camera, and widgets fold towards their own side.
+  - An inline expansion of the left zone makes Left of center yield up to the camera, never past it; one that still collides opens its drawer, as a second island under the bar (ZONE-31).
+  - In islands style each side is its own island. A screen without a notch keeps one center as before.
 
-  Code: Bar.qml notchSplit, notchKeepOut, notchSlotOf, CenterModules (split, centerBeginIsland); ZoneFitModel zoneItems.
+  Code: Bar.qml notchSplit, notchKeepOut, notchSlotOf, CenterModules; ZoneFitModel zoneItems.
 
 ## Notch
 
@@ -229,19 +206,18 @@ Numbers below use Omarchy's default theme tokens: bar 26 px (horizontal) or 28 p
 
   Code: NotchModel.notchOf, parsePanels, housingOf, cornersOf; notch-panels.json.
 
-- **ZONE-81** On a notched screen, the strip is at least as tall as the notch in every mode (exactly as tall for a large flat bar, ZONE-90). That way no window peeks out beside the camera. The exclusive zone, popups, drawers and the autohide distance all use that extent, and Omarchy's notch-height reports per screen take the same value (`screenBarSizes`). Code: Bar.qml extent, extentOf, screenBarSizes.
+- **ZONE-81** On a notched screen, the strip is at least as tall as the notch in every style (exactly as tall for a large flat bar, ZONE-90). That way no window peeks out beside the camera. The exclusive zone, popups, drawers and the autohide distance all use that extent, and Omarchy's notch-height reports per screen take the same value (`screenBarSizes`). Code: Bar.qml extent, extentOf, screenBarSizes.
 
-- **ZONE-82** The notch mode has the two-zone layout. Its zones grow out of the camera:
-  - On the notched screen the left zone ends at the camera's left edge and the right zone starts at its right edge. Both are drawn as black islands that run on under the camera. Their outer ends have the camera's corners: its shoulder at the top, its bottom radius below (appearance.md LOOK-143).
-  - A zone's dots sit at its far end, by the screen edge: the left zone's start, the right zone's end. Its on-demand widgets expand there, so an expansion grows toward the edge and wraps (ZONE-85). Elsewhere two zones keep theirs beside the gap.
+- **ZONE-82** The Notch style (`powerbarStyle: "notch"`) grows the bar out of the camera:
+  - On the notched screen's top edge the bar has two ears. The left ear holds Left and Left of center and ends at the camera's left edge; the right ear holds Center, Right of center and Right and starts at its right edge. Both are drawn as black islands that run on under the camera. Their outer ends have the camera's corners: its shoulder at the top, its bottom radius below (appearance.md LOOK-143).
+  - An ear's dots sit at its far end, by the screen edge: the left ear's start, the right ear's end. Its on-demand widgets expand there, so an expansion grows toward the edge and wraps (ZONE-85).
   - The keep-out gap there is the camera plus the inset a zone keeps from a screen edge, on each side.
-  - On a screen without a notch the mode looks like two zones in the notch's colours.
-  - The bar is locked to the top edge, and the Islands style is forced. Dragging the bar to another edge does nothing.
+  - On a screen without a notch the five zones are black islands with the camera's corners (appearance.md LOOK-143). On any other edge the Notch style draws as Islands in the bar's own look. The bar can move to another edge like any other.
   - On the notched screen, windows stop under the camera: the camera's height stays reserved while the bar autohides or is switched off.
 
-  Code: Bar.qml notchLook, notchLeft, notchRight, notchKeepOut, barStyle, beginBarMove, exclusiveZone; position (notch: top); ZoneFitModel handlesOf (input.wrap); ZoneOrderModel.arrange (outward).
+  Code: Bar.qml notchStyle, notchMode, notchLook, notchLeft, notchRight, notchKeepOut, barStyle, exclusiveZone, zoneModels; RenderModel.zoneOf (ears); ZoneFitModel handlesOf (input.wrap); ZoneOrderModel.arrange (outward).
 
-- **ZONE-83** On the notch the bar is always large, and the large bar is exactly as tall as the notch, on every screen. `powerbarLargeBar` applies to the other modes only. Code: Bar.qml largeBar, barSizeFor.
+- **ZONE-83** In the Notch style on the notched screen the bar is always large, and the large bar is exactly as tall as the notch, on every screen. `powerbarLargeBar` applies to the other styles, and to the Notch style where it draws as islands. Code: Bar.qml largeBar, barSizeFor.
 
 - **ZONE-84** On-demand widgets on the notch always wait behind their zone's dots and expand in the bar, whatever `powerbarOnDemand` says: the notch has no drawers. Code: Bar.qml onDemandInline.
 
@@ -276,9 +252,13 @@ Numbers below use Omarchy's default theme tokens: bar 26 px (horizontal) or 28 p
   - Only on the notched screen: other screens keep the large bar's size, so bars on different screens can differ in height.
   - Cells keep their length along the bar; across it they shrink to the strip less the usual 3 px inset on each side (26 px in a 32 px strip). Highlights, drop outlines, the dots' badge and the peek badge follow.
   - The exclusive zone and Omarchy's per-screen bar size (`screenBarSizes`, read by notifications) take the notch's height.
-  - The islands and floating styles, the small bar, and the notch mode keep their own rules (ZONE-81, ZONE-83).
+  - The islands and floating styles, the small bar, and the Notch style keep their own rules (ZONE-81, ZONE-83).
 
   Code: Bar.qml fitsNotch, sizeIn, thicknessIn, cellHighlight; barWindow notchFit, barSize, cellThickness, extent.
+
+## Retired IDs
+
+ZONE-72 to ZONE-78 described the zone modes (three zones, two zones, the notch), each with its own saved arrangement; they gave way to the five zones (ZONE-91 to ZONE-95) and the Notch style (ZONE-82).
 
 ## Doc drift
 

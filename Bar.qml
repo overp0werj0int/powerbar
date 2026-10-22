@@ -650,7 +650,10 @@ Item {
   }
   // The keyboard's commands pick their bar one way (focusedBarWindow): the
   // focused monitor's, another only while no monitor is focused.
+  // A zone by its list (centerBegin) or its drawer (center): the center's
+  // three lists share the center's drawer.
   function openManagedZone(zone) {
+    zone = SectionsModel.zoneOf(zone)
     if (["left", "center", "right"].indexOf(zone) < 0) return
     var window = focusedBarWindow()
     if (window && window.managedDrawer) window.managedDrawer.openZone(zone, true)
@@ -3647,7 +3650,7 @@ Item {
     // growing the moment the zone opens, before the bar is fitted again.
     property bool inlineGiveWay: false
     // Each zone's on-demand widgets waiting behind its dots (folded ones apart),
-    // the centre's also by the side of its anchor they wait on.
+    // the centre's also by the side of the box they wait on.
     readonly property var inlineHidden: {
       var out = { left: 0, center: 0, right: 0, centerStart: 0, centerEnd: 0 }
       if (!root.onDemandInline) return out

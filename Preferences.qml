@@ -283,7 +283,6 @@ Item {
   // screen, no drawers; other screens and edges draw it as islands. Settings
   // that only the islands use hide when every screen has the notch look.
   readonly property bool notchMode: !!bar && bar.notchMode
-  readonly property bool notchEverywhere: notchMode && Quickshell.screens.every(function(s) { return !!prefs.bar.notchFor(s) })
   readonly property bool motion: !bar || bar.animationsEnabled
   // Tiles sit apart like tiled windows: twice Hyprland's inner gap, read once
   // per opening; 8 px until it is known or when it cannot be read.
@@ -730,7 +729,7 @@ Item {
                     span12: 4; span6: 3
                     // The notch's bar is always as tall as the camera.
                     PrefsToggle {
-                      visible: !prefs.notchEverywhere
+                      visible: !prefs.notchMode
                       compact: true
                       label: "Large bar"
                       checked: prefs.bar ? prefs.bar.largeBar : false
@@ -760,7 +759,7 @@ Item {
                   PrefsTile {
                     id: shapeTile
                     readonly property bool editable: prefs.scopeOf("shape") !== "theme"
-                    visible: !prefs.notchEverywhere
+                    visible: !prefs.notchMode
                     title: "Shape"
                     span12: 4; span6: 3
                     animate: prefs.motion
@@ -834,7 +833,7 @@ Item {
                   PrefsTile {
                     id: surfaceTile
                     readonly property bool editable: prefs.scopeOf("surface") !== "theme"
-                    visible: !prefs.notchEverywhere
+                    visible: !prefs.notchMode
                     title: "Surface"
                     span12: 4; span6: 3
                     animate: prefs.motion
@@ -933,7 +932,7 @@ Item {
                     // value, so it stays outside the appearance scopes. The notch is
                     // always opaque, so it has nothing to raise there.
                     PrefsToggle {
-                      visible: !prefs.notchEverywhere
+                      visible: !prefs.notchMode
                       compact: true
                       label: "Readable over windows"
                       checked: prefs.bar ? prefs.bar.surfaceEffects.readableOverlay : true
@@ -950,7 +949,7 @@ Item {
                     title: "On demand"
                     span12: 4; span6: 3
                     PrefsChoice {
-                      visible: !prefs.notchEverywhere
+                      visible: !prefs.notchMode
                       compact: true
                       stacked: bento.columns !== 12
                       label: "Show them"
@@ -962,7 +961,7 @@ Item {
                       onChosen: function(value) { prefs.setOption("powerbarOnDemand", value) }
                     }
                     Text {
-                      visible: prefs.notchEverywhere
+                      visible: prefs.notchMode
                       text: "Behind dots in their zone; they expand in the bar when you hover the dots. The notch has no drawers."
                       textFormat: Text.PlainText
                       wrapMode: Text.WordWrap

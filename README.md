@@ -43,13 +43,15 @@ didn't move at all, one switch turns animation off.
   becomes 40 px wide. Icons and text keep their size and get room to breathe,
   and the hover highlights grow with the bar. It helps most on a left or right
   edge, where the stock strip is narrow.
-- Three zones, or two. Two zones put everything left or right of a gap one
-  notch wide. On a MacBook's notched screen, Notch grows two black zones out
-  of the camera: with autohide they spring out of it when you point at the
-  camera, and a zone that outgrows the screen wraps onto a second row at the
-  edge. Each mode keeps its own arrangement, so switching back finds your bar
-  as you left it, and on Omarchy's stock layout the first switch to two zones
-  or Notch lays the widgets out for you.
+- Omarchy's five zones: Left, Left of center, Center, Right of center and
+  Right, the same sections Omarchy's own bar reads, so both bars agree on
+  where everything goes. Center sits over the middle of the bar; on a
+  MacBook's notched screen it starts right of the camera, with Left of
+  center ending left of it.
+- The Notch style grows two black ears out of a MacBook's camera: with
+  autohide they spring out of it when you point at the camera, and an ear
+  that outgrows the screen wraps onto a second row at the edge. On other
+  screens and edges it draws as islands.
 - Rounding, borders, blur and shadow follow each theme until you change them,
   for every theme at once or just the one you're on.
 - You never need the mouse. A shortcut puts a cursor on the bar; the arrows
@@ -118,7 +120,7 @@ own wallpaper. The themes and wallpapers are Omarchy's (MIT).
 <p><img src="screenshots/search-tokyo-night.jpg" alt="A flat bar on tokyo-night; typing tail in the keyboard mode's search opens the System group with the cursor on Tailscale"><br>
 <sub><b>Flat</b>, tokyo-night: <code>/tail</code> opens the System group at Tailscale, with the key strip below</sub></p>
 
-<p><img src="screenshots/notch-kanagawa.jpg" alt="Notch mode on kanagawa: two black zones grow out of a MacBook's camera, a group's menu slides down from the bar"><br>
+<p><img src="screenshots/notch-kanagawa.jpg" alt="The Notch style on kanagawa: two black ears grow out of a MacBook's camera, a group's menu slides down from the bar"><br>
 <sub><b>Notch</b>, kanagawa, on a 14-inch MacBook screen: the zones grow out of the camera and a group slides down from it</sub></p>
 
 <p><img src="screenshots/preferences.jpg" alt="Preferences, Layout page on osaka-jade: the bar as shelves (On the bar, On demand, Hidden) and the selected widget's settings"><br>
@@ -191,9 +193,8 @@ puts Omarchy's bar back.
 
 What stays behind is harmless to Omarchy's bar and is picked up again if you
 reinstall. Omarchy's bar shows every widget, so ones you hid or put On
-demand in Powerbar are back on it; in two zones or Notch, switch back to
-three zones first if you want Omarchy's bar to get that arrangement. To
-remove the rest too:
+demand in Powerbar are back on it, in the same five zones. To remove the
+rest too:
 
 | What | Where | To clean |
 | --- | --- | --- |
@@ -218,19 +219,20 @@ Three pages, all usable from the keyboard (the footer lists the keys for
 whatever has focus):
 
 - **Layout**: your bar as shelves (On the bar, On demand, Hidden), each with
-  your zones, and the choice of three zones, two, or Notch (offered when a
-  screen has a notch). Drag or pick up
-  widgets to move them; the tile below holds the selected widget's zone,
-  visibility, *Show on activity*, centring, group and shortcut. A fourth
+  the five zones, the camera between Left of center and Center on a notched
+  screen. On a side bar the shelves turn to run down the screen. Drag or pick
+  up widgets to move them; the tile below holds the selected widget's zone
+  (a small map of the bar), visibility, *Show on activity*, group and
+  shortcut. A fourth
   shelf, In the tray, lists the icons in Omarchy's tray: drag one onto a
   shelf above to move it out of the tray, or back to return it.
 - **Groups**: make, name and arrange groups; pick an icon from your widgets'
   glyphs, Omarchy's icons and emoji, or drop in your own SVG or PNG.
-- **Bar**: style and edge, size and spacing, Shape, Surface, Shadow,
-  Behavior (autohide, show on widget activity, readable over windows,
-  animations), On demand, Notch (in two zones and on the notch: the gap's
-  width) and Keyboard (the mode's shortcuts and its key legend). On the
-  notch, what can't apply there gives way to what does. Changes show on the
+- **Bar**: style (Flat, Floating, Islands, and Notch on a MacBook) and edge,
+  size and spacing, Shape, Surface, Shadow, Behavior (autohide, show on
+  widget activity, readable over windows, animations), On demand, Notch (the
+  camera's width and height) and Keyboard (the mode's shortcuts and its key
+  legend). In the Notch style, what can't apply there gives way to what does. Changes show on the
   bar as you make them.
 
 | Where | Keys |
@@ -246,8 +248,8 @@ whatever has focus):
 
 Super+B starts it, once you take that shortcut in Preferences → Bar →
 Keyboard (the first start's notification leads there). The cursor starts on the widget
-whose panel is open, else on the widget pinned to the screen centre (the
-clock by default). A name card beside the cursor says what it's on, and a
+whose panel is open, else on the first widget in Center (the clock on
+Omarchy's stock bar). A name card beside the cursor says what it's on, and a
 strip along the far edge of the screen shows the keys you can press now
 (Preferences → Bar → Keyboard → Key legend turns it off). Keys are named by
 direction relative to the bar, so they mean the same on every edge:
@@ -304,7 +306,7 @@ Preferences.
 | `status` | Every setting, widget, group and shortcut, and what the bar is doing |
 | `settings` | Every setting: type, values, `shell.json` key |
 | `get <setting>` / `set <setting> <value>` / `reset <setting>` / `toggle <setting>` | Read, change, restore the default, flip a switch |
-| `widgets` / `setWidget <widget> <json>` | The layout; move or change one (`zone`, `visibility`, `before`, `group`, `activityPeek`, `badgeProperty`, `urgentProperty`, `centered`) |
+| `widgets` / `setWidget <widget> <json>` | The layout; move or change one (`zone`, `visibility`, `before`, `group`, `activityPeek`, `badgeProperty`, `urgentProperty`) |
 | `groups` / `newGroup <name>` / `setGroup <group> <json>` / `removeGroup <group>` | Groups and their members |
 | `shortcuts` / `clearShortcuts` | Every shortcut on the bar and where its keys come from; remove all of Powerbar's |
 | `show` / `hide` | Hold an autohidden bar out until `hide`; or switch the bar on and off |
@@ -444,8 +446,8 @@ polling.
   leave a gap beside it, set Preferences > Bar > Notch > Notch width
   (`omarchy-shell powerbar set notchWidth N`); Notch height
   (`notchHeight N`) does the same for the height.
-- **One zone mode for every screen.** Notch shows as two black zones on a
-  screen without a notch.
+- **One layout for every screen.** In the Notch style, a screen without a
+  notch shows the zones as black islands.
 - Multi-monitor setups are less tested than single-monitor ones.
 
 ## What Powerbar touches
@@ -457,14 +459,14 @@ keyboard focus in the keyboard mode, through Quickshell's Hyprland module.
 
 | File | Read | Written |
 | --- | --- | --- |
-| `~/.config/omarchy/shell.json` | Its settings and Omarchy's bar keys | Through the shell, only under `bar`: its own `powerbar*` keys, the bar keys you change in Powerbar (`layout`, including the tray's `hidden` and `pinned` lists when you move an icon out of it or back, `position`, `background` / `transparent`, `centerAnchor`), and on first start a `powerbarInstance` id on each widget entry. Edits made at the bar are saved together once you leave it (at most 20 s after the last one), and nothing is written while the config names another bar. Omarchy's bar commands write it as they always do |
+| `~/.config/omarchy/shell.json` | Its settings and Omarchy's bar keys | Through the shell, only under `bar`: its own `powerbar*` keys, the bar keys you change in Powerbar (`layout`, including the tray's `hidden` and `pinned` lists when you move an icon out of it or back, `position`, `background` / `transparent`; `centerAnchor` only on an Omarchy without the center's sections), and on first start a `powerbarInstance` id on each widget entry. Edits made at the bar are saved together once you leave it (at most 20 s after the last one), and nothing is written while the config names another bar. Omarchy's bar commands write it as they always do |
 | `~/.config/hypr/bindings.lua` | With your other `~/.config/hypr/*.lua` files, Omarchy's default bindings and `hyprctl binds`, to show every shortcut | Only its marked block, when you set a shortcut: replaced in one step (through a symlink, in the file it points to), and put back if Hyprland then reports a new config error. Once Hyprland has taken the block, it also removes the marked loader in `hyprland.lua` (backed up first) and the `~/.config/hypr/powerbar.lua` it loads, left by early Powerbar builds (only when it still has their generated header); a damaged loader is left alone |
 | `~/.local/state/omarchy/` | `current/theme/powerbar.toml`, `current/theme.name`, `toggles/bar-off` | `toggles/bar-off`, only through Omarchy's own toggle commands: `powerbar show` / `hide`, and Omarchy's bar toggle on an autohidden bar |
 | `~/.config/omarchy/themes/`, `$OMARCHY_PATH` | Installed themes (to drop settings for themes you removed), Omarchy's emoji list, whether Omarchy has the glassy background | Nothing |
 | `/usr/share/omarchy-platform/display-cutouts.json` | Which screens have a notch, and how tall, as Omarchy's bar reads it | Nothing |
 | The folder of a widget's plugin (`~/.config/omarchy/plugins/<id>`, `$OMARCHY_PATH/shell/plugins/…`) | Only when the shell's widget list has lost that widget's component: its `manifest.json` and the bar widget QML it names, as the shell loads them | Nothing |
 | `$XDG_DATA_HOME/powerbar/icons` | The image you pick or paste | Icons you add to groups (SVG or PNG, 512 KB at most); unused ones are deleted. Private: the folders are made 0700 and the icons 0600 |
-| `$XDG_CACHE_HOME/powerbar` | | Images of your widgets for Preferences (they show what the widget showed, such as a window title), `faces.json`, `glyphs.json`. Private: the folders are made 0700, so no other user can open them |
+| `$XDG_CACHE_HOME/powerbar` | | Images of your widgets for Preferences (they show what the widget showed, such as a window title), `faces.json`, `glyphs.json`, and once, `zone-layouts-<date>.json`: the arrangements earlier versions kept per zone mode, copied out of `shell.json`. Private: the folders are made 0700, so no other user can open them |
 
 | Command | When |
 | --- | --- |

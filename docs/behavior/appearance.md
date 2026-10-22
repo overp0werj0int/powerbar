@@ -18,7 +18,7 @@ Storage: the look lives in `bar.powerbarAppearance` of shell.json: `all` (values
 
 - **LOOK-5** Shadow > "Strength" (stored `strength`) is clamped to 5 to 60 percent, 30 by default (0 gives 0.05, 70 gives 0.6). Code: AppearanceModel.ranges.shadowOpacity.
 
-- **LOOK-6** Readable minimum: with `powerbarReadableOverlay` unset or true (Behavior > "Readable over windows", default on) and blur off, surfaces that lie over windows are at least 88% opaque: drawers, the tooltip, name card and key legend when styled by Powerbar, and the bar itself while it autohides. An opacity of 50 is drawn as 0.88 there, 95 stays 0.95. The always-visible bar is not raised. In the Notch mode every surface is opaque, so the setting has nothing to do and Preferences hides it (preferences.md PREFS-96). Code: AppearanceModel.overlayOpacity, barOpacity; Bar.qml overlaySurfaceColor.
+- **LOOK-6** Readable minimum: with `powerbarReadableOverlay` unset or true (Behavior > "Readable over windows", default on) and blur off, surfaces that lie over windows are at least 88% opaque: drawers, the tooltip, name card and key legend when styled by Powerbar, and the bar itself while it autohides. An opacity of 50 is drawn as 0.88 there, 95 stays 0.95. The always-visible bar is not raised. In the Notch style on the notch every surface is opaque, so the setting has nothing to do and Preferences hides it (preferences.md PREFS-96). Code: AppearanceModel.overlayOpacity, barOpacity; Bar.qml overlaySurfaceColor.
 
 - **LOOK-7** With `powerbarReadableOverlay: false` those surfaces use the chosen opacity as it is. The setting is not part of the appearance scopes: it is one flat key for every theme. Code: AppearanceModel.overlayOpacity (`readableOverlay !== false`).
 
@@ -251,12 +251,11 @@ Storage: the look lives in `bar.powerbarAppearance` of shell.json: `all` (values
 
 ## Notch look
 
-- **LOOK-143** In the notch mode (layout-zones.md ZONE-82) the zones are black with the theme's light text on every screen, because a widget takes one colour across the bar.
-  - The look forces fully opaque surfaces with no blur or border; the Surface choices are kept for the other modes.
+- **LOOK-143** In the Notch style on a top bar with a notched screen (layout-zones.md ZONE-82) the zones are black with the theme's light text on every screen, because a widget takes one colour across the bar. On another edge the style draws as Islands with the bar's own look.
+  - The look forces fully opaque surfaces with no blur or border; the Surface choices are kept for the other styles and edges.
   - The shadow is the user's (LOOK-3 to LOOK-5). The camera's body, each zone, a wrapped zone's two rows and the activity badges cast it.
-  - Islands are forced whatever the style.
   - Each zone's outer end has the camera's own corners (layout-zones.md ZONE-80), whatever the rounding setting: a shoulder at the top, where the screen's top edge curves down into the zone as it does into the camera, and the camera's bottom radius below. Its inner end is square and runs on under the camera. On a screen without a notch the zones are islands with the camera's bottom radius at every corner (the default housing's, 8 px, with no notched screen).
-  - Highlights and cards nest in that radius, as in an island's rounding (LOOK-10). The rounding setting applies to the other modes only.
+  - Highlights and cards nest in that radius, as in an island's rounding (LOOK-10). The rounding setting applies to the other styles and edges only.
   - On the notched screen the camera's own black is also drawn behind the zones, so they meet the camera however wide it really is. It has the housing's shape (layout-zones.md ZONE-80), round bottom corners, and shoulders where the screen's top edge curves into it. It shows whole when the zones are in, and below them under a bar shorter than the camera.
 
   Code: Bar.qml notchMode (surfaceEffects, mainSurfaceColor, barForeground, barStyle), islandRounding, notchCorners, cameraShape, NotchEnd; NotchShape.qml; NotchHanger.qml; IslandSurface; NotchModel.zoneCorners.
