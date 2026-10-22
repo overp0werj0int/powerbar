@@ -305,7 +305,7 @@ Item {
       face.inkStart = slot.ink.start
       face.inkLength = slot.ink.length
       face.glyph = CellModel.isGlyph(slot.ink.length, slot.ink.glyph)
-      face.cap = slot.compoundTargets.length < 2
+      face.cap = !slot.manyTargets
     }
     return face
   }
@@ -578,6 +578,23 @@ Item {
     return slots.filter(function(slot) { return slot.fitFolded }).concat(slots.filter(function(slot) { return !slot.fitFolded }))
   }
   function targetsForSlot(slot) { return slot ? slot.slotTargets : [] }
+  // Whether a target is drawn in its slot: shown, not faded out, and not cut
+  // off by a clipping parent (the indicators keep their folded icons in a
+  // zero-width clip, transparent).
+  function targetPainted(target, slot) {
+    if (!target || !target.visible || target.width <= 0 || target.height <= 0 || target.concealed === true) return false
+    var opacity = 1
+    for (var p = target; p && p !== slot; p = p.parent) {
+      if (!p.visible) return false
+      opacity *= p.opacity
+      if (opacity <= 0.01) return false
+      if (p !== target && p.clip) {
+        var c = target.mapToItem(p, target.width / 2, target.height / 2)
+        if (p.width <= 0 || p.height <= 0 || c.x < 0 || c.y < 0 || c.x > p.width || c.y > p.height) return false
+      }
+    }
+    return true
+  }
   property var targetSlots: []
   property var pendingTargets: []
   property var targetWatches: []
@@ -6253,7 +6270,7 @@ Item {
     // In a drawer the cell is the drawer's size (drawerTokens), not the bar's.
     readonly property var slotTokens: drawerHost ? root.drawerTokens : root.tokensIn(homeWindow)
     readonly property var cellPlace: kept("place", CellModel.place(slotTokens, ink.length, CellModel.isGlyph(ink.length, ink.glyph),
-      !root.vertical && compoundTargets.length < 2))
+      !root.vertical && !manyTargets))
     readonly property real landingExtent: naturalWidth > 0 && naturalHeight > 0 ? cellPlace.extent : 0
     // A value that gets narrower keeps its width for a while, so flickering
     // values never make the bar breathe; it grows at once.
@@ -6298,10 +6315,20 @@ Item {
     // centres on the bar's centre line, whatever box the widget laid out.
     readonly property real inkShift: cellPlace.inkStart + heldPad / 2 - ink.start
     readonly property real crossShift: crossInk && crossInk.length > 0 ? naturalWidth / 2 - (crossInk.start + crossInk.length / 2) : 0
+    // A widget built of several targets keeps its length (no cap). Sizing
+    // reads only this count: what is drawn depends on the size.
+    readonly property bool manyTargets: !!activeItem && root.targetsForSlot(slot).length > 1
+    // The targets drawn in the slot, when there are several (workspaces,
+    // revealed indicators); their order along the bar is compoundParts'.
     readonly property var compoundTargets: {
-      var targets = activeItem ? root.targetsForSlot(slot) : []
+      var targets = activeItem ? root.targetsForSlot(slot).filter(function(t) { return root.targetPainted(t, slot) }) : []
       return targets.length > 1 ? targets : []
     }
+    readonly property var compoundParts: compoundThumb.parts
+    // The part the keyboard cursor is on (BarKeys), or -1.
+    readonly property int keysPart: keysCursor ? root.barKeys.partIn(slot) : -1
+    // The part nearest a point along the slot, or -1.
+    function partAt(along) { return compoundThumb.nearest(along) }
     // While settling, the committed slot keeps the extent of the drop gap it
     // replaces, then eases to its own size so neighbours never step.
     readonly property real settleExtraWidth: settleHidden
@@ -6540,22 +6567,26 @@ Item {
       }
     }
 
-    // The thumb over the hovered target of a compound, nested at the track's
-    // curve: side min(T, pitch − 1).
+    // The thumb over the hovered target of a compound (the pointer's, or the
+    // keyboard cursor's part), nested at the track's curve: side
+    // min(T, pitch − 1).
     Rectangle {
       id: compoundThumb
       readonly property var targets: slot.compoundTargets
       property int metricsRevision: 0
       function refreshCentres() { metricsRevision++ }
-      readonly property var centres: {
+      // The targets inside the slot, in bar order, with their centres.
+      readonly property var parts: {
         var revision = metricsRevision
         if (!barHighlight.hovered || barHighlight.selected || slot.activityFlash) return []
         var along = root.vertical ? slot.height : slot.width
         return targets.map(function(t) {
           var p = t.mapToItem(slot, t.width / 2, t.height / 2)
-          return root.vertical ? p.y : p.x
-        }).filter(function(c) { return c >= 0 && c <= along })
+          return { target: t, centre: root.vertical ? p.y : p.x }
+        }).filter(function(part) { return part.centre >= 0 && part.centre <= along })
+          .sort(function(a, b) { return a.centre - b.centre })
       }
+      readonly property var centres: parts.map(function(part) { return part.centre })
       readonly property real pitch: {
         var d = []
         for (var n = 1; n < centres.length; n++) d.push(Math.abs(centres[n] - centres[n - 1]))
@@ -6564,14 +6595,16 @@ Item {
       }
       readonly property var geometry: CellModel.thumb(slot.slotTokens, pitch, root.islandRounding)
       readonly property real pointer: root.vertical ? slotHover.point.position.y : slotHover.point.position.x
-      readonly property int index: {
+      function nearest(at) {
         var best = -1, distance = Infinity
         for (var n = 0; n < centres.length; n++) {
-          var d = Math.abs(centres[n] - pointer)
+          var d = Math.abs(centres[n] - at)
           if (d < distance) { distance = d; best = n }
         }
         return best
       }
+      readonly property int index: slot.keysPart >= 0 && slot.keysPart < centres.length ? slot.keysPart
+        : slotHover.hovered ? nearest(pointer) : -1
       parent: barHighlight.hostLayer || slot
       visible: centres.length > 1 && index >= 0 && barHighlight.hovered && !barHighlight.selected && !slot.activityFlash
       width: geometry.side

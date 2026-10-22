@@ -30,6 +30,10 @@
 - **Notch height.** Preferences > Bar > Notch has a height slider next to
   the width (`omarchy-shell powerbar set notchHeight N`), defaulting to the
   detected height. The tile now shows on any machine with a notched screen.
+- **Indicators under the keyboard.** The cursor on the indicators reveals
+  them, and the keys along the bar walk their icons (and Workspaces') one
+  by one before moving on; Enter presses the one under the cursor. Their
+  highlight no longer lands on a folded icon beside the widget.
 - **A flat bar fits the notch.** On a notched screen a flat top bar, large
   or small, is exactly as tall as the camera, so it ends level with it. Both
   draw the same there: the large bar's spacing, with highlights sized to the
