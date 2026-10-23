@@ -100,6 +100,7 @@ In inline mode a zone's On demand widgets wait behind its dots (shared with fold
 - **DEMAND-51** A widget panel opened from a drawer member (menu or popout) places at the bar's edge as on the bar; the drawer fades out (110 ms) and takes no input while it is open.
 - **DEMAND-52** When the last member panel closes, a pointer-opened drawer closes; a keyboard drawer returns once no panel at all is open, with its cursor on the same member.
 - **DEMAND-53** A 150 ms grace after a panel closes lets one member's panel hand over to another's without the drawer returning and leaving.
+- **DEMAND-93** A drawer that closes while a member's panel is open (another drawer opening, `closeManaged`, a drag, the bar hiding) closes that panel first: the panel is anchored to the member and would otherwise follow it back to its hidden slot. Code: ManagedDrawer.qml `closeMemberPanel`.
 
 ## Dragging
 

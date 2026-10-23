@@ -114,6 +114,9 @@ Item {
       + " on " + (hostWindow && hostWindow.screen ? hostWindow.screen.name : "?"), bar.animationsEnabled ? 200 : 0)
   }
   Timer { id: grabDelay; interval: 250; onTriggered: drawer.grabReady = drawer.opened }
+  // A click pinning a hover drawer waits the same moment: a grab that starts
+  // before the bar has the keyboard is cleared at once, closing the drawer.
+  onKeyboardModeChanged: if (keyboardMode && opened && !grabDelay.running) { grabReady = false; grabDelay.restart() }
   property string zone: ""
   property string groupId: ""
   readonly property var groupConfig: bar.groups.find(function(g) { return g.id === groupId }) || null
@@ -276,9 +279,7 @@ Item {
     if (keyboard) suppressedZone = ""
     if (bar.managedOwner && bar.managedOwner !== drawer) bar.managedOwner.close("immediate")
     var changingZone = opened && (zone !== nextZone || groupId !== nextGroup)
-    if (changingZone && slots.some(function(slot) { return slot.panelOpen })) {
-      if (bar.activePopout && typeof bar.activePopout.close === "function") bar.activePopout.close()
-    }
+    if (changingZone) closeMemberPanel()
     var needsReveal = !opened || changingZone
     if (needsReveal) {
       replaying = true
@@ -313,8 +314,19 @@ Item {
     if (point && groupId === id) anchorCenter = bar.vertical ? point.y : point.x
   }
   function toggleGroup(id, slot) {
-    if (opened && groupId === id && keyboardMode) close()
+    // Its icon while a member's panel is open: the panel closes and the
+    // drawer comes back pinned, rather than closing under the panel.
+    if (opened && groupId === id && steppedAside) {
+      closeMemberPanel()
+      openGroup(id, slot, true)
+      asideCheck()
+    } else if (opened && groupId === id && keyboardMode) close()
     else openGroup(id, slot, true)
+  }
+  // A member's panel is anchored to the member: it closes with the drawer,
+  // or it would follow the member back to its hidden slot on the bar.
+  function closeMemberPanel() {
+    if (memberPanelOpen && bar.activePopout && typeof bar.activePopout.close === "function") bar.activePopout.close()
   }
   // A group icon opens its drawer once the pointer has rested on it 90 ms,
   // as the dots do (groups.md GROUP-32), so a pointer sweeping along the bar
@@ -350,6 +362,7 @@ Item {
   function close(reason) {
     if (opened) bar.ev("drawer", "close " + (groupId ? "group:" + groupId : zone) + " " + (reason || "-"),
       bar.animationsEnabled && reason !== "immediate" ? 110 : 0)
+    closeMemberPanel()
     dismissal.stop()
     ++transitionEpoch
     replaying = false

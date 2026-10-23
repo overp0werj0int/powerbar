@@ -51,6 +51,12 @@
   tray's click, right-click menu and scroll. Drag it back and the tray shows
   it again. On Omarchy's own bar such an icon stays hidden in the tray, where
   its Manage list can bring it back.
+- **A group's icon closes its member's panel.** With a member's panel open
+  from a group menu, clicking the group's icon closes the panel and brings
+  the menu back, instead of the panel sliding to the screen's left edge. A
+  drawer that closes any other way closes its member's panel with it. A
+  click on a group icon whose menu the pointer had opened now keeps the menu
+  open, as it does from rest.
 
 ## 0.9.6 — 2026-10-17
 

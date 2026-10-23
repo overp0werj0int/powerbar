@@ -51,6 +51,8 @@ Item {
   onOutlinedChanged: Qt.callLater(mark.settle)
   Component.onCompleted: settle()
   function settle() {
+    // Queued before the mark itself was torn down: its functions are gone.
+    if (typeof glideLive !== "function") return
     var lighting = shown && !lit
     cursorMove = outlined !== ringed
     ringed = outlined

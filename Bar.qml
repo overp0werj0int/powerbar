@@ -4342,7 +4342,7 @@ Item {
       // Only an explicitly opened keyboard drawer needs outside-click dismissal.
       active: drawer.opened && drawer.keyboardMode && drawer.grabReady && !root.activePopout && !barWindow.keysHere
       windows: [barWindow]
-      onCleared: drawer.close()
+      onCleared: drawer.close("outside")
     }
     ManagedDrawer { id: drawer; bar: root; hostWindow: barWindow }
     // On the notch the camera alone reveals the bar.
