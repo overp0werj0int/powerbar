@@ -477,14 +477,20 @@ Item {
 
   // On-demand widgets either open in a drawer island when their zone is
   // hovered ("drawer"), or wait behind the zone's dots and expand in the bar
-  // when the dots are hovered ("inline"; docs/design/zone-fit.md).
-  // The notch has no drawers: its on-demand widgets expand in the bar.
-  readonly property bool onDemandInline: barOptions.onDemand === "inline" || notchMode
+  // when the dots are hovered ("inline"; docs/design/zone-fit.md), or open
+  // from the dots in a menu of icons and names ("menu").
+  // The notch has no drawers: its on-demand widgets expand in the bar, or
+  // hang in a menu below the ear's dots.
+  readonly property string onDemandMode: notchMode && barOptions.onDemand !== "menu" ? "inline" : barOptions.onDemand
+  readonly property bool onDemandInline: onDemandMode === "inline"
+  readonly property bool onDemandMenu: onDemandMode === "menu"
+  // On-demand widgets wait behind their zone's dots (inline and menu).
+  readonly property bool onDemandDots: onDemandInline || onDemandMenu
   // The keyboard mode's key strip (Preferences → Bar → Keyboard).
   readonly property bool keyLegend: barOptions.keyLegend
   // The count badge on a zone's dots (drawer handle and yield marker).
   readonly property bool dotsBadge: barOptions.dotsBadge
-  onOnDemandInlineChanged: closeManagedDrawer()
+  onOnDemandModeChanged: closeManagedDrawer()
 
   function closeManagedDrawer() { if (managedOwner) managedOwner.close("immediate") }
   onBarHiddenChanged: if (barHidden) closeManagedDrawer()
@@ -570,9 +576,12 @@ Item {
     })
   }
   onShellChanged: configAfter.restart()
+  // zone: a region, or in menu mode one side's token ("center:start").
   function managedSlots(zone, window) {
+    var token = String(zone || ""), region = token.split(":")[0], sided = token !== region
     var slots = (window && window.moduleItems || []).filter(function(slot) {
-      return slot && slot.moduleName && slot.region === zone && (slot.managed || slot.fitFolded) && !slot.memberGroup
+      return slot && slot.moduleName && slot.region === region && (!sided || slot.inlineToken === token)
+        && (slot.managed || slot.fitFolded) && !slot.memberGroup
     })
     // Widgets folded off the bar come first, then the zone's managed ones.
     return slots.filter(function(slot) { return slot.fitFolded }).concat(slots.filter(function(slot) { return !slot.fitFolded }))
@@ -720,7 +729,8 @@ Item {
     }
     function drawerStatus(): string {
       var drawer = root.managedOwner
-      return JSON.stringify(drawer ? { opened: drawer.opened, aside: drawer.steppedAside, opacity: Math.round(drawer.opacity * 100) / 100, zone: drawer.zone, groupId: drawer.groupId, memberDisplay: drawer.memberDisplay, stripVertical: drawer.stripVertical, surfaceRole: drawer.surfaceRole, surfaceRadius: drawer.surfaceRadius, themeRadius: Style.cornerRadius, crossLength: drawer.crossLength, desiredCross: drawer.desiredCross, reveal: drawer.reveal, width: drawer.width, height: drawer.height, entered: drawer.entered, sourceHovered: drawer.sourceHovered, hovered: drawer.containsMouse, keyboard: drawer.keyboardMode, cursor: drawer.cursor, selectionVisible: drawer.selectionVisible, focused: drawer.activeFocus, ids: drawer.slots.map(function(s) { return s.moduleName }), count: drawer.slots.length } : { opened: false })
+      return JSON.stringify(drawer ? { opened: drawer.opened, aside: drawer.steppedAside, opacity: Math.round(drawer.opacity * 100) / 100, zone: drawer.zone, token: drawer.token, groupId: drawer.groupId,
+        submenu: drawer.submenu && drawer.submenu.opened ? { groupId: drawer.submenu.groupId, keyboard: drawer.submenu.keyboardMode, cursor: drawer.submenu.cursor, focused: drawer.submenu.activeFocus, x: drawer.submenu.x, y: drawer.submenu.y, width: drawer.submenu.width, height: drawer.submenu.height, ids: drawer.submenu.slots.map(function(s) { return s.moduleName }) } : null, memberDisplay: drawer.memberDisplay, stripVertical: drawer.stripVertical, surfaceRole: drawer.surfaceRole, surfaceRadius: drawer.surfaceRadius, themeRadius: Style.cornerRadius, crossLength: drawer.crossLength, desiredCross: drawer.desiredCross, reveal: drawer.reveal, width: drawer.width, height: drawer.height, entered: drawer.entered, sourceHovered: drawer.sourceHovered, hovered: drawer.containsMouse, keyboard: drawer.keyboardMode, cursor: drawer.cursor, selectionVisible: drawer.selectionVisible, focused: drawer.activeFocus, ids: drawer.slots.map(function(s) { return s.moduleName }), count: drawer.slots.length } : { opened: false })
     }
     function managedStatus(): string {
       return JSON.stringify(root.moduleSlots.filter(function(s) { return s.managed }).map(function(s) {
@@ -1672,7 +1682,7 @@ Item {
         // A zone that can't expand opens its drawer; it closes like a group's.
         if (window.managedDrawer && window.managedDrawer.opened && window.managedDrawer.zone === zone) root.springOpenedDrawer = window.managedDrawer
       } else if (window.managedDrawer) {
-        window.managedDrawer.openZone(zone, false)
+        window.managedDrawer.openZone(root.onDemandMenu ? token : zone, false)
         root.springOpenedDrawer = window.managedDrawer
       }
     }
@@ -3470,6 +3480,7 @@ Item {
       if (barKeysItem.window === barWindow) barKeysItem.leave()
     }
     property alias managedDrawer: drawer
+    property alias managedSubmenu: submenu
     // The bar's highlights slide from one to the next within a zone (LOOK-139).
     readonly property HighlightGlide highlightGlide: HighlightGlide {}
     // And so does a drag's landing outline (DRAG-75).
@@ -3680,9 +3691,9 @@ Item {
     // the centre's also by the side of the box they wait on.
     readonly property var inlineHidden: {
       var out = { left: 0, center: 0, right: 0, centerStart: 0, centerEnd: 0 }
-      if (!root.onDemandInline) return out
+      if (!root.onDemandDots) return out
       for (var s of moduleItems) {
-        if (!s || !s.inlineCandidate || out[s.region] === undefined) continue
+        if (!s || !s.dotsCandidate || out[s.region] === undefined) continue
         out[s.region]++
         if (s.region === "center") out[s.centerSide === "start" ? "centerStart" : "centerEnd"]++
       }
@@ -3835,7 +3846,7 @@ Item {
     }
     Connections {
       target: root
-      function onOnDemandInlineChanged() { barWindow.inlineCollapseNow() }
+      function onOnDemandModeChanged() { barWindow.inlineCollapseNow() }
       function onBarHiddenChanged() { if (root.barHidden) barWindow.inlineCollapseNow() }
     }
     // A zone drawer (keyboard, IPC or the fallback) takes the zone's widgets.
@@ -3895,7 +3906,19 @@ Item {
     // input region and drawer visibility change; no full-bar buffer resize.
     readonly property real effectPadding: 64
     readonly property real drawerExtent: drawer.thickness + drawer.gap + effectPadding
-      + (root.groups.some(function(g) { return ManagedModel.groupMenu(g) }) ? Style.space(300) : 0)
+      + (root.onDemandMenu || root.groups.some(function(g) { return ManagedModel.groupMenu(g) }) ? Math.max(Style.space(300), menuReach) : 0)
+      // Beside a side bar a submenu opens past the menu.
+      + (root.onDemandMenu && root.vertical ? Style.space(320) : 0)
+    // A zone's menu can be longer than a group's: the room grows to the
+    // longest one opened yet, within the screen, and stays, so opening and
+    // closing menus doesn't resize the bar's surface each time.
+    property real menuReach: 0
+    readonly property real menuNeed: drawer.opened && drawer.namedMenu && !root.vertical ? drawer.desiredCross + drawer.gap + root.edgeGap : 0
+    onMenuNeedChanged: {
+      var room = screen ? screen.height - extent - effectPadding : menuNeed
+      var next = Math.min(Math.ceil(menuNeed), room)
+      if (next > menuReach) menuReach = next
+    }
 
     // Hiding slides the strip past its screen edge instead of unmapping the
     // bar (stripAway). Unmapping frees the layer surface and the whole scene
@@ -4317,6 +4340,12 @@ Item {
         height: drawer.opened && !drawer.steppedAside ? drawer.height : 0
         intersection: Intersection.Combine
       }
+      Region {
+        x: submenu.x; y: submenu.y
+        width: submenu.opened && !submenu.steppedAside ? submenu.width : 0
+        height: submenu.opened && !submenu.steppedAside ? submenu.height : 0
+        intersection: Intersection.Combine
+      }
     }
     // While the keyboard mode lasts, a click anywhere off the bar and its
     // drawer, on any monitor, ends it (as a click outside dismisses
@@ -4345,6 +4374,8 @@ Item {
       onCleared: drawer.close("outside")
     }
     ManagedDrawer { id: drawer; bar: root; hostWindow: barWindow }
+    // A group's submenu beside its row in a zone's menu (On demand "menu").
+    ManagedDrawer { id: submenu; bar: root; hostWindow: barWindow; parentMenu: drawer }
     // On the notch the camera alone reveals the bar.
     Item {
       id: autoHideStrip
@@ -4478,7 +4509,7 @@ Item {
             tooltipText: ({ left: "Left", center: "Center", right: "Right" })[zoneTarget.modelData] + " drawer"
             // This window's own slots, not every monitor's: read per frame
             // while widths animate.
-            visible: !root.onDemandInline && zoneTarget.members.length > 0 && !barWindow.moduleItems.some(function(slot) {
+            visible: !root.onDemandDots && zoneTarget.members.length > 0 && !barWindow.moduleItems.some(function(slot) {
               return slot && slot.region === zoneTarget.modelData && slot.mainVisible && slot.width > 0 && root.sameWindow(root.targetWindow(slot), barWindow)
             })
             anchors.centerIn: parent
@@ -4801,13 +4832,16 @@ Item {
           // the card stood for a frame at the zone's start.
           for (var p = target; p; p = p.parent) if (typeof p.forceLayout === "function") p.forceLayout()
           var box = barWindow.contentItem.mapFromItem(target, 0, 0, target.width, target.height)
-          var open = drawer.opened && !drawer.steppedAside
+          // A submenu's row: beside the submenu.
+          var surface = submenu.opened && !submenu.steppedAside && root.itemWithin(target, submenu) ? submenu : drawer
+          var open = surface.opened && !surface.steppedAside
           tooltipWindow.text = root.tooltipText
           var size = { width: Math.ceil(tooltipBubble.implicitWidth), height: Math.ceil(tooltipBubble.implicitHeight) }
           var at = TooltipModel.place(root.position, { x: box.x, y: box.y, width: box.width, height: box.height },
             size, 6,
-            open ? { x: drawer.x, y: drawer.y, width: drawer.width, height: drawer.height, vertical: drawer.stripVertical } : barWindow.wrapRowNear(box),
-            open && root.itemWithin(target, drawer), { width: barWindow.width, height: barWindow.height },
+            open ? { x: surface.x, y: surface.y, width: surface.width, height: surface.height, vertical: surface.stripVertical,
+              before: surface === submenu && !!submenu.subPlace && submenu.subPlace.before } : barWindow.wrapRowNear(box),
+            open && root.itemWithin(target, surface), { width: barWindow.width, height: barWindow.height },
             { x: mainStrip.x, y: mainStrip.y, width: mainStrip.width, height: mainStrip.height }, root.overlayShadowPad)
           var pad = root.overlayShadowPad
           var need = root.position === "top" ? at.y + size.height + pad
@@ -5669,11 +5703,11 @@ Item {
     // A drag over the dots: dropping makes the widget On demand here.
     readonly property bool dropTarget: !!root.barDragDrop && root.barDragDrop.handle === true
       && root.barDragDrop.handleToken === inlineToken && !!homeWindow && root.sameWindow(root.barDragWindow, homeWindow)
-    // Folded widgets, plus (inline mode) the zone's hidden on-demand widgets.
+    // Folded widgets, plus (inline and menu modes) the zone's hidden on-demand widgets.
     readonly property int count: !active || !homeWindow || !homeWindow.zoneFit ? 0
       : zone === "center" ? (homeWindow.zoneFit.centerFolded || { start: [], end: [] })[side].length
-        + (root.onDemandInline ? homeWindow.inlineHidden[side === "start" ? "centerStart" : "centerEnd"] : 0)
-      : homeWindow.zoneFit.folded[zone].length + (root.onDemandInline ? homeWindow.inlineHidden[zone] : 0)
+        + (root.onDemandDots ? homeWindow.inlineHidden[side === "start" ? "centerStart" : "centerEnd"] : 0)
+      : homeWindow.zoneFit.folded[zone].length + (root.onDemandDots ? homeWindow.inlineHidden[zone] : 0)
     readonly property bool shown: count > 0
     // An inline expansion replaces the dots under the pointer.
     onShownChanged: if (!shown) root.hideTooltip(foldHandle, true)
@@ -5688,6 +5722,7 @@ Item {
     readonly property bool fitYielded: !!(homeWindow && homeWindow.zoneFitYielded["handle:" + (zone === "center" ? "center:" + side : zone)])
     readonly property var drawerRef: homeWindow ? homeWindow.managedDrawer : null
     readonly property bool drawerOpen: !!drawerRef && drawerRef.opened && drawerRef.zone === zone && !drawerRef.groupId
+      && (!root.onDemandMenu || drawerRef.token === inlineToken)
     // The last count stays on the badge while the handle fades out.
     property int shownCount: 0
     onCountChanged: if (count > 0) shownCount = count
@@ -5720,8 +5755,10 @@ Item {
     activeFocusOnTab: enabled
     Accessible.role: Accessible.Button
     Accessible.name: label
-    Keys.onReturnPressed: if (drawerRef) drawerRef.openZone(zone, true)
-    Keys.onSpacePressed: if (drawerRef) drawerRef.openZone(zone, true)
+    // The zone's drawer, or in menu mode this side's menu.
+    readonly property string drawerToken: root.onDemandMenu ? inlineToken : zone
+    Keys.onReturnPressed: if (drawerRef) drawerRef.openZone(drawerToken, true, "", null, foldHandle)
+    Keys.onSpacePressed: if (drawerRef) drawerRef.openZone(drawerToken, true, "", null, foldHandle)
     readonly property bool keysCursor: root.barKeys.here && root.barKeys.cursor === foldHandle
     HoverHighlight {
       id: handleHighlight
@@ -5783,18 +5820,19 @@ Item {
       onEntered: {
         if (!foldHandle.enabled) return
         if (root.onDemandInline && foldHandle.homeWindow) foldHandle.homeWindow.inlineEnter(foldHandle.inlineToken)
-        else if (foldHandle.drawerRef) foldHandle.drawerRef.sourceEnter(foldHandle.zone, function() { return handleMouse.containsMouse })
+        else if (foldHandle.drawerRef) foldHandle.drawerRef.sourceEnter(foldHandle.drawerToken, function() { return handleMouse.containsMouse }, foldHandle)
         root.showTooltip(foldHandle, foldHandle.label)
       }
       onExited: {
         if (root.onDemandInline && foldHandle.homeWindow) foldHandle.homeWindow.inlineLeave(foldHandle.inlineToken)
-        else if (foldHandle.drawerRef) foldHandle.drawerRef.sourceLeave(foldHandle.zone)
+        else if (foldHandle.drawerRef) foldHandle.drawerRef.sourceLeave(foldHandle.drawerToken)
         root.hideTooltip(foldHandle)
       }
       onClicked: {
         if (!foldHandle.enabled) return
         if (root.onDemandInline && foldHandle.homeWindow) foldHandle.homeWindow.inlineEnter(foldHandle.inlineToken, true)
-        else if (foldHandle.drawerRef) foldHandle.drawerRef.openZone(foldHandle.zone, false)
+        // Menu mode: a click pins the menu, as on a group's icon.
+        else if (foldHandle.drawerRef) foldHandle.drawerRef.openZone(foldHandle.drawerToken, root.onDemandMenu, "", null, foldHandle)
       }
     }
   }
@@ -6092,8 +6130,10 @@ Item {
     // Shown in the bar by an inline expansion of its zone.
     readonly property bool inlineShown: managed && !!homeWindow && homeWindow.inlineZone !== "" && homeWindow.inlineZone === inlineToken
     readonly property bool baseVisible: !memberGroup && (alwaysShown || (managed && !drawerHost && (activityVisible || panelOpen || hovered || inlineShown)))
-    // Waits behind its zone's dots in inline mode.
-    readonly property bool inlineCandidate: root.onDemandInline && managed && !memberGroup && !baseVisible
+    // Waits behind its zone's dots (inline and menu modes).
+    readonly property bool dotsCandidate: root.onDemandDots && managed && !memberGroup && !baseVisible
+    // Waits there to expand in the bar (inline mode).
+    readonly property bool inlineCandidate: root.onDemandInline && dotsCandidate
     readonly property bool fitFolded: !!(homeWindow && homeWindow.zoneFitFolded[instanceKey])
     readonly property bool fitYielded: !!(homeWindow && homeWindow.zoneFitYielded[instanceKey])
     readonly property bool mainVisible: baseVisible && !fitFolded && !fitYielded
@@ -6378,6 +6418,8 @@ Item {
           var asked = (window.inlineZone || window.inlineRequest).split(":")[0]
           if (hovered && asked && asked !== slot.region && !root.barDragSource) window.inlineAsk("")
         }
+        // Menu mode: only the dots open a zone's menu.
+        else if (root.onDemandMenu) return
         else if (hovered) window.managedDrawer.sourceEnter(slot.region, function() { return slot.stopHovered })
         else window.managedDrawer.sourceLeave(slot.region)
       }

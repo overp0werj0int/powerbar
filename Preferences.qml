@@ -948,29 +948,23 @@ Item {
                   PrefsTile {
                     title: "On demand"
                     span12: 4; span6: 3
+                    // The notch has no drawers: there the choice is the bar or a menu.
                     PrefsChoice {
-                      visible: !prefs.notchMode
                       compact: true
-                      stacked: bento.columns !== 12
+                      // Three chips leave the label no room beside them.
+                      stacked: bento.columns !== 12 || options.length > 2
                       label: "Show them"
+                      readonly property string shown: prefs.notchMode && prefs.options.onDemand === "drawer" ? "inline" : prefs.options.onDemand
                       description: value === "inline"
                         ? "Behind dots in their zone; they expand in the bar when you hover the dots"
+                        : value === "menu"
+                        ? "Behind dots in their zone; the dots open a menu of them, groups as submenus"
                         : "Hovering a zone opens them in a drawer next to the bar"
-                      options: [{ value: "drawer", label: "In a drawer" }, { value: "inline", label: "In the bar" }]
-                      value: prefs.options.onDemand
+                      options: prefs.notchMode
+                        ? [{ value: "inline", label: "In the bar" }, { value: "menu", label: "In a menu" }]
+                        : [{ value: "drawer", label: "In a drawer" }, { value: "inline", label: "In the bar" }, { value: "menu", label: "In a menu" }]
+                      value: shown
                       onChosen: function(value) { prefs.setOption("powerbarOnDemand", value) }
-                    }
-                    Text {
-                      visible: prefs.notchMode
-                      text: "Behind dots in their zone; they expand in the bar when you hover the dots. The notch has no drawers."
-                      textFormat: Text.PlainText
-                      wrapMode: Text.WordWrap
-                      color: Qt.alpha(Commons.Color.popups.text, 0.6)
-                      font.family: Style.font.family
-                      font.pixelSize: Style.font.caption
-                      Layout.fillWidth: true
-                      Layout.leftMargin: Style.spacing.rowPaddingX
-                      Layout.rightMargin: Style.spacing.rowPaddingX
                     }
                     PrefsToggle {
                       compact: true

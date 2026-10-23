@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- **On demand in a menu.** Preferences > Bar > On demand > Show them has a
+  third choice, In a menu: each zone's dots open a menu of its On demand
+  widgets with their icons and names, walked with the pointer or the keys.
+  An On demand group is a row that opens its widgets in a submenu. On the
+  notch the menu slides out under the ear's dots (`powerbarOnDemand: "menu"`).
 - **Five zones.** The bar's zones are Omarchy's sections: Left, Left of
   center, Center, Right of center and Right. Center sits over the middle of
   the bar, or first right of the camera on a notched screen. Preferences >

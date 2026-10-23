@@ -46,7 +46,7 @@ Item {
     case "autoHideActivity": return b.autoHideActivity
     case "readableOverlay": return fx.readableOverlay
     case "animations": return b.animationsEnabled
-    case "onDemand": return b.onDemandInline ? "inline" : "drawer"
+    case "onDemand": return b.onDemandMode
     case "dotsBadge": return b.dotsBadge
     case "keyLegend": return b.keyLegend
     case "frameLog": return b.frameLog

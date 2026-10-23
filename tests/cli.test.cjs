@@ -36,7 +36,8 @@ test('values are checked as Preferences offers them', () => {
   assert.deepEqual(J(m.check(m.find('autoHide'), 'off')), { value: false });
   assert.ok(m.check(m.find('autoHide'), 'yes').error);
   assert.deepEqual(J(m.check(m.find('onDemand'), 'inline')), { value: 'inline' });
-  assert.match(m.check(m.find('onDemand'), 'menu').error, /drawer, inline/);
+  assert.deepEqual(J(m.check(m.find('onDemand'), 'menu')), { value: 'menu' });
+  assert.match(m.check(m.find('onDemand'), 'list').error, /drawer, inline, menu/);
   assert.deepEqual(J(m.check(m.find('spacing'), 4)), { value: 4 });
   assert.match(m.check(m.find('spacing'), 17).error, /from 0 to 16/);
   assert.match(m.check(m.find('spacing'), 2.5).error, /steps of 1/);

@@ -125,6 +125,9 @@ test('a hover-opened drawer gives way when the pointer lands on another stop alo
   // A zone's drawer: its own zone is its source.
   assert.equal(m.closesForStop(true, false, false, '', 'right', { groupId: '', region: 'right' }), false);
   assert.equal(m.closesForStop(true, false, false, '', 'right', { groupId: '', region: 'left' }), true);
+  // A zone's menu: its dots are its source, so any stop closes it.
+  assert.equal(m.closesForStop(true, false, false, '', 'right', { groupId: '', region: 'right' }, true), true);
+  assert.equal(m.closesForStop(true, true, false, '', 'right', { groupId: '', region: 'right' }, true), false);
   // Pinned or keyboard drawers, a panel open or a drag: they stay.
   assert.equal(m.closesForStop(true, true, false, 'g1', 'right', { groupId: '', region: 'right' }), false);
   assert.equal(m.closesForStop(true, false, true, 'g1', 'right', { groupId: '', region: 'right' }), false);
@@ -141,4 +144,21 @@ test('a menu row: text widgets show a value at its end; the widest row sets the 
   assert.equal(m.menuRowWidth([{ labelStart: 30, title: 60, value: 0 }, { labelStart: 4, title: 40, value: 20 }], tokens), 108);
   assert.equal(m.menuRowWidth([{ labelStart: 30, title: 300, value: 0 }], tokens), 320 - 12, 'at most 320 with the insets');
   assert.equal(m.menuRowWidth([], tokens), 120 - 12, 'an empty menu is four cells wide');
+});
+
+test('a submenu opens beside its row, on the side with room', () => {
+  const base = { menu: { x: 100, y: 40, width: 200, height: 300 }, row: { y: 120, height: 30 }, width: 180, height: 90,
+    screen: { width: 1500, height: 400 }, edge: 6, inset: 4 };
+  // Below a top bar: after the menu, its first row level with the group's.
+  assert.deepEqual(JSON.parse(JSON.stringify(m.placeSubmenu({ ...base, position: 'top' }))), { x: 304, y: 116, before: false });
+  // No room after it (a right zone's menu): before it.
+  const right = { ...base, menu: { x: 1300, y: 40, width: 194, height: 300 }, position: 'top' };
+  assert.deepEqual(JSON.parse(JSON.stringify(m.placeSubmenu(right))), { x: 1116, y: 116, before: true });
+  // Above a bottom bar: its last row level with the group's.
+  assert.equal(m.placeSubmenu({ ...base, position: 'bottom' }).y, 64);
+  // Beside a side bar: away from the bar, whatever the room.
+  assert.equal(m.placeSubmenu({ ...base, position: 'left' }).x, 304);
+  assert.equal(m.placeSubmenu({ ...base, menu: { x: 400, y: 40, width: 200, height: 300 }, position: 'right' }).x, 216);
+  // Kept on screen: a row near the bottom pulls it up.
+  assert.equal(m.placeSubmenu({ ...base, row: { y: 350, height: 30 }, position: 'top' }).y, 304);
 });

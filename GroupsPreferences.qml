@@ -331,6 +331,7 @@ Item {
               text: !pane.selectedGroup ? ""
                 : pane.selectedGroup.visibility === "shown" ? "Its icon stays on the bar; the drawer opens on hover or click"
                 : pane.selectedGroup.visibility === "managed" ? (pane.bar.onDemandInline ? "Behind the zone's dots until you hover them, or on activity"
+                  : pane.bar.onDemandMenu ? "A row in the zone's menu; its widgets open beside it"
                   : "In the zone's drawer until you hover it, or on activity")
                 : "Kept off the bar, with its widgets"
             }

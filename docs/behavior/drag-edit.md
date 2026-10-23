@@ -46,7 +46,7 @@ Drag and drop on the live bar, into drawers and onto zone dots. The bar controll
 
 - **DRAG-15** A widget (not a group icon, not a drawer member) held over a group icon on the bar for 400 ms (`springOpen`) opens that group's drawer without entering it. The drawer stays while the pointer is on the icon, on the drawer, or on the path between them (reach = drawer gap + bar extent + `Style.space(8)`, side margin `Style.space(12)`); once the pointer is on none of them it closes after 450 ms (`springClose`).
 
-- **DRAG-16** A widget (not a drawer member) held over a zone's dots (`handle`) for 400 ms (`springHandle`) opens the zone: inline expansion when `powerbarOnDemand` is `inline` (its drawer if the zone cannot expand), else the zone's drawer, not entered. A spring-opened drawer closes 450 ms after the pointer leaves it as in DRAG-15.
+- **DRAG-16** A widget (not a drawer member) held over a zone's dots (`handle`) for 400 ms (`springHandle`) opens the zone: inline expansion when `powerbarOnDemand` is `inline` (its drawer if the zone cannot expand), its dots' menu when it is `menu`, else the zone's drawer, not entered. A spring-opened drawer closes 450 ms after the pointer leaves it as in DRAG-15.
 
 - **DRAG-17** Where the widget will land, a 1 px outline of its cell (colour: the bar foreground at 45 % alpha, corner radius = the highlight radius) is drawn inside the open gap, on whole pixels, one pixel inside the gap's edges. It shows in every drop surface: bar zones, drawer strips, menu rows, while a drag is on and the drop lands in that gap; it is drawn at the size it has in the open gap, centred on the gap, while the gap is still opening, and keeps its place while it fades out (DRAG-75). Code: DropOutline.qml
 

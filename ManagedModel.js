@@ -79,9 +79,11 @@ function dismissDelay(sourceHovered, drawerHovered, interactionHeld, entered, en
 // group's drawer belongs to its icon; a zone's drawer to its zone. Pinned or
 // keyboard drawers (keyboardMode), and one whose widget has a panel open or is
 // being dragged (held), stay.
-function closesForStop(opened, keyboardMode, held, drawerGroupId, drawerZone, stop) {
+function closesForStop(opened, keyboardMode, held, drawerGroupId, drawerZone, stop, zoneMenu) {
   if (!opened || keyboardMode || held || !stop) return false
   if (drawerGroupId) return stop.groupId !== drawerGroupId
+  // A zone's menu has only its dots for a source, and they are no stop.
+  if (zoneMenu) return true
   return !stop.groupId && stop.region !== drawerZone
 }
 function groupMenu(group) {
@@ -161,6 +163,24 @@ function placeMenu(o) {
     if (start + o.length > o.screen - o.edge) { start = centre + o.row / 2 + o.inset - o.length; flipped = true }
   }
   return { start: clamp(start, o.length, o.screen, o.edge), flipped: flipped }
+}
+// A submenu beside its row in the menu (On demand "menu", a group's row).
+// It opens away from the bar on a side bar, else on the side with room
+// (after the menu first), one inset from it; its first row is level with
+// the group's row (its last row on a bottom bar), kept on screen.
+//   o.menu { x, y, width, height } and o.row { y, height } in window px
+//   o.width, o.height  the submenu    o.screen { width, height }  the window
+//   o.edge  screen margin   o.inset   o.position  the bar's edge
+function placeSubmenu(o) {
+  var x, before = false
+  if (o.position === "left") x = o.menu.x + o.menu.width + o.inset
+  else if (o.position === "right") { x = o.menu.x - o.inset - o.width; before = true }
+  else {
+    x = o.menu.x + o.menu.width + o.inset
+    if (x + o.width > o.screen.width - o.edge) { x = o.menu.x - o.inset - o.width; before = true }
+  }
+  var y = o.position === "bottom" ? o.row.y + o.row.height + o.inset - o.height : o.row.y - o.inset
+  return { x: clamp(x, o.width, o.screen.width, o.edge), y: clamp(y, o.height, o.screen.height, o.edge), before: before }
 }
 function cursorVisible(keyboardMode, cursorActive, count) {
   return !!keyboardMode && !!cursorActive && count > 0

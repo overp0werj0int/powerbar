@@ -170,7 +170,7 @@ Sources: Preferences.qml, PreferencesModel.js, BentoModel.js, ShelfModel.js, Sli
 
 - **PREFS-70** Behavior: Autohide (`powerbarAutoHide`, default off), Show on widget activity (`powerbarAutoHideActivity`, default on; peeks on an autohidden bar and on one switched off with Omarchy's bar toggle, so it is never dimmed), Readable over windows (`powerbarReadableOverlay`, default on; hidden while the Notch style draws, PREFS-96) and Animations (`powerbarAnimations`, default on). These are not scoped.
 
-- **PREFS-71** On demand: "Show them" In a drawer (the default, hovering a zone opens its drawer) or In the bar (behind dots, expanding in the bar; `powerbarOnDemand`), and "Count on the dots" (`powerbarDotsBadge`, default on). Timing: on-demand-drawers.md.
+- **PREFS-71** On demand: "Show them" In a drawer (the default, hovering a zone opens its drawer), In the bar (behind dots, expanding in the bar) or In a menu (behind dots, which open a menu of them with groups as submenus; `powerbarOnDemand`), and "Count on the dots" (`powerbarDotsBadge`, default on). Timing: on-demand-drawers.md.
 
 - **PREFS-72** Keyboard: the "Bar keyboard" (`bar:keys`) and "Bar search" (`bar:search`) shortcut rows (SUPER + B and SUPER + CTRL + SLASH are suggested until the user takes or changes them, KEYS-66; the first start's notification opens Preferences here, KEYS-84) and "Key legend" (`powerbarKeyLegend`, default on).
 
@@ -181,7 +181,7 @@ Sources: Preferences.qml, PreferencesModel.js, BentoModel.js, ShelfModel.js, Sli
   - **Shape:** the tile is hidden: the ears take the camera's corners and have no border.
   - **Surface:** the tile gives way to the Notch tile. Shadow stays.
   - **Behavior:** "Readable over windows" is hidden: the notch is always opaque, so there is no minimum to raise.
-  - **On demand:** "Show them" gives way to the line "Behind dots in their zone; they expand in the bar when you hover the dots. The notch has no drawers." "Count on the dots" stays.
+  - **On demand:** "Show them" offers only In the bar and In a menu (the notch has no drawers; a saved "drawer" shows as In the bar). "Count on the dots" stays.
 
   The values these controls hold are kept for the other styles and edges. Code: Preferences.qml notchMode.
 

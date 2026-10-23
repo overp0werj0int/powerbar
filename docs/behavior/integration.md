@@ -40,7 +40,7 @@ name (INTEG-121).
 - **INTEG-12** `bar.layout` has `left`, `center`, `right` arrays; a missing or non-array zone is treated as empty. Omarchy's six sections are read the same way (INTEG-152).
 - **INTEG-13** `bar.powerbarAutoHide` (bool, default `false`) auto-hides the bar.
 - **INTEG-14** `bar.powerbarAutoHideActivity` (bool, default `true`; only `false` turns it off) lets activity reveal an auto-hidden bar.
-- **INTEG-15** `bar.powerbarOnDemand` is `drawer` or `inline` (only the exact string `inline` selects inline; default `drawer`).
+- **INTEG-15** `bar.powerbarOnDemand` is `drawer`, `inline` or `menu` (only those exact strings select inline or menu; default `drawer`).
 - **INTEG-16** `bar.powerbarManagedRevealSeconds`: how long an activity reveal lasts, default 2.5 s, clamped 1 to 60 (non-numbers give the default). Behavior in on-demand-drawers.md.
 - **INTEG-17** `bar.powerbarManagedEntryGraceSeconds`: default 1 s, clamped 1 to 15.
 - **INTEG-18** `bar.powerbarManagedExitGraceSeconds`: default 1 s, clamped 1 to 15 (also the inline collapse delay).
@@ -146,7 +146,7 @@ bar uses now, the stored value or its default:
 | `autoHideActivity` | bool | `powerbarAutoHideActivity` | true |
 | `readableOverlay` | bool | `powerbarReadableOverlay` | true |
 | `animations` | bool | `powerbarAnimations` | true |
-| `onDemand` | choice drawer, inline | `powerbarOnDemand` | drawer |
+| `onDemand` | choice drawer, inline, menu | `powerbarOnDemand` | drawer |
 | `dotsBadge` | bool | `powerbarDotsBadge` | true |
 | `keyLegend` | bool | `powerbarKeyLegend` | true |
 | `frameLog` | bool | `powerbarFrameLog` | false |

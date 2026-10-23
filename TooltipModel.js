@@ -64,9 +64,11 @@ function spot(position, barVertical, target, popup, gap, drawer, inDrawer, bound
     if (drawer.vertical && !barVertical) {
       // A menu of rows under a top or bottom bar: beside the menu, level with
       // the row, not over the rows below it.
-      var right = drawer.x + drawer.width + gap
-      var fits = !bounds || right + popup.width <= bounds.width
-      return { x: fits ? right : drawer.x - popup.width - gap, y: centreOn(target, popup, false) }
+      // A submenu opened before its menu (drawer.before) keeps its card on
+      // that side too, off the menu.
+      var right = drawer.x + drawer.width + gap, left = drawer.x - popup.width - gap
+      var fits = drawer.before ? left < 0 : !bounds || right + popup.width <= bounds.width
+      return { x: fits ? right : left, y: centreOn(target, popup, false) }
     }
     // A strip: out from the bar past the strip, level with the item.
     var out = away(position, drawer, popup, gap)

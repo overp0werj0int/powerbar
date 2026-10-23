@@ -201,9 +201,12 @@ Item {
   readonly property var shelfInfo: ({
     shown: { title: "On the bar", caption: fitNotes.length ? fitNotes.join(" ") : "Always visible" },
     // Side by side on a side bar, the shelves have room for a few words.
-    managed: { title: "On demand", caption: sideBar ? (editor.bar && editor.bar.onDemandInline ? "Behind the dots" : "In a drawer")
+    managed: { title: "On demand", caption: sideBar ? (editor.bar && editor.bar.onDemandInline ? "Behind the dots"
+        : editor.bar && editor.bar.onDemandMenu ? "In the dots' menu" : "In a drawer")
       : editor.bar && editor.bar.onDemandInline
       ? "Behind the zone's dots; shown on activity, or when you hover the dots"
+      : editor.bar && editor.bar.onDemandMenu
+      ? "In a menu from the zone's dots; shown briefly on activity"
       : "In the zone's drawer when you hover it, or briefly on activity" },
     hidden: { title: "Hidden", caption: "Kept off the bar" },
     tray: { title: "In the tray", caption: sideBar ? "" : "Omarchy's tray icons. Drag one onto a row above to place it like a widget" }
