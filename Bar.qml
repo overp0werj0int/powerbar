@@ -4487,6 +4487,9 @@ Item {
       id: keyCatcherItem
       Keys.onPressed: function(event) { if (root.barKeys.barKey(event)) event.accepted = true }
       Keys.onReleased: function(event) { if (!event.isAutoRepeat) root.barKeys.released() }
+      // The mode's keys are its own: a widget's window-wide Shortcut (Plume's
+      // Esc for its settings) would otherwise take them first in this window.
+      Keys.onShortcutOverride: function(event) { if (root.barKeys.here) event.accepted = true }
     }
 
     Item {

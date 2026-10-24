@@ -640,6 +640,9 @@ Item {
   // A key let go here after it took the keys back to the bar (an along key
   // out of a menu, Tab): the cursor's next drawer previews as from the bar.
   Keys.onReleased: function(event) { if (!event.isAutoRepeat && bar.barKeys.heldBy(hostWindow)) bar.barKeys.released() }
+  // Keys meant for the drawer reach it before any window-wide Shortcut a
+  // widget declares (Bar.qml keyCatcher).
+  Keys.onShortcutOverride: function(event) { if (keyboardMode || barKeysHeld) event.accepted = true }
   Keys.onPressed: function(event) {
     if (subKey(event)) { event.accepted = true; return }
     if (barKeysHeld && bar.barKeys.drawerKey(event)) { event.accepted = true; return }

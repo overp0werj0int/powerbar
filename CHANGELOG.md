@@ -59,6 +59,9 @@
   it again. On Omarchy's own bar such an icon stays hidden in the tray, where
   its Manage list can bring it back. While its app is not running, drawers
   and menus leave it out, as the tray does.
+- **Esc in the keyboard mode works beside Plume.** A widget's window-wide
+  shortcut (Plume 1.0 binds Esc for its settings inside its bar widget) took
+  Esc before the mode saw it; the mode now keeps its keys while it has them.
 - **A group's icon closes its member's panel.** With a member's panel open
   from a group menu, clicking the group's icon closes the panel and brings
   the menu back, instead of the panel sliding to the screen's left edge. A
