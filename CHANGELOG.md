@@ -14,7 +14,8 @@
   screen's edges, with its border and shadow following the cutout. Its top
   corners follow the screen's rounded corners, as the outer islands' do in
   the Islands style. A small bar grows there to keep a band under the
-  camera.
+  camera. A bar on the left or right edge rounds its top corner on the
+  screen's edge the same way.
 - **Five zones.** The bar's zones are Omarchy's sections: Left, Left of
   center, Center, Right of center and Right. Center sits over the middle of
   the bar, or first right of the camera on a notched screen. Preferences >

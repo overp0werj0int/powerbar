@@ -275,7 +275,7 @@ Storage: the look lives in `bar.powerbarAppearance` of shell.json: `all` (values
 ## Floating bar on a notched screen
 
 - **LOOK-147** A floating top bar on a notched screen is one surface that wraps the camera, the bar's gap (4 px) off it, as the bar is off the screen's edges.
-  - **The cutout:** its sides run the gap off the housing below the shoulders, and its bottom the gap below the camera. Its bottom corners are the camera's bottom radius plus the gap, so they stay concentric with the camera's. Where the cutout meets the bar's top edge it turns out with a fillet of the rounding setting.
+  - **The cutout:** its sides run the gap off the housing below the shoulders, and its bottom the gap below the camera. Its bottom corners are the camera's bottom radius plus the gap, so they stay concentric with the camera's. Where the cutout meets the bar's top edge it turns out with the same radius, so its four corners match (14 px on a 14" Pro at scale 2).
   - **The band under the camera** is at least the gap thick. A bar too thin for that grows on that screen alone, to the camera's height plus the gap: the small bar goes from 26 to 36 px on a 14" MacBook Pro at scale 2, while the large bar (38 px) keeps its size with a 6 px band. Widgets stay centred in the bar's height.
   - **The top corners** follow the screen's own rounded corners, the gap inside them: the screen's radius less the gap (16 px on a 14" Pro at scale 2), or the rounding setting when that is larger (a larger corner still clears the screen's, and a screen with unknown corners gets the rounding). The bottom corners keep the rounding setting.
   - **Border and shadow** follow the whole outline, cutout included. A gradient border draws in its base colour there.
@@ -284,6 +284,8 @@ Storage: the look lives in `bar.powerbarAppearance` of shell.json: `all` (values
   Code: Bar.qml wrapsNotch, notchWrap, outerCorners, screenBarSizes; NotchWrapSurface.qml; NotchModel.wrapThickness, wrapCut, wrapOutline, outerCorners.
 
 - **LOOK-148** In the Islands style on a notched screen, the outermost islands' top outer corners follow the screen's rounded corners the same way (the screen's radius less the gap, or the rounding when larger); their other corners keep the rounding setting. The islands beside the camera already keep the gap from it. Code: Bar.qml leftIsland topLeftRadius, rightIsland topRightRadius.
+
+- **LOOK-149** A bar on the left or right edge of a notched screen follows the screen's rounded top corner the same way: the floating bar's top corner on the screen's edge (top-left on the left, top-right on the right), and in the Islands style the top island's. The corner is the screen's radius less the gap (16 px on a 14" Pro at scale 2), or the rounding when larger; the bar's other corners keep the rounding. The screen's corners come from the panel's row, as for a top bar. Code: Bar.qml screenTop, outerCorners; the floating EffectSurface's and leftIsland's topLeftRadius, topRightRadius.
 
 ## Animations
 

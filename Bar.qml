@@ -4001,9 +4001,11 @@ Item {
     readonly property var cellTokens: notchFit ? root.notchTokensFor(notch)
       : barSize > root.barSize ? root.notchTokensFor({ height: barSize }) : root.cellTokens
     // The screen's rounded top corners, which the outer surfaces follow a gap
-    // off (LOOK-147, LOOK-148); null where the screen has none.
-    readonly property var outerCorners: notch && !notchLook && !root.flat
-      ? NotchModel.outerCorners(notch, root.edgeGap, root.islandRounding, barSize) : null
+    // off (LOOK-147, LOOK-148); null where the screen has none. A side bar
+    // reads them from the same panel, as a top bar would meet it.
+    readonly property var screenTop: { var m = panelMode; return root.vertical ? root.notchFor(screen, "top") : notch }
+    readonly property var outerCorners: screenTop && !notchLook && !root.flat
+      ? NotchModel.outerCorners(screenTop, root.edgeGap, root.islandRounding, barSize) : null
     readonly property real screenInset: root.screenInsetIn(barWindow)
     readonly property real zoneGap: root.zoneGapIn(barWindow)
     readonly property real highlightRadius: root.highlightRadiusIn(barWindow)
@@ -4436,6 +4438,10 @@ Item {
       shadowSize: root.surfaceEffects.shadowSize
       shadowOpacity: root.surfaceEffects.shadowOpacity
       radius: root.islandRounding
+      // A side bar's top corner on the screen's edge follows the screen's
+      // rounded corner (LOOK-149).
+      topLeftRadius: barWindow.outerCorners && root.position === "left" ? barWindow.outerCorners.top : undefined
+      topRightRadius: barWindow.outerCorners && root.position === "right" ? barWindow.outerCorners.top : undefined
       borderSpec: root.islandBorder
     }
     // On the notched screen it dips round the camera and follows the
@@ -4453,7 +4459,7 @@ Item {
       borderSpec: root.islandBorder
       topRadius: barWindow.outerCorners ? barWindow.outerCorners.top : root.islandRounding
       bottomRadius: root.islandRounding
-      cut: visible ? NotchModel.wrapCut(barWindow.notch, barWindow.width, x - mainStrip.x, y - mainStrip.y, root.edgeGap, root.islandRounding) : null
+      cut: visible ? NotchModel.wrapCut(barWindow.notch, barWindow.width, x - mainStrip.x, y - mainStrip.y, root.edgeGap) : null
     }
     // The camera's own black, so the zones meet it however wide it really is,
     // in the housing's shape. Zones as tall as it cover its corners as they
@@ -4980,8 +4986,10 @@ Item {
             zoneHidden: barWindow.zoneHidden("left")
             notchSide: barWindow.notchLook ? "left" : ""
             transform: Translate { x: barWindow.slideX("left", barWindow.leftShift); y: barWindow.slideY("left", barWindow.leftShift) }
-            // The screen's rounded corner above it (LOOK-148).
-            topLeftRadius: barWindow.outerCorners ? barWindow.outerCorners.top : undefined
+            // The screen's rounded corner above it (LOOK-148), or beside it on
+            // a side bar, where this island is the top one (LOOK-149).
+            topLeftRadius: barWindow.outerCorners && root.position !== "right" ? barWindow.outerCorners.top : undefined
+            topRightRadius: barWindow.outerCorners && root.position === "right" ? barWindow.outerCorners.top : undefined
             x: root.vertical ? (parent.width - width) / 2 : leftModules.x + leftModules.shownLead - barWindow.endPad(leftModules.leadSpill)
             y: root.vertical ? leftModules.y + leftModules.shownLead - barWindow.endPad(leftModules.leadSpill) : (parent.height - height) / 2
             width: root.vertical ? root.barSize : leftModules.width - leftModules.shownLead - leftModules.shownTrail + barWindow.endPad(leftModules.leadSpill) + barWindow.endPad(leftModules.trailSpill)
@@ -5037,7 +5045,7 @@ Item {
             zoneHidden: barWindow.zoneHidden("right")
             notchSide: barWindow.notchLook ? "right" : ""
             transform: Translate { x: barWindow.slideX("right", barWindow.rightShift); y: barWindow.slideY("right", barWindow.rightShift) }
-            topRightRadius: barWindow.outerCorners ? barWindow.outerCorners.top : undefined
+            topRightRadius: barWindow.outerCorners && !root.vertical ? barWindow.outerCorners.top : undefined
             readonly property real start: barWindow.notchLook ? barWindow.notchRight - barWindow.notchTuck
               : rightModules.shownLength > 0
               ? (root.vertical ? rightModules.y : rightModules.x) + rightModules.shownLead - barWindow.endPad(rightModules.leadSpill)

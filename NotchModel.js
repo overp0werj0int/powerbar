@@ -179,9 +179,9 @@ function outerCorners(notch, gap, rounding, height) {
 // coordinates (it sits at barX, barY in a window `windowWidth` wide with the
 // camera centred): its sides `gap` off the housing below the shoulders, its
 // floor `gap` below the camera with the camera's bottom corners grown by the
-// gap (concentric), and `fillet` where the bar's top edge turns down into it.
-// null without a notch.
-function wrapCut(notch, windowWidth, barX, barY, gap, fillet) {
+// gap (concentric), and where the bar's top edge turns down into it a fillet
+// of that same radius, so the cut's four corners match. null without a notch.
+function wrapCut(notch, windowWidth, barX, barY, gap) {
   if (!notch) return null
   var c = cornersOf(notch, notch.width)
   var left = (windowWidth - notch.width) / 2
@@ -190,7 +190,7 @@ function wrapCut(notch, windowWidth, barX, barY, gap, fillet) {
     end: left + notch.width - c.shoulder + gap - barX,
     depth: notch.height + gap - barY,
     radius: c.radius + gap,
-    fillet: Math.max(0, Math.min(Number(fillet) || 0, (notch.height + gap - barY) / 2))
+    fillet: Math.max(0, Math.min(c.radius + gap, (notch.height + gap - barY) / 2))
   }
 }
 // The outline of a surface o.width x o.height at o.x, o.y (default 0) as an
