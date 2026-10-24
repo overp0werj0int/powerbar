@@ -76,7 +76,13 @@ Item {
   readonly property bool memberPanelOpen: slots.some(function(slot) { return slot.panelOpen })
     || (!!submenu && submenu.opened && submenu.memberPanelOpen)
   property bool steppedAside: false
-  onSteppedAsideChanged: bar.ev("drawer", steppedAside ? "aside" : "back")
+  onSteppedAsideChanged: {
+    bar.ev("drawer", steppedAside ? "aside" : "back")
+    // Aside, the bar lets go of the keyboard (DEMAND-51); back, its grab
+    // waits for the keys again, as a fresh drawer's does.
+    grabReady = false
+    if (!steppedAside && opened) grabDelay.restart()
+  }
   onMemberPanelOpenChanged: {
     if (memberPanelOpen) { asideEnd.stop(); steppedAside = opened }
     else if (steppedAside) asideEnd.restart()
@@ -337,6 +343,9 @@ Item {
   // nextHandle: the dots a zone's menu hangs from.
   function openZone(nextZone, keyboard, nextGroup, nextAnchor, nextHandle) {
     nextGroup = nextGroup || ""
+    // A click or key decides: a hover still waiting on its intent (the pointer
+    // just arrived) would reopen the drawer for hovering only.
+    if (keyboard === true) { zoneIntent.stop(); intentZone = ""; intentStill = null }
     var nextToken = String(nextZone || "")
     // The centre has a menu per side: a bare "center" (managed center) opens
     // the first side with widgets.

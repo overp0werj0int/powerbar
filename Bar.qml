@@ -4240,12 +4240,20 @@ Item {
     // Not during a hand-off either: the keys go to whatever the press opened
     // while the mode waits to see what it was (BarKeys.here).
     readonly property bool keysHere: root.barKeys.heldBy(barWindow) && !root.barKeys.suspended && !root.barKeys.handOff
+    // A drawer opened for the keys (a click pins it too) wants them when the
+    // keyboard mode is elsewhere; not while it stands aside for its member's
+    // panel: Hyprland sends every pointer event to an Exclusive surface, so
+    // the panel got none.
+    readonly property bool drawerKeys: !root.barKeys.heldBy(barWindow) && drawer.opened && drawer.keyboardMode && !drawer.steppedAside
+    readonly property bool wantsKeys: keysHere || drawerKeys
     // As Omarchy's keyboard panels do: Exclusive takes the keyboard, then
     // OnDemand keeps it. Exclusive alone would send every click to the bar,
-    // so a click elsewhere could never clear the mode's grab (keysGrab).
+    // so a click elsewhere could never clear the mode's grab (keysGrab) or a
+    // drawer's, and the click would not reach the window either.
     property bool keysFocusPrimed: false
     property int keysPrimeTries: 0
-    onKeysHereChanged: { keysFocusPrimed = false; keysPrimeTries = 0; keysGrabReady = keysHere && keysWindowActive; if (keysHere) keysPrime.restart(); else { keysPrime.stop(); keysKick.stop() } }
+    onKeysHereChanged: keysGrabReady = keysHere && keysWindowActive
+    onWantsKeysChanged: { keysFocusPrimed = false; keysPrimeTries = 0; if (wantsKeys) keysPrime.restart(); else { keysPrime.stop(); keysKick.stop() } }
     // Right after the mode takes the keyboard (entering, or back from a panel
     // or a hand-off) it can be taken away: a closing panel hands focus back
     // to the window that had it before, after its fade-out. Asking for
@@ -4257,22 +4265,21 @@ Item {
       id: keysPrime
       interval: 200
       onTriggered: {
-        if (barWindow.keysHere && !barWindow.keysWindowActive && barWindow.keysPrimeTries < 6) {
+        if (barWindow.wantsKeys && !barWindow.keysWindowActive && barWindow.keysPrimeTries < 6) {
           barWindow.keysPrimeTries++
           barWindow.keysFocusPrimed = true
           keysKick.restart()
           return
         }
-        barWindow.keysFocusPrimed = barWindow.keysHere
+        barWindow.keysFocusPrimed = barWindow.wantsKeys
       }
     }
-    Timer { id: keysKick; interval: 50; onTriggered: if (barWindow.keysHere) { barWindow.keysFocusPrimed = false; keysPrime.restart() } }
+    Timer { id: keysKick; interval: 50; onTriggered: if (barWindow.wantsKeys) { barWindow.keysFocusPrimed = false; keysPrime.restart() } }
 
     // While the keyboard mode is on this bar, it alone decides: a drawer it
     // entered must not hold the keys while a panel it opened has them.
-    readonly property int keyboardFocusMode: root.barKeys.heldBy(barWindow)
-      ? (keysHere ? (keysFocusPrimed ? WlrKeyboardFocus.OnDemand : WlrKeyboardFocus.Exclusive) : WlrKeyboardFocus.None)
-      : drawer.opened && drawer.keyboardMode ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
+    readonly property int keyboardFocusMode: wantsKeys
+      ? (keysFocusPrimed ? WlrKeyboardFocus.OnDemand : WlrKeyboardFocus.Exclusive) : WlrKeyboardFocus.None
     WlrLayershell.keyboardFocus: keyboardFocusMode
     // On the notch only the zones and the camera take the pointer: the bar's
     // empty stretches to the screen edges let it through.

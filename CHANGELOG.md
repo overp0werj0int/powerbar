@@ -68,6 +68,16 @@
   drawer that closes any other way closes its member's panel with it. A
   click on a group icon whose menu the pointer had opened now keeps the menu
   open, as it does from rest.
+- **A member's panel takes the mouse again.** A panel opened from a group
+  menu or a drawer the click had opened (Audio's, say) worked only from the
+  keys: the bar kept the keyboard for the drawer underneath, and Hyprland
+  sent the pointer there too.
+- **A click on a window closes a clicked menu.** A group's menu or a zone's
+  On demand menu opened by a click held the keyboard so tightly that a click
+  on another window went nowhere and the menu stayed. It now holds the keys
+  as the keyboard mode does: the click closes the menu and reaches the
+  window. A click right as the pointer reached the dots no longer opens the
+  menu for hovering only.
 
 ## 0.9.6 — 2026-10-17
 
