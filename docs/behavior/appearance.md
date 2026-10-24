@@ -272,6 +272,19 @@ Storage: the look lives in `bar.powerbarAppearance` of shell.json: `all` (values
 
   Code: Bar.qml slideNotch, notchTuck, notchOvershoot, zoneOut, autoHideStrip, the window mask, PeekBadge (peekLeft, peekRight); NotchModel.backOvershoot.
 
+## Floating bar on a notched screen
+
+- **LOOK-147** A floating top bar on a notched screen is one surface that wraps the camera, the bar's gap (4 px) off it, as the bar is off the screen's edges.
+  - **The cutout:** its sides run the gap off the housing below the shoulders, and its bottom the gap below the camera. Its bottom corners are the camera's bottom radius plus the gap, so they stay concentric with the camera's. Where the cutout meets the bar's top edge it turns out with a fillet of the rounding setting.
+  - **The band under the camera** is at least the gap thick. A bar too thin for that grows on that screen alone, to the camera's height plus the gap: the small bar goes from 26 to 36 px on a 14" MacBook Pro at scale 2, while the large bar (38 px) keeps its size with a 6 px band. Widgets stay centred in the bar's height.
+  - **The top corners** follow the screen's own rounded corners, the gap inside them: the screen's radius less the gap (16 px on a 14" Pro at scale 2), or the rounding setting when that is larger (a larger corner still clears the screen's, and a screen with unknown corners gets the rounding). The bottom corners keep the rounding setting.
+  - **Border and shadow** follow the whole outline, cutout included. A gradient border draws in its base colour there.
+  - On a screen without a notch, and in the Flat and Notch styles, the bar is drawn as before.
+
+  Code: Bar.qml wrapsNotch, notchWrap, outerCorners, screenBarSizes; NotchWrapSurface.qml; NotchModel.wrapThickness, wrapCut, wrapOutline, outerCorners.
+
+- **LOOK-148** In the Islands style on a notched screen, the outermost islands' top outer corners follow the screen's rounded corners the same way (the screen's radius less the gap, or the rounding when larger); their other corners keep the rounding setting. The islands beside the camera already keep the gap from it. Code: Bar.qml leftIsland topLeftRadius, rightIsland topRightRadius.
+
 ## Animations
 
 - **LOOK-99** With `powerbarAnimations` unset or true (Behavior > Animations, default on), changes animate: islands and cells resize, drawers grow and shrink, the center slides (layout-zones.md ZONE-70), the bar slides in auto-hide, colours cross-fade. Code: Bar.qml animationsEnabled.

@@ -2039,13 +2039,17 @@ Item {
     var screens = Quickshell.screens
     for (var i = 0; i < screens.length; i++) {
       var notch = notchFor(screens[i])
-      sizes[screens[i].name] = fitsNotch(notch) ? notch.height : Math.max(barSize, notch ? notch.height : 0)
+      sizes[screens[i].name] = fitsNotch(notch) ? notch.height
+        : wrapsNotch(notch) ? NotchModel.wrapThickness(notch, barSize, edgeGap) : Math.max(barSize, notch ? notch.height : 0)
     }
     return sizes
   }
   // A flat top bar on a notched screen is exactly as tall as the camera, large
   // or small (layout-zones.md ZONE-90); other screens keep the bar's size.
   function fitsNotch(notch) { return !!notch && !vertical && flat && !notchMode }
+  // A floating bar there dips round the camera, a gap off it, and grows only
+  // to keep a band one gap thick under it (appearance.md LOOK-147).
+  function wrapsNotch(notch) { return !!notch && !vertical && floating && !notchMode }
   // A bar window's own thickness and cells, where they differ (notchFit), and
   // what follows from them: the inset off the screen's sides, the island end
   // pad, the gap between zones and the highlight's radius.
@@ -3987,11 +3991,19 @@ Item {
     // exactly as tall as the camera, large or small (notchFit, ZONE-90): its
     // cells are the large bar's along it, as thick as the camera leaves room for.
     readonly property int extent: notchLook ? Math.max(root.barSize, notch.height)
-      : notchFit ? notch.height : Math.max(root.barExtent, notch ? notch.height : 0)
+      : notchFit ? notch.height : notchWrap ? Math.ceil(barSize + root.edgeGap * 2)
+      : Math.max(root.barExtent, notch ? notch.height : 0)
     readonly property bool notchFit: root.fitsNotch(notch)
+    readonly property bool notchWrap: root.wrapsNotch(notch)
     // This bar's thickness and its cells (Bar.sizeIn, tokensIn).
-    readonly property int barSize: notchFit ? notch.height : root.barSize
-    readonly property var cellTokens: notchFit ? root.notchTokensFor(notch) : root.cellTokens
+    readonly property int barSize: notchFit ? notch.height
+      : notchWrap ? NotchModel.wrapThickness(notch, root.barSize, root.edgeGap) : root.barSize
+    readonly property var cellTokens: notchFit ? root.notchTokensFor(notch)
+      : barSize > root.barSize ? root.notchTokensFor({ height: barSize }) : root.cellTokens
+    // The screen's rounded top corners, which the outer surfaces follow a gap
+    // off (LOOK-147, LOOK-148); null where the screen has none.
+    readonly property var outerCorners: notch && !notchLook && !root.flat
+      ? NotchModel.outerCorners(notch, root.edgeGap, root.islandRounding, barSize) : null
     readonly property real screenInset: root.screenInsetIn(barWindow)
     readonly property real zoneGap: root.zoneGapIn(barWindow)
     readonly property real highlightRadius: root.highlightRadiusIn(barWindow)
@@ -4414,17 +4426,34 @@ Item {
     }
     // A floating bar: one continuous surface, held off the edges like islands.
     EffectSurface {
-      visible: root.floating && !barWindow.notchLook
-      x: mainStrip.x + (root.vertical ? (barWindow.extent - root.barSize) / 2 : root.edgeGap)
-      y: mainStrip.y + (root.vertical ? root.edgeGap : (barWindow.extent - root.barSize) / 2)
-      width: root.vertical ? root.barSize : mainStrip.width - root.edgeGap * 2
-      height: root.vertical ? mainStrip.height - root.edgeGap * 2 : root.barSize
+      visible: root.floating && !barWindow.notchLook && !barWindow.notchWrap
+      x: mainStrip.x + (root.vertical ? (barWindow.extent - barWindow.barSize) / 2 : root.edgeGap)
+      y: mainStrip.y + (root.vertical ? root.edgeGap : (barWindow.extent - barWindow.barSize) / 2)
+      width: root.vertical ? barWindow.barSize : mainStrip.width - root.edgeGap * 2
+      height: root.vertical ? mainStrip.height - root.edgeGap * 2 : barWindow.barSize
       color: root.mainSurfaceColor
       shadowEnabled: root.surfaceEffects.shadow
       shadowSize: root.surfaceEffects.shadowSize
       shadowOpacity: root.surfaceEffects.shadowOpacity
       radius: root.islandRounding
       borderSpec: root.islandBorder
+    }
+    // On the notched screen it dips round the camera and follows the
+    // screen's top corners, a gap off both (LOOK-147).
+    NotchWrapSurface {
+      visible: root.floating && barWindow.notchWrap
+      x: mainStrip.x + root.edgeGap
+      y: mainStrip.y + (barWindow.extent - barWindow.barSize) / 2
+      width: mainStrip.width - root.edgeGap * 2
+      height: barWindow.barSize
+      color: root.mainSurfaceColor
+      shadowEnabled: root.surfaceEffects.shadow
+      shadowSize: root.surfaceEffects.shadowSize
+      shadowOpacity: root.surfaceEffects.shadowOpacity
+      borderSpec: root.islandBorder
+      topRadius: barWindow.outerCorners ? barWindow.outerCorners.top : root.islandRounding
+      bottomRadius: root.islandRounding
+      cut: visible ? NotchModel.wrapCut(barWindow.notch, barWindow.width, x - mainStrip.x, y - mainStrip.y, root.edgeGap, root.islandRounding) : null
     }
     // The camera's own black, so the zones meet it however wide it really is,
     // in the housing's shape. Zones as tall as it cover its corners as they
@@ -4951,6 +4980,8 @@ Item {
             zoneHidden: barWindow.zoneHidden("left")
             notchSide: barWindow.notchLook ? "left" : ""
             transform: Translate { x: barWindow.slideX("left", barWindow.leftShift); y: barWindow.slideY("left", barWindow.leftShift) }
+            // The screen's rounded corner above it (LOOK-148).
+            topLeftRadius: barWindow.outerCorners ? barWindow.outerCorners.top : undefined
             x: root.vertical ? (parent.width - width) / 2 : leftModules.x + leftModules.shownLead - barWindow.endPad(leftModules.leadSpill)
             y: root.vertical ? leftModules.y + leftModules.shownLead - barWindow.endPad(leftModules.leadSpill) : (parent.height - height) / 2
             width: root.vertical ? root.barSize : leftModules.width - leftModules.shownLead - leftModules.shownTrail + barWindow.endPad(leftModules.leadSpill) + barWindow.endPad(leftModules.trailSpill)
@@ -5006,6 +5037,7 @@ Item {
             zoneHidden: barWindow.zoneHidden("right")
             notchSide: barWindow.notchLook ? "right" : ""
             transform: Translate { x: barWindow.slideX("right", barWindow.rightShift); y: barWindow.slideY("right", barWindow.rightShift) }
+            topRightRadius: barWindow.outerCorners ? barWindow.outerCorners.top : undefined
             readonly property real start: barWindow.notchLook ? barWindow.notchRight - barWindow.notchTuck
               : rightModules.shownLength > 0
               ? (root.vertical ? rightModules.y : rightModules.x) + rightModules.shownLead - barWindow.endPad(rightModules.leadSpill)

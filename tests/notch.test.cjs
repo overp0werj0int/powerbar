@@ -256,3 +256,41 @@ test('three zones: a side expansion makes the before-run yield up to the camera,
   assert.deepEqual(J(far.fallbacks), [{ zone: 'left', reason: 'notch' }], 'past the camera: the drawer');
   assert.equal(far.hidden.center, false);
 });
+
+// A floating bar or island beside a notch (appearance.md LOOK-147, LOOK-148).
+const n14 = { width: 191, height: 32, radius: 10, shoulder: 3, screenRadius: 20 };
+
+test("a floating bar's cutout keeps the bar's gap around the camera's body", () => {
+  // 1512 wide window, bar 4 px off the edges, 38 thick.
+  const c = J(notch.wrapCut(n14, 1512, 4, 4, 4, 8));
+  const camL = (1512 - 191) / 2;
+  assert.deepEqual(c, { start: camL + 3 - 4 - 4, end: camL + 191 - 3 + 4 - 4, depth: 32, radius: 14, fillet: 8 });
+  assert.equal(notch.wrapCut(null, 1512, 4, 4, 4, 8), null);
+});
+
+test('a floating bar grows only to keep a band of one gap under the camera', () => {
+  assert.equal(notch.wrapThickness(n14, 38, 4), 38, 'large bar: 6 px band, unchanged');
+  assert.equal(notch.wrapThickness(n14, 26, 4), 36, 'small bar: grows to the camera plus a gap');
+  assert.equal(notch.wrapThickness(null, 26, 4), 26);
+});
+
+test("outer top corners are concentric with the screen's, bottom ones keep the rounding", () => {
+  assert.deepEqual(J(notch.outerCorners(n14, 4, 8, 38)), { top: 16, bottom: 8 });
+  assert.deepEqual(J(notch.outerCorners(n14, 4, 8, 20)), { top: 12, bottom: 8 }, 'kept within the height left by the bottom');
+  assert.deepEqual(J(notch.outerCorners({ screenRadius: 2 }, 4, 8, 38)), { top: 8, bottom: 8 }, 'never under the rounding');
+  assert.deepEqual(J(notch.outerCorners({}, 4, 8, 38)), { top: 8, bottom: 8 }, 'unknown screen corners');
+  assert.deepEqual(J(notch.outerCorners(n14, 4, 0, 38)), { top: 16, bottom: 0 }, 'square islands still clear the corner');
+  assert.equal(notch.outerCorners(null, 4, 8, 38), null);
+});
+
+test('the outline runs round the bar and dips round the camera', () => {
+  const cut = { start: 650, end: 850, depth: 32, radius: 14, fillet: 8 };
+  const p = notch.wrapOutline({ width: 1504, height: 38, tl: 16, tr: 16, bl: 8, br: 8, cut: cut });
+  assert.equal(p, 'M 0 16 A 16 16 0 0 1 16 0 L 642 0 A 8 8 0 0 1 650 8 L 650 18 A 14 14 0 0 0 664 32 L 836 32 A 14 14 0 0 0 850 18 L 850 8 A 8 8 0 0 1 858 0 L 1488 0 A 16 16 0 0 1 1504 16 L 1504 30 A 8 8 0 0 1 1496 38 L 8 38 A 8 8 0 0 1 0 30 Z');
+  // The border's inner edge: inset 1, the cut 1 px wider and deeper.
+  const q = notch.wrapOutline({ width: 1504, height: 38, tl: 16, tr: 16, bl: 8, br: 8, cut: cut, inset: 1 });
+  assert.match(q, /^M 1 16 A 15 15 0 0 1 16 1 L 642 1 A 7 7 0 0 1 649 8 L 649 18 A 15 15 0 0 0 664 33 /);
+  // No cut: a plain rounded rectangle, shifted by an offset.
+  assert.equal(notch.wrapOutline({ width: 100, height: 20, tl: 4, tr: 4, bl: 4, br: 4, x: 10, y: 5 }),
+    'M 10 9 A 4 4 0 0 1 14 5 L 106 5 A 4 4 0 0 1 110 9 L 110 21 A 4 4 0 0 1 106 25 L 14 25 A 4 4 0 0 1 10 21 Z');
+});

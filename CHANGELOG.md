@@ -9,6 +9,12 @@
   notch the menu slides out under the ear's dots (`powerbarOnDemand: "menu"`).
   A widget whose icon is a picture (Reprieve's mark) shows it in the icon
   cell, as group menus now do too.
+- **A floating bar wraps the notch.** On a MacBook's notched screen the
+  floating bar dips round the camera, the same gap off it as off the
+  screen's edges, with its border and shadow following the cutout. Its top
+  corners follow the screen's rounded corners, as the outer islands' do in
+  the Islands style. A small bar grows there to keep a band under the
+  camera.
 - **Five zones.** The bar's zones are Omarchy's sections: Left, Left of
   center, Center, Right of center and Right. Center sits over the middle of
   the bar, or first right of the camera on a notched screen. Preferences >

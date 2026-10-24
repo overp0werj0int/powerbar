@@ -207,7 +207,7 @@ Numbers below use Omarchy's default theme tokens: bar 26 px (horizontal) or 28 p
 
   Code: NotchModel.notchOf, parsePanels, housingOf, cornersOf; notch-panels.json.
 
-- **ZONE-81** On a notched screen, the strip is at least as tall as the notch in every style (exactly as tall for a flat bar, ZONE-90). That way no window peeks out beside the camera. The exclusive zone, popups, drawers and the autohide distance all use that extent, and Omarchy's notch-height reports per screen take the same value (`screenBarSizes`). Code: Bar.qml extent, extentOf, screenBarSizes.
+- **ZONE-81** On a notched screen, the strip is at least as tall as the notch in every style (exactly as tall for a flat bar, ZONE-90). That way no window peeks out beside the camera. A floating bar that wraps the camera grows further, to keep a band under it (appearance.md LOOK-147). The exclusive zone, popups, drawers and the autohide distance all use that extent, and Omarchy's notch-height reports per screen take the same value (`screenBarSizes`). Code: Bar.qml extent, extentOf, screenBarSizes.
 
 - **ZONE-82** The Notch style (`powerbarStyle: "notch"`) grows the bar out of the camera:
   - On the notched screen's top edge the bar has two ears. The left ear holds Left and Left of center and ends at the camera's left edge; the right ear holds Center, Right of center and Right and starts at its right edge. Both are drawn as black islands that run on under the camera. Their outer ends have the camera's corners: its shoulder at the top, its bottom radius below (appearance.md LOOK-143).

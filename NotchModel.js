@@ -155,6 +155,90 @@ function cornersOf(notch, width) {
   return { radius: r * k, shoulder: s * k }
 }
 
+// A floating bar or the islands beside a notch, on the notched screen
+// (docs/behavior/appearance.md LOOK-147, LOOK-148), in logical px.
+//
+// The thickness a floating bar needs there: its own, or the camera's depth
+// plus one gap when that is more, so a band one gap thick runs under the
+// cutout.
+function wrapThickness(notch, barSize, gap) {
+  return notch ? Math.max(barSize, notch.height + gap) : barSize
+}
+// The outer corners of a surface held `gap` off the screen's rounded top
+// corners: the top ones concentric with the screen's (its radius less the
+// gap, or the rounding when that is more, as for a screen whose corners are
+// unknown), within the height the bottom ones leave; the bottom ones the
+// rounding. null without a notch.
+function outerCorners(notch, gap, rounding, height) {
+  if (!notch) return null
+  var bottom = Math.max(0, Number(rounding) || 0)
+  var top = Math.max(bottom, (Number(notch.screenRadius) || 0) - gap)
+  return { top: Math.max(0, Math.min(top, height - bottom)), bottom: bottom }
+}
+// The cutout a floating bar makes round the camera, in the bar's own
+// coordinates (it sits at barX, barY in a window `windowWidth` wide with the
+// camera centred): its sides `gap` off the housing below the shoulders, its
+// floor `gap` below the camera with the camera's bottom corners grown by the
+// gap (concentric), and `fillet` where the bar's top edge turns down into it.
+// null without a notch.
+function wrapCut(notch, windowWidth, barX, barY, gap, fillet) {
+  if (!notch) return null
+  var c = cornersOf(notch, notch.width)
+  var left = (windowWidth - notch.width) / 2
+  return {
+    start: left + c.shoulder - gap - barX,
+    end: left + notch.width - c.shoulder + gap - barX,
+    depth: notch.height + gap - barY,
+    radius: c.radius + gap,
+    fillet: Math.max(0, Math.min(Number(fillet) || 0, (notch.height + gap - barY) / 2))
+  }
+}
+// The outline of a surface o.width x o.height at o.x, o.y (default 0) as an
+// SVG path, clockwise: corners o.tl, o.tr, o.br, o.bl and, when o.cut is
+// given (wrapCut), a dip round the camera from its top edge. o.inset draws the
+// same outline that much inside (a border's inner edge): the box shrinks, its
+// corners and the fillets tighten, the cut widens and deepens.
+function wrapOutline(o) {
+  var d = Math.max(0, Number(o.inset) || 0), ox = Number(o.x) || 0, oy = Number(o.y) || 0
+  var w = o.width, h = o.height
+  var r = function(v) { return Math.max(0, (Number(v) || 0) - d) }
+  var room = Math.max(0, (h - 2 * d) / 2)
+  var tl = Math.min(r(o.tl), room), tr = Math.min(r(o.tr), room)
+  var bl = Math.min(r(o.bl), room), br = Math.min(r(o.br), room)
+  var n = function(v) { return String(Math.round(v * 1000) / 1000) }
+  var parts = []
+  var move = function(x, y) { parts.push("M " + n(x + ox) + " " + n(y + oy)) }
+  var line = function(x, y) { parts.push("L " + n(x + ox) + " " + n(y + oy)) }
+  var arc = function(rad, x, y, convex) {
+    if (rad <= 0) return line(x, y)
+    parts.push("A " + n(rad) + " " + n(rad) + " 0 0 " + (convex ? 1 : 0) + " " + n(x + ox) + " " + n(y + oy))
+  }
+  move(d, d + tl)
+  arc(tl, d + tl, d, true)
+  var cut = o.cut
+  if (cut) {
+    var cs = cut.start - d, ce = cut.end + d, depth = cut.depth + d
+    var f = Math.max(0, Math.min(cut.fillet - d, (depth - d) / 2))
+    var rc = Math.max(0, Math.min(cut.radius + d, (ce - cs) / 2, depth - d - f))
+    line(cs - f, d)
+    arc(f, cs, d + f, true)
+    line(cs, depth - rc)
+    arc(rc, cs + rc, depth, false)
+    line(ce - rc, depth)
+    arc(rc, ce, depth - rc, false)
+    line(ce, d + f)
+    arc(f, ce + f, d, true)
+  }
+  line(w - d - tr, d)
+  arc(tr, w - d, d + tr, true)
+  line(w - d, h - d - br)
+  arc(br, w - d - br, h - d, true)
+  line(d + bl, h - d)
+  arc(bl, d, h - d - bl, true)
+  parts.push("Z")
+  return parts.join(" ")
+}
+
 // The corners the notch mode's zones take from the camera, in logical px
 // ({ radius, shoulder }): the notch's own, else (no notched screen) the
 // default housing's at a MacBook's scale 2.
