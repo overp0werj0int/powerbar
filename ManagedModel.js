@@ -104,6 +104,11 @@ function menuLabelStart(showIcon, cell, air) {
 function menuWidth(content, inset, cell) {
   return Math.min(320, Math.max(4 * cell, content + 2 * inset))
 }
+// Whether a menu row shows its widget in the icon cell: a glyph, or a
+// picture (an image, no text) whose ink fits the cell.
+function menuIcon(glyph, picture, inkLength, cell) {
+  return !!glyph || (!!picture && inkLength > 0 && inkLength <= cell)
+}
 // A menu row's value: with icons shown, a member that is text on the bar (the
 // clock, the battery) shows its text at the row's end, at most maxInk wide.
 function menuValueWidth(icons, glyph, inkLength, maxInk) {

@@ -7,6 +7,8 @@
   widgets with their icons and names, walked with the pointer or the keys.
   An On demand group is a row that opens its widgets in a submenu. On the
   notch the menu slides out under the ear's dots (`powerbarOnDemand: "menu"`).
+  A widget whose icon is a picture (Reprieve's mark) shows it in the icon
+  cell, as group menus now do too.
 - **Five zones.** The bar's zones are Omarchy's sections: Left, Left of
   center, Center, Right of center and Right. Center sits over the middle of
   the bar, or first right of the camera on a notched screen. Preferences >
@@ -55,7 +57,8 @@
   or into a group and it leaves the tray and works as a widget, with the
   tray's click, right-click menu and scroll. Drag it back and the tray shows
   it again. On Omarchy's own bar such an icon stays hidden in the tray, where
-  its Manage list can bring it back.
+  its Manage list can bring it back. While its app is not running, drawers
+  and menus leave it out, as the tray does.
 - **A group's icon closes its member's panel.** With a member's panel open
   from a group menu, clicking the group's icon closes the panel and brings
   the menu back, instead of the panel sliding to the screen's left edge. A

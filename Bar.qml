@@ -112,7 +112,7 @@ Item {
     var group = groupIndexes.byId[id]
     if (!group || !window || !window.widgetStore) return []
     var revision = window.widgetStore.revision
-    return group.items.map(function(key) { return window.widgetStore.get(key) }).filter(function(slot) { return !!slot && !slot.groupHeader })
+    return group.items.map(function(key) { return window.widgetStore.get(key) }).filter(function(slot) { return !!slot && !slot.groupHeader && !slot.blank })
   }
   function groupBadge(id, window) {
     var group = groupIndexes.byId[id]
@@ -581,7 +581,7 @@ Item {
     var token = String(zone || ""), region = token.split(":")[0], sided = token !== region
     var slots = (window && window.moduleItems || []).filter(function(slot) {
       return slot && slot.moduleName && slot.region === region && (!sided || slot.inlineToken === token)
-        && (slot.managed || slot.fitFolded) && !slot.memberGroup
+        && (slot.managed || slot.fitFolded) && !slot.memberGroup && !slot.blank
     })
     // Widgets folded off the bar come first, then the zone's managed ones.
     return slots.filter(function(slot) { return slot.fitFolded }).concat(slots.filter(function(slot) { return !slot.fitFolded }))
@@ -6131,7 +6131,7 @@ Item {
     readonly property bool inlineShown: managed && !!homeWindow && homeWindow.inlineZone !== "" && homeWindow.inlineZone === inlineToken
     readonly property bool baseVisible: !memberGroup && (alwaysShown || (managed && !drawerHost && (activityVisible || panelOpen || hovered || inlineShown)))
     // Waits behind its zone's dots (inline and menu modes).
-    readonly property bool dotsCandidate: root.onDemandDots && managed && !memberGroup && !baseVisible
+    readonly property bool dotsCandidate: root.onDemandDots && managed && !memberGroup && !baseVisible && !blank
     // Waits there to expand in the bar (inline mode).
     readonly property bool inlineCandidate: root.onDemandInline && dotsCandidate
     readonly property bool fitFolded: !!(homeWindow && homeWindow.zoneFitFolded[instanceKey])
@@ -6237,6 +6237,13 @@ Item {
     }
     readonly property real naturalWidth: frozenMeasure ? frozenMeasure.width : liveNaturalWidth
     readonly property real naturalHeight: frozenMeasure ? frozenMeasure.height : liveNaturalHeight
+    // A tray icon whose app is not running or is passive: it takes no room,
+    // and drawers and menus leave it out, as the tray does. (Other widgets
+    // with nothing to show keep a placeholder there.)
+    readonly property bool blank: trayCustom && !(activeItem && activeItem.present === true)
+    // Paints an image and no text (HighlightModel.picture): a menu shows it
+    // in the icon cell when it fits.
+    readonly property bool pictured: !blank && !!inkItem && HighlightModel.picture(inkItem)
     // The cell: what the widget visibly paints along the bar decides its slot
     // and its highlight, never the box it asks for.
     readonly property Item inkItem: needsPlaceholder ? placeholderButton : activeItem

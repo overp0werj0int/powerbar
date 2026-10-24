@@ -162,13 +162,17 @@ Item {
     font.family: Style.font.menuFamily
     font.pixelSize: Style.font.bodySmall
   }
-  // Menus: rows are highlight cells. An icon keeps its cell at the row's
+  // Menus: rows are highlight cells. An icon (a glyph, or a picture that fits
+  // the cell, ManagedModel.menuIcon) keeps its cell at the row's
   // start and its name starts after it; a row without an icon starts its name
   // at the icon edge; anything that is text on the bar (the clock, the
   // battery) is a value, right-aligned one air from the row's end.
   readonly property bool menuIcons: namedMenu && memberDisplay === "both"
   function menuInk(slot) { return bar.vertical && slot.crossInk ? slot.crossInk : slot.ink }
-  function menuGlyph(slot) { var ink = menuInk(slot); return CellModel.isGlyph(ink.length, ink.glyph) }
+  function menuGlyph(slot) {
+    var ink = menuInk(slot)
+    return Model.menuIcon(CellModel.isGlyph(ink.length, ink.glyph), slot.pictured, ink.length, tokens.cell)
+  }
   // A group's row: its icon in the icon cell, its name, and a chevron where
   // a value would be.
   readonly property real chevronWidth: menuMetrics.advanceWidth("󰅂")

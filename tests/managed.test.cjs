@@ -134,6 +134,15 @@ test('a hover-opened drawer gives way when the pointer lands on another stop alo
   assert.equal(m.closesForStop(false, false, false, 'g1', 'right', { groupId: '', region: 'right' }), false);
 });
 
+test('a menu row shows a glyph, or a picture that fits the icon cell, in its icon cell', () => {
+  assert.equal(m.menuIcon(true, false, 12, 30), true, 'a glyph');
+  // Reprieve's mark: an 18 px image, past a glyph's 16 px.
+  assert.equal(m.menuIcon(false, true, 18, 30), true, 'a picture that fits');
+  assert.equal(m.menuIcon(false, true, 48, 30), false, 'a row of pictures is a value');
+  assert.equal(m.menuIcon(false, false, 18, 30), false, 'text is a value');
+  assert.equal(m.menuIcon(false, true, 0, 30), false, 'nothing painted');
+});
+
 test('a menu row: text widgets show a value at its end; the widest row sets the width', () => {
   assert.equal(m.menuValueWidth(true, false, 50, 40), 40, 'text, capped');
   assert.equal(m.menuValueWidth(true, true, 50, 40), 0, 'a glyph has no value');
