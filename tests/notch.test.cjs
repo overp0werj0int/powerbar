@@ -26,7 +26,13 @@ test("notch-panels.json gives each of Omarchy's notched panels a width", () => {
   assert.deepEqual(J(notch.parsePanels('{"panels":[{"width":10,"height":10,"notchWidth":20},{}]}')), []);
   assert.deepEqual(J(notch.parsePanels('nope')), []);
   assert.deepEqual(J(notch.parsePanels('{"panels":[{"width":100,"height":50,"notchWidth":60},{"width":100,"height":50,"notchWidth":60,"radius":25,"shoulder":5}]}')),
-    [{ width: 100, height: 50, notchWidth: 60, radius: 16, shoulder: 8 }], 'no shape: the default; corners wider than the housing: dropped');
+    [{ width: 100, height: 50, notchWidth: 60, radius: 20, shoulder: 6, screenRadius: 0 }], 'no shape: the default; corners wider than the housing: dropped');
+  assert.deepEqual(J(notch.parsePanels('{"panels":[{"width":100,"height":50,"notchWidth":60,"screenRadius":12},{"width":100,"height":50,"notchWidth":60,"screenRadius":25}]}')),
+    [{ width: 100, height: 50, notchWidth: 60, radius: 20, shoulder: 6, screenRadius: 12 }], 'screen corners over half the screen: dropped');
+});
+
+test("notch-panels.json gives every notched panel its screen's corners", () => {
+  assert.deepEqual(J(panels.map(p => [p.width, p.screenRadius])), [[3024, 40], [3456, 42], [2560, 36], [2880, 35]]);
 });
 
 test("the housing's corners fit the width they are drawn at", () => {
@@ -38,9 +44,9 @@ test("the housing's corners fit the width they are drawn at", () => {
 
 test("a panel's housing is its listed width, else the Pro's", () => {
   const air13 = { width: 2560, height: 1664, transform: 0 };
-  assert.deepEqual(J(notch.notchOf(cutouts, 'top', 'eDP-1', 1280, 832, 2, air13, 0, 0, panels)), { housing: 157, width: 157, detectedHeight: 28, height: 28, radius: 7, shoulder: 3.5 });
-  assert.equal(notch.notchOf(cutouts, 'top', 'eDP-1', 1512, 982, 2, mbp14, 0, 0, panels).housing, 185);
-  assert.equal(notch.notchOf(cutouts, 'top', 'eDP-1', 1280, 832, 2, air13).housing, 185, 'no table: the default');
+  assert.deepEqual(J(notch.notchOf(cutouts, 'top', 'eDP-1', 1280, 832, 2, air13, 0, 0, panels)), { housing: 163, width: 163, detectedHeight: 28, height: 28, radius: 9, shoulder: 3.25, screenRadius: 18 });
+  assert.equal(notch.notchOf(cutouts, 'top', 'eDP-1', 1512, 982, 2, mbp14, 0, 0, panels).housing, 191);
+  assert.equal(notch.notchOf(cutouts, 'top', 'eDP-1', 1280, 832, 2, air13).housing, 191, 'no table: the default');
 });
 
 test('the described panels parse; malformed ones are dropped', () => {
@@ -50,13 +56,13 @@ test('the described panels parse; malformed ones are dropped', () => {
 });
 
 test("a top bar on a described panel meets its notch, in logical px", () => {
-  assert.deepEqual(J(notch.notchOf(cutouts, 'top', 'eDP-1', 1512, 982, 2, mbp14)), { housing: 185, width: 185, detectedHeight: 32, height: 32, radius: 8, shoulder: 4 });
+  assert.deepEqual(J(notch.notchOf(cutouts, 'top', 'eDP-1', 1512, 982, 2, mbp14)), { housing: 191, width: 191, detectedHeight: 32, height: 32, radius: 10, shoulder: 3, screenRadius: 20 });
   // Fractional scale: Hyprland's mode decides, the logical size scales it.
-  assert.deepEqual(J(notch.notchOf(cutouts, 'top', 'eDP-1', 1890, 1228, 2, mbp14)), { housing: 232, width: 232, detectedHeight: 40, height: 40, radius: 10, shoulder: 5 });
+  assert.deepEqual(J(notch.notchOf(cutouts, 'top', 'eDP-1', 1890, 1228, 2, mbp14)), { housing: 239, width: 239, detectedHeight: 40, height: 40, radius: 12.5, shoulder: 3.75, screenRadius: 25 });
   // Before Hyprland answers, the logical size times a whole ratio stands in.
-  assert.deepEqual(J(notch.notchOf(cutouts, 'top', 'eDP-1', 1512, 982, 2, null)), { housing: 185, width: 185, detectedHeight: 32, height: 32, radius: 8, shoulder: 4 });
-  assert.deepEqual(J(notch.notchOf(cutouts, 'top', 'eDP-1', 1512, 982, 2, mbp14, 200, 34)), { housing: 185, width: 200, detectedHeight: 34, height: 34, radius: 8, shoulder: 4 }, 'set width and calibrated height win');
-  assert.deepEqual(J(notch.notchOf(cutouts, 'top', 'eDP-1', 1512, 982, 2, mbp14, 0, 34, null, 40)), { housing: 185, width: 185, detectedHeight: 34, height: 40, radius: 8, shoulder: 4 }, 'a set height wins over the calibrated one');
+  assert.deepEqual(J(notch.notchOf(cutouts, 'top', 'eDP-1', 1512, 982, 2, null)), { housing: 191, width: 191, detectedHeight: 32, height: 32, radius: 10, shoulder: 3, screenRadius: 20 });
+  assert.deepEqual(J(notch.notchOf(cutouts, 'top', 'eDP-1', 1512, 982, 2, mbp14, 200, 34)), { housing: 191, width: 200, detectedHeight: 34, height: 34, radius: 10, shoulder: 3, screenRadius: 20 }, 'set width and calibrated height win');
+  assert.deepEqual(J(notch.notchOf(cutouts, 'top', 'eDP-1', 1512, 982, 2, mbp14, 0, 34, null, 40)), { housing: 191, width: 191, detectedHeight: 34, height: 40, radius: 10, shoulder: 3, screenRadius: 20 }, 'a set height wins over the calibrated one');
 });
 
 test('no notch: another edge, another screen, a turned panel, Asahi hiding the notch row', () => {
@@ -225,7 +231,7 @@ test('a notch zone past the screen edge wraps its outer widgets into a second ro
 
 test('the notch mode zones take the camera corners, or the default housing at scale 2', () => {
   assert.deepEqual(J(notch.zoneCorners({ radius: 9, shoulder: 3.5 })), { radius: 9, shoulder: 3.5 });
-  assert.deepEqual(J(notch.zoneCorners(null)), { radius: 8, shoulder: 4 });
+  assert.deepEqual(J(notch.zoneCorners(null)), { radius: 10, shoulder: 3 });
 });
 
 test("three zones: the camera's slot also holds the centre cells' end pads (notchPads)", () => {

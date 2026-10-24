@@ -78,6 +78,13 @@
   as the keyboard mode does: the click closes the menu and reaches the
   window. A click right as the pointer reached the dots no longer opens the
   menu for hovering only.
+- **The notch measured on Apple's artwork.** Every notched MacBook panel's
+  camera and screen corners in `notch-panels.json` now come from Apple's
+  product bezel images, which draw the screen pixel for pixel. The camera is
+  a little wider at the top edge than macOS reports (191 instead of 185 at
+  scale 2 on a 14" Pro: its shoulders flare out 3 px a side), with rounder
+  bottom corners, and the 15" Air's is 6 px narrower than the guess it had.
+  Each panel also lists the radius of the screen's top corners.
 
 ## 0.9.6 — 2026-10-17
 

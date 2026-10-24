@@ -813,8 +813,8 @@ Item {
                       label: "Notch width"
                       unit: "px"
                       minimum: 40; maximum: 600; stepSize: 1
-                      defaultValue: notchTile.notch ? notchTile.notch.housing : 185
-                      value: notchTile.notch ? notchTile.notch.width : (prefs.options.notchWidth || 185)
+                      defaultValue: notchTile.notch ? notchTile.notch.housing : 191
+                      value: notchTile.notch ? notchTile.notch.width : (prefs.options.notchWidth || 191)
                       animate: prefs.motion
                       onEdited: function(v) { prefs.setOption("powerbarNotchWidth", v === defaultValue ? undefined : v) }
                     }

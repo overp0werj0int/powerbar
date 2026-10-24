@@ -150,7 +150,7 @@ bar uses now, the stored value or its default:
 | `dotsBadge` | bool | `powerbarDotsBadge` | true |
 | `keyLegend` | bool | `powerbarKeyLegend` | true |
 | `frameLog` | bool | `powerbarFrameLog` | false |
-| `notchWidth` | number 40 to 600, step 1 (logical px; the camera's keep-out, ZONE-89) | `powerbarNotchWidth` | the camera housing (185 at scale 2), 185 on a machine without a notch; `get` answers the width in use, `null` with no notch and none set |
+| `notchWidth` | number 40 to 600, step 1 (logical px; the camera's keep-out, ZONE-89) | `powerbarNotchWidth` | the camera housing (191 at scale 2 on a 14" Pro), 191 on a machine without a notch; `get` answers the width in use, `null` with no notch and none set |
 | `notchHeight` | number 16 to 96, step 1 (logical px; on a notched screen) | `powerbarNotchHeight` | the detected height (Omarchy's `[bar] notch-height`, else the described rows: 32 at scale 2); `get` answers the height in use, `null` with no notch and none set |
 | `revealSeconds` | number 1 to 60 | `powerbarManagedRevealSeconds` | 2.5 |
 | `entryGraceSeconds` | number 1 to 15 | `powerbarManagedEntryGraceSeconds` | 1 |

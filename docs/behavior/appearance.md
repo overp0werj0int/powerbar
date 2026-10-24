@@ -264,7 +264,7 @@ Storage: the look lives in `bar.powerbarAppearance` of shell.json: `all` (values
 - **LOOK-144** Autohide on the notch:
   - **The camera is the edge strip:** only the camera reveals the bar (not a strip along the screen edge, as in LOOK-56 and LOOK-67), in the housing's shape: the screen beside its round bottom corners does not.
   - **Each zone slides on its own:** it slides sideways out of the camera and back into it, clipped at the camera's edge, instead of the strip leaving the screen.
-  - **Out:** 220 ms with a spring (OutBack) whose overshoot is held to 4 px, however long the zone. The zone runs on under the camera by 6 px, or by the shoulder and bottom radius plus 1 px when that is more (13 px at scale 2 on a Pro), so the overshoot never parts it from the camera and a zone as tall as the camera covers its round corner once out.
+  - **Out:** 220 ms with a spring (OutBack) whose overshoot is held to 4 px, however long the zone. The zone runs on under the camera by 6 px, or by the shoulder and bottom radius plus 1 px when that is more (14 px at scale 2 on a 14" Pro), so the overshoot never parts it from the camera and a zone as tall as the camera covers its round corner once out.
   - **In:** 140 ms (ease-out).
   - **Peeks:** an activity peek (LOOK-63) brings the widget out of the camera on its zone's side, alone on a black badge a single widget long, with the zones' timing and spring above. The badge is square where it meets the camera and has the camera's corners at its outer end, as a zone does. One badge per side: a newer change on that side takes its place.
   - **Lengths:** a hidden zone that changes length follows at once.

@@ -447,13 +447,13 @@ polling.
   and on a side bar. Until Hyprland fixes it, `scrolling:follow_focus = false`
   stops it, at the cost of clicks and hovers no longer bringing a partly
   hidden window into view.
-- **The notch's width comes from macOS readings.** Omarchy describes how
+- **The notch's shape comes from Apple's artwork.** Omarchy describes how
   tall a notch is, not how wide, so Powerbar keeps each MacBook panel's
-  width in `notch-panels.json`, from readings people took on macOS (the 15"
-  Air's is inferred from the 13" one). If the zones overlap the camera or
-  leave a gap beside it, set Preferences > Bar > Notch > Notch width
-  (`omarchy-shell powerbar set notchWidth N`); Notch height
-  (`notchHeight N`) does the same for the height.
+  notch and screen corners in `notch-panels.json`, measured on Apple's
+  product bezel images, which draw each screen pixel for pixel. If the zones
+  overlap the camera or leave a gap beside it, set Preferences > Bar >
+  Notch > Notch width (`omarchy-shell powerbar set notchWidth N`); Notch
+  height (`notchHeight N`) does the same for the height.
 - **One layout for every screen.** In the Notch style, a screen without a
   notch shows the zones as black islands.
 - Multi-monitor setups are less tested than single-monitor ones.

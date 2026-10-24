@@ -1,37 +1,37 @@
 {
-  "about": "Camera notch housings of MacBook panels, in panel pixels, for NotchModel.js. Omarchy's display-cutouts.json says which screens have a notch and how tall it is; it has no width or shape. notchWidth is the housing along the screen's top edge; radius is its bottom corners; shoulder is the inside curve where the top edge turns down into it. A panel is matched by its physical mode, as there. Widths come from macOS readings (NSScreen auxiliaryTopLeftArea/RightArea) taken at a scaled mode, converted: points x native width / scaled width. 'measured' rows convert a reading on that panel; 'inferred' rows assume the same camera housing as a measured panel of the same pixel density. Corners: roughly 4 pt shoulders and 8 pt bottom corners at the 14-inch Pro's 2x (https://notchbay.com/blog/macbook-notch-size/), the same at the 16-inch's equal density; the Airs' scaled by density (224/254), not measured.",
+  "about": "Camera notches and screen corners of MacBook panels, in panel pixels, for NotchModel.js. Omarchy's display-cutouts.json says which screens have a notch and how tall it is; it has no width or shape. notchWidth is the housing along the screen's top edge; shoulder is how far the screen's top edge curves in on each side before it turns down into the housing (below the shoulders it is notchWidth - 2 x shoulder wide); radius is the housing's bottom corners; screenRadius is the screen's top corners (the bottom ones are square). A panel is matched by its physical mode, as there. All four come from Apple's product bezel artwork (https://developer.apple.com/design/resources/, MacBook Pro M5 and MacBook Air M5 PNGs), whose screens are drawn 1:1 at the panel's resolution: widths and depths read off the artwork's alpha edge with subpixel coverage, curves given as the radius of a quarter circle of the same area (Apple's curves are continuous, not circular). The housings' depth there matches Omarchy's rows (64, 64, 56, 55), and their straight parts the macOS readings in each row's source (185 pt on the Pros, 209 pt at 1710 px = 313 px on the 13-inch Air), so the readings measure the housing below its shoulders. These panels are unchanged since the notch arrived (Pro 2021, Air 13-inch 2022, Air 15-inch 2023).",
   "panels": [
     {
-      "width": 3024, "height": 1964, "notchWidth": 370, "radius": 16, "shoulder": 8,
+      "width": 3024, "height": 1964, "notchWidth": 382, "radius": 20, "shoulder": 6, "screenRadius": 40,
       "panel": "14.2-inch MacBook Pro",
       "models": ["MacBookPro18,3", "MacBookPro18,4", "Mac14,5", "Mac14,9", "Mac15,3", "Mac15,6", "Mac15,8", "Mac15,10", "Mac16,1", "Mac16,6", "Mac16,8", "Mac17,2", "Mac17,7", "Mac17,9"],
       "devicetree": ["apple,j314s", "apple,j314c", "apple,j414s", "apple,j414c", "apple,j504", "apple,j514s", "apple,j514c"],
       "status": "measured",
-      "source": "185 x 32 pt at 1512 x 982 (NSScreen readout): https://notchbay.com/blog/macbook-notch-size/"
+      "source": "Apple bezel artwork: housing 381.7 wide at the top edge, 369.4 below the shoulders, 63.6 deep; screen corners 40.0. Reading: 185 x 32 pt at 1512 x 982 (NSScreen readout): https://notchbay.com/blog/macbook-notch-size/"
     },
     {
-      "width": 3456, "height": 2234, "notchWidth": 370, "radius": 16, "shoulder": 8,
+      "width": 3456, "height": 2234, "notchWidth": 384, "radius": 19, "shoulder": 7, "screenRadius": 42,
       "panel": "16.2-inch MacBook Pro",
       "models": ["MacBookPro18,1", "MacBookPro18,2", "Mac14,6", "Mac14,10", "Mac15,7", "Mac15,9", "Mac15,11", "Mac16,5", "Mac16,7", "Mac17,6", "Mac17,8"],
       "devicetree": ["apple,j316s", "apple,j316c", "apple,j416s", "apple,j416c", "apple,j516s", "apple,j516c"],
       "status": "measured",
-      "source": "220 x 38 pt at 2056 x 1329 on Mac16,7 (AppKit): https://crestnotch.app/macbook-notch-dimensions"
+      "source": "Apple bezel artwork: housing 384.0 wide at the top edge, 370.0 below the shoulders, 63.9 deep; screen corners 41.5. Reading: 220 x 38 pt at 2056 x 1329 on Mac16,7 (AppKit): https://crestnotch.app/macbook-notch-dimensions"
     },
     {
-      "width": 2560, "height": 1664, "notchWidth": 313, "radius": 14, "shoulder": 7,
+      "width": 2560, "height": 1664, "notchWidth": 325, "radius": 18, "shoulder": 6.5, "screenRadius": 36,
       "panel": "13.6-inch MacBook Air",
       "models": ["Mac14,2", "Mac15,12", "Mac16,12", "Mac17,3"],
       "devicetree": ["apple,j413", "apple,j613"],
       "status": "measured",
-      "source": "209 x 38 pt at 1710 x 1112 on Mac14,2 (auxiliary areas 751 + 750): https://github.com/valenvivaldi/notch-fight/pull/1"
+      "source": "Apple bezel artwork: housing 324.9 wide at the top edge, 312.0 below the shoulders, 56.2 deep; screen corners 36.6 and 36.0. Reading: 209 x 38 pt at 1710 x 1112 on Mac14,2 (auxiliary areas 751 + 750): https://github.com/valenvivaldi/notch-fight/pull/1"
     },
     {
-      "width": 2880, "height": 1864, "notchWidth": 313, "radius": 14, "shoulder": 7,
+      "width": 2880, "height": 1864, "notchWidth": 317, "radius": 17, "shoulder": 6, "screenRadius": 35,
       "panel": "15.3-inch MacBook Air",
       "models": ["Mac14,15", "Mac15,13", "Mac16,13", "Mac17,4"],
       "devicetree": ["apple,j415", "apple,j615"],
-      "status": "inferred",
-      "source": "No reading found; the 13.6-inch Air's housing at the same 224 ppi."
+      "status": "measured",
+      "source": "Apple bezel artwork: housing 316.8 wide at the top edge, 305.6 below the shoulders, 54.8 deep; screen corners 35.4 and 34.7. No macOS reading found."
     }
   ]
 }
