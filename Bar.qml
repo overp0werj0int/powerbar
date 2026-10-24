@@ -5827,14 +5827,7 @@ Item {
       y: (foldHandle.height - height) / 2
       rounding: root.highlightRadiusIn(hostWindow)
     }
-    Text {
-      anchors.centerIn: parent
-      textFormat: Text.PlainText
-      text: root.vertical ? "󰇙" : "󰇘"
-      color: root.barForeground
-      font.family: root.fontFamily
-      font.pixelSize: Style.font.body
-    }
+    ZoneDot { ink: root.barForeground }
     Rectangle {
       id: handleBadge
       readonly property var spot: CellModel.badge(
@@ -5903,15 +5896,7 @@ Item {
     visible: opacity > 0
     Accessible.ignored: true
     Behavior on opacity { enabled: root.animationsEnabled; NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
-    Text {
-      anchors.centerIn: parent
-      textFormat: Text.PlainText
-      text: root.vertical ? "󰇙" : "󰇘"
-      color: root.barForeground
-      opacity: 0.45
-      font.family: root.fontFamily
-      font.pixelSize: Style.font.body
-    }
+    ZoneDot { ink: root.barForeground; opacity: 0.35 }
     Rectangle {
       readonly property real thick: root.thicknessIn(root.targetWindow(yieldMarker))
       readonly property var spot: CellModel.badge(
