@@ -7,6 +7,10 @@
   one small, quiet empty circle, on horizontal and vertical bars alike,
   and the drawer mode's zone button shows it too.
   It takes the same space and opens the same menu or drawer.
+- **The Left of center menu opens on hover.** Resting on its circle no
+  longer reveals the indicators, which slid the circle away and the clock
+  under the pointer, so the menu closed at once and a click opened the
+  clock instead.
 - **Menus show Crash Desk's and Omapop's icons.** A widget whose text is an
   icon and a count (Crash Desk) shows the icon in the menu's icon cell and
   the count at the row's end; Omapop's drawn mark counts as an icon.

@@ -3677,8 +3677,13 @@ Item {
     property string inlineRequest: ""
     property string inlineZone: ""
     readonly property string inlineZoneName: inlineZone.split(":")[0]
-    // A centre side asked for or shown holds the indicators' reveal closed.
+    // A centre side asked for or shown holds the indicators' reveal closed,
+    // and so do a centre side's dots under the pointer in menu or drawer mode,
+    // and the menu or drawer open from them.
     readonly property bool centerInlineBusy: inlineZoneName === "center" || inlineRequest.split(":")[0] === "center"
+      || dotsHoverZone === "center" || (drawer.opened && drawer.zone === "center" && !drawer.groupId)
+    // The zone whose dots are under the pointer outside inline mode.
+    property string dotsHoverZone: ""
     onCenterInlineBusyChanged: root.centerRevealBlocks = Math.max(0, root.centerRevealBlocks + (centerInlineBusy ? 1 : -1))
     // The dots under the pointer, if any.
     property string inlineHandleZone: ""
@@ -5865,10 +5870,14 @@ Item {
       onEntered: {
         if (!foldHandle.enabled) return
         if (root.onDemandInline && foldHandle.homeWindow) foldHandle.homeWindow.inlineEnter(foldHandle.inlineToken)
-        else if (foldHandle.drawerRef) foldHandle.drawerRef.sourceEnter(foldHandle.drawerToken, function() { return handleMouse.containsMouse }, foldHandle)
+        else if (foldHandle.drawerRef) {
+          if (foldHandle.homeWindow) foldHandle.homeWindow.dotsHoverZone = foldHandle.zone
+          foldHandle.drawerRef.sourceEnter(foldHandle.drawerToken, function() { return handleMouse.containsMouse }, foldHandle)
+        }
         root.showTooltip(foldHandle, foldHandle.label)
       }
       onExited: {
+        if (foldHandle.homeWindow && foldHandle.homeWindow.dotsHoverZone === foldHandle.zone) foldHandle.homeWindow.dotsHoverZone = ""
         if (root.onDemandInline && foldHandle.homeWindow) foldHandle.homeWindow.inlineLeave(foldHandle.inlineToken)
         else if (foldHandle.drawerRef) foldHandle.drawerRef.sourceLeave(foldHandle.drawerToken)
         root.hideTooltip(foldHandle)
