@@ -25,6 +25,8 @@ QtObject {
   function takeOver(mark) {
     var prev = current
     current = mark
+    // A mark destroyed while lit (its menu row went with the menu) is gone.
+    if (prev && typeof prev.handOff !== "function") prev = null
     if (!prev || prev === mark || prev.shown || prev.glideKey !== mark.glideKey) return null
     var from = prev.lit ? rectOf(prev) : Date.now() - leftAt <= graceMs ? leftRect : null
     if (from) prev.handOff()
