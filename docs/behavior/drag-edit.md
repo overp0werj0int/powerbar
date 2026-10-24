@@ -52,7 +52,7 @@ Drag and drop on the live bar, into drawers and onto zone dots. The bar controll
 
 - **DRAG-75** The outline moves as the highlights do (appearance.md LOOK-139): when the drop moves to another gap in the same zone of a bar, or in the same drawer, the outline there starts where the last one was drawn, at its size, and glides to its own gap over the gap's own motion (DRAG-67) with OutCubic, while the last one goes out at once; a drop moving on mid-glide retargets it from where it is drawn. Shown with none to take over from (the drag's first gap, or another zone), it fades in over the same time, already at its cell's size; left with none taking over (the drop leaves the surface), it fades out in place. Animations off: no slide and no fade. Code: DropOutline.qml (`slideFrom`, `handOff`), HighlightGlide.qml (`dropGlide`, one per bar window keyed by zone; one per drawer)
 
-- **DRAG-18** When the drop lands On demand (on the dots, inside an inline run, in a zone drawer) the outline holds a dots glyph (`󰇘` on a horizontal bar, `󰇙` on a vertical one, 45 % alpha) instead of being empty.
+- **DRAG-18** When the drop lands On demand (on the dots, inside an inline run, in a zone drawer) the outline holds the dots' circle (ZONE-14) at 35 % opacity instead of being empty. Code: DropOutline.qml, ZoneDot.qml.
 
 - **DRAG-19** The outline fades in with the gap: opacity = min(1, gapLength / full gap).
 

@@ -124,15 +124,6 @@ Item {
     color: "transparent"
     border.width: 1
     border.color: Qt.rgba(outline.ink.r, outline.ink.g, outline.ink.b, 0.45)
-    Text {
-      anchors.centerIn: parent
-      visible: outline.onDemand
-      textFormat: Text.PlainText
-      text: outline.vertical ? "󰇙" : "󰇘"
-      color: outline.ink
-      opacity: 0.45
-      font.family: outline.bar ? outline.bar.fontFamily : Style.font.family
-      font.pixelSize: Style.font.body
-    }
+    ZoneDot { visible: outline.onDemand; ink: outline.ink; opacity: 0.35 }
   }
 }

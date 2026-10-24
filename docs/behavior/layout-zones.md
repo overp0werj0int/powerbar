@@ -36,7 +36,7 @@ Numbers below use Omarchy's default theme tokens: bar 26 px (horizontal) or 28 p
 
 ## Dots (drawer handle) and counts
 
-- **ZONE-14** A zone shows dots only while something waits behind them: widgets folded for lack of room, and with `powerbarOnDemand: "inline"` or `"menu"` also its hidden on-demand widgets. In the default `"drawer"` mode with nothing folded there are no dots. The glyph is 󰇘 on a horizontal bar and 󰇙 on a vertical one. Code: Bar.qml FoldHandle (shown when count > 0).
+- **ZONE-14** A zone shows dots only while something waits behind them: widgets folded for lack of room, and with `powerbarOnDemand: "inline"` or `"menu"` also its hidden on-demand widgets. In the default `"drawer"` mode with nothing folded there are no dots. They draw as one small empty circle, 4 px across with a 1 px outline in the bar's foreground at 55 % opacity, on either orientation, centred in a glyph-sized cell so it is as easy to point at as an icon. Code: Bar.qml FoldHandle (shown when count > 0); ZoneDot.qml.
 
 - **ZONE-15** The dots take one glyph cell (a 12 px glyph's slot: 27 px at spacing 4) and the lasting fit reserves it, so a zone does not change length when its on-demand widgets hide or return. The cell eases in and out over 120 ms with Animations on. Code: ZoneFitModel.slotsOf; FoldHandle width Behavior.
 
@@ -72,7 +72,7 @@ Numbers below use Omarchy's default theme tokens: bar 26 px (horizontal) or 28 p
 
 - **ZONE-29** A moment is temporary growth of one zone: a drag gap, the indicators' held reveal, an activity reveal, an inline expansion. Several may run at once, highest priority first, an expansion last. Nothing slides; every neighbour of a growing zone yields: whole widgets hide from the end facing the growing zone (left zone from its end, right zone from its start, center from the facing side), fading out but keeping their space, and the island ends at its last visible cell. A moment other than a held inline expansion that lasts over 10 s counts as lasting and is dropped from the fit. Code: ZoneFitModel.fitMoment; Bar.qml zoneFitMoments, ageMoments.
 
-- **ZONE-30** Where widgets yielded, a quiet marker (the dots at 45% opacity, not interactive) takes the first freed cell, with the count of widgets out of view (badge as ZONE-16). Resting the pointer on the marker for 90 ms ends the moment that made them give way. Code: Bar.qml YieldMarker, releaseYield.
+- **ZONE-30** Where widgets yielded, a quiet marker (the dots' circle at 35 % opacity, not interactive) takes the first freed cell, with the count of widgets out of view (badge as ZONE-16). Resting the pointer on the marker for 90 ms ends the moment that made them give way. Code: Bar.qml YieldMarker, releaseYield.
 
 - **ZONE-31** An inline expansion whose neighbour would have to yield its anchor (a widget that never folds, ZONE-13) hides that whole neighbour zone instead (dots included; its island fades with no marker); if the zone past it still collides, it yields in turn or hides whole. The camera's slot is never hidden or crossed (ZONE-89): an expansion that would need the centre, with that slot, to hide falls back to its drawer (ZONE-34, reason `notch`). An expanding center that would run off the bar slides back onto it by the least distance. Code: fitMoment attempt(), hide().
 
