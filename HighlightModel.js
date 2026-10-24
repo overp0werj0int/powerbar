@@ -108,6 +108,12 @@ function inkRect(item, vertical, depth) {
   }
   var across = inkWidth(item, 0)
   if ("glyphPaintedWidth" in item) {
+    // A custom icon (iconComponent, Omapop's drawn mark) with no label is an
+    // icon, whatever its canvas: it paints the canvas the kit sizes for icons.
+    if (item.iconComponent && String(item.labelText || "") === "") {
+      var canvas = positive(item, "componentPaintedWidth") || positive(item, "opticalSize") || size
+      return centred(Math.min(canvas, size), true)
+    }
     // The kit's icon button can carry a whole string ("100% 󰁹"); only a
     // painted width no wider than a large glyph reads as an icon.
     var painted = across > 0 ? across : Math.min(size, positive(item, "opticalSize") || size)

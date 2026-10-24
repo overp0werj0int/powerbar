@@ -175,7 +175,24 @@ Item {
   // battery) is a value, right-aligned one air from the row's end.
   readonly property bool menuIcons: namedMenu && memberDisplay === "both"
   function menuInk(slot) { return bar.vertical && slot.crossInk ? slot.crossInk : slot.ink }
+  // A kit button whose text leads with an icon (Crash Desk's "󰈸 14") is split
+  // in a row: its icon in the icon cell, the rest as the value, both drawn by
+  // the row from the button's own text and colour (ManagedModel.iconLead).
+  function menuSplit(slot) {
+    if (!menuIcons || !slot || rowGroup(slot)) return null
+    var targets = slot.slotTargets || []
+    var button = targets.length === 1 ? targets[0] : null
+    if (!button || typeof button.isIconGlyph !== "function" || !button.visible) return null
+    var lead = Model.iconLead(button.text)
+    return lead ? { icon: lead.icon, rest: lead.rest, button: button } : null
+  }
+  FontMetrics {
+    id: splitMetrics
+    font.family: bar.fontFamily
+    font.pixelSize: Style.font.body
+  }
   function menuGlyph(slot) {
+    if (menuSplit(slot)) return true
     var ink = menuInk(slot)
     return Model.menuIcon(CellModel.isGlyph(ink.length, ink.glyph), slot.pictured, ink.length, tokens.cell)
   }
@@ -187,6 +204,8 @@ Item {
   readonly property bool subBefore: zoneMenu && (bar.vertical ? bar.position === "right"
     : x + 2 * width + tokens.inset > hostWindow.width - bar.edgeGap)
   function menuValueWidth(slot) {
+    var split = rowGroup(slot) ? null : menuSplit(slot)
+    if (split) return Math.min(splitMetrics.advanceWidth(split.rest), CellModel.MAX_INK)
     return rowGroup(slot) ? chevronWidth : Model.menuValueWidth(menuIcons, menuGlyph(slot), menuInk(slot).length, CellModel.MAX_INK)
   }
   function menuLabelStart(slot) { return Model.menuLabelStart(rowGroup(slot) || menuIcons && menuGlyph(slot), tokens.cell, tokens.air) }
@@ -793,7 +812,9 @@ Item {
                 // its members in the submenu.
                 readonly property bool opensSubmenu: drawer.rowGroup(modelData)
                 readonly property bool rowHovered: memberHover.hovered
-                readonly property bool showNative: drawer.memberDisplay !== "name" && !opensSubmenu
+                // A split row draws its widget's icon and value itself (menuSplit).
+                readonly property var split: drawer.namedMenu && modelData ? drawer.menuSplit(modelData) : null
+                readonly property bool showNative: drawer.memberDisplay !== "name" && !opensSubmenu && !split
                 readonly property var place: modelData ? modelData.cellPlace : null
                 // Strip slots report their spill so the strip's ends follow the island rule.
                 readonly property real cellSpill: drawer.namedMenu || !place ? 0 : place.spill
@@ -934,6 +955,28 @@ Item {
                   fontSize: Style.font.body
                   x: mount.animatedInsetX + (drawer.tokens.cell - width) / 2
                   y: mount.animatedInsetY + (mount.baseHeight - height) / 2
+                }
+                // A split row's icon, in the icon cell, and its value at the end,
+                // in the button's own font and colour.
+                Repeater {
+                  model: mount.split ? [mount.split.icon, mount.split.rest] : []
+                  Text {
+                    required property string modelData
+                    required property int index
+                    readonly property var button: mount.split ? mount.split.button : null
+                    textFormat: Text.PlainText
+                    text: modelData
+                    color: !button ? label.color : button.active && button.useActiveColor ? button.activeColor : button.foreground
+                    opacity: button && button.dimmed ? 0.45 : 1
+                    font.family: button ? button.fontFamily : drawer.bar.fontFamily
+                    font.pixelSize: button ? button.fontSize : Style.font.body
+                    renderType: Text.NativeRendering
+                    width: index === 1 ? Math.min(implicitWidth, CellModel.MAX_INK) : implicitWidth
+                    elide: Text.ElideRight
+                    x: mount.animatedInsetX + (index === 0 ? (drawer.tokens.cell - width) / 2
+                      : drawer.menuRowWidth - drawer.tokens.air - width)
+                    y: (mount.baseHeight - height) / 2 + mount.animatedInsetY
+                  }
                 }
                 Text {
                   visible: mount.opensSubmenu

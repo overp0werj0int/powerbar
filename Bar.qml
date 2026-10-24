@@ -4550,7 +4550,8 @@ Item {
           readonly property var members: root.managedSlots(modelData, barWindow)
           WidgetButton {
             bar: root
-            text: "󰇘"
+            // The zone's circle (ZoneDot) instead of a glyph.
+            hasVisualContent: true
             tooltipText: ({ left: "Left", center: "Center", right: "Right" })[zoneTarget.modelData] + " drawer"
             // This window's own slots, not every monitor's: read per frame
             // while widths animate.
@@ -4578,6 +4579,7 @@ Item {
               selectedColor: root.onBarSelectedColor
               rounding: barWindow.highlightRadius
             }
+            ZoneDot { ink: root.barForeground }
           }
         }
       }

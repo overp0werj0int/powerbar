@@ -104,6 +104,23 @@ function menuLabelStart(showIcon, cell, air) {
 function menuWidth(content, inset, cell) {
   return Math.min(320, Math.max(4 * cell, content + 2 * inset))
 }
+// A kit button's text that leads with an icon (Crash Desk's "󰈸 14"): its
+// icon and the text after the space, which a menu row splits between its
+// icon cell and its end. null for anything else (a bare icon, a value such
+// as "100% 󰁹", text over several lines). Icons as the kit reads them
+// (WidgetButton.isIconGlyph): private-use code points, and arrows and
+// symbols.
+function iconLead(text) {
+  var s = String(text || "")
+  var code = s.codePointAt(0)
+  if (!(code > 0)) return null
+  var icon = (code >= 0xe000 && code <= 0xf8ff) || (code >= 0xf0000 && code <= 0xffffd)
+    || (code >= 0x100000 && code <= 0x10fffd) || (code >= 0x2190 && code <= 0x2bff)
+  var size = code > 0xffff ? 2 : 1
+  if (!icon || !/^\s/.test(s.slice(size)) || s.indexOf("\n") >= 0) return null
+  var rest = s.slice(size).trim()
+  return rest === "" ? null : { icon: s.slice(0, size), rest: rest }
+}
 // Whether a menu row shows its widget in the icon cell: a glyph, or a
 // picture (an image, no text) whose ink fits the cell.
 function menuIcon(glyph, picture, inkLength, cell) {

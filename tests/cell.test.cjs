@@ -118,6 +118,10 @@ test('compound thumbs nest at the track curve', () => {
 test('inkRect: kit glyphs and labels are centred; children give the painted span', () => {
   const glyph = { width: 27, height: 26, glyphPaintedWidth: 9, opticalSize: 16, children: [] };
   assert.deepEqual({ ...hl.inkRect(glyph, false) }, { start: 9, length: 9, glyph: true });
+  const drawn = { width: 27, height: 26, glyphPaintedWidth: 0, opticalSize: 18, iconComponent: {}, labelText: '', componentPaintedWidth: 18, children: [] };
+  assert.deepEqual({ ...hl.inkRect(drawn, false) }, { start: 4.5, length: 18, glyph: true }, 'a drawn icon is an icon');
+  const labelled = { ...drawn, labelText: '3' };
+  assert.equal(hl.inkRect(labelled, false).glyph, false, 'a drawn icon with a label is not');
   const battery = { width: 54, height: 26, glyphPaintedWidth: 41, opticalSize: 16, children: [] };
   assert.deepEqual({ ...hl.inkRect(battery, false) }, { start: 6.5, length: 41, glyph: false });
   const label = { width: 60, height: 26, labelWidth: 43, children: [] };

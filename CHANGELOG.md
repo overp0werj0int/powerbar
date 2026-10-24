@@ -4,8 +4,12 @@
 
 - **A zone's dots are a small circle.** With five zones a bar could carry
   five sets of three dots; each zone now marks its waiting widgets with
-  one small, quiet empty circle, on horizontal and vertical bars alike.
+  one small, quiet empty circle, on horizontal and vertical bars alike,
+  and the drawer mode's zone button shows it too.
   It takes the same space and opens the same menu or drawer.
+- **Menus show Crash Desk's and Omapop's icons.** A widget whose text is an
+  icon and a count (Crash Desk) shows the icon in the menu's icon cell and
+  the count at the row's end; Omapop's drawn mark counts as an icon.
 - **On demand in a menu.** Preferences > Bar > On demand > Show them has a
   third choice, In a menu: each zone's dots open a menu of its On demand
   widgets with their icons and names, walked with the pointer or the keys.

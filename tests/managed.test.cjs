@@ -4,6 +4,7 @@ const vm = require('node:vm');
 const fs = require('node:fs');
 const m = vm.createContext({});
 vm.runInContext(fs.readFileSync(`${__dirname}/../ManagedModel.js`, 'utf8'), m);
+const J = v => JSON.parse(JSON.stringify(v));
 test('explicit modes win; every discovered widget defaults to shown, old configs keep provenance; discovery defers', () => {
   assert.equal(m.mode({}, null), 'pending');
   assert.equal(m.mode({}, { firstParty: true }), 'shown');
@@ -141,6 +142,16 @@ test('a menu row shows a glyph, or a picture that fits the icon cell, in its ico
   assert.equal(m.menuIcon(false, true, 48, 30), false, 'a row of pictures is a value');
   assert.equal(m.menuIcon(false, false, 18, 30), false, 'text is a value');
   assert.equal(m.menuIcon(false, true, 0, 30), false, 'nothing painted');
+});
+
+test("a kit button's text that leads with an icon splits into the icon and the rest", () => {
+  assert.deepEqual(J(m.iconLead('\u{f0238} 14')), { icon: '\u{f0238}', rest: '14' }, "Crash Desk's count");
+  assert.deepEqual(J(m.iconLead('\ue0b0  3 new ')), { icon: '\ue0b0', rest: '3 new' });
+  assert.equal(m.iconLead('\u{f0238}'), null, 'a bare icon');
+  assert.equal(m.iconLead('\u{f0238}14'), null, 'no space after the icon');
+  assert.equal(m.iconLead('100% \u{f0079}'), null, 'a value that ends in an icon');
+  assert.equal(m.iconLead('\u{f0238} 1\n2'), null, 'several lines');
+  assert.equal(m.iconLead(''), null);
 });
 
 test('a menu row: text widgets show a value at its end; the widest row sets the width', () => {
