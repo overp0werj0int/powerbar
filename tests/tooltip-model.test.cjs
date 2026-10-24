@@ -42,6 +42,11 @@ test("a drawer's item puts its tooltip outside the drawer", () => {
   assert.deepEqual(tips.place('top', rowItem, popup, gap, menu, true), { x: 626, y: 100 });
   // No room on the right of the menu: on its left, never slid back over it.
   assert.deepEqual(tips.place('top', rowItem, popup, gap, menu, true, { width: 700, height: 1000 }), { x: 294, y: 100 });
+  // A submenu opened on its menu's left: its card stays on the left, off the menu.
+  const sub = Object.assign({}, menu, { before: true });
+  assert.deepEqual(tips.place('top', rowItem, popup, gap, sub, true, { width: 1920, height: 1000 }), { x: 294, y: 100 });
+  // Unless there is no room there.
+  assert.deepEqual(tips.place('top', rowItem, popup, gap, Object.assign({}, sub, { x: 50 }), true, { width: 1920, height: 1000 }), { x: 276, y: 100 });
 });
 
 const m = tips;

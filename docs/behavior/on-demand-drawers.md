@@ -1,6 +1,6 @@
 # On-demand widgets and drawers
 
-An On demand widget (saved as `powerbarVisibility: "managed"`, "Managed" in code and CONTEXT.md) is hidden at rest. It appears on the bar for a moment when it has activity, and is reached through its zone's drawer (the default) or an inline expansion of the zone (`powerbarOnDemand: "inline"`). Group drawers and menus: groups.md. Drag and drop into drawers and onto dots: drag-edit.md. Zone fit and the dots: layout-zones.md. Keyboard mode: keyboard.md. The shell.json keys and the CLI: integration.md.
+An On demand widget (saved as `powerbarVisibility: "managed"`, "Managed" in code and CONTEXT.md) is hidden at rest. It appears on the bar for a moment when it has activity, and is reached through its zone's drawer (the default), an inline expansion of the zone (`powerbarOnDemand: "inline"`) or a menu from the zone's dots (`powerbarOnDemand: "menu"`). Group drawers and menus: groups.md. Drag and drop into drawers and onto dots: drag-edit.md. Zone fit and the dots: layout-zones.md. Keyboard mode: keyboard.md. The shell.json keys and the CLI: integration.md.
 
 **Sources:** ManagedModel.js, InlineQueue.js, ManagedDrawer.qml, ActivityObserver.qml, Bar.qml (grep: managed, activity, reveal, inline, drawer, peek, placeholder), BarModel.js (`options()`), tests/managed.test.cjs, tests/inline-queue.test.cjs, tests/clean-defaults.test.cjs, CONTEXT.md.
 
@@ -58,7 +58,7 @@ In the default drawer mode a zone's On demand widgets (and widgets folded off th
 - **DEMAND-25** Escape closes a drawer. A click outside closes only a drawer opened for the keyboard or pinned by a click (hover drawers take no clicks and no focus grab). After a close that was not a timeout, the same zone does not reopen until the pointer has left it and come back.
 - **DEMAND-26** One drawer is open across the bar at a time; opening one closes any other, on any monitor.
 - **DEMAND-27** Hiding the bar, opening Preferences, changing the bar edge, switching the on-demand display and editing groups (unless a drop keeps it open) close the drawer at once. Pressing a bar widget closes the drawer first, then performs the press. A pointer drag ends keyboard use of the drawer.
-- **DEMAND-87** Default on-demand display: `powerbarOnDemand` is `"drawer"`; only the exact value `"inline"` selects inline expansion. Code: `BarModel.options().onDemand`.
+- **DEMAND-87** Default on-demand display: `powerbarOnDemand` is `"drawer"`; only the exact values `"inline"` (inline expansion) and `"menu"` (DEMAND-94) select another. Code: `BarModel.options().onDemand`.
 - **DEMAND-88** Drawers open with a 160 ms ease-out from 96 % scale and close in 110 ms; with animations off (`powerbarAnimations: false`) they appear and vanish at once.
 - **DEMAND-91** The opening motion starts on the second frame after the open, once the drawer's rows are laid out and painted, so its first painted frame is the motion's start. Code: ManagedDrawer.qml revealStart.
 
@@ -87,9 +87,23 @@ In inline mode a zone's On demand widgets wait behind its dots (shared with fold
 - **DEMAND-43** An expansion stays while the pointer is on its dots or any widget of the zone, a drag is in the zone, the keyboard mode holds the zone, a group drawer is open, or a panel is open from the zone. When all of that ends it collapses after `powerbarManagedExitGraceSeconds` (default 1 s).
 - **DEMAND-44** Switching the on-demand display collapses the expansion and closes any drawer at once. Hiding the bar collapses it at once. Opening a zone drawer (keyboard, IPC, fallback) collapses it.
 
+## Menu
+
+In menu mode each zone's On demand widgets wait behind its dots, as in inline mode, and the dots open a menu of them: one row per widget, its icon and its name. The centre has dots, and a menu, for each side (`center:start`, `center:end`). On the notch the menu slides out of the bar under its ear's dots, in the bar's colours. Widgets folded off the bar by the zone fit are rows of the same menu. Hovering a visible widget opens nothing.
+
+- **DEMAND-94** Resting on the dots for 90 ms opens their menu (DEMAND-17's intent); clicking them opens it at once and pins it, as a group's icon does. It closes as a zone drawer does (DEMAND-19 to DEMAND-27), counting its submenu as part of it; under DEMAND-89 any other stop closes a hover-opened menu, a widget of its own zone included. Code: Bar.qml FoldHandle `drawerToken`; ManagedDrawer.qml `token`, `zoneMenu`.
+- **DEMAND-95** The menu hangs from its dots: its source cell is the dots' highlight cell, so it grows out of them and is placed by `ManagedModel.placeMenu()` like a group's menu.
+- **DEMAND-96** A row does what clicking the widget on the bar does: its panel opens at the bar's edge and the menu steps aside (DEMAND-51). Right-click and scroll go to the widget.
+- **DEMAND-97** An On demand group is one row: its icon, its name and a chevron pointing to where its submenu opens. Resting on the row for 120 ms, clicking it, or Enter opens the group's members in a submenu beside the menu, its first row level with the group's row (on a bottom bar its last row). The submenu shows icons and names, or names only for a group set to names. Code: `ManagedModel.placeSubmenu()`; ManagedDrawer.qml `openSub`.
+- **DEMAND-98** The submenu opens after the menu (right of it under a top or bottom bar, past it beside a side bar) unless there is no room: then before it (under a right-hand menu, and always beside a right bar). It is kept on the screen.
+- **DEMAND-99** Pointing at another row of the menu closes the submenu after 250 ms unless the pointer reaches the submenu first, so a diagonal path into it keeps it. The submenu closes with its menu; a member's panel steps both aside, and its closing closes both, as DEMAND-52.
+- **DEMAND-100** Keys: in a menu opened for the keyboard (the bar's cursor, keyboard.md), the arrow the chevron points along, or Enter, opens a group's submenu with the cursor on its first member; in the submenu, Up and Down move, Enter presses, and Escape or the arrow back towards the menu closes it, with the cursor back on the group's row. The name card follows the submenu's cursor and sits on its far side.
+- **DEMAND-101** The bar's surface grows to the longest menu opened so far (within the screen), so a long zone menu shows every row; it does not shrink back, so opening and closing menus does not resize the surface each time.
+- **DEMAND-102** Limitation: a drag cannot start from or drop into a submenu. Drag a group's member from the group's own drawer (Preferences, or the group set to Shown).
+
 ## Keyboard drawer entry
 
-- **DEMAND-46** `omarchy-shell powerbar managed <left|center|right>` opens that zone's drawer on the focused monitor, for the keyboard: the drawer takes focus and no member is selected yet. Nothing happens for a zone with no On demand widgets (integration.md INTEG-49).
+- **DEMAND-46** `omarchy-shell powerbar managed <left|center|right>` opens that zone's drawer on the focused monitor, for the keyboard: the drawer takes focus and no member is selected yet. In menu mode it opens the zone's menu; `center` opens the start side's, or the end side's when the start has none. Nothing happens for a zone with no On demand widgets (integration.md INTEG-49).
 - **DEMAND-47** Tab, Right and Down move to the next member; Shift+Tab, Left and Up to the previous. The first press shows the cursor (on the first member for next, the last for previous); later presses wrap around.
 - **DEMAND-48** In a drawer opened for the keyboard (`managed <zone>`), the first Enter or Space only shows the cursor on the first member; with the cursor showing, Enter or Space presses the member under it. Escape closes the drawer. A drawer opened from the bar's keyboard cursor: keyboard.md KEYS-10, KEYS-20. Code: ManagedModel.js pressAction()
 - **DEMAND-49** Hovering a member highlights it without moving the keyboard cursor.

@@ -148,4 +148,11 @@ test('inkRect: kit glyphs and labels are centred; children give the painted span
   assert.deepEqual({ ...hl.inkRect(box(0, 146, { children: [button] }), false) }, { start: 8.5, length: 129, glyph: false });
   const vlabel = { width: 28, height: 40, labelWidth: 14, scaledVerticalPadding: 6, children: [] };
   assert.deepEqual({ ...hl.inkRect(vlabel, true) }, { start: 6, length: 28, glyph: true });
+  // A picture: an image (with a status dot beside it), no text.
+  const image = (w, extra) => box(0, w, { source: 'mark.svg', sourceSize: {}, fillMode: 1, ...extra });
+  const dot = box(0, 5, { color: '#fda52b', radius: 2.5 });
+  assert.equal(hl.picture(box(0, 27, { children: [box(4, 18, { children: [image(18), dot] })] })), true);
+  assert.equal(hl.picture(box(0, 27, { children: [image(18), box(20, 8, { font: {}, text: '3' })] })), false, 'a count beside it');
+  assert.equal(hl.picture(box(0, 27, { children: [image(18, { source: '' })] })), false, 'no image loaded');
+  assert.equal(hl.picture(box(0, 27, { children: [image(18, { visible: false })] })), false, 'hidden');
 });

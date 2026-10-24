@@ -28,7 +28,8 @@ didn't move at all, one switch turns animation off.
   for a couple of seconds when something in them changes, so a pending update
   still catches your eye (each widget has its own *Show on activity* switch).
   Hover their zone and they open in a drawer beside the bar, or, if you
-  prefer, unfold in place behind the zone's dots.
+  prefer, unfold in place behind the zone's dots, or open from the dots as
+  a menu of icons and names, with On demand groups as submenus.
 - Related widgets can share one icon as a group, opening as a strip or a named
   menu, with a badge that adds up their unread counts.
 - The bar can stay flat like Omarchy's, float as one surface, or split into

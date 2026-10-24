@@ -135,11 +135,13 @@ Item {
   function opensDrawer(item) { var k = kindOf(item); return k === "group" || (k === "dots" && !bar.onDemandInline) }
   // The zone whose drawer the cursor here previews, as the pointer resting
   // there opens it (DEMAND-17): in drawer mode, a widget of a zone with On
-  // demand widgets, or its dots. "" for anything else.
+  // demand widgets, or its dots; in menu mode only the dots, with their side
+  // of the centre ("center:start"). "" for anything else.
   function previewZone(item) {
     var k = kindOf(item)
     if (bar.onDemandInline || (k !== "widget" && k !== "dots")) return ""
-    var z = k === "dots" ? item.zone : String(item.region || "")
+    if (bar.onDemandMenu && k !== "dots") return ""
+    var z = bar.onDemandMenu ? item.inlineToken : k === "dots" ? item.zone : String(item.region || "")
     return z && bar.managedSlots(z, window).length ? z : ""
   }
   // A drawer the cursor previews: its group's, or its zone's.
@@ -199,7 +201,9 @@ Item {
   function focusLater() {
     Qt.callLater(function() {
       if (!keys.here || !keys.window) return
-      if (keys.drawer && !keys.previewing && keys.drawer.opened) keys.drawer.forceActiveFocus()
+      var sub = keys.drawer ? keys.drawer.submenu : null
+      if (sub && sub.opened && sub.keyboardMode) sub.forceActiveFocus()
+      else if (keys.drawer && !keys.previewing && keys.drawer.opened) keys.drawer.forceActiveFocus()
       else if (keys.window.keyCatcher) keys.window.keyCatcher.forceActiveFocus()
     })
   }
@@ -223,7 +227,8 @@ Item {
 
   // The keys must always land somewhere: if neither the bar nor a drawer it
   // opened has them (a drawer closed under them), the bar takes them back.
-  readonly property bool hasFocus: !!window && (!!window.keyCatcher && window.keyCatcher.activeFocus || !!drawer && drawer.activeFocus)
+  readonly property bool hasFocus: !!window && (!!window.keyCatcher && window.keyCatcher.activeFocus || !!drawer && drawer.activeFocus
+    || !!drawer && !!drawer.submenu && drawer.submenu.activeFocus)
   onHasFocusChanged: if (!hasFocus && here) refocus.restart()
   Timer { id: refocus; interval: 60; onTriggered: if (keys.here && !keys.hasFocus) keys.focusLater() }
 
@@ -231,7 +236,7 @@ Item {
   function put(item, dir) {
     // A zone's preview stays open while the cursor walks along its zone.
     var d = drawer
-    if (!(d && previewing && !d.groupId && previewZone(item) === d.zone)) closeDrawer(false)
+    if (!(d && previewing && !d.groupId && previewZone(item) === d.token)) closeDrawer(false)
     cursor = item
     part = 0
     partFromEnd = dir < 0
@@ -329,7 +334,7 @@ Item {
       spot = besideNearest(source, d.slots.filter(function(m) { return m && m.drawerHost }))
       moved = dragEdit(source, spot ? { slot: spot.slot, after: spot.after } : { drawer: d }, "into drawer " + d.zone)
       // Entered, as the into key enters it, with the cursor on the newcomer.
-      if (moved) Qt.callLater(function() { if (keys.drawer === d && d.opened) { keys.openZoneDrawer(d.zone, key); keys.followMember(d, key, group, 0) } })
+      if (moved) Qt.callLater(function() { if (keys.drawer === d && d.opened) { keys.openZoneDrawer(d.token, key); keys.followMember(d, key, group, 0) } })
       return
     }
     if (!bar.onDemandInline || source.managed || w.inlineZoneName !== zone) return
@@ -409,7 +414,7 @@ Item {
     var region = d.groupId ? (headerOf(source) || source).region : d.zone
     if (!dragEdit(source, drop, "out of drawer")) return
     // A zone's drawer folds back to the preview the cursor gives it there.
-    if (!d.groupId) { d.openZone(d.zone, false); previewing = true }
+    if (!d.groupId) { d.openZone(d.token, false); previewing = true }
     follow(source, region)
   }
   function followMember(d, key, group, tries) {
@@ -498,7 +503,7 @@ Item {
     var w = window, d = w ? w.managedDrawer : null, item = cursor
     if (!d || !item) return
     if (kindOf(item) === "group") d.openGroup(item.entry.powerbarGroupId, item, enterIt)
-    else d.openZone(previewZone(item), enterIt)
+    else d.openZone(previewZone(item), enterIt, "", null, kindOf(item) === "dots" ? item : null)
     if (!d.opened) return
     d.barKeysHeld = true
     drawer = d
@@ -526,7 +531,7 @@ Item {
   function backToBar() {
     var d = drawer, item = cursor
     var same = d && d.opened && !d.steppedAside && (kindOf(item) === "group" ? d.groupId === item.entry.powerbarGroupId
-      : !d.groupId && previewZone(item) === d.zone)
+      : !d.groupId && previewZone(item) === d.token)
     if (!same) { closeDrawer(true); return }
     // Previewing first: the card the drawer's cursor gives up moves to the
     // bar's cursor as the same popup (LOOK-136), never hidden in between.
@@ -543,6 +548,16 @@ Item {
     if (refocus !== false) showCard()
     // The drawer may have had the keys: they always come back to the bar.
     focusLater()
+  }
+  // A group's submenu in a zone's menu: the card follows its cursor, and
+  // goes back to the menu's row when it closes.
+  Connections {
+    target: keys.drawer ? keys.drawer.submenu : null
+    ignoreUnknownSignals: true
+    function onCursorChanged() { if (keys.active) keys.showCard() }
+    function onCursorActiveChanged() { if (keys.active) keys.showCard() }
+    function onOpenedChanged() { if (keys.active) { keys.showCard(); keys.focusLater() } }
+    function onKeyboardModeChanged() { if (keys.active) keys.showCard() }
   }
   Connections {
     target: keys.drawer
@@ -680,7 +695,7 @@ Item {
       if (opensDrawer(cursor)) openDrawer(true)
       // Drawer mode: a zone's on-demand widgets wait in its drawer, entered
       // from any widget of the zone.
-      else if (!bar.onDemandInline && zone && bar.managedSlots(zone, window).length) openZoneDrawer(zone, "")
+      else if (!bar.onDemandDots && zone && bar.managedSlots(zone, window).length) openZoneDrawer(zone, "")
     }
     else if (it.open) openCursor()
     else if (it.find) startSearch()
@@ -715,7 +730,7 @@ Item {
     } else if (it.back) backToBar()
     else if (it.backMove) { closeDrawer(true); moveBy(it.backMove) }
     else if (it.zone) { closeDrawer(true); zoneJump(it.zone) }
-    else if (it.open) activate(d.slots[d.cursor])
+    else if (it.open) { if (d.rowGroup(d.slots[d.cursor])) d.activateRow(d.cursor, true); else activate(d.slots[d.cursor]) }
     else if (it.find) { closeDrawer(true); startSearch() }
     else if (it.sheet) sheet = true
     else if (it.prefs) openPreferences()
@@ -865,16 +880,26 @@ Item {
   // its row, at the member if one was found. The bar's cursor waits on the
   // zone's dots.
   function openInZoneDrawer(target, member) {
-    var w = window
-    var dots = (w.foldHandles || []).find(function(h) { return h && h.zone === target.region && seen(h) })
+    var w = window, token = bar.onDemandMenu ? target.inlineToken : target.region
+    var dots = (w.foldHandles || []).find(function(h) { return h && (bar.onDemandMenu ? h.inlineToken === token : h.zone === target.region) && seen(h) })
     var near = stops().find(function(st) { return st.zone === target.region })
     if (dots || near) cursor = dots || near.item
-    openZoneDrawer(target.region, target.instanceKey)
+    openZoneDrawer(token, target.instanceKey)
     if (target.groupHeader && drawer) Qt.callLater(function() { openFoldedGroup(target, member) })
   }
   function openFoldedGroup(header, member) {
     var d = drawer, id = header.entry.powerbarGroupId
     if (!d || !header.drawerHost) return
+    // A zone's menu opens the group as its submenu, at the member.
+    if (d.zoneMenu) {
+      var row = d.slots.indexOf(header)
+      if (row < 0) return
+      d.cursor = row; d.cursorActive = true; d.navigate(0)
+      d.activateRow(row, true)
+      var sub = d.submenu, at = sub && member ? sub.slots.indexOf(member) : -1
+      if (sub && sub.opened && at >= 0) { sub.cursor = at; sub.cursorActive = true; sub.navigate(0) }
+      return
+    }
     d.openGroup(id, header, true)
     if (d.opened && d.groupId === id) adoptDrawer(d, member ? member.instanceKey : "")
   }
@@ -916,7 +941,11 @@ Item {
     // A preview leaves the card on the cursor, past the drawer (LOOK-84); a
     // group's icon and the dots have none.
     if (here && d && !previewing) {
-      if (d.opened && d.cursorActive && !d.steppedAside) { slot = d.slots[d.cursor]; target = slot ? d.cellAt(d.cursor) : null }
+      var sub = d.submenu
+      // An open submenu hides the card of its row, which would cover it.
+      if (sub && sub.opened && !sub.steppedAside) {
+        if (sub.keyboardMode && sub.cursorActive) { slot = sub.slots[sub.cursor]; target = slot ? sub.cellAt(sub.cursor) : null }
+      } else if (d.opened && d.cursorActive && !d.steppedAside) { slot = d.slots[d.cursor]; target = slot ? d.cellAt(d.cursor) : null }
     } else if (here && cursor && !opensDrawer(cursor)) { slot = cursor; target = cursor }
     if (!target) { cardTarget = null; bar.hideCard(); return }
     var name = nameOf(slot)
@@ -1013,7 +1042,9 @@ Item {
     if (!pointerMoved(scene, settled) || !here || !d || !d.opened || index < 0 || index >= d.slots.length) return
     if (window && d !== window.managedDrawer) return
     if (drawer !== d) {
-      var source = d.groupId ? d.anchorSlot : (window.foldHandles || []).find(function(h) { return h && h.zone === d.zone && seen(h) })
+      var source = d.groupId ? d.anchorSlot : (window.foldHandles || []).find(function(h) {
+        return h && (bar.onDemandMenu ? h.inlineToken === d.token : h.zone === d.zone) && seen(h)
+      })
       if (!source || !seen(source)) return
       cursor = source
       d.barKeysHeld = true

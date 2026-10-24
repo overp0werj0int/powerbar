@@ -150,6 +150,22 @@ function inkRect(item, vertical, depth) {
   if (depth > 0) return { start: 0, length: Math.max(0, size), glyph: size > 0 && size <= 16 }
   return { start: 0, length: Math.max(0, size), glyph: false }
 }
+// Whether an item paints a picture and no text: an image (Reprieve's mark, an
+// app icon) with at most shapes beside it (a status dot). Such a widget reads
+// as an icon wherever its ink fits an icon cell, even past the 16 px of a
+// glyph.
+function picture(item, depth) {
+  depth = depth || 0
+  var seen = { image: false, text: false }
+  var walk = function(node, level) {
+    if (!node || level > 6 || seen.text) return
+    if ("font" in node && String(node.text || "") !== "") { seen.text = true; return }
+    if ("sourceSize" in node && "fillMode" in node && String(node.source || "") !== "") seen.image = true
+    paintedChildren(node).forEach(function(child) { walk(child, level + 1) })
+  }
+  walk(item, depth)
+  return seen.image && !seen.text
+}
 // One highlight along the bar.
 //   center     content centre along the bar
 //   ink        visible content length along the bar
@@ -178,4 +194,4 @@ function pill(o) {
   return { start: start, length: length, radius: Math.max(0, Math.min(thickness / 2, o.rounding)) }
 }
 
-if (typeof module !== "undefined") module.exports = { inkWidth: inkWidth, inkRect: inkRect, pill: pill, withoutBadges: withoutBadges }
+if (typeof module !== "undefined") module.exports = { inkWidth: inkWidth, inkRect: inkRect, picture: picture, pill: pill, withoutBadges: withoutBadges }

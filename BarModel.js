@@ -33,7 +33,7 @@ function options(config) {
     autoHideActivity: c.powerbarAutoHideActivity !== false,
     largeBar: c.powerbarLargeBar === true,
     spacingMode: c.powerbarSpacingMode === "gaps" ? "gaps" : "slots",
-    onDemand: c.powerbarOnDemand === "inline" ? "inline" : "drawer",
+    onDemand: c.powerbarOnDemand === "inline" || c.powerbarOnDemand === "menu" ? c.powerbarOnDemand : "drawer",
     animations: c.powerbarAnimations !== false,
     keyLegend: c.powerbarKeyLegend !== false,
     dotsBadge: c.powerbarDotsBadge !== false,

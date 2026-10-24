@@ -36,11 +36,11 @@ Numbers below use Omarchy's default theme tokens: bar 26 px (horizontal) or 28 p
 
 ## Dots (drawer handle) and counts
 
-- **ZONE-14** A zone shows dots only while something waits behind them: widgets folded for lack of room, and with `powerbarOnDemand: "inline"` also its hidden on-demand widgets. In the default `"drawer"` mode with nothing folded there are no dots. The glyph is 󰇘 on a horizontal bar and 󰇙 on a vertical one. Code: Bar.qml FoldHandle (shown when count > 0).
+- **ZONE-14** A zone shows dots only while something waits behind them: widgets folded for lack of room, and with `powerbarOnDemand: "inline"` or `"menu"` also its hidden on-demand widgets. In the default `"drawer"` mode with nothing folded there are no dots. The glyph is 󰇘 on a horizontal bar and 󰇙 on a vertical one. Code: Bar.qml FoldHandle (shown when count > 0).
 
 - **ZONE-15** The dots take one glyph cell (a 12 px glyph's slot: 27 px at spacing 4) and the lasting fit reserves it, so a zone does not change length when its on-demand widgets hide or return. The cell eases in and out over 120 ms with Animations on. Code: ZoneFitModel.slotsOf; FoldHandle width Behavior.
 
-- **ZONE-16** The count badge on the dots is the number of folded widgets plus, in inline mode only, the on-demand widgets hidden on that side (the center's two handles each count their own side). It reads "99+" above 99. `powerbarDotsBadge: false` (Preferences > Bar > On demand > Count on the dots) hides the badge on the dots and on yield markers; the dots' tooltip, "1 more widget" or "N more widgets", shows either way. Code: FoldHandle count, label.
+- **ZONE-16** The count badge on the dots is the number of folded widgets plus, in inline and menu modes only, the on-demand widgets hidden on that side (the center's two handles each count their own side). It reads "99+" above 99. `powerbarDotsBadge: false` (Preferences > Bar > On demand > Count on the dots) hides the badge on the dots and on yield markers; the dots' tooltip, "1 more widget" or "N more widgets", shows either way. Code: FoldHandle count, label.
 
 - **ZONE-18** Hovering the dots in inline mode, or clicking them, expands the zone in the bar and brings back that zone's folded widgets for the moment; see on-demand-drawers.md, "Inline expansion", for timing (90 ms intent, 170 ms settle, 1 s exit grace by default) and the drawer fallback. In drawer mode hovering or clicking the dots opens the zone's drawer, which lists the folded widgets. Code: Bar.qml inlineEnter; FoldHandle MouseArea.
 
@@ -106,7 +106,7 @@ Numbers below use Omarchy's default theme tokens: bar 26 px (horizontal) or 28 p
 
 - **ZONE-44** Default large bar is off (ZONE-23).
 
-- **ZONE-45** `bar.powerbarOnDemand` is `"drawer"` (default; any value except `"inline"` reads as drawer) or `"inline"`. Switching it collapses an open expansion and closes an open drawer at once. See on-demand-drawers.md. Code: BarModel.options; Bar.qml onOnDemandInlineChanged.
+- **ZONE-45** `bar.powerbarOnDemand` is `"drawer"` (default; any value except `"inline"` and `"menu"` reads as drawer), `"inline"` or `"menu"`. Switching it collapses an open expansion and closes an open drawer or menu at once. See on-demand-drawers.md. Code: BarModel.options; Bar.qml onOnDemandModeChanged.
 
 - **ZONE-46** `powerbarDotsBadge` is on unless set to false (ZONE-16).
 
@@ -142,7 +142,7 @@ Numbers below use Omarchy's default theme tokens: bar 26 px (horizontal) or 28 p
 
 - **ZONE-61** A center whose widgets are all on demand or all folded still draws its dots; an empty box keeps its mark at the middle, so the two sides keep their places when other zones yield. Code: ZoneFitModel.zoneItems (the box's mark); fitMoment.
 
-- **ZONE-63** Hidden on-demand widgets take no room in the lasting fit; only their dots do, and only in inline mode. Folding is decided first, then on-demand widgets wait behind the dots. Code: Bar.qml zoneFitList (hidden widgets have fitExtent 0).
+- **ZONE-63** Hidden on-demand widgets take no room in the lasting fit; only their dots do, and only in inline and menu modes. Folding is decided first, then on-demand widgets wait behind the dots. Code: Bar.qml zoneFitList (hidden widgets have fitExtent 0).
 
 - **ZONE-64** Width hold: a widget's cell grows at once and shrinks only after it has been narrower for 8 s, so a changing value does not make the bar breathe; losing at least one icon cell (20 px on the standard bar) shrinks at once. The hold arms 2 s after the bar loads. A widget with `powerbarWidthHold: false` (the tray, Indicators) opts out. Code: CellModel.hold; Bar.qml updateHold, widthHoldMs.
 
@@ -219,7 +219,7 @@ Numbers below use Omarchy's default theme tokens: bar 26 px (horizontal) or 28 p
 
 - **ZONE-83** In the Notch style on the notched screen the bar is always large, and the large bar is exactly as tall as the notch, on every screen. `powerbarLargeBar` applies to the other styles, and to the Notch style where it draws as islands. Code: Bar.qml largeBar, barSizeFor.
 
-- **ZONE-84** On-demand widgets on the notch always wait behind their zone's dots and expand in the bar, whatever `powerbarOnDemand` says: the notch has no drawers. Code: Bar.qml onDemandInline.
+- **ZONE-84** On-demand widgets on the notch always wait behind their zone's dots: they expand in the bar, or with `powerbarOnDemand: "menu"` open in a menu under the dots (on-demand-drawers.md DEMAND-94); `"drawer"` reads as `"inline"` there, since the notch has no drawers. Code: Bar.qml onDemandMode.
 
 - **ZONE-85** A zone that grows past the screen edge on the notch (an inline expansion on the notched screen) wraps onto a second row under the first:
   - **Which items move:** the left zone's first items or the right zone's last ones, as one block. The outermost still meets the screen edge, and the row reads from the edge toward the camera.

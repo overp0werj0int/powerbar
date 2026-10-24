@@ -23,7 +23,7 @@ var settings = [
   { name: "autoHideActivity", key: "powerbarAutoHideActivity", type: "bool", writer: "option" },
   { name: "readableOverlay", key: "powerbarReadableOverlay", type: "bool", writer: "option" },
   { name: "animations", key: "powerbarAnimations", type: "bool", writer: "option" },
-  { name: "onDemand", key: "powerbarOnDemand", type: "choice", choices: ["drawer", "inline"], writer: "option" },
+  { name: "onDemand", key: "powerbarOnDemand", type: "choice", choices: ["drawer", "inline", "menu"], writer: "option" },
   { name: "dotsBadge", key: "powerbarDotsBadge", type: "bool", writer: "option" },
   { name: "keyLegend", key: "powerbarKeyLegend", type: "bool", writer: "option" },
   // Not in Preferences; shell.json keys kept for anyone who sets them by hand.
