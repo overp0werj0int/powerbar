@@ -91,6 +91,9 @@
   scale 2 on a 14" Pro: its shoulders flare out 3 px a side), with rounder
   bottom corners, and the 15" Air's is 6 px narrower than the guess it had.
   Each panel also lists the radius of the screen's top corners.
+- **Reset the notch's size.** Preferences > Bar > Notch has a Reset button
+  while the width or height is set by hand; it goes back to the measured
+  size. Before, only Backspace on a slider could.
 
 ## 0.9.6 — 2026-10-17
 

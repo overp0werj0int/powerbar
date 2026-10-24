@@ -209,6 +209,15 @@ Item {
     })
     status = result === false ? "Could not save. Check that shell.json is writable." : ""
   }
+  // Returns several settings to their defaults in one write.
+  function clearOptions(keys) {
+    if (!bar || !bar.shell) return
+    var result = bar.writeConfig(function(config) {
+      if (!config.bar) return
+      keys.forEach(function(key) { delete config.bar[key] })
+    })
+    status = result === false ? "Could not save. Check that shell.json is writable." : ""
+  }
   readonly property string themeName: bar ? bar.themeName : ""
   // Appearance scopes (AppearanceModel): what each tile follows in the current
   // theme, the resolved values, and writes to the scope the tile follows.
@@ -808,7 +817,31 @@ Item {
                     title: "Notch"
                     caption: prefs.notchMode ? "Black, like the camera" : "The camera's size"
                     span12: 4; span6: 3
+                    // A size set by hand goes back to the measured or detected one.
+                    readonly property bool customized: prefs.options.notchWidth > 0 || prefs.options.notchHeight > 0
+                    Button {
+                      parent: notchTile.headerSlot
+                      visible: notchTile.customized
+                      text: "Reset"
+                      tooltipText: "Use the camera's measured size"
+                      focusable: true
+                      readonly property var keyHints: [{ keys: "enter", label: "Reset the notch" }]
+                      bordered: true
+                      foreground: Commons.Color.popups.text
+                      fontSize: Style.font.caption
+                      verticalPadding: Style.space(2)
+                      horizontalPadding: Style.space(8)
+                      Keys.onPressed: function(event) {
+                        if (event.key === Qt.Key_Space || event.key === Qt.Key_Return || event.key === Qt.Key_Enter) { clicked(); event.accepted = true }
+                      }
+                      onClicked: {
+                        // Focus stays in the tile once the button hides.
+                        if (activeFocus) notchWidthSlider.forceActiveFocus(Qt.TabFocusReason)
+                        prefs.clearOptions(["powerbarNotchWidth", "powerbarNotchHeight"])
+                      }
+                    }
                     PrefsSlider {
+                      id: notchWidthSlider
                       compact: true
                       label: "Notch width"
                       unit: "px"
