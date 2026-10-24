@@ -264,7 +264,7 @@ test("a floating bar's cutout keeps the bar's gap around the camera's body", () 
   // 1512 wide window, bar 4 px off the edges, 38 thick.
   const c = J(notch.wrapCut(n14, 1512, 4, 4, 4));
   const camL = (1512 - 191) / 2;
-  assert.deepEqual(c, { start: camL + 3 - 4 - 4, end: camL + 191 - 3 + 4 - 4, depth: 32, radius: 14, fillet: 14 }, 'its top corners take the bottom ones\' radius');
+  assert.deepEqual(c, { start: camL + 3 - 4 - 4, end: camL + 191 - 3 + 4 - 4, depth: 32, radius: 14, fillet: 3 }, 'its top corners take the camera\'s top radius');
   assert.equal(notch.wrapCut(null, 1512, 4, 4, 4), null);
 });
 
