@@ -163,9 +163,6 @@ function layerColumns(width, gap, axis, count, centerWidth) {
   }
   return { width: w, xs: xs, widths: widths }
 }
-// A layer `h` tall tilted back by `angle` degrees about its middle line, as
-// Qt's Rotation draws it with `distance` to the plane: how far its top and
-// bottom edges land from that line. The top recedes, the bottom comes near.
 // A layer `h` tall tilted back about its top edge, seen from `distance`: how
 // tall its picture is. The top edge stays as it is and the rest comes near,
 // so a layer that changes height only changes below.
@@ -200,6 +197,21 @@ function tiltedDepth(y, angle, distance) {
 function tiltedSpread(u, y, angle, distance) {
   var a = angle * Math.PI / 180
   return u * (1 + Math.sin(a) * y / (Math.cos(a) * distance))
+}
+// Where a line from (x0, y0) to (x1, y1) leaves the camera's cap, which is
+// drawn on the bar layer's plane `half` out from `axis` on either side and
+// seen spreading as tiltedSpread does from `line`: how far along the line,
+// 0 to 1 (1 when it never leaves it). Over the cap a leader is drawn in the
+// camera's own white, beyond it in the accent.
+function leaderExit(x0, y0, x1, y1, axis, half, line, angle, distance) {
+  var a = angle * Math.PI / 180, k = Math.sin(a) / (Math.cos(a) * Math.max(1, distance))
+  var side = x1 >= axis ? 1 : -1
+  // f(t) = (x(t) - axis) - side * half * (1 + k * (y(t) - line)): inside while < 0.
+  var f0 = (x0 - axis) - side * half * (1 + k * (y0 - line))
+  var slope = (x1 - x0) - side * half * k * (y1 - y0)
+  if (!(slope > 0 || slope < 0)) return 1
+  var t = -f0 / slope
+  return t > 0 && t < 1 ? t : 1
 }
 // Cursor and lift steps on the layers, where a zone's items run down its
 // well: dx changes zone on the same layer (keeping the row where it can), dy

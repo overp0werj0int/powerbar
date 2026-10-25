@@ -970,7 +970,7 @@ Item {
         antialiasing: true
         color: "black"
         readonly property real vTop: Model.tiltedDepth(shaft.beamTop - shaft.pad - shaft.line, editor.tilt, editor.planeDistance)
-        readonly property real vBottom: Model.tiltedDepth(editor.stackTop + Style.space(6) - sheet.contentY - shaft.line, editor.tilt, editor.planeDistance)
+        readonly property real vBottom: Model.tiltedDepth(editor.stackTop + Style.space(2) - sheet.contentY - shaft.line, editor.tilt, editor.planeDistance)
         visible: shaft.visible
         z: -1
         x: editor.axis - shaft.half
@@ -1042,21 +1042,49 @@ Item {
         });
         return c ? c.raise : 0;
     }
+    // The leader is white over the cap, where the accent would be lost on
+    // black on a light theme, and accent beyond it.
     Shape {
+        id: leader
+        readonly property real x0: editor.axis
+        readonly property real y0: editor.stackTop - sheet.contentY - editor.centerTileRaise
+        readonly property real x1: sideDot.x + sideDot.width / 2
+        readonly property real y1: sideDot.y + sideDot.height / 2
+        readonly property real exit: Model.leaderExit(x0, y0, x1, y1, editor.axis, shaft.half, shaft.line, editor.tilt, editor.planeDistance)
+        readonly property real xExit: x0 + (x1 - x0) * exit
+        readonly property real yExit: y0 + (y1 - y0) * exit
         visible: shaft.visible
         z: 115
-        anchors.fill: parent
+        // A Shape draws nothing outside its own box: this one reaches up to
+        // the page's top, where the dot is.
+        x: 0
+        y: editor.pageTop
+        width: editor.width
+        height: editor.height - editor.pageTop
+        ShapePath {
+            strokeColor: Qt.rgba(1, 1, 1, 0.55)
+            strokeWidth: 1
+            strokeStyle: ShapePath.DashLine
+            dashPattern: [4, 4]
+            fillColor: "transparent"
+            startX: leader.x0
+            startY: leader.y0 - leader.y
+            PathLine {
+                x: leader.xExit
+                y: leader.yExit - leader.y
+            }
+        }
         ShapePath {
             strokeColor: Commons.Color.accent
             strokeWidth: 1
             strokeStyle: ShapePath.DashLine
             dashPattern: [4, 4]
             fillColor: "transparent"
-            startX: editor.axis
-            startY: editor.stackTop - sheet.contentY - editor.centerTileRaise
+            startX: leader.xExit
+            startY: leader.yExit - leader.y
             PathLine {
-                x: sideDot.x + sideDot.width / 2
-                y: sideDot.y + sideDot.height / 2
+                x: leader.x1
+                y: leader.y1 - leader.y
             }
         }
     }
@@ -1664,8 +1692,12 @@ Item {
         readonly property bool cursorHere: !editor.lifted && editor.cursorCell.section === section && editor.cursorCell.mode === mode
         readonly property bool active: editor.activeCell.section === section
         readonly property bool shaft: editor.previewCamera && section === "center"
+        // The bar layer's Center tile meets the camera's cap: square on top,
+        // so the black ends flush with it instead of showing in its corners.
+        readonly property bool capped: shaft && mode === "shown"
         readonly property real pad: editor.tilePad
         readonly property real radius: Math.min(Style.space(10), Style.cornerRadius)
+        readonly property real topRadius: capped ? 0 : radius
         // The cursor's tile rises a little off its layer, its edge staying
         // put below (PREFS-104); the leader follows the rise.
         property real raise: cursorHere && !trayCell ? Style.space(5) : 0
@@ -1692,6 +1724,8 @@ Item {
             width: parent.width
             height: parent.height
             radius: cell.radius
+            topLeftRadius: cell.topRadius
+            topRightRadius: cell.topRadius
             antialiasing: true
             color: Qt.rgba(0, 0, 0, editor.lightTheme ? 0.3 : 0.45)
         }
@@ -1700,6 +1734,8 @@ Item {
             anchors.fill: parent
             antialiasing: true
             radius: cell.radius
+            topLeftRadius: cell.topRadius
+            topRightRadius: cell.topRadius
             color: cell.trayCell ? "transparent" : Qt.tint(Qt.tint(Qt.rgba(Commons.Color.popups.background.r, Commons.Color.popups.background.g, Commons.Color.popups.background.b, 1), Qt.alpha(Commons.Color.popups.text, cell.mode === "shown" ? 0.09 : 0.065)), cell.shaft ? Qt.rgba(0, 0, 0, 0.35) : "transparent")
             // An empty tile waiting for a drop is outlined the way a landing place is.
             borderSpec: cell.trayCell ? Border.none() : cell.targeted && cell.list.length === 1 ? Border.flat(Commons.Color.accent, 1) : Border.flat(Qt.alpha(Commons.Color.popups.text, 0.12), 1)

@@ -318,6 +318,22 @@ test('a beam on a tilted plane runs on the lines its edges are seen on', () => {
   assert.equal(model.tiltedDepth(-300, 0, 1600), -300);
   assert.equal(model.tiltedSpread(95.5, 600, 0, 1600), 95.5);
 });
+
+test('a leader leaves the camera\'s cap where its seen edge is', () => {
+  // From the Center tile's top middle (axis 700, line 100) up to a dot 16 px
+  // right of the cap, 70 px higher.
+  const t = model.leaderExit(700, 100, 700 + 95.5 + 16, 30, 700, 95.5, 100, 34, 1600);
+  assert.ok(t > 0 && t < 1);
+  const x = 700 + (95.5 + 16) * t, y = 100 - 70 * t;
+  assert.ok(Math.abs((x - 700) - model.tiltedSpread(95.5, y - 100, 34, 1600)) < 1e-9, 'on the cap\'s edge');
+  // To the left the same way.
+  const l = model.leaderExit(700, 100, 700 - 95.5 - 16, 30, 700, 95.5, 100, 34, 1600);
+  assert.ok(Math.abs(l - t) < 1e-9);
+  // Flat: the edge is half out, whatever the height.
+  assert.ok(Math.abs(model.leaderExit(700, 100, 700 + 111.5, 30, 700, 95.5, 100, 0, 1600) - 95.5 / 111.5) < 1e-9);
+  // A dot still over the cap: the whole line is over it.
+  assert.equal(model.leaderExit(700, 100, 720, 30, 700, 95.5, 100, 34, 1600), 1);
+});
 test('on the layers j and k walk a zone and go on to the next layer, h and l change zone', () => {
   const items = { 'left:shown': 3, 'centerBegin:shown': 1, 'left:managed': 2, 'right:hidden': 0 };
   const count = (c, m) => items[c + ':' + m] || 0;
