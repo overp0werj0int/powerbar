@@ -1437,79 +1437,27 @@ Item {
         Component.onCompleted: plates.register(this)
         Component.onDestruction: plates.unregister(this)
 
-        Item {
+        // It turns about its top edge (LayerPlate), so a layer only ever
+        // grows or shrinks downward. The layer's name and what it is, on
+        // the left; how many it holds, in the spare column on the right.
+        LayerPlate {
             id: face
             width: plate.width
             height: editor.plateHeights[plate.index] || 0
-            // It turns about its top edge, which stays at the plate's top
-            // with everything near it while the height animates, so a layer
-            // only ever grows or shrinks downward.
-            y: 0
-            transform: Rotation {
-                axis {
-                    x: 1
-                    y: 0
-                    z: 0
-                }
-                origin.x: editor.axis - plate.x
-                origin.y: 0
-                distanceToPlane: editor.planeDistance
-                angle: editor.tilt
-            }
-            Behavior on height {
-                enabled: editor.bar.animationsEnabled
-                NumberAnimation {
-                    duration: 140
-                    easing.type: Easing.OutCubic
-                }
-            }
-
-            // The layer's name and what it is, on the left; how many it
-            // holds, in the spare column on the right, on the caption's line
-            // and in its size.
-            Column {
-                id: labelColumn
-                x: editor.platePad + editor.columns.xs[0] + Style.space(2)
-                y: Style.space(6)
-                width: editor.columns.widths[0] - Style.space(6)
-                spacing: Style.space(8)
-                Text {
-                    width: parent.width
-                    text: editor.shelfInfo[plate.mode].title
-                    textFormat: Text.PlainText
-                    color: Commons.Color.popups.text
-                    font.family: Style.font.family
-                    font.pixelSize: Style.font.title
-                    font.weight: Font.DemiBold
-                    elide: Text.ElideRight
-                }
-                Text {
-                    id: captionText
-                    width: parent.width
-                    text: editor.shelfInfo[plate.mode].caption
-                    textFormat: Text.PlainText
-                    color: Qt.alpha(Commons.Color.popups.text, 0.55)
-                    font.family: Style.font.family
-                    font.pixelSize: Style.font.bodySmall
-                    wrapMode: Text.WordWrap
-                }
-            }
-            Text {
-                x: editor.platePad + editor.columns.xs[6]
-                y: labelColumn.y + captionText.y
-                width: editor.columns.widths[6] - Style.space(2)
-                horizontalAlignment: Text.AlignRight
-                text: {
-                    var n = 0;
-                    editor.columnsFor(plate.mode).forEach(function (c) {
-                        n += editor.members(c, plate.mode, "").length;
-                    });
-                    return n ? n + (n === 1 ? " widget" : " widgets") : "Empty";
-                }
-                textFormat: Text.PlainText
-                color: Qt.alpha(Commons.Color.popups.text, 0.4)
-                font.family: Style.font.family
-                font.pixelSize: Style.font.bodySmall
+            columns: editor.columns
+            pad: editor.platePad
+            axisX: editor.axis - plate.x
+            tilt: editor.tilt
+            planeDistance: editor.planeDistance
+            animate: editor.bar.animationsEnabled
+            title: editor.shelfInfo[plate.mode].title
+            caption: editor.shelfInfo[plate.mode].caption
+            count: {
+                var n = 0;
+                editor.columnsFor(plate.mode).forEach(function (c) {
+                    n += editor.members(c, plate.mode, "").length;
+                });
+                return n ? n + (n === 1 ? " widget" : " widgets") : "Empty";
             }
             Repeater {
                 model: plate.slab ? [] : editor.sections
