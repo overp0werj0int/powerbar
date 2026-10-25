@@ -56,7 +56,7 @@ test('drawers walk down to the pool, up to the face and across at the same row',
   assert.deepEqual(plain(m.step(s, { area: 'drawer', id: 'ai', pos: 2 }, 0, 1)), { area: 'pool', pos: 0 });
   assert.deepEqual(plain(m.step(s, { area: 'drawer', id: 'ai', pos: 0 }, 0, -1)), { area: 'rail', zone: 'left', slot: 0 });
   assert.deepEqual(plain(m.step(s, { area: 'drawer', id: 'ai', pos: 2 }, 1, 0)), { area: 'drawer', id: 'audio', pos: 1 });
-  assert.deepEqual(plain(m.step(s, { area: 'drawer', id: 'audio', pos: 1 }, 1, 0)), { area: 'drawer', id: 'net', pos: 0 });
+  assert.deepEqual(plain(m.step(s, { area: 'drawer', id: 'audio', pos: 1 }, 1, 0)), { area: 'drawer', id: 'audio', pos: 1 }, 'one drawer per zone: net shares audio\'s');
   assert.deepEqual(plain(m.step(s, { area: 'drawer', id: 'net', pos: 0 }, 0, 1)), { area: 'pool', pos: 0 }, 'an empty drawer is one stop');
 });
 
@@ -90,7 +90,8 @@ test('a lifted widget lands between members, in the pool or on a plus', () => {
   assert.deepEqual(plain(m.liftStart({ area: 'pool', pos: 4 })), { area: 'pool' });
   assert.deepEqual(plain(m.stepLift(s, { area: 'drawer', id: 'ai', pos: 2 }, 0, 1)), { area: 'drawer', id: 'ai', pos: 3 });
   assert.deepEqual(plain(m.stepLift(s, { area: 'drawer', id: 'ai', pos: 3 }, 0, 1)), { area: 'pool' });
-  assert.deepEqual(plain(m.stepLift(s, { area: 'drawer', id: 'ai', pos: 0 }, 0, -1)), { area: 'plus', zone: 'left' });
+  assert.deepEqual(plain(m.stepLift(s, { area: 'drawer', id: 'ai', pos: 0 }, 0, -1)), { area: 'face', id: 'ai' });
+  assert.deepEqual(plain(m.stepLift(s, { area: 'face', id: 'ai' }, 1, 0)), { area: 'plus', zone: 'left' });
   assert.deepEqual(plain(m.stepLift(s, { area: 'drawer', id: 'ai', pos: 3 }, 1, 0)), { area: 'drawer', id: 'audio', pos: 2 });
   assert.deepEqual(plain(m.stepLift(s, { area: 'plus', zone: 'left' }, 1, 0)), { area: 'plus', zone: 'centerLeft' });
   assert.deepEqual(plain(m.stepLift(s, { area: 'plus', zone: 'right' }, 0, 1)), { area: 'drawer', id: 'audio', pos: 0 });
@@ -157,4 +158,48 @@ test('the pool asks for its rows up to a third of the room and keeps a floor', (
   assert.deepEqual(plain(m.shareBands(700, 100, 120, 60, 80)), { poolSeen: 120, drawers: 480 });
   assert.deepEqual(plain(m.shareBands(400, 100, 200, 60, 80)), { poolSeen: 100, drawers: 200 });
   assert.deepEqual(plain(m.shareBands(200, 100, 200, 60, 80)), { poolSeen: 60, drawers: 80 });
+});
+
+test('each zone has one drawer: the open group', () => {
+  const faces = { left: ['ai', 'b', 'c', 'd'], centerLeft: [], center: [], centerRight: [], right: ['audio', 'net'] };
+  assert.equal(m.openGroup(faces, 'left', 'c'), 'c', 'the chosen group when it is in the zone');
+  assert.equal(m.openGroup(faces, 'left', 'net'), 'ai', 'else the zone\'s first in bar order');
+  assert.equal(m.openGroup(faces, 'right', 'net'), 'net');
+  assert.equal(m.openGroup(faces, 'center', 'net'), '', 'a zone without groups has no drawer');
+  assert.equal(m.openGroup(faces, 'right', 'net', { right: 'audio' }), 'audio', 'a drag rested on a face opens it');
+  assert.equal(m.openGroup(faces, 'left', 'c', { left: 'gone' }), 'c', 'an opened group no longer there gives way');
+  assert.deepEqual(plain(m.openDrawers(faces, zones, 'c')), ['c', 'audio']);
+  assert.deepEqual(plain(m.openDrawers(faces, zones, 'c', { right: 'net' })), ['c', 'net']);
+});
+
+test('drawers step to the open drawer of the next zone', () => {
+  const s = state({ faces: { left: ['ai', 'b', 'c'], centerLeft: [], center: [], centerRight: [], right: ['audio', 'net'] }, members: { ai: 3, b: 1, c: 2, audio: 2, net: 0 }, chosen: 'c' });
+  assert.deepEqual(plain(m.step(s, { area: 'drawer', id: 'c', pos: 1 }, 1, 0)), { area: 'drawer', id: 'audio', pos: 1 });
+  assert.deepEqual(plain(m.step({ ...s, chosen: 'audio' }, { area: 'drawer', id: 'audio', pos: 1 }, -1, 0)), { area: 'drawer', id: 'ai', pos: 1 }, 'the zone shows its first group again');
+  assert.deepEqual(plain(m.step(s, { area: 'rail', zone: 'left', slot: 2 }, 0, 1)), { area: 'drawer', id: 'c', pos: 0 });
+  assert.deepEqual(plain(m.step(s, { area: 'pool', pos: 0 }, 0, -1)), { area: 'drawer', id: 'c', pos: 1 });
+});
+
+test('a lifted widget never walks into a closed drawer, it lands on the face', () => {
+  const s = state({ faces: { left: ['ai', 'b', 'c'], centerLeft: [], center: [], centerRight: [], right: ['audio', 'net'] }, members: { ai: 3, b: 1, c: 2, audio: 2, net: 0 }, chosen: 'ai' });
+  assert.deepEqual(plain(m.stepLift(s, { area: 'drawer', id: 'ai', pos: 3 }, 1, 0)), { area: 'drawer', id: 'audio', pos: 2 }, 'h/l skip the closed b and c');
+  let t = m.stepLift(s, { area: 'drawer', id: 'audio', pos: 0 }, 0, -1);
+  assert.deepEqual(plain(t), { area: 'face', id: 'audio' }, 'k from the top reaches the zone\'s first face');
+  t = m.stepLift(s, t, 1, 0); assert.deepEqual(plain(t), { area: 'face', id: 'net' });
+  t = m.stepLift(s, t, 1, 0); assert.deepEqual(plain(t), { area: 'plus', zone: 'right' });
+  t = m.stepLift(s, t, 1, 0); assert.deepEqual(plain(t), { area: 'plus', zone: 'right' }, 'the rail ends there');
+  t = m.stepLift(s, { area: 'face', id: 'ai' }, 1, 0); assert.deepEqual(plain(t), { area: 'face', id: 'b' });
+  assert.deepEqual(plain(m.stepLift(s, { area: 'face', id: 'c' }, 0, 1)), { area: 'drawer', id: 'ai', pos: 0 }, 'j goes into the zone\'s open drawer');
+  assert.deepEqual(plain(m.stepLift(s, { area: 'plus', zone: 'left' }, -1, 0)), { area: 'face', id: 'c' });
+  assert.deepEqual(plain(m.stepLift(s, { area: 'plus', zone: 'centerLeft' }, -1, 0)), { area: 'plus', zone: 'left' });
+  assert.deepEqual(plain(m.stepLift({ ...s, opened: { left: 'b' } }, { area: 'face', id: 'c' }, 0, 1)), { area: 'drawer', id: 'b', pos: 0 }, 'a drawer a drag opened');
+  assert.deepEqual(plain(m.stepLift(s, { area: 'pool' }, 0, -1, 'c')), { area: 'drawer', id: 'ai', pos: 3 }, 'a closed home gives way to the chosen drawer');
+  assert.deepEqual(plain(m.dropAction({ key: 'k', group: 'ai' }, { area: 'face', id: 'b' })), { op: 'assign', key: 'k', id: 'b', before: '' });
+});
+
+test('faces keep their names while they fit, else all drop them', () => {
+  assert.deepEqual(plain(m.faceWidths([60, 50], [40, 30], 114, 4)), { named: true, widths: [60, 50], clipped: false });
+  assert.deepEqual(plain(m.faceWidths([60, 50], [40, 30], 113, 4)), { named: false, widths: [40, 30], clipped: false });
+  assert.deepEqual(plain(m.faceWidths([90, 50, 50, 50], [48, 30, 30, 30], 100, 4)), { named: false, widths: [48, 30, 30, 30], clipped: true });
+  assert.deepEqual(plain(m.faceWidths([], [], 0, 4)), { named: true, widths: [], clipped: false });
 });

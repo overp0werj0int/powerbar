@@ -1,6 +1,6 @@
 // The Groups page (docs/behavior/preferences.md PREFS-109 on): a rail of the
-// bar's five zones holding every group's face, a drawer hanging under each
-// face, and the pool of widgets in no group. Pure decisions only; the page
+// bar's five zones holding every group's face, one drawer under each zone
+// showing its open group (PREFS-120), and the pool of widgets in no group. Pure decisions only; the page
 // (GroupsEditor.qml) carries them out.
 //
 // A place the cursor can rest on:
@@ -13,12 +13,13 @@
 //   { area: "drawer", id, pos }    before member `pos` (pos = count: the end)
 //   { area: "pool" }               out of every group
 //   { area: "plus", zone }         a new group in that zone
-//   { area: "face", id }           (pointer only) the end of that group
+//   { area: "face", id }           the end of that group
 // The layout state the steps read, `s`:
 //   zones: the zone lists in bar order; faces: { zone: [group ids in bar
 //   order] }; members: { id: count } (without a lifted widget while one is
 //   lifted); pool: the pool's chip count; perRow: chips in a pool row;
-//   chosen: the chosen group's id.
+//   chosen: the chosen group's id; opened: { zone: id } groups a drag
+//   opened by resting on their face (optional).
 
 var visibilities = ["shown", "managed", "hidden"]
 
@@ -42,14 +43,14 @@ function railFaces(rendered, zones) {
   })
   return out
 }
-// The drawers in rail order, left to right.
+// Every group in rail order, left to right.
 function drawerOrder(faces, zones) {
   var out = []
   zones.forEach(function(zone) { out = out.concat(faces[zone] || []) })
   return out
 }
-// Where each group's drawer hangs: its zone, its place among the zone's
-// groups and how many share the zone's column.
+// Each group's zone, its place among the zone's groups and how many the
+// zone holds.
 function drawerSlots(faces, zones) {
   var out = {}
   zones.forEach(function(zone) {
@@ -58,6 +59,38 @@ function drawerSlots(faces, zones) {
   })
   return out
 }
+// A zone's open group, the one its drawer shows (PREFS-120): a group a drag
+// opened there by resting on its face, else the chosen group when it is in
+// the zone, else the zone's first in bar order; "" for a zone with none.
+function openGroup(faces, zone, chosen, opened) {
+  var list = faces[zone] || []
+  var o = opened && opened[zone]
+  if (o && list.indexOf(o) >= 0) return o
+  if (chosen && list.indexOf(chosen) >= 0) return chosen
+  return list[0] || ""
+}
+// The open drawers in rail order, one per zone that has groups.
+function openDrawers(faces, zones, chosen, opened) {
+  var out = []
+  zones.forEach(function(zone) {
+    var id = openGroup(faces, zone, chosen, opened)
+    if (id) out.push(id)
+  })
+  return out
+}
+function openOrder(s) { return openDrawers(s.faces, s.zones, s.chosen, s.opened) }
+// A zone's faces on its segment (PREFS-111): at their natural widths while
+// they all fit `room` (`gap` apart); otherwise every face of the zone drops
+// its name (its `compact` width, never a half-elided name), and when even
+// those do not fit the segment clips them at its end (`clipped`).
+function faceWidths(natural, compact, room, gap) {
+  function total(ws) {
+    return ws.reduce(function(a, b) { return a + b }, 0) + Math.max(0, ws.length - 1) * gap
+  }
+  if (total(natural) <= room) return { named: true, widths: natural.slice(), clipped: false }
+  return { named: false, widths: compact.slice(), clipped: total(compact) > room }
+}
+
 // The rail's columns among the Layout page's seven (PreferencesModel.
 // layerColumns): the label first, then the zones. With a camera its column
 // (the middle one) stays empty so the cap shows through, and Center takes the
@@ -100,10 +133,11 @@ function zoneOfGroup(s, id) {
 
 // The cursor's step (no lift): h/l (dx) and j/k (dy).
 // Rail: h/l walk every face and "+" across the zones; j goes into the face's
-// drawer, or from a "+" to the pool. Drawer: j/k walk the members, k from
-// the first back to the face, j past the last to the pool; h/l the same row
-// in the drawer before or after. Pool: h/l along, j/k by rows (perRow); k
-// from the first row goes up to the chosen group's drawer, at its last member.
+// zone's drawer (the face's group, chosen by the cursor on it), or from a
+// "+" to the pool. Drawer: j/k walk the members, k from the first back to
+// the face, j past the last to the pool; h/l the same row in the open drawer
+// of the zone before or after. Pool: h/l along, j/k by rows (perRow); k from
+// the first row goes up to the chosen group's drawer, at its last member.
 function step(s, at, dx, dy) {
   if (!at) return firstPlace(s)
   if (at.area === "rail") {
@@ -121,7 +155,7 @@ function step(s, at, dx, dy) {
   }
   if (at.area === "drawer") {
     if (dx) {
-      var order = drawerOrder(s.faces, s.zones), k = order.indexOf(at.id)
+      var order = openOrder(s), k = order.indexOf(at.id)
       var to = order[clamp(k + dx, 0, order.length - 1)]
       return to ? { area: "drawer", id: to, pos: clamp(at.pos, 0, lastPos(s, to)) } : at
     }
@@ -139,7 +173,7 @@ function step(s, at, dx, dy) {
   }
   if (dy < 0) {
     if (pos - per >= 0) return { area: "pool", pos: pos - per }
-    var up = s.chosen && facePlace(s, s.chosen) ? s.chosen : drawerOrder(s.faces, s.zones)[0]
+    var up = s.chosen && facePlace(s, s.chosen) ? s.chosen : openOrder(s)[0]
     return up ? { area: "drawer", id: up, pos: lastPos(s, up) } : railStops(s.faces, s.zones).map(strip)[0]
   }
   return { area: "pool", pos: pos }
@@ -164,16 +198,21 @@ function normalize(s, at) {
   return { area: "pool", pos: clamp(at.pos, 0, Math.max(0, (s.pool || 0) - 1)) }
 }
 
-// A lifted widget's landing place, stepped with h/l and j/k through the
-// drawers, the pool and the rail's "+" slots (s.members without the lifted
-// widget, so a drawer offers count + 1 places). Drawer: j/k along it, past
-// its end to the pool, before its first up to its zone's "+"; h/l the same
-// place in the next drawer. Pool: k up to `home` (the drawer it came from or
-// last went through, else the chosen group's), at its end. "+": h/l the next
-// zone's, j down into the zone's first drawer, else the pool.
+// A lifted widget's landing place, stepped with h/l and j/k through the open
+// drawers, the pool and the rail's faces and "+" slots (s.members without
+// the lifted widget, so a drawer offers count + 1 places). Drawer: j/k along
+// it, past its end to the pool, before its first up to its zone's first
+// face; h/l the same place in the next zone's open drawer. Rail: h/l walk
+// every face and "+" zone by zone (a face: that group, at its end; a "+": a
+// new group), j down into the zone's open drawer, else the pool. Pool: k up
+// to `home` (the drawer it came from or last went through, else the chosen
+// group's), at its end. A closed group's drawer is never a landing place.
+function railLanding(p) {
+  return p.id ? { area: "face", id: p.id } : { area: "plus", zone: p.zone }
+}
 function stepLift(s, t, dx, dy, home) {
   if (!t) return { area: "pool" }
-  var order = drawerOrder(s.faces, s.zones)
+  var order = openOrder(s)
   if (t.area === "drawer") {
     var n = s.members[t.id] || 0
     if (dx) {
@@ -181,14 +220,24 @@ function stepLift(s, t, dx, dy, home) {
       return to ? { area: "drawer", id: to, pos: clamp(t.pos, 0, s.members[to] || 0) } : t
     }
     if (dy > 0) return t.pos < n ? { area: "drawer", id: t.id, pos: t.pos + 1 } : { area: "pool" }
-    if (dy < 0) return t.pos > 0 ? { area: "drawer", id: t.id, pos: t.pos - 1 } : { area: "plus", zone: zoneOfGroup(s, t.id) || s.zones[0] }
+    if (dy < 0) {
+      if (t.pos > 0) return { area: "drawer", id: t.id, pos: t.pos - 1 }
+      var zone = zoneOfGroup(s, t.id) || s.zones[0], first = (s.faces[zone] || [])[0]
+      return first ? { area: "face", id: first } : { area: "plus", zone: zone }
+    }
     return t
   }
-  if (t.area === "plus") {
-    if (dx) return { area: "plus", zone: s.zones[clamp(s.zones.indexOf(t.zone) + dx, 0, s.zones.length - 1)] }
+  if (t.area === "plus" || t.area === "face") {
+    var at = t.area === "face" ? facePlace(s, t.id) : { zone: t.zone, slot: (s.faces[t.zone] || []).length }
+    if (!at) return { area: "pool" }
+    if (dx) {
+      var stops = railStops(s.faces, s.zones)
+      var i = stops.findIndex(function(p) { return p.zone === at.zone && p.slot === at.slot })
+      return railLanding(stops[clamp((i < 0 ? 0 : i) + dx, 0, stops.length - 1)])
+    }
     if (dy > 0) {
-      var first = (s.faces[t.zone] || [])[0]
-      return first ? { area: "drawer", id: first, pos: 0 } : { area: "pool" }
+      var open = openGroup(s.faces, at.zone, s.chosen, s.opened)
+      return open ? { area: "drawer", id: open, pos: 0 } : { area: "pool" }
     }
     return t
   }
