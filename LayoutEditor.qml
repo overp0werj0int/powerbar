@@ -440,6 +440,10 @@ Item {
             label: "Pick up, then drop"
         },
         {
+            keys: "shift+hjkl",
+            label: "Move it there at once"
+        },
+        {
             keys: "enter",
             label: inspecting ? "Push it back" : "Pull it forward to inspect"
         },
@@ -705,20 +709,31 @@ Item {
         inspecting = false;
         focusShelf(cursorCell.mode, Qt.OtherFocusReason);
     }
+    // Shift with a step moves the cursor's chip there at once: picked up,
+    // stepped and dropped as one (PREFS-27).
+    function step(dx, dy, carry) {
+        if (carry && !lifted && cursorRecord) {
+            lift(cursorRecord, cursorCell);
+            moveCursor(dx, dy);
+            drop();
+        } else
+            moveCursor(dx, dy);
+    }
     function keyPressed(event) {
         if (event.modifiers & (Qt.ControlModifier | Qt.AltModifier))
             return;
-        var key = event.key, t = event.text;
+        var key = event.key, t = event.text, c = t.toLowerCase();
+        var carry = !!(event.modifiers & Qt.ShiftModifier);
         // h and l change zone; j and k walk a zone's chips and go on to the
         // same zone on the next layer at its ends.
-        if (key === Qt.Key_Left || t === "h")
-            moveCursor(-1, 0);
-        else if (key === Qt.Key_Right || t === "l")
-            moveCursor(1, 0);
-        else if (key === Qt.Key_Up || t === "k")
-            moveCursor(0, -1);
-        else if (key === Qt.Key_Down || t === "j")
-            moveCursor(0, 1);
+        if (key === Qt.Key_Left || c === "h")
+            step(-1, 0, carry);
+        else if (key === Qt.Key_Right || c === "l")
+            step(1, 0, carry);
+        else if (key === Qt.Key_Up || c === "k")
+            step(0, -1, carry);
+        else if (key === Qt.Key_Down || c === "j")
+            step(0, 1, carry);
         else if (key === Qt.Key_Space) {
             if (lifted)
                 drop();
@@ -866,6 +881,32 @@ Item {
             blurEnabled: true
             blur: 1
             blurMax: shaft.pad
+            // The fade down the page is a mask over the blurred beam, so
+            // the beam itself can fade across, as light does.
+            maskEnabled: true
+            maskSource: fade
+            maskThresholdMin: 0.5
+            maskSpreadAtMin: 1
+        }
+        Rectangle {
+            id: fade
+            anchors.fill: parent
+            visible: false
+            layer.enabled: true
+            gradient: Gradient {
+                GradientStop {
+                    position: 0
+                    color: "white"
+                }
+                GradientStop {
+                    position: 0.7
+                    color: Qt.rgba(1, 1, 1, 0.7)
+                }
+                GradientStop {
+                    position: 1
+                    color: "transparent"
+                }
+            }
         }
         Rectangle {
             id: beam
@@ -888,14 +929,24 @@ Item {
                 distanceToPlane: editor.planeDistance
                 angle: editor.tilt
             }
+            // Darkest down its middle, thinning towards the cone's edges.
             gradient: Gradient {
+                orientation: Gradient.Horizontal
                 GradientStop {
                     position: 0
+                    color: "transparent"
+                }
+                GradientStop {
+                    position: 0.25
+                    color: Qt.rgba(0, 0, 0, 0.75)
+                }
+                GradientStop {
+                    position: 0.5
                     color: "black"
                 }
                 GradientStop {
-                    position: 0.7
-                    color: Qt.rgba(0, 0, 0, 0.7)
+                    position: 0.75
+                    color: Qt.rgba(0, 0, 0, 0.75)
                 }
                 GradientStop {
                     position: 1
@@ -904,16 +955,41 @@ Item {
             }
         }
     }
+    // The camera's eye under the notch, named below it. The beam is black
+    // on every theme, so both are drawn in white.
+    Item {
+        id: cameraEye
+        visible: shaft.visible
+        z: -1
+        x: editor.axis - width / 2
+        y: editor.pageTop + Style.space(14)
+        width: Style.space(16)
+        height: width
+        Rectangle {
+            anchors.fill: parent
+            radius: width / 2
+            color: "transparent"
+            border.width: Math.max(1, Math.round(Style.space(1.5)))
+            border.color: Qt.rgba(1, 1, 1, 0.5)
+        }
+        Rectangle {
+            anchors.centerIn: parent
+            width: Style.space(6)
+            height: width
+            radius: width / 2
+            color: Qt.rgba(1, 1, 1, 0.5)
+        }
+    }
     Text {
         visible: shaft.visible
         z: -1
         x: editor.axis - width / 2
-        y: editor.pageTop + Style.space(18)
+        y: cameraEye.y + cameraEye.height + Style.space(6)
         width: Style.space(200)
         horizontalAlignment: Text.AlignHCenter
         text: "camera"
         textFormat: Text.PlainText
-        color: Qt.alpha(Commons.Color.popups.text, 0.4)
+        color: Qt.rgba(1, 1, 1, 0.45)
         font.family: Style.font.family
         font.pixelSize: Style.font.caption
     }
@@ -1250,12 +1326,14 @@ Item {
                 }
             }
 
-            // The layer's name, what it is, and how many it holds.
+            // The layer's name and what it is, on the left; how many it
+            // holds, in the spare column on the right (under the screen
+            // switcher on the bar layer).
             Column {
                 x: editor.platePad + editor.columns.xs[0] + Style.space(2)
                 y: Style.space(6)
                 width: editor.columns.widths[0] - Style.space(6)
-                spacing: Style.space(4)
+                spacing: Style.space(8)
                 Text {
                     width: parent.width
                     text: editor.shelfInfo[plate.mode].title
@@ -1272,23 +1350,26 @@ Item {
                     textFormat: Text.PlainText
                     color: Qt.alpha(Commons.Color.popups.text, 0.55)
                     font.family: Style.font.family
-                    font.pixelSize: Style.font.caption
+                    font.pixelSize: Style.font.bodySmall
                     wrapMode: Text.WordWrap
                 }
-                Text {
-                    width: parent.width
-                    text: {
-                        var n = 0;
-                        editor.columnsFor(plate.mode).forEach(function (c) {
-                            n += editor.members(c, plate.mode, "").length;
-                        });
-                        return n ? n + (n === 1 ? " widget" : " widgets") : "Empty";
-                    }
-                    textFormat: Text.PlainText
-                    color: Qt.alpha(Commons.Color.popups.text, 0.4)
-                    font.family: Style.font.family
-                    font.pixelSize: Style.font.caption
+            }
+            Text {
+                x: editor.platePad + editor.columns.xs[6]
+                y: Style.space(6) + (plate.index === 0 && editor.screensDiffer ? Style.space(36) : 0)
+                width: editor.columns.widths[6] - Style.space(2)
+                horizontalAlignment: Text.AlignRight
+                text: {
+                    var n = 0;
+                    editor.columnsFor(plate.mode).forEach(function (c) {
+                        n += editor.members(c, plate.mode, "").length;
+                    });
+                    return n ? n + (n === 1 ? " widget" : " widgets") : "Empty";
                 }
+                textFormat: Text.PlainText
+                color: Qt.alpha(Commons.Color.popups.text, 0.4)
+                font.family: Style.font.family
+                font.pixelSize: Style.font.caption
             }
             Repeater {
                 model: plate.tray ? [] : editor.sections
@@ -1416,6 +1497,20 @@ Item {
         readonly property bool shaft: editor.previewCamera && section === "center"
         readonly property real pad: editor.tilePad
         readonly property real radius: Math.min(Style.space(10), Style.cornerRadius)
+        // The cursor's tile rises a little off its layer, its edge staying
+        // put below (PREFS-104); the leader follows the rise.
+        property real raise: cursorHere && !trayCell ? Style.space(3) : 0
+        Behavior on raise {
+            enabled: editor.bar.animationsEnabled
+            NumberAnimation {
+                duration: 120
+                easing.type: Easing.OutCubic
+            }
+        }
+        transform: Translate {
+            y: -cell.raise
+        }
+        onRaiseChanged: Qt.callLater(editor.trackLeader)
         Component.onCompleted: cellRepeater.register(this)
         Component.onDestruction: cellRepeater.unregister(this)
         onListChanged: Qt.callLater(editor.refreshInspected)
@@ -1423,7 +1518,7 @@ Item {
         // The slab's thickness, below it.
         Rectangle {
             visible: !cell.trayCell
-            y: Style.space(6)
+            y: Style.space(6) + cell.raise
             width: parent.width
             height: parent.height
             radius: cell.radius
@@ -1639,17 +1734,32 @@ Item {
                 easing.type: Easing.OutCubic
             }
         }
+        // The cursor's chip rises off its tile, casting a shadow on it
+        // (PREFS-104).
+        readonly property bool raised: isCursor && !outline
+        property real raise: raised ? Style.space(4) : 0
+        Behavior on raise {
+            enabled: editor.bar.animationsEnabled
+            NumberAnimation {
+                duration: 120
+                easing.type: Easing.OutCubic
+            }
+        }
+        transform: Translate {
+            y: -tile.raise
+        }
+        z: raised ? 1 : 0
         width: editor.chipWidth
         height: editor.chipHeight
 
-        // The pulled-out chip's shadow.
+        // The shadow a pulled-out or raised chip casts.
         Rectangle {
-            visible: tile.pulled
+            visible: tile.pulled || tile.raise > 0
             anchors.fill: parent
-            anchors.topMargin: Style.space(6)
-            anchors.bottomMargin: -Style.space(6)
+            anchors.topMargin: tile.pulled ? Style.space(6) : tile.raise + Style.space(2)
+            anchors.bottomMargin: -anchors.topMargin
             radius: surface.radius
-            color: Qt.rgba(0, 0, 0, 0.45)
+            color: Qt.rgba(0, 0, 0, tile.pulled ? 0.45 : 0.35)
         }
         BorderSurface {
             id: surface

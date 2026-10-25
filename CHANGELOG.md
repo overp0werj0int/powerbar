@@ -13,8 +13,9 @@
   group are set; Esc pushes it back. The keys are a legend at the bottom
   left, beside the inspector. Resting the pointer on a chip shows its full
   name and id. h and l change zone; j and k walk a zone and carry on into
-  the next layer, with or without a chip picked up. With animations off
-  the layers lie flat.
+  the next layer, with or without a chip picked up; Shift with them moves
+  the chip there at once. The cursor's chip and its tile rise a little off
+  the layer. With animations off the layers lie flat.
 - **A zone's dots are a small circle.** With five zones a bar could carry
   five sets of three dots; each zone now marks its waiting widgets with
   one small, quiet empty circle, on horizontal and vertical bars alike,
