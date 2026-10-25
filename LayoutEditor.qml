@@ -970,89 +970,20 @@ Item {
     // run on the lines that layer's Center tile edges lie on; the Center
     // tiles it falls on draw the same shade over their own surface, so
     // nothing steps where a tile meets a gap.
-    BeamShade {
-        id: shaft
-        readonly property real half: editor.columns.widths[3] / 2
-        // The line the bar layer turns about (its top edge), the page's top
-        // and the stack's bottom, in the editor.
-        readonly property real line: editor.stackTop
-        readonly property real beamTop: editor.pageTop
-        readonly property real beamBottom: editor.stackTop + editor.stack.height + Style.space(8)
+    CameraShaft {
+        id: camera
         visible: editor.previewCamera && !!editor.previewNotch
         z: -1
-        vTop: Model.tiltedDepth(beamTop - line, editor.tilt, editor.planeDistance)
-        vBottom: Model.tiltedDepth(beamBottom - line, editor.tilt, editor.planeDistance)
-        x: editor.axis - half
-        y: line + vTop
-        width: 2 * half
-        height: Math.max(0, vBottom - vTop)
-        transform: Rotation {
-            axis {
-                x: 1
-                y: 0
-                z: 0
-            }
-            origin.x: shaft.half
-            origin.y: -shaft.vTop
-            distanceToPlane: editor.planeDistance
-            angle: editor.tilt
-        }
-    }
-    // The beam's shade: black, solid across the cap, a raised cosine across
-    // the beam, fading down the page with no slope at either end, dithered.
-    // vTop and vBottom say where the item lies down the bar layer's plane
-    // (Model.tiltedDepth from its top edge), so every item drawing it
-    // continues the same function.
-    component BeamShade: ShaderEffect {
-        property real vTop: 0
-        property real vBottom: 0
-        property real peak: editor.lightTheme ? 0.5 : 0.65
-        // The cap stays solid past the camera's caption, then becomes the
-        // beam by the bar layer's Center tile.
-        property real capEnd: Model.tiltedDepth(editor.pageTop + Style.space(56) - editor.stackTop, editor.tilt, editor.planeDistance)
-        property real capFade: 0
-        property real span: Model.tiltedDepth(editor.stack.height + Style.space(8), editor.tilt, editor.planeDistance)
-        property real edge: 1.5 / Math.max(1, width / 2)
-        property real taper: 0.3
-        fragmentShader: Qt.resolvedUrl("shaders/beam.frag.qsb")
-    }
-    // The camera's eye under the notch, named below it. The beam is black
-    // on every theme, so both are drawn in white.
-    Item {
-        id: cameraEye
-        visible: shaft.visible
-        z: -1
-        x: editor.axis - width / 2
-        y: editor.pageTop + Style.space(14)
-        width: Style.space(16)
-        height: width
-        Rectangle {
-            anchors.fill: parent
-            radius: width / 2
-            color: "transparent"
-            border.width: Math.max(1, Math.round(Style.space(1.5)))
-            border.color: Qt.rgba(1, 1, 1, 0.5)
-        }
-        Rectangle {
-            anchors.centerIn: parent
-            width: Style.space(6)
-            height: width
-            radius: width / 2
-            color: Qt.rgba(1, 1, 1, 0.5)
-        }
-    }
-    Text {
-        visible: shaft.visible
-        z: -1
-        x: editor.axis - width / 2
-        y: cameraEye.y + cameraEye.height + Style.space(6)
-        width: Style.space(200)
-        horizontalAlignment: Text.AlignHCenter
-        text: "camera"
-        textFormat: Text.PlainText
-        color: Qt.rgba(1, 1, 1, 0.45)
-        font.family: Style.font.family
-        font.pixelSize: Style.font.caption
+        axis: editor.axis
+        half: editor.columns.widths[3] / 2
+        // The line the bar layer turns about (its top edge), the page's top
+        // and the stack's bottom, in the editor.
+        line: editor.stackTop
+        pageTop: editor.pageTop
+        beamBottom: editor.stackTop + editor.stack.height + Style.space(8)
+        tilt: editor.tilt
+        planeDistance: editor.planeDistance
+        lightTheme: editor.lightTheme
     }
 
     // Which side of the camera Center sits on (powerbarCenterSide, ZONE-96):
@@ -1077,7 +1008,7 @@ Item {
         readonly property real y0: editor.stackTop - editor.centerTileRaise
         readonly property real x1: sideDot.x + sideDot.width / 2
         readonly property real y1: sideDot.y + sideDot.height / 2
-        visible: shaft.visible
+        visible: camera.visible
         z: 115
         // A Shape draws nothing outside its own box: this one reaches up to
         // the page's top, where the dot is.
@@ -1102,7 +1033,7 @@ Item {
     Item {
         id: sideDot
         readonly property bool onLeft: editor.centerSide === "left"
-        readonly property real restX: editor.axis + (onLeft ? -1 : 1) * (shaft.half + Style.space(16))
+        readonly property real restX: editor.axis + (onLeft ? -1 : 1) * (camera.half + Style.space(16))
         property bool dragging: false
         property real dragX: 0
         readonly property var keyHints: [
@@ -1116,10 +1047,10 @@ Item {
             }
         ]
         readonly property bool ownsFocusRing: true
-        visible: shaft.visible
+        visible: camera.visible
         z: 116
         x: (dragging ? dragX : restX) - width / 2
-        y: cameraEye.y + cameraEye.height / 2 - height / 2
+        y: camera.eyeY - height / 2
         width: Style.space(14)
         height: width
         activeFocusOnTab: true
@@ -1317,6 +1248,7 @@ Item {
             anchors.centerIn: parent
             spacing: Style.space(10)
             InkIcon {
+                layout: editor
                 record: nameTip.record
                 anchors.verticalCenter: parent.verticalCenter
             }
@@ -1771,9 +1703,12 @@ Item {
         }
         // The beam falling on a Center tile, over its surface and under its
         // chips, continuing the shade the gaps show.
-        // (The beam's own id is shadowed here by the cell's `shaft` flag.)
         BeamShade {
             visible: cell.shaft && editor.previewCamera && !!editor.previewNotch
+            peak: camera.peak
+            capEnd: camera.capEnd
+            capFade: camera.capFade
+            span: camera.span
             anchors.fill: parent
             vTop: Model.tiltedDepth(cell.seenTop - editor.stackTop, editor.tilt, editor.planeDistance)
             vBottom: Model.tiltedDepth(cell.seenTop + Model.tiltedHeight(cell.height, editor.tilt, editor.planeDistance) - editor.stackTop, editor.tilt, editor.planeDistance)
@@ -1782,6 +1717,10 @@ Item {
         // falls on that part of it as on a Center tile.
         BeamShade {
             visible: cell.mode === "hidden" && editor.previewCamera && !!editor.previewNotch
+            peak: camera.peak
+            capEnd: camera.capEnd
+            capFade: camera.capFade
+            span: camera.span
             x: editor.column("center").x - editor.column("hidden").x
             width: editor.column("center").width
             height: parent.height
@@ -2008,55 +1947,6 @@ Item {
         }
     }
 
-    // A widget's icon in a chip's square: the middle of its ink, or a wide
-    // face's first glyph, so nothing sticks out of the square.
-    component InkIcon: Item {
-        id: inkIcon
-        property var record: ({})
-        property real box: Style.space(20)
-        readonly property bool hasImage: picture.hasImage
-        readonly property var face: record && record.instanceKey ? editor.barFace(record) : null
-        width: box
-        height: box
-        // Widget images in the bar's text colour that barely show on the
-        // Preferences background get a backing (editor.inkBacked).
-        Rectangle {
-            anchors.fill: parent
-            anchors.margins: -Style.space(2)
-            visible: editor.inkBacked && picture.hasImage
-            radius: Style.space(3)
-            color: Commons.Color.popups.text
-        }
-        // A wide face shows its first glyph only: about the bar icon's own width.
-        readonly property bool wide: {
-            var f = face;
-            return hasImage && !!f && f.kind === "image" && f.w > 0 && f.inkLength / f.w * picture.width > box;
-        }
-        Item {
-            width: inkIcon.wide ? Math.round(inkIcon.box * 0.62) : parent.width
-            height: parent.height
-            clip: true
-            WidgetIcon {
-                id: picture
-                preferences: editor.preferences
-                record: inkIcon.record
-                size: inkIcon.box
-                maxAspect: 8
-                anchors.verticalCenter: parent.verticalCenter
-                x: {
-                    var f = inkIcon.face;
-                    if (!hasImage || !f || f.kind !== "image" || !(f.w > 0))
-                        return Math.round((inkIcon.box - width) / 2);
-                    // Ink wider than the box starts at its leading icon, not mid-word.
-                    var scale = width / f.w;
-                    if (inkIcon.wide)
-                        return Math.round(-f.inkStart * scale);
-                    return Math.round(inkIcon.box / 2 - (f.inkStart + f.inkLength / 2) * scale);
-                }
-            }
-        }
-    }
-
     // A chip: the widget's icon, its name (elided) and a group's count, one
     // width everywhere. A landing place or the inspected chip's own place is
     // an outline; the dragged copy and the pulled-out chip sit flat in front.
@@ -2157,6 +2047,7 @@ Item {
             opacity: tile.outline ? (tile.placeholder && !editor.pointerLift ? 0.5 : 0) : tile.mode === "hidden" && tile.inLayer ? 0.5 : 1
             InkIcon {
                 id: rowIcon
+                layout: editor
                 record: tile.record
                 anchors.verticalCenter: parent.verticalCenter
             }
@@ -2361,8 +2252,13 @@ Item {
                 Layout.fillWidth: true
                 Layout.preferredWidth: 1
                 Layout.alignment: Qt.AlignTop
-                record: panel.record
+                value: panel.record ? panel.record.mode : ""
                 withTray: panel.trayIcon
+                animate: editor.bar.animationsEnabled
+                onChosen: function (mode) {
+                    if (panel.record)
+                        editor.setPlacement(panel.record, panel.record.section, mode);
+                }
             }
 
             // Its zone, shortcut, activity and group.
@@ -2499,127 +2395,6 @@ Item {
             activeFocusOnTab: panel.shown
             onActiveFocusChanged: if (activeFocus)
                 (panel.lastInside === panel.lastControl() ? layerPicker : panel.lastControl()).forceActiveFocus(Qt.TabFocusReason)
-        }
-    }
-
-    // The layers as a list of sheets: the widget's own is filled. One Tab
-    // stop; j and k move the widget down or up a layer at once.
-    component LayerPicker: Item {
-        id: picker
-        property var record: null
-        property bool withTray: false
-        readonly property var options: [
-            {
-                value: "shown",
-                label: "On the bar"
-            },
-            {
-                value: "managed",
-                label: "On demand"
-            },
-            {
-                value: "hidden",
-                label: "Hidden"
-            }
-        ].concat(withTray ? [
-            {
-                value: "tray",
-                label: "In the tray"
-            }
-        ] : [])
-        readonly property string value: record ? record.mode : ""
-        readonly property var keyHints: [
-            {
-                keys: "j k",
-                label: "Down or up a layer"
-            }
-        ]
-        activeFocusOnTab: true
-        implicitHeight: rows.implicitHeight
-        Accessible.role: Accessible.List
-        Accessible.name: "Layer"
-        function choose(mode) {
-            if (record)
-                editor.setPlacement(record, record.section, mode);
-        }
-        function step(dy) {
-            var i = options.findIndex(function (o) {
-                return o.value === picker.value;
-            });
-            var next = Math.max(0, Math.min(options.length - 1, i + dy));
-            if (next !== i)
-                choose(options[next].value);
-        }
-        Keys.onPressed: function (event) {
-            var t = event.text;
-            if (event.key === Qt.Key_Down || t === "j")
-                step(1);
-            else if (event.key === Qt.Key_Up || t === "k")
-                step(-1);
-            else
-                return;
-            event.accepted = true;
-        }
-        Column {
-            id: rows
-            width: parent.width
-            spacing: 0
-            Text {
-                text: "Layer"
-                textFormat: Text.PlainText
-                color: Qt.alpha(Commons.Color.popups.text, 0.55)
-                font.family: Style.font.family
-                font.pixelSize: Style.font.caption
-                bottomPadding: Style.space(6)
-            }
-            Repeater {
-                model: picker.options
-                Rectangle {
-                    id: row
-                    required property var modelData
-                    readonly property bool chosen: modelData.value === picker.value
-                    width: rows.width
-                    height: Style.space(30)
-                    radius: Math.min(Style.space(5), Style.cornerRadius)
-                    color: chosen ? Qt.alpha(Commons.Color.accent, 0.28) : rowMouse.containsMouse ? Qt.alpha(Commons.Color.popups.text, 0.06) : "transparent"
-                    Behavior on color {
-                        enabled: editor.bar.animationsEnabled
-                        ColorAnimation {
-                            duration: 90
-                        }
-                    }
-                    // The sheet, seen in the layers' perspective.
-                    Rectangle {
-                        x: Style.space(18)
-                        anchors.verticalCenter: parent.verticalCenter
-                        width: Style.space(34)
-                        height: Style.space(10)
-                        radius: Style.space(2)
-                        color: row.chosen ? Commons.Color.accent : "transparent"
-                        border.width: 1
-                        border.color: row.chosen ? Qt.alpha(Commons.Color.accent, 0.9) : Qt.alpha(Commons.Color.popups.text, 0.4)
-                        transform: Matrix4x4 {
-                            matrix: Qt.matrix4x4(1, -0.84, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1)
-                        }
-                    }
-                    Text {
-                        x: Style.space(56)
-                        anchors.verticalCenter: parent.verticalCenter
-                        text: row.modelData.label
-                        textFormat: Text.PlainText
-                        color: Qt.alpha(Commons.Color.popups.text, row.chosen ? 1 : 0.7)
-                        font.family: Style.font.family
-                        font.pixelSize: Style.font.body
-                    }
-                    MouseArea {
-                        id: rowMouse
-                        anchors.fill: parent
-                        hoverEnabled: true
-                        cursorShape: Qt.PointingHandCursor
-                        onClicked: picker.choose(row.modelData.value)
-                    }
-                }
-            }
         }
     }
 
