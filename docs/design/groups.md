@@ -21,10 +21,12 @@ motion for strips and menus follow the spacing design ([spacing.md](spacing.md),
 Keyboard opening leaves rows unselected until
 the user navigates; reopening never carries a cursor highlight forward.
 
-Groups preferences (`GroupsPreferences.qml`)
-are a bento page: a shelf of the groups drawn as the bar draws them, the selected
-group's settings in a three-column grid whose rows line up, then its drawer drawn
-exactly as it opens beside the widgets not in a group. They provide creation,
+Groups preferences (`GroupsEditor.qml`, logic in `GroupsEditorModel.js`)
+are drawn like the Layout page, under the same camera (`CameraShaft.qml`): a
+rail of the five zones holding every group's face where the bar puts it, each
+group's drawer hanging under its face, the widgets in no group as one tilted
+slab at the bottom, and the chosen group's inspector at the bottom right. They
+provide creation,
 deletion, labels, icons, positions, widget assignment, transfer, and ordering.
 The icon picker (`IconPicker.qml`, `IconSearch.js`) searches the glyphs your
 widgets draw, Omarchy's own font, the Nerd Font glyphs Omarchy uses
@@ -36,10 +38,11 @@ or path. A chosen glyph keeps its font (`iconFont`); your own image is copied to
 (`GroupFace.qml`). Deleting a group restores its widgets' prior
 visibility and placement. Explicitly hidden widgets remain hidden.
 
-Layout (`LayoutEditor.qml`) and Groups (`GroupsPreferences.qml`) share one
+Layout (`LayoutEditor.qml`) and Groups (`GroupsEditor.qml`) share one
 interaction model: a keyboard cursor, Space to pick an item up, movement to
 preview where it lands, Space or release to drop, Esc to put it back. Layout uses
-zones and visibility rows; Groups uses ordered member and available lists. Group
+zones and visibility rows; Groups uses the drawers, the pool and each zone's
+"+" (a new group). Group
 headers appear in Layout with their saved face. Their visibility is independent of their members;
 member activity reveals a managed group header.
 

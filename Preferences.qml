@@ -966,10 +966,9 @@ Item {
                         id: groupsPage
                         active: prefs.pagesLoaded && !!layoutPage.item
                         sourceComponent: Component {
-                            GroupsPreferences {
+                            GroupsEditor {
                                 preferences: prefs
                                 layout: layoutPage.item
-                                columns: BentoModel.columnsFor(card.width / Style.spacing.scale)
                             }
                         }
                         onLoaded: if (prefs.pendingGroupId) {

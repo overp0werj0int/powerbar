@@ -29,7 +29,7 @@ large cost, but its GPU and disk timings need measurement.
 | P2 | Global registries, groups, and activity maps broaden dependencies | `Bar.qml:31–52`, `167–225`, `698`, `3265` | Retain records and use local revisions/indexes |
 | P2 | Ink measurement and placement can repeat through geometry changes | `HighlightModel.js:64`, `Bar.qml:3329`, `3507–3664` | Explicit ink hints, localized invalidation, one placement flush per dirty item |
 | P2 | Tray repeatedly classifies items and has unconditional row layers | `widgets/Tray.qml:23–25`, `167`, `292`, `375` | Classify once, reconcile stable item models, measure layer removal |
-| P2 | Preferences rebuilds drag preview arrays and hidden pages remain live | `LayoutEditor.qml:64`, `GroupsPreferences.qml:515`, `Preferences.qml:355` | Stable preview delegates and demand-driven page work |
+| P2 | Preferences rebuilds drag preview arrays and hidden pages remain live | `LayoutEditor.qml:64`, `GroupsPreferences.qml:515` (since replaced by GroupsEditor.qml), `Preferences.qml:355` | Stable preview delegates and demand-driven page work |
 | P3 | Repeated popup discovery, tooltip polling, and redundant injections | `Bar.qml:1158`, `2034`, `3460–3489`, `3742` | Cache safe discovery, replace proven redundant work, preserve lifecycle guards |
 | P3 | Transparent surface area, effects, and clips may limit GPU throughput | `Bar.qml:2121`, `EffectSurface.qml`, `AnimatedSlot.qml:24` | Profile scene graph/compositor costs before changing rendering primitives |
 
