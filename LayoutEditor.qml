@@ -1013,6 +1013,7 @@ Item {
         property real capFade: 0
         property real span: Model.tiltedDepth(editor.stack.height + Style.space(8), editor.tilt, editor.planeDistance)
         property real edge: 1.5 / Math.max(1, width / 2)
+        property real taper: 0.3
         fragmentShader: Qt.resolvedUrl("shaders/beam.frag.qsb")
     }
     // The camera's eye under the notch, named below it. The beam is black
@@ -1076,9 +1077,6 @@ Item {
         readonly property real y0: editor.stackTop - editor.centerTileRaise
         readonly property real x1: sideDot.x + sideDot.width / 2
         readonly property real y1: sideDot.y + sideDot.height / 2
-        readonly property real exit: Model.leaderExit(x0, y0, x1, y1, editor.axis, shaft.half, shaft.line, editor.tilt, editor.planeDistance)
-        readonly property real xExit: x0 + (x1 - x0) * exit
-        readonly property real yExit: y0 + (y1 - y0) * exit
         visible: shaft.visible
         z: 115
         // A Shape draws nothing outside its own box: this one reaches up to
@@ -1088,26 +1086,13 @@ Item {
         width: editor.width
         height: editor.height - editor.pageTop
         ShapePath {
-            strokeColor: Qt.rgba(1, 1, 1, 0.55)
+            strokeColor: Commons.Color.accent
             strokeWidth: 1
             strokeStyle: ShapePath.DashLine
             dashPattern: [4, 4]
             fillColor: "transparent"
             startX: leader.x0
             startY: leader.y0 - leader.y
-            PathLine {
-                x: leader.xExit
-                y: leader.yExit - leader.y
-            }
-        }
-        ShapePath {
-            strokeColor: Commons.Color.accent
-            strokeWidth: 1
-            strokeStyle: ShapePath.DashLine
-            dashPattern: [4, 4]
-            fillColor: "transparent"
-            startX: leader.xExit
-            startY: leader.yExit - leader.y
             PathLine {
                 x: leader.x1
                 y: leader.y1 - leader.y
@@ -1877,7 +1862,7 @@ Item {
         BorderSurface {
             anchors.fill: parent
             anchors.margins: Style.space(3)
-            visible: cell.list.length === 0 && cell.cursorHere && editor.gridFocused
+            visible: cell.flows && cell.list.length === 0 && cell.cursorHere && editor.gridFocused
             antialiasing: true
             color: "transparent"
             radius: Math.max(0, cell.radius - Style.space(3))

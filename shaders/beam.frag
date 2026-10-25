@@ -19,21 +19,25 @@ layout(std140, binding = 0) uniform buf {
     float capFade; // v where it has fully become the beam
     float span;    // v where the beam has faded out
     float edge;    // the soft edge across, in u (about a pixel)
+    float taper;   // how wide the beam still is where it fades out, 0..1
 };
 
 void main() {
     float u = qt_TexCoord0.x * 2.0 - 1.0;
     float au = abs(u);
     float v = mix(vTop, vBottom, qt_TexCoord0.y);
-    // Across: a raised cosine, flat in the middle and soft to the edges.
-    float across = 0.5 + 0.5 * cos(3.14159265 * min(au, 1.0));
+    // Down the page: full at the top, gone at the end, no slope at either.
+    float t = clamp(v / max(span, 1.0), 0.0, 1.0);
+    float down = 1.0 - t * t * (3.0 - 2.0 * t);
+    // Across: a raised cosine, flat in the middle and soft to the edges,
+    // as wide as the cap where the beam leaves it and narrowing down the
+    // page like a flame.
+    float wide = mix(1.0, taper, t);
+    float across = 0.5 + 0.5 * cos(3.14159265 * min(au / wide, 1.0));
     // The cap is solid and full width; it becomes the beam gradually.
     float cap = 1.0 - smoothstep(capEnd, capFade, v);
     float shape = mix(across, 1.0, cap);
     float level = mix(peak, 1.0, cap);
-    // Down the page: full at the top, gone at the end, no slope at either.
-    float t = clamp(v / max(span, 1.0), 0.0, 1.0);
-    float down = 1.0 - t * t * (3.0 - 2.0 * t);
     float a = shape * level * down;
     // A soft edge across, so the tilted sides do not step.
     a *= 1.0 - smoothstep(1.0 - edge, 1.0, au);
