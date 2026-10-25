@@ -747,14 +747,15 @@ Item {
                     id: focusRing
                     readonly property Item focused: card.Window.activeFocusItem
                     readonly property Item target: prefs.opened && focused && focused !== card && !focused.ownsFocusRing && focused.width > 0 && focused.height > 0 && focusRing.onPages(focused) ? focused : null
-                    readonly property real pad: Style.space(3)
+                    readonly property real pad: Style.space(5)
                     property bool gliding: false
                     // Visibility lives on the clipping parent; a child's own `visible`
                     // reads false while its parent is hidden, so it cannot drive it.
                     readonly property bool shown: !!target && target.visible
                     color: "transparent"
-                    radius: Style.cornerRadius + pad
-                    borderSpec: Border.flat(Commons.Color.accent, Math.max(1, Style.space(2)))
+                    // A hairline in the theme's own shape: square on a square theme.
+                    radius: Style.cornerRadius > 0 ? Style.cornerRadius + pad : 0
+                    borderSpec: Border.flat(Commons.Color.accent, 1)
                     onTargetChanged: {
                         gliding = true;
                         glideEnd.restart();

@@ -107,7 +107,7 @@ GridLayout {
           x: map.span(index).x
           width: map.span(index).width
           height: map.cellHeight
-          radius: Style.space(4)
+          radius: Math.min(Style.space(4), Style.cornerRadius)
           color: chosen ? Style.selectedFillFor(Commons.Color.popups.text, Commons.Color.accent)
             : cellMouse.containsMouse ? Style.hoverFillFor(Commons.Color.popups.text, Commons.Color.accent)
             : Qt.alpha(Commons.Color.popups.text, 0.07)
@@ -146,7 +146,7 @@ GridLayout {
         x: before.x + before.width + map.gap
         width: map.cameraWidth
         height: map.cellHeight
-        radius: Style.space(4)
+        radius: Math.min(Style.space(4), Style.cornerRadius)
         color: "black"
         Rectangle {
           anchors.centerIn: parent

@@ -927,14 +927,14 @@ Item {
         }
     }
 
-    // The camera's beam: from the real notch down through every layer, behind
-    // them. It is drawn on the bar layer's own plane, as wide as Center, so
-    // its edges run on the lines that layer's Center tile edges lie on and
-    // spread with them as they come near; blurred, black fading out towards
-    // the last layer's bottom (PREFS-24). The beam is a rectangle tilted
-    // exactly as the plates are, cut at the page's top and the stack's
-    // bottom in the plane's own coordinates.
-    Item {
+    // The camera's beam: the notch's cap, solid black from the page's top,
+    // giving way to a soft beam that falls through the layers behind them
+    // and fades out under the last (PREFS-24). One shade (shaders/beam.frag)
+    // draws it on the bar layer's own plane, as wide as Center, so its edges
+    // run on the lines that layer's Center tile edges lie on; the Center
+    // tiles it falls on draw the same shade over their own surface, so
+    // nothing steps where a tile meets a gap.
+    BeamShade {
         id: shaft
         readonly property real half: editor.columns.widths[3] / 2
         // The line the bar layer turns about (its top edge), the page's top
@@ -942,107 +942,13 @@ Item {
         readonly property real line: editor.stackTop
         readonly property real beamTop: editor.pageTop
         readonly property real beamBottom: editor.stackTop + editor.stack.height + Style.space(8)
-        readonly property real pad: Style.space(20)
-        readonly property real spread: Model.tiltedSpread(half, beamBottom - line, editor.tilt, editor.planeDistance)
         visible: editor.previewCamera && !!editor.previewNotch
         z: -1
-        x: editor.axis - spread - pad
-        y: beamTop - pad
-        width: 2 * (spread + pad)
-        height: Math.max(0, beamBottom - beamTop + 2 * pad)
-        layer.enabled: visible
-        layer.smooth: true
-        // The fade down the page is a mask over the beam, so the beam
-        // itself can fade across, as light does. No blur: its softness is
-        // the gradients', which stay smooth where a blur steps.
-        layer.effect: MultiEffect {
-            maskEnabled: true
-            maskSource: fade
-            maskThresholdMin: 0.5
-            maskSpreadAtMin: 1
-        }
-        Rectangle {
-            id: fade
-            anchors.fill: parent
-            visible: false
-            layer.enabled: true
-            gradient: Gradient {
-                GradientStop {
-                    position: 0
-                    color: "white"
-                }
-                GradientStop {
-                    position: 0.7
-                    color: Qt.rgba(1, 1, 1, 0.7)
-                }
-                GradientStop {
-                    position: 1
-                    color: "transparent"
-                }
-            }
-        }
-        Rectangle {
-            id: beam
-            antialiasing: true
-            // The plane's own coordinates for the beam's ends: it starts
-            // behind the bar layer's Center tile, under the notch's cap.
-            readonly property real vTop: 0
-            readonly property real vBottom: Model.tiltedDepth(shaft.beamBottom - shaft.line, editor.tilt, editor.planeDistance)
-            x: shaft.pad + shaft.spread - shaft.half
-            y: shaft.line - shaft.y + vTop
-            width: 2 * shaft.half
-            height: Math.max(0, vBottom - vTop)
-            transform: Rotation {
-                axis {
-                    x: 1
-                    y: 0
-                    z: 0
-                }
-                origin.x: shaft.half
-                origin.y: -beam.vTop
-                distanceToPlane: editor.planeDistance
-                angle: editor.tilt
-            }
-            // Darkest down its middle, thinning towards the cone's edges.
-            gradient: Gradient {
-                orientation: Gradient.Horizontal
-                GradientStop {
-                    position: 0
-                    color: "transparent"
-                }
-                GradientStop {
-                    position: 0.25
-                    color: Qt.rgba(0, 0, 0, 0.75)
-                }
-                GradientStop {
-                    position: 0.5
-                    color: "black"
-                }
-                GradientStop {
-                    position: 0.75
-                    color: Qt.rgba(0, 0, 0, 0.75)
-                }
-                GradientStop {
-                    position: 1
-                    color: "transparent"
-                }
-            }
-        }
-    }
-    // The notch's own black, crisp and full across the beam's width, from
-    // the page's top to the first layer's Center tile, behind which the
-    // beam takes over.
-    Rectangle {
-        id: notchCap
-        antialiasing: true
-        color: "black"
-        readonly property real vTop: Model.tiltedDepth(shaft.beamTop - shaft.pad - shaft.line, editor.tilt, editor.planeDistance)
-        readonly property real vBottom: Model.tiltedDepth(editor.stackTop + Style.space(2) - shaft.line, editor.tilt, editor.planeDistance)
-        visible: shaft.visible
-        z: -1
-        x: editor.axis - shaft.half
-        y: shaft.line + vTop
-        width: 2 * shaft.half
+        vTop: Model.tiltedDepth(beamTop - line, editor.tilt, editor.planeDistance)
+        vBottom: Model.tiltedDepth(beamBottom - line, editor.tilt, editor.planeDistance)
+        x: editor.axis - half
+        y: line + vTop
+        width: 2 * half
         height: Math.max(0, vBottom - vTop)
         transform: Rotation {
             axis {
@@ -1051,10 +957,27 @@ Item {
                 z: 0
             }
             origin.x: shaft.half
-            origin.y: -notchCap.vTop
+            origin.y: -shaft.vTop
             distanceToPlane: editor.planeDistance
             angle: editor.tilt
         }
+    }
+    // The beam's shade: black, solid across the cap, a raised cosine across
+    // the beam, fading down the page with no slope at either end, dithered.
+    // vTop and vBottom say where the item lies down the bar layer's plane
+    // (Model.tiltedDepth from its top edge), so every item drawing it
+    // continues the same function.
+    component BeamShade: ShaderEffect {
+        property real vTop: 0
+        property real vBottom: 0
+        property real peak: editor.lightTheme ? 0.5 : 0.65
+        // The cap stays solid past the camera's caption, then becomes the
+        // beam by the bar layer's Center tile.
+        property real capEnd: Model.tiltedDepth(editor.pageTop + Style.space(56) - editor.stackTop, editor.tilt, editor.planeDistance)
+        property real capFade: 0
+        property real span: Model.tiltedDepth(editor.stack.height + Style.space(8), editor.tilt, editor.planeDistance)
+        property real edge: 1.5 / Math.max(1, width / 2)
+        fragmentShader: Qt.resolvedUrl("shaders/beam.frag.qsb")
     }
     // The camera's eye under the notch, named below it. The beam is black
     // on every theme, so both are drawn in white.
@@ -1630,6 +1553,7 @@ Item {
                     required property string modelData
                     section: modelData
                     mode: plate.mode
+                    seenTop: editor.stackTop + plate.y
                     x: editor.column(modelData).x
                     width: editor.column(modelData).width
                     height: face.height
@@ -1752,6 +1676,8 @@ Item {
         property string section: ""
         property string mode: ""
         property bool flows: false
+        // Where the tile's plate top is seen, for the beam's shade.
+        property real seenTop: 0
         readonly property bool trayCell: mode === "tray"
         readonly property var tiles: chipTiles
         readonly property var list: editor.cellList(section, mode)
@@ -1765,8 +1691,8 @@ Item {
         readonly property real pad: editor.tilePad
         readonly property real radius: Math.min(Style.space(10), Style.cornerRadius)
         readonly property real topRadius: capped ? 0 : radius
-        // The cursor's tile rises a little off its layer, its edge staying
-        // put below (PREFS-104); the leader follows the rise.
+        // The cursor's tile rises a little off its layer (PREFS-104); the
+        // leader follows the rise.
         property real raise: cursorHere && !trayCell ? Style.space(5) : 0
         Behavior on raise {
             enabled: editor.bar.animationsEnabled
@@ -1783,11 +1709,12 @@ Item {
         Component.onDestruction: cellRepeater.unregister(this)
         onListChanged: Qt.callLater(editor.refreshInspected)
 
-        // The slab's thickness, below it. Edges under the tilt are drawn
+        // The slab's thickness, below it, the same on every tile: a raised
+        // tile takes its edge with it. Edges under the tilt are drawn
         // antialiased, or they step.
         Rectangle {
             visible: !cell.trayCell
-            y: Style.space(6) + cell.raise
+            y: Style.space(6)
             width: parent.width
             height: parent.height
             radius: cell.radius
@@ -1803,9 +1730,18 @@ Item {
             radius: cell.radius
             topLeftRadius: cell.topRadius
             topRightRadius: cell.topRadius
-            color: cell.trayCell ? "transparent" : Qt.tint(Qt.tint(Qt.rgba(Commons.Color.popups.background.r, Commons.Color.popups.background.g, Commons.Color.popups.background.b, 1), Qt.alpha(Commons.Color.popups.text, cell.mode === "shown" ? 0.09 : 0.065)), cell.shaft ? Qt.rgba(0, 0, 0, 0.35) : "transparent")
+            color: cell.trayCell ? "transparent" : Qt.tint(Qt.rgba(Commons.Color.popups.background.r, Commons.Color.popups.background.g, Commons.Color.popups.background.b, 1), Qt.alpha(Commons.Color.popups.text, cell.mode === "shown" ? 0.09 : 0.065))
             // An empty tile waiting for a drop is outlined the way a landing place is.
             borderSpec: cell.trayCell ? Border.none() : cell.targeted && cell.list.length === 1 ? Border.flat(Commons.Color.accent, 1) : Border.flat(Qt.alpha(Commons.Color.popups.text, 0.12), 1)
+        }
+        // The beam falling on a Center tile, over its surface and under its
+        // chips, continuing the shade the gaps show.
+        // (The beam's own id is shadowed here by the cell's `shaft` flag.)
+        BeamShade {
+            visible: cell.shaft && editor.previewCamera && !!editor.previewNotch
+            anchors.fill: parent
+            vTop: Model.tiltedDepth(cell.seenTop - editor.stackTop, editor.tilt, editor.planeDistance)
+            vBottom: Model.tiltedDepth(cell.seenTop + Model.tiltedHeight(cell.height, editor.tilt, editor.planeDistance) - editor.stackTop, editor.tilt, editor.planeDistance)
         }
         // The tray's dashed edge.
         Shape {
