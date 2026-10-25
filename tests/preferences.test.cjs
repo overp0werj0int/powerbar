@@ -297,6 +297,27 @@ test('a tilted layer keeps its middle line, its top recedes and its bottom comes
   assert.equal(flat.above, 100);
   assert.equal(flat.below, 100);
 });
+
+test('a beam on a tilted plane runs on the lines its edges are seen on', () => {
+  // The plane's top edge is seen `above` over the middle line: asking for
+  // that seen height gives the edge back.
+  const e = model.tiltedExtent(141, 34, 1600);
+  assert.ok(Math.abs(model.tiltedDepth(-e.above, 34, 1600) + 70.5) < 1e-9);
+  assert.ok(Math.abs(model.tiltedDepth(e.below, 34, 1600) - 70.5) < 1e-9);
+  // A line 95.5 out keeps its distance on the middle line, draws in above it
+  // and spreads below it, by the same slope as the plane's own edges.
+  assert.equal(model.tiltedSpread(95.5, 0, 34, 1600), 95.5);
+  const top = model.tiltedSpread(95.5, -e.above, 34, 1600);
+  const bottom = model.tiltedSpread(95.5, e.below, 34, 1600);
+  assert.ok(top < 95.5 && bottom > 95.5);
+  // Where the edge is seen: u / (1 - v sin / d) with v the edge itself.
+  const s = Math.sin(34 * Math.PI / 180);
+  assert.ok(Math.abs(top - 95.5 / (1 + 70.5 * s / 1600)) < 1e-9);
+  assert.ok(Math.abs(bottom - 95.5 / (1 - 70.5 * s / 1600)) < 1e-9);
+  // Flat, nothing moves.
+  assert.equal(model.tiltedDepth(-300, 0, 1600), -300);
+  assert.equal(model.tiltedSpread(95.5, 600, 0, 1600), 95.5);
+});
 test('on the layers j and k walk a zone and go on to the next layer, h and l change zone', () => {
   const items = { 'left:shown': 3, 'centerBegin:shown': 1, 'left:managed': 2, 'right:hidden': 0 };
   const count = (c, m) => items[c + ':' + m] || 0;

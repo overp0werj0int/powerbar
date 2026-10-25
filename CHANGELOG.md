@@ -6,13 +6,15 @@
   the screen under the bar. On the bar, On demand, Hidden and the tray are
   plates tilted back in perspective, each with its name, its five zones as
   tiles of one width mirrored about the screen's middle (Center under the
-  camera on a notched screen, with the camera's shaft running down through
-  the layers), and the widgets as small chips. Enter or a click pulls a chip
-  forward on a dashed leader to an inspector at the front, where its layer
-  (j/k), zone, shortcut, activity peek and group are set; Esc pushes it
-  back. Resting the pointer on a chip shows its full name and id. h and l
-  change zone; j and k walk a zone and carry on into the next layer, with
-  or without a chip picked up. With animations off the layers lie flat.
+  camera on a notched screen, with the camera's beam shed down through the
+  layers on Center's own lines, blurred), and the widgets as small chips.
+  Enter or a click pulls a chip forward on a dashed leader to an inspector
+  at the front, where its layer (j/k), zone, shortcut, activity peek and
+  group are set; Esc pushes it back. The keys are a legend at the bottom
+  left, beside the inspector. Resting the pointer on a chip shows its full
+  name and id. h and l change zone; j and k walk a zone and carry on into
+  the next layer, with or without a chip picked up. With animations off
+  the layers lie flat.
 - **A zone's dots are a small circle.** With five zones a bar could carry
   five sets of three dots; each zone now marks its waiting widgets with
   one small, quiet empty circle, on horizontal and vertical bars alike,

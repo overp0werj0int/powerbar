@@ -1523,7 +1523,10 @@ Item {
                 }
 
                 // ---------------------------------------------------------- footer
+                // A page that draws its own key legend (Layout) has no footer
+                // unless a save failed.
                 RowLayout {
+                    visible: prefs.hints.length > 0 || prefs.status !== ""
                     Layout.fillWidth: true
                     Layout.topMargin: Style.space(8)
                     spacing: Style.space(18)

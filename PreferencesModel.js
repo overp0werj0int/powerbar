@@ -183,6 +183,21 @@ function stackLayers(heights, angle, distance, gap) {
   })
   return { layers: layers, height: Math.max(0, y - gap) }
 }
+// Lines on a tilted plane. A point `v` down the plane from its middle line
+// is seen `v cos / (1 - v sin / d)` below it, and a line `u` from the axis
+// is seen `u / (1 - v sin / d)` from it: both scale alike, so a line down
+// the plane is seen as a straight line that spreads as it comes near.
+// tiltedDepth: the plane's own `v` for a seen `y` (so a shape drawn on the
+// plane can start and end at seen heights); tiltedSpread: how far from the
+// axis a line `u` out is seen at seen height `y`.
+function tiltedDepth(y, angle, distance) {
+  var a = angle * Math.PI / 180
+  return y * distance / (Math.cos(a) * distance + y * Math.sin(a))
+}
+function tiltedSpread(u, y, angle, distance) {
+  var a = angle * Math.PI / 180
+  return u * (1 + Math.sin(a) * y / (Math.cos(a) * distance))
+}
 // Cursor and lift steps on the layers, where a zone's items run down its
 // well: dx changes zone on the same layer (keeping the row where it can), dy
 // walks the zone's list and, past its ends, goes on into the same zone on the

@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Window
 import QtQuick.Layouts
 import QtQuick.Shapes
+import QtQuick.Effects
 import Quickshell
 import qs.Commons
 import qs.Commons as Commons
@@ -91,6 +92,8 @@ Item {
     readonly property real chipGap: Style.space(3)
     readonly property real nameRow: Style.space(20)
     readonly property real minPlate: Style.space(52)
+    // A clear band between the header and the first layer.
+    readonly property real stackTop: Style.space(36)
     // The screen's middle (the camera's axis) in the editor, measured: the
     // page may not be centred on it.
     property real axis: width / 2
@@ -402,7 +405,11 @@ Item {
     }
     readonly property bool gridFocused: within(focused, sheet)
     readonly property bool inspectorFocused: within(focused, inspector)
-    readonly property var hints: lifted ? [
+    // The keys for what has focus, drawn as a legend at the page's bottom
+    // left (PREFS-103) rather than in the footer: the header already shows
+    // the pages' digits and esc Close.
+    readonly property var hints: []
+    readonly property var legend: lifted ? [
         {
             keys: "j k",
             label: "Along the zone, on to the next layer"
@@ -422,7 +429,7 @@ Item {
     ] : gridFocused ? [
         {
             keys: "h l",
-            label: "Along the layer"
+            label: editor.previewCamera ? "Along the layer, across the camera" : "Along the layer"
         },
         {
             keys: "j k",
@@ -434,25 +441,22 @@ Item {
         },
         {
             keys: "enter",
-            label: inspecting ? "Push it back" : "Pull forward to inspect"
+            label: inspecting ? "Push it back" : "Pull it forward to inspect"
         },
         {
             keys: "x",
-            label: "Send to the hidden layer"
+            label: "Send it to the hidden layer"
         },
         {
             keys: "tab",
             label: "Next layer"
-        },
-        {
-            keys: "1-3",
-            label: "Pages"
-        },
+        }
+    ].concat(inspecting ? [
         {
             keys: "esc",
-            label: inspecting ? "Push it back" : "Close"
+            label: "Push it back"
         }
-    ] : inspectorFocused ? [
+    ] : []) : inspectorFocused ? [
         {
             keys: "tab shift+tab",
             label: "Next, previous control"
@@ -475,14 +479,6 @@ Item {
         {
             keys: "tab",
             label: "The layers"
-        },
-        {
-            keys: "1-3",
-            label: "Pages"
-        },
-        {
-            keys: "esc",
-            label: "Close"
         }
     ]
 
@@ -842,19 +838,56 @@ Item {
         }
     }
 
-    // The camera's shaft: from the real notch, straight down through every
-    // layer, flat behind them. It ends where the sheet does.
+    // The camera's beam: from the real notch down through every layer, behind
+    // them. It is drawn on the bar layer's own plane, as wide as Center, so
+    // its edges run on the lines that layer's Center tile edges lie on and
+    // spread with them as they come near; blurred, black fading out towards
+    // the last layer's bottom (PREFS-24). The beam is a rectangle tilted
+    // exactly as the plates are, cut at the page's top and the stack's
+    // bottom in the plane's own coordinates.
     Item {
         id: shaft
+        readonly property real half: editor.columns.widths[3] / 2
+        // The bar layer's middle line, the page's top and the stack's bottom,
+        // in the editor.
+        readonly property real middle: editor.stackTop + (editor.stack.layers[0] ? editor.stack.layers[0].middle : 0) - sheet.contentY
+        readonly property real beamTop: editor.pageTop
+        readonly property real beamBottom: editor.stackTop + editor.stack.height - sheet.contentY + Style.space(8)
+        readonly property real pad: Style.space(20)
+        readonly property real spread: Model.tiltedSpread(half, beamBottom - middle, editor.tilt, editor.planeDistance)
         visible: editor.previewCamera && !!editor.previewNotch
         z: -1
-        x: editor.axis - width / 2
-        y: editor.pageTop
-        width: editor.previewNotch ? editor.previewNotch.width : 0
-        height: Math.max(0, editor.stack.height - sheet.contentY - y + Style.space(8))
-        clip: true
+        x: editor.axis - spread - pad
+        y: beamTop - pad
+        width: 2 * (spread + pad)
+        height: Math.max(0, beamBottom - beamTop + 2 * pad)
+        layer.enabled: visible
+        layer.effect: MultiEffect {
+            blurEnabled: true
+            blur: 1
+            blurMax: shaft.pad
+        }
         Rectangle {
-            anchors.fill: parent
+            id: beam
+            // The plane's own coordinates for the beam's ends; it starts
+            // above the page so its blurred top edge stays off screen.
+            readonly property real vTop: Model.tiltedDepth(shaft.beamTop - shaft.pad - shaft.middle, editor.tilt, editor.planeDistance)
+            readonly property real vBottom: Model.tiltedDepth(shaft.beamBottom - shaft.middle, editor.tilt, editor.planeDistance)
+            x: shaft.pad + shaft.spread - shaft.half
+            y: shaft.middle - shaft.y + vTop
+            width: 2 * shaft.half
+            height: Math.max(0, vBottom - vTop)
+            transform: Rotation {
+                axis {
+                    x: 1
+                    y: 0
+                    z: 0
+                }
+                origin.x: shaft.half
+                origin.y: -beam.vTop
+                distanceToPlane: editor.planeDistance
+                angle: editor.tilt
+            }
             gradient: Gradient {
                 GradientStop {
                     position: 0
@@ -870,39 +903,27 @@ Item {
                 }
             }
         }
-        Repeater {
-            model: 2
-            Column {
-                required property int index
-                x: index === 0 ? 0 : shaft.width - 1
-                spacing: Style.space(4)
-                Repeater {
-                    model: Math.ceil(shaft.height / Style.space(8))
-                    Rectangle {
-                        width: 1
-                        height: Style.space(4)
-                        color: Qt.alpha(Commons.Color.popups.text, 0.12)
-                    }
-                }
-            }
-        }
-        Text {
-            x: 0
-            y: Style.space(18)
-            width: parent.width
-            horizontalAlignment: Text.AlignHCenter
-            text: "camera"
-            textFormat: Text.PlainText
-            color: Qt.alpha(Commons.Color.popups.text, 0.4)
-            font.family: Style.font.family
-            font.pixelSize: Style.font.caption
-        }
+    }
+    Text {
+        visible: shaft.visible
+        z: -1
+        x: editor.axis - width / 2
+        y: editor.pageTop + Style.space(18)
+        width: Style.space(200)
+        horizontalAlignment: Text.AlignHCenter
+        text: "camera"
+        textFormat: Text.PlainText
+        color: Qt.alpha(Commons.Color.popups.text, 0.4)
+        font.family: Style.font.family
+        font.pixelSize: Style.font.caption
     }
 
-    // The layers, stacked down the sheet; it scrolls only when they outgrow it.
+    // The layers, stacked down the sheet under a clear band below the
+    // header; it scrolls only when they outgrow it.
     Flickable {
         id: sheet
         anchors.fill: parent
+        anchors.topMargin: editor.stackTop
         contentWidth: width
         contentHeight: editor.stack.height + (inspector.shown ? inspector.height + Style.space(48) : Style.space(8))
         boundsBehavior: Flickable.StopAtBounds
@@ -920,7 +941,7 @@ Item {
     Dropdown {
         visible: editor.screensDiffer
         anchors.right: parent.right
-        y: 0
+        y: editor.stackTop
         z: 5
         width: Math.max(Style.space(120), editor.columns.widths[6])
         label: "Preview"
@@ -1125,6 +1146,54 @@ Item {
     Inspector {
         id: inspector
         shown: editor.inspecting
+    }
+    // The key legend, bottom left beside the inspector: a column of keycaps
+    // and what they do for whatever has focus (PREFS-103).
+    GridLayout {
+        id: legend
+        anchors.left: parent.left
+        anchors.bottom: parent.bottom
+        anchors.bottomMargin: Style.space(8)
+        width: Math.max(Style.space(200), Math.min(Style.space(640), inspector.x - Style.space(32)))
+        z: 118
+        columns: 2
+        columnSpacing: Style.space(14)
+        rowSpacing: Style.space(10)
+        Repeater {
+            model: editor.legend
+            Row {
+                id: keysRow
+                required property var modelData
+                required property int index
+                Layout.row: index
+                Layout.column: 0
+                spacing: Style.space(4)
+                Repeater {
+                    model: String(keysRow.modelData.keys).split(" ")
+                    KeyCap {
+                        required property string modelData
+                        text: modelData
+                        anchors.verticalCenter: parent ? parent.verticalCenter : undefined
+                    }
+                }
+            }
+        }
+        Repeater {
+            model: editor.legend
+            Text {
+                required property var modelData
+                required property int index
+                Layout.row: index
+                Layout.column: 1
+                Layout.fillWidth: true
+                text: modelData.label
+                textFormat: Text.PlainText
+                color: Qt.alpha(Commons.Color.popups.text, 0.7)
+                font.family: Style.font.family
+                font.pixelSize: Style.font.body
+                elide: Text.ElideRight
+            }
+        }
     }
 
     // One layer: a plate tilted back about its middle line, holding the
