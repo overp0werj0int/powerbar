@@ -228,12 +228,13 @@ whatever has focus):
   shortcut. A fourth
   shelf, In the tray, lists the icons in Omarchy's tray: drag one onto a
   shelf above to move it out of the tray, or back to return it.
-- **Groups**: the same camera and columns as Layout, with a rail of the five
-  zones holding every group's face where the bar puts it (on demand ones with
-  a ring, hidden ones dashed), one drawer under each zone showing the group
-  whose face you choose (the faces are its tabs) and the widgets in no group
-  as one tilted slab at the bottom. Pick up a widget and drop it in a drawer,
-  on a face, the slab or a zone's "+" (a new group there);
+- **Groups**: the Layout page's camera over three of its tilted plates. The
+  first holds every group's face where the bar puts it, a row each in its
+  zone's tile (on demand ones with a ring, hidden ones dashed; four in view,
+  more scroll) with a "+" under them; the second is each zone's drawer,
+  showing the group whose face you choose (the faces are its tabs); the third
+  is the widgets in no group, in bar order. Pick up a widget and drop it in a
+  drawer, on a face, the slab or a zone's "+" (a new group there);
   the inspector at the bottom right holds the chosen group's name, how it
   shows, its layer, zone, icon (your widgets' glyphs, Omarchy's icons and
   emoji, or your own SVG or PNG) and shortcut.
@@ -250,8 +251,8 @@ whatever has focus):
 | Forms | `j` / `k` move between controls, `h` / `l` adjust, Space / Enter toggle or choose |
 | Sliders | `h` / `l` step (Shift or Page Up / Down for larger steps), Home / End for the ends, Backspace for the default, Enter applies at once, Esc undoes a value not yet applied |
 | Layout shelves | `h` `j` `k` `l` move; Space picks up a widget, then `h` / `l` move it and `j` / `k` change its shelf; Space or Enter drops it, Esc puts it back; Enter on a widget goes to its settings; `x` hides or restores; `g` on a group opens it on the Groups page |
-| Groups rail | `h` / `l` choose a face (each zone's "+" too), Shift+`h` / `l` move it to the next zone, Shift+`j` / `k` on the bar, on demand, hidden; `j` into its drawer and on to the slab; `n` makes a group, `x` twice dissolves it, Enter goes to its name |
-| Groups drawers and slab | `j` / `k` walk, `h` / `l` next drawer; Space picks up a widget, then `h` `j` `k` `l` move it through the open drawers, the slab, the faces and the "+" slots, Space drops it, Esc puts it back; Shift with `h` `j` `k` `l` moves it at once; `x` takes it out; on the slab Enter adds it to the chosen group and typing filters |
+| Groups faces | `h` / `l` the same row in the next zone, `j` / `k` down the zone's faces and its "+", then on to its drawer; Space picks up a face, `h` / `l` move it, Space drops it; Shift+`h` / `l` move it to the next zone at once, Shift+`j` / `k` on the bar, on demand, hidden; `n` makes a group, `x` twice dissolves it, Enter goes to its name |
+| Groups drawers and slab | `j` / `k` walk (a drawer's header too; from the header `k` back to the "+"), `h` / `l` the same row in the next drawer; Space picks up a widget, then `h` `j` `k` `l` move it through the drawers, the slab, the faces and the "+" rows, Space drops it, Esc puts it back; Shift with `h` `j` `k` `l` moves it at once; `x` takes it out; on the slab Enter adds it to the chosen group and typing filters |
 | Icon picker | Type to search, arrows move, Enter chooses, Tab changes the source, Ctrl+V pastes an image or a glyph |
 
 ## Keyboard mode
