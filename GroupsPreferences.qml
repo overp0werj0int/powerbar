@@ -305,7 +305,7 @@ Item {
               Layout.alignment: Qt.AlignVCenter
               stacked: !settingsGrid.roomy
               zones: pane.layout ? pane.layout.zoneChoices : []
-              cameraAfter: pane.layout && pane.layout.previewCamera ? "centerBegin" : ""
+              cameraOver: pane.layout && pane.layout.previewCamera ? "center" : ""
               noteFor: function(zone) { return pane.layout ? pane.layout.cameraNote(zone) : "" }
               value: pane.selectedGroup ? pane.selectedGroup.section : ""
               onChosen: function(value) { pane.edit({ section: value }) }

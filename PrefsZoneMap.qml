@@ -20,6 +20,8 @@ GridLayout {
   property string value: ""
   // The camera sits after this zone ("" for none).
   property string cameraAfter: ""
+  // Or over this zone, as the Layout page's layers draw it ("" for none).
+  property string cameraOver: ""
   // A note for a zone after its name, such as where it sits by the camera.
   property var noteFor: function(zone) { return "" }
   // What fills the chosen cell (the widget's icon), or nothing.
@@ -111,6 +113,16 @@ GridLayout {
             : Qt.alpha(Commons.Color.popups.text, 0.07)
           borderSpec: hot ? Border.controlSpec("focus", Commons.Color.popups.text, Commons.Color.accent)
             : chosen ? Border.flat(Qt.alpha(Commons.Color.popups.text, 0.35), 1) : Border.none()
+          Rectangle {
+            visible: row.cameraOver === zoneCell.modelData.value
+            anchors.top: parent.top
+            anchors.horizontalCenter: parent.horizontalCenter
+            width: Math.round(parent.width * 0.7)
+            height: Style.space(5)
+            color: "black"
+            bottomLeftRadius: Style.space(3)
+            bottomRightRadius: Style.space(3)
+          }
           Loader {
             anchors.centerIn: parent
             active: zoneCell.chosen && !!row.marker

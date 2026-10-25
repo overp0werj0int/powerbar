@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- **The Layout page is an exploded view of the bar.** On the bar, On
+  demand, Hidden and the tray are layers tilted back in perspective; the
+  one you work on lies nearly flat. The five zones are wells of one width,
+  mirrored about the screen's middle, so Center sits under the camera on
+  a notched screen (drawn as a black strip with a dark shaft under it)
+  and in its own place elsewhere. Widgets are one-width badges with their
+  icon and name; resting the pointer on one shows its full name and id.
+  h and l change zone, j and k walk a zone and carry on into the next
+  layer, with or without a widget picked up.
 - **A zone's dots are a small circle.** With five zones a bar could carry
   five sets of three dots; each zone now marks its waiting widgets with
   one small, quiet empty circle, on horizontal and vertical bars alike,

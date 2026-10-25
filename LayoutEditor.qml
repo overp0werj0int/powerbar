@@ -10,13 +10,15 @@ import "GroupsModel.js" as Groups
 import "ZoneFitNotice.js" as ZoneFitNotice
 import "AppearanceModel.js" as AppearanceModel
 import "CellModel.js" as CellModel
-import "ShelfModel.js" as ShelfModel
 
-// The bar's layout as tiles (docs/behavior/preferences.md): one shelf per visibility
-// (On the bar, On demand, Hidden), each holding the three zones in columns that
-// line up from shelf to shelf, then a tile with the selected widget's settings.
-// Preferences draws the bar horizontally whatever edge it is on; the zones are
-// named by where they are on screen.
+// The bar's layout as layers (docs/behavior/preferences.md PREFS-99): one per
+// visibility (On the bar, On demand, Hidden) and the tray, each holding the
+// five zones in columns of one width that line up from layer to layer, Center
+// on the screen's middle (under the camera on a notched screen), then a tile
+// with the selected widget's settings. The layers tilt back like the bar
+// exploded into its parts; the cursor's layer lies nearly flat. Preferences
+// draws the bar horizontally whatever edge it is on; the zones are named by
+// where they are on screen.
 //
 // Keyboard and pointer share one state machine: a cursor rests on an item or
 // an empty cell, Space (or a drag) lifts the item, moving it previews where it
@@ -52,10 +54,6 @@ Item {
   readonly property bool sideBar: !!bar && bar.vertical
   readonly property var zoneNames: ({ left: sideBar ? "Top" : "Left", centerBegin: sideBar ? "Above center" : "Left of center",
     center: "Center", centerEnd: sideBar ? "Below center" : "Right of center", right: sideBar ? "Bottom" : "Right", tray: "Tray" })
-  // A zone's share of the shelf's width (300/170/150/170/300 at 1100 px).
-  readonly property var zoneShares: ({ left: 30, centerBegin: 17, center: 15, centerEnd: 17, right: 30, tray: 1 })
-  // Which way a zone grows on the bar, so its items pack from that side: Left
-  // and Right of center hang off the box, Center is centred on the middle.
   // The screen the shelves picture: the bar is the same on every screen, but
   // a camera moves the center. Preferences' own screen unless another is picked.
   property string previewName: ""
@@ -63,6 +61,22 @@ Item {
   readonly property var previewScreen: screens.find(function(s) { return s.name === previewName }) || preferences.targetScreen || screens[0] || null
   function cameraOn(screen) { return !!bar && !sideBar && !!screen && !!bar.notchFor(screen) }
   readonly property bool previewCamera: cameraOn(previewScreen)
+  readonly property var previewNotch: previewCamera ? bar.notchFor(previewScreen) : null
+  // How far the layers tilt back, the cursor's layer, and the eye's distance
+  // to them (Qt's Rotation.distanceToPlane), in degrees and px.
+  readonly property real layerTilt: 32
+  readonly property real nearTilt: 8
+  readonly property real planeDistance: Style.space(1400)
+  // The layer that lies nearly flat: the cursor's, or where the lifted widget
+  // would land. A pointer drag keeps the one it started on, so no layer
+  // changes height under the pointer.
+  property string frozenNear: "shown"
+  readonly property string nearMode: pointerLift ? frozenNear : activeCell.mode
+  // The well being worked on: where the lifted widget would land, else the
+  // cursor's. Its zone's captions read brighter on every layer.
+  readonly property var activeCell: lifted && liftTarget ? liftTarget : cursorCell
+  // Every badge has one width, the width a zone's well leaves.
+  readonly property real chipWidth: Math.max(Style.space(80), shelfShown.columnWidth - 2 * Style.space(4))
   // Only screens that look different get a switcher.
   readonly property bool screensDiffer: screens.some(function(s) { return editor.cameraOn(s) }) && screens.some(function(s) { return !editor.cameraOn(s) })
   readonly property string barCaption: sideBar
@@ -75,8 +89,7 @@ Item {
     if (!previewCamera || zone === "left" || zone === "right") return ""
     return (zone === "centerBegin" ? "left of the camera" : "right of the camera") + (screensDiffer && previewScreen ? " on " + previewScreen.name : "")
   }
-  readonly property var zoneChoices: sections.map(function(s) { return { value: s, label: editor.zoneNames[s], share: editor.zoneShares[s] } })
-  function zonePack(zone) { return zone === "left" || zone === "centerEnd" ? "start" : zone === "right" || zone === "centerBegin" ? "end" : "middle" }
+  readonly property var zoneChoices: sections.map(function(s) { return { value: s, label: editor.zoneNames[s], share: 1 } })
   // Preferences draws a horizontal bar, at the size it has on a top edge.
   readonly property real barThickness: bar ? bar.barSizeFor(false) : Style.bar.sizeHorizontal
   readonly property real iconSize: Style.bar.sizeHorizontal
@@ -200,16 +213,13 @@ Item {
   readonly property var fitNotes: editor.bar ? ZoneFitNotice.lines(editor.bar.zoneFitReports) : []
   readonly property var shelfInfo: ({
     shown: { title: "On the bar", caption: fitNotes.length ? fitNotes.join(" ") : "Always visible" },
-    // Side by side on a side bar, the shelves have room for a few words.
-    managed: { title: "On demand", caption: sideBar ? (editor.bar && editor.bar.onDemandInline ? "Behind the dots"
-        : editor.bar && editor.bar.onDemandMenu ? "In the dots' menu" : "In a drawer")
-      : editor.bar && editor.bar.onDemandInline
+    managed: { title: "On demand", caption: editor.bar && editor.bar.onDemandInline
       ? "Behind the zone's dots; shown on activity, or when you hover the dots"
       : editor.bar && editor.bar.onDemandMenu
       ? "In a menu from the zone's dots; shown briefly on activity"
       : "In the zone's drawer when you hover it, or briefly on activity" },
     hidden: { title: "Hidden", caption: "Kept off the bar" },
-    tray: { title: "In the tray", caption: sideBar ? "" : "Omarchy's tray icons. Drag one onto a row above to place it like a widget" }
+    tray: { title: "In the tray", caption: "Omarchy's tray icons. Drag one onto a layer above to place it like a widget" }
   })
   // The zone a tray icon goes to when moved without a place: the tray's own.
   readonly property string trayZone: {
@@ -237,7 +247,7 @@ Item {
   readonly property bool gridFocused: shelfShown.focusItem.activeFocus || shelfManaged.focusItem.activeFocus || shelfHidden.focusItem.activeFocus
     || shelfTray.focusItem.activeFocus
   readonly property var hints: lifted ? [
-    { keys: sideBar ? "j k" : "h l", label: "Reorder" }, { keys: sideBar ? "h l" : "j k", label: "Shelf" },
+    { keys: "j k", label: "Move along, across layers" }, { keys: "h l", label: "Zone" },
     { keys: "space", label: "Drop" }, { keys: "esc", label: "Cancel" }
   ] : gridFocused ? [
     { keys: "h j k l", label: "Move" }, { keys: "space", label: "Pick up" },
@@ -254,7 +264,7 @@ Item {
   function focusFirst() { focusShelf(cursorCell.mode, Qt.TabFocusReason) }
   // Focus follows the cursor from shelf to shelf.
   function followCursor() {
-    var mode = lifted && liftTarget ? liftTarget.mode : cursorCell.mode
+    var mode = activeCell.mode
     if (gridFocused && !shelfFor(mode).focusItem.activeFocus) focusShelf(mode)
   }
   // The column a zone has on another shelf; the tray's one column meets the
@@ -309,12 +319,13 @@ Item {
   Timer { id: syncLater; interval: 0; onTriggered: editor.syncCursor() }
 
   function moveCursor(dx, dy) {
-    if (lifted) liftTarget = Model.stepLift(count, liftTarget, dx, dy, columnsFor, liftRows)
-    else place(Model.stepCursor(count, cursorCell, dx, dy, columnsFor, rows))
+    if (lifted) liftTarget = Model.stepLayerLift(count, liftTarget, dx, dy, columnsFor, liftRows)
+    else place(Model.stepLayer(count, cursorCell, dx, dy, columnsFor, rows))
     followCursor()
   }
   function lift(record, cell) {
     if (!record) return
+    frozenNear = cell.mode
     lifted = record
     liftOrigin = cell
     liftTarget = cell
@@ -363,12 +374,12 @@ Item {
   function keyPressed(event) {
     if (event.modifiers & (Qt.ControlModifier | Qt.AltModifier)) return
     var key = event.key, t = event.text
-    // Turned for a side bar, the zones run down and the shelves across:
-    // h and l change shelf, j and k walk the zones.
-    if (key === Qt.Key_Left || t === "h") sideBar ? moveCursor(0, -1) : moveCursor(-1, 0)
-    else if (key === Qt.Key_Right || t === "l") sideBar ? moveCursor(0, 1) : moveCursor(1, 0)
-    else if (key === Qt.Key_Up || t === "k") sideBar ? moveCursor(-1, 0) : moveCursor(0, -1)
-    else if (key === Qt.Key_Down || t === "j") sideBar ? moveCursor(1, 0) : moveCursor(0, 1)
+    // The layers are always drawn across: h and l change zone, j and k walk
+    // a zone's list and go on to the next layer at its ends.
+    if (key === Qt.Key_Left || t === "h") moveCursor(-1, 0)
+    else if (key === Qt.Key_Right || t === "l") moveCursor(1, 0)
+    else if (key === Qt.Key_Up || t === "k") moveCursor(0, -1)
+    else if (key === Qt.Key_Down || t === "j") moveCursor(0, 1)
     else if (key === Qt.Key_Space) {
       if (lifted) drop()
       else lift(cursorRecord, cursorCell)
@@ -406,15 +417,15 @@ Item {
     }
     return null
   }
-  // The gap under the pointer: before the first real tile the pointer has not
-  // passed, reading the wrapped rows top to bottom.
+  // The gap under the pointer: before the first real badge whose middle the
+  // pointer has not passed, reading the well top to bottom.
   function gapAt(cell, point) {
     var pos = 0
     for (var i = 0; cell.tiles && i < cell.tiles.count; i++) {
       var tile = cell.tiles.itemAt(i)
       if (!tile || tile.placeholder) continue
       var p = tile.mapFromItem(editor, point.x, point.y)
-      if (p.y < 0 || (p.y < tile.height && p.x < tile.width / 2)) return pos
+      if (p.y < tile.height / 2) return pos
       pos++
     }
     return pos
@@ -462,7 +473,8 @@ Item {
     onChanged: function(value) { editor.previewName = value }
   }
 
-  // The dragged item follows the pointer while its landing place is previewed.
+  // The dragged item follows the pointer while its landing place is previewed,
+  // flat and one badge wide whichever layer it is over.
   Tile {
     visible: editor.pointerLift && !!editor.lifted
     record: editor.lifted || ({})
@@ -473,15 +485,70 @@ Item {
     z: 100
   }
 
-  // A zone's row on a side bar: its tallest cell on the three zone shelves.
-  function rowHeight(zone) {
-    var h = 0
-    for (var i = 0; i < cellRepeater.count; i++) {
-      var c = cellRepeater.itemAt(i)
-      if (c && c.section === zone) h = Math.max(h, c.naturalWell)
-    }
-    return h
+  // A badge's full name, icon and id, flat over the layers, after a short
+  // rest on it; once one has shown, the next shows at once (PREFS-100).
+  property Item hoverTile: null
+  property bool tipWarm: false
+  function hoverOn(tile) {
+    if (tile === hoverTile) return
+    hoverTile = tile
+    if (!tile || lifted) { nameTip.shown = false; tipDelay.stop(); if (tipWarm) tipCool.restart(); return }
+    tipCool.stop()
+    if (tipWarm) showTip()
+    else { nameTip.shown = false; tipDelay.restart() }
   }
+  function showTip() {
+    var tile = hoverTile
+    if (!tile || lifted || !tile.record || !tile.record.instanceKey) return
+    nameTip.record = tile.record
+    var below = tile.mapToItem(editor, tile.width / 2, tile.height)
+    var above = tile.mapToItem(editor, tile.width / 2, 0)
+    var gap = Style.space(6)
+    nameTip.x = Math.max(0, Math.min(editor.width - nameTip.width, below.x - nameTip.width / 2))
+    nameTip.y = below.y + gap + nameTip.height <= editor.height ? below.y + gap : above.y - gap - nameTip.height
+    nameTip.shown = true
+    tipWarm = true
+  }
+  Timer { id: tipDelay; interval: 450; onTriggered: editor.showTip() }
+  Timer { id: tipCool; interval: 600; onTriggered: editor.tipWarm = false }
+  onLiftedChanged: if (lifted) hoverOn(null)
+  BorderSurface {
+    id: nameTip
+    property bool shown: false
+    property var record: ({})
+    z: 110
+    visible: opacity > 0
+    opacity: shown ? 1 : 0
+    Behavior on opacity { enabled: editor.bar.animationsEnabled; NumberAnimation { duration: 110; easing.type: Easing.OutCubic } }
+    width: tipRow.implicitWidth + Style.space(20)
+    height: tipRow.implicitHeight + Style.space(12)
+    radius: Math.max(0, Style.cornerRadius - Math.round(Style.spacing.rowPaddingX / 2))
+    color: Qt.rgba(Commons.Color.popups.background.r, Commons.Color.popups.background.g, Commons.Color.popups.background.b, 1)
+    borderSpec: Border.surfaceSpec("popups", "border", Commons.Color.popups.border, 1)
+    Row {
+      id: tipRow
+      anchors.centerIn: parent
+      spacing: Style.space(8)
+      InkIcon { record: nameTip.record; anchors.verticalCenter: parent.verticalCenter }
+      Text {
+        anchors.verticalCenter: parent.verticalCenter
+        text: nameTip.record && nameTip.record.instanceKey ? editor.preferences.title(nameTip.record) : ""
+        textFormat: Text.PlainText
+        color: Commons.Color.popups.text
+        font.family: Style.font.family
+        font.pixelSize: Style.font.bodySmall
+      }
+      Text {
+        anchors.verticalCenter: parent.verticalCenter
+        text: nameTip.record ? nameTip.record.groupId ? "Group" : nameTip.record.id || "" : ""
+        textFormat: Text.PlainText
+        color: Qt.alpha(Commons.Color.popups.text, 0.55)
+        font.family: Style.font.family
+        font.pixelSize: Style.font.caption
+      }
+    }
+  }
+
   QtObject {
     id: cellRepeater
     property var cells: []
@@ -492,37 +559,50 @@ Item {
   }
 
   // -------------------------------------------------------------- components
-  // One visibility: the five zones side by side, sized and packed as the bar
-  // has them (one under another in a narrow window). On a side bar the editor
-  // turns with it: the shelves stand side by side and the zones are rows,
-  // each the height of its tallest cell. The shelf is a Tab stop; the cursor
-  // lives in its cells.
+  // One visibility as a layer of the bar (PREFS-99): the five zones as wells
+  // of one width, mirrored about the screen's middle with Center on it, so
+  // on a notched screen Center sits under the camera and without one in its
+  // own place. The layer tilts back about its middle line, which keeps its
+  // width, so Center's axis stays on the camera's; the cursor's layer lies
+  // nearly flat to be read. In a narrow window the zones stack, flat. The
+  // layer is a Tab stop; the cursor lives in its wells.
   component Shelf: PrefsTile {
     id: shelf
     property string mode: "shown"
     property alias focusItem: shelfFocus
-    readonly property bool stacked: editor.sideBar || shelfFocus.width < Style.space(560)
+    readonly property bool stacked: shelfFocus.width < Style.space(560)
     readonly property var zoneColumns: mode === "tray" ? ["tray"] : editor.sections
-    // The camera's slot between Left of center and Center, on a preview of a
-    // screen that has one: room for a bar-sized square on the bar shelf, kept
-    // empty on the others so their columns line up with it.
+    // The camera over Center, on a preview of a screen that has one; the
+    // other layers darken Center below it.
     readonly property bool camera: editor.previewCamera && !stacked && mode !== "tray"
-    readonly property real cameraSlot: camera ? editor.barThickness + bento.gap : 0
-    readonly property real gridWidth: Math.max(1, shelfFocus.width)
-    // Shares of the row, mirrored about its middle: Right of center is as
-    // wide as Left of center and the camera's slot together, so Center stays
-    // on the middle and the two sides match on every shelf.
-    function columnWidth(zone) {
-      var free = gridWidth - bento.gap * (zoneColumns.length - 1) - 2 * cameraSlot
-      var total = zoneColumns.reduce(function(sum, z) { return sum + editor.zoneShares[z] }, 0)
-      return Math.max(1, free * editor.zoneShares[zone] / total + (zone === "centerEnd" ? cameraSlot : 0))
+    readonly property real tilt: stacked ? 0 : editor.nearMode === mode ? editor.nearTilt : editor.layerTilt
+    // The screen's middle (the camera's axis) in the layer: measured, since
+    // the card or a scroll bar may sit it off the layer's own middle.
+    property real axis: shelfFocus.width / 2
+    function measureAxis() {
+      var win = shelfFocus.Window.window
+      if (!win || shelfFocus.width <= 0) return
+      var x = shelfFocus.mapFromItem(null, win.width / 2, 0).x
+      axis = Math.abs(x - shelfFocus.width / 2) < shelfFocus.width * 0.1 ? x : shelfFocus.width / 2
+    }
+    readonly property var geometry: Model.layerColumns(shelfFocus.width, bento.gap, axis, zoneColumns.length)
+    readonly property real columnWidth: stacked ? shelfFocus.width : geometry.width
+    // Every well on the layer is as tall as its tallest.
+    readonly property real wellHeight: {
+      var h = 0
+      for (var i = 0; i < cellRepeater.count; i++) {
+        var c = cellRepeater.itemAt(i)
+        if (c && c.mode === mode) h = Math.max(h, c.naturalWell)
+      }
+      return h
     }
     title: editor.shelfInfo[mode].title
     caption: editor.shelfInfo[mode].caption
-    span12: editor.sideBar ? 3 : 12
-    span6: editor.sideBar ? 3 : 6
+    span12: 12
+    span6: 6
     animate: editor.bar ? editor.bar.animationsEnabled : true
-    borderSpec: Border.flat(Qt.alpha(Commons.Color.popups.text, shelfFocus.activeFocus ? 0.28 : 0.1), 1)
+    color: "transparent"
+    borderSpec: shelfFocus.activeFocus ? Border.flat(Qt.alpha(Commons.Color.popups.text, 0.22), 1) : Border.none()
 
     Item {
       id: shelfFocus
@@ -538,88 +618,70 @@ Item {
       Accessible.description: editor.cursorRecord ? editor.preferences.title(editor.cursorRecord) : "Empty"
       Keys.onPressed: function(event) { editor.keyPressed(event) }
       onActiveFocusChanged: editor.shelfFocusChanged(shelf.mode, activeFocus)
+      onWidthChanged: Qt.callLater(shelf.measureAxis)
+      onVisibleChanged: if (visible) Qt.callLater(shelf.measureAxis)
+      Component.onCompleted: Qt.callLater(shelf.measureAxis)
 
       ColumnLayout {
         id: shelfBody
         width: parent.width
         spacing: Style.space(4)
 
-        // The zones, named once, over the bar shelf, each where its items pack.
-        Row {
-          visible: shelf.mode === "shown" && !shelf.stacked
-          Layout.fillWidth: true
-          spacing: bento.gap
-          Repeater {
-            model: shelf.zoneColumns
-            Text {
-              required property string modelData
-              width: shelf.columnWidth(modelData) + (modelData === "centerBegin" ? shelf.cameraSlot : 0)
-              rightPadding: modelData === "centerBegin" ? shelf.cameraSlot : 0
-              text: editor.zoneNames[modelData]
-              textFormat: Text.PlainText
-              color: editor.cursorCell.section === modelData ? Commons.Color.popups.text : Qt.alpha(Commons.Color.popups.text, 0.6)
-              font.family: Style.font.family
-              font.pixelSize: Style.font.caption
-              font.bold: editor.cursorCell.section === modelData
-              elide: Text.ElideRight
-              horizontalAlignment: editor.zonePack(modelData) === "start" ? Text.AlignLeft : editor.zonePack(modelData) === "end" ? Text.AlignRight : Text.AlignHCenter
-            }
-          }
-        }
-
+        // The layer, tilted; this box keeps the room its tilted picture takes.
         Item {
+          id: layerBox
           Layout.fillWidth: true
-          implicitHeight: zoneGrid.implicitHeight
-          GridLayout {
-            id: zoneGrid
+          Layout.topMargin: shelf.camera && shelf.mode === "shown" ? cameraMark.height : 0
+          readonly property var extent: Model.tiltedExtent(layer.height, tiltRotation.angle, editor.planeDistance)
+          implicitHeight: extent.above + extent.below
+          Item {
+            id: layer
             width: parent.width
-            columns: shelf.stacked ? 1 : shelf.zoneColumns.length
-            columnSpacing: bento.gap
-            rowSpacing: Style.space(6)
-            Repeater {
-              model: shelf.zoneColumns
-              Cell {
-                required property string modelData
-                section: modelData
-                mode: shelf.mode
-                caption: shelf.stacked && modelData !== "tray" ? editor.zoneNames[modelData] : ""
-                // Turned, a zone's row is as tall as its tallest cell on any shelf.
-                rowHeight: editor.sideBar ? editor.rowHeight(modelData) : 0
-                Layout.fillWidth: shelf.stacked
-                Layout.preferredWidth: shelf.stacked ? -1 : shelf.columnWidth(modelData)
-                Layout.rightMargin: modelData === "centerBegin" ? shelf.cameraSlot : 0
-                Layout.alignment: Qt.AlignTop
-                Component.onCompleted: cellRepeater.register(this)
-                Component.onDestruction: cellRepeater.unregister(this)
+            height: zoneFlow.height
+            y: layerBox.extent.above - height / 2
+            transform: Rotation {
+              id: tiltRotation
+              axis { x: 1; y: 0; z: 0 }
+              origin.x: shelf.axis
+              origin.y: layer.height / 2
+              distanceToPlane: editor.planeDistance
+              angle: shelf.tilt
+              Behavior on angle { enabled: editor.bar.animationsEnabled; NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
+            }
+            Flow {
+              id: zoneFlow
+              x: shelf.stacked ? 0 : shelf.geometry.xs[0]
+              width: shelf.stacked ? layer.width : shelf.zoneColumns.length * (shelf.columnWidth + bento.gap) - bento.gap
+              spacing: bento.gap
+              Repeater {
+                model: shelf.zoneColumns
+                Cell {
+                  required property string modelData
+                  section: modelData
+                  mode: shelf.mode
+                  caption: modelData !== "tray" ? editor.zoneNames[modelData] : ""
+                  width: shelf.columnWidth
+                  wellHeight: shelf.stacked ? 0 : shelf.wellHeight
+                  shaft: shelf.camera && modelData === "center"
+                  Component.onCompleted: cellRepeater.register(this)
+                  Component.onDestruction: cellRepeater.unregister(this)
+                }
               }
             }
-          }
-          // The camera, on the bar shelf only: a black rounded square the
-          // bar's size with a lens, level with the first island. A sign of
-          // where the camera is, not its size.
-          Rectangle {
-            visible: shelf.camera && shelf.mode === "shown"
-            readonly property var cell: {
-              for (var i = 0; i < cellRepeater.count; i++) {
-                var c = cellRepeater.itemAt(i)
-                if (c && c.mode === shelf.mode && c.section === "centerBegin") return c
-              }
-              return null
-            }
-            x: cell ? cell.x + cell.width + (shelf.cameraSlot + bento.gap - width) / 2 : 0
-            y: cell ? cell.y + cell.firstLineY : 0
-            width: editor.barThickness
-            height: width
-            radius: Math.round(width / 4)
-            color: "black"
+            // The camera, over Center on the bar's layer: the screen's own
+            // notch width, hanging over the layer's top edge.
             Rectangle {
-              anchors.centerIn: parent
-              width: Math.round(parent.width * 0.3)
-              height: width
-              radius: width / 2
-              color: "#1d2433"
-              border.width: 1
-              border.color: "#2a3348"
+              id: cameraMark
+              visible: shelf.camera && shelf.mode === "shown"
+              width: Math.min(shelf.columnWidth, editor.previewNotch ? editor.previewNotch.width : 0)
+              height: Style.space(12)
+              x: shelf.axis - width / 2
+              y: -height
+              color: "black"
+              topLeftRadius: 0
+              topRightRadius: 0
+              bottomLeftRadius: Style.space(6)
+              bottomRightRadius: Style.space(6)
             }
           }
         }
@@ -627,6 +689,7 @@ Item {
         Text {
           visible: shelf.mode === "shown"
           Layout.fillWidth: true
+          Layout.topMargin: Style.space(4)
           text: editor.barCaption
           textFormat: Text.PlainText
           color: Qt.alpha(Commons.Color.popups.text, 0.6)
@@ -636,9 +699,10 @@ Item {
         }
       }
 
-      // Every pointer gesture over the shelf lands here, above the tiles, so a
-      // drag survives the tiles being rebuilt as the preview moves. The press
-      // keeps it across the other shelves.
+      // Every pointer gesture over the layer lands here, above the badges, so
+      // a drag survives them being rebuilt as the preview moves. Points map
+      // through the tilt to the badges. The press keeps it across the other
+      // layers.
       MouseArea {
         anchors.fill: parent
         hoverEnabled: true
@@ -649,6 +713,7 @@ Item {
           if (!editor.pointerLift) {
             var tile = editor.tileAt(point)
             editor.hoverKey = tile ? tile.record.instanceKey : ""
+            editor.hoverOn(pressed ? null : tile)
           }
           if (pressed && editor.pressed && !editor.pointerLift
               && Math.abs(point.x - editor.pressPoint.x) + Math.abs(point.y - editor.pressPoint.y) > Style.space(6)) {
@@ -657,8 +722,12 @@ Item {
           }
           editor.pointerMoved(point)
         }
-        onExited: if (!editor.pointerLift) editor.hoverKey = ""
+        onExited: {
+          if (!editor.pointerLift) editor.hoverKey = ""
+          editor.hoverOn(null)
+        }
         onPressed: function(mouse) {
+          editor.hoverOn(null)
           if (editor.lifted) editor.cancel()
           var point = mapToItem(editor, mouse.x, mouse.y)
           editor.pressPoint = point
@@ -688,76 +757,65 @@ Item {
     }
   }
 
-  // One zone on one shelf: a well of widgets. On the bar shelf the zone is
-  // drawn the way the bar draws it (ShelfModel): an island in the bar's own
-  // surface, rounding and border, each widget in the slot the bar gives it, at
-  // its own size. A zone longer than the well wraps onto another island rather
-  // than shrinking. The other shelves list icon and name.
+  // One zone on one layer: a well of badges, one under another in bar order,
+  // its zone named at the top. A darker edge under it gives the layer its
+  // thickness; under the camera the well is darker still (shaft).
   component Cell: Item {
     id: cell
     property string section: ""
     property string mode: ""
     property string caption: ""
-    // At least this tall, to line up with the zone's cells on other shelves.
-    property real rowHeight: 0
-    readonly property var tiles: content.item ? content.item.repeater : null
+    // At least this tall, to line up with the other wells of its layer.
+    property real wellHeight: 0
+    property bool shaft: false
+    readonly property var tiles: chipTiles
     readonly property var list: editor.cellList(section, mode)
-    readonly property bool barRow: mode === "shown"
     readonly property bool targeted: !!editor.lifted && !!editor.liftTarget
       && editor.liftTarget.section === section && editor.liftTarget.mode === mode
     readonly property bool cursorHere: !editor.lifted && editor.cursorCell.section === section && editor.cursorCell.mode === mode
     readonly property real pad: Style.space(4)
     readonly property real radius: Math.max(0, Style.cornerRadius - Math.round(Style.spacing.rowPaddingX / 2))
-    readonly property string pack: editor.zonePack(section)
-    // The bar shelf: every widget's face, and where the bar would put it.
-    readonly property var faces: barRow ? list.map(function(value) { return editor.barFace(value.record) }) : []
-    readonly property var layout: barRow ? ShelfModel.zone(CellModel, editor.barTokens, faces, Math.max(1, well.width - pad * 2)) : ({ lines: [], width: 0 })
-    readonly property real lineGap: Style.space(4)
-    // The top of the first island, in the cell.
-    readonly property real firstLineY: well.y + lineY(0)
-    // Each line packs from the side its zone grows from (editor.zonePack).
-    function lineX(n) {
-      var w = layout.lines[n] ? layout.lines[n].width : 0
-      return pack === "start" ? pad : pack === "end" ? well.width - pad - w : (well.width - w) / 2
-    }
-    function lineY(n) {
-      var spare = well.height - naturalWell
-      return pad + n * (editor.barThickness + lineGap) + (pack === "start" ? 0 : pack === "end" ? spare : spare / 2)
-    }
-    readonly property real naturalWell: barRow
-      ? Math.max(1, layout.lines.length) * (editor.barThickness + lineGap) - lineGap + pad * 2
-      : Math.max(Style.space(42), (content.item ? content.item.height : 0) + pad * 2)
-    function slotRect(index) {
-      var at = ShelfModel.slotOf(layout, index)
-      return at ? { x: lineX(at.line) + at.slot.x, y: lineY(at.line) } : { x: 0, y: 0 }
-    }
-    implicitHeight: (captionText.visible ? captionText.implicitHeight + Style.space(3) : 0) + well.height
+    readonly property real captionHeight: caption !== "" ? captionText.implicitHeight + Style.space(4) : 0
+    readonly property real naturalWell: Math.max(Style.space(42), captionHeight + chipColumn.implicitHeight + pad * 2)
+    height: well.height
 
-    Text {
-      id: captionText
-      visible: cell.caption !== ""
+    Rectangle {
+      y: Style.space(3)
       width: parent.width
-      text: cell.caption
-      textFormat: Text.PlainText
-      color: Qt.alpha(Commons.Color.popups.text, 0.6)
-      font.family: Style.font.family
-      font.pixelSize: Style.font.caption
-      elide: Text.ElideRight
+      height: well.height
+      radius: cell.radius
+      color: Qt.rgba(0, 0, 0, 0.35)
     }
     BorderSurface {
       id: well
-      y: captionText.visible ? captionText.implicitHeight + Style.space(3) : 0
       width: parent.width
-      height: Math.max(cell.naturalWell, cell.rowHeight)
+      height: Math.max(cell.naturalWell, cell.wellHeight)
       radius: cell.radius
-      color: Qt.alpha(Commons.Color.popups.text, 0.04)
+      color: Qt.tint(Qt.rgba(Commons.Color.popups.background.r, Commons.Color.popups.background.g, Commons.Color.popups.background.b, 1),
+        cell.shaft ? Qt.rgba(0, 0, 0, 0.45) : Qt.alpha(Commons.Color.popups.text, 0.05))
       // An empty well waiting for a drop is outlined the way the bar outlines
       // a landing place.
-      borderSpec: cell.targeted && cell.list.length === 1 ? Border.flat(Qt.alpha(Commons.Color.popups.text, 0.45), 1) : Border.none()
+      borderSpec: cell.targeted && cell.list.length === 1 ? Border.flat(Qt.alpha(Commons.Color.popups.text, 0.45), 1)
+        : Border.flat(Qt.alpha(Commons.Color.popups.text, 0.08), 1)
       Behavior on height { enabled: editor.bar.animationsEnabled; NumberAnimation { duration: 140; easing.type: Easing.OutCubic } }
 
       Text {
+        id: captionText
+        visible: cell.caption !== ""
+        x: cell.pad + Style.space(2)
+        y: cell.pad
+        width: well.width - x - cell.pad
+        text: cell.caption
+        textFormat: Text.PlainText
+        color: editor.activeCell.section === cell.section ? Commons.Color.popups.text : Qt.alpha(Commons.Color.popups.text, 0.5)
+        font.family: Style.font.family
+        font.pixelSize: Style.font.caption
+        font.bold: editor.activeCell.section === cell.section && editor.activeCell.mode === cell.mode
+        elide: Text.ElideRight
+      }
+      Text {
         anchors.centerIn: parent
+        anchors.verticalCenterOffset: cell.captionHeight / 2
         visible: cell.list.length === 0 && cell.cursorHere && editor.gridFocused
         text: "Empty"
         textFormat: Text.PlainText
@@ -773,10 +831,13 @@ Item {
         radius: Math.max(0, cell.radius - Style.space(3))
         borderSpec: Border.controlSpec("focus", Commons.Color.popups.text, Commons.Color.accent)
       }
-
-      Loader {
-        id: content
-        sourceComponent: cell.barRow ? barStrip : chipFlow
+      Column {
+        id: chipColumn
+        x: cell.pad
+        y: cell.pad + cell.captionHeight
+        width: Math.max(1, well.width - cell.pad * 2)
+        spacing: Style.space(3)
+        Repeater { id: chipTiles; model: tileList.model }
       }
     }
 
@@ -795,50 +856,61 @@ Item {
           section: cell.section
           mode: cell.mode
           pos: retainedRecord.index
-          face: cell.barRow ? cell.faces[retainedRecord.index] || null : null
-          maxWidth: Math.max(1, well.width - cell.pad * 2)
-          x: cell.barRow ? cell.slotRect(retainedRecord.index).x : 0
-          y: cell.barRow ? cell.slotRect(retainedRecord.index).y : 0
+          width: chipColumn.width
         }
-      }
-    }
-
-    Component {
-      id: barStrip
-      Item {
-        property alias repeater: barTiles
-        width: well.width
-        height: well.height
-        Repeater {
-          model: cell.layout.lines
-          BorderSurface {
-            required property var modelData
-            required property int index
-            x: cell.lineX(index)
-            y: cell.lineY(index)
-            width: modelData.width
-            height: editor.barThickness
-            color: editor.barSurface
-            radius: Math.min(editor.bar.islandRounding, editor.barThickness / 2)
-            borderSpec: editor.bar.islands ? editor.bar.islandBorder : Border.none()
-          }
-        }
-        Repeater { id: barTiles; model: tileList.model }
-      }
-    }
-    Component {
-      id: chipFlow
-      Flow {
-        property alias repeater: chipTiles
-        x: cell.pad
-        y: cell.pad
-        width: Math.max(1, well.width - cell.pad * 2)
-        spacing: Style.space(4)
-        Repeater { id: chipTiles; model: tileList.model }
       }
     }
   }
 
+  // A widget's icon in a square the size of a badge's icon: the middle of
+  // its ink, so a wide widget (workspaces, a clock with its date) shows its
+  // middle and nothing sticks out of the square.
+  component InkIcon: Item {
+    id: inkIcon
+    property var record: ({})
+    readonly property real box: Math.round(editor.iconSize * 0.7)
+    readonly property bool hasImage: picture.hasImage
+    readonly property var face: record && record.instanceKey ? editor.barFace(record) : null
+    width: box
+    height: box
+    // Widget images in the bar's text colour that barely show on the
+    // Preferences background get a backing (editor.inkBacked).
+    Rectangle {
+      anchors.fill: parent
+      anchors.margins: -Style.space(2)
+      visible: editor.inkBacked && picture.hasImage
+      radius: Style.space(3)
+      color: Commons.Color.popups.text
+    }
+    // A wide face shows its first glyph only: about the bar icon's own width.
+    readonly property bool wide: {
+      var f = face
+      return hasImage && !!f && f.kind === "image" && f.w > 0 && f.inkLength / f.w * picture.width > box
+    }
+    Item {
+      width: inkIcon.wide ? Math.round(inkIcon.box * 0.62) : parent.width
+      height: parent.height
+      clip: true
+      WidgetIcon {
+        id: picture
+        preferences: editor.preferences
+        record: inkIcon.record
+        size: inkIcon.box
+        maxAspect: 8
+        anchors.verticalCenter: parent.verticalCenter
+        x: {
+          var f = inkIcon.face
+          if (!hasImage || !f || f.kind !== "image" || !(f.w > 0)) return Math.round((inkIcon.box - width) / 2)
+          // Ink wider than the box starts at its leading icon, not mid-word.
+          var scale = width / f.w
+          if (inkIcon.wide) return Math.round(-f.inkStart * scale)
+          return Math.round(inkIcon.box / 2 - (f.inkStart + f.inkLength / 2) * scale)
+        }
+      }
+    }
+  }
+
+  // A badge: the widget's icon and its name, elided, one width everywhere.
   component Tile: Item {
     id: tile
     property var record: ({})
@@ -847,64 +919,22 @@ Item {
     property string section: ""
     property string mode: ""
     property int pos: 0
-    // On the bar shelf: how the bar draws this widget (editor.barFace).
-    property var face: null
-    // A narrow well elides the name to fit.
-    property real maxWidth: Infinity
     readonly property bool isCursor: !ghost && !editor.lifted && editor.cursorKey !== "" && record.instanceKey === editor.cursorKey
     readonly property bool hovered: !ghost && !editor.lifted && editor.hoverKey === record.instanceKey
     readonly property var group: record.groupId ? editor.bar.groups.find(function(g) { return g.id === record.groupId }) || null : null
     readonly property int memberCount: group ? group.items.length : 0
-    readonly property bool onBar: mode === "shown"
-    readonly property var barFace: onBar ? face || editor.barFace(record) : null
-    // The slot the bar gives this widget, and its highlight (CellModel).
-    readonly property var placed: barFace ? CellModel.place(editor.barTokens, barFace.inkLength, barFace.glyph, barFace.cap) : null
-    readonly property real faceOffset: placed ? placed.inkStart - barFace.inkStart : 0
-    // Press feedback: the tile dips while the pointer holds it, before a drag.
+    // Press feedback: the badge dips while the pointer holds it, before a drag.
     readonly property bool pressedDown: !ghost && !placeholder && !!editor.pressed && !editor.pointerLift
       && editor.pressed.record.instanceKey === record.instanceKey
     scale: pressedDown ? 0.97 : 1
     Behavior on scale { enabled: editor.bar.animationsEnabled; NumberAnimation { duration: 120; easing.type: Easing.OutCubic } }
-    implicitWidth: onBar ? (placed ? placed.extent : 0) : chip.implicitWidth + Style.space(16)
-    implicitHeight: onBar ? editor.barThickness : Math.max(Style.spacing.controlHeight, chip.implicitHeight + Style.space(8))
-    width: implicitWidth
-    height: implicitHeight
+    width: editor.chipWidth
+    height: Math.max(Style.space(26), chip.implicitHeight + Style.space(8))
     opacity: mode === "hidden" && !placeholder && !ghost ? 0.62 : ghost ? 0.9 : 1
 
-    // On the bar: the bar's own highlight, the cell centred on the slot and
-    // inset from the island; a landing place is outlined as on the bar.
     BorderSurface {
-      visible: tile.onBar
-      x: tile.placed ? (tile.placed.extent - tile.placed.cell) / 2 : 0
-      y: editor.barTokens.inset
-      width: tile.placed ? tile.placed.cell : 0
-      height: editor.barTokens.thickness
-      radius: CellModel.radius(editor.barTokens, editor.bar.islandRounding)
-      color: tile.placeholder ? "transparent"
-        : tile.ghost ? editor.barSurface
-        : tile.isCursor && editor.gridFocused ? Style.focusFillFor(editor.barInk, Commons.Color.accent)
-        : tile.isCursor ? Style.selectedFillFor(editor.barInk, Commons.Color.accent)
-        : tile.hovered ? Style.hoverFillFor(editor.barInk, Commons.Color.accent)
-        : "transparent"
-      borderSpec: tile.placeholder || tile.ghost ? Border.flat(Qt.alpha(editor.barInk, 0.45), 1)
-        : tile.isCursor && editor.gridFocused ? Border.controlSpec("focus", editor.barInk, Commons.Color.accent)
-        : Border.none()
-      Behavior on color { enabled: editor.bar.animationsEnabled; ColorAnimation { duration: 90 } }
-    }
-    BarFace {
-      visible: tile.onBar && !tile.placeholder && !!tile.barFace
-      x: tile.faceOffset
-      face: tile.onBar && !tile.placeholder ? tile.barFace : null
-      barThickness: editor.barThickness
-      ink: editor.barInk
-      fontFamily: editor.barFont
-    }
-
-    // Elsewhere: a chip with the widget's icon and name.
-    BorderSurface {
-      visible: !tile.onBar
       anchors.fill: parent
-      radius: Math.max(0, Style.cornerRadius - Math.round(Style.spacing.rowPaddingX / 2))
+      radius: Math.max(0, Style.cornerRadius - Math.round(Style.spacing.rowPaddingX / 2) - Style.space(2))
       color: tile.placeholder ? "transparent"
         : tile.ghost ? Commons.Color.popups.background
         : tile.isCursor && editor.gridFocused ? Style.focusFillFor(Commons.Color.popups.text, Commons.Color.accent)
@@ -919,28 +949,16 @@ Item {
     }
     Row {
       id: chip
-      visible: !tile.onBar
-      anchors.centerIn: parent
+      x: Style.space(6)
+      anchors.verticalCenter: parent.verticalCenter
       spacing: Style.space(6)
-      opacity: tile.placeholder ? 0 : 1
-      Item {
-        width: rowIcon.width + (tile.backed ? Style.space(4) : 0)
-        height: rowIcon.height + (tile.backed ? Style.space(2) : 0)
+      // A keyboard lift shows what it carries in its outline; a pointer
+      // lift carries it under the pointer.
+      opacity: tile.placeholder ? (editor.pointerLift ? 0 : 0.5) : 1
+      InkIcon {
+        id: rowIcon
+        record: tile.record
         anchors.verticalCenter: parent.verticalCenter
-        Rectangle {
-          anchors.fill: parent
-          visible: tile.backed
-          radius: Style.space(3)
-          color: Commons.Color.popups.text
-        }
-        WidgetIcon {
-          id: rowIcon
-          anchors.centerIn: parent
-          preferences: editor.preferences
-          record: tile.record
-          size: Math.round(editor.iconSize * 0.85)
-          maxAspect: 3.2
-        }
       }
       Text {
         id: nameLabel
@@ -950,9 +968,8 @@ Item {
         font.family: Style.font.family
         font.pixelSize: Style.font.bodySmall
         elide: Text.ElideRight
-        width: Math.max(Style.space(24), Math.min(implicitWidth, Style.space(190),
-          tile.maxWidth - Style.space(16) - rowIcon.width - chip.spacing
-            - (tile.memberCount > 0 ? memberLabel.implicitWidth + chip.spacing : 0)))
+        width: Math.max(Style.space(16), tile.width - Style.space(12) - rowIcon.width - chip.spacing
+          - (tile.memberCount > 0 ? memberLabel.implicitWidth + chip.spacing : 0))
         anchors.verticalCenter: parent.verticalCenter
       }
       Text {
@@ -966,9 +983,6 @@ Item {
         anchors.verticalCenter: parent.verticalCenter
       }
     }
-    // Widget images in the bar's text colour that barely show on the
-    // Preferences background get a backing (editor.inkBacked).
-    readonly property bool backed: editor.inkBacked && rowIcon.hasImage
   }
 
   // The selected widget's settings, titled with its name. Zone and Visibility
@@ -1040,7 +1054,7 @@ Item {
           stacked: !settingsGrid.roomy
           Layout.leftMargin: 0
           zones: editor.zoneChoices
-          cameraAfter: editor.previewCamera ? "centerBegin" : ""
+          cameraOver: editor.previewCamera ? "center" : ""
           noteFor: function(zone) { return editor.cameraNote(zone) }
           marker: Component {
             WidgetIcon {

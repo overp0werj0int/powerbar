@@ -253,3 +253,49 @@ test("the tray's row sits under Hidden, one column wide, and leads back to the l
   assert.deepEqual({ ...model.stepCursor(count, { section: 'left', mode: 'hidden', pos: 0 }, 0, 1, columnsFor) }, { section: 'left', mode: 'hidden', pos: 0 }, 'without the tray row the cursor stops at Hidden');
   assert.deepEqual({ ...model.stepLift(count, { section: 'tray', mode: 'tray', pos: 0 }, 0, -3, columnsFor, rows) }, { section: 'right', mode: 'shown', pos: 0 });
 });
+test('layer columns are one width and mirror about the axis, Center on it', () => {
+  const cols = model.layerColumns(1000, 8, 500);
+  assert.equal(cols.xs.length, 5);
+  assert.ok(Math.abs(cols.width - (1000 - 32) / 5) < 1e-9);
+  assert.ok(Math.abs(cols.xs[2] + cols.width / 2 - 500) < 1e-9);
+  assert.ok(Math.abs(cols.xs[0] - 0) < 1e-9);
+  assert.ok(Math.abs(cols.xs[4] + cols.width - 1000) < 1e-9);
+  // An axis off the middle narrows the columns so both sides still fit.
+  const off = model.layerColumns(1000, 8, 490);
+  assert.ok(off.xs[0] >= 0 && off.xs[4] + off.width <= 1000);
+  assert.ok(Math.abs(off.xs[2] + off.width / 2 - 490) < 1e-9);
+});
+test('a tilted layer keeps its middle line, its top recedes and its bottom comes near', () => {
+  // Measured from Qt's Rotation: 200 tall, 30 degrees, distance 1000.
+  const e = model.tiltedExtent(200, 30, 1000);
+  assert.ok(Math.abs(e.above - 82.48) < 0.01);
+  assert.ok(Math.abs(e.below - 91.16) < 0.01);
+  const flat = model.tiltedExtent(200, 0, 1000);
+  assert.equal(flat.above, 100);
+  assert.equal(flat.below, 100);
+});
+test('on the layers j and k walk a zone and go on to the next layer, h and l change zone', () => {
+  const items = { 'left:shown': 3, 'centerBegin:shown': 1, 'left:managed': 2, 'right:hidden': 0 };
+  const count = (c, m) => items[c + ':' + m] || 0;
+  const step = (at, dx, dy) => ({ ...model.stepLayer(count, at, dx, dy) });
+  assert.deepEqual(step({ section: 'left', mode: 'shown', pos: 1 }, 0, 1), { section: 'left', mode: 'shown', pos: 2 });
+  assert.deepEqual(step({ section: 'left', mode: 'shown', pos: 2 }, 0, 1), { section: 'left', mode: 'managed', pos: 0 });
+  assert.deepEqual(step({ section: 'left', mode: 'managed', pos: 0 }, 0, -1), { section: 'left', mode: 'shown', pos: 2 });
+  assert.deepEqual(step({ section: 'left', mode: 'shown', pos: 2 }, 1, 0), { section: 'centerBegin', mode: 'shown', pos: 0 });
+  // An empty well is a resting place, and the last layer's end stays put.
+  assert.deepEqual(step({ section: 'right', mode: 'managed', pos: 0 }, 0, 1), { section: 'right', mode: 'hidden', pos: 0 });
+  assert.deepEqual(step({ section: 'right', mode: 'hidden', pos: 0 }, 0, 1), { section: 'right', mode: 'hidden', pos: 0 });
+  assert.deepEqual(step({ section: 'left', mode: 'shown', pos: 0 }, -1, -1), { section: 'left', mode: 'shown', pos: 0 });
+});
+test('a lifted widget gets every gap of a zone before it moves to the next layer', () => {
+  const count = (c, m) => (c === 'left' && m === 'shown' ? 2 : 0);
+  const step = (at, dx, dy) => ({ ...model.stepLayerLift(count, at, dx, dy) });
+  assert.deepEqual(step({ section: 'left', mode: 'shown', pos: 1 }, 0, 1), { section: 'left', mode: 'shown', pos: 2 });
+  assert.deepEqual(step({ section: 'left', mode: 'shown', pos: 2 }, 0, 1), { section: 'left', mode: 'managed', pos: 0 });
+  assert.deepEqual(step({ section: 'left', mode: 'managed', pos: 0 }, 0, -1), { section: 'left', mode: 'shown', pos: 2 });
+  // The tray's layer has one column; leaving it meets the last zone.
+  const cols = m => (m === 'tray' ? ['tray'] : model.sections);
+  const rows = ['shown', 'managed', 'hidden', 'tray'];
+  assert.deepEqual({ ...model.stepLayerLift(count, { section: 'centerBegin', mode: 'hidden', pos: 0 }, 0, 1, cols, rows) }, { section: 'tray', mode: 'tray', pos: 0 });
+  assert.deepEqual({ ...model.stepLayerLift(count, { section: 'tray', mode: 'tray', pos: 0 }, 0, -1, cols, rows) }, { section: 'right', mode: 'hidden', pos: 0 });
+});

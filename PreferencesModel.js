@@ -138,3 +138,58 @@ function pageIndex(page, count) {
   if (!isFinite(n)) n = 1
   return Math.max(0, Math.min(n, count) - 1)
 }
+
+// The Layout page's layers (docs/behavior/preferences.md PREFS-99).
+// Five zone columns of one width, mirrored about the axis (the screen's
+// middle, where a camera sits), Center on it: each column's x in a row
+// `width` wide, and their shared width.
+function layerColumns(width, gap, axis, count) {
+  count = count || sections.length
+  var half = Math.max(0, Math.min(axis, width - axis))
+  var w = Math.max(1, (2 * half - gap * (count - 1)) / count)
+  var mid = (count - 1) / 2, xs = []
+  for (var i = 0; i < count; i++) xs.push(axis + (i - mid) * (w + gap) - w / 2)
+  return { width: w, xs: xs }
+}
+// A layer `h` tall tilted back by `angle` degrees about its middle line, as
+// Qt's Rotation draws it with `distance` to the plane: how far its top and
+// bottom edges land from that line. The top recedes, the bottom comes near.
+function tiltedExtent(h, angle, distance) {
+  var a = angle * Math.PI / 180, half = h / 2
+  var c = Math.cos(a), s = Math.sin(a) * half / Math.max(1, distance)
+  return { above: half * c / (1 + s), below: half * c / (1 - s) }
+}
+// Cursor and lift steps on the layers, where a zone's items run down its
+// well: dx changes zone on the same layer (keeping the row where it can), dy
+// walks the zone's list and, past its ends, goes on into the same zone on the
+// next or previous layer. An empty well is a resting place. The tray's layer
+// has one column, which meets the last zone (across).
+function stepLayer(count, cursor, dx, dy, columnsFor, rowList) {
+  return layerStep(count, cursor, dx, dy, columnsFor, rowList, 0)
+}
+// A lifted item: count excludes it, so a well offers count + 1 places.
+function stepLayerLift(count, target, dx, dy, columnsFor, rowList) {
+  return layerStep(count, target, dx, dy, columnsFor, rowList, 1)
+}
+function layerStep(count, at, dx, dy, columnsFor, rowList, extra) {
+  columnsFor = columnsFor || zonesOnly
+  var list = rowList || modes
+  var m = Math.max(0, list.indexOf(at.mode)), column = across(columnsFor(list[m]), at.section), pos = at.pos
+  function last(c, row) { return Math.max(0, count(c, row) - 1 + extra) }
+  if (dx) {
+    var cols = columnsFor(list[m])
+    column = cols[clamp(cols.indexOf(column) + dx, 0, cols.length - 1)]
+    pos = clamp(pos, 0, last(column, list[m]))
+  }
+  if (dy) {
+    pos += dy
+    if (pos > last(column, list[m])) {
+      if (m < list.length - 1) { m++; column = across(columnsFor(list[m]), column); pos = 0 }
+      else pos = last(column, list[m])
+    } else if (pos < 0) {
+      if (m > 0) { m--; column = across(columnsFor(list[m]), column); pos = last(column, list[m]) }
+      else pos = 0
+    }
+  }
+  return { section: column, mode: list[m], pos: pos }
+}
