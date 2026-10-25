@@ -23,8 +23,8 @@ the user navigates; reopening never carries a cursor highlight forward.
 
 Groups preferences (`GroupsEditor.qml`, logic in `GroupsEditorModel.js`)
 are drawn like the Layout page, under the same camera (`CameraShaft.qml`): a
-rail of the five zones holding every group's face where the bar puts it, each
-group's drawer hanging under its face, the widgets in no group as one tilted
+rail of the five zones holding every group's face where the bar puts it, one
+drawer under each zone showing its open group (the faces are its tabs), the widgets in no group as one tilted
 slab at the bottom, and the chosen group's inspector at the bottom right. They
 provide creation,
 deletion, labels, icons, positions, widget assignment, transfer, and ordering.

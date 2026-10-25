@@ -230,9 +230,10 @@ whatever has focus):
   shelf above to move it out of the tray, or back to return it.
 - **Groups**: the same camera and columns as Layout, with a rail of the five
   zones holding every group's face where the bar puts it (on demand ones with
-  a ring, hidden ones dashed), each group's drawer hanging under its face and
-  the widgets in no group as one tilted slab at the bottom. Pick up a widget
-  and drop it in a drawer, the slab or a zone's "+" (a new group there);
+  a ring, hidden ones dashed), one drawer under each zone showing the group
+  whose face you choose (the faces are its tabs) and the widgets in no group
+  as one tilted slab at the bottom. Pick up a widget and drop it in a drawer,
+  on a face, the slab or a zone's "+" (a new group there);
   the inspector at the bottom right holds the chosen group's name, how it
   shows, its layer, zone, icon (your widgets' glyphs, Omarchy's icons and
   emoji, or your own SVG or PNG) and shortcut.
@@ -250,7 +251,7 @@ whatever has focus):
 | Sliders | `h` / `l` step (Shift or Page Up / Down for larger steps), Home / End for the ends, Backspace for the default, Enter applies at once, Esc undoes a value not yet applied |
 | Layout shelves | `h` `j` `k` `l` move; Space picks up a widget, then `h` / `l` move it and `j` / `k` change its shelf; Space or Enter drops it, Esc puts it back; Enter on a widget goes to its settings; `x` hides or restores; `g` on a group opens it on the Groups page |
 | Groups rail | `h` / `l` choose a face (each zone's "+" too), Shift+`h` / `l` move it to the next zone, Shift+`j` / `k` on the bar, on demand, hidden; `j` into its drawer and on to the slab; `n` makes a group, `x` twice dissolves it, Enter goes to its name |
-| Groups drawers and slab | `j` / `k` walk, `h` / `l` next drawer; Space picks up a widget, then `h` `j` `k` `l` move it through the drawers, the slab and the "+" slots, Space drops it, Esc puts it back; Shift with `h` `j` `k` `l` moves it at once; `x` takes it out; on the slab Enter adds it to the chosen group and typing filters |
+| Groups drawers and slab | `j` / `k` walk, `h` / `l` next drawer; Space picks up a widget, then `h` `j` `k` `l` move it through the open drawers, the slab, the faces and the "+" slots, Space drops it, Esc puts it back; Shift with `h` `j` `k` `l` moves it at once; `x` takes it out; on the slab Enter adds it to the chosen group and typing filters |
 | Icon picker | Type to search, arrows move, Enter chooses, Tab changes the source, Ctrl+V pastes an image or a glyph |
 
 ## Keyboard mode

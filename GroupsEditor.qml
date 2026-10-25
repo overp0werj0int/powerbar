@@ -11,8 +11,9 @@ import "GroupsEditorModel.js" as Editor
 
 // The Groups page (docs/behavior/preferences.md PREFS-109 on), in the Layout
 // page's language: the camera as the Layout page draws it, a rail of the
-// bar's five zones holding every group's face where the bar puts it, a
-// drawer hanging under each face with its widgets, the pool of widgets in no
+// bar's five zones holding every group's face where the bar puts it, one
+// drawer under each zone showing its open group's widgets (the faces are its
+// tabs, PREFS-120), the pool of widgets in no
 // group as one tilted slab at the bottom, and the chosen group's inspector at
 // the bottom right with the keys beside it.
 //
@@ -52,6 +53,17 @@ Item {
     readonly property var faces: Editor.railFaces(Groups.render(preferences.config && preferences.config.layout || ({}), Editor.railGroups(groups)), zones)
     readonly property var order: Editor.drawerOrder(faces, zones)
     readonly property var slots: Editor.drawerSlots(faces, zones)
+    // Groups a drag opened by resting on their face (PREFS-120), per zone,
+    // while it lasts.
+    property var liftOpened: ({})
+    // Each zone's open group, the one its drawer shows (PREFS-120).
+    readonly property var openIds: {
+        var out = ({});
+        zones.forEach(function (zone) {
+            out[zone] = Editor.openGroup(editor.faces, zone, editor.selectedId, editor.liftOpened);
+        });
+        return out;
+    }
     // Each group's members (widgets still in the layout), in its order.
     readonly property var memberLists: {
         var out = ({});
@@ -159,7 +171,8 @@ Item {
             members: counts,
             pool: poolCount,
             perRow: poolPerRow,
-            chosen: selectedId
+            chosen: selectedId,
+            opened: liftOpened
         })
     function keyOf(p) {
         if (!p)
@@ -398,6 +411,8 @@ Item {
     function cancel() {
         lifted = null;
         liftTarget = null;
+        liftOpened = ({});
+        faceRest.stop();
         pointerLift = false;
         if (liftOrigin)
             place(liftOrigin);
@@ -414,6 +429,8 @@ Item {
         var act = Editor.dropAction(carried, target, into, carried.group && target && target.id === carried.group ? carried.pos : -1);
         lifted = null;
         liftTarget = null;
+        liftOpened = ({});
+        faceRest.stop();
         pointerLift = false;
         if (act.op === "assign") {
             bar.assignGroup(act.key, act.id, act.before);
@@ -581,32 +598,40 @@ Item {
     function faceNatural(g) {
         if (!g)
             return Style.space(40);
-        return Style.space(6) + (g.visibility === "managed" ? Style.space(10) : 0) + Style.space(16) + Style.space(5) + layout.textInk(g.label, Style.font.family, Style.font.caption).advance + Style.space(5) + pillWidth((memberLists[g.id] || []).length) + Style.space(6);
+        return faceCompact(g) + layout.textInk(g.label, Style.font.family, Style.font.caption).advance + Style.space(5);
+    }
+    // A face without its name: the icon and the count pill inside the chip.
+    function faceCompact(g) {
+        if (!g)
+            return Style.space(30);
+        return Math.max(Style.space(30), Style.space(6) + (g.visibility === "managed" ? Style.space(10) : 0) + Style.space(16) + Style.space(5) + pillWidth((memberLists[g.id] || []).length) + Style.space(6));
     }
     // Each zone's segment on the rail: its faces in bar order, then its "+"
-    // at the end; faces that do not fit share what there is and elide.
+    // at the end. Faces keep their names while all of the zone's fit, else
+    // all drop them; past the room the segment clips them, the "+" stays
+    // (GroupsEditorModel.faceWidths). `seen` is the part of a face not clipped.
     readonly property var railLayout: {
         var out = ({});
         zones.forEach(function (zone) {
             var box = editor.zoneBox(zone), ids = editor.faces[zone] || [];
-            var natural = ids.map(function (id) {
-                return editor.faceNatural(editor.groupOf(id));
+            var list = ids.map(function (id) {
+                return editor.groupOf(id);
             });
-            var avail = Math.max(0, box.width - 2 * editor.segPad - editor.faceHeight - ids.length * editor.faceGap);
-            var sum = natural.reduce(function (a, b) {
-                return a + b;
-            }, 0);
-            var x = box.x + editor.segPad;
+            var room = Math.max(0, box.width - 2 * editor.segPad - editor.faceHeight - editor.faceGap);
+            var fit = Editor.faceWidths(list.map(editor.faceNatural), list.map(editor.faceCompact), room, editor.faceGap);
+            var x = box.x + editor.segPad, end = x + room;
             out[zone] = {
                 x: box.x,
                 width: box.width,
                 plusX: box.x + box.width - editor.segPad - editor.faceHeight,
+                named: fit.named,
                 chips: ids.map(function (id, i) {
-                    var w = sum <= avail ? natural[i] : Math.max(Style.space(30), Math.min(natural[i], avail / ids.length));
+                    var w = fit.widths[i];
                     var chip = {
                         id: id,
                         x: x,
-                        width: w
+                        width: w,
+                        seen: Math.max(0, Math.min(w, end - x))
                     };
                     x += w + editor.faceGap;
                     return chip;
@@ -621,30 +646,15 @@ Item {
             return null;
         return railLayout[slot.zone].chips[slot.index] || null;
     }
-    // The drawers hang 20 px under the rail, one per group at its zone's
-    // column; groups sharing a zone share its width.
+    // The drawers hang 20 px under the rail, one per zone at its column,
+    // showing the zone's open group.
     readonly property real drawersTop: railBottom + Style.space(20)
-    readonly property real drawerGap: Style.space(4)
     readonly property real headerHeight: Style.space(34)
     readonly property real noteHeight: Style.space(18)
     readonly property real emptyHeight: Style.space(46)
     readonly property real drawerPad: Style.space(6)
     readonly property real chipHeight: layout.chipHeight
     readonly property real chipGap: layout.chipGap
-    function drawerBox(id) {
-        var slot = slots[id];
-        if (!slot)
-            return {
-                x: 0,
-                width: 0
-            };
-        var box = zoneBox(slot.zone);
-        var w = (box.width - (slot.count - 1) * drawerGap) / slot.count;
-        return {
-            x: box.x + slot.index * (w + drawerGap),
-            width: w
-        };
-    }
     function drawerNote(g) {
         return !g ? "" : g.visibility === "hidden" ? "Hidden: kept, never opens" : g.visibility === "managed" ? "On demand: behind its circle" : "";
     }
@@ -750,8 +760,9 @@ Item {
     }
 
     // --------------------------------------------------------- the drawers
+    // One per zone, its open group's; the faces above are its tabs.
     Repeater {
-        model: editor.order
+        model: editor.zones
         Drawer {}
     }
 
@@ -1009,7 +1020,7 @@ Item {
                     }
                 };
             for (var i = 0; i < seg.chips.length; i++)
-                if (inBox(point, seg.chips[i].x, chipY, seg.chips[i].width, faceHeight))
+                if (inBox(point, seg.chips[i].x, chipY, seg.chips[i].seen, faceHeight))
                     return {
                         kind: "face",
                         id: seg.chips[i].id,
@@ -1029,6 +1040,8 @@ Item {
         }
         for (var d = 0; d < registry.drawers.length; d++) {
             var drawer = registry.drawers[d];
+            if (!drawer.groupId)
+                continue;
             var p = drawer.mapFromItem(editor, point.x, point.y);
             if (p.x < 0 || p.y < 0 || p.x >= drawer.width || p.y >= drawer.height)
                 continue;
@@ -1103,6 +1116,8 @@ Item {
     }
     function windowAt(point) {
         for (var d = 0; d < registry.drawers.length; d++) {
+            if (!registry.drawers[d].groupId)
+                continue;
             var p = registry.drawers[d].mapFromItem(editor, point.x, point.y);
             if (p.x >= 0 && p.y >= 0 && p.x < registry.drawers[d].width && p.y < registry.drawers[d].height)
                 return registry.drawers[d].window;
@@ -1140,8 +1155,14 @@ Item {
                 area: "face",
                 id: hit.id
             };
-        if (JSON.stringify(next) !== JSON.stringify(liftTarget))
+        if (JSON.stringify(next) !== JSON.stringify(liftTarget)) {
             liftTarget = next;
+            // Resting 400 ms on a face opens its group in the zone's drawer.
+            if (next && next.area === "face")
+                faceRest.restart();
+            else
+                faceRest.stop();
+        }
         // Held near a scrolling window's top or bottom edge, the drag scrolls it.
         var win = windowAt(point), dir = 0;
         if (win && win.overflows) {
@@ -1154,9 +1175,21 @@ Item {
         autoScroll.target = dir ? win : null;
         autoScroll.dir = dir;
     }
+    Timer {
+        id: faceRest
+        interval: 400
+        onTriggered: {
+            var t = editor.liftTarget, slot = t && t.area === "face" ? editor.slots[t.id] : null;
+            if (!editor.pointerLift || !slot || editor.openIds[slot.zone] === t.id)
+                return;
+            var o = Object.assign({}, editor.liftOpened);
+            o[slot.zone] = t.id;
+            editor.liftOpened = o;
+        }
+    }
     function drawerFor(id) {
         return registry.drawers.find(function (d) {
-            return d.groupId === id;
+            return !!id && d.groupId === id;
         }) || null;
     }
     Timer {
@@ -1237,9 +1270,7 @@ Item {
         nameTip.record = hit.record || ({});
         nameTip.title = hit.kind === "plus" ? "New group in " + layout.zoneNames[hit.zone] : g ? g.label : hit.record ? preferences.title(hit.record) : "";
         nameTip.detail = hit.kind === "plus" ? "" : g ? "Group" : hit.record ? hit.record.id : "";
-        var gap = Style.space(10);
-        nameTip.x = Math.max(0, Math.min(editor.width - nameTip.width, pointer.x - nameTip.width / 2));
-        nameTip.y = pointer.y + gap + Style.space(16) + nameTip.height <= editor.height ? pointer.y + gap + Style.space(16) : pointer.y - gap - nameTip.height;
+        nameTip.at = pointer;
         nameTip.shown = true;
         tipWarm = true;
     }
@@ -1259,7 +1290,13 @@ Item {
         property var record: ({})
         property string title: ""
         property string detail: ""
-        z: 110
+        // Where the pointer rested; the tip is placed from its laid-out
+        // size, kept inside the page, in front of everything (the inspector too).
+        property point at: Qt.point(0, 0)
+        readonly property real gap: Style.space(10)
+        x: Math.max(0, Math.min(editor.width - width, at.x - width / 2))
+        y: at.y + gap + Style.space(16) + height <= editor.height ? at.y + gap + Style.space(16) : at.y - gap - height
+        z: 130
         visible: opacity > 0
         opacity: shown ? 1 : 0
         Behavior on opacity {
@@ -1806,11 +1843,11 @@ Item {
     readonly property var legend: picker.opened ? picker.hints : lifted ? [
         {
             keys: "h j k l",
-            label: "Through the drawers, the pool and the + slots"
+            label: "Through the open drawers, the pool, the faces and the + slots"
         },
         {
             keys: "space",
-            label: liftTarget && liftTarget.area === "plus" ? "Drop: a new group in " + layout.zoneNames[liftTarget.zone] : "Drop"
+            label: liftTarget && liftTarget.area === "plus" ? "Drop: a new group in " + layout.zoneNames[liftTarget.zone] : liftTarget && liftTarget.area === "face" && groupOf(liftTarget.id) ? "Drop: at the end of " + groupOf(liftTarget.id).label : "Drop"
         },
         {
             keys: "esc",
@@ -2002,7 +2039,7 @@ Item {
         id: segment
         required property string modelData
         readonly property var box: editor.railLayout[modelData]
-        readonly property bool active: (editor.lifted && editor.liftTarget ? editor.liftTarget.zone === modelData || editor.liftTarget.area === "drawer" && editor.slots[editor.liftTarget.id] && editor.slots[editor.liftTarget.id].zone === modelData : editor.at.area === "rail" && editor.at.zone === modelData)
+        readonly property bool active: (editor.lifted && editor.liftTarget ? editor.liftTarget.zone === modelData || (editor.liftTarget.area === "drawer" || editor.liftTarget.area === "face") && editor.slots[editor.liftTarget.id] && editor.slots[editor.liftTarget.id].zone === modelData : editor.at.area === "rail" && editor.at.zone === modelData)
         readonly property bool targeted: editor.liftingFace && !!editor.liftTarget && editor.liftTarget.zone === modelData && editor.liftTarget.zone !== editor.lifted.zone
         x: box.x
         y: editor.stackTop
@@ -2038,76 +2075,91 @@ Item {
         property bool chosen: false
         property bool targeted: false
         property bool hovered: false
+        // Without its name: the icon and the count pill (PREFS-111).
+        property bool named: true
+        // The part the segment does not clip.
+        property real seen: width
         readonly property string visibility: group ? group.visibility : "shown"
         readonly property int count: group ? (editor.memberLists[group.id] || []).length : 0
         height: editor.faceHeight
-        BorderSurface {
-            anchors.fill: parent
-            antialiasing: true
-            radius: editor.chipRadius
-            color: look.targeted ? Qt.alpha(Commons.Color.accent, 0.4) : look.ghost ? Qt.tint(editor.pageColor, Qt.alpha(Commons.Color.popups.text, 0.15)) : look.visibility === "shown" ? Qt.alpha(Commons.Color.accent, look.hovered ? 0.3 : 0.22) : look.visibility === "managed" ? Qt.alpha(Commons.Color.popups.text, look.hovered ? 0.12 : 0.06) : look.hovered ? Qt.alpha(Commons.Color.popups.text, 0.06) : "transparent"
-            borderSpec: look.ghost ? Border.flat(Commons.Color.accent, Math.max(1, Math.round(Style.space(1.5)))) : look.isCursor && editor.stageFocused ? Border.controlSpec("focus", Commons.Color.popups.text, Commons.Color.accent) : look.chosen ? Border.flat(Commons.Color.accent, 1) : look.isCursor ? Border.flat(Qt.alpha(Commons.Color.popups.text, 0.35), 1) : Border.none()
-        }
-        DashedFrame {
-            visible: look.visibility === "hidden" && !look.chosen && !look.isCursor && !look.ghost
-            anchors.fill: parent
-            radius: editor.chipRadius
-            stroke: Qt.alpha(Commons.Color.popups.text, 0.35)
-        }
-        Row {
-            id: faceRow
-            x: Style.space(6)
-            anchors.verticalCenter: parent.verticalCenter
-            spacing: Style.space(5)
-            opacity: look.visibility === "hidden" ? 0.55 : 1
-            Rectangle {
-                visible: look.visibility === "managed"
-                anchors.verticalCenter: parent.verticalCenter
-                width: Style.space(5)
-                height: width
-                radius: width / 2
-                color: "transparent"
-                border.width: 1
-                border.color: Qt.alpha(Commons.Color.popups.text, 0.7)
-            }
+        Item {
+            width: Math.max(0, Math.min(look.width, look.seen))
+            height: look.height
+            visible: width > 0
+            clip: width < look.width - 0.5
             Item {
-                anchors.verticalCenter: parent.verticalCenter
-                width: Style.space(16)
-                height: Style.space(16)
-                GroupFace {
-                    anchors.centerIn: parent
-                    group: look.group
-                    faceMode: "glyph"
-                    color: Commons.Color.popups.text
-                    fontFamily: editor.layout.barFont
-                    fontSize: Style.font.body
+                width: look.width
+                height: look.height
+                BorderSurface {
+                    anchors.fill: parent
+                    antialiasing: true
+                    radius: editor.chipRadius
+                    color: look.targeted ? Qt.alpha(Commons.Color.accent, 0.4) : look.ghost ? Qt.tint(editor.pageColor, Qt.alpha(Commons.Color.popups.text, 0.15)) : look.visibility === "shown" ? Qt.alpha(Commons.Color.accent, look.hovered ? 0.3 : 0.22) : look.visibility === "managed" ? Qt.alpha(Commons.Color.popups.text, look.hovered ? 0.12 : 0.06) : look.hovered ? Qt.alpha(Commons.Color.popups.text, 0.06) : "transparent"
+                    borderSpec: look.ghost ? Border.flat(Commons.Color.accent, Math.max(1, Math.round(Style.space(1.5)))) : look.isCursor && editor.stageFocused ? Border.controlSpec("focus", Commons.Color.popups.text, Commons.Color.accent) : look.chosen ? Border.flat(Commons.Color.accent, 1) : look.isCursor ? Border.flat(Qt.alpha(Commons.Color.popups.text, 0.35), 1) : Border.none()
                 }
-            }
-            Text {
-                id: faceName
-                anchors.verticalCenter: parent.verticalCenter
-                width: Math.max(0, look.width - Style.space(12) - Style.space(16) - (look.visibility === "managed" ? Style.space(10) : 0) - 2 * faceRow.spacing - facePill.width)
-                text: look.group ? look.group.label : ""
-                textFormat: Text.PlainText
-                color: Commons.Color.popups.text
-                font.family: Style.font.family
-                font.pixelSize: Style.font.caption
-                elide: Text.ElideRight
-            }
-            Rectangle {
-                id: facePill
-                anchors.verticalCenter: parent.verticalCenter
-                width: editor.pillWidth(look.count)
-                height: Style.space(16)
-                radius: height / 2
-                color: Qt.alpha(Commons.Color.popups.text, 0.12)
-                Text {
-                    anchors.centerIn: parent
-                    text: look.count
-                    textFormat: Text.PlainText
-                    color: Commons.Color.popups.text
-                    font.family: Style.font.family
-                    font.pixelSize: Style.font.caption
+                DashedFrame {
+                    visible: look.visibility === "hidden" && !look.chosen && !look.isCursor && !look.ghost
+                    anchors.fill: parent
+                    radius: editor.chipRadius
+                    stroke: Qt.alpha(Commons.Color.popups.text, 0.35)
+                }
+                Row {
+                    id: faceRow
+                    x: Style.space(6)
+                    anchors.verticalCenter: parent.verticalCenter
+                    spacing: Style.space(5)
+                    opacity: look.visibility === "hidden" ? 0.55 : 1
+                    Rectangle {
+                        visible: look.visibility === "managed"
+                        anchors.verticalCenter: parent.verticalCenter
+                        width: Style.space(5)
+                        height: width
+                        radius: width / 2
+                        color: "transparent"
+                        border.width: 1
+                        border.color: Qt.alpha(Commons.Color.popups.text, 0.7)
+                    }
+                    Item {
+                        anchors.verticalCenter: parent.verticalCenter
+                        width: Style.space(16)
+                        height: Style.space(16)
+                        GroupFace {
+                            anchors.centerIn: parent
+                            group: look.group
+                            faceMode: "glyph"
+                            color: Commons.Color.popups.text
+                            fontFamily: editor.layout.barFont
+                            fontSize: Style.font.body
+                        }
+                    }
+                    Text {
+                        id: faceName
+                        visible: look.named
+                        anchors.verticalCenter: parent.verticalCenter
+                        width: Math.max(0, look.width - Style.space(12) - Style.space(16) - (look.visibility === "managed" ? Style.space(10) : 0) - 2 * faceRow.spacing - facePill.width)
+                        text: look.group ? look.group.label : ""
+                        textFormat: Text.PlainText
+                        color: Commons.Color.popups.text
+                        font.family: Style.font.family
+                        font.pixelSize: Style.font.caption
+                        elide: Text.ElideRight
+                    }
+                    Rectangle {
+                        id: facePill
+                        anchors.verticalCenter: parent.verticalCenter
+                        width: editor.pillWidth(look.count)
+                        height: Style.space(16)
+                        radius: height / 2
+                        color: Qt.alpha(Commons.Color.popups.text, 0.12)
+                        Text {
+                            anchors.centerIn: parent
+                            text: look.count
+                            textFormat: Text.PlainText
+                            color: Commons.Color.popups.text
+                            font.family: Style.font.family
+                            font.pixelSize: Style.font.caption
+                        }
+                    }
                 }
             }
         }
@@ -2117,9 +2169,16 @@ Item {
         required property string modelData
         readonly property var box: editor.faceChip(modelData) || ({
                 x: 0,
-                width: 0
+                width: 0,
+                seen: 0
             })
+        readonly property var slot: editor.slots[modelData] || null
+        // The open face, the one its zone's drawer shows (PREFS-120).
+        readonly property bool open: !!slot && editor.openIds[slot.zone] === modelData
+        readonly property real mid: Math.min(chip.width, box.seen) / 2
         group: editor.groupOf(modelData)
+        named: !!slot && editor.railLayout[slot.zone].named
+        seen: box.seen
         isCursor: !editor.lifted && editor.cursorKey === "face:" + modelData
         chosen: editor.selectedId === modelData
         targeted: !!editor.lifted && !editor.liftingFace && !!editor.liftTarget && editor.liftTarget.area === "face" && editor.liftTarget.id === modelData
@@ -2129,12 +2188,15 @@ Item {
         y: editor.stackTop + editor.segPad
         width: box.width
         z: 2
-        // The leader to its drawer, the dot at the face.
+        // The open face's leader to its zone's drawer, the dot at the face.
         Shape {
             id: faceLeader
-            readonly property var drawer: editor.drawerBox(chip.modelData)
-            readonly property real endX: Math.max(drawer.x + Style.space(12), Math.min(drawer.x + drawer.width - Style.space(12), chip.x + chip.width / 2)) - chip.x
-            visible: drawer.width > 0
+            readonly property var drawer: chip.slot ? editor.zoneBox(chip.slot.zone) : ({
+                    x: 0,
+                    width: 0
+                })
+            readonly property real endX: Math.max(drawer.x + Style.space(12), Math.min(drawer.x + drawer.width - Style.space(12), chip.x + chip.mid)) - chip.x
+            visible: chip.open && chip.mid > 0 && drawer.width > 0
             x: 0
             y: 0
             width: Math.max(chip.width, endX + 1)
@@ -2145,10 +2207,10 @@ Item {
                 strokeStyle: ShapePath.DashLine
                 dashPattern: [3, 3]
                 fillColor: "transparent"
-                startX: chip.width / 2
+                startX: chip.mid
                 startY: editor.faceHeight + Style.space(3)
                 PathLine {
-                    x: chip.width / 2
+                    x: chip.mid
                     y: editor.faceHeight + Style.space(9)
                 }
                 PathLine {
@@ -2158,7 +2220,8 @@ Item {
             }
         }
         Rectangle {
-            x: chip.width / 2 - width / 2
+            visible: faceLeader.visible
+            x: chip.mid - width / 2
             y: editor.faceHeight + Style.space(3) - height / 2
             width: Style.space(6)
             height: width
@@ -2202,27 +2265,35 @@ Item {
             font.pixelSize: Style.font.body
         }
     }
-    // A group's drawer, flat under its face: a header with its face and
-    // count, then its widgets in a window that scrolls (PREFS-106).
+    // A zone's drawer, flat under its rail segment, showing its open group
+    // (PREFS-120): a header with its face and count, then its widgets in a
+    // window that scrolls (PREFS-106). Another face opened swaps it at once.
     component Drawer: Item {
         id: drawer
         required property string modelData
-        readonly property string groupId: modelData
-        readonly property var group: editor.groupOf(modelData)
-        readonly property var box: editor.drawerBox(modelData)
-        readonly property bool chosen: editor.selectedId === modelData
+        readonly property string zone: modelData
+        readonly property string groupId: editor.openIds[modelData] || ""
+        readonly property var group: editor.groupOf(groupId)
+        readonly property var box: editor.zoneBox(modelData)
+        readonly property bool chosen: !!groupId && editor.selectedId === groupId
         readonly property bool hidden: !!group && group.visibility === "hidden"
-        readonly property var list: editor.drawerList(modelData)
+        readonly property var list: groupId ? editor.drawerList(groupId) : []
         readonly property string note: editor.drawerNote(group)
-        readonly property bool targeted: !!editor.lifted && !editor.liftingFace && !!editor.liftTarget && editor.liftTarget.area === "drawer" && editor.liftTarget.id === modelData
-        readonly property bool cursorHere: !editor.lifted && editor.at.area === "drawer" && editor.at.id === modelData
+        readonly property bool targeted: !!editor.lifted && !editor.liftingFace && !!editor.liftTarget && editor.liftTarget.area === "drawer" && editor.liftTarget.id === groupId
+        readonly property bool cursorHere: !editor.lifted && editor.at.area === "drawer" && editor.at.id === groupId
         readonly property alias window: drawerWindow
         x: box.x
         y: editor.drawersTop
         width: box.width
-        height: Math.min(editor.drawerDemand(modelData), editor.drawerBand)
+        visible: groupId !== ""
+        height: groupId ? Math.min(editor.drawerDemand(groupId), editor.drawerBand) : 0
         z: 3
         opacity: hidden ? 0.6 : 1
+        // A swapped group starts at its top, the cursor's widget in view.
+        onGroupIdChanged: {
+            drawerWindow.scroll = 0;
+            Qt.callLater(editor.revealCursor);
+        }
         Component.onCompleted: registry.add(this)
         Component.onDestruction: registry.drop(this)
         Behavior on height {
@@ -2296,7 +2367,7 @@ Item {
             Rectangle {
                 id: drawerPill
                 anchors.verticalCenter: parent.verticalCenter
-                readonly property int n: (editor.memberLists[drawer.modelData] || []).length
+                readonly property int n: (editor.memberLists[drawer.groupId] || []).length
                 width: editor.pillWidth(n)
                 height: Style.space(16)
                 radius: height / 2
