@@ -11,7 +11,7 @@
   Enter or a click pulls a chip forward on a dashed leader to an inspector
   at the front, where its layer (j/k), zone, shortcut, activity peek and
   group are set; Esc pushes it back. The keys are a legend at the bottom
-  left, beside the inspector. Resting the pointer on a chip shows its full
+  left, beside the inspector, in small text. Resting the pointer on a chip shows its full
   name and id. h and l change zone; j and k walk a zone and carry on into
   the next layer, with or without a chip picked up; Shift with them moves
   the chip there at once. The cursor's chip and its tile rise a little off
