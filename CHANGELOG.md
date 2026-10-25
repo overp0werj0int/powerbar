@@ -4,6 +4,7 @@
 
 - The camera's beam on the Layout page is one shade through the notch's cap, the gaps and the Center tiles it falls on (a fragment shader with a raised cosine across, a smooth fade down and a grain against banding), so it reads as dispersed light with no steps between a tile and a gap or where the cap ends (PREFS-24).
 - A raised zone tile takes its edge with it, so every tile's edge reads the same (PREFS-104); the Preferences focus ring is a hairline with 5 px of room, in the theme's shape (PREFS-108); the inspector's zone map is square on a square theme (PREFS-26).
+- In the Layout page's inspector, Tab and Shift+Tab walk its controls (Layer, Zone, Shortcut, Peeks on activity, Group) and wrap round inside it instead of leaving it, and the legend names each control's own keys; the Group dropdown opens above itself, in view, instead of below the window's edge; the Layer list's own j/k line is gone, the legend shows it (PREFS-26, PREFS-101).
 - **The Layout page is an exploded view of the bar.** Preferences now fill
   the screen under the bar. On the bar, On demand, Hidden and the tray are
   plates tilted back in perspective, each with its name, its five zones as

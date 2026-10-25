@@ -485,21 +485,21 @@ Item {
             keys: "tab",
             label: "Next layer"
         }
-    ] : inspectorFocused ? [
+    ] : inspector.popupOpen ? inspector.popupHints : inspectorFocused ? [
         {
             keys: "tab shift+tab",
             label: "Next, previous control"
         }
-    ].concat(focused && focused.keyHints ? focused.keyHints : [
+    ].concat(focused && focused.keyHints ? focused.keyHints : within(focused, inspector.zoneMapItem) ? [
         {
             keys: "h l",
-            label: "Adjust"
+            label: "Walk the zones"
         },
         {
             keys: "space",
-            label: "Toggle"
+            label: "Move it to that zone"
         }
-    ]).concat([
+    ] : []).concat([
         {
             keys: "esc",
             label: "Back to the layers"
@@ -2164,6 +2164,29 @@ Item {
         function focusFirst() {
             layerPicker.forceActiveFocus(Qt.TabFocusReason);
         }
+        readonly property Item zoneMapItem: zoneMap
+        readonly property bool popupOpen: groupPicker.popupOpen
+        readonly property var popupHints: groupPicker.listHints
+        // Tab and Shift+Tab walk the inspector's controls and wrap round
+        // inside it (Layer, Zone, Shortcut, Peeks on activity, Group or Edit
+        // group) rather than leaving it for the rest of the page: a stop
+        // before the first control and one after the last send focus on
+        // round. Qt walks Tab itself, so the stops are where it can be met.
+        property Item lastInside: null
+        function lastControl() {
+            var last = layerPicker;
+            for (var item = layerPicker.nextItemInFocusChain(true); item && item !== endFence && item !== layerPicker && editor.within(item, panel); item = item.nextItemInFocusChain(true))
+                last = item;
+            return last;
+        }
+        Connections {
+            target: editor
+            function onFocusedChanged() {
+                var f = editor.focused;
+                if (f && f !== startFence && f !== endFence && editor.within(f, panel))
+                    panel.lastInside = f;
+            }
+        }
         anchors.right: parent.right
         anchors.bottom: parent.bottom
         width: Math.min(editor.width, Style.space(670))
@@ -2196,6 +2219,14 @@ Item {
                 return;
             editor.pushBack();
             event.accepted = true;
+        }
+        // Shift+Tab from Layer meets this stop: on to the last control.
+        // Tab from outside meets it first: on to Layer.
+        Item {
+            id: startFence
+            activeFocusOnTab: panel.shown
+            onActiveFocusChanged: if (activeFocus)
+                (panel.lastInside === layerPicker ? panel.lastControl() : layerPicker).forceActiveFocus(Qt.TabFocusReason)
         }
         MouseArea {
             anchors.fill: parent
@@ -2296,6 +2327,7 @@ Item {
                 Layout.alignment: Qt.AlignTop
                 spacing: Style.space(8)
                 PrefsZoneMap {
+                    id: zoneMap
                     compact: true
                     stacked: true
                     Layout.leftMargin: 0
@@ -2333,6 +2365,12 @@ Item {
                 }
                 PrefsToggle {
                     id: activityToggle
+                    readonly property var keyHints: [
+                        {
+                            keys: "space",
+                            label: "Toggle"
+                        }
+                    ]
                     readonly property bool clockDriven: !!panel.record && !!editor.bar.quietActivityId(panel.record.id)
                     visible: !panel.isGroup && !panel.inTray
                     compact: true
@@ -2366,11 +2404,14 @@ Item {
                         }
                     }
                 }
-                Dropdown {
+                // Opens upward: the inspector sits at the window's bottom.
+                PrefsDropdown {
+                    id: groupPicker
                     visible: !panel.isGroup && !panel.inTray
                     Layout.fillWidth: true
                     label: "Group"
                     showLabel: false
+                    openLabel: "Choose a group"
                     options: [
                         {
                             value: "",
@@ -2389,6 +2430,13 @@ Item {
                     }
                 }
                 Button {
+                    id: editGroupButton
+                    readonly property var keyHints: [
+                        {
+                            keys: "enter",
+                            label: "Edit the group"
+                        }
+                    ]
                     visible: panel.isGroup
                     text: "Edit group"
                     iconText: "󰏫"
@@ -2398,6 +2446,14 @@ Item {
                     onClicked: editor.preferences.openGroup(panel.record.groupId)
                 }
             }
+        }
+        // Tab from the last control meets this stop: round to Layer.
+        // Shift+Tab from outside meets it first: on to the last control.
+        Item {
+            id: endFence
+            activeFocusOnTab: panel.shown
+            onActiveFocusChanged: if (activeFocus)
+                (panel.lastInside === panel.lastControl() ? layerPicker : panel.lastControl()).forceActiveFocus(Qt.TabFocusReason)
         }
     }
 
@@ -2517,28 +2573,6 @@ Item {
                         cursorShape: Qt.PointingHandCursor
                         onClicked: picker.choose(row.modelData.value)
                     }
-                }
-            }
-            Row {
-                topPadding: Style.space(8)
-                leftPadding: Style.space(10)
-                spacing: Style.space(4)
-                KeyCap {
-                    text: "j"
-                    anchors.verticalCenter: parent.verticalCenter
-                }
-                KeyCap {
-                    text: "k"
-                    anchors.verticalCenter: parent.verticalCenter
-                }
-                Text {
-                    anchors.verticalCenter: parent.verticalCenter
-                    leftPadding: Style.space(4)
-                    text: "move it down or up a layer"
-                    textFormat: Text.PlainText
-                    color: Qt.alpha(Commons.Color.popups.text, 0.5)
-                    font.family: Style.font.family
-                    font.pixelSize: Style.font.caption
                 }
             }
         }
