@@ -1353,11 +1353,20 @@ Item {
     onLiftTargetChanged: Qt.callLater(refreshInspected)
     onInspectingChanged: Qt.callLater(refreshInspected)
     property point leaderStart: Qt.point(0, 0)
+    // The leader starts at the chip's middle; a chip scrolled out of its
+    // zone's window is pointed at from the window's edge it went past.
     function trackLeader() {
         var tile = inspectedItem;
         if (!tile)
             return;
-        leaderStart = tile.mapToItem(editor, tile.width / 2, tile.height / 2);
+        var cell = cellFor(tile.section, tile.mode);
+        if (!cell) {
+            leaderStart = tile.mapToItem(editor, tile.width / 2, tile.height / 2);
+            return;
+        }
+        var p = tile.mapToItem(cell, tile.width / 2, tile.height / 2);
+        var y = Math.max(cell.viewTop, Math.min(cell.viewTop + cell.viewHeight, p.y));
+        leaderStart = cell.mapToItem(editor, p.x, y);
     }
     onInspectedItemChanged: trackLeader()
     GeometryObserver {

@@ -29,11 +29,12 @@ void main() {
     // Down the page: full at the top, gone at the end, no slope at either.
     float t = clamp(v / max(span, 1.0), 0.0, 1.0);
     float down = 1.0 - t * t * (3.0 - 2.0 * t);
-    // Across: a raised cosine, flat in the middle and soft to the edges,
-    // as wide as the cap where the beam leaves it and narrowing down the
-    // page like a flame.
+    // Across: full and nearly crisp at the cap's width where the beam
+    // leaves it, then thinning from the outside in and softening as it
+    // goes down the page, like a flame.
     float wide = mix(1.0, taper, t);
-    float across = 0.5 + 0.5 * cos(3.14159265 * min(au / wide, 1.0));
+    float soft = mix(0.2, 0.7, t);
+    float across = 1.0 - smoothstep(max(wide - soft, 0.0), wide, au);
     // The cap is solid and full width; it becomes the beam gradually.
     float cap = 1.0 - smoothstep(capEnd, capFade, v);
     float shape = mix(across, 1.0, cap);
