@@ -94,6 +94,7 @@ function make(o) {
     pad: s => cell.endPad(k, s),
     handle: { extent: h.extent, spill: h.spill },
     notch: o.notch,
+    boxBefore: o.boxBefore === true,
     zones: {
       left: mk('L', z.left || [12]), right: mk('R', z.right || [12]),
       before: mk('B', z.before || []),
@@ -108,7 +109,7 @@ function centreSpans(input, r) {
   const fold = new Set(r.folded.center);
   const z = input.zones;
   const n = { key: 'notch', extent: input.notch, spill: 0 };
-  let slots = z.before.concat([n], z.box, z.after).filter(s => !fold.has(s.key));
+  let slots = z.before.concat(input.boxBefore ? z.box.concat([n]) : [n].concat(z.box), z.after).filter(s => !fold.has(s.key));
   const h = key => ({ key, extent: input.handle.extent, spill: input.handle.spill });
   if (['start', 'both'].includes(r.handles.center)) slots = [h('handle:center:start')].concat(slots);
   if (['end', 'both'].includes(r.handles.center)) slots = slots.concat([h('handle:center:end')]);
@@ -129,6 +130,27 @@ test('the notch slot stays on the camera and the anchor starts right of it', () 
   assert.ok(Math.abs(s.A0[0] - (756 + NOTCH / 2)) < 1e-6, 'anchor starts at the notch edge');
   assert.ok(s.B1[1] <= 756 - NOTCH / 2 + 1e-6, 'before-run ends left of the notch');
   assert.equal(r.centerShift, 0);
+});
+
+test('the box left of the camera (ZONE-96): it ends at the notch, Right of center starts past it', () => {
+  const input = make({ length: 1512, notch: NOTCH, boxBefore: true, zones: { before: [12, 12], anchor: 90, after: [12, 12] } });
+  const r = fit(input);
+  assert.equal(r.fits, true);
+  const s = centreSpans(input, r);
+  assert.ok(Math.abs((s.notch[0] + s.notch[1]) / 2 - 756) < 1e-6, 'notch centred on the screen');
+  assert.ok(Math.abs(s.A0[1] - (756 - NOTCH / 2)) < 1e-6, 'the box ends at the notch edge');
+  assert.ok(s.B1[1] <= s.A0[0] + 1e-6, 'before-run ends before the box');
+  assert.ok(Math.abs(s.F0[0] - (756 + NOTCH / 2)) < 1e-6, 'after-run starts at the notch edge');
+  assert.equal(r.centerShift, 0);
+  // A long left zone folds the left side from its far end: the box, next to
+  // the camera, folds last.
+  const long = make({ length: 1512, notch: NOTCH, boxBefore: true, zones: { left: Array(30).fill(12), before: [12, 12], anchor: 90, after: [12] } });
+  const f = fit(long);
+  assert.equal(f.fits, true);
+  assert.equal(f.centerShift, 0);
+  assert.ok(f.folded.left.length + f.folded.center.length > 0);
+  assert.ok(!f.folded.center.includes('A0') || f.folded.center.includes('B0'), 'the box folds only after Left of center');
+  assert.ok(!f.folded.center.includes('F0'), 'the right side has room: its widgets stay');
 });
 
 test('a long left zone folds on the left; the centre never slides over the camera', () => {

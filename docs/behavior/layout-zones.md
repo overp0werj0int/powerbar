@@ -62,7 +62,7 @@ Numbers below use Omarchy's default theme tokens: bar 26 px (horizontal) or 28 p
 
 - **ZONE-25** On-demand widgets draw as one run at their zone's dots end, in saved order: the left zone's end, the right zone's start. Always-shown widgets keep their saved order and never move when on-demand widgets appear (an expansion, an activity reveal, a drop preview). The saved layout is not rewritten; only the drawing differs. Code: ZoneOrderModel.arrange.
 
-- **ZONE-26** Each on-demand widget of the center waits behind its own side's dots: Left of center's at its start, Right of center's at its end. The box's on-demand widgets are counted on Right of center's dots and draw with its run. Code: ZoneOrderModel.arrange (lists `centerBegin`, `center`, `centerEnd`); SectionsModel.sideOf.
+- **ZONE-26** Each on-demand widget of the center waits behind its own side's dots: Left of center's at its start, Right of center's at its end. The box's on-demand widgets are counted on the dots of the side of the camera it sits on (ZONE-96; Right of center's unless `powerbarCenterSide` is "left") and draw with that run. Code: ZoneOrderModel.arrange (lists `centerBegin`, `center`, `centerEnd`); SectionsModel.sideOf.
 
 - **ZONE-27** A drop into a bar gap writes the widget into the saved layout so it lands exactly at the gap: into the list of the widget it lands beside, before the first widget of its own run (always-shown or on-demand) after the gap; else after the last such widget before the gap; else at the list's end. Code: ZoneOrderModel.dropBefore; tests/zone-order.test.cjs.
 
@@ -179,9 +179,10 @@ Numbers below use Omarchy's default theme tokens: bar 26 px (horizontal) or 28 p
 - **ZONE-94** One layout serves every screen and every edge; nothing is kept per screen or per style. Code: Bar.qml normalizeLayout.
 
 - **ZONE-95** A drag dropped on the bar away from any widget goes to the zone it is over: the left, the center or the right third of the bar, and in the center the side of the box it is on. Code: Bar.qml barZoneAt, zoneDropList.
+- **ZONE-96** On a notched screen the Center zone's widgets sit beside the camera, on the right of it unless `powerbarCenterSide` is "left" (default right; `omarchy-shell powerbar set centerSide left|right`; Preferences > Layout, the dot beside the camera, PREFS-105). On the left they come after Left of center, next to the camera, and count with Left of center's dots; on the right they come before Right of center, next to the camera, and count with its dots. A screen without a camera is not affected: the three center lists share the center. In the split styles (ZONE-89) the fit then puts the camera's slot after the box, which ends at the camera with Left of center and folds with it, from Left of center's far end in; in the Notch style (ZONE-82) the box joins the left side's run. Code: BarModel.options centerSide; ZoneFitModel.prepare (`boxBefore`); RenderModel.zoneOf, records; SectionsModel.sideOf; Bar.qml CenterModules `boxBefore`, zoneLists, reconcileWidgets; tests/notch.test.cjs.
 
 - **ZONE-89** On a notched screen with a top bar, in the Flat, Floating and Islands styles, the center splits around the camera:
-  - Left of center ends at the camera's left edge. The box and Right of center start at its right edge.
+  - Left of center ends at the camera's left edge. The box and Right of center start at its right edge (the box on the other side with `powerbarCenterSide` "left", ZONE-96).
   - The keep-out is the camera's width (ZONE-80) plus a screen edge's inset (`islandScreenInset`) on each side. Each side's island edge sits exactly on it, from its own end pad.
   - The fit places the keep-out as a fixed slot just before the box, padded by the end pads of the cells beside it (`notchPads`). So the center never slides over the camera, and widgets fold towards their own side.
   - An inline expansion of the left zone makes Left of center yield up to the camera, never past it; one that still collides opens its drawer, as a second island under the bar (ZONE-31).

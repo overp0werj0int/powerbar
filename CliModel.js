@@ -35,6 +35,8 @@ var settings = [
   { name: "notchWidth", key: "powerbarNotchWidth", type: "number", min: 40, max: 600, step: 1, writer: "option" },
   // Its height in logical px, on a notched screen.
   { name: "notchHeight", key: "powerbarNotchHeight", type: "number", min: 16, max: 96, step: 1, writer: "option" },
+  // Which side of the camera the Center zone sits on, on a notched screen.
+  { name: "centerSide", key: "powerbarCenterSide", type: "choice", choices: ["right", "left"], writer: "option" },
   // Appearance (bar.powerbarAppearance), in the scope each tile follows now.
   { name: "shape.scope", tile: "shape", type: "choice", choices: ["theme", "all", "this"], writer: "scope" },
   { name: "shape.rounding", tile: "shape", look: "rounding", type: "number", min: 0, max: "roundingMax", step: 1, writer: "look" },

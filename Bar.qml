@@ -2462,7 +2462,7 @@ Item {
   // A zone's lists in bar order, and their entries as one run (ears: under
   // the Notch style's camera, RenderModel.zoneOf).
   function zoneLists(zone, ears) {
-    return SectionsModel.lists.filter(function(list) { return RenderModel.zoneOf(list, ears) === zone })
+    return SectionsModel.lists.filter(function(list) { return RenderModel.zoneOf(list, ears, root.barOptions.centerSide) === zone })
   }
   function zoneEntries(zone, ears) {
     return [].concat.apply([], zoneLists(zone, ears).map(function(list) { return layoutEntries(list) }))
@@ -3623,6 +3623,7 @@ Item {
         length: i.length, inset: i.inset, gap: i.gap, gutter: i.gutter, momentGap: i.momentGap,
         notch: notchSlotOf(i.notch),
         notchPads: notchSplit,
+        boxBefore: notchSplit && root.barOptions.centerSide === "left",
         wrap: i.wrap,
         pad: function(spill) { return barWindow.endPad(spill) },
         handle: { extent: handle.extent, spill: handle.spill },
@@ -3883,12 +3884,12 @@ Item {
       return (notchLook ? [zone] : root.zoneLists(zone)).map(function(name) { return widgetModels[name] })
     }
     function reconcileWidgets() {
-      var records = RenderModel.records(root.layoutConfig, notchLook)
+      var records = RenderModel.records(root.layoutConfig, notchLook, root.barOptions.centerSide)
       widgetStore.reconcile(records)
       var partition = RenderModel.split(records)
       var keys = {}
       for (var list of SectionsModel.lists) {
-        var into = notchLook ? RenderModel.zoneOf(list, true) : list
+        var into = notchLook ? RenderModel.zoneOf(list, true, root.barOptions.centerSide) : list
         keys[into] = (keys[into] || []).concat(partition[list])
       }
       var models = [], lists = []
@@ -3909,6 +3910,9 @@ Item {
     }
     // The notch draws on-demand runs at the zones' far ends.
     onNotchLookChanged: reconcileWidgets()
+    // Center's widgets change ears with it (ZONE-96).
+    readonly property string centerSide: root.barOptions.centerSide
+    onCenterSideChanged: if (notchLook) reconcileWidgets()
     Component.onCompleted: { reconcileWidgets(); syncStrip(true); if (!notchPending) notchWaitOver = true }
 
     // Keep the Wayland surface stable across drawer opens/closes. Only the
@@ -5564,6 +5568,9 @@ Item {
     id: centerRoot
     property var homeWindow: null
     readonly property real split: homeWindow && homeWindow.notchSplit ? homeWindow.notchKeepOut : 0
+    // The box left of the camera (ZONE-96): it ends at the slot with Left of
+    // center, and Right of center alone starts past it.
+    readonly property bool boxBefore: split > 0 && root.barOptions.centerSide === "left"
     readonly property real middle: (root.vertical ? height : width) / 2
     function along(list) { return root.vertical ? list.y : list.x }
     // Where a run of lists shows along the bar, past the yielded slots at its
@@ -5575,8 +5582,8 @@ Item {
       return { start: along(first) + first.shownLead, end: along(last) + last.listLength - last.shownTrail,
         leadSpill: first.leadSpill, trailSpill: last.trailSpill }
     }
-    readonly property var beginSpan: split > 0 ? span([beginModules]) : null
-    readonly property var mainSpan: split > 0 ? span([boxModules, endModules]) : span([beginModules, boxModules, endModules])
+    readonly property var beginSpan: split > 0 ? span(boxBefore ? [beginModules, boxModules] : [beginModules]) : null
+    readonly property var mainSpan: split > 0 ? span(boxBefore ? [endModules] : [boxModules, endModules]) : span([beginModules, boxModules, endModules])
     IslandSurface {
       id: centerBeginIsland
       readonly property var span: centerRoot.beginSpan
@@ -5629,7 +5636,7 @@ Item {
       listRole: "centerBegin"
       region: "center"
       previewEnd: false
-      readonly property real trailEdge: centerRoot.split > 0
+      readonly property real trailEdge: centerRoot.split > 0 && !centerRoot.boxBefore
         ? centerRoot.middle - centerRoot.split / 2 - root.endPadIn(centerRoot.homeWindow, trailSpill) + shownTrail
         : centerRoot.along(boxModules)
       x: root.vertical ? (parent.width - width) / 2 : trailEdge - width
@@ -5644,16 +5651,19 @@ Item {
       readonly property real lead: centerRoot.split > 0
         ? centerRoot.middle + centerRoot.split / 2 + root.endPadIn(centerRoot.homeWindow, leadSpill) - shownLead
         : centerRoot.middle - listLength / 2
-      x: root.vertical ? (parent.width - width) / 2 : lead
-      y: root.vertical ? lead : (parent.height - height) / 2
+      readonly property real trailEdge: centerRoot.middle - centerRoot.split / 2 - root.endPadIn(centerRoot.homeWindow, trailSpill) + shownTrail
+      readonly property real along: centerRoot.boxBefore ? trailEdge - (root.vertical ? height : width) : lead
+      x: root.vertical ? (parent.width - width) / 2 : along
+      y: root.vertical ? along : (parent.height - height) / 2
     }
     ModuleList {
       id: endModules
       homeWindow: centerRoot.homeWindow
       listRole: "centerEnd"
       region: "center"
-      // An empty box under a camera: Right of center starts right of it.
-      readonly property real lead: centerRoot.split > 0 && !(boxModules.listLength > 0)
+      // An empty box under a camera, or one left of it: Right of center
+      // starts right of the camera.
+      readonly property real lead: centerRoot.split > 0 && (centerRoot.boxBefore || !(boxModules.listLength > 0))
         ? centerRoot.middle + centerRoot.split / 2 + root.endPadIn(centerRoot.homeWindow, leadSpill) - shownLead
         : centerRoot.along(boxModules) + boxModules.listLength
       x: root.vertical ? (parent.width - width) / 2 : lead
@@ -6122,7 +6132,7 @@ Item {
     readonly property string drawnList: record.drawn
     readonly property string savedList: record.list
     // The side of the centre's box it waits on, and so the dots it waits behind.
-    readonly property string centerSide: SectionsModel.sideOf(drawnList) || "end"
+    readonly property string centerSide: SectionsModel.sideOf(drawnList, root.barOptions.centerSide) || "end"
     // The expansion that shows it in inline mode: its zone, the centre by side.
     readonly property string inlineToken: region === "center" ? "center:" + centerSide : region
     readonly property string moduleName: root.entryId(entry)

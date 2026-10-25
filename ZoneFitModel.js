@@ -18,7 +18,8 @@
 // yields, and the rest of the box folds with the widgets after it. An empty
 // box leaves a mark of no length where before meets after.
 // A screen with a camera notch (input.notch, the keep-out's extent) puts an
-// empty slot in the centre, just before the box, that stays at the middle of
+// empty slot in the centre, just before the box (after it with input.boxBefore,
+// the box then folding with the before-run), that stays at the middle of
 // the bar line: the centre
 // never slides there, and the widgets on either side fold towards their own
 // neighbour instead (the left zone or the centre's before-run on the left,
@@ -40,8 +41,14 @@ function list(value) { return Array.isArray(value) ? value : [] }
 // widget, or the mark of an empty box) and the widgets after it, the rest of
 // the box first. The mark takes the spill of the run it ends, so the island
 // it closes is drawn as if it were not there.
-function prepare(zones) {
+function prepare(zones, boxBefore) {
   var before = list(zones.before), box = list(zones.box), after = list(zones.after)
+  // The box left of the camera (boxBefore): it runs on from the before-run
+  // and the notch slot comes after it, where before meets after.
+  if (boxBefore) {
+    before = before.concat(box)
+    box = []
+  }
   var anchor = box[0] || null
   if (!anchor && (before.length || after.length)) {
     var edge = !after.length ? before[before.length - 1] : !before.length ? after[0] : null
@@ -506,7 +513,7 @@ function fit(input) {
   if (!input.zones.prepared) {
     var o = {}
     for (var k in input) o[k] = input[k]
-    o.zones = prepare(input.zones)
+    o.zones = prepare(input.zones, input.boxBefore === true)
     input = o
   }
   return input.transient ? fitMoment(input) : fitLasting(input)

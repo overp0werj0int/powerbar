@@ -39,16 +39,17 @@ function reconcileLists(models, lists, parking) {
 // The bar's zone lists in order (SectionsModel.lists), and the zone each one
 // belongs to: the three center lists share the center zone. Under the Notch
 // style's camera (ears) there are two zones, one each side of the camera:
-// Left with Left of center, and the box with Right of center and Right.
+// Left with Left of center, and Right of center with Right; the box goes
+// with the side `centerSide` names ("right" unless "left"; ZONE-96).
 var lists = ["left", "centerBegin", "center", "centerEnd", "right"]
-function zoneOf(list, ears) {
-  if (ears) return list === "left" || list === "centerBegin" ? "left" : "right"
+function zoneOf(list, ears, centerSide) {
+  if (ears) return list === "left" || list === "centerBegin" || (list === "center" && centerSide === "left") ? "left" : "right"
   return list === "centerBegin" || list === "centerEnd" ? "center" : list
 }
 // One record per entry: its zone (region), the list it is drawn in, and the
 // list it is saved in (an entry of Omarchy's tray section is drawn beside the
 // tray, powerbarList "tray").
-function records(layout, ears) {
+function records(layout, ears, centerSide) {
   var result = []
   for (var list of lists) {
     var entries = layout && Array.isArray(layout[list]) ? layout[list] : []
@@ -58,7 +59,7 @@ function records(layout, ears) {
       var id = typeof entry === "string" ? entry : entry.id
       if (!id) continue
       var saved = typeof entry === "object" && entry.powerbarList === "tray" ? "tray" : list
-      result.push({ key: entry.powerbarInstance || id + ":" + list + ":" + i, region: zoneOf(list, ears), drawn: list, list: saved, entry: entry })
+      result.push({ key: entry.powerbarInstance || id + ":" + list + ":" + i, region: zoneOf(list, ears, centerSide), drawn: list, list: saved, entry: entry })
     }
   }
   return result

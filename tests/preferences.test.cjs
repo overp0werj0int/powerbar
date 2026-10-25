@@ -278,9 +278,9 @@ test('stackLayers stacks tilted pictures with a gap between them', () => {
   const stack = model.stackLayers([141, 330, 60, 44], 34, 1600, 30);
   assert.equal(stack.layers.length, 4);
   assert.equal(stack.layers[0].top, 0);
-  const e0 = model.tiltedExtent(141, 34, 1600);
-  assert.ok(Math.abs(stack.layers[0].middle - e0.above) < 1e-9);
-  assert.ok(Math.abs(stack.layers[1].top - (e0.above + e0.below + 30)) < 1e-9);
+  const h0 = model.tiltedHeight(141, 34, 1600);
+  assert.ok(Math.abs(stack.layers[0].height - h0) < 1e-9);
+  assert.ok(Math.abs(stack.layers[1].top - (h0 + 30)) < 1e-9);
   const last = stack.layers[3];
   assert.ok(Math.abs(stack.height - (last.top + last.height)) < 1e-9);
   // Flat layers stack by their own heights.
@@ -288,32 +288,32 @@ test('stackLayers stacks tilted pictures with a gap between them', () => {
   assert.ok(Math.abs(flat.height - 160) < 1e-9);
 });
 
-test('a tilted layer keeps its middle line, its top recedes and its bottom comes near', () => {
-  // Measured from Qt's Rotation: 200 tall, 30 degrees, distance 1000.
-  const e = model.tiltedExtent(200, 30, 1000);
-  assert.ok(Math.abs(e.above - 82.48) < 0.01);
-  assert.ok(Math.abs(e.below - 91.16) < 0.01);
-  const flat = model.tiltedExtent(200, 0, 1000);
-  assert.equal(flat.above, 100);
-  assert.equal(flat.below, 100);
+test('a tilted layer keeps its top edge and its bottom comes near', () => {
+  // Qt's Rotation about the top edge: 200 tall, 30 degrees, distance 1000
+  // is seen 200 cos 30 / (1 - 200 sin 30 / 1000) tall.
+  const seen = model.tiltedHeight(200, 30, 1000);
+  assert.ok(Math.abs(seen - 192.45) < 0.01);
+  assert.equal(model.tiltedHeight(200, 0, 1000), 200);
+  // A taller layer only adds below: the first rows are seen the same.
+  assert.ok(model.tiltedHeight(300, 30, 1000) > seen);
+  assert.ok(Math.abs(model.tiltedDepth(50, 30, 1000) - model.tiltedDepth(50, 30, 1000)) < 1e-9);
 });
 
 test('a beam on a tilted plane runs on the lines its edges are seen on', () => {
-  // The plane's top edge is seen `above` over the middle line: asking for
-  // that seen height gives the edge back.
-  const e = model.tiltedExtent(141, 34, 1600);
-  assert.ok(Math.abs(model.tiltedDepth(-e.above, 34, 1600) + 70.5) < 1e-9);
-  assert.ok(Math.abs(model.tiltedDepth(e.below, 34, 1600) - 70.5) < 1e-9);
-  // A line 95.5 out keeps its distance on the middle line, draws in above it
-  // and spreads below it, by the same slope as the plane's own edges.
+  // The plane's bottom edge is seen `tiltedHeight` below the line it turns
+  // about: asking for that seen height gives the edge back.
+  const seen = model.tiltedHeight(141, 34, 1600);
+  assert.ok(Math.abs(model.tiltedDepth(seen, 34, 1600) - 141) < 1e-9);
+  assert.equal(model.tiltedDepth(0, 34, 1600), 0);
+  // A line 95.5 out keeps its distance on that line, draws in above it and
+  // spreads below it, by the same slope as the plane's own edges.
   assert.equal(model.tiltedSpread(95.5, 0, 34, 1600), 95.5);
-  const top = model.tiltedSpread(95.5, -e.above, 34, 1600);
-  const bottom = model.tiltedSpread(95.5, e.below, 34, 1600);
+  const top = model.tiltedSpread(95.5, -40, 34, 1600);
+  const bottom = model.tiltedSpread(95.5, seen, 34, 1600);
   assert.ok(top < 95.5 && bottom > 95.5);
   // Where the edge is seen: u / (1 - v sin / d) with v the edge itself.
   const s = Math.sin(34 * Math.PI / 180);
-  assert.ok(Math.abs(top - 95.5 / (1 + 70.5 * s / 1600)) < 1e-9);
-  assert.ok(Math.abs(bottom - 95.5 / (1 - 70.5 * s / 1600)) < 1e-9);
+  assert.ok(Math.abs(bottom - 95.5 / (1 - 141 * s / 1600)) < 1e-9);
   // Flat, nothing moves.
   assert.equal(model.tiltedDepth(-300, 0, 1600), -300);
   assert.equal(model.tiltedSpread(95.5, 600, 0, 1600), 95.5);

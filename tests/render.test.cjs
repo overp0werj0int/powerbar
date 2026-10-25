@@ -57,3 +57,12 @@ test('shallowSame: the same keys in the same order with the same values', () => 
   assert.equal(model.shallowSame({ start: 1 }, null), false);
   assert.equal(model.shallowSame(null, null), false, 'not objects');
 });
+
+test('under the camera the box joins the side it sits on', () => {
+  assert.deepEqual(model.lists.map(l => model.zoneOf(l, true)), ['left', 'left', 'right', 'right', 'right']);
+  assert.deepEqual(model.lists.map(l => model.zoneOf(l, true, 'left')), ['left', 'left', 'left', 'right', 'right']);
+  assert.deepEqual(model.lists.map(l => model.zoneOf(l, false, 'left')), ['left', 'center', 'center', 'center', 'right'], 'no camera: the three center lists share the center');
+  const layout = { left: [], centerBegin: [], center: [entry('c')], centerEnd: [], right: [] };
+  assert.equal(model.records(layout, true, 'left')[0].region, 'left');
+  assert.equal(model.records(layout, true)[0].region, 'right');
+});

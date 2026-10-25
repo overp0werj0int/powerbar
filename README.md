@@ -454,7 +454,9 @@ polling.
   overlap the camera or leave a gap beside it, set Preferences > Bar >
   Notch > Notch width (`omarchy-shell powerbar set notchWidth N`); Notch
   height (`notchHeight N`) does the same for the height. Reset, in the
-  tile's header, goes back to the measured size.
+  tile's header, goes back to the measured size. Center's widgets sit on the
+  right of the camera; drag the dot beside the camera on the Layout page
+  (or `set centerSide left`) to put them on the left.
 - **One layout for every screen.** In the Notch style, a screen without a
   notch shows the zones as black islands.
 - Multi-monitor setups are less tested than single-monitor ones.

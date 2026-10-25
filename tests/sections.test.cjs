@@ -27,6 +27,7 @@ test("Omarchy's six sections are read as they are", () => {
 test('zones: the three center lists share the center zone, each on its side', () => {
   assert.deepEqual(J(m.lists.map(k => m.zoneOf(k))), ['left', 'center', 'center', 'center', 'right']);
   assert.deepEqual(J(m.lists.map(k => m.sideOf(k))), ['', 'start', 'end', 'end', '']);
+  assert.deepEqual(J(m.lists.map(k => m.sideOf(k, 'left'))), ['', 'start', 'start', 'end', ''], 'the box counts with the side of the camera it sits on');
   assert.equal(m.sixSections(['left', 'centerBegin', 'center', 'centerEnd', 'right', 'tray']), true);
   assert.equal(m.sixSections(['left', 'center', 'right']), false);
   assert.equal(m.sixSections(undefined), false);

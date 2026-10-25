@@ -157,7 +157,7 @@ Item {
     function cameraNote(zone) {
         if (!previewCamera || zone === "left" || zone === "right")
             return "";
-        return (zone === "centerBegin" ? "left of the camera" : "right of the camera") + (screensDiffer && previewScreen ? " on " + previewScreen.name : "");
+        return (zone === "centerBegin" || zone === "center" && centerSide === "left" ? "left of the camera" : "right of the camera") + (screensDiffer && previewScreen ? " on " + previewScreen.name : "");
     }
     readonly property var zoneChoices: sections.map(function (s) {
         return {
@@ -411,7 +411,12 @@ Item {
     // left (PREFS-103) rather than in the footer: the header already shows
     // the pages' digits and esc Close.
     readonly property var hints: []
-    readonly property var legend: lifted ? [
+    readonly property var legend: focused === sideDot ? sideDot.keyHints.concat([
+        {
+            keys: "tab",
+            label: "The layers"
+        }
+    ]) : lifted ? [
         {
             keys: "j k",
             label: "Along the zone, on to the next layer"
@@ -865,13 +870,13 @@ Item {
     Item {
         id: shaft
         readonly property real half: editor.columns.widths[3] / 2
-        // The bar layer's middle line, the page's top and the stack's bottom,
-        // in the editor.
-        readonly property real middle: editor.stackTop + (editor.stack.layers[0] ? editor.stack.layers[0].middle : 0) - sheet.contentY
+        // The line the bar layer turns about (its top edge), the page's top
+        // and the stack's bottom, in the editor.
+        readonly property real line: editor.stackTop - sheet.contentY
         readonly property real beamTop: editor.pageTop
         readonly property real beamBottom: editor.stackTop + editor.stack.height - sheet.contentY + Style.space(8)
         readonly property real pad: Style.space(20)
-        readonly property real spread: Model.tiltedSpread(half, beamBottom - middle, editor.tilt, editor.planeDistance)
+        readonly property real spread: Model.tiltedSpread(half, beamBottom - line, editor.tilt, editor.planeDistance)
         visible: editor.previewCamera && !!editor.previewNotch
         z: -1
         x: editor.axis - spread - pad
@@ -912,12 +917,12 @@ Item {
         Rectangle {
             id: beam
             antialiasing: true
-            // The plane's own coordinates for the beam's ends; it starts
-            // above the page so its blurred top edge stays off screen.
-            readonly property real vTop: Model.tiltedDepth(shaft.beamTop - shaft.pad - shaft.middle, editor.tilt, editor.planeDistance)
-            readonly property real vBottom: Model.tiltedDepth(shaft.beamBottom - shaft.middle, editor.tilt, editor.planeDistance)
+            // The plane's own coordinates for the beam's ends: it starts
+            // behind the bar layer's Center tile, under the notch's cap.
+            readonly property real vTop: 0
+            readonly property real vBottom: Model.tiltedDepth(shaft.beamBottom - shaft.line, editor.tilt, editor.planeDistance)
             x: shaft.pad + shaft.spread - shaft.half
-            y: shaft.middle - shaft.y + vTop
+            y: shaft.line - shaft.y + vTop
             width: 2 * shaft.half
             height: Math.max(0, vBottom - vTop)
             transform: Rotation {
@@ -958,16 +963,18 @@ Item {
         }
     }
     // The notch's own black, crisp and full across the beam's width, from
-    // the page's top into the first layer, where it gives way to the beam.
+    // the page's top to the first layer's Center tile, behind which the
+    // beam takes over.
     Rectangle {
         id: notchCap
         antialiasing: true
-        readonly property real vTop: Model.tiltedDepth(shaft.beamTop - shaft.pad - shaft.middle, editor.tilt, editor.planeDistance)
-        readonly property real vBottom: Model.tiltedDepth(editor.stackTop + Style.space(48) - sheet.contentY - shaft.middle, editor.tilt, editor.planeDistance)
+        color: "black"
+        readonly property real vTop: Model.tiltedDepth(shaft.beamTop - shaft.pad - shaft.line, editor.tilt, editor.planeDistance)
+        readonly property real vBottom: Model.tiltedDepth(editor.stackTop + Style.space(6) - sheet.contentY - shaft.line, editor.tilt, editor.planeDistance)
         visible: shaft.visible
         z: -1
         x: editor.axis - shaft.half
-        y: shaft.middle + vTop
+        y: shaft.line + vTop
         width: 2 * shaft.half
         height: Math.max(0, vBottom - vTop)
         transform: Rotation {
@@ -980,20 +987,6 @@ Item {
             origin.y: -notchCap.vTop
             distanceToPlane: editor.planeDistance
             angle: editor.tilt
-        }
-        gradient: Gradient {
-            GradientStop {
-                position: 0
-                color: "black"
-            }
-            GradientStop {
-                position: 0.45
-                color: "black"
-            }
-            GradientStop {
-                position: 1
-                color: "transparent"
-            }
         }
     }
     // The camera's eye under the notch, named below it. The beam is black
@@ -1033,6 +1026,137 @@ Item {
         color: Qt.rgba(1, 1, 1, 0.45)
         font.family: Style.font.family
         font.pixelSize: Style.font.caption
+    }
+
+    // Which side of the camera Center sits on (powerbarCenterSide, ZONE-96):
+    // a dashed leader from the bar layer's Center tile to a dot beside the
+    // camera on that side. Drag the dot across the camera, click it, or h/l
+    // on it, to swap sides (PREFS-105).
+    readonly property string centerSide: bar.barOptions.centerSide
+    function setCenterSide(side) {
+        preferences.setOption("powerbarCenterSide", side === "left" ? "left" : undefined);
+    }
+    readonly property real centerTileRaise: {
+        var c = cellRepeater.cells.find(function (c) {
+            return c.section === "center" && c.mode === "shown";
+        });
+        return c ? c.raise : 0;
+    }
+    Shape {
+        visible: shaft.visible
+        z: 115
+        anchors.fill: parent
+        ShapePath {
+            strokeColor: Commons.Color.accent
+            strokeWidth: 1
+            strokeStyle: ShapePath.DashLine
+            dashPattern: [4, 4]
+            fillColor: "transparent"
+            startX: editor.axis
+            startY: editor.stackTop - sheet.contentY - editor.centerTileRaise
+            PathLine {
+                x: sideDot.x + sideDot.width / 2
+                y: sideDot.y + sideDot.height / 2
+            }
+        }
+    }
+    Item {
+        id: sideDot
+        readonly property bool onLeft: editor.centerSide === "left"
+        readonly property real restX: editor.axis + (onLeft ? -1 : 1) * (shaft.half + Style.space(16))
+        property bool dragging: false
+        property real dragX: 0
+        readonly property var keyHints: [
+            {
+                keys: "h l",
+                label: "Center left or right of the camera"
+            },
+            {
+                keys: "space",
+                label: "Swap sides"
+            }
+        ]
+        readonly property bool ownsFocusRing: true
+        visible: shaft.visible
+        z: 116
+        x: (dragging ? dragX : restX) - width / 2
+        y: cameraEye.y + cameraEye.height / 2 - height / 2
+        width: Style.space(14)
+        height: width
+        activeFocusOnTab: true
+        Accessible.role: Accessible.Button
+        Accessible.name: "Center " + (onLeft ? "left" : "right") + " of the camera"
+        Behavior on x {
+            enabled: editor.bar.animationsEnabled && !sideDot.dragging
+            NumberAnimation {
+                duration: 160
+                easing.type: Easing.OutCubic
+            }
+        }
+        Keys.onPressed: function (event) {
+            var t = event.text.toLowerCase();
+            if (event.key === Qt.Key_Left || t === "h")
+                editor.setCenterSide("left");
+            else if (event.key === Qt.Key_Right || t === "l")
+                editor.setCenterSide("right");
+            else if (event.key === Qt.Key_Space || event.key === Qt.Key_Return || event.key === Qt.Key_Enter)
+                editor.setCenterSide(onLeft ? "right" : "left");
+            else
+                return;
+            event.accepted = true;
+        }
+        Rectangle {
+            anchors.fill: parent
+            radius: width / 2
+            color: dotMouse.containsMouse || sideDot.dragging ? Qt.alpha(Commons.Color.accent, 0.2) : "transparent"
+            border.width: 1
+            border.color: sideDot.activeFocus ? Commons.Color.accent : dotMouse.containsMouse ? Qt.alpha(Commons.Color.accent, 0.6) : "transparent"
+        }
+        Rectangle {
+            anchors.centerIn: parent
+            width: Style.space(6)
+            height: width
+            radius: width / 2
+            color: Commons.Color.accent
+        }
+        Text {
+            x: sideDot.onLeft ? -width - Style.space(6) : sideDot.width + Style.space(6)
+            anchors.verticalCenter: parent.verticalCenter
+            text: editor.zoneNames.center || "Center"
+            textFormat: Text.PlainText
+            color: Qt.alpha(Commons.Color.popups.text, 0.55)
+            font.family: Style.font.family
+            font.pixelSize: Style.font.caption
+        }
+        MouseArea {
+            id: dotMouse
+            anchors.fill: parent
+            anchors.margins: -Style.space(8)
+            hoverEnabled: true
+            cursorShape: Qt.SizeHorCursor
+            property real pressX: 0
+            onPressed: function (mouse) {
+                pressX = mapToItem(editor, mouse.x, mouse.y).x;
+                sideDot.dragX = sideDot.restX;
+                sideDot.forceActiveFocus(Qt.MouseFocusReason);
+            }
+            onPositionChanged: function (mouse) {
+                if (!pressed)
+                    return;
+                var x = mapToItem(editor, mouse.x, mouse.y).x;
+                if (!sideDot.dragging && Math.abs(x - pressX) <= Style.space(6))
+                    return;
+                sideDot.dragging = true;
+                sideDot.dragX = x;
+            }
+            onReleased: function (mouse) {
+                var x = mapToItem(editor, mouse.x, mouse.y).x;
+                var side = sideDot.dragging ? (x < editor.axis ? "left" : "right") : (sideDot.onLeft ? "right" : "left");
+                sideDot.dragging = false;
+                editor.setCenterSide(side);
+            }
+            onCanceled: sideDot.dragging = false
+        }
     }
 
     // The layers, stacked down the sheet under a clear band below the
@@ -1313,7 +1437,7 @@ Item {
         }
     }
 
-    // One layer: a plate tilted back about its middle line, holding the
+    // One layer: a plate tilted back about its top edge, holding the
     // layer's name, the five zones as tiles (the tray: one dashed slab) and a
     // spare column that keeps Center on the axis. The plate's box keeps the
     // room its tilted picture takes, so the layers stack without overlap.
@@ -1325,7 +1449,6 @@ Item {
         readonly property bool tray: mode === "tray"
         readonly property var slot: editor.stack.layers[index] || ({
                 top: 0,
-                middle: 0,
                 height: 0
             })
         property alias focusItem: plateFocus
@@ -1347,7 +1470,10 @@ Item {
             id: face
             width: plate.width
             height: editor.plateHeights[plate.index] || 0
-            y: plate.slot.middle - plate.slot.top - height / 2
+            // It turns about its top edge, which stays at the plate's top
+            // with everything near it while the height animates, so a layer
+            // only ever grows or shrinks downward.
+            y: 0
             transform: Rotation {
                 axis {
                     x: 1
@@ -1355,7 +1481,7 @@ Item {
                     z: 0
                 }
                 origin.x: editor.axis - plate.x
-                origin.y: face.height / 2
+                origin.y: 0
                 distanceToPlane: editor.planeDistance
                 angle: editor.tilt
             }

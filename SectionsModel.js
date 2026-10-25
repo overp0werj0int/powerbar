@@ -37,10 +37,12 @@ function zoneOf(name) {
 }
 
 // Which side of the center a center list's widgets fold and show their dots
-// on: before the box, or after it (the box's own widgets count with after).
-function sideOf(name) {
+// on: before the box, or after it. The box's own widgets count with the side
+// of the camera they sit on (`centerSide`, "right" unless "left"; ZONE-96).
+function sideOf(name, centerSide) {
   if (name === "centerBegin") return "start"
-  return name === "center" || name === "centerEnd" ? "end" : ""
+  if (name === "center") return centerSide === "left" ? "start" : "end"
+  return name === "centerEnd" ? "end" : ""
 }
 
 // Whether this Omarchy keeps the center's sections (Util.barSections).

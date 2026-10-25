@@ -15,7 +15,13 @@
   name and id. h and l change zone; j and k walk a zone and carry on into
   the next layer, with or without a chip picked up; Shift with them moves
   the chip there at once. The cursor's chip and its tile rise a little off
-  the layer. With animations off the layers lie flat.
+  the layer. A layer that gains or loses a chip only grows or shrinks
+  downward: its top edge and what sits near it stay put. With animations
+  off the layers lie flat.
+- **Center can sit left of the camera.** On a notched screen the Center
+  zone's widgets sit beside the camera, on the right until now. A dot beside
+  the camera on the Layout page (or `powerbar set centerSide left`) moves
+  them to the left; they come next to the camera on either side.
 - **A zone's dots are a small circle.** With five zones a bar could carry
   five sets of three dots; each zone now marks its waiting widgets with
   one small, quiet empty circle, on horizontal and vertical bars alike,

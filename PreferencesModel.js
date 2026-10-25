@@ -166,27 +166,30 @@ function layerColumns(width, gap, axis, count, centerWidth) {
 // A layer `h` tall tilted back by `angle` degrees about its middle line, as
 // Qt's Rotation draws it with `distance` to the plane: how far its top and
 // bottom edges land from that line. The top recedes, the bottom comes near.
-function tiltedExtent(h, angle, distance) {
-  var a = angle * Math.PI / 180, half = h / 2
-  var c = Math.cos(a), s = Math.sin(a) * half / Math.max(1, distance)
-  return { above: half * c / (1 + s), below: half * c / (1 - s) }
+// A layer `h` tall tilted back about its top edge, seen from `distance`: how
+// tall its picture is. The top edge stays as it is and the rest comes near,
+// so a layer that changes height only changes below.
+function tiltedHeight(h, angle, distance) {
+  var a = angle * Math.PI / 180
+  return h * Math.cos(a) / (1 - Math.sin(a) * h / Math.max(1, distance))
 }
-// Layers `heights` tall, each tilted the same way about its middle line and
-// stacked with `gap` between what they show: where each one's box starts,
-// where its middle line lies and how tall its picture is, and the whole.
+// Layers `heights` tall, each tilted the same way about its top edge and
+// stacked with `gap` between what they show: where each one's box starts
+// and how tall its picture is, and the whole.
 function stackLayers(heights, angle, distance, gap) {
   var y = 0, layers = []
   heights.forEach(function(h) {
-    var e = tiltedExtent(h, angle, distance)
-    layers.push({ top: y, middle: y + e.above, height: e.above + e.below })
-    y += e.above + e.below + gap
+    var seen = tiltedHeight(h, angle, distance)
+    layers.push({ top: y, height: seen })
+    y += seen + gap
   })
   return { layers: layers, height: Math.max(0, y - gap) }
 }
-// Lines on a tilted plane. A point `v` down the plane from its middle line
-// is seen `v cos / (1 - v sin / d)` below it, and a line `u` from the axis
-// is seen `u / (1 - v sin / d)` from it: both scale alike, so a line down
-// the plane is seen as a straight line that spreads as it comes near.
+// Lines on a tilted plane. A point `v` down the plane from the line it turns
+// about (a layer's top edge) is seen `v cos / (1 - v sin / d)` below it, and
+// a line `u` from the axis is seen `u / (1 - v sin / d)` from it: both scale
+// alike, so a line down the plane is seen as a straight line that spreads as
+// it comes near.
 // tiltedDepth: the plane's own `v` for a seen `y` (so a shape drawn on the
 // plane can start and end at seen heights); tiltedSpread: how far from the
 // axis a line `u` out is seen at seen height `y`.
