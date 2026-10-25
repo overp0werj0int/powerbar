@@ -279,3 +279,17 @@ function layerStep(count, at, dx, dy, columnsFor, rowList, extra) {
   }
   return { section: column, mode: list[m], pos: pos }
 }
+// Shift with j or k moves a widget to the next layer at once (PREFS-27):
+// the layer `dy` from `mode` in `rowList`, or "" past the first or last.
+function nextLayer(rowList, mode, dy) {
+  var list = rowList || modes, i = list.indexOf(mode)
+  if (i < 0 || !dy) return ""
+  var next = i + (dy > 0 ? 1 : -1)
+  return next >= 0 && next < list.length ? list[next] : ""
+}
+// Where a widget lands in its zone on a layer when only its layer changes:
+// it keeps its place in the zone, so it comes after the layer's chips of
+// that zone that come before it on the bar.
+function layerPos(items, index) {
+  return (items || []).filter(function(r) { return r.index < index }).length
+}

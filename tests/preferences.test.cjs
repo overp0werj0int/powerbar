@@ -382,3 +382,22 @@ test('a lifted widget gets every gap of a zone before it moves to the next layer
   assert.deepEqual({ ...model.stepLayerLift(count, { section: 'centerBegin', mode: 'hidden', pos: 0 }, 0, 1, cols, rows) }, { section: 'tray', mode: 'tray', pos: 0 });
   assert.deepEqual({ ...model.stepLayerLift(count, { section: 'tray', mode: 'tray', pos: 0 }, 0, -1, cols, rows) }, { section: 'right', mode: 'hidden', pos: 0 });
 });
+test('shift with j or k moves a widget to the next layer at once', () => {
+  const rows = ['shown', 'managed', 'hidden', 'tray'];
+  assert.equal(model.nextLayer(model.modes, 'shown', 1), 'managed');
+  assert.equal(model.nextLayer(model.modes, 'managed', 1), 'hidden');
+  assert.equal(model.nextLayer(model.modes, 'managed', -1), 'shown');
+  // At the first or last layer nothing happens.
+  assert.equal(model.nextLayer(model.modes, 'shown', -1), '');
+  assert.equal(model.nextLayer(model.modes, 'hidden', 1), '');
+  // A tray icon can go on to the tray and back.
+  assert.equal(model.nextLayer(rows, 'hidden', 1), 'tray');
+  assert.equal(model.nextLayer(rows, 'tray', -1), 'hidden');
+  assert.equal(model.nextLayer(rows, 'tray', 1), '');
+  assert.equal(model.nextLayer(model.modes, 'tray', -1), '');
+  // It keeps its place in its zone.
+  const items = [{ index: 0 }, { index: 2 }, { index: 5 }];
+  assert.equal(model.layerPos(items, 3), 2);
+  assert.equal(model.layerPos(items, 0), 0);
+  assert.equal(model.layerPos([], 4), 0);
+});

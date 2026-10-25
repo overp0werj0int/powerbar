@@ -13,8 +13,9 @@
   group are set; Esc pushes it back. The keys are a legend at the bottom
   left, beside the inspector, in small text. Resting the pointer on a chip shows its full
   name and id. h and l change zone; j and k walk a zone and carry on into
-  the next layer, with or without a chip picked up; Shift with them moves
-  the chip there at once. The cursor's chip and its tile rise a little off
+  the next layer, with or without a chip picked up; Shift with h or l
+  moves the chip to the next zone at once, Shift with j or k to the same
+  zone on the next layer at once. The cursor's chip and its tile rise a little off
   the layer. A layer that gains or loses a chip only grows or shrinks
   downward: its top edge and what sits near it stay put. The layers share
   the page between the header and the legend, so the legend and the

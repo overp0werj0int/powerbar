@@ -466,11 +466,15 @@ Item {
             label: "Pick up, then drop"
         },
         {
-            keys: "shift+hjkl",
-            label: "Move it there at once"
+            keys: "shift h l",
+            label: "Move it to the next zone"
         },
         {
-            keys: "enter",
+            keys: "shift j k",
+            label: "Move it to the next layer"
+        },
+        {
+            keys: inspecting ? "enter esc" : "enter",
             label: inspecting ? "Push it back" : "Pull it forward to inspect"
         },
         {
@@ -481,12 +485,7 @@ Item {
             keys: "tab",
             label: "Next layer"
         }
-    ].concat(inspecting ? [
-        {
-            keys: "esc",
-            label: "Push it back"
-        }
-    ] : []) : inspectorFocused ? [
+    ] : inspectorFocused ? [
         {
             keys: "tab shift+tab",
             label: "Next, previous control"
@@ -736,10 +735,32 @@ Item {
         inspecting = false;
         focusShelf(cursorCell.mode, Qt.OtherFocusReason);
     }
-    // Shift with a step moves the cursor's chip there at once: picked up,
-    // stepped and dropped as one (PREFS-27).
+    // Shift with h or l moves the cursor's chip to the next zone at once:
+    // picked up, stepped and dropped as one; Shift with j or k moves it to
+    // the same zone on the next layer at once, keeping its place in the
+    // zone (PREFS-27). The chip stays the cursor.
+    function carryLayer(record, dy) {
+        var mode = Model.nextLayer(record.trayItem ? Model.rows : Model.modes, record.mode, dy);
+        if (!mode)
+            return;
+        var section = mode === "tray" ? "tray" : record.mode === "tray" ? trayZone : record.section;
+        var column = columnOn(mode, section);
+        var there = members(column, mode, "");
+        var pos = record.mode === "tray" ? there.length : Model.layerPos(there, record.index);
+        setPlacement(record, section, mode);
+        if (mode === "tray")
+            cursorKey = "tray:" + record.trayItem;
+        cursorCell = {
+            section: column,
+            mode: mode,
+            pos: pos
+        };
+        followCursor();
+    }
     function step(dx, dy, carry) {
-        if (carry && !lifted && cursorRecord) {
+        if (carry && dy && !lifted && cursorRecord)
+            carryLayer(cursorRecord, dy);
+        else if (carry && !lifted && cursorRecord) {
             lift(cursorRecord, cursorCell);
             moveCursor(dx, dy);
             drop();
