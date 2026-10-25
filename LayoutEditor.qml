@@ -33,9 +33,17 @@ Item {
     readonly property var bar: preferences.bar
     // The layout's widgets, then the icons still in Omarchy's tray (its row).
     readonly property var entries: preferences.layoutEntries.concat(preferences.trayEntries)
-    // Every shelf has the five zones (Model.sections); the tray's row one column.
+    // The bar's layers have the five zones (Model.sections); the hidden
+    // layer and the tray's are one slab each, one column (PREFS-107).
     function columnsFor(mode) {
-        return mode === "tray" ? ["tray"] : Model.sections;
+        return mode === "tray" ? ["tray"] : mode === "hidden" ? ["hidden"] : Model.sections;
+    }
+    function slabbed(mode) {
+        return mode === "tray" || mode === "hidden";
+    }
+    // A record's zone, "" for a tray icon still in the tray.
+    function zoneOf(record) {
+        return record && sections.indexOf(record.section) >= 0 ? record.section : "";
     }
     // The rows: the three visibilities, then the tray. Only a tray icon can be
     // lifted into the tray's row.
@@ -45,7 +53,7 @@ Item {
         var cells = ({});
         for (var mode of Model.rows)
             for (var column of columnsFor(mode))
-                cells[column + ":" + mode] = Model.cell(entries, column, mode, "");
+                cells[column + ":" + mode] = column === "hidden" ? Model.slab(entries, mode, "") : Model.cell(entries, column, mode, "");
         return cells;
     }
     function members(section, mode, exclude) {
@@ -119,10 +127,11 @@ Item {
     readonly property real plateX: Math.max(0, Math.min(width - plateWidth, axis - plateWidth / 2))
     readonly property var columns: Model.layerColumns(plateWidth - 2 * platePad, columnGap, axis - plateX - platePad, 7, previewCamera && previewNotch ? previewNotch.width : 0)
     function column(section) {
-        var i = section === "tray" ? 1 : sections.indexOf(section) + 1;
+        var wide = section === "tray" || section === "hidden";
+        var i = wide ? 1 : sections.indexOf(section) + 1;
         return {
             x: platePad + columns.xs[i],
-            width: section === "tray" ? columns.xs[5] + columns.widths[5] - columns.xs[1] : columns.widths[i]
+            width: wide ? columns.xs[5] + columns.widths[5] - columns.xs[1] : columns.widths[i]
         };
     }
     // Every chip has one width: what a zone's tile leaves.
@@ -130,8 +139,8 @@ Item {
     // Rows on a layer: its fullest zone's chips, with a lifted one's place;
     // the tray's chips flow five to a row.
     function rowsOf(mode) {
-        if (mode === "tray")
-            return Math.max(1, Math.ceil(cellList("tray", "tray").length / 5));
+        if (slabbed(mode))
+            return Math.max(1, Math.ceil(cellList(columnsFor(mode)[0], mode).length / 5));
         var n = 0;
         sections.forEach(function (s) {
             n = Math.max(n, cellList(s, mode).length);
@@ -145,10 +154,10 @@ Item {
     // zone with more rows than its layer has then scrolls inside its tile.
     readonly property var plateDemands: rows.map(function (mode) {
         var r = rowsOf(mode);
-        return Math.max(minPlate, 2 * tilePad + (mode === "tray" ? 0 : nameRow) + r * chipHeight + (r - 1) * chipGap);
+        return Math.max(minPlate, 2 * tilePad + (slabbed(mode) ? 0 : nameRow) + r * chipHeight + (r - 1) * (slabbed(mode) ? columnGap : chipGap));
     })
     readonly property var plateFloors: rows.map(function (mode) {
-        return Math.max(minPlate, 2 * tilePad + (mode === "tray" ? 0 : nameRow) + chipHeight);
+        return Math.max(minPlate, 2 * tilePad + (slabbed(mode) ? 0 : nameRow) + chipHeight);
     })
     // The legend's band: its tallest list (eight rows) and the margins
     // around it, whatever it shows now, so the layers never resize as focus
@@ -417,6 +426,8 @@ Item {
     // The well being worked on: where the lifted chip would land, else the
     // cursor's. Its zone's names read brighter on every layer.
     readonly property var activeCell: lifted && liftTarget ? liftTarget : cursorCell
+    // Its zone: on a slab, the one it meets on the layers of zones.
+    readonly property string activeZone: sections.indexOf(activeCell.section) >= 0 ? activeCell.section : (activeCell.home || "")
     readonly property Item focused: editor.Window.activeFocusItem
     function within(item, root) {
         for (var p = item; p; p = p.parent)
@@ -438,11 +449,11 @@ Item {
     ]) : lifted ? [
         {
             keys: "j k",
-            label: "Along the zone, on to the next layer"
+            label: liftTarget && slabbed(liftTarget.mode) ? "A row down or up, on to the next layer" : "Along the zone, on to the next layer"
         },
         {
             keys: "h l",
-            label: "Zone"
+            label: liftTarget && slabbed(liftTarget.mode) ? "Along the slab" : "Zone"
         },
         {
             keys: "space",
@@ -455,11 +466,11 @@ Item {
     ] : gridFocused ? [
         {
             keys: "h l",
-            label: editor.previewCamera ? "Along the layer, across the camera" : "Along the layer"
+            label: slabbed(cursorCell.mode) ? "Along the slab" : editor.previewCamera ? "Along the layer, across the camera" : "Along the layer"
         },
         {
             keys: "j k",
-            label: "Down the zone, on to the next layer"
+            label: slabbed(cursorCell.mode) ? "A row down or up, on to the next layer" : "Down the zone, on to the next layer"
         },
         {
             keys: "space",
@@ -479,7 +490,7 @@ Item {
         },
         {
             keys: "x",
-            label: "Send it to the hidden layer"
+            label: cursorRecord && cursorRecord.mode === "hidden" ? "Bring it back from the hidden layer" : "Send it to the hidden layer"
         },
         {
             keys: "tab",
@@ -562,11 +573,20 @@ Item {
         if (cell)
             cell.reveal(at.pos);
     }
-    // The column a zone has on another layer; the tray's one column meets the
-    // last zone, as j and k do.
-    function columnOn(mode, section) {
-        var cols = columnsFor(mode);
-        return cols.indexOf(section) >= 0 ? section : cols[cols.length - 1];
+    // The column a zone has on another layer; a slab's one column meets
+    // `home` (the zone last in the cursor, or its widget's), else the last
+    // zone, as j and k do.
+    function columnOn(mode, section, home) {
+        return Model.across(columnsFor(mode), section, home);
+    }
+    // A step's starting place with the zone it meets on a layer of zones: on
+    // a slab the cursor's widget's own zone, else the zone last in the
+    // cursor; a lifted chip keeps the zone it came through.
+    function homed(at, record, lifting) {
+        var zone = zoneOf(record);
+        return Object.assign({}, at, {
+            home: lifting ? (at.home || zone) : (zone || at.home || "")
+        });
     }
     function plateFocusChanged(mode, focused) {
         if (focused) {
@@ -579,15 +599,17 @@ Item {
                     return;
                 if (liftTarget && liftTarget.mode !== mode)
                     liftTarget = {
-                        section: columnOn(mode, liftTarget.section),
+                        section: columnOn(mode, liftTarget.section, homed(liftTarget, lifted, true).home),
                         mode: mode,
-                        pos: 0
+                        pos: 0,
+                        home: homed(liftTarget, lifted, true).home
                     };
             } else if (cursorCell.mode !== mode)
                 place({
-                    section: columnOn(mode, cursorCell.section),
+                    section: columnOn(mode, cursorCell.section, homed(cursorCell, cursorRecord, false).home),
                     mode: mode,
-                    pos: 0
+                    pos: 0,
+                    home: homed(cursorCell, cursorRecord, false).home
                 });
             return;
         }
@@ -660,9 +682,9 @@ Item {
 
     function moveCursor(dx, dy) {
         if (lifted)
-            liftTarget = Model.stepLayerLift(count, liftTarget, dx, dy, columnsFor, liftRows);
+            liftTarget = Model.stepLayerLift(count, homed(liftTarget, lifted, true), dx, dy, columnsFor, liftRows);
         else
-            place(Model.stepLayer(count, cursorCell, dx, dy, columnsFor, rows));
+            place(Model.stepLayer(count, homed(cursorCell, cursorRecord, false), dx, dy, columnsFor, rows));
         followCursor();
     }
     function lift(record, cell) {
@@ -670,7 +692,10 @@ Item {
             return;
         lifted = record;
         liftOrigin = cell;
-        liftTarget = cell;
+        // On a slab, the chip's own zone is where it goes up to.
+        liftTarget = Object.assign({}, cell, {
+            home: slabbed(cell.mode) && zoneOf(record) ? zoneOf(record) : cell.home || ""
+        });
     }
     function cancel() {
         lifted = null;
@@ -684,7 +709,11 @@ Item {
             return;
         var record = lifted, target = liftTarget, origin = liftOrigin;
         var unchanged = target.section === origin.section && target.mode === origin.mode && target.pos === origin.pos;
-        var before = Model.dropBefore(members(target.section, target.mode, record.instanceKey), target.pos);
+        var into = members(target.section, target.mode, record.instanceKey);
+        // Into the hidden slab a widget keeps its zone (a tray icon takes the
+        // tray's), so the drop only orders it among that zone's (PREFS-107).
+        var section = target.mode === "hidden" ? (origin.mode === "tray" ? trayZone : record.section) : target.section;
+        var before = target.mode === "hidden" ? Model.slabBefore(into, target.pos, section) : Model.dropBefore(into, target.pos);
         lifted = null;
         pointerLift = false;
         cursorKey = record.instanceKey;
@@ -694,11 +723,11 @@ Item {
         // Out of the tray, back into it, or within it (the tray keeps its order).
         if (origin.mode === "tray") {
             if (target.mode !== "tray")
-                cursorKey = preferences.takeFromTray(record, target.section, target.mode, before);
+                cursorKey = preferences.takeFromTray(record, section, target.mode, before);
         } else if (target.mode === "tray")
             preferences.returnToTray(record);
         else
-            preferences.move(record, target.section, target.mode, before);
+            preferences.move(record, section, target.mode, before);
     }
     // Keep an item's place in its zone when only its visibility changes.
     // Rows widgets were hidden from this session, so showing one again restores it.
@@ -744,23 +773,30 @@ Item {
         if (!mode)
             return;
         var section = mode === "tray" ? "tray" : record.mode === "tray" ? trayZone : record.section;
-        var column = columnOn(mode, section);
+        var column = columnOn(mode, section, section);
         var there = members(column, mode, "");
-        var pos = record.mode === "tray" ? there.length : Model.layerPos(there, record.index);
+        var pos = mode === "hidden" ? Model.slabPos(there, section, record.mode === "tray" ? Infinity : record.index) : record.mode === "tray" ? there.length : Model.layerPos(there, record.index);
         setPlacement(record, section, mode);
         if (mode === "tray")
             cursorKey = "tray:" + record.trayItem;
         cursorCell = {
             section: column,
             mode: mode,
-            pos: pos
+            pos: pos,
+            home: section === "tray" ? zoneOf(record) : section
         };
         followCursor();
     }
     function step(dx, dy, carry) {
         if (carry && dy && !lifted && cursorRecord)
             carryLayer(cursorRecord, dy);
-        else if (carry && !lifted && cursorRecord) {
+        else if (carry && !lifted && cursorRecord && cursorRecord.mode === "hidden") {
+            // A hidden widget keeps its zone, which the slab does not show, so
+            // Shift with h or l changes that zone (PREFS-107).
+            var zone = sections[sections.indexOf(cursorRecord.section) + dx];
+            if (zone)
+                setPlacement(cursorRecord, zone, "hidden");
+        } else if (carry && !lifted && cursorRecord) {
             lift(cursorRecord, cursorCell);
             moveCursor(dx, dy);
             drop();
@@ -1454,6 +1490,8 @@ Item {
         required property string modelData
         readonly property string mode: modelData
         readonly property bool tray: mode === "tray"
+        // The hidden layer and the tray's are one slab, not five zones.
+        readonly property bool slab: editor.slabbed(mode)
         readonly property var slot: editor.stack.layers[index] || ({
                 top: 0,
                 height: 0
@@ -1548,7 +1586,7 @@ Item {
                 font.pixelSize: Style.font.bodySmall
             }
             Repeater {
-                model: plate.tray ? [] : editor.sections
+                model: plate.slab ? [] : editor.sections
                 Cell {
                     required property string modelData
                     section: modelData
@@ -1560,12 +1598,13 @@ Item {
                 }
             }
             Cell {
-                visible: plate.tray
-                section: "tray"
-                mode: "tray"
+                visible: plate.slab
+                section: plate.slab ? editor.columnsFor(plate.mode)[0] : ""
+                mode: plate.slab ? plate.mode : ""
                 flows: true
-                x: editor.column("tray").x
-                width: editor.column("tray").width
+                seenTop: editor.stackTop + plate.y
+                x: editor.column(plate.tray ? "tray" : "hidden").x
+                width: editor.column(plate.tray ? "tray" : "hidden").width
                 height: face.height
             }
         }
@@ -1670,7 +1709,9 @@ Item {
     }
 
     // One zone on one layer: a tile with the zone's name and its chips, one
-    // under another in bar order; the tray's slab, dashed, flows its icons.
+    // under another in bar order. A slab flows its chips five to a row,
+    // with no zone names: the hidden layer's, solid like a tile (PREFS-107),
+    // and the tray's, dashed.
     component Cell: Item {
         id: cell
         property string section: ""
@@ -1683,7 +1724,7 @@ Item {
         readonly property var list: editor.cellList(section, mode)
         readonly property bool targeted: !!editor.lifted && !!editor.liftTarget && editor.liftTarget.section === section && editor.liftTarget.mode === mode
         readonly property bool cursorHere: !editor.lifted && editor.cursorCell.section === section && editor.cursorCell.mode === mode
-        readonly property bool active: editor.activeCell.section === section
+        readonly property bool active: editor.activeZone === section
         readonly property bool shaft: editor.previewCamera && section === "center"
         // The bar layer's Center tile meets the camera's cap: square on top,
         // so the black ends flush with it instead of showing in its corners.
@@ -1693,7 +1734,7 @@ Item {
         readonly property real topRadius: capped ? 0 : radius
         // The cursor's tile rises a little off its layer (PREFS-104); the
         // leader follows the rise.
-        property real raise: cursorHere && !trayCell ? Style.space(5) : 0
+        property real raise: cursorHere && !flows ? Style.space(5) : 0
         Behavior on raise {
             enabled: editor.bar.animationsEnabled
             NumberAnimation {
@@ -1740,6 +1781,16 @@ Item {
         BeamShade {
             visible: cell.shaft && editor.previewCamera && !!editor.previewNotch
             anchors.fill: parent
+            vTop: Model.tiltedDepth(cell.seenTop - editor.stackTop, editor.tilt, editor.planeDistance)
+            vBottom: Model.tiltedDepth(cell.seenTop + Model.tiltedHeight(cell.height, editor.tilt, editor.planeDistance) - editor.stackTop, editor.tilt, editor.planeDistance)
+        }
+        // The hidden slab is solid across Center's column too: the beam
+        // falls on that part of it as on a Center tile.
+        BeamShade {
+            visible: cell.mode === "hidden" && editor.previewCamera && !!editor.previewNotch
+            x: editor.column("center").x - editor.column("hidden").x
+            width: editor.column("center").width
+            height: parent.height
             vTop: Model.tiltedDepth(cell.seenTop - editor.stackTop, editor.tilt, editor.planeDistance)
             vBottom: Model.tiltedDepth(cell.seenTop + Model.tiltedHeight(cell.height, editor.tilt, editor.planeDistance) - editor.stackTop, editor.tilt, editor.planeDistance)
         }
@@ -1800,7 +1851,7 @@ Item {
         }
 
         Text {
-            visible: !cell.trayCell
+            visible: !cell.flows
             x: cell.pad + Style.space(2)
             y: cell.pad
             z: 3
@@ -1815,9 +1866,9 @@ Item {
         }
         Text {
             x: cell.pad + Style.space(2)
-            y: cell.pad + (cell.trayCell ? Style.space(5) : editor.nameRow)
+            y: cell.pad + (cell.flows ? Style.space(5) : editor.nameRow)
             visible: cell.list.length === 0
-            text: cell.trayCell ? "Nothing in the tray. Apps put their icons here while they run; drag one onto a layer above to place it like a widget." : "Empty"
+            text: cell.trayCell ? "Nothing in the tray. Apps put their icons here while they run; drag one onto a layer above to place it like a widget." : cell.flows ? "Nothing hidden. x on a widget, or a drag here, keeps it off the bar." : "Empty"
             textFormat: Text.PlainText
             color: Qt.alpha(Commons.Color.popups.text, 0.3)
             font.family: Style.font.family
@@ -1839,7 +1890,7 @@ Item {
         // and the tile's colour fades over the chips cut at its edges.
         readonly property real rowStep: editor.chipHeight + (cell.flows ? editor.columnGap : editor.chipGap)
         readonly property real room: Style.space(10)
-        readonly property real viewTop: cell.pad + (cell.trayCell ? 0 : editor.nameRow)
+        readonly property real viewTop: cell.pad + (cell.flows ? 0 : editor.nameRow)
         readonly property real viewHeight: Math.max(0, cell.height - viewTop - Style.space(2))
         readonly property real contentHeight: chipFlow.implicitHeight
         readonly property real maxScroll: Math.max(0, contentHeight - viewHeight)
@@ -2249,7 +2300,7 @@ Item {
             anchors.right: parent.right
             anchors.top: parent.top
             anchors.margins: Style.space(22)
-            text: editor.cursorCell.mode === "tray" ? "Nothing in the tray. Apps put their icons here while they run." : "Nothing " + (editor.cursorCell.mode === "shown" ? "on the bar in " : editor.cursorCell.mode === "managed" ? "on demand in " : "hidden in ") + editor.zoneNames[editor.cursorCell.section] + " yet. Pick up a widget with Space, or drag one here."
+            text: editor.cursorCell.mode === "tray" ? "Nothing in the tray. Apps put their icons here while they run." : editor.cursorCell.mode === "hidden" ? "Nothing hidden yet. Hidden widgets keep their zone, off the bar. Send one here with x, or drag one here." : "Nothing " + (editor.cursorCell.mode === "shown" ? "on the bar in " : editor.cursorCell.mode === "managed" ? "on demand in " : "hidden in ") + editor.zoneNames[editor.cursorCell.section] + " yet. Pick up a widget with Space, or drag one here."
             textFormat: Text.PlainText
             color: Qt.alpha(Commons.Color.popups.text, 0.65)
             font.family: Style.font.family

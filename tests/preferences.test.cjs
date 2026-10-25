@@ -6,6 +6,7 @@ const model = vm.createContext({});
 vm.runInContext(fs.readFileSync(`${__dirname}/../PreferencesModel.js`, 'utf8'), model);
 const barModel = vm.createContext({});
 vm.runInContext(fs.readFileSync(`${__dirname}/../BarModel.js`, 'utf8'), barModel);
+const noHome = ({ home, ...at }) => at;
 const fixture = () => ({ bar: { layout: {
   left: [{ id: 'a', format: 'HH:mm', nested: { keep: true } }, { id: 'a', size: 20 }],
   center: ['clock'], right: []
@@ -360,7 +361,7 @@ test('a leader leaves the camera\'s cap where its seen edge is', () => {
 test('on the layers j and k walk a zone and go on to the next layer, h and l change zone', () => {
   const items = { 'left:shown': 3, 'centerBegin:shown': 1, 'left:managed': 2, 'right:hidden': 0 };
   const count = (c, m) => items[c + ':' + m] || 0;
-  const step = (at, dx, dy) => ({ ...model.stepLayer(count, at, dx, dy) });
+  const step = (at, dx, dy) => noHome(model.stepLayer(count, at, dx, dy));
   assert.deepEqual(step({ section: 'left', mode: 'shown', pos: 1 }, 0, 1), { section: 'left', mode: 'shown', pos: 2 });
   assert.deepEqual(step({ section: 'left', mode: 'shown', pos: 2 }, 0, 1), { section: 'left', mode: 'managed', pos: 0 });
   assert.deepEqual(step({ section: 'left', mode: 'managed', pos: 0 }, 0, -1), { section: 'left', mode: 'shown', pos: 2 });
@@ -372,15 +373,15 @@ test('on the layers j and k walk a zone and go on to the next layer, h and l cha
 });
 test('a lifted widget gets every gap of a zone before it moves to the next layer', () => {
   const count = (c, m) => (c === 'left' && m === 'shown' ? 2 : 0);
-  const step = (at, dx, dy) => ({ ...model.stepLayerLift(count, at, dx, dy) });
+  const step = (at, dx, dy) => noHome(model.stepLayerLift(count, at, dx, dy));
   assert.deepEqual(step({ section: 'left', mode: 'shown', pos: 1 }, 0, 1), { section: 'left', mode: 'shown', pos: 2 });
   assert.deepEqual(step({ section: 'left', mode: 'shown', pos: 2 }, 0, 1), { section: 'left', mode: 'managed', pos: 0 });
   assert.deepEqual(step({ section: 'left', mode: 'managed', pos: 0 }, 0, -1), { section: 'left', mode: 'shown', pos: 2 });
   // The tray's layer has one column; leaving it meets the last zone.
   const cols = m => (m === 'tray' ? ['tray'] : model.sections);
   const rows = ['shown', 'managed', 'hidden', 'tray'];
-  assert.deepEqual({ ...model.stepLayerLift(count, { section: 'centerBegin', mode: 'hidden', pos: 0 }, 0, 1, cols, rows) }, { section: 'tray', mode: 'tray', pos: 0 });
-  assert.deepEqual({ ...model.stepLayerLift(count, { section: 'tray', mode: 'tray', pos: 0 }, 0, -1, cols, rows) }, { section: 'right', mode: 'hidden', pos: 0 });
+  assert.deepEqual(noHome(model.stepLayerLift(count, { section: 'centerBegin', mode: 'hidden', pos: 0 }, 0, 1, cols, rows)), { section: 'tray', mode: 'tray', pos: 0 });
+  assert.deepEqual(noHome(model.stepLayerLift(count, { section: 'tray', mode: 'tray', pos: 0 }, 0, -1, cols, rows)), { section: 'right', mode: 'hidden', pos: 0 });
 });
 test('shift with j or k moves a widget to the next layer at once', () => {
   const rows = ['shown', 'managed', 'hidden', 'tray'];
@@ -400,4 +401,60 @@ test('shift with j or k moves a widget to the next layer at once', () => {
   assert.equal(model.layerPos(items, 3), 2);
   assert.equal(model.layerPos(items, 0), 0);
   assert.equal(model.layerPos([], 4), 0);
+});
+test('the hidden layer is one slab in bar order; a hidden widget keeps its zone', () => {
+  const entries = [
+    { section: 'right', index: 2, mode: 'hidden', instanceKey: 'r2' },
+    { section: 'left', index: 4, mode: 'hidden', instanceKey: 'l4' },
+    { section: 'left', index: 1, mode: 'hidden', instanceKey: 'l1' },
+    { section: 'center', index: 0, mode: 'shown', instanceKey: 'c0' },
+    { section: 'centerEnd', index: 0, mode: 'hidden', instanceKey: 'e0' },
+    { section: 'tray', index: 0, mode: 'tray', instanceKey: 'tray:x' }
+  ];
+  const slab = model.slab(entries, 'hidden');
+  assert.deepEqual(slab.map(r => r.instanceKey), ['l1', 'l4', 'e0', 'r2']);
+  assert.deepEqual(model.slab(entries, 'hidden', 'l4').map(r => r.instanceKey), ['l1', 'e0', 'r2']);
+  // Where a widget would come in it: after its zone's earlier ones.
+  assert.equal(model.slabPos(slab, 'left', 0), 0);
+  assert.equal(model.slabPos(slab, 'left', 3), 1);
+  assert.equal(model.slabPos(slab, 'center', 5), 2);
+  assert.equal(model.slabPos(slab, 'right', 9), 4);
+  // A drop keeps the zone: before the next chip of its own zone, else its end.
+  assert.equal(model.slabBefore(slab, 0, 'left'), 1);
+  assert.equal(model.slabBefore(slab, 1, 'left'), 4);
+  assert.equal(model.slabBefore(slab, 2, 'left'), -1);
+  assert.equal(model.slabBefore(slab, 0, 'right'), 2);
+  assert.equal(model.slabBefore(slab, 4, 'right'), -1);
+  assert.equal(model.slabBefore([], 0, 'center'), -1);
+});
+test('a slab flows five to a row: h and l walk it, j and k go a row and on to the next layer', () => {
+  const rows = ['shown', 'managed', 'hidden', 'tray'];
+  const cols = m => (m === 'tray' ? ['tray'] : m === 'hidden' ? ['hidden'] : model.sections);
+  const items = { 'right:managed': 2, 'left:managed': 1, 'hidden:hidden': 7, 'tray:tray': 3 };
+  const count = (c, m) => items[c + ':' + m] || 0;
+  const step = (at, dx, dy) => model.stepLayer(count, at, dx, dy, cols, rows);
+  // j past a zone's end lands in the slab, remembering the zone.
+  assert.deepEqual({ ...step({ section: 'right', mode: 'managed', pos: 1 }, 0, 1) }, { section: 'hidden', mode: 'hidden', pos: 0, home: 'right' });
+  // k from the slab's first row goes back up to that zone, or to the widget's own zone when the caller says so.
+  assert.deepEqual({ ...step({ section: 'hidden', mode: 'hidden', pos: 3, home: 'right' }, 0, -1) }, { section: 'right', mode: 'managed', pos: 1, home: 'right' });
+  assert.deepEqual({ ...step({ section: 'hidden', mode: 'hidden', pos: 3, home: 'left' }, 0, -1) }, { section: 'left', mode: 'managed', pos: 0, home: 'left' });
+  // Without a home, the last zone.
+  assert.equal(step({ section: 'hidden', mode: 'hidden', pos: 0 }, 0, -1).section, 'right');
+  // h and l walk along the flow, stopping at its ends.
+  assert.equal(step({ section: 'hidden', mode: 'hidden', pos: 3, home: 'left' }, 1, 0).pos, 4);
+  assert.equal(step({ section: 'hidden', mode: 'hidden', pos: 0, home: 'left' }, -1, 0).pos, 0);
+  assert.equal(step({ section: 'hidden', mode: 'hidden', pos: 6, home: 'left' }, 1, 0).pos, 6);
+  // j goes a row down; on a row above a shorter last one, to its end; from the last row on to the tray.
+  assert.equal(step({ section: 'hidden', mode: 'hidden', pos: 1, home: 'left' }, 0, 1).pos, 6);
+  assert.equal(step({ section: 'hidden', mode: 'hidden', pos: 0, home: 'left' }, 0, 1).pos, 5);
+  assert.deepEqual({ ...step({ section: 'hidden', mode: 'hidden', pos: 5, home: 'left' }, 0, 1) }, { section: 'tray', mode: 'tray', pos: 0, home: 'left' });
+  assert.deepEqual({ ...step({ section: 'hidden', mode: 'hidden', pos: 6, home: 'left' }, 0, -1) }, { section: 'hidden', mode: 'hidden', pos: 1, home: 'left' });
+  // Up from the tray: the slab's last chip; the tray's last row stays put.
+  assert.deepEqual({ ...step({ section: 'tray', mode: 'tray', pos: 2, home: 'left' }, 0, -1) }, { section: 'hidden', mode: 'hidden', pos: 6, home: 'left' });
+  assert.equal(step({ section: 'tray', mode: 'tray', pos: 2 }, 0, 1).pos, 2);
+  // An empty slab is a resting place; a lift gets one more place.
+  const empty = (c, m) => (m === 'hidden' ? 0 : count(c, m));
+  assert.deepEqual({ ...model.stepLayer(empty, { section: 'left', mode: 'managed', pos: 0 }, 0, 1, cols, rows) }, { section: 'hidden', mode: 'hidden', pos: 0, home: 'left' });
+  assert.equal(model.stepLayerLift(count, { section: 'hidden', mode: 'hidden', pos: 6, home: 'left' }, 1, 0, cols, rows).pos, 7);
+  assert.equal(model.stepLayerLift(count, { section: 'hidden', mode: 'hidden', pos: 2, home: 'left' }, 0, 1, cols, rows).pos, 7);
 });

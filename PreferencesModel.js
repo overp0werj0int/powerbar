@@ -69,10 +69,39 @@ function cell(entries, column, visibility, excludeKey) {
 }
 function clamp(value, low, high) { return Math.max(low, Math.min(high, value)) }
 function zonesOnly() { return sections }
-// The same column in another row; the tray's one row meets the zone the tray
-// usually sits in, the last.
-function across(list, column) {
-  return list.indexOf(column) >= 0 ? column : list[list.length - 1]
+// The same column in another row; a slab's one column (the tray's, the
+// hidden layer's) meets `home`, the zone the cursor last had or its widget's
+// own, else the last zone.
+function across(list, column, home) {
+  if (list.indexOf(column) >= 0) return column
+  return home && list.indexOf(home) >= 0 ? home : list[list.length - 1]
+}
+// The hidden layer is one slab like the tray's (PREFS-107): a hidden widget
+// keeps its zone in the config, and the slab lists the layer's widgets in bar
+// order, zone by zone.
+function slab(entries, visibility, excludeKey) {
+  return (entries || []).filter(function(e) {
+    return e.mode === visibility && sections.indexOf(e.section) >= 0 && (!excludeKey || e.instanceKey !== excludeKey)
+  }).sort(function(a, b) {
+    return sections.indexOf(a.section) - sections.indexOf(b.section) || a.index - b.index
+  })
+}
+// Where a widget of `section` at layout `index` comes in a slab's `items`.
+function slabPos(items, section, index) {
+  var s = sections.indexOf(section)
+  return (items || []).filter(function(r) {
+    var t = sections.indexOf(r.section)
+    return t < s || (t === s && r.index < index)
+  }).length
+}
+// Dropped at `pos` among a slab's `items` (without the dropped one), a widget
+// of `section` goes before the first chip of its own zone from there on (its
+// layout index), else to its zone's end (-1): it keeps its zone, so only its
+// order within the zone can change.
+function slabBefore(items, pos, section) {
+  for (var i = Math.max(0, pos); i < (items || []).length; i++)
+    if (items[i].section === section) return items[i].index
+  return -1
 }
 // Cursor over existing items. Walking past a cell's edge continues into the
 // neighbouring column on the same row; empty cells are valid resting places.
@@ -248,36 +277,64 @@ function leaderExit(x0, y0, x1, y1, axis, half, line, angle, distance) {
 // Cursor and lift steps on the layers, where a zone's items run down its
 // well: dx changes zone on the same layer (keeping the row where it can), dy
 // walks the zone's list and, past its ends, goes on into the same zone on the
-// next or previous layer. An empty well is a resting place. The tray's layer
-// has one column, which meets the last zone (across).
-function stepLayer(count, cursor, dx, dy, columnsFor, rowList) {
-  return layerStep(count, cursor, dx, dy, columnsFor, rowList, 0)
+// next or previous layer. An empty well is a resting place. A layer of one
+// column is a slab (the hidden layer's, the tray's) whose chips flow
+// `perRow` (5) to a row: dx walks along them, dy goes a row down or up and,
+// past the first or last row, on to the next layer. Leaving a slab for a
+// layer of zones meets `at.home` (across), the zone the cursor last had or
+// the caller's choice; the step returns the home it keeps.
+function stepLayer(count, cursor, dx, dy, columnsFor, rowList, perRow) {
+  return layerStep(count, cursor, dx, dy, columnsFor, rowList, 0, perRow)
 }
 // A lifted item: count excludes it, so a well offers count + 1 places.
-function stepLayerLift(count, target, dx, dy, columnsFor, rowList) {
-  return layerStep(count, target, dx, dy, columnsFor, rowList, 1)
+function stepLayerLift(count, target, dx, dy, columnsFor, rowList, perRow) {
+  return layerStep(count, target, dx, dy, columnsFor, rowList, 1, perRow)
 }
-function layerStep(count, at, dx, dy, columnsFor, rowList, extra) {
+function layerStep(count, at, dx, dy, columnsFor, rowList, extra, perRow) {
   columnsFor = columnsFor || zonesOnly
-  var list = rowList || modes
-  var m = Math.max(0, list.indexOf(at.mode)), column = across(columnsFor(list[m]), at.section), pos = at.pos
+  var list = rowList || modes, per = perRow || 5
+  var m = Math.max(0, list.indexOf(at.mode)), home = at.home || ""
+  var column = across(columnsFor(list[m]), at.section, home), pos = at.pos
   function last(c, row) { return Math.max(0, count(c, row) - 1 + extra) }
-  if (dx) {
-    var cols = columnsFor(list[m])
-    column = cols[clamp(cols.indexOf(column) + dx, 0, cols.length - 1)]
-    pos = clamp(pos, 0, last(column, list[m]))
+  function isSlab(row) { return columnsFor(row).length === 1 }
+  function enter(next, down) {
+    m = next
+    column = across(columnsFor(list[m]), column, home)
+    pos = down ? 0 : last(column, list[m])
   }
-  if (dy) {
-    pos += dy
-    if (pos > last(column, list[m])) {
-      if (m < list.length - 1) { m++; column = across(columnsFor(list[m]), column); pos = 0 }
-      else pos = last(column, list[m])
-    } else if (pos < 0) {
-      if (m > 0) { m--; column = across(columnsFor(list[m]), column); pos = last(column, list[m]) }
-      else pos = 0
+  if (!isSlab(list[m])) home = column
+  if (dx) {
+    if (isSlab(list[m])) pos = clamp(pos + dx, 0, last(column, list[m]))
+    else {
+      var cols = columnsFor(list[m])
+      column = cols[clamp(cols.indexOf(column) + dx, 0, cols.length - 1)]
+      home = column
+      pos = clamp(pos, 0, last(column, list[m]))
     }
   }
-  return { section: column, mode: list[m], pos: pos }
+  if (dy) {
+    var end = last(column, list[m])
+    if (isSlab(list[m])) {
+      var next = pos + dy * per
+      if (next > end) {
+        if (Math.floor(pos / per) < Math.floor(end / per)) pos = end
+        else if (m < list.length - 1) enter(m + 1, true)
+      } else if (next < 0) {
+        if (m > 0) enter(m - 1, false)
+      } else pos = next
+    } else {
+      pos += dy
+      if (pos > end) {
+        if (m < list.length - 1) enter(m + 1, true)
+        else pos = end
+      } else if (pos < 0) {
+        if (m > 0) enter(m - 1, false)
+        else pos = 0
+      }
+    }
+  }
+  if (!isSlab(list[m])) home = column
+  return { section: column, mode: list[m], pos: pos, home: home }
 }
 // Shift with j or k moves a widget to the next layer at once (PREFS-27):
 // the layer `dy` from `mode` in `rowList`, or "" past the first or last.

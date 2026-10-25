@@ -219,9 +219,10 @@ jq 'def clean: with_entries(select(.key | startswith("powerbar") | not));
 Three pages, all usable from the keyboard (the footer lists the keys for
 whatever has focus):
 
-- **Layout**: your bar as shelves (On the bar, On demand, Hidden), each with
-  the five zones, the camera between Left of center and Center on a notched
-  screen. On a side bar the shelves turn to run down the screen. Drag or pick
+- **Layout**: your bar as shelves (On the bar, On demand, Hidden), the first
+  two with the five zones (Hidden is one slab of widgets in bar order), the
+  camera between Left of center and Center on a notched screen. On a side
+  bar the shelves turn to run down the screen. Drag or pick
   up widgets to move them; the tile below holds the selected widget's zone
   (a small map of the bar), visibility, *Show on activity*, group and
   shortcut. A fourth
