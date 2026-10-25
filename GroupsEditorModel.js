@@ -79,16 +79,20 @@ function openDrawers(faces, zones, chosen, opened) {
   return out
 }
 function openOrder(s) { return openDrawers(s.faces, s.zones, s.chosen, s.opened) }
-// A zone's faces on its segment (PREFS-111): at their natural widths while
-// they all fit `room` (`gap` apart); otherwise every face of the zone drops
-// its name (its `compact` width, never a half-elided name), and when even
-// those do not fit the segment clips them at its end (`clipped`).
-function faceWidths(natural, compact, room, gap) {
-  function total(ws) {
-    return ws.reduce(function(a, b) { return a + b }, 0) + Math.max(0, ws.length - 1) * gap
+// A zone's faces on its segment (PREFS-111), the first tier that fits
+// `room` (`gap` apart) for every face of the zone at once: named (their
+// `natural` widths), icon and count pill (`compact`), icon only (`icon`, one
+// width for all, `iconGap` apart, default `gap`); past that the icon-only
+// faces are clipped at the segment's end (`clipped`). Names and pills never
+// go from some faces only. `gap` in the result is the one to lay them out with.
+function faceWidths(natural, compact, icon, room, gap, iconGap) {
+  function total(ws, g) {
+    return ws.reduce(function(a, b) { return a + b }, 0) + Math.max(0, ws.length - 1) * g
   }
-  if (total(natural) <= room) return { named: true, widths: natural.slice(), clipped: false }
-  return { named: false, widths: compact.slice(), clipped: total(compact) > room }
+  if (total(natural, gap) <= room) return { tier: "named", named: true, pill: true, widths: natural.slice(), gap: gap, clipped: false }
+  if (total(compact, gap) <= room) return { tier: "count", named: false, pill: true, widths: compact.slice(), gap: gap, clipped: false }
+  var bare = natural.map(function() { return icon }), g = iconGap === undefined ? gap : iconGap
+  return { tier: "icon", named: false, pill: false, widths: bare, gap: g, clipped: total(bare, g) > room }
 }
 
 // The rail's columns among the Layout page's seven (PreferencesModel.

@@ -600,6 +600,9 @@ Item {
             return Style.space(40);
         return faceCompact(g) + layout.textInk(g.label, Style.font.family, Style.font.caption).advance + Style.space(5);
     }
+    // A face with neither name nor pill: its icon centred in a 28 px chip,
+    // 2 px apart so five fit beside a zone's "+".
+    readonly property real faceBare: Style.space(28)
     // A face without its name: the icon and the count pill inside the chip.
     function faceCompact(g) {
         if (!g)
@@ -607,8 +610,8 @@ Item {
         return Math.max(Style.space(30), Style.space(6) + (g.visibility === "managed" ? Style.space(10) : 0) + Style.space(16) + Style.space(5) + pillWidth((memberLists[g.id] || []).length) + Style.space(6));
     }
     // Each zone's segment on the rail: its faces in bar order, then its "+"
-    // at the end. Faces keep their names while all of the zone's fit, else
-    // all drop them; past the room the segment clips them, the "+" stays
+    // at the end. All of a zone's faces are named, else all icon and count,
+    // else all icon only; past the room the segment clips them, the "+" stays
     // (GroupsEditorModel.faceWidths). `seen` is the part of a face not clipped.
     readonly property var railLayout: {
         var out = ({});
@@ -618,13 +621,14 @@ Item {
                 return editor.groupOf(id);
             });
             var room = Math.max(0, box.width - 2 * editor.segPad - editor.faceHeight - editor.faceGap);
-            var fit = Editor.faceWidths(list.map(editor.faceNatural), list.map(editor.faceCompact), room, editor.faceGap);
+            var fit = Editor.faceWidths(list.map(editor.faceNatural), list.map(editor.faceCompact), editor.faceBare, room, editor.faceGap, Style.space(2));
             var x = box.x + editor.segPad, end = x + room;
             out[zone] = {
                 x: box.x,
                 width: box.width,
                 plusX: box.x + box.width - editor.segPad - editor.faceHeight,
                 named: fit.named,
+                pill: fit.pill,
                 chips: ids.map(function (id, i) {
                     var w = fit.widths[i];
                     var chip = {
@@ -633,7 +637,7 @@ Item {
                         width: w,
                         seen: Math.max(0, Math.min(w, end - x))
                     };
-                    x += w + editor.faceGap;
+                    x += w + fit.gap;
                     return chip;
                 })
             };
@@ -1269,7 +1273,8 @@ Item {
         var g = hit.kind === "face" ? groupOf(hit.id) : null;
         nameTip.record = hit.record || ({});
         nameTip.title = hit.kind === "plus" ? "New group in " + layout.zoneNames[hit.zone] : g ? g.label : hit.record ? preferences.title(hit.record) : "";
-        nameTip.detail = hit.kind === "plus" ? "" : g ? "Group" : hit.record ? hit.record.id : "";
+        var n = g ? (memberLists[g.id] || []).length : 0;
+        nameTip.detail = hit.kind === "plus" ? "" : g ? "Group, " + n + (n === 1 ? " widget" : " widgets") : hit.record ? hit.record.id : "";
         nameTip.at = pointer;
         nameTip.shown = true;
         tipWarm = true;
@@ -2077,6 +2082,8 @@ Item {
         property bool hovered: false
         // Without its name: the icon and the count pill (PREFS-111).
         property bool named: true
+        // Without its count pill either: the icon centred (PREFS-111).
+        property bool pill: true
         // The part the segment does not clip.
         property real seen: width
         readonly property string visibility: group ? group.visibility : "shown"
@@ -2105,7 +2112,7 @@ Item {
                 }
                 Row {
                     id: faceRow
-                    x: Style.space(6)
+                    x: look.pill ? Style.space(6) : Math.round((look.width - width) / 2)
                     anchors.verticalCenter: parent.verticalCenter
                     spacing: Style.space(5)
                     opacity: look.visibility === "hidden" ? 0.55 : 1
@@ -2146,6 +2153,7 @@ Item {
                     }
                     Rectangle {
                         id: facePill
+                        visible: look.pill
                         anchors.verticalCenter: parent.verticalCenter
                         width: editor.pillWidth(look.count)
                         height: Style.space(16)
@@ -2178,6 +2186,7 @@ Item {
         readonly property real mid: Math.min(chip.width, box.seen) / 2
         group: editor.groupOf(modelData)
         named: !!slot && editor.railLayout[slot.zone].named
+        pill: !slot || editor.railLayout[slot.zone].pill
         seen: box.seen
         isCursor: !editor.lifted && editor.cursorKey === "face:" + modelData
         chosen: editor.selectedId === modelData

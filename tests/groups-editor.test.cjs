@@ -197,9 +197,14 @@ test('a lifted widget never walks into a closed drawer, it lands on the face', (
   assert.deepEqual(plain(m.dropAction({ key: 'k', group: 'ai' }, { area: 'face', id: 'b' })), { op: 'assign', key: 'k', id: 'b', before: '' });
 });
 
-test('faces keep their names while they fit, else all drop them', () => {
-  assert.deepEqual(plain(m.faceWidths([60, 50], [40, 30], 114, 4)), { named: true, widths: [60, 50], clipped: false });
-  assert.deepEqual(plain(m.faceWidths([60, 50], [40, 30], 113, 4)), { named: false, widths: [40, 30], clipped: false });
-  assert.deepEqual(plain(m.faceWidths([90, 50, 50, 50], [48, 30, 30, 30], 100, 4)), { named: false, widths: [48, 30, 30, 30], clipped: true });
-  assert.deepEqual(plain(m.faceWidths([], [], 0, 4)), { named: true, widths: [], clipped: false });
+test('faces keep their names while they fit, then their pills, then clip', () => {
+  assert.deepEqual(plain(m.faceWidths([60, 50], [40, 30], 28, 114, 4, 2)), { tier: 'named', named: true, pill: true, widths: [60, 50], gap: 4, clipped: false });
+  assert.deepEqual(plain(m.faceWidths([60, 50], [40, 30], 28, 113, 4, 2)), { tier: 'count', named: false, pill: true, widths: [40, 30], gap: 4, clipped: false });
+  assert.deepEqual(plain(m.faceWidths([60, 50], [40, 30], 28, 73, 4, 2)), { tier: 'icon', named: false, pill: false, widths: [28, 28], gap: 2, clipped: false }, 'pills go from every face at once');
+  const five = [90, 70, 70, 70, 70], fiveCompact = [50, 50, 50, 50, 50];
+  // A 186 px zone leaves 150 px beside its "+".
+  assert.deepEqual(plain(m.faceWidths(five, fiveCompact, 28, 150, 4, 2)), { tier: 'icon', named: false, pill: false, widths: [28, 28, 28, 28, 28], gap: 2, clipped: false }, 'five icon-only faces fit');
+  assert.deepEqual(plain(m.faceWidths(five.concat([70]), fiveCompact.concat([50]), 28, 150, 4, 2)), { tier: 'icon', named: false, pill: false, widths: [28, 28, 28, 28, 28, 28], gap: 2, clipped: true }, 'a sixth clips');
+  assert.equal(m.faceWidths(five, fiveCompact, 28, 150, 4).clipped, true, 'without the tighter gap five would clip');
+  assert.deepEqual(plain(m.faceWidths([], [], 28, 0, 4, 2)), { tier: 'named', named: true, pill: true, widths: [], gap: 4, clipped: false });
 });
