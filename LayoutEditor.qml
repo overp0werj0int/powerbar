@@ -94,6 +94,8 @@ Item {
     readonly property real minPlate: Style.space(52)
     // A clear band between the header and the first layer.
     readonly property real stackTop: Style.space(36)
+    // Shadows and slab edges go lighter on a light theme.
+    readonly property bool lightTheme: AppearanceModel.luminance(Commons.Color.popups.background) > 0.5
     // The screen's middle (the camera's axis) in the editor, measured: the
     // page may not be centred on it.
     property real axis: width / 2
@@ -877,12 +879,11 @@ Item {
         width: 2 * (spread + pad)
         height: Math.max(0, beamBottom - beamTop + 2 * pad)
         layer.enabled: visible
+        layer.smooth: true
+        // The fade down the page is a mask over the beam, so the beam
+        // itself can fade across, as light does. No blur: its softness is
+        // the gradients', which stay smooth where a blur steps.
         layer.effect: MultiEffect {
-            blurEnabled: true
-            blur: 1
-            blurMax: shaft.pad
-            // The fade down the page is a mask over the blurred beam, so
-            // the beam itself can fade across, as light does.
             maskEnabled: true
             maskSource: fade
             maskThresholdMin: 0.5
@@ -910,6 +911,7 @@ Item {
         }
         Rectangle {
             id: beam
+            antialiasing: true
             // The plane's own coordinates for the beam's ends; it starts
             // above the page so its blurred top edge stays off screen.
             readonly property real vTop: Model.tiltedDepth(shaft.beamTop - shaft.pad - shaft.middle, editor.tilt, editor.planeDistance)
@@ -959,6 +961,7 @@ Item {
     // the page's top into the first layer, where it gives way to the beam.
     Rectangle {
         id: notchCap
+        antialiasing: true
         readonly property real vTop: Model.tiltedDepth(shaft.beamTop - shaft.pad - shaft.middle, editor.tilt, editor.planeDistance)
         readonly property real vBottom: Model.tiltedDepth(editor.stackTop + Style.space(48) - sheet.contentY - shaft.middle, editor.tilt, editor.planeDistance)
         visible: shaft.visible
@@ -1555,18 +1558,21 @@ Item {
         Component.onDestruction: cellRepeater.unregister(this)
         onListChanged: Qt.callLater(editor.refreshInspected)
 
-        // The slab's thickness, below it.
+        // The slab's thickness, below it. Edges under the tilt are drawn
+        // antialiased, or they step.
         Rectangle {
             visible: !cell.trayCell
             y: Style.space(6) + cell.raise
             width: parent.width
             height: parent.height
             radius: cell.radius
-            color: Qt.rgba(0, 0, 0, 0.45)
+            antialiasing: true
+            color: Qt.rgba(0, 0, 0, editor.lightTheme ? 0.3 : 0.45)
         }
         BorderSurface {
             id: well
             anchors.fill: parent
+            antialiasing: true
             radius: cell.radius
             color: cell.trayCell ? "transparent" : Qt.tint(Qt.tint(Qt.rgba(Commons.Color.popups.background.r, Commons.Color.popups.background.g, Commons.Color.popups.background.b, 1), Qt.alpha(Commons.Color.popups.text, cell.mode === "shown" ? 0.09 : 0.065)), cell.shaft ? Qt.rgba(0, 0, 0, 0.35) : "transparent")
             // An empty tile waiting for a drop is outlined the way a landing place is.
@@ -1576,6 +1582,7 @@ Item {
         Shape {
             visible: cell.trayCell
             anchors.fill: parent
+            preferredRendererType: Shape.CurveRenderer
             ShapePath {
                 strokeColor: Qt.alpha(Commons.Color.popups.text, cell.targeted ? 0.6 : 0.3)
                 strokeWidth: 1
@@ -1654,6 +1661,7 @@ Item {
             anchors.fill: parent
             anchors.margins: Style.space(3)
             visible: cell.list.length === 0 && cell.cursorHere && editor.gridFocused
+            antialiasing: true
             color: "transparent"
             radius: Math.max(0, cell.radius - Style.space(3))
             borderSpec: Border.controlSpec("focus", Commons.Color.popups.text, Commons.Color.accent)
@@ -1793,33 +1801,37 @@ Item {
         height: editor.chipHeight
 
         // The soft shadow a pulled-out or raised chip casts, as far below
-        // it as it has risen. Only those chips carry the blur.
+        // it as it has risen: six faint rings, each 2 px wider, which stay
+        // smooth where a blur steps. Lighter on a light theme.
         Item {
-            readonly property real pad: Style.space(12)
+            readonly property real drop: tile.pulled ? Style.space(6) : tile.raise + Style.space(3)
+            readonly property real ring: (tile.pulled ? 0.09 : editor.lightTheme ? 0.045 : 0.08)
             visible: tile.pulled || tile.raise > 0
-            x: -pad
-            y: -pad + (tile.pulled ? Style.space(6) : tile.raise + Style.space(3))
-            width: tile.width + 2 * pad
-            height: tile.height + 2 * pad
-            opacity: tile.pulled ? 0.5 : 0.45
-            layer.enabled: visible
-            layer.effect: MultiEffect {
-                blurEnabled: true
-                blur: 1
-                blurMax: Style.space(10)
-            }
-            Rectangle {
-                anchors.fill: parent
-                anchors.margins: parent.pad
-                radius: surface.radius
-                color: "black"
+            anchors.fill: parent
+            Repeater {
+                model: 6
+                Rectangle {
+                    required property int index
+                    x: -index
+                    y: parent.drop - index
+                    width: parent.width + 2 * index
+                    height: parent.height + 3 * index
+                    radius: surface.radius + index
+                    antialiasing: true
+                    color: Qt.rgba(0, 0, 0, parent.ring)
+                }
             }
         }
+        // The fill, and under a raised chip its tile's own colour, so what
+        // it rises over does not show through.
+        readonly property color fill: tile.outline ? "transparent" : tile.ghost || tile.pulled ? Qt.tint(Qt.rgba(Commons.Color.popups.background.r, Commons.Color.popups.background.g, Commons.Color.popups.background.b, 1), Qt.alpha(Commons.Color.popups.text, 0.15)) : tile.isCursor && editor.gridFocused ? Style.focusFillFor(Commons.Color.popups.text, Commons.Color.accent) : tile.isCursor ? Style.selectedFillFor(Commons.Color.popups.text, Commons.Color.accent) : tile.hovered ? Qt.alpha(Commons.Color.popups.text, 0.14) : Qt.alpha(Commons.Color.popups.text, 0.06)
+        readonly property color base: Qt.tint(Qt.rgba(Commons.Color.popups.background.r, Commons.Color.popups.background.g, Commons.Color.popups.background.b, 1), Qt.alpha(Commons.Color.popups.text, tile.mode === "shown" ? 0.09 : 0.065))
         BorderSurface {
             id: surface
             anchors.fill: parent
+            antialiasing: true
             radius: Math.max(0, Math.min(Style.space(5), Style.cornerRadius - Style.space(3)))
-            color: tile.outline ? "transparent" : tile.ghost || tile.pulled ? Qt.tint(Qt.rgba(Commons.Color.popups.background.r, Commons.Color.popups.background.g, Commons.Color.popups.background.b, 1), Qt.alpha(Commons.Color.popups.text, 0.15)) : tile.isCursor && editor.gridFocused ? Style.focusFillFor(Commons.Color.popups.text, Commons.Color.accent) : tile.isCursor ? Style.selectedFillFor(Commons.Color.popups.text, Commons.Color.accent) : tile.hovered ? Qt.alpha(Commons.Color.popups.text, 0.14) : Qt.alpha(Commons.Color.popups.text, 0.06)
+            color: tile.raised ? Qt.tint(tile.base, tile.fill) : tile.fill
             borderSpec: tile.outline || tile.ghost || tile.pulled ? Border.flat(Commons.Color.accent, Math.max(1, Math.round(Style.space(1.5)))) : tile.isCursor && editor.gridFocused ? Border.controlSpec("focus", Commons.Color.popups.text, Commons.Color.accent) : tile.isCursor ? Border.flat(Qt.alpha(Commons.Color.popups.text, 0.35), 1) : Border.none()
             Behavior on color {
                 enabled: editor.bar.animationsEnabled
