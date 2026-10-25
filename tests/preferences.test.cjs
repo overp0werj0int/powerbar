@@ -319,6 +319,29 @@ test('a beam on a tilted plane runs on the lines its edges are seen on', () => {
   assert.equal(model.tiltedSpread(95.5, 600, 0, 1600), 95.5);
 });
 
+test('layers share the room: what they ask for while it fits, else fair shares above their floors', () => {
+  const floors = [60, 60, 60, 52];
+  // Flat, so seen heights are plane heights. Four layers, 30 px gaps: 90 px of gaps.
+  const fits = model.shareLayers([141, 330, 60, 52], floors, 700, 0, 1600, 30);
+  assert.deepEqual(fits.map(Math.round), [141, 330, 60, 52]);
+  // Too little for all: floors first, then equal shares of the rest; the
+  // two that want more get the same.
+  const tight = model.shareLayers([141, 330, 60, 52], floors, 400, 0, 1600, 30);
+  assert.deepEqual(tight.map(Math.round), [99, 99, 60, 52]);
+  assert.ok(Math.abs(tight.reduce((a, b) => a + b, 0) + 90 - 400) < 1e-9, 'uses the whole room');
+  // A modest layer takes what it asks for and leaves the rest to the one that wants more.
+  const modest = model.shareLayers([100, 300, 60, 52], floors, 490, 0, 1600, 30);
+  assert.deepEqual(modest.map(Math.round), [100, 188, 60, 52]);
+  // Not even the floors fit: the floors win.
+  assert.deepEqual(model.shareLayers([141, 330, 60, 52], floors, 200, 0, 1600, 30).map(Math.round), [60, 60, 60, 52]);
+  // Tilted: the pictures and the gaps fit the room exactly when tight.
+  const tilted = model.shareLayers([141, 330, 60, 52], floors, 400, 34, 1600, 30);
+  const seen = tilted.reduce((a, h) => a + model.tiltedHeight(h, 34, 1600), 0);
+  assert.ok(Math.abs(seen + 90 - 400) < 1e-6);
+  assert.ok(Math.abs(model.tiltedPlaneHeight(model.tiltedHeight(141, 34, 1600), 34, 1600) - 141) < 1e-9);
+  assert.equal(model.shareLayers([], [], 400, 34, 1600, 30).length, 0);
+});
+
 test('a leader leaves the camera\'s cap where its seen edge is', () => {
   // From the Center tile's top middle (axis 700, line 100) up to a dot 16 px
   // right of the cap, 70 px higher.

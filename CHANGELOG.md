@@ -16,8 +16,13 @@
   the next layer, with or without a chip picked up; Shift with them moves
   the chip there at once. The cursor's chip and its tile rise a little off
   the layer. A layer that gains or loses a chip only grows or shrinks
-  downward: its top edge and what sits near it stay put. With animations
-  off the layers lie flat.
+  downward: its top edge and what sits near it stay put. The layers share
+  the page between the header and the legend, so the legend and the
+  inspector never move: a layer gets the height it needs while the layers
+  fit, else each starts at its name and one row and the rest is shared out
+  fairly; a zone with more rows than its layer has then scrolls inside its
+  tile, with a thin thumb and faded edges, by wheel, keys or a drag held at
+  its edge. With animations off the layers lie flat.
 - **Center can sit left of the camera.** On a notched screen the Center
   zone's widgets sit beside the camera, on the right until now. A dot beside
   the camera on the Layout page (or `powerbar set centerSide left`) moves

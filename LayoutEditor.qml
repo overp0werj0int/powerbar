@@ -138,11 +138,30 @@ Item {
         });
         return Math.max(1, n);
     }
-    readonly property var plateHeights: rows.map(function (mode) {
+    // The layers share the room between the band under the header and the
+    // legend's band at the bottom, so the legend and the inspector keep
+    // their place (PREFS-106): each asks for its fullest zone's rows, and
+    // what does not fit is shared out, never below a name and one row; a
+    // zone with more rows than its layer has then scrolls inside its tile.
+    readonly property var plateDemands: rows.map(function (mode) {
         var r = rowsOf(mode);
         return Math.max(minPlate, 2 * tilePad + (mode === "tray" ? 0 : nameRow) + r * chipHeight + (r - 1) * chipGap);
     })
+    readonly property var plateFloors: rows.map(function (mode) {
+        return Math.max(minPlate, 2 * tilePad + (mode === "tray" ? 0 : nameRow) + chipHeight);
+    })
+    // The legend's band: its tallest list (eight rows) and the margins
+    // around it, whatever it shows now, so the layers never resize as focus
+    // moves.
+    readonly property real legendBand: Style.space(8) + Style.space(24) + 8 * capProbe.implicitHeight + 7 * Style.space(10)
+    readonly property real stackRoom: Math.max(0, height - stackTop - legendBand)
+    readonly property var plateHeights: Model.shareLayers(plateDemands, plateFloors, stackRoom, tilt, planeDistance, layerGap)
     readonly property var stack: Model.stackLayers(plateHeights, tilt, planeDistance, layerGap)
+    KeyCap {
+        id: capProbe
+        visible: false
+        text: "x"
+    }
 
     // Only screens that look different get a switcher.
     readonly property bool screensDiffer: screens.some(function (s) {
@@ -517,7 +536,7 @@ Item {
         focusMoving = true;
         plate.focusItem.forceActiveFocus(reason === undefined ? Qt.OtherFocusReason : reason);
         focusMoving = false;
-        revealPlate(mode);
+        revealCursor();
     }
     function focusFirst() {
         focusShelf(cursorCell.mode, Qt.TabFocusReason);
@@ -529,19 +548,20 @@ Item {
         if (gridFocused && plate && !plate.focusItem.activeFocus)
             focusShelf(mode);
         else
-            revealPlate(mode);
+            revealCursor();
     }
-    // Scroll the sheet so the layer is in view.
-    function revealPlate(mode) {
-        var plate = plates.forMode(mode);
-        if (!plate)
-            return;
-        var top = plate.y - Style.space(8), bottom = plate.y + plate.height + Style.space(8);
-        var end = Math.max(0, sheet.contentHeight - sheet.height);
-        if (top < sheet.contentY)
-            sheet.contentY = Math.max(0, top);
-        else if (bottom > sheet.contentY + sheet.height)
-            sheet.contentY = Math.min(end, bottom - sheet.height);
+    // The cursor's chip, or a lifted chip's landing place, scrolls into view
+    // in its tile (PREFS-106).
+    function cellFor(section, mode) {
+        return cellRepeater.cells.find(function (c) {
+            return c.section === section && c.mode === mode;
+        }) || null;
+    }
+    function revealCursor() {
+        var at = activeCell;
+        var cell = cellFor(at.section, at.mode);
+        if (cell)
+            cell.reveal(at.pos);
     }
     // The column a zone has on another layer; the tray's one column meets the
     // last zone, as j and k do.
@@ -783,6 +803,10 @@ Item {
         var cell = cellAt(point);
         if (!cell || !cell.tiles)
             return null;
+        // A chip scrolled out of the tile's window is not under the pointer.
+        var at = cell.mapFromItem(editor, point.x, point.y);
+        if (!cell.viewContains(at))
+            return null;
         for (var i = 0; i < cell.tiles.count; i++) {
             var tile = cell.tiles.itemAt(i);
             if (!tile || tile.placeholder)
@@ -823,6 +847,28 @@ Item {
             };
             if (!liftTarget || next.section !== liftTarget.section || next.mode !== liftTarget.mode || next.pos !== liftTarget.pos)
                 liftTarget = next;
+        }
+        // Held near a scrolling tile's top or bottom edge, the drag scrolls it.
+        var dir = 0;
+        if (cell && cell.overflows) {
+            var p = cell.mapFromItem(editor, point.x, point.y), band = Style.space(24);
+            if (p.y < cell.viewTop + band && cell.scroll > 0)
+                dir = -1;
+            else if (p.y > cell.viewTop + cell.viewHeight - band && cell.scroll < cell.maxScroll)
+                dir = 1;
+        }
+        autoScrollCell = dir ? cell : null;
+        autoScrollDir = dir;
+    }
+    property Item autoScrollCell: null
+    property int autoScrollDir: 0
+    Timer {
+        interval: 16
+        repeat: true
+        running: !!editor.autoScrollCell && editor.autoScrollDir !== 0 && editor.pointerLift
+        onTriggered: {
+            editor.autoScrollCell.scrollBy(editor.autoScrollDir * Style.space(3));
+            editor.pointerMoved(editor.pointer);
         }
     }
     // The chip the inspector pulls forward: the lifted one's place while
@@ -872,9 +918,9 @@ Item {
         readonly property real half: editor.columns.widths[3] / 2
         // The line the bar layer turns about (its top edge), the page's top
         // and the stack's bottom, in the editor.
-        readonly property real line: editor.stackTop - sheet.contentY
+        readonly property real line: editor.stackTop
         readonly property real beamTop: editor.pageTop
-        readonly property real beamBottom: editor.stackTop + editor.stack.height - sheet.contentY + Style.space(8)
+        readonly property real beamBottom: editor.stackTop + editor.stack.height + Style.space(8)
         readonly property real pad: Style.space(20)
         readonly property real spread: Model.tiltedSpread(half, beamBottom - line, editor.tilt, editor.planeDistance)
         visible: editor.previewCamera && !!editor.previewNotch
@@ -970,7 +1016,7 @@ Item {
         antialiasing: true
         color: "black"
         readonly property real vTop: Model.tiltedDepth(shaft.beamTop - shaft.pad - shaft.line, editor.tilt, editor.planeDistance)
-        readonly property real vBottom: Model.tiltedDepth(editor.stackTop + Style.space(2) - sheet.contentY - shaft.line, editor.tilt, editor.planeDistance)
+        readonly property real vBottom: Model.tiltedDepth(editor.stackTop + Style.space(2) - shaft.line, editor.tilt, editor.planeDistance)
         visible: shaft.visible
         z: -1
         x: editor.axis - shaft.half
@@ -1047,7 +1093,7 @@ Item {
     Shape {
         id: leader
         readonly property real x0: editor.axis
-        readonly property real y0: editor.stackTop - sheet.contentY - editor.centerTileRaise
+        readonly property real y0: editor.stackTop - editor.centerTileRaise
         readonly property real x1: sideDot.x + sideDot.width / 2
         readonly property real y1: sideDot.y + sideDot.height / 2
         readonly property real exit: Model.leaderExit(x0, y0, x1, y1, editor.axis, shaft.half, shaft.line, editor.tilt, editor.planeDistance)
@@ -1188,16 +1234,11 @@ Item {
     }
 
     // The layers, stacked down the sheet under a clear band below the
-    // header; it scrolls only when they outgrow it.
-    Flickable {
+    // header; the sheet never scrolls, the layers share its room (PREFS-106).
+    Item {
         id: sheet
         anchors.fill: parent
         anchors.topMargin: editor.stackTop
-        contentWidth: width
-        contentHeight: editor.stack.height + (inspector.shown ? inspector.height + Style.space(48) : Style.space(8))
-        boundsBehavior: Flickable.StopAtBounds
-        interactive: !editor.pointerLift
-        clip: true
         Repeater {
             model: editor.rows
             Plate {}
@@ -1358,12 +1399,6 @@ Item {
         target: editor.inspectedItem
         host: editor
         onChanged: editor.trackLeader()
-    }
-    Connections {
-        target: sheet
-        function onContentYChanged() {
-            editor.trackLeader();
-        }
     }
     readonly property bool leaderShown: inspector.shown && !!inspectedItem && !pointerLift
     Shape {
@@ -1631,6 +1666,17 @@ Item {
                     editor.hoverKey = "";
                 editor.hoverOn(null);
             }
+            // The wheel over a scrolling tile scrolls it, a row a notch.
+            onWheel: function (wheel) {
+                var point = mapToItem(editor, wheel.x, wheel.y);
+                var cell = editor.cellAt(point);
+                if (!cell || !cell.overflows) {
+                    wheel.accepted = false;
+                    return;
+                }
+                cell.scrollBy(wheel.pixelDelta.y ? -wheel.pixelDelta.y : -wheel.angleDelta.y / 120 * cell.rowStep);
+                editor.pointerMoved(point);
+            }
             onPressed: function (mouse) {
                 editor.hoverOn(null);
                 if (editor.lifted)
@@ -1800,6 +1846,7 @@ Item {
             visible: !cell.trayCell
             x: cell.pad + Style.space(2)
             y: cell.pad
+            z: 3
             width: cell.width - x - cell.pad
             text: editor.zoneNames[cell.section] || ""
             textFormat: Text.PlainText
@@ -1828,16 +1875,111 @@ Item {
             radius: Math.max(0, cell.radius - Style.space(3))
             borderSpec: Border.controlSpec("focus", Commons.Color.popups.text, Commons.Color.accent)
         }
-        Flow {
-            id: chipFlow
-            x: cell.pad
-            y: cell.pad + (cell.trayCell ? 0 : editor.nameRow)
-            width: cell.flows ? Math.max(1, cell.width - cell.pad * 2) : editor.chipWidth
-            spacing: cell.flows ? editor.columnGap : editor.chipGap
-            Repeater {
-                id: chipTiles
-                model: tileList.model
+        // The chips, in a window that scrolls when the tile has more rows
+        // than its layer gives it (PREFS-106). The window reaches a little
+        // above the first row and past the chips' sides, so a raised chip is
+        // not cut; a thin thumb at the tile's right edge shows where it is,
+        // and the tile's colour fades over the chips cut at its edges.
+        readonly property real rowStep: editor.chipHeight + (cell.flows ? editor.columnGap : editor.chipGap)
+        readonly property real room: Style.space(10)
+        readonly property real viewTop: cell.pad + (cell.trayCell ? 0 : editor.nameRow)
+        readonly property real viewHeight: Math.max(0, cell.height - viewTop - Style.space(2))
+        readonly property real contentHeight: chipFlow.implicitHeight
+        readonly property real maxScroll: Math.max(0, contentHeight - viewHeight)
+        readonly property bool overflows: maxScroll > 0.5
+        property real scroll: 0
+        Behavior on scroll {
+            enabled: editor.bar.animationsEnabled
+            NumberAnimation {
+                duration: 120
+                easing.type: Easing.OutCubic
             }
+        }
+        onMaxScrollChanged: if (scroll > maxScroll)
+            scroll = maxScroll
+        onScrollChanged: Qt.callLater(editor.trackLeader)
+        function scrollBy(dy) {
+            scroll = Math.max(0, Math.min(maxScroll, scroll + dy));
+        }
+        // Row `pos` in view, with the room a raised chip takes above it.
+        function reveal(pos) {
+            if (!overflows)
+                return;
+            var row = cell.flows ? Math.floor(pos / 5) : pos;
+            var top = row * rowStep, bottom = top + editor.chipHeight;
+            if (top - room < scroll)
+                scroll = Math.max(0, top - room);
+            else if (bottom > scroll + viewHeight)
+                scroll = Math.min(maxScroll, bottom - viewHeight);
+        }
+        function viewContains(p) {
+            return p.y >= viewTop - room && p.y < viewTop + viewHeight;
+        }
+        Item {
+            id: viewport
+            x: cell.pad - Style.space(4)
+            y: cell.viewTop - cell.room
+            width: cell.width - 2 * cell.pad + 2 * Style.space(4)
+            height: cell.viewHeight + cell.room
+            clip: true
+            Flow {
+                id: chipFlow
+                x: Style.space(4)
+                y: cell.room - cell.scroll
+                width: cell.flows ? Math.max(1, cell.width - cell.pad * 2) : editor.chipWidth
+                spacing: cell.flows ? editor.columnGap : editor.chipGap
+                Repeater {
+                    id: chipTiles
+                    model: tileList.model
+                }
+            }
+            Rectangle {
+                visible: cell.scroll > 0.5
+                z: 2
+                width: parent.width
+                height: cell.room + Style.space(10)
+                gradient: Gradient {
+                    GradientStop {
+                        position: 0
+                        color: well.color
+                    }
+                    GradientStop {
+                        position: 0.5
+                        color: well.color
+                    }
+                    GradientStop {
+                        position: 1
+                        color: Qt.alpha(well.color, 0)
+                    }
+                }
+            }
+            Rectangle {
+                visible: cell.scroll < cell.maxScroll - 0.5
+                z: 2
+                y: parent.height - height
+                width: parent.width
+                height: Style.space(14)
+                gradient: Gradient {
+                    GradientStop {
+                        position: 0
+                        color: Qt.alpha(well.color, 0)
+                    }
+                    GradientStop {
+                        position: 1
+                        color: well.color
+                    }
+                }
+            }
+        }
+        Rectangle {
+            visible: cell.overflows
+            x: cell.width - cell.pad + Style.space(2)
+            y: cell.viewTop + (cell.contentHeight > 0 ? cell.scroll / cell.contentHeight * cell.viewHeight : 0)
+            width: Style.space(3)
+            height: Math.max(Style.space(16), cell.viewHeight * cell.viewHeight / Math.max(1, cell.contentHeight))
+            radius: width / 2
+            antialiasing: true
+            color: Qt.alpha(Commons.Color.popups.text, cell.cursorHere ? 0.5 : 0.3)
         }
 
         RetainedList {

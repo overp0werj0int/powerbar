@@ -170,6 +170,38 @@ function tiltedHeight(h, angle, distance) {
   var a = angle * Math.PI / 180
   return h * Math.cos(a) / (1 - Math.sin(a) * h / Math.max(1, distance))
 }
+// A seen height back to the plane's own: tiltedHeight inverted.
+function tiltedPlaneHeight(seen, angle, distance) {
+  var a = angle * Math.PI / 180
+  return seen / (Math.cos(a) + Math.sin(a) * seen / Math.max(1, distance))
+}
+// Heights for layers that ask for `demands` and need at least `floors` (both
+// on the plane), so that their pictures and the gaps between them fit `room`:
+// what they ask for while it fits; else each starts at its floor and the rest
+// is shared out, every layer taking what it asks for up to an equal share of
+// what is left, so the modest ones leave the rest to the others and layers
+// that all want more get the same (PREFS-106). Floors win over the room.
+function shareLayers(demands, floors, room, angle, distance, gap) {
+  var n = demands.length
+  if (!n) return []
+  var seen = demands.map(function(h) { return tiltedHeight(h, angle, distance) })
+  var low = floors.map(function(h, i) { return Math.min(seen[i], tiltedHeight(h, angle, distance)) })
+  var avail = room - gap * (n - 1)
+  var out = seen.slice()
+  if (seen.reduce(function(a, b) { return a + b }, 0) > avail) {
+    var left = avail
+    for (var i = 0; i < n; i++) { out[i] = low[i]; left -= low[i] }
+    var order = []
+    for (var j = 0; j < n; j++) order.push(j)
+    order.sort(function(a, b) { return (seen[a] - low[a]) - (seen[b] - low[b]) })
+    for (var k = 0; k < n && left > 0; k++) {
+      var at = order[k], give = Math.min(seen[at] - low[at], left / (n - k))
+      out[at] += give
+      left -= give
+    }
+  }
+  return out.map(function(s) { return tiltedPlaneHeight(s, angle, distance) })
+}
 // Layers `heights` tall, each tilted the same way about its top edge and
 // stacked with `gap` between what they show: where each one's box starts
 // and how tall its picture is, and the whole.
