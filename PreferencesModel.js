@@ -143,13 +143,25 @@ function pageIndex(page, count) {
 // Five zone columns of one width, mirrored about the axis (the screen's
 // middle, where a camera sits), Center on it: each column's x in a row
 // `width` wide, and their shared width.
-function layerColumns(width, gap, axis, count) {
+// The columns of a layer: `count` of them mirrored about `axis` inside
+// `width`, `gap` apart, the middle one `centerWidth` wide when given (the
+// camera's width, so Center sits under it) and the others sharing the rest.
+// Returns each column's x and width; `width` is the shared one.
+function layerColumns(width, gap, axis, count, centerWidth) {
   count = count || sections.length
   var half = Math.max(0, Math.min(axis, width - axis))
-  var w = Math.max(1, (2 * half - gap * (count - 1)) / count)
-  var mid = (count - 1) / 2, xs = []
-  for (var i = 0; i < count; i++) xs.push(axis + (i - mid) * (w + gap) - w / 2)
-  return { width: w, xs: xs }
+  var inner = Math.max(1, 2 * half - gap * (count - 1))
+  var mid = (count - 1) / 2
+  var centre = count % 2 === 1 && centerWidth > 0 ? Math.min(centerWidth, inner / count * 1.5) : 0
+  var w = Math.max(1, centre ? (inner - centre) / (count - 1) : inner / count)
+  var xs = [], widths = [], x = axis - half
+  for (var i = 0; i < count; i++) {
+    var cw = centre && i === mid ? centre : w
+    xs.push(x)
+    widths.push(cw)
+    x += cw + gap
+  }
+  return { width: w, xs: xs, widths: widths }
 }
 // A layer `h` tall tilted back by `angle` degrees about its middle line, as
 // Qt's Rotation draws it with `distance` to the plane: how far its top and
@@ -158,6 +170,18 @@ function tiltedExtent(h, angle, distance) {
   var a = angle * Math.PI / 180, half = h / 2
   var c = Math.cos(a), s = Math.sin(a) * half / Math.max(1, distance)
   return { above: half * c / (1 + s), below: half * c / (1 - s) }
+}
+// Layers `heights` tall, each tilted the same way about its middle line and
+// stacked with `gap` between what they show: where each one's box starts,
+// where its middle line lies and how tall its picture is, and the whole.
+function stackLayers(heights, angle, distance, gap) {
+  var y = 0, layers = []
+  heights.forEach(function(h) {
+    var e = tiltedExtent(h, angle, distance)
+    layers.push({ top: y, middle: y + e.above, height: e.above + e.below })
+    y += e.above + e.below + gap
+  })
+  return { layers: layers, height: Math.max(0, y - gap) }
 }
 // Cursor and lift steps on the layers, where a zone's items run down its
 // well: dx changes zone on the same layer (keeping the row where it can), dy

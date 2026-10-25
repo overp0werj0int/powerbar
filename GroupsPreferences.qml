@@ -106,7 +106,7 @@ Item {
   PrefsForm {
     id: form
     anchors.fill: parent
-    maxContentWidth: Infinity
+    maxContentWidth: Style.space(1180)
 
     PrefsBento {
       id: bento

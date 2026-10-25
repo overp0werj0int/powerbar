@@ -253,18 +253,41 @@ test("the tray's row sits under Hidden, one column wide, and leads back to the l
   assert.deepEqual({ ...model.stepCursor(count, { section: 'left', mode: 'hidden', pos: 0 }, 0, 1, columnsFor) }, { section: 'left', mode: 'hidden', pos: 0 }, 'without the tray row the cursor stops at Hidden');
   assert.deepEqual({ ...model.stepLift(count, { section: 'tray', mode: 'tray', pos: 0 }, 0, -3, columnsFor, rows) }, { section: 'right', mode: 'shown', pos: 0 });
 });
-test('layer columns are one width and mirror about the axis, Center on it', () => {
+test('layerColumns mirrors equal columns about the axis, Center under the camera', () => {
   const cols = model.layerColumns(1000, 8, 500);
   assert.equal(cols.xs.length, 5);
   assert.ok(Math.abs(cols.width - (1000 - 32) / 5) < 1e-9);
   assert.ok(Math.abs(cols.xs[2] + cols.width / 2 - 500) < 1e-9);
-  assert.ok(Math.abs(cols.xs[0] - 0) < 1e-9);
-  assert.ok(Math.abs(cols.xs[4] + cols.width - 1000) < 1e-9);
-  // An axis off the middle narrows the columns so both sides still fit.
+  assert.ok(Math.abs(cols.xs[0] + cols.width - (1000 - cols.xs[4])) < 1e-9);
   const off = model.layerColumns(1000, 8, 490);
-  assert.ok(off.xs[0] >= 0 && off.xs[4] + off.width <= 1000);
   assert.ok(Math.abs(off.xs[2] + off.width / 2 - 490) < 1e-9);
+  assert.ok(off.xs[0] >= 0 && off.xs[4] + off.width <= 1000);
+  // Seven columns with the camera's width in the middle: Center takes it,
+  // the others share the rest, and it still sits on the axis.
+  const cam = model.layerColumns(1380, 8, 690, 7, 191);
+  assert.equal(cam.widths[3], 191);
+  assert.ok(Math.abs(cam.xs[3] + 191 / 2 - 690) < 1e-9);
+  assert.ok(Math.abs(cam.widths[0] - (1380 - 48 - 191) / 6) < 1e-9);
+  assert.ok(Math.abs(cam.xs[6] + cam.widths[6] - 1380) < 1e-9);
+  // A camera wider than the room is capped, never wider than the others' share.
+  const wide = model.layerColumns(700, 8, 350, 7, 600);
+  assert.ok(wide.widths[3] <= (700 - 48) / 7 * 1.5 + 1e-9);
 });
+
+test('stackLayers stacks tilted pictures with a gap between them', () => {
+  const stack = model.stackLayers([141, 330, 60, 44], 34, 1600, 30);
+  assert.equal(stack.layers.length, 4);
+  assert.equal(stack.layers[0].top, 0);
+  const e0 = model.tiltedExtent(141, 34, 1600);
+  assert.ok(Math.abs(stack.layers[0].middle - e0.above) < 1e-9);
+  assert.ok(Math.abs(stack.layers[1].top - (e0.above + e0.below + 30)) < 1e-9);
+  const last = stack.layers[3];
+  assert.ok(Math.abs(stack.height - (last.top + last.height)) < 1e-9);
+  // Flat layers stack by their own heights.
+  const flat = model.stackLayers([100, 50], 0, 1600, 10);
+  assert.ok(Math.abs(flat.height - 160) < 1e-9);
+});
+
 test('a tilted layer keeps its middle line, its top recedes and its bottom comes near', () => {
   // Measured from Qt's Rotation: 200 tall, 30 degrees, distance 1000.
   const e = model.tiltedExtent(200, 30, 1000);
