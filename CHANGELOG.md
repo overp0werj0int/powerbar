@@ -21,7 +21,7 @@
   inspector never move: a layer gets the height it needs while the layers
   fit, else each starts at its name and one row and the rest is shared out
   fairly; a zone with more rows than its layer has then scrolls inside its
-  tile, with a thin thumb and faded edges, by wheel, keys or a drag held at
+  tile, with a hairline thumb and faded edges, by wheel, keys or a drag held at
   its edge. With animations off the layers lie flat.
 - **Center can sit left of the camera.** On a notched screen the Center
   zone's widgets sit beside the camera, on the right until now. A dot beside

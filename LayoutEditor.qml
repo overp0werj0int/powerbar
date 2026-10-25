@@ -1973,9 +1973,9 @@ Item {
         }
         Rectangle {
             visible: cell.overflows
-            x: cell.width - cell.pad + Style.space(2)
+            x: cell.width - cell.pad + Style.space(3)
             y: cell.viewTop + (cell.contentHeight > 0 ? cell.scroll / cell.contentHeight * cell.viewHeight : 0)
-            width: Style.space(3)
+            width: Style.spaceReal(1.5)
             height: Math.max(Style.space(16), cell.viewHeight * cell.viewHeight / Math.max(1, cell.contentHeight))
             radius: width / 2
             antialiasing: true
