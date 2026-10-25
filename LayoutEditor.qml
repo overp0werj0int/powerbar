@@ -970,6 +970,7 @@ Item {
     // run on the lines that layer's Center tile edges lie on; the Center
     // tiles it falls on draw the same shade over their own surface, so
     // nothing steps where a tile meets a gap.
+    readonly property Item beamCamera: camera
     CameraShaft {
         id: camera
         visible: editor.previewCamera && !!editor.previewNotch
@@ -1586,15 +1587,12 @@ Item {
     // under another in bar order. A slab flows its chips five to a row,
     // with no zone names: the hidden layer's, solid like a tile (PREFS-107),
     // and the tray's, dashed.
-    component Cell: Item {
+    component Cell: ZoneTile {
         id: cell
         property string section: ""
         property string mode: ""
         property bool flows: false
-        // Where the tile's plate top is seen, for the beam's shade.
-        property real seenTop: 0
         readonly property bool trayCell: mode === "tray"
-        readonly property var tiles: chipTiles
         readonly property var list: editor.cellList(section, mode)
         readonly property bool targeted: !!editor.lifted && !!editor.liftTarget && editor.liftTarget.section === section && editor.liftTarget.mode === mode
         readonly property bool cursorHere: !editor.lifted && editor.cursorCell.section === section && editor.cursorCell.mode === mode
@@ -1603,273 +1601,48 @@ Item {
         // The bar layer's Center tile meets the camera's cap: square on top,
         // so the black ends flush with it instead of showing in its corners.
         readonly property bool capped: shaft && mode === "shown"
-        readonly property real pad: editor.tilePad
-        readonly property real radius: Math.min(Style.space(10), Style.cornerRadius)
-        readonly property real topRadius: capped ? 0 : radius
+        animate: editor.bar.animationsEnabled
+        lightTheme: editor.lightTheme
+        dashed: trayCell
+        dashLit: targeted
+        lead: mode === "shown"
+        // An empty tile waiting for a drop is outlined the way a landing place is.
+        borderSpec: cell.targeted && cell.list.length === 1 ? Border.flat(Commons.Color.accent, 1) : Border.flat(Qt.alpha(Commons.Color.popups.text, 0.12), 1)
+        pad: editor.tilePad
+        topRadius: capped ? 0 : radius
         // The cursor's tile rises a little off its layer (PREFS-104); the
         // leader follows the rise.
-        property real raise: cursorHere && !flows ? Style.space(5) : 0
-        Behavior on raise {
-            enabled: editor.bar.animationsEnabled
-            NumberAnimation {
-                duration: 120
-                easing.type: Easing.OutCubic
-            }
-        }
-        transform: Translate {
-            y: -cell.raise
-        }
+        raise: cursorHere && !flows ? Style.space(5) : 0
         onRaiseChanged: Qt.callLater(editor.trackLeader)
         Component.onCompleted: cellRepeater.register(this)
         Component.onDestruction: cellRepeater.unregister(this)
         onListChanged: Qt.callLater(editor.refreshInspected)
-
-        // The slab's thickness, below it, the same on every tile: a raised
-        // tile takes its edge with it. Edges under the tilt are drawn
-        // antialiased, or they step.
-        Rectangle {
-            visible: !cell.trayCell
-            y: Style.space(6)
-            width: parent.width
-            height: parent.height
-            radius: cell.radius
-            topLeftRadius: cell.topRadius
-            topRightRadius: cell.topRadius
-            antialiasing: true
-            color: Qt.rgba(0, 0, 0, editor.lightTheme ? 0.3 : 0.45)
-        }
-        BorderSurface {
-            id: well
-            anchors.fill: parent
-            antialiasing: true
-            radius: cell.radius
-            topLeftRadius: cell.topRadius
-            topRightRadius: cell.topRadius
-            color: cell.trayCell ? "transparent" : Qt.tint(Qt.rgba(Commons.Color.popups.background.r, Commons.Color.popups.background.g, Commons.Color.popups.background.b, 1), Qt.alpha(Commons.Color.popups.text, cell.mode === "shown" ? 0.09 : 0.065))
-            // An empty tile waiting for a drop is outlined the way a landing place is.
-            borderSpec: cell.trayCell ? Border.none() : cell.targeted && cell.list.length === 1 ? Border.flat(Commons.Color.accent, 1) : Border.flat(Qt.alpha(Commons.Color.popups.text, 0.12), 1)
-        }
-        // The beam falling on a Center tile, over its surface and under its
-        // chips, continuing the shade the gaps show.
-        BeamShade {
-            visible: cell.shaft && editor.previewCamera && !!editor.previewNotch
-            peak: camera.peak
-            capEnd: camera.capEnd
-            capFade: camera.capFade
-            span: camera.span
-            anchors.fill: parent
-            vTop: Model.tiltedDepth(cell.seenTop - editor.stackTop, editor.tilt, editor.planeDistance)
-            vBottom: Model.tiltedDepth(cell.seenTop + Model.tiltedHeight(cell.height, editor.tilt, editor.planeDistance) - editor.stackTop, editor.tilt, editor.planeDistance)
-        }
-        // The hidden slab is solid across Center's column too: the beam
-        // falls on that part of it as on a Center tile.
-        BeamShade {
-            visible: cell.mode === "hidden" && editor.previewCamera && !!editor.previewNotch
-            peak: camera.peak
-            capEnd: camera.capEnd
-            capFade: camera.capFade
-            span: camera.span
-            x: editor.column("center").x - editor.column("hidden").x
-            width: editor.column("center").width
-            height: parent.height
-            vTop: Model.tiltedDepth(cell.seenTop - editor.stackTop, editor.tilt, editor.planeDistance)
-            vBottom: Model.tiltedDepth(cell.seenTop + Model.tiltedHeight(cell.height, editor.tilt, editor.planeDistance) - editor.stackTop, editor.tilt, editor.planeDistance)
-        }
-        // The tray's dashed edge.
-        Shape {
-            visible: cell.trayCell
-            anchors.fill: parent
-            preferredRendererType: Shape.CurveRenderer
-            ShapePath {
-                strokeColor: Qt.alpha(Commons.Color.popups.text, cell.targeted ? 0.6 : 0.3)
-                strokeWidth: 1
-                strokeStyle: ShapePath.DashLine
-                dashPattern: [3, 3]
-                fillColor: "transparent"
-                startX: cell.radius
-                startY: 0.5
-                PathLine {
-                    x: cell.width - cell.radius
-                    y: 0.5
-                }
-                PathArc {
-                    x: cell.width - 0.5
-                    y: cell.radius
-                    radiusX: cell.radius
-                    radiusY: cell.radius
-                }
-                PathLine {
-                    x: cell.width - 0.5
-                    y: cell.height - cell.radius
-                }
-                PathArc {
-                    x: cell.width - cell.radius
-                    y: cell.height - 0.5
-                    radiusX: cell.radius
-                    radiusY: cell.radius
-                }
-                PathLine {
-                    x: cell.radius
-                    y: cell.height - 0.5
-                }
-                PathArc {
-                    x: 0.5
-                    y: cell.height - cell.radius
-                    radiusX: cell.radius
-                    radiusY: cell.radius
-                }
-                PathLine {
-                    x: 0.5
-                    y: cell.radius
-                }
-                PathArc {
-                    x: cell.radius
-                    y: 0.5
-                    radiusX: cell.radius
-                    radiusY: cell.radius
-                }
-            }
-        }
-
-        Text {
-            visible: !cell.flows
-            x: cell.pad + Style.space(2)
-            y: cell.pad
-            z: 3
-            width: cell.width - x - cell.pad
-            text: editor.zoneNames[cell.section] || ""
-            textFormat: Text.PlainText
-            color: Qt.alpha(Commons.Color.popups.text, cell.active ? 0.9 : 0.5)
-            font.family: Style.font.family
-            font.pixelSize: Style.font.caption
-            font.weight: cell.active && editor.activeCell.mode === cell.mode ? Font.DemiBold : Font.Normal
-            elide: Text.ElideRight
-        }
-        Text {
-            x: cell.pad + Style.space(2)
-            y: cell.pad + (cell.flows ? Style.space(5) : editor.nameRow)
-            visible: cell.list.length === 0
-            text: cell.trayCell ? "Nothing in the tray. Apps put their icons here while they run; drag one onto a layer above to place it like a widget." : cell.flows ? "Nothing hidden. x on a widget, or a drag here, keeps it off the bar." : "Empty"
-            textFormat: Text.PlainText
-            color: Qt.alpha(Commons.Color.popups.text, 0.3)
-            font.family: Style.font.family
-            font.pixelSize: Style.font.caption
-        }
-        BorderSurface {
-            anchors.fill: parent
-            anchors.margins: Style.space(3)
-            visible: cell.flows && cell.list.length === 0 && cell.cursorHere && editor.gridFocused
-            antialiasing: true
-            color: "transparent"
-            radius: Math.max(0, cell.radius - Style.space(3))
-            borderSpec: Border.controlSpec("focus", Commons.Color.popups.text, Commons.Color.accent)
-        }
-        // The chips, in a window that scrolls when the tile has more rows
-        // than its layer gives it (PREFS-106). The window reaches a little
-        // above the first row and past the chips' sides, so a raised chip is
-        // not cut; a thin thumb at the tile's right edge shows where it is,
-        // and the tile's colour fades over the chips cut at its edges.
-        readonly property real rowStep: editor.chipHeight + (cell.flows ? editor.columnGap : editor.chipGap)
-        readonly property real room: Style.space(10)
-        readonly property real viewTop: cell.pad + (cell.flows ? 0 : editor.nameRow)
-        readonly property real viewHeight: Math.max(0, cell.height - viewTop - Style.space(2))
-        readonly property real contentHeight: chipFlow.implicitHeight
-        readonly property real maxScroll: Math.max(0, contentHeight - viewHeight)
-        readonly property bool overflows: maxScroll > 0.5
-        property real scroll: 0
-        Behavior on scroll {
-            enabled: editor.bar.animationsEnabled
-            NumberAnimation {
-                duration: 120
-                easing.type: Easing.OutCubic
-            }
-        }
-        onMaxScrollChanged: if (scroll > maxScroll)
-            scroll = maxScroll
+        // The beam falls on a Center tile, and on Center's part of the
+        // hidden slab, which is solid across Center's column too.
+        camera: editor.beamCamera
+        shaded: (cell.shaft || cell.mode === "hidden") && editor.previewCamera && !!editor.previewNotch
+        shadeX: cell.mode === "hidden" ? editor.column("center").x - editor.column("hidden").x : 0
+        shadeWidth: cell.mode === "hidden" ? editor.column("center").width : cell.width
+        line: editor.stackTop
+        tilt: editor.tilt
+        planeDistance: editor.planeDistance
+        name: editor.zoneNames[cell.section] || ""
+        nameShown: !cell.flows
+        nameActive: cell.active
+        nameBold: cell.active && editor.activeCell.mode === cell.mode
+        nameRow: editor.nameRow
+        emptyShown: cell.list.length === 0
+        emptyText: cell.trayCell ? "Nothing in the tray. Apps put their icons here while they run; drag one onto a layer above to place it like a widget." : cell.flows ? "Nothing hidden. x on a widget, or a drag here, keeps it off the bar." : "Empty"
+        emptyY: cell.pad + (cell.flows ? Style.space(5) : editor.nameRow)
+        focusOutline: cell.flows && cell.list.length === 0 && cell.cursorHere && editor.gridFocused
+        viewTop: cell.pad + (cell.flows ? 0 : editor.nameRow)
+        chipHeight: editor.chipHeight
+        spacing: cell.flows ? editor.columnGap : editor.chipGap
+        flowWidth: cell.flows ? Math.max(1, cell.width - cell.pad * 2) : editor.chipWidth
+        perRow: cell.flows ? 5 : 1
+        current: cell.cursorHere
+        model: tileList.model
         onScrollChanged: Qt.callLater(editor.trackLeader)
-        function scrollBy(dy) {
-            scroll = Math.max(0, Math.min(maxScroll, scroll + dy));
-        }
-        // Row `pos` in view, with the room a raised chip takes above it.
-        function reveal(pos) {
-            if (!overflows)
-                return;
-            var row = cell.flows ? Math.floor(pos / 5) : pos;
-            var top = row * rowStep, bottom = top + editor.chipHeight;
-            if (top - room < scroll)
-                scroll = Math.max(0, top - room);
-            else if (bottom > scroll + viewHeight)
-                scroll = Math.min(maxScroll, bottom - viewHeight);
-        }
-        function viewContains(p) {
-            return p.y >= viewTop - room && p.y < viewTop + viewHeight;
-        }
-        Item {
-            id: viewport
-            x: cell.pad - Style.space(4)
-            y: cell.viewTop - cell.room
-            width: cell.width - 2 * cell.pad + 2 * Style.space(4)
-            height: cell.viewHeight + cell.room
-            clip: true
-            Flow {
-                id: chipFlow
-                x: Style.space(4)
-                y: cell.room - cell.scroll
-                width: cell.flows ? Math.max(1, cell.width - cell.pad * 2) : editor.chipWidth
-                spacing: cell.flows ? editor.columnGap : editor.chipGap
-                Repeater {
-                    id: chipTiles
-                    model: tileList.model
-                }
-            }
-            Rectangle {
-                visible: cell.scroll > 0.5
-                z: 2
-                width: parent.width
-                height: cell.room + Style.space(10)
-                gradient: Gradient {
-                    GradientStop {
-                        position: 0
-                        color: well.color
-                    }
-                    GradientStop {
-                        position: 0.5
-                        color: well.color
-                    }
-                    GradientStop {
-                        position: 1
-                        color: Qt.alpha(well.color, 0)
-                    }
-                }
-            }
-            Rectangle {
-                visible: cell.scroll < cell.maxScroll - 0.5
-                z: 2
-                y: parent.height - height
-                width: parent.width
-                height: Style.space(14)
-                gradient: Gradient {
-                    GradientStop {
-                        position: 0
-                        color: Qt.alpha(well.color, 0)
-                    }
-                    GradientStop {
-                        position: 1
-                        color: well.color
-                    }
-                }
-            }
-        }
-        Rectangle {
-            visible: cell.overflows
-            x: cell.width - cell.pad + Style.space(3)
-            y: cell.viewTop + (cell.contentHeight > 0 ? cell.scroll / cell.contentHeight * cell.viewHeight : 0)
-            width: Style.spaceReal(1.5)
-            height: Math.max(Style.space(16), cell.viewHeight * cell.viewHeight / Math.max(1, cell.contentHeight))
-            radius: width / 2
-            antialiasing: true
-            color: Qt.alpha(Commons.Color.popups.text, cell.cursorHere ? 0.5 : 0.3)
-        }
 
         RetainedList {
             id: tileList

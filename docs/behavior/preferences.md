@@ -2,7 +2,7 @@
 
 Powerbar Preferences is one overlay window on the focused monitor with three pages, Layout, Groups and Bar: Layout and Groups draw the bar as an exploded view, Bar is a bento grid of tiles. Every control is reachable from the keyboard, a legend or the footer lists the keys that apply to whatever has focus, and every change shows on the bar as it is made. Everything in Preferences can also be done from the command line (integration.md, CLI section).
 
-Sources: Preferences.qml, PreferencesModel.js, BentoModel.js, ShelfModel.js, SliderModel.js, IconSearch.js, PrefsBento.qml, PrefsForm.qml, PrefsTile.qml, PrefsSlider.qml, PrefsChoice.qml, PrefsToggle.qml, LayoutEditor.qml, GroupsEditor.qml, GroupsEditorModel.js, CameraShaft.qml, BeamShade.qml, LayerPlate.qml, InkIcon.qml, LayerPicker.qml, IconPicker.qml, ShortcutRow.qml, tests/preferences.test.cjs, tests/bento.test.cjs, tests/shelf.test.cjs, tests/slider.test.cjs, tests/icon-search.test.cjs, tests/groups-editor.test.cjs.
+Sources: Preferences.qml, PreferencesModel.js, BentoModel.js, ShelfModel.js, SliderModel.js, IconSearch.js, PrefsBento.qml, PrefsForm.qml, PrefsTile.qml, PrefsSlider.qml, PrefsChoice.qml, PrefsToggle.qml, LayoutEditor.qml, GroupsEditor.qml, GroupsEditorModel.js, CameraShaft.qml, BeamShade.qml, LayerPlate.qml, ZoneTile.qml, InkIcon.qml, LayerPicker.qml, IconPicker.qml, ShortcutRow.qml, tests/preferences.test.cjs, tests/bento.test.cjs, tests/shelf.test.cjs, tests/slider.test.cjs, tests/icon-search.test.cjs, tests/groups-editor.test.cjs.
 
 ## Window and lifecycle
 
