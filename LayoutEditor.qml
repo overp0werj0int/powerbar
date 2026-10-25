@@ -955,6 +955,44 @@ Item {
             }
         }
     }
+    // The notch's own black, crisp and full across the beam's width, from
+    // the page's top into the first layer, where it gives way to the beam.
+    Rectangle {
+        id: notchCap
+        readonly property real vTop: Model.tiltedDepth(shaft.beamTop - shaft.pad - shaft.middle, editor.tilt, editor.planeDistance)
+        readonly property real vBottom: Model.tiltedDepth(editor.stackTop + Style.space(48) - sheet.contentY - shaft.middle, editor.tilt, editor.planeDistance)
+        visible: shaft.visible
+        z: -1
+        x: editor.axis - shaft.half
+        y: shaft.middle + vTop
+        width: 2 * shaft.half
+        height: Math.max(0, vBottom - vTop)
+        transform: Rotation {
+            axis {
+                x: 1
+                y: 0
+                z: 0
+            }
+            origin.x: shaft.half
+            origin.y: -notchCap.vTop
+            distanceToPlane: editor.planeDistance
+            angle: editor.tilt
+        }
+        gradient: Gradient {
+            GradientStop {
+                position: 0
+                color: "black"
+            }
+            GradientStop {
+                position: 0.45
+                color: "black"
+            }
+            GradientStop {
+                position: 1
+                color: "transparent"
+            }
+        }
+    }
     // The camera's eye under the notch, named below it. The beam is black
     // on every theme, so both are drawn in white.
     Item {
@@ -1327,9 +1365,10 @@ Item {
             }
 
             // The layer's name and what it is, on the left; how many it
-            // holds, in the spare column on the right (under the screen
-            // switcher on the bar layer).
+            // holds, in the spare column on the right, on the caption's line
+            // and in its size.
             Column {
+                id: labelColumn
                 x: editor.platePad + editor.columns.xs[0] + Style.space(2)
                 y: Style.space(6)
                 width: editor.columns.widths[0] - Style.space(6)
@@ -1345,6 +1384,7 @@ Item {
                     elide: Text.ElideRight
                 }
                 Text {
+                    id: captionText
                     width: parent.width
                     text: editor.shelfInfo[plate.mode].caption
                     textFormat: Text.PlainText
@@ -1356,7 +1396,7 @@ Item {
             }
             Text {
                 x: editor.platePad + editor.columns.xs[6]
-                y: Style.space(6) + (plate.index === 0 && editor.screensDiffer ? Style.space(36) : 0)
+                y: labelColumn.y + captionText.y
                 width: editor.columns.widths[6] - Style.space(2)
                 horizontalAlignment: Text.AlignRight
                 text: {
@@ -1369,7 +1409,7 @@ Item {
                 textFormat: Text.PlainText
                 color: Qt.alpha(Commons.Color.popups.text, 0.4)
                 font.family: Style.font.family
-                font.pixelSize: Style.font.caption
+                font.pixelSize: Style.font.bodySmall
             }
             Repeater {
                 model: plate.tray ? [] : editor.sections
@@ -1499,7 +1539,7 @@ Item {
         readonly property real radius: Math.min(Style.space(10), Style.cornerRadius)
         // The cursor's tile rises a little off its layer, its edge staying
         // put below (PREFS-104); the leader follows the rise.
-        property real raise: cursorHere && !trayCell ? Style.space(3) : 0
+        property real raise: cursorHere && !trayCell ? Style.space(5) : 0
         Behavior on raise {
             enabled: editor.bar.animationsEnabled
             NumberAnimation {
@@ -1726,7 +1766,7 @@ Item {
         readonly property int memberCount: group ? group.items.length : 0
         // Press feedback: the chip dips while the pointer holds it, before a drag.
         readonly property bool pressedDown: inLayer && !placeholder && !!editor.pressed && !editor.pointerLift && editor.pressed.record.instanceKey === record.instanceKey
-        scale: pressedDown ? 0.97 : 1
+        scale: pressedDown ? 0.97 : raised ? 1.03 : 1
         Behavior on scale {
             enabled: editor.bar.animationsEnabled
             NumberAnimation {
@@ -1737,7 +1777,7 @@ Item {
         // The cursor's chip rises off its tile, casting a shadow on it
         // (PREFS-104).
         readonly property bool raised: isCursor && !outline
-        property real raise: raised ? Style.space(4) : 0
+        property real raise: raised ? Style.space(8) : 0
         Behavior on raise {
             enabled: editor.bar.animationsEnabled
             NumberAnimation {
@@ -1752,14 +1792,28 @@ Item {
         width: editor.chipWidth
         height: editor.chipHeight
 
-        // The shadow a pulled-out or raised chip casts.
-        Rectangle {
+        // The soft shadow a pulled-out or raised chip casts, as far below
+        // it as it has risen. Only those chips carry the blur.
+        Item {
+            readonly property real pad: Style.space(12)
             visible: tile.pulled || tile.raise > 0
-            anchors.fill: parent
-            anchors.topMargin: tile.pulled ? Style.space(6) : tile.raise + Style.space(2)
-            anchors.bottomMargin: -anchors.topMargin
-            radius: surface.radius
-            color: Qt.rgba(0, 0, 0, tile.pulled ? 0.45 : 0.35)
+            x: -pad
+            y: -pad + (tile.pulled ? Style.space(6) : tile.raise + Style.space(3))
+            width: tile.width + 2 * pad
+            height: tile.height + 2 * pad
+            opacity: tile.pulled ? 0.5 : 0.45
+            layer.enabled: visible
+            layer.effect: MultiEffect {
+                blurEnabled: true
+                blur: 1
+                blurMax: Style.space(10)
+            }
+            Rectangle {
+                anchors.fill: parent
+                anchors.margins: parent.pad
+                radius: surface.radius
+                color: "black"
+            }
         }
         BorderSurface {
             id: surface
