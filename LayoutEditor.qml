@@ -1001,134 +1001,23 @@ Item {
         });
         return c ? c.raise : 0;
     }
-    // The leader is white over the cap, where the accent would be lost on
-    // black on a light theme, and accent beyond it.
-    Shape {
-        id: leader
-        readonly property real x0: editor.axis
-        readonly property real y0: editor.stackTop - editor.centerTileRaise
-        readonly property real x1: sideDot.x + sideDot.width / 2
-        readonly property real y1: sideDot.y + sideDot.height / 2
-        visible: camera.visible
+    CenterSideDot {
+        id: centerDot
         z: 115
-        // A Shape draws nothing outside its own box: this one reaches up to
-        // the page's top, where the dot is.
-        x: 0
-        y: editor.pageTop
         width: editor.width
-        height: editor.height - editor.pageTop
-        ShapePath {
-            strokeColor: Commons.Color.accent
-            strokeWidth: 1
-            strokeStyle: ShapePath.DashLine
-            dashPattern: [4, 4]
-            fillColor: "transparent"
-            startX: leader.x0
-            startY: leader.y0 - leader.y
-            PathLine {
-                x: leader.x1
-                y: leader.y1 - leader.y
-            }
+        height: editor.height
+        camera: editor.beamCamera
+        axis: editor.axis
+        startY: editor.stackTop - editor.centerTileRaise
+        pageTop: editor.pageTop
+        side: editor.centerSide
+        label: editor.zoneNames.center || "Center"
+        animate: editor.bar.animationsEnabled
+        onChosen: function (side) {
+            editor.setCenterSide(side);
         }
     }
-    Item {
-        id: sideDot
-        readonly property bool onLeft: editor.centerSide === "left"
-        readonly property real restX: editor.axis + (onLeft ? -1 : 1) * (camera.half + Style.space(16))
-        property bool dragging: false
-        property real dragX: 0
-        readonly property var keyHints: [
-            {
-                keys: "h l",
-                label: "Center left or right of the camera"
-            },
-            {
-                keys: "space",
-                label: "Swap sides"
-            }
-        ]
-        readonly property bool ownsFocusRing: true
-        visible: camera.visible
-        z: 116
-        x: (dragging ? dragX : restX) - width / 2
-        y: camera.eyeY - height / 2
-        width: Style.space(14)
-        height: width
-        activeFocusOnTab: true
-        Accessible.role: Accessible.Button
-        Accessible.name: "Center " + (onLeft ? "left" : "right") + " of the camera"
-        Behavior on x {
-            enabled: editor.bar.animationsEnabled && !sideDot.dragging
-            NumberAnimation {
-                duration: 160
-                easing.type: Easing.OutCubic
-            }
-        }
-        Keys.onPressed: function (event) {
-            var t = event.text.toLowerCase();
-            if (event.key === Qt.Key_Left || t === "h")
-                editor.setCenterSide("left");
-            else if (event.key === Qt.Key_Right || t === "l")
-                editor.setCenterSide("right");
-            else if (event.key === Qt.Key_Space || event.key === Qt.Key_Return || event.key === Qt.Key_Enter)
-                editor.setCenterSide(onLeft ? "right" : "left");
-            else
-                return;
-            event.accepted = true;
-        }
-        Rectangle {
-            anchors.fill: parent
-            radius: width / 2
-            color: dotMouse.containsMouse || sideDot.dragging ? Qt.alpha(Commons.Color.accent, 0.2) : "transparent"
-            border.width: 1
-            border.color: sideDot.activeFocus ? Commons.Color.accent : dotMouse.containsMouse ? Qt.alpha(Commons.Color.accent, 0.6) : "transparent"
-        }
-        Rectangle {
-            anchors.centerIn: parent
-            width: Style.space(6)
-            height: width
-            radius: width / 2
-            color: Commons.Color.accent
-        }
-        Text {
-            x: sideDot.onLeft ? -width - Style.space(6) : sideDot.width + Style.space(6)
-            anchors.verticalCenter: parent.verticalCenter
-            text: editor.zoneNames.center || "Center"
-            textFormat: Text.PlainText
-            color: Qt.alpha(Commons.Color.popups.text, 0.55)
-            font.family: Style.font.family
-            font.pixelSize: Style.font.caption
-        }
-        MouseArea {
-            id: dotMouse
-            anchors.fill: parent
-            anchors.margins: -Style.space(8)
-            hoverEnabled: true
-            cursorShape: Qt.SizeHorCursor
-            property real pressX: 0
-            onPressed: function (mouse) {
-                pressX = mapToItem(editor, mouse.x, mouse.y).x;
-                sideDot.dragX = sideDot.restX;
-                sideDot.forceActiveFocus(Qt.MouseFocusReason);
-            }
-            onPositionChanged: function (mouse) {
-                if (!pressed)
-                    return;
-                var x = mapToItem(editor, mouse.x, mouse.y).x;
-                if (!sideDot.dragging && Math.abs(x - pressX) <= Style.space(6))
-                    return;
-                sideDot.dragging = true;
-                sideDot.dragX = x;
-            }
-            onReleased: function (mouse) {
-                var x = mapToItem(editor, mouse.x, mouse.y).x;
-                var side = sideDot.dragging ? (x < editor.axis ? "left" : "right") : (sideDot.onLeft ? "right" : "left");
-                sideDot.dragging = false;
-                editor.setCenterSide(side);
-            }
-            onCanceled: sideDot.dragging = false
-        }
-    }
+    readonly property Item sideDot: centerDot.dot
 
     // The layers, stacked down the sheet under a clear band below the
     // header; the sheet never scrolls, the layers share its room (PREFS-106).
