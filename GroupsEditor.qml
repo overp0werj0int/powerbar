@@ -1305,40 +1305,6 @@ Item {
     }
 
     // -------------------------------------------------------- the inspector
-    // The chosen drawer's header points at it.
-    readonly property bool leaderShown: inspector.shown && !pointerLift && !!slots[selectedId]
-    readonly property point leaderStart: {
-        var box = drawerBox(selectedId);
-        return Qt.point(box.x + box.width / 2, drawersTop + Math.min(drawerDemand(selectedId), drawerBand));
-    }
-    Shape {
-        visible: editor.leaderShown
-        z: 115
-        anchors.fill: parent
-        ShapePath {
-            strokeColor: Commons.Color.accent
-            strokeWidth: 1
-            strokeStyle: ShapePath.DashLine
-            dashPattern: [4, 4]
-            fillColor: "transparent"
-            startX: editor.leaderStart.x
-            startY: editor.leaderStart.y
-            PathLine {
-                x: Math.max(inspector.x + Style.space(24), Math.min(inspector.x + inspector.width - Style.space(24), editor.leaderStart.x))
-                y: inspector.y
-            }
-        }
-    }
-    Rectangle {
-        visible: editor.leaderShown
-        z: 116
-        x: editor.leaderStart.x - width / 2
-        y: editor.leaderStart.y - height / 2
-        width: Style.space(6)
-        height: width
-        radius: width / 2
-        color: Commons.Color.accent
-    }
     // The member the cursor is on, for its badge sources.
     readonly property var member: !lifted && at.area === "drawer" && at.id === selectedId ? cursorRecord : null
     BorderSurface {
