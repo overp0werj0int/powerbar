@@ -620,26 +620,27 @@ Item {
     readonly property real bottomBand: Math.max(legendBand, selectedGroup ? inspector.height + Style.space(24) : 0)
     // The plates share the room as the Layout page's layers do (PREFS-106,
     // PREFS-115): the faces' plate fixed at four rows and the "+", the
-    // drawers' as tall as the tallest drawer, the pool its rows.
-    readonly property real drawerBody: {
-        var tallest = 0;
-        drawerTiles.list.forEach(function (d) {
-            tallest = Math.max(tallest, d.body);
-        });
-        return tallest;
-    }
+    // drawers' as tall as the tallest drawer (four rows at most) and met
+    // first, the pool its rows with what is left.
+    readonly property var drawerSizes: drawerTiles.list.map(function (d) {
+        return d.size;
+    })
     readonly property var needs: Editor.plateNeeds({
         pad: tilePad,
         nameRow: nameRow,
         chip: chipHeight,
         gap: chipGap,
         header: headerBlock,
-        drawer: drawerBody,
+        drawers: drawerSizes,
+        slack: Style.space(4),
         poolRows: poolRows,
         poolGap: poolSpacing,
-        poolLabel: poolFace.labelBottom + Style.space(8) + filterBox.height + Style.space(8)
+        poolLabel: poolFace.labelBottom + Style.space(8) + filterBox.height + Style.space(8),
+        // The pool's label column may hang into the bottom band over the
+        // legend's spare room (on a tilted plate a length is seen shorter).
+        labelRoom: bottomBand - legendBand
     })
-    readonly property var plateHeights: Model.shareLayers(needs.demands, needs.floors, Math.max(0, height - stackTop - bottomBand), tilt, planeDistance, layout.layerGap)
+    readonly property var plateHeights: Model.shareLayers(needs.demands, needs.floors, Math.max(0, height - stackTop - bottomBand), tilt, planeDistance, layout.layerGap, needs.first)
     readonly property var stack: Model.stackLayers(plateHeights, tilt, planeDistance, layout.layerGap)
     // Where a point on a plate (its own coordinates, before the tilt) is
     // seen in the page: plates turn about their top edge, seen about the axis.
@@ -2128,8 +2129,8 @@ Item {
     }
     // ---------------------------------------------------------- components
     // A zone's tile on the faces' plate: the Layout page's bar-layer tile
-    // (ZoneTile), its groups' faces a row each in a window four rows tall
-    // that scrolls (PREFS-106, PREFS-121), its "+" under the window.
+    // (ZoneTile), its groups' faces a row each in a window at most four rows
+    // tall that scrolls (PREFS-106, PREFS-121), its "+" right under it.
     component FaceTile: ZoneTile {
         id: faceTile
         required property string modelData
@@ -2158,8 +2159,11 @@ Item {
         nameActive: editor.activeZone === modelData
         nameBold: editor.activeZone === modelData && editor.activePlate === 0
         nameRow: editor.nameRow
+        // The window holds the faces, four rows at most, and the "+" row
+        // follows it (PREFS-112, PREFS-121); the rest of the tile stays empty.
+        readonly property var view: Editor.faceView(ids.length, editor.chipHeight, editor.chipGap)
         viewTop: pad + editor.nameRow
-        viewBottom: pad + editor.chipGap + editor.chipHeight
+        viewBottom: Math.max(0, height - viewTop - view.height)
         chipHeight: editor.chipHeight
         spacing: editor.chipGap
         flowWidth: editor.chipWidth
@@ -2190,7 +2194,7 @@ Item {
             id: plusSlot
             zone: faceTile.zone
             x: faceTile.pad
-            y: faceTile.height - faceTile.pad - height
+            y: faceTile.viewTop + faceTile.view.height + (faceTile.view.rows ? editor.chipGap : 0)
             width: editor.chipWidth
         }
     }
@@ -2358,7 +2362,11 @@ Item {
         readonly property real headerTop: pad + editor.nameRow
         readonly property real noteHeight: note ? noteText.implicitHeight + Style.space(4) : 0
         // What it holds under its header, for the plate's height (PREFS-115).
-        readonly property real body: noteHeight + (!groupId ? noGroup.implicitHeight : list.length ? list.length * editor.chipHeight + (list.length - 1) * editor.chipGap : emptyText.implicitHeight) + Style.space(4)
+        readonly property var size: ({
+                note: noteHeight,
+                rows: list.length,
+                text: !groupId ? noGroup.implicitHeight : emptyText.implicitHeight
+            })
         x: editor.column(modelData).x
         width: editor.column(modelData).width
         animate: editor.bar.animationsEnabled

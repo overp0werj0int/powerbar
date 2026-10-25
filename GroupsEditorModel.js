@@ -87,24 +87,43 @@ function openOrder(s) { return openDrawers(s.faces, s.zones, s.chosen, s.opened)
 var faceWindow = 4
 
 // The three plates' heights on their own planes, for PreferencesModel.
-// shareLayers (PREFS-115): what each asks for and the least it needs. `g`
-// carries the Layout page's tile padding, name row, chip height and gap;
-// `header` is a drawer's header row with its hairline, `drawer` the tallest
-// open drawer's body under it (its notes and rows), `poolRows` the pool's
-// rows (`poolGap` apart) and `poolLabel` its label column with the filter.
-// The faces' plate is fixed: faceWindow rows and the "+", whatever the zones
-// hold. A drawer needs its header and a row, the pool its label and a row.
+// shareLayers (PREFS-115): what each asks for, the least it needs and which
+// is served first. `g` carries the Layout page's tile padding, name row,
+// chip height and gap; `header` is a drawer's header row with its hairline,
+// `drawers` the open drawers ({note: its note's height, rows: its widgets,
+// text: the height of what it says with none}), `slack` the room under a
+// drawer's last row, `poolRows` the pool's rows (`poolGap` apart) and
+// `poolLabel` its label column with the filter, `labelRoom` how far that
+// column may hang below the slab into the bottom band where the legend
+// leaves it free. The faces' plate is fixed: faceWindow rows and the "+",
+// whatever the zones hold. The drawers' plate asks for its tallest drawer,
+// counting at most faceWindow rows, and is met before the pool gets more
+// than its floor (a row, and its label but what may hang below); a drawer
+// needs its header and a row.
+function drawerBody(d, g) {
+  var rows = Math.min(faceWindow, d.rows || 0)
+  return (d.note || 0) + (rows ? rows * g.chip + (rows - 1) * g.gap : d.text || 0) + (g.slack || 0)
+}
 function plateNeeds(g) {
   var top = 2 * g.pad + g.nameRow
   var faces = top + (faceWindow + 1) * g.chip + faceWindow * g.gap
   var drawerFloor = top + g.header + g.chip
+  var tallest = 0
+  ;(g.drawers || []).forEach(function(d) { tallest = Math.max(tallest, drawerBody(d, g)) })
   var rows = Math.max(1, g.poolRows || 0)
   var pool = Math.max(g.poolLabel, 2 * g.pad + rows * g.chip + (rows - 1) * g.poolGap)
-  var poolFloor = Math.max(g.poolLabel, 2 * g.pad + g.chip)
+  var poolFloor = Math.max(g.poolLabel - Math.max(0, g.labelRoom || 0), 2 * g.pad + g.chip)
   return {
-    demands: [faces, Math.max(drawerFloor, top + g.header + (g.drawer || 0)), pool],
-    floors: [faces, drawerFloor, poolFloor]
+    demands: [faces, Math.max(drawerFloor, top + g.header + tallest), pool],
+    floors: [faces, drawerFloor, poolFloor],
+    first: [1]
   }
+}
+// The face rows a zone's tile shows in its window and how tall that is: the
+// "+" row follows it (PREFS-112, PREFS-121).
+function faceView(count, chip, gap) {
+  var rows = Math.min(faceWindow, Math.max(0, count || 0))
+  return { rows: rows, height: rows ? rows * chip + (rows - 1) * gap : 0 }
 }
 
 // A group's face on the first plate, or null.

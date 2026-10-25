@@ -210,7 +210,9 @@ function tiltedPlaneHeight(seen, angle, distance) {
 // is shared out, every layer taking what it asks for up to an equal share of
 // what is left, so the modest ones leave the rest to the others and layers
 // that all want more get the same (PREFS-106). Floors win over the room.
-function shareLayers(demands, floors, room, angle, distance, gap) {
+// The layers `first` names (indexes) get what they ask for before the rest
+// is shared (the Groups page's drawers, PREFS-115).
+function shareLayers(demands, floors, room, angle, distance, gap, first) {
   var n = demands.length
   if (!n) return []
   var seen = demands.map(function(h) { return tiltedHeight(h, angle, distance) })
@@ -220,11 +222,17 @@ function shareLayers(demands, floors, room, angle, distance, gap) {
   if (seen.reduce(function(a, b) { return a + b }, 0) > avail) {
     var left = avail
     for (var i = 0; i < n; i++) { out[i] = low[i]; left -= low[i] }
+    ;(first || []).forEach(function(f) {
+      if (left <= 0) return
+      var more = Math.min(seen[f] - out[f], left)
+      out[f] += more
+      left -= more
+    })
     var order = []
     for (var j = 0; j < n; j++) order.push(j)
-    order.sort(function(a, b) { return (seen[a] - low[a]) - (seen[b] - low[b]) })
+    order.sort(function(a, b) { return (seen[a] - out[a]) - (seen[b] - out[b]) })
     for (var k = 0; k < n && left > 0; k++) {
-      var at = order[k], give = Math.min(seen[at] - low[at], left / (n - k))
+      var at = order[k], give = Math.min(seen[at] - out[at], left / (n - k))
       out[at] += give
       left -= give
     }

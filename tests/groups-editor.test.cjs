@@ -170,23 +170,45 @@ test('the pool holds the ungrouped widgets in bar order and filters by name or i
   assert.equal(m.perRow(40, 90, 6), 1);
 });
 
-test('the plates share the room as the Layout page\'s layers do', () => {
-  const g = { pad: 8, nameRow: 20, chip: 24, gap: 3, header: 30, drawer: 120, poolRows: 3, poolGap: 8, poolLabel: 90 };
+test('the plates share the room, the drawers met before the pool', () => {
+  const g = { pad: 8, nameRow: 20, chip: 24, gap: 3, header: 30, slack: 4, drawers: [{ note: 0, rows: 4, text: 20 }, { note: 12, rows: 1, text: 20 }], poolRows: 6, poolGap: 8, poolLabel: 90 };
   const need = m.plateNeeds(g);
   assert.equal(m.faceWindow, 4);
-  assert.deepEqual(plain(need.demands), [36 + 5 * 24 + 4 * 3, 36 + 30 + 120, 16 + 3 * 24 + 2 * 8]);
+  assert.deepEqual(plain(need.demands), [36 + 5 * 24 + 4 * 3, 36 + 30 + 4 * 24 + 3 * 3 + 4, 16 + 6 * 24 + 5 * 8]);
   assert.deepEqual(plain(need.floors), [168, 36 + 30 + 24, 90]);
-  assert.equal(m.plateNeeds({ ...g, drawer: 0 }).demands[1], 36 + 30 + 24, 'an empty drawer still has a row');
+  assert.deepEqual(plain(need.first), [1]);
+  assert.equal(m.plateNeeds({ ...g, drawers: [{ note: 0, rows: 9, text: 20 }] }).demands[1], need.demands[1], 'a drawer counts four rows at most');
+  assert.equal(m.plateNeeds({ ...g, drawers: [{ note: 0, rows: 0, text: 20 }] }).demands[1], 36 + 30 + 24, 'an empty drawer still has a row');
+  assert.equal(m.plateNeeds({ ...g, drawers: [] }).demands[1], 36 + 30 + 24);
   assert.equal(m.plateNeeds({ ...g, poolRows: 0, poolLabel: 10 }).demands[2], 16 + 24);
-  const share = room => plain(prefs.shareLayers(need.demands, need.floors, room, 34, 1600, 30));
+  assert.equal(m.plateNeeds({ ...g, labelRoom: 30 }).floors[2], 60, 'the label may hang into the legend\'s spare room');
+  assert.equal(m.plateNeeds({ ...g, labelRoom: 300 }).floors[2], 16 + 24, 'never under a row');
+  assert.equal(m.plateNeeds({ ...g, labelRoom: 30 }).demands[2], need.demands[2], 'it asks for its whole label');
+  const seen = h => prefs.tiltedHeight(h, 34, 1600);
+  const share = room => plain(prefs.shareLayers(need.demands, need.floors, room, 34, 1600, 30, need.first));
+  const near = (a, b) => Math.abs(a - b) < 1e-6;
   const roomy = share(2000);
-  need.demands.forEach((d, i) => assert.ok(Math.abs(roomy[i] - d) < 1e-6, 'all they ask for while it fits'));
-  const tight = share(400);
-  assert.ok(Math.abs(tight[0] - 168) < 1e-6, 'the faces plate keeps its four rows and its +');
-  assert.ok(tight[1] < need.demands[1] && tight[1] >= need.floors[1] - 1e-6, 'the drawers give way, down to a header and a row');
+  need.demands.forEach((d, i) => assert.ok(near(roomy[i], d), 'all they ask for while it fits'));
+  const some = share(seen(168) + seen(175) + seen(90) + 60 + 20);
+  assert.ok(near(some[0], 168), 'the faces plate keeps its four rows and its +');
+  assert.ok(near(some[1], 175), 'the drawers get all they ask for first');
+  assert.ok(some[2] > 90 && some[2] < need.demands[2], 'the pool takes what is left over its floor');
+  const tight = share(seen(168) + seen(150) + seen(90) + 60);
+  assert.ok(near(tight[2], 90), 'the pool keeps only its floor while the drawers want more');
+  assert.ok(tight[1] < 175 && tight[1] > 90, 'the drawers take the rest');
+  const equal = plain(prefs.shareLayers(need.demands, need.floors, seen(168) + seen(150) + seen(90) + 60, 34, 1600, 30));
+  assert.ok(equal[2] > 90, 'without `first` the Layout page\'s equal sharing is unchanged');
   const floor = share(100);
-  need.floors.forEach((f, i) => assert.ok(Math.abs(floor[i] - f) < 1e-6, 'floors win over the room'));
+  need.floors.forEach((f, i) => assert.ok(near(floor[i], f), 'floors win over the room'));
 });
+
+test('the + row follows the faces, the window four rows at most', () => {
+  assert.deepEqual(plain(m.faceView(0, 24, 3)), { rows: 0, height: 0 });
+  assert.deepEqual(plain(m.faceView(1, 24, 3)), { rows: 1, height: 24 });
+  assert.deepEqual(plain(m.faceView(4, 24, 3)), { rows: 4, height: 4 * 24 + 3 * 3 });
+  assert.deepEqual(plain(m.faceView(6, 24, 3)), { rows: 4, height: 4 * 24 + 3 * 3 }, 'more scroll in the window');
+});
+
 test('each zone has one drawer: the open group', () => {
   const faces = { left: ['ai', 'b', 'c', 'd'], centerLeft: [], center: [], centerRight: [], right: ['audio', 'net'] };
   assert.equal(m.openGroup(faces, 'left', 'c'), 'c', 'the chosen group when it is in the zone');
