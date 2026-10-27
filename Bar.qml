@@ -2179,6 +2179,15 @@ Item {
       .filter(function(c) { return !HighlightModel.isBackground(c, item, false) }))
     return kids.length === 1 ? findKitGlyph(kids[0], depth + 1) : null
   }
+  // A drawn icon that fills the kit's sizeless Loader gets the canvas the kit
+  // meant for it (HighlightModel.unsizedIconLoaders, INTEG-156).
+  function sizeDrawnIcons(item) {
+    HighlightModel.unsizedIconLoaders(item).forEach(function(found) {
+      var content = found.content
+      found.loader.width = Qt.binding(function() { return content.sourceSize })
+      found.loader.height = Qt.binding(function() { return content.sourceSize })
+    })
+  }
   // The Text item inside a kit button that paints `text`.
   function findGlyphText(item, text, depth) {
     if (!item || depth > 4) return null
@@ -6953,6 +6962,7 @@ Item {
         ? root : root.pluginBarApiFor(pluginApiId, moduleName, registered)
       if ("moduleName" in target) target.moduleName = moduleName
       if ("settings" in target) target.settings = moduleSettings
+      root.sizeDrawnIcons(target)
     }
 
     Component {

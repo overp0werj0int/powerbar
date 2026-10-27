@@ -180,6 +180,36 @@ function inkRect(item, vertical, depth) {
   if (depth > 0) return { start: 0, length: Math.max(0, size), glyph: size > 0 && size <= 16 }
   return { start: 0, length: Math.max(0, size), glyph: false }
 }
+// The kit's drawn-icon loaders that left their icon no size (INTEG-156): a
+// kit icon button draws an `iconComponent` in a Loader of no size of its own
+// (BarIconContent) and gives the loaded item the canvas only when the item
+// has no width; an item that fills its parent (`anchors.fill: parent`, as
+// Omapop's mark does) is held at the Loader's zero size and paints nothing,
+// on any bar. Returns [{ loader, content }] for each such Loader in the
+// widget, content (its BarIconContent) holding the canvas the kit meant to
+// give as `sourceSize`.
+function unsizedIconLoaders(item) {
+  var out = [], stack = [item], seen = 0
+  while (stack.length && seen < 400) {
+    var node = stack.pop()
+    seen++
+    if (!node) continue
+    var kids = node.children || []
+    if ("sourceComponent" in node && "sourceSize" in node && "contentScale" in node) {
+      for (var i = 0; i < kids.length; i++) {
+        var loader = kids[i]
+        if (!loader || !("item" in loader) || !("sourceComponent" in loader)) continue
+        var icon = loader.item
+        if (!icon || !icon.anchors || icon.anchors.fill !== loader) continue
+        if (loader.width > 0 && loader.height > 0) continue
+        if (positive(node, "sourceSize") > 0) out.push({ loader: loader, content: node })
+      }
+      continue
+    }
+    for (var k = kids.length - 1; k >= 0; k--) stack.push(kids[k])
+  }
+  return out
+}
 // Whether an item paints a picture and no text: an image (Reprieve's mark, an
 // app icon) with at most shapes beside it (a status dot). Such a widget reads
 // as an icon wherever its ink fits an icon cell, even past the 16 px of a
@@ -224,4 +254,4 @@ function pill(o) {
   return { start: start, length: length, radius: Math.max(0, Math.min(thickness / 2, o.rounding)) }
 }
 
-if (typeof module !== "undefined") module.exports = { inkWidth: inkWidth, inkRect: inkRect, picture: picture, pill: pill, withoutBadges: withoutBadges }
+if (typeof module !== "undefined") module.exports = { inkWidth: inkWidth, inkRect: inkRect, unsizedIconLoaders: unsizedIconLoaders, picture: picture, pill: pill, withoutBadges: withoutBadges }
