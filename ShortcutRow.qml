@@ -177,7 +177,7 @@ BorderSurface {
       id: labelColumn
       Layout.fillWidth: row.caption !== ""
       spacing: Style.space(2)
-      Text {
+      GrayText {
         text: row.label
         textFormat: Text.PlainText
         color: Commons.Color.popups.text
@@ -185,7 +185,7 @@ BorderSurface {
         font.pixelSize: Style.font.body
         font.bold: true
       }
-      Text {
+      GrayText {
         visible: row.caption !== ""
         Layout.fillWidth: true
         text: row.captionClash ? row.clashText : row.caption
@@ -198,7 +198,7 @@ BorderSurface {
         elide: row.captionClash ? Text.ElideRight : Text.ElideNone
       }
     }
-    Text {
+    GrayText {
       Layout.fillWidth: row.caption === ""
       horizontalAlignment: Text.AlignRight
       text: row.tag

@@ -43,7 +43,7 @@ GridLayout {
   readonly property int shown: map.activeFocus && map.cursor >= 0 ? map.cursor : indexOf(value)
   readonly property var shownZone: shown >= 0 ? zones[shown] : null
 
-  Text {
+  GrayText {
     text: row.label
     textFormat: Text.PlainText
     color: Commons.Color.popups.text
@@ -159,7 +159,7 @@ GridLayout {
         }
       }
     }
-    Text {
+    GrayText {
       Layout.preferredWidth: map.implicitWidth
       text: row.shownZone ? row.shownZone.label + (row.noteFor(row.shownZone.value) ? ", " + row.noteFor(row.shownZone.value) : "") : ""
       textFormat: Text.PlainText

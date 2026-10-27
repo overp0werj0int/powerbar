@@ -107,7 +107,7 @@ Item {
                 foreground: tab.current ? Commons.Color.accent : Commons.Color.popups.text
                 anchors.verticalCenter: parent.verticalCenter
             }
-            Text {
+            GrayText {
                 text: tab.modelData.title
                 textFormat: Text.PlainText
                 color: tab.current ? Commons.Color.popups.text : Qt.alpha(Commons.Color.popups.text, tabMouse.containsMouse ? 0.85 : 0.55)
@@ -687,6 +687,38 @@ Item {
         // The page: the whole screen under the bar, no card. The header and
         // footer keep the sheet's margin, so the Layout page's layers line up
         // with them (PREFS-99).
+        // Omarchy's controls on the pages (buttons, fields, a dropdown's rows)
+        // draw Text of their own in Qt's default rendering, LCD-antialiased:
+        // gray it as Preferences open, change page or move focus (a dropdown
+        // opening moves it into its rows), from the window's root, popups
+        // included. Powerbar's own text is GrayText already.
+        readonly property var quickWindow: card.Window.window
+        function grayControls() {
+            var w = quickWindow;
+            if (prefs.opened && w && w.contentItem)
+                RenderModel.grayText(w.contentItem.parent || w.contentItem, Text.QtRendering, Text.CurveRendering);
+        }
+        Timer {
+            id: grayLater
+            interval: 0
+            onTriggered: window.grayControls()
+        }
+        Connections {
+            target: window.quickWindow
+            function onActiveFocusItemChanged() {
+                grayLater.restart();
+            }
+        }
+        Connections {
+            target: prefs
+            function onOpenedChanged() {
+                grayLater.restart();
+            }
+            function onPageChanged() {
+                grayLater.restart();
+            }
+        }
+
         Rectangle {
             id: card
             anchors.fill: parent
@@ -867,7 +899,7 @@ Item {
                 RowLayout {
                     Layout.fillWidth: true
                     spacing: Style.space(28)
-                    Text {
+                    GrayText {
                         text: "Powerbar"
                         textFormat: Text.PlainText
                         color: Commons.Color.popups.text
@@ -908,7 +940,7 @@ Item {
                                 text: "esc"
                                 anchors.verticalCenter: parent.verticalCenter
                             }
-                            Text {
+                            GrayText {
                                 text: "Close"
                                 textFormat: Text.PlainText
                                 color: Commons.Color.popups.text
@@ -1035,7 +1067,7 @@ Item {
                                     anchors.verticalCenter: parent ? parent.verticalCenter : undefined
                                 }
                             }
-                            Text {
+                            GrayText {
                                 text: parent.modelData.label
                                 textFormat: Text.PlainText
                                 color: Qt.alpha(Commons.Color.popups.text, 0.6)
@@ -1048,7 +1080,7 @@ Item {
                     Item {
                         Layout.fillWidth: true
                     }
-                    Text {
+                    GrayText {
                         text: prefs.status
                         textFormat: Text.PlainText
                         color: Commons.Color.urgent

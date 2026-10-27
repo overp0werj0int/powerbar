@@ -29,7 +29,7 @@ GridLayout {
   ColumnLayout {
     Layout.fillWidth: true
     spacing: Style.space(2)
-    Text {
+    GrayText {
       text: row.label
       textFormat: Text.PlainText
       color: Commons.Color.popups.text
@@ -39,7 +39,7 @@ GridLayout {
       Layout.fillWidth: true
       elide: Text.ElideRight
     }
-    Text {
+    GrayText {
       visible: row.description !== ""
       text: row.description
       textFormat: Text.PlainText

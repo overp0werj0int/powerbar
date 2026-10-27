@@ -891,7 +891,7 @@ Item {
                 radius: editor.chipRadius
                 color: "transparent"
                 borderSpec: Border.flat(live && editor.filterText ? Commons.Color.accent : Qt.alpha(Commons.Color.popups.text, 0.14), 1)
-                Text {
+                GrayText {
                     x: Style.space(8)
                     width: parent.width - 2 * x
                     anchors.verticalCenter: parent.verticalCenter
@@ -923,7 +923,7 @@ Item {
                 perRow: editor.poolPerRow
                 current: cursorHere
                 model: poolTiles.model
-                Text {
+                GrayText {
                     x: poolCell.pad + Style.space(2)
                     y: poolCell.pad + Style.space(5)
                     width: parent.width - 2 * x
@@ -1458,7 +1458,7 @@ Item {
                 record: nameTip.record
                 anchors.verticalCenter: parent.verticalCenter
             }
-            Text {
+            GrayText {
                 anchors.verticalCenter: parent.verticalCenter
                 text: nameTip.title
                 textFormat: Text.PlainText
@@ -1466,7 +1466,7 @@ Item {
                 font.family: Style.font.family
                 font.pixelSize: Style.font.body
             }
-            Text {
+            GrayText {
                 visible: text !== ""
                 anchors.verticalCenter: parent.verticalCenter
                 text: nameTip.detail
@@ -1619,7 +1619,7 @@ Item {
                             event.accepted = true;
                         }
                     }
-                    Text {
+                    GrayText {
                         Layout.fillWidth: true
                         readonly property int n: inspector.group ? (editor.memberLists[inspector.group.id] || []).length : 0
                         text: !inspector.group ? "" : n + (n === 1 ? " widget, " : " widgets, ") + (inspector.group.visibility === "hidden" ? "hidden, zone " + editor.layout.zoneNames[inspector.group.section] : (inspector.group.visibility === "managed" ? "on demand at " : "on the bar at ") + String(editor.layout.zoneNames[inspector.group.section]).toLowerCase())
@@ -1656,7 +1656,7 @@ Item {
                             radius: editor.chipRadius
                             stroke: dissolveButton.confirming ? Commons.Color.error : Qt.alpha(Commons.Color.popups.text, dissolveMouse.containsMouse ? 0.45 : 0.25)
                         }
-                        Text {
+                        GrayText {
                             id: dissolveLabel
                             anchors.fill: parent
                             anchors.leftMargin: Style.space(8)
@@ -1831,7 +1831,7 @@ Item {
                                 editor.moveToZone(group, value);
                         }
                     }
-                    Text {
+                    GrayText {
                         Layout.fillWidth: true
                         text: "Shift h l on its face moves it too"
                         textFormat: Text.PlainText
@@ -1876,7 +1876,7 @@ Item {
                 Layout.fillWidth: true
                 Layout.preferredHeight: Style.spacing.controlHeight
                 spacing: Style.space(10)
-                Text {
+                GrayText {
                     Layout.fillWidth: true
                     Layout.preferredWidth: 3
                     text: editor.member ? editor.preferences.title(editor.member) + ", in this drawer" : "Put the cursor on a widget in the drawer to set where its badge count comes from"
@@ -1922,7 +1922,7 @@ Item {
                     onEditingFinished: if (editor.member)
                         editor.bar.editMemberBadge(editor.member.instanceKey, "urgentProperty", text.trim())
                 }
-                Text {
+                GrayText {
                     visible: !!editor.member
                     text: "x takes it out"
                     textFormat: Text.PlainText
@@ -2185,7 +2185,7 @@ Item {
         }
         Repeater {
             model: editor.legend
-            Text {
+            GrayText {
                 required property var modelData
                 required property int index
                 Layout.row: index
@@ -2330,7 +2330,7 @@ Item {
                     fontSize: Style.font.body
                 }
             }
-            Text {
+            GrayText {
                 anchors.verticalCenter: parent.verticalCenter
                 width: Math.max(0, look.width - Style.space(12) - Style.space(16) - (look.visibility === "managed" ? Style.space(10) : 0) - 2 * faceRow.spacing - facePill.width)
                 text: look.group ? look.group.label : ""
@@ -2347,7 +2347,7 @@ Item {
                 height: Style.space(16)
                 radius: height / 2
                 color: Qt.alpha(Commons.Color.popups.text, 0.12)
-                Text {
+                GrayText {
                     anchors.centerIn: parent
                     text: look.count
                     textFormat: Text.PlainText
@@ -2408,7 +2408,7 @@ Item {
             radius: editor.chipRadius
             stroke: plus.lit ? Commons.Color.accent : Qt.alpha(Commons.Color.popups.text, 0.3)
         }
-        Text {
+        GrayText {
             anchors.centerIn: parent
             text: "+"
             textFormat: Text.PlainText
@@ -2476,7 +2476,7 @@ Item {
             scroll = 0;
             Qt.callLater(editor.revealCursor);
         }
-        Text {
+        GrayText {
             id: noGroup
             visible: !drawer.groupId
             x: drawer.pad + Style.space(2)
@@ -2522,7 +2522,7 @@ Item {
                         fontSize: Style.font.body
                     }
                 }
-                Text {
+                GrayText {
                     anchors.verticalCenter: parent.verticalCenter
                     width: Math.max(0, parent.width - Style.space(16) - 2 * parent.spacing - drawerPill.width)
                     text: drawer.group ? drawer.group.label : ""
@@ -2541,7 +2541,7 @@ Item {
                     height: Style.space(16)
                     radius: height / 2
                     color: Qt.alpha(Commons.Color.popups.text, 0.12)
-                    Text {
+                    GrayText {
                         anchors.centerIn: parent
                         text: drawerPill.n
                         textFormat: Text.PlainText
@@ -2560,7 +2560,7 @@ Item {
             height: 1
             color: Qt.alpha(Commons.Color.popups.text, 0.1)
         }
-        Text {
+        GrayText {
             id: noteText
             visible: drawer.note !== ""
             x: drawer.pad + Style.space(2)
@@ -2573,7 +2573,7 @@ Item {
             font.pixelSize: Style.font.caption
             wrapMode: Text.WordWrap
         }
-        Text {
+        GrayText {
             id: emptyText
             visible: !!drawer.groupId && drawer.list.length === 0
             x: drawer.pad + Style.space(2)
@@ -2691,7 +2691,7 @@ Item {
                 record: tile.record
                 anchors.verticalCenter: parent.verticalCenter
             }
-            Text {
+            GrayText {
                 text: tile.record && tile.record.instanceKey ? editor.preferences.title(tile.record) : ""
                 textFormat: Text.PlainText
                 color: Commons.Color.popups.text

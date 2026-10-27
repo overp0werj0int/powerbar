@@ -193,7 +193,7 @@ Item {
         }
     }
 
-    Text {
+    GrayText {
         visible: cell.nameShown
         x: cell.pad + Style.space(2)
         y: cell.pad
@@ -207,7 +207,7 @@ Item {
         font.weight: cell.nameBold ? Font.DemiBold : Font.Normal
         elide: Text.ElideRight
     }
-    Text {
+    GrayText {
         x: cell.pad + Style.space(2)
         y: cell.emptyY
         visible: cell.emptyShown

@@ -94,7 +94,7 @@ Item {
       width: parent.width
       implicitHeight: Math.max(name.implicitHeight, valueText.implicitHeight)
       height: implicitHeight
-      Text {
+      GrayText {
         id: name
         anchors.left: parent.left
         anchors.right: valueText.left
@@ -107,7 +107,7 @@ Item {
         font.pixelSize: Style.font.bodySmall
         elide: Text.ElideRight
       }
-      Text {
+      GrayText {
         id: valueText
         anchors.right: parent.right
         anchors.verticalCenter: parent.verticalCenter

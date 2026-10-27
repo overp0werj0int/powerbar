@@ -113,7 +113,7 @@ Item {
             color: Qt.rgba(1, 1, 1, 0.5)
         }
     }
-    Text {
+    GrayText {
         x: camera.axis - width / 2
         y: cameraEye.y + cameraEye.height + Style.space(6)
         width: Style.space(200)

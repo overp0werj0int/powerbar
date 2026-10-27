@@ -308,7 +308,7 @@ Item {
             event.accepted = true
           }
         }
-        Text {
+        GrayText {
           text: picker.source === "own" ? "" : picker.query.trim()
             ? picker.results.length + " found" : picker.offered.length.toLocaleString(Qt.locale("en_US"), "f", 0) + " icons"
           textFormat: Text.PlainText
@@ -345,7 +345,7 @@ Item {
           required property var modelData
           width: grid.width
           height: modelData.header ? Style.space(26) : picker.cellSize + Style.space(2)
-          Text {
+          GrayText {
             visible: !!rowItem.modelData.header
             anchors.bottom: parent.bottom
             anchors.bottomMargin: Style.space(4)
@@ -376,7 +376,7 @@ Item {
                 borderSpec: isCursor ? Border.controlSpec("focus", Commons.Color.popups.text, Commons.Color.accent)
                   : picker.isCurrent(icon) ? Border.flat(Qt.alpha(Commons.Color.popups.text, 0.5), 1) : Border.none()
                 HoverHandler { id: cellHover; onHoveredChanged: if (hovered) picker.cursor = cell.modelData.at }
-                Text {
+                GrayText {
                   x: cell.pasted ? Style.space(10) : (parent.width - width) / 2
                   anchors.verticalCenter: parent.verticalCenter
                   text: cell.icon.glyph
@@ -385,7 +385,7 @@ Item {
                   font.family: cell.icon.font || (picker.bar ? picker.bar.fontFamily : Style.font.family)
                   font.pixelSize: Style.font.iconLarge
                 }
-                Text {
+                GrayText {
                   id: useLabel
                   visible: cell.pasted
                   x: Style.space(36)
@@ -405,7 +405,7 @@ Item {
             }
           }
         }
-        Text {
+        GrayText {
           anchors.centerIn: parent
           width: parent.width - Style.space(40)
           visible: picker.offered.length === 0
@@ -436,7 +436,7 @@ Item {
             anchors.centerIn: parent
             width: parent.width - Style.space(40)
             spacing: Style.space(4)
-            Text {
+            GrayText {
               textFormat: Text.PlainText
               Layout.alignment: Qt.AlignHCenter
               text: "󰉍"
@@ -444,7 +444,7 @@ Item {
               font.family: Style.font.family
               font.pixelSize: Style.font.iconLarge * 1.4
             }
-            Text {
+            GrayText {
               Layout.fillWidth: true
               text: "Drop an SVG or PNG here"
               textFormat: Text.PlainText
@@ -454,7 +454,7 @@ Item {
               font.bold: true
               horizontalAlignment: Text.AlignHCenter
             }
-            Text {
+            GrayText {
               Layout.fillWidth: true
               text: "or paste one with Ctrl+V, or type its path and press Enter. Up to 512 KB; Powerbar keeps its own copy."
               textFormat: Text.PlainText
@@ -464,7 +464,7 @@ Item {
               horizontalAlignment: Text.AlignHCenter
               wrapMode: Text.WordWrap
             }
-            Text {
+            GrayText {
               Layout.fillWidth: true
               visible: picker.ownError !== ""
               text: picker.ownError
@@ -487,7 +487,7 @@ Item {
           ColumnLayout {
             Layout.fillWidth: true
             spacing: Style.space(4)
-            Text {
+            GrayText {
               text: picker.own ? picker.own.name : ""
               textFormat: Text.PlainText
               color: Commons.Color.popups.text
@@ -507,7 +507,7 @@ Item {
               Accessible.name: "Icon colour"
               onChanged: function(value) { picker.tint = value; field.forceActiveFocus() }
             }
-            Text {
+            GrayText {
               text: picker.tint === "text" ? "Drawn in the bar's text colour, like your other icons. A multicolour image shows as its outline."
                 : "Keeps its colours; they won't follow Light or Dark."
               textFormat: Text.PlainText
@@ -536,7 +536,7 @@ Item {
         ColumnLayout {
           Layout.fillWidth: true
           spacing: Style.space(1)
-          Text {
+          GrayText {
             text: picker.current ? picker.current.name : "Nothing under the cursor"
             textFormat: Text.PlainText
             color: Commons.Color.popups.text
@@ -546,7 +546,7 @@ Item {
             elide: Text.ElideRight
             Layout.fillWidth: true
           }
-          Text {
+          GrayText {
             text: !picker.current ? "" : picker.current.source === -1 ? "Pasted, drawn in the bar's font"
               : picker.current.source === IconSearch.BAR ? "Drawn by a widget on your bar"
               : picker.current.logo ? "Omarchy's font" : picker.current.source === IconSearch.OMARCHY ? "Used by Omarchy"
@@ -560,7 +560,7 @@ Item {
           }
         }
         KeyCap { text: "enter" }
-        Text {
+        GrayText {
           textFormat: Text.PlainText
           text: "Choose"
           color: Qt.alpha(Commons.Color.popups.text, 0.6)

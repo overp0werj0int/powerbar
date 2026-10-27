@@ -86,7 +86,7 @@ BorderSurface {
     ColumnLayout {
       Layout.fillWidth: true
       spacing: Style.space(2)
-      Text {
+      GrayText {
         id: labelText
         Layout.fillWidth: true
         text: row.label
@@ -97,7 +97,7 @@ BorderSurface {
         font.bold: true
         elide: Text.ElideRight
       }
-      Text {
+      GrayText {
         visible: row.caption !== ""
         Layout.fillWidth: true
         text: row.caption

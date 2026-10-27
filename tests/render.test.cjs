@@ -66,3 +66,14 @@ test('under the camera the box joins the side it sits on', () => {
   assert.equal(model.records(layout, true, 'left')[0].region, 'left');
   assert.equal(model.records(layout, true)[0].region, 'right');
 });
+test('grayText switches default-rendered text under a tree and leaves chosen render types alone', () => {
+  const QT = 0, NATIVE = 1, CURVE = 2;
+  const label = { renderType: QT }, field = { renderType: QT, children: [{ renderType: QT }] };
+  const native = { renderType: NATIVE }, plain = { children: [] };
+  const root = { children: [plain, { children: [label, native, field, null] }] };
+  assert.equal(model.grayText(root, QT, CURVE), 3);
+  assert.deepEqual([label.renderType, field.renderType, field.children[0].renderType, native.renderType], [CURVE, CURVE, CURVE, NATIVE]);
+  assert.equal('renderType' in plain, false);
+  assert.equal(model.grayText(root, QT, CURVE), 0);
+  assert.equal(model.grayText(null, QT, CURVE), 0);
+});

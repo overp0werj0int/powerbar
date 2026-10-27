@@ -61,7 +61,7 @@ DeskPage {
       look.preferences.setScope(tile, value);
     }
   }
-  component Caption: Text {
+  component Caption: GrayText {
     Layout.fillWidth: true
     textFormat: Text.PlainText
     color: Qt.alpha(Commons.Color.popups.text, 0.55)

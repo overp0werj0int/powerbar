@@ -112,7 +112,7 @@ Item {
             radius: width / 2
             color: Commons.Color.accent
         }
-        Text {
+        GrayText {
             id: sideLabel
             x: sideDot.onLeft ? -width - Style.space(6) : sideDot.width + Style.space(6)
             anchors.verticalCenter: parent.verticalCenter

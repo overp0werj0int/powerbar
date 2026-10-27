@@ -256,7 +256,7 @@ Item {
     }
     Repeater {
       model: desk.legend
-      Text {
+      GrayText {
         required property var modelData
         required property int index
         Layout.row: index

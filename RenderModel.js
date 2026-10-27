@@ -105,4 +105,20 @@ function captureDelta(previous, next) {
   for (var key in newEntries) if (!equal(oldEntries[key], newEntries[key])) keys.push(key)
   return keys
 }
-if (typeof module !== "undefined") module.exports = { lists, zoneOf, equal, shallowSame, sameItems, reconcileLists, records, split, groupIndex, entryIndex, captureDelta }
+// Every text item under root still drawn as `from` (Qt Quick's default,
+// distance fields, which antialias with LCD subpixels on desktop GPUs and
+// fringe on a translucent window) switched to `to`; text that chose its own
+// render type keeps it. For controls whose Text Powerbar does not declare
+// (Omarchy's buttons, fields, a dropdown's rows). Returns how many changed.
+function grayText(root, from, to) {
+  var stack = [root], changed = 0
+  while (stack.length) {
+    var item = stack.pop()
+    if (!item) continue
+    if (item.renderType === from) { item.renderType = to; changed++ }
+    var kids = item.children
+    if (kids) for (var i = 0; i < kids.length; i++) stack.push(kids[i])
+  }
+  return changed
+}
+if (typeof module !== "undefined") module.exports = { grayText, lists, zoneOf, equal, shallowSame, sameItems, reconcileLists, records, split, groupIndex, entryIndex, captureDelta }

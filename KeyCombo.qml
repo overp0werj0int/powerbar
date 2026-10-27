@@ -18,7 +18,7 @@ Row {
       required property int index
       spacing: combo.spacing
       KeyCap { text: parent.modelData; foreground: combo.foreground; anchors.verticalCenter: parent.verticalCenter }
-      Text {
+      GrayText {
         visible: parent.index < (combo.keys || []).length - 1
         text: "+"
         textFormat: Text.PlainText

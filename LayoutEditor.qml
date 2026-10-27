@@ -1150,7 +1150,7 @@ Item {
                 record: nameTip.record
                 anchors.verticalCenter: parent.verticalCenter
             }
-            Text {
+            GrayText {
                 anchors.verticalCenter: parent.verticalCenter
                 text: nameTip.record && nameTip.record.instanceKey ? editor.preferences.title(nameTip.record) : ""
                 textFormat: Text.PlainText
@@ -1158,7 +1158,7 @@ Item {
                 font.family: Style.font.family
                 font.pixelSize: Style.font.body
             }
-            Text {
+            GrayText {
                 anchors.verticalCenter: parent.verticalCenter
                 text: nameTip.record ? nameTip.record.groupId ? "Group" : nameTip.record.id || "" : ""
                 textFormat: Text.PlainText
@@ -1288,7 +1288,7 @@ Item {
         }
         Repeater {
             model: editor.legend
-            Text {
+            GrayText {
                 required property var modelData
                 required property int index
                 Layout.row: index
@@ -1677,7 +1677,7 @@ Item {
                 record: tile.record
                 anchors.verticalCenter: parent.verticalCenter
             }
-            Text {
+            GrayText {
                 id: nameLabel
                 text: tile.record.instanceKey ? editor.preferences.title(tile.record) : ""
                 textFormat: Text.PlainText
@@ -1696,7 +1696,7 @@ Item {
                 radius: height / 2
                 color: Qt.alpha(Commons.Color.popups.text, 0.12)
                 anchors.verticalCenter: parent.verticalCenter
-                Text {
+                GrayText {
                     id: memberLabel
                     anchors.centerIn: parent
                     text: tile.memberCount
@@ -1805,7 +1805,7 @@ Item {
             color: Qt.rgba(0, 0, 0, 0.3)
         }
 
-        Text {
+        GrayText {
             visible: !panel.record
             anchors.left: parent.left
             anchors.right: parent.right
@@ -1851,7 +1851,7 @@ Item {
                         maxAspect: 1.5
                     }
                 }
-                Text {
+                GrayText {
                     Layout.fillWidth: true
                     text: panel.record ? editor.preferences.title(panel.record) : ""
                     textFormat: Text.PlainText
@@ -1861,7 +1861,7 @@ Item {
                     font.weight: Font.DemiBold
                     elide: Text.ElideRight
                 }
-                Text {
+                GrayText {
                     Layout.fillWidth: true
                     text: panel.isGroup ? (panel.group ? panel.group.items.length + (panel.group.items.length === 1 ? " widget" : " widgets") + " in this group" : "") : panel.trayIcon ? (panel.inTray ? "In Omarchy's tray" : "Moved out of Omarchy's tray") : panel.record ? panel.record.id : ""
                     textFormat: Text.PlainText
@@ -2024,7 +2024,7 @@ Item {
         }
     }
 
-    component Hint: Text {
+    component Hint: GrayText {
         property bool dim: false
         Layout.fillWidth: true
         textFormat: Text.PlainText

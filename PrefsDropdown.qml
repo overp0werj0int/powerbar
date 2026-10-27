@@ -79,7 +79,7 @@ Item {
         anchors.fill: parent
         spacing: Style.spacing.labelGap
 
-        Text {
+        GrayText {
             textFormat: Text.PlainText
             visible: root.showLabel && root.label !== ""
             text: root.label
@@ -125,7 +125,7 @@ Item {
                 }
             }
 
-            Text {
+            GrayText {
                 textFormat: Text.PlainText
                 anchors.left: parent.left
                 anchors.right: chevron.left
@@ -139,7 +139,7 @@ Item {
                 elide: Text.ElideRight
             }
 
-            Text {
+            GrayText {
                 id: chevron
                 anchors.right: parent.right
                 anchors.verticalCenter: parent.verticalCenter
@@ -231,7 +231,7 @@ Item {
                         height: root.popupRowHeight
                         color: index === optionList.currentIndex ? Style.hoverFillFor(root.foreground, root.accent) : "transparent"
 
-                        Text {
+                        GrayText {
                             textFormat: Text.PlainText
                             anchors.left: parent.left
                             anchors.right: parent.right

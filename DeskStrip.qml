@@ -112,7 +112,7 @@ ZoneTile {
     ColumnLayout {
       Layout.fillWidth: true
       spacing: Style.space(4)
-      Text {
+      GrayText {
         Layout.fillWidth: true
         text: strip.title
         textFormat: Text.PlainText
@@ -122,7 +122,7 @@ ZoneTile {
         font.weight: Font.DemiBold
         elide: Text.ElideRight
       }
-      Text {
+      GrayText {
         visible: strip.caption !== ""
         Layout.fillWidth: true
         text: strip.caption
@@ -141,7 +141,7 @@ ZoneTile {
     Item {
       Layout.fillHeight: true
     }
-    Text {
+    GrayText {
       visible: strip.footnote !== ""
       Layout.fillWidth: true
       text: strip.footnote

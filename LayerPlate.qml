@@ -58,7 +58,7 @@ Item {
         y: Style.space(6)
         width: face.columns.widths[0] - Style.space(6)
         spacing: Style.space(8)
-        Text {
+        GrayText {
             width: parent.width
             text: face.title
             textFormat: Text.PlainText
@@ -68,7 +68,7 @@ Item {
             font.weight: Font.DemiBold
             elide: Text.ElideRight
         }
-        Text {
+        GrayText {
             id: captionText
             width: parent.width
             text: face.caption
@@ -79,7 +79,7 @@ Item {
             wrapMode: Text.WordWrap
         }
     }
-    Text {
+    GrayText {
         x: face.pad + face.columns.xs[6]
         y: labelColumn.y + captionText.y
         width: face.columns.widths[6] - Style.space(2)

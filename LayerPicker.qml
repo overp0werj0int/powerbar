@@ -63,7 +63,7 @@ Item {
         id: rows
         width: parent.width
         spacing: 0
-        Text {
+        GrayText {
             text: "Layer"
             textFormat: Text.PlainText
             color: Qt.alpha(Commons.Color.popups.text, 0.55)
@@ -101,7 +101,7 @@ Item {
                         matrix: Qt.matrix4x4(1, -0.84, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1)
                     }
                 }
-                Text {
+                GrayText {
                     x: Style.space(56)
                     anchors.verticalCenter: parent.verticalCenter
                     text: row.modelData.label
