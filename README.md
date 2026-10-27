@@ -329,7 +329,7 @@ Preferences.
 | `keysSearch` | The keyboard mode with its search (`/`) open; ends it while a search is open |
 | `managed <zone>` / `group <id>` / `toggleGroup <id>` / `closeManaged` | Open or close a drawer |
 | `drawerStatus` / `managedStatus` / `popupStatus` | The open drawer, On demand widgets, the open panel |
-| `preferences` / `preferencesPage <1-4>` / `preferencesKeyboard` / `groupsPreferences` / `closePreferences` | Preferences (`preferencesKeyboard`: at the keyboard mode's shortcuts) |
+| `preferences` / `preferencesPage <n>` / `preferencesKeyboard` / `groupsPreferences` / `closePreferences` | Preferences (`preferencesKeyboard`: at the keyboard mode's shortcuts) |
 | `build` | The code this shell is running: version, a digest of the files it loaded, git commit, when it loaded |
 | `help` | Every function, with what it does |
 
@@ -491,7 +491,7 @@ keyboard focus in the keyboard mode, through Quickshell's Hyprland module.
 | `/usr/share/omarchy-platform/display-cutouts.json` | Which screens have a notch, and how tall, as Omarchy's bar reads it | Nothing |
 | The folder of a widget's plugin (`~/.config/omarchy/plugins/<id>`, `$OMARCHY_PATH/shell/plugins/…`) | Only when the shell's widget list has lost that widget's component: its `manifest.json` and the bar widget QML it names, as the shell loads them | Nothing |
 | `$XDG_DATA_HOME/powerbar/icons` | The image you pick or paste | Icons you add to groups (SVG or PNG, 512 KB at most); unused ones are deleted. Private: the folders are made 0700 and the icons 0600 |
-| `$XDG_CACHE_HOME/powerbar` | | Images of your widgets for Preferences (they show what the widget showed, such as a window title), `faces.json`, `glyphs.json`, and once, `zone-layouts-<date>.json`: the arrangements earlier versions kept per zone mode, copied out of `shell.json`. Private: the folders are made 0700, so no other user can open them |
+| `$XDG_CACHE_HOME/powerbar` | | Images of your widgets for Preferences (they show what the widget showed, such as a window title), `faces.json`, `glyphs.json`, `tuning.json` with `powerbarTuning` on, and once, `zone-layouts-<date>.json`: the arrangements earlier versions kept per zone mode, copied out of `shell.json`. Private: the folders are made 0700, so no other user can open them |
 
 | Command | When |
 | --- | --- |

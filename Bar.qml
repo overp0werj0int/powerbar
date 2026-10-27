@@ -56,6 +56,10 @@ Item {
   // the frames of the motion it starts.
   readonly property bool frameLog: barOptions.frameLog
   FrameLog { id: frameLogItem; enabled: root.frameLog }
+  // `powerbarTuning` (shell.json only): the Preferences' Tuning page, the
+  // development numbers behind the look, and the cache file they are kept
+  // in while it is on (Tuning.qml, INTEG-155).
+  Binding { target: Tuning; property: "on"; value: root.barOptions.tuning }
   function ev(kind, detail, ms) { if (frameLog) frameLogItem.ev(kind, detail, ms) }
   function motion(label, ms) { if (frameLog) frameLogItem.motion(label, ms) }
   function evCard() { return evName(tooltipTarget) + " " + JSON.stringify(String(tooltipText).split("\n")[0].slice(0, 40)) }

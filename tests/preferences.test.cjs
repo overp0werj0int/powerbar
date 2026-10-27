@@ -162,6 +162,8 @@ test('preferencesPage counts from 1 and clamps to the pages there are', () => {
   assert.equal(model.pageIndex(3, 4), 2);
   assert.equal(model.pageIndex(4, 4), 3);
   assert.equal(model.pageIndex(5, 4), 3);
+  assert.equal(model.pageIndex(5, 5), 4, 'the Tuning page when it is there');
+  assert.equal(model.pageIndex(9, 5), 4);
   assert.equal(model.pageIndex(0, 4), 0);
   assert.equal(model.pageIndex(-2, 4), 0);
 });

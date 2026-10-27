@@ -31,6 +31,7 @@ var settings = [
   { name: "entryGraceSeconds", key: "powerbarManagedEntryGraceSeconds", type: "number", min: 1, max: 15, writer: "option" },
   { name: "exitGraceSeconds", key: "powerbarManagedExitGraceSeconds", type: "number", min: 1, max: 15, writer: "option" },
   { name: "frameLog", key: "powerbarFrameLog", type: "bool", writer: "option" },
+  { name: "tuning", key: "powerbarTuning", type: "bool", writer: "option" },
   // A camera notch's width in logical px.
   { name: "notchWidth", key: "powerbarNotchWidth", type: "number", min: 40, max: 600, step: 1, writer: "option" },
   // Its height in logical px, on a notched screen.
@@ -293,7 +294,7 @@ var functions = [
   ["managedStatus", "", "On demand widgets: where they are and whether they show, as JSON"],
   ["popupStatus", "", "the open widget panel, as JSON"],
   ["preferences", "", "open Preferences on the focused monitor"],
-  ["preferencesPage", "<1-4>", "open Preferences at Layout (1), Groups (2), Look (3) or Behavior (4)"],
+  ["preferencesPage", "<1-5>", "open Preferences at Layout (1), Groups (2), Look (3), Behavior (4) or, with powerbarTuning on, Tuning (5)"],
   ["preferencesKeyboard", "", "open Preferences at the keyboard mode's shortcuts (Behavior → Keyboard)"],
   ["groupsPreferences", "", "open Preferences at Groups"],
   ["closePreferences", "", "close Preferences"],

@@ -59,11 +59,11 @@ ZoneTile {
 
   // The camera's cap and shade over the part of the strip under the
   // camera's column: the column's whole width, cut to the strip.
-  // The shade past the column's sides (CameraLook.shadeSpread), on every
+  // The shade past the column's sides (Tuning's shadeSpread), on every
   // strip it reaches, cut to the strip.
   Item {
     id: spillClip
-    readonly property real reach: CameraLook.shadeSpread * Style.space(1)
+    readonly property real reach: Tuning.values.shadeSpread * Style.space(1)
     visible: !!strip.desk && strip.desk.cameraShown && reach > 0 && beamClip.beamEnd + reach > 0 && beamClip.beamStart - reach < strip.width
     anchors.fill: parent
     clip: true

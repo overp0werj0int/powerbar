@@ -85,7 +85,62 @@ Item {
             return a.index - b.index || (a.groupId ? -1 : b.groupId ? 1 : 0);
         });
     }
-    readonly property var pages: [
+    // A page's tab in the header (PREFS-6): its number as a keycap and its
+    // name, bold with an accent underline while it is the page shown.
+    component PageTab: Item {
+        id: tab
+        required property var modelData
+        required property int index
+        readonly property bool current: prefs.page === index
+        implicitWidth: tabRow.implicitWidth + Style.space(20)
+        implicitHeight: tabRow.implicitHeight + Style.space(18)
+        Accessible.role: Accessible.PageTab
+        Accessible.name: modelData.title
+        Accessible.selected: current
+        Row {
+            id: tabRow
+            anchors.centerIn: parent
+            spacing: Style.space(8)
+            KeyCap {
+                text: tab.index + 1
+                foreground: tab.current ? Commons.Color.accent : Commons.Color.popups.text
+                anchors.verticalCenter: parent.verticalCenter
+            }
+            Text {
+                text: tab.modelData.title
+                textFormat: Text.PlainText
+                color: tab.current ? Commons.Color.popups.text : Qt.alpha(Commons.Color.popups.text, tabMouse.containsMouse ? 0.85 : 0.55)
+                font.family: Style.font.family
+                font.pixelSize: Style.font.body
+                font.bold: tab.current
+                anchors.verticalCenter: parent.verticalCenter
+            }
+        }
+        Rectangle {
+            anchors.bottom: parent.bottom
+            anchors.horizontalCenter: parent.horizontalCenter
+            width: tab.current ? parent.width - Style.space(12) : 0
+            height: Math.max(2, Style.space(2))
+            radius: height / 2
+            color: Commons.Color.accent
+            Behavior on width {
+                enabled: prefs.bar && prefs.bar.animationsEnabled
+                NumberAnimation {
+                    duration: 160
+                    easing.type: Easing.OutCubic
+                }
+            }
+        }
+        MouseArea {
+            id: tabMouse
+            anchors.fill: parent
+            hoverEnabled: true
+            cursorShape: Qt.PointingHandCursor
+            onClicked: prefs.setPage(tab.index)
+        }
+    }
+
+    readonly property var pagesAlways: [
         {
             title: "Layout",
             icon: "󰕰"
@@ -103,7 +158,18 @@ Item {
             icon: "󰒓"
         }
     ]
-    readonly property var pageItems: [layoutPage.item, groupsPage.item, lookPage.item, behaviorPage.item]
+    // With `powerbarTuning` on (INTEG-155) a fifth page, Tuning, its tab at
+    // the header's right (PREFS-132).
+    readonly property var pages: options.tuning === true ? pagesAlways.concat([
+            {
+                title: "Tuning",
+                icon: "󰢻",
+                aside: true
+            }
+        ]) : pagesAlways
+    onPagesChanged: if (page >= pages.length)
+        setPage(pages.length - 1)
+    readonly property var pageItems: [layoutPage.item, groupsPage.item, lookPage.item, behaviorPage.item, tuningPage.item]
     // Built on the first open (the page Loaders), then kept.
     property bool pagesLoaded: false
     // A group asked for before its page exists, selected as it loads.
@@ -673,6 +739,11 @@ Item {
                 sequences: ["Ctrl+4"]
                 onActivated: prefs.setPage(3)
             }
+            Shortcut {
+                sequences: ["Ctrl+5"]
+                enabled: prefs.pages.length > 4
+                onActivated: prefs.setPage(4)
+            }
             MouseArea {
                 anchors.fill: parent
             } // Keep clicks inside the card.
@@ -803,63 +874,22 @@ Item {
                     Row {
                         spacing: Style.space(4)
                         Repeater {
-                            model: prefs.pages
-                            Item {
-                                id: tab
-                                required property var modelData
-                                required property int index
-                                readonly property bool current: prefs.page === index
-                                width: tabRow.implicitWidth + Style.space(20)
-                                height: tabRow.implicitHeight + Style.space(18)
-                                Accessible.role: Accessible.PageTab
-                                Accessible.name: modelData.title
-                                Accessible.selected: current
-                                Row {
-                                    id: tabRow
-                                    anchors.centerIn: parent
-                                    spacing: Style.space(8)
-                                    KeyCap {
-                                        text: tab.index + 1
-                                        foreground: tab.current ? Commons.Color.accent : Commons.Color.popups.text
-                                        anchors.verticalCenter: parent.verticalCenter
-                                    }
-                                    Text {
-                                        text: tab.modelData.title
-                                        textFormat: Text.PlainText
-                                        color: tab.current ? Commons.Color.popups.text : Qt.alpha(Commons.Color.popups.text, tabMouse.containsMouse ? 0.85 : 0.55)
-                                        font.family: Style.font.family
-                                        font.pixelSize: Style.font.body
-                                        font.bold: tab.current
-                                        anchors.verticalCenter: parent.verticalCenter
-                                    }
-                                }
-                                Rectangle {
-                                    anchors.bottom: parent.bottom
-                                    anchors.horizontalCenter: parent.horizontalCenter
-                                    width: tab.current ? parent.width - Style.space(12) : 0
-                                    height: Math.max(2, Style.space(2))
-                                    radius: height / 2
-                                    color: Commons.Color.accent
-                                    Behavior on width {
-                                        enabled: prefs.bar && prefs.bar.animationsEnabled
-                                        NumberAnimation {
-                                            duration: 160
-                                            easing.type: Easing.OutCubic
-                                        }
-                                    }
-                                }
-                                MouseArea {
-                                    id: tabMouse
-                                    anchors.fill: parent
-                                    hoverEnabled: true
-                                    cursorShape: Qt.PointingHandCursor
-                                    onClicked: prefs.setPage(tab.index)
-                                }
-                            }
+                            model: prefs.pages.filter(function (p) {
+                                return !p.aside;
+                            })
+                            PageTab {}
                         }
                     }
                     Item {
                         Layout.fillWidth: true
+                    }
+                    // The Tuning page's tab, at the right beside Close (PREFS-132).
+                    PageTab {
+                        visible: prefs.pages.length > 4
+                        index: 4
+                        modelData: prefs.pages[4] || ({
+                                title: ""
+                            })
                     }
                     Item {
                         implicitWidth: closeRow.implicitWidth
@@ -962,6 +992,17 @@ Item {
                         active: prefs.pagesLoaded && !!layoutPage.item
                         sourceComponent: Component {
                             BehaviorEditor {
+                                preferences: prefs
+                                layout: layoutPage.item
+                            }
+                        }
+                    }
+                    // The Tuning page, only with `powerbarTuning` on (PREFS-132).
+                    Loader {
+                        id: tuningPage
+                        active: prefs.pagesLoaded && !!layoutPage.item && prefs.options.tuning === true
+                        sourceComponent: Component {
+                            TuningEditor {
                                 preferences: prefs
                                 layout: layoutPage.item
                             }

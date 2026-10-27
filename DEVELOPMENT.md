@@ -79,7 +79,9 @@ omabox for desktop tests in a private Hyprland session
    frame stalled. In a box: `omabox log -b NAME shell --grep PB-`. On the
    desktop the user sets the key, then
    `~/.claude/skills/omarchy-widget-debug/scripts/live.sh follow PB- 300`
-   while they reproduce. Turn it off afterwards.
+   while they reproduce. Turn it off afterwards. `"powerbarTuning": true`
+   adds a Tuning page to Preferences the same way: the numbers behind the
+   look as faders, and the frame log switch (INTEG-155, PREFS-132).
    For per-frame values of one motion, `tools/frame-probe.md`; for offscreen
    whole-bar timings, the bench (kept outside the plugin, see
    `docs/performance/implementation.md`). Measure before and after;

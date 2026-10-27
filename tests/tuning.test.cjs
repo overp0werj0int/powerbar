@@ -3,19 +3,31 @@ const assert = require('node:assert/strict');
 const vm = require('node:vm');
 const fs = require('node:fs');
 const model = vm.createContext({});
-vm.runInContext(fs.readFileSync(`${__dirname}/../CameraLookModel.js`, 'utf8'), model);
+vm.runInContext(fs.readFileSync(`${__dirname}/../TuningModel.js`, 'utf8'), model);
 const plain = (v) => JSON.parse(JSON.stringify(v));
 
-// PREFS-24, PREFS-132: the torn cap's numbers, kept in the cache file.
+// PREFS-132, PREFS-24: the Tuning page's numbers, the shipped look as the
+// defaults, kept in the cache file while the page is on.
 const DEFAULTS = {
-  gapAbove: 8, tearDepth: 14, grain: 25, octaves: 3, seed: 7, fringeSeed: 7,
-  fringeWidth: 2, fringeStrength: 80, shadeBlur: 18, shadeDrop: 10, shadeStrength: 45, shadeSpread: 0,
+  gapAbove: 35, tearDepth: 8, grain: 31, octaves: 3, seed: 24,
+  fringeWidth: 12, fringeStrength: 13, fringeSeed: 12,
+  shadeBlur: 4, shadeDrop: 7, shadeStrength: 16, shadeSpread: 0,
 };
 
-test('the twelve numbers have the demo\'s defaults, in the pane\'s order', () => {
+test('the sections hold the camera tear\'s twelve numbers, the shipped look as defaults', () => {
+  assert.deepEqual(plain(model.SECTIONS.map((s) => s.id)), ['tear', 'fringe', 'shade']);
   assert.deepEqual(plain(model.defaults()), DEFAULTS);
   assert.deepEqual(plain(model.PARAMS.map((p) => p.key)), Object.keys(DEFAULTS));
-  for (const p of model.PARAMS) assert.ok(p.value >= p.min && p.value <= p.max, p.key);
+  for (const p of model.PARAMS) {
+    assert.ok(p.value >= p.min && p.value <= p.max, p.key);
+    assert.ok(p.label && typeof p.unit === 'string', p.key);
+  }
+  for (const s of model.SECTIONS) assert.ok(s.title && s.caption, s.id);
+});
+
+test('keys are unique across sections', () => {
+  const keys = model.PARAMS.map((p) => p.key);
+  assert.equal(new Set(keys).size, keys.length);
 });
 
 test('values are clamped to their range and made whole', () => {
@@ -25,9 +37,9 @@ test('values are clamped to their range and made whole', () => {
   assert.equal(model.clamp('octaves', 9), 5);
   assert.equal(model.clamp('grain', 24.6), 25);
   assert.equal(model.clamp('shadeStrength', '60'), 60, 'a numeric string reads as its number');
-  assert.equal(model.clamp('seed', 'x'), 7, 'not a number: the default');
-  assert.equal(model.clamp('seed', null), 7);
-  assert.equal(model.clamp('seed', Infinity), 7);
+  assert.equal(model.clamp('seed', 'x'), 24, 'not a number: the default');
+  assert.equal(model.clamp('seed', null), 24);
+  assert.equal(model.clamp('seed', Infinity), 24);
   assert.equal(model.clamp('nope', 3), undefined);
 });
 
@@ -47,10 +59,4 @@ test('what is written reads back the same', () => {
   assert.deepEqual(plain(model.parse(text)), v);
   assert.deepEqual(Object.keys(JSON.parse(text)), Object.keys(DEFAULTS));
   assert.deepEqual(plain(model.parse(model.serialize({ grain: 999 }))), { ...DEFAULTS, grain: 80 });
-});
-
-test('the pane sits at the bottom, then shrinks its gaps, then goes under the desk', () => {
-  assert.deepEqual(plain(model.panePlace(900, 400, 340, 300, 8, 12)), { y: 552, compact: false });
-  assert.deepEqual(plain(model.panePlace(700, 400, 340, 280, 8, 12)), { y: 412, compact: true });
-  assert.deepEqual(plain(model.panePlace(600, 400, 340, 280, 8, 12)), { y: 412, compact: true }, 'under the desk even past the bottom');
 });

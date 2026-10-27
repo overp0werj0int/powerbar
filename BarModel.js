@@ -38,6 +38,8 @@ function options(config) {
     keyLegend: c.powerbarKeyLegend !== false,
     dotsBadge: c.powerbarDotsBadge !== false,
     frameLog: c.powerbarFrameLog === true,
+    // The Tuning page, for development (INTEG-155).
+    tuning: c.powerbarTuning === true,
     // A camera notch's width in logical px where the default housing is off
     // (0: the default; NotchModel.js). Two-zone modes keep a gap that wide.
     notchWidth: typeof c.powerbarNotchWidth === "number" && c.powerbarNotchWidth > 0 ? Math.round(c.powerbarNotchWidth) : 0,

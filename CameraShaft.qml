@@ -6,7 +6,7 @@ import "PreferencesModel.js" as Model
 // The camera on the Layout, Groups, Look and Behavior pages
 // (docs/behavior/preferences.md PREFS-24): the notch's cap, solid black from
 // the page's top down to a torn edge a little above the plates, with a fringe
-// along the tear and a soft shade under it (CameraLook's numbers); the
+// along the tear and a soft shade under it (Tuning's numbers); the
 // camera's eye under the notch and "camera" below it. The cap is drawn on a
 // plane tilted about `line` (the bar layer's top edge), as wide as Center, so
 // its sides run on the lines that layer's Center tile edges lie on. Place it
@@ -37,7 +37,7 @@ Item {
     width: 0
     height: 0
 
-    // The shade past the column's sides (CameraLook.shadeSpread), behind
+    // The shade past the column's sides (Tuning's shadeSpread), behind
     // the plates, on the same plane: the cap's own quad stays the column.
     BeamShade {
         id: spill
