@@ -308,3 +308,9 @@ test('Lua strings escape every control character, so a name can never break a li
   assert.equal(m.luaString('x\ry\x1b\x00z\x7f'), '"x\\013y\\027\\000z\\127"');
   assert.ok(!/[\x00-\x1f\x7f]/.test(m.luaString('\r\n\t\v\f')));
 });
+
+test('clashText: the keys first and whole, then what they open now', () => {
+  assert.equal(m.clashText('SUPER + B', [{ description: 'Open the browser' }]), 'Super B already opens Open the browser');
+  assert.equal(m.clashText('SUPER + B', [{ description: 'One' }, { description: 'Two' }]), 'Super B already opens One, Two');
+  assert.equal(m.clashText('SUPER + B', [{ description: '' }]), 'Super B already opens another binding');
+});

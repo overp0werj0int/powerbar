@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Behavior page: a shortcut whose keys are taken says so in two lines at most ("Super B already opens …"), instead of a caption that wrapped to four lines and stretched the Keyboard strip (PREFS-72).
 - Groups page: a keyboard lift (Space) now shows the lifted widget or face over its landing place, as a pointer drag does, and a copy over a "+" no longer hides its highlight (PREFS-119).
 - Groups page: a group moved to another zone and back (Shift+h/l, or the inspector's Zone) returns to the place it had there, instead of the zone's end (PREFS-117).
 - Layout page: moving a widget past a group at its zone's end (Everything past the AI group) now works; it did nothing when the widget was the zone's last (PREFS-27).

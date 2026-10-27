@@ -49,7 +49,7 @@ BorderSurface {
   readonly property string tag: !usable ? unavailable
     : store.busy && phase === "idle" ? "Saving"
     : phase === "recording" ? (notice || "Press the keys")
-    : phase === "confirm" ? clashes.map(function(c) { return c.description }).join(", ")
+    : phase === "confirm" ? (caption !== "" ? "" : clashes.map(function(c) { return c.description }).join(", "))
     : info.source === "omarchy" ? "Omarchy's"
     : info.source === "config" ? "Your Hyprland's"
     : info.source === "yours" ? ""
@@ -57,10 +57,13 @@ BorderSurface {
     : suggesting ? "Suggested"
     : info.source === "removed" ? "None, " + Shortcuts.label(info.fallback) + " removed"
     : "None"
+  // While its keys clash, a row with a caption says so there instead: the
+  // keys whole, the other binding's description cut to fit two lines.
+  readonly property string clashText: phase === "confirm" ? Shortcuts.clashText(captured, clashes) : ""
+  readonly property bool captionClash: phase === "confirm" && caption !== ""
   readonly property string message: store.error ? store.error
     : phase === "recording" ? "Hyprland's own shortcuts pause until you press one. Esc cancels."
-    : phase === "confirm" ? Shortcuts.label(captured) + " already opens " + clashes.map(function(c) { return c.description }).join(", ")
-      + ". Enter gives it to this one instead."
+    : phase === "confirm" ? clashText + ". Enter gives it to this one instead."
     : info.positional && !info.keys ? Shortcuts.label(info.positional) + " opens it as the bar's " + ordinal(info.positional) + " panel on the right; it follows its place."
     : ""
   function ordinal(keys) {
@@ -187,12 +190,14 @@ BorderSurface {
       Text {
         visible: row.caption !== ""
         Layout.fillWidth: true
-        text: row.caption
+        text: row.captionClash ? row.clashText : row.caption
         textFormat: Text.PlainText
-        color: Qt.alpha(Commons.Color.popups.text, 0.55)
+        color: row.captionClash ? Commons.Color.urgent : Qt.alpha(Commons.Color.popups.text, 0.55)
         font.family: Style.font.family
         font.pixelSize: Style.font.caption
         wrapMode: Text.WordWrap
+        maximumLineCount: row.captionClash ? 2 : 100
+        elide: row.captionClash ? Text.ElideRight : Text.ElideNone
       }
     }
     Text {
