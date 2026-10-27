@@ -254,7 +254,7 @@ Item {
         textFormat: Text.PlainText
         color: Qt.alpha(Commons.Color.popups.text, 0.7)
         font.family: Style.font.family
-        font.pixelSize: Style.font.bodySmall
+        font.pixelSize: Style.font.caption
         elide: Text.ElideRight
       }
     }
