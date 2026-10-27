@@ -4,17 +4,21 @@ import qs.Commons
 import qs.Commons as Commons
 import qs.Ui
 
-// A row on a Behavior strip (docs/behavior/preferences.md PREFS-129): its
-// label with a one-line caption under it, and a switch at its right, or, for
-// a pick-one row (`pick`), a 14 px ring before the label, filled in the
-// accent when chosen. Space, Enter or a click toggles the switch or chooses
-// the row. With the cursor it takes the chosen fill and the accent ring.
+// A row on a desk strip (docs/behavior/preferences.md PREFS-129): its label
+// with an optional one-line caption under it (without one the row is its
+// label's line), and a switch at its right, or, for a pick-one row (`pick`),
+// a 14 px ring before the label, filled in the accent when chosen. Space,
+// Enter or a click toggles the switch or chooses the row. With the cursor it
+// takes the chosen fill and the accent ring.
 BorderSurface {
   id: row
   property string label: ""
   property string caption: ""
   property bool checked: false
   property bool pick: false
+  // The legend's line for Space while the cursor is here, if the page's
+  // does not say it (a Look pick row's "Choose it").
+  property string spaceHint: ""
   signal activated()
 
   // On a desk (DeskPage): one stop that draws its own cursor.
@@ -22,7 +26,8 @@ BorderSurface {
   readonly property int deskHome: 0
   function deskFocus(stop, reason) { forceActiveFocus(reason === undefined ? Qt.OtherFocusReason : reason) }
   readonly property bool ownsFocusRing: true
-  readonly property var keyHints: []
+  readonly property var keyHints: [{ keys: "h l", label: "Same row, next strip" }]
+    .concat(spaceHint ? [{ keys: "space", label: spaceHint }] : [])
 
   readonly property bool hot: mouse.containsMouse && enabled
   Layout.fillWidth: true

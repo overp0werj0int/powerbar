@@ -242,7 +242,7 @@ lists the keys for whatever has focus):
   (Flat, Floating, Islands, and Notch on a MacBook, and the screen edge),
   Size (large bar, spacing), Shape, Surface, Shadow and, on a notched
   screen, Notch (the camera's width and height). Numbers are faders that
-  stand up at a strip's bottom. In the Notch style, what can't apply there
+  lie along a strip's bottom. In the Notch style, what can't apply there
   gives way to what does.
 - **Behavior**: the same plate with Comes and goes (autohide, show on widget
   activity, readable over windows, animations), On demand (drawer, bar or
@@ -252,8 +252,8 @@ lists the keys for whatever has focus):
 | Where | Keys |
 | --- | --- |
 | Anywhere | `1`–`4` switch pages (Ctrl+`1`–`4` while typing), Ctrl+Tab cycles them, Esc or `,` closes (`,` back to the keyboard mode when it came from there) |
-| Look and Behavior | `h` / `l` control to control across the strips (Behavior: the same row in the next strip), `j` / `k` down and up a strip and on to the next, Tab / Shift+Tab the next or previous strip, Space toggles or chooses, Enter records a shortcut; on the Screen edge grid `h` `j` `k` `l` choose Left, Bottom, Top, Right |
-| Faders | `j` / `k` step (Shift or Page Up / Down for five), Home / End for the ends, Backspace for the theme's value or the default, Enter applies at once, Esc undoes a value not yet applied |
+| Look and Behavior | `j` / `k` down and up a strip and on to the next, `h` / `l` a fader's value, chip to chip on a row of chips, else the same row in the next strip; Tab / Shift+Tab the next or previous strip, Space toggles or chooses, Enter records a shortcut |
+| Faders | `h` / `l` step (Shift or Page Up / Down for five), Home / End for the ends, Backspace for the theme's value or the default, Enter applies at once, Esc undoes a value not yet applied |
 | Layout shelves | `h` `j` `k` `l` move; Space picks up a widget, then `h` / `l` move it and `j` / `k` change its shelf; Space or Enter drops it, Esc puts it back; Enter on a widget goes to its settings; `x` hides or restores; `g` on a group opens it on the Groups page |
 | Groups faces | `h` / `l` the same row in the next zone, `j` / `k` down the zone's faces and its "+", then on to its drawer; Space picks up a face, `h` / `l` move it, Space drops it; Shift+`h` / `l` move it to the next zone at once, Shift+`j` / `k` on the bar, on demand, hidden; `n` makes a group, `x` twice dissolves it, Enter goes to its name |
 | Groups drawers and slab | `j` / `k` walk (a drawer's header too; from the header `k` back to the "+"), `h` / `l` the same row in the next drawer; Space picks up a widget, then `h` `j` `k` `l` move it through the drawers, the slab, the faces and the "+" rows, Space drops it, Esc puts it back; Shift with `h` `j` `k` `l` moves it at once; `x` takes it out; on the slab Enter adds it to the chosen group and typing filters |

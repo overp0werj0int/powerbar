@@ -115,18 +115,6 @@ function sideways(strips, at, dir) {
   return across(strips, from, dir)
 }
 
-// The Screen edge grid: h j k l choose an edge directly ("" for any other key).
-function gridEdge(key) {
-  return ({ h: "left", j: "bottom", k: "top", l: "right" })[String(key || "").toLowerCase()] || ""
-}
-
-// A vertical choice's cursor moved by j (dir 1) or k (-1); -1 past its ends,
-// where the step goes on to the control below or above.
-function choiceStep(count, cursor, dir) {
-  var next = cursor + (dir < 0 ? -1 : 1)
-  return next >= 0 && next < count ? next : -1
-}
-
 // The legend: the page's lines, a line the focused control has for the same
 // keys in its place, and the control's other lines first.
 function legend(pageLines, controlLines) {
@@ -140,4 +128,4 @@ function legend(pageLines, controlLines) {
   return extra.concat(out)
 }
 
-if (typeof module !== "undefined") module.exports = { stripBoxes, valid, first, nextStrip, vertical, tab, across, sideways, gridEdge, choiceStep, legend }
+if (typeof module !== "undefined") module.exports = { stripBoxes, valid, first, nextStrip, vertical, tab, across, sideways, legend }

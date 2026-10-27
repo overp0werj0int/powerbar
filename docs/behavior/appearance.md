@@ -327,7 +327,7 @@ Storage: the look lives in `bar.powerbarAppearance` of shell.json: `all` (values
 
 ## Bar backdrop (placement graphic, gone)
 
-- **LOOK-119** Superseded by preferences.md PREFS-124 and PREFS-65 (no placement graphic; the Screen edge grid moves the bar and the real bar shows the style).
+- **LOOK-119** Superseded by preferences.md PREFS-124 and PREFS-65 (no placement graphic; the Screen edge chips move the bar and the real bar shows the style).
 
 - **LOOK-120** Superseded: the placement graphic and its wallpaper are gone (PREFS-124).
 

@@ -13,12 +13,12 @@ DeskPage {
   id: look
   pageLines: [
     {
-      keys: "h l",
-      label: "Control to control, across the strips"
+      keys: "j k",
+      label: "Down the strip, on to the next"
     },
     {
-      keys: "j k",
-      label: "Fader down, up (shift: five steps)"
+      keys: "h l",
+      label: "Less, more on a fader; chip to chip"
     },
     {
       keys: "space",
@@ -77,40 +77,47 @@ DeskPage {
     Accessible.name: text
   }
   readonly property string themeValue: "Back to the theme's value"
+  // A pick-one row with no caption: one line, its ring filled when chosen.
+  component PickRow: DeskRow {
+    property string option: ""
+    property string current: ""
+    pick: true
+    spaceHint: "Choose it"
+    checked: option === current
+  }
 
   // ------------------------------------------------------------ 1 Style
   DeskStrip {
+    id: styleStrip
+    readonly property string style: look.bar ? (look.bar.notchStyle ? "notch" : look.bar.barStyle) : "flat"
     title: "Style"
-    caption: styleChoice.value === "islands" ? "A surface for each zone" : styleChoice.value === "floating" ? "One bar, off the edges" : styleChoice.value === "notch" ? "Notch applies on the top edge of the notched screen; elsewhere it draws as islands" : "Edge to edge, like Omarchy"
+    caption: style === "islands" ? "A surface for each zone" : style === "floating" ? "One bar, off the edges" : style === "notch" ? "Notch applies on the top edge of the notched screen; elsewhere it draws as islands" : "Edge to edge, like Omarchy"
     footnote: "No scope: the bar sits in one place in every theme."
-    DeskChoice {
-      id: styleChoice
-      mode: "column"
-      // Notch is offered where a screen has one, or while it is in use.
-      options: [
-        {
-          value: "flat",
-          label: "Flat"
-        },
-        {
-          value: "floating",
-          label: "Floating"
-        },
-        {
-          value: "islands",
-          label: "Islands"
-        }
-      ].concat(look.bar && (look.bar.screenNotch || look.bar.notchStyle) ? [
-          {
-            value: "notch",
-            label: "Notch"
-          }
-        ] : [])
-      value: look.bar ? (look.bar.notchStyle ? "notch" : look.bar.barStyle) : "flat"
-      Accessible.name: "Style"
-      onChosen: function (value) {
-        look.preferences.setBarStyle(value);
-      }
+    PickRow {
+      label: "Flat"
+      option: "flat"
+      current: styleStrip.style
+      onActivated: look.preferences.setBarStyle(option)
+    }
+    PickRow {
+      label: "Floating"
+      option: "floating"
+      current: styleStrip.style
+      onActivated: look.preferences.setBarStyle(option)
+    }
+    PickRow {
+      label: "Islands"
+      option: "islands"
+      current: styleStrip.style
+      onActivated: look.preferences.setBarStyle(option)
+    }
+    // Notch is offered where a screen has one, or while it is in use.
+    PickRow {
+      visible: !!look.bar && (look.bar.screenNotch || look.bar.notchStyle)
+      label: "Notch"
+      option: "notch"
+      current: styleStrip.style
+      onActivated: look.preferences.setBarStyle(option)
     }
     Caption {
       text: "Screen edge"
@@ -118,7 +125,6 @@ DeskPage {
     }
     DeskChoice {
       Layout.topMargin: -Style.space(5)
-      mode: "grid"
       options: [
         {
           value: "top",
@@ -155,23 +161,17 @@ DeskPage {
       checked: look.bar ? look.bar.largeBar : false
       onActivated: look.preferences.setOption("powerbarLargeBar", !checked)
     }
-    DeskChoice {
-      mode: "column"
-      options: [
-        {
-          value: "slots",
-          label: "Equal slots"
-        },
-        {
-          value: "gaps",
-          label: "Equal gaps"
-        }
-      ]
-      value: look.bar ? look.bar.spacingMode : "slots"
-      Accessible.name: "Spacing"
-      onChosen: function (value) {
-        look.preferences.setOption("powerbarSpacingMode", value);
-      }
+    PickRow {
+      label: "Equal slots"
+      option: "slots"
+      current: look.bar ? look.bar.spacingMode : "slots"
+      onActivated: look.preferences.setOption("powerbarSpacingMode", option)
+    }
+    PickRow {
+      label: "Equal gaps"
+      option: "gaps"
+      current: look.bar ? look.bar.spacingMode : "slots"
+      onActivated: look.preferences.setOption("powerbarSpacingMode", option)
     }
     faders: [
       Fader {

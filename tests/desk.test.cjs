@@ -76,21 +76,6 @@ test('a place whose control has gone lands on the nearest one left', () => {
   assert.deepEqual(plain(model.valid(look, null)), at(0, 0, 0));
 });
 
-test('the Screen edge grid: h j k l choose Left, Bottom, Top, Right', () => {
-  assert.equal(model.gridEdge('h'), 'left');
-  assert.equal(model.gridEdge('j'), 'bottom');
-  assert.equal(model.gridEdge('K'), 'top');
-  assert.equal(model.gridEdge('l'), 'right');
-  assert.equal(model.gridEdge('x'), '');
-});
-
-test('a vertical choice keeps its cursor inside, and lets go past its ends', () => {
-  assert.equal(model.choiceStep(4, 0, 1), 1);
-  assert.equal(model.choiceStep(4, 3, 1), -1);
-  assert.equal(model.choiceStep(4, 0, -1), -1);
-  assert.equal(model.choiceStep(4, 2, -1), 1);
-});
-
 test('the legend: the control\'s own line for a key replaces the page\'s, the rest lead', () => {
   const page = [{ keys: 'h l', label: 'Same row, next strip' }, { keys: 'backspace', label: 'Back to the theme\'s value' }];
   assert.deepEqual(plain(model.legend(page, [])), page);
