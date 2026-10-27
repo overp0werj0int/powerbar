@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- A double click on the bar no longer opens Omarchy's wallpaper selector. A step to or from glassy remaps the bar, and Hyprland handed the pointer to the desktop until it moved, so the next double click went to the wallpaper; the bar now waits for the pointer to leave before it remaps (the blur shows then). On the notch, a double click on the camera cycles the background too instead of reaching the desktop (LOOK-127, LOOK-133).
 - The "Center" caption beside the camera on the Layout and Groups pages answers the pointer like its dot: resting on it lights the dot, and a click or a drag on it swaps Center's side (PREFS-105).
 - On the Layout page, the cursor on a hidden widget (or a tray icon) no longer lights its zone's column on the layers above, inspected or not; k out of the slab still lands in the widget's zone (PREFS-99).
 - The key legend at the bottom left of the Layout, Groups, Look and Behavior pages is written in the same size as the captions under the strip titles (PREFS-103).

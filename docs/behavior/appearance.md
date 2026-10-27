@@ -10,7 +10,7 @@ Storage: the look lives in `bar.powerbarAppearance` of shell.json: `all` (values
 
 - **LOOK-1** The bar's surface opacity is the value of Surface > "Background opacity" (stored `opacity`, 0 to 100): it is clamped to 0 to 100 and drawn as a fraction (0 gives 0, 50 gives 0.5, 100 or 140 gives 1, a negative gives 0; no step snapping on read; the slider moves in 5% steps and shows "Clear" at 0, "Opaque" at 100). The default, with nothing chosen and no theme value, is the theme's own bar background alpha (LOOK-9), else 100. Code: AppearanceModel.effects, ranges.backgroundOpacity.
 
-- **LOOK-2** Surface > "Background blur" (stored `blur`, true only when exactly true; default off) puts the bar's layer on the Hyprland namespace `powerbar` (blurred by the user's layer rule, see LOOK-125); off, the namespace is `powerbar-clear`. Changing it hides the bar window for 60 ms with the layout frozen so the new namespace maps; widgets keep their sizes meanwhile. Code: AppearanceModel.effects; Bar.qml WlrLayershell.namespace, blurRemap.
+- **LOOK-2** Surface > "Background blur" (stored `blur`, true only when exactly true; default off) puts the bar's layer on the Hyprland namespace `powerbar` (blurred by the user's layer rule, see LOOK-125); off, the namespace is `powerbar-clear`. Changing it hides the bar window for 60 ms (once the pointer is off it, LOOK-127) with the layout frozen so the new namespace maps; widgets keep their sizes meanwhile. Code: AppearanceModel.effects; Bar.qml WlrLayershell.namespace, blurRemap.
 
 - **LOOK-3** Shadow > "Shadow" (stored `enabled`, default off) paints a shadow behind the flat strip, the floating surface, each island, drawers, and the tooltip, name card and key legend when their look follows Powerbar's (LOOK-91). Code: EffectSurface.qml RectangularShadow; Bar.qml shadowEnabled, overlayShadow.
 
@@ -42,7 +42,7 @@ Storage: the look lives in `bar.powerbarAppearance` of shell.json: `all` (values
 
 - **LOOK-132** Preferences' Surface > "Background opacity" slider shows 0 ("Clear") while the bar is clear, and the opacity it draws while glassy. Moving it writes the opacity and deletes `bar.transparent` and `bar.background`, ending a clear or glassy bar. Code: Preferences.qml setLook; slider value.
 
-- **LOOK-133** Double-clicking empty bar space (not on a widget) steps the background from clear to glassy to opaque and around, as on Omarchy's bar; with an Omarchy without glassy it toggles clear and opaque. The shell's `cycleBackground()` (Omarchy's menu) does the same, and its older `toggleTransparency()` toggles clear and opaque. A hold or drag on empty space moves the bar instead (layout-zones.md ZONE-38). Code: Bar.qml CenterGestureArea onDoubleClicked, cycleBackground, toggleTransparency; AppearanceModel.nextBackground.
+- **LOOK-133** Double-clicking empty bar space (not on a widget) steps the background from clear to glassy to opaque and around, as on Omarchy's bar, every time, the pointer moved or not (LOOK-127); on the notch the camera counts as empty bar space, since it takes the pointer whether or not the bar autohides; with an Omarchy without glassy it toggles clear and opaque. The shell's `cycleBackground()` (Omarchy's menu) does the same, and its older `toggleTransparency()` toggles clear and opaque. A hold or drag on empty space moves the bar instead (layout-zones.md ZONE-38). Code: Bar.qml CenterGestureArea onDoubleClicked, cycleBackground, toggleTransparency; AppearanceModel.nextBackground.
 
 - **LOOK-134** Turning transparency off returns the surface and text to the theme's at once: the text colour changes without its 420 ms crossfade while the switch settles. Code: Bar.qml setRequestedTransparency (foregroundAnimationEnabled).
 
@@ -347,7 +347,7 @@ Storage: the look lives in `bar.powerbarAppearance` of shell.json: `all` (values
 
 - **LOOK-126** `^powerbar-clear$` is for surfaces that must not blur (rule `blur = false`). Code: Bar.qml.
 
-- **LOOK-127** A blur change remaps the bar window (LOOK-2). Code: Bar.qml blurRemap.
+- **LOOK-127** A blur change remaps the bar window (LOOK-2). The surface is gone for that moment, and Hyprland gives the pointer to what lies under it (Omarchy's background, whose double click opens the wallpaper selector) and keeps it there until the pointer moves, so a window the pointer is on keeps its surface until the pointer leaves it, then remaps (on the other screens at once); a change undone before then needs no remap. A double click that steps the background to or from glassy (LOOK-133) is followed at once by the next one on the bar, never by the wallpaper selector; the blur shows once the pointer is off the bar. Code: Bar.qml blurRemapPending, blurRemapWhenFree(), mappedBlur, blurRemap.
 
 ---
 

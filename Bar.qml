@@ -3917,7 +3917,7 @@ Item {
     // Center's widgets change ears with it (ZONE-96).
     readonly property string centerSide: root.barOptions.centerSide
     onCenterSideChanged: if (notchLook) reconcileWidgets()
-    Component.onCompleted: { reconcileWidgets(); syncStrip(true); if (!notchPending) notchWaitOver = true }
+    Component.onCompleted: { reconcileWidgets(); syncStrip(true); if (!notchPending) notchWaitOver = true; mappedBlur = blurEnabled }
 
     // Keep the Wayland surface stable across drawer opens/closes. Only the
     // input region and drawer visibility change; no full-bar buffer resize.
@@ -4241,8 +4241,28 @@ Item {
     }
     // Omarchy's glassy background blurs too.
     readonly property bool blurEnabled: !root.notchMode && (root.surfaceEffects.blur || root.glassy)
-    onBlurEnabledChanged: {
-      if (visible) { freezeLayout(); blurRemap.restart() }
+    // A remap unmaps the surface, and Hyprland gives the pointer to what lies
+    // under it (Omarchy's background, whose double click opens the wallpaper
+    // selector) and hands it back only when the pointer moves. A double click
+    // that cycled the bar to or from glassy sent the next one, pointer still,
+    // to the wallpaper. So the remap waits until the pointer is off the bar
+    // (LOOK-127).
+    // The blur the mapped surface's namespace has; a change undone before the
+    // pointer left needs no remap.
+    property bool mappedBlur: false
+    onVisibleChanged: if (visible) mappedBlur = blurEnabled
+    property bool blurRemapPending: false
+    onBlurEnabledChanged: if (visible) { blurRemapPending = true; blurRemapWhenFree() }
+    function blurRemapWhenFree() {
+      if (!blurRemapPending || windowHover.hovered) return
+      blurRemapPending = false
+      if (!visible || blurEnabled === mappedBlur) return
+      freezeLayout()
+      blurRemap.restart()
+    }
+    Connections {
+      target: windowHover
+      function onHoveredChanged() { barWindow.blurRemapWhenFree() }
     }
     // The layer-shell namespace is fixed at map time. Remap only for an
     // explicit blur preference change, never for drawer transitions.
@@ -4309,7 +4329,9 @@ Item {
       ? (keysFocusPrimed ? WlrKeyboardFocus.OnDemand : WlrKeyboardFocus.Exclusive) : WlrKeyboardFocus.None
     WlrLayershell.keyboardFocus: keyboardFocusMode
     // On the notch only the zones and the camera take the pointer: the bar's
-    // empty stretches to the screen edges let it through.
+    // empty stretches to the screen edges let it through. The camera does
+    // whether or not the bar autohides, so a double click on it reaches the
+    // bar (LOOK-133), not Omarchy's background and its wallpaper selector.
     mask: Region {
       x: mainStrip.x; y: mainStrip.y
       width: barWindow.notchLook ? 0 : mainStrip.width
@@ -4322,21 +4344,22 @@ Item {
       // the screen beside its round corners stays the windows'. The band over
       // its shoulders, where the top edge curves into it, is the full width.
       Region {
-        readonly property var corners: NotchModel.cornersOf(barWindow.notch, autoHideStrip.width)
-        readonly property bool on: barWindow.notchLook && autoHideStrip.visible
-        x: autoHideStrip.x + Math.round(corners.shoulder)
-        y: autoHideStrip.y
-        width: on ? autoHideStrip.width - Math.round(corners.shoulder) * 2 : 0
-        height: on ? autoHideStrip.height : 0
+        readonly property real span: barWindow.notchRight - barWindow.notchLeft
+        readonly property var corners: NotchModel.cornersOf(barWindow.notch, span)
+        readonly property bool on: barWindow.notchLook
+        x: barWindow.notchLeft + Math.round(corners.shoulder)
+        y: 0
+        width: on ? span - Math.round(corners.shoulder) * 2 : 0
+        height: on ? barWindow.notch.height : 0
         bottomLeftRadius: Math.round(corners.radius)
         bottomRightRadius: Math.round(corners.radius)
         intersection: Intersection.Combine
       }
       Region {
-        x: autoHideStrip.x
-        y: autoHideStrip.y
-        width: barWindow.notchLook && autoHideStrip.visible ? autoHideStrip.width : 0
-        height: barWindow.notchLook ? Math.ceil(NotchModel.cornersOf(barWindow.notch, autoHideStrip.width).shoulder) : 0
+        x: barWindow.notchLeft
+        y: 0
+        width: barWindow.notchLook ? barWindow.notchRight - barWindow.notchLeft : 0
+        height: barWindow.notchLook ? Math.ceil(NotchModel.cornersOf(barWindow.notch, barWindow.notchRight - barWindow.notchLeft).shoulder) : 0
         intersection: Intersection.Combine
       }
       Region {
