@@ -16,14 +16,14 @@ import "PreferencesModel.js" as Model
 // beam over the part of its surface under the camera. The key legend is at
 // the bottom left (PREFS-103).
 //
-// The cursor walks the strips' controls (DeskModel.js): h/l in reading order
-// (on the Behavior page, `rowsAcross`, to the same row of the next strip),
-// j/k down and up a strip and on, Tab and Shift+Tab to the next or previous
-// strip's first control. A control takes the keys it uses first (a fader
-// its j/k, a vertical choice its cursor, the Screen edge grid h j k l). A
-// control on a desk says how many stops it has (deskStops), which one a jump
-// to it lands on (deskHome), which one it is on (deskStop, if more than one)
-// and how to take the cursor (deskFocus(stop, reason)).
+// The cursor walks the strips' controls (DeskModel.js; PREFS-126): j/k move
+// the cursor, h/l move a value. j/k go down and up a strip and on, h/l to
+// the next or previous chip on a row of chips, else to the same row of the
+// next or previous strip; Tab and Shift+Tab to the next or previous strip's
+// first control. A fader takes h/l for its value first. A control on a desk
+// says how many stops it has (deskStops), which one a jump to it lands on
+// (deskHome), which one it is on (deskStop, if more than one) and how to
+// take the cursor (deskFocus(stop, reason)).
 Item {
   id: desk
   required property var preferences
@@ -32,8 +32,6 @@ Item {
   readonly property var bar: preferences.bar
   // The page's own legend lines (PREFS-131).
   property var pageLines: []
-  // h/l to the same row of the next strip, for a page of rows.
-  property bool rowsAcross: false
   default property alias strips: plateFace.data
   // The keys are a legend on the page (PREFS-103), so the footer hides; the
   // strips draw the cursor, so Preferences' focus ring stays away.
@@ -206,7 +204,7 @@ Item {
       go(at ? DeskModel.tab(m, at, back ? -1 : 1) : DeskModel.first(m), Qt.TabFocusReason);
     else if (t === "h" || t === "l" || event.key === Qt.Key_Left || event.key === Qt.Key_Right) {
       var dir = t === "h" || event.key === Qt.Key_Left ? -1 : 1;
-      go(!at ? DeskModel.first(m) : desk.rowsAcross ? DeskModel.across(m, at, dir) : DeskModel.reading(m, at, dir));
+      go(at ? DeskModel.sideways(m, at, dir) : DeskModel.first(m));
     } else if (t === "j" || t === "k" || event.key === Qt.Key_Down || event.key === Qt.Key_Up)
       go(at ? DeskModel.vertical(m, at, t === "k" || event.key === Qt.Key_Up ? -1 : 1) : DeskModel.first(m));
     else

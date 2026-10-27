@@ -1,14 +1,14 @@
 // The desk of the Look and Behavior pages (docs/behavior/preferences.md
 // PREFS-124 to PREFS-131): strips side by side on one tilted plate, each a
-// column of controls, and the cursor's walk through them.
+// column of controls, and the cursor's walk through them. j/k move the
+// cursor, h/l move a value (PREFS-126).
 //
 // A desk is strips left to right, each a list of its controls top to bottom
-// as { stops, home }: a row of chips has a stop per chip, everything else one
-// (a vertical choice keeps its own cursor, the Screen edge grid is one
-// control); `home` is the stop a step from above or below, or a jump to the
-// strip, lands on (a chip row's chosen chip). A place is
-// { strip, control, stop }. Controls that cannot be used now (dimmed or
-// given way) are left out of the lists by the page.
+// as { stops, home }: a row of chips has a stop per chip, everything else one;
+// `home` is the stop a step from above or below, or a jump to the strip,
+// lands on (a chip row's chosen chip). A place is { strip, control, stop }.
+// Controls that cannot be used now (dimmed or given way) are left out of the
+// lists by the page.
 
 // The strips' boxes: equal widths across the plate, `gap` apart.
 function stripBoxes(width, count, gap) {
@@ -35,21 +35,6 @@ function place(strip, control, stop) {
   return { strip: strip, control: control, stop: stop }
 }
 
-// Every stop in reading order: down a strip, then on to the next.
-function readingOrder(strips) {
-  var out = []
-  for (var s = 0; s < strips.length; s++) {
-    var list = controlsOf(strips, s)
-    for (var c = 0; c < list.length; c++)
-      for (var k = 0; k < stopsOf(list[c]); k++) out.push(place(s, c, k))
-  }
-  return out
-}
-
-function same(a, b) {
-  return !!a && !!b && a.strip === b.strip && a.control === b.control && a.stop === b.stop
-}
-
 // A place that may have gone stale (a control left the list) made valid:
 // the nearest control left in its strip, else the desk's first stop.
 function valid(strips, at) {
@@ -69,17 +54,6 @@ function first(strips) {
   return null
 }
 
-// h/l on the Look page: the previous or next stop in reading order,
-// wrapping round the desk.
-function reading(strips, at, dir) {
-  var order = readingOrder(strips)
-  if (!order.length) return null
-  var from = valid(strips, at)
-  var i = order.findIndex(function(p) { return same(p, from) })
-  if (i < 0) return order[0]
-  return order[((i + (dir < 0 ? -1 : 1)) % order.length + order.length) % order.length]
-}
-
 // The next or previous strip that has controls, wrapping; -1 when none does.
 function nextStrip(strips, s, dir) {
   var n = strips.length
@@ -90,9 +64,9 @@ function nextStrip(strips, s, dir) {
   return -1
 }
 
-// j/k on a control with nothing vertical of its own: the control below or
-// above in the strip; past the strip's end the next strip's first control
-// (j) or the previous strip's last (k), wrapping round the desk.
+// j/k, on every control: the control below or above in the strip; past the
+// strip's end the next strip's first control (j) or the previous strip's
+// last (k), wrapping round the desk.
 function vertical(strips, at, dir) {
   var from = valid(strips, at)
   if (!from) return null
@@ -115,8 +89,8 @@ function tab(strips, at, dir) {
   return place(s, 0, homeOf(controlsOf(strips, s)[0]))
 }
 
-// h/l on the Behavior page, whose controls are all rows: the same row of the
-// next or previous strip, clamped to that strip's last row, wrapping.
+// h/l on a row (a switch, a pick row, a shortcut): the same row of the next
+// or previous strip, clamped to that strip's last row, wrapping.
 function across(strips, at, dir) {
   var from = valid(strips, at)
   if (!from) return null
@@ -125,6 +99,20 @@ function across(strips, at, dir) {
   var next = controlsOf(strips, s)
   var c = Math.min(next.length - 1, from.control)
   return place(s, c, homeOf(next[c]))
+}
+
+// h/l as the desk takes them (a fader keeps them for its value): on a row of
+// chips the next or previous chip, staying put at the row's ends; on any
+// other control the same row of the next or previous strip (across).
+function sideways(strips, at, dir) {
+  var from = valid(strips, at)
+  if (!from) return null
+  var control = controlsOf(strips, from.strip)[from.control]
+  if (stopsOf(control) > 1) {
+    var k = Math.max(0, Math.min(stopsOf(control) - 1, from.stop + (dir < 0 ? -1 : 1)))
+    return place(from.strip, from.control, k)
+  }
+  return across(strips, from, dir)
 }
 
 // The Screen edge grid: h j k l choose an edge directly ("" for any other key).
@@ -152,4 +140,4 @@ function legend(pageLines, controlLines) {
   return extra.concat(out)
 }
 
-if (typeof module !== "undefined") module.exports = { stripBoxes, readingOrder, valid, first, reading, nextStrip, vertical, tab, across, gridEdge, choiceStep, legend }
+if (typeof module !== "undefined") module.exports = { stripBoxes, valid, first, nextStrip, vertical, tab, across, sideways, gridEdge, choiceStep, legend }

@@ -1,15 +1,17 @@
 import QtQuick
+import QtQuick.Layouts
 import qs.Commons
 import qs.Commons as Commons
 import qs.Ui
 import "SliderModel.js" as SliderModel
 
-// A slider stood up on end, for the strips of the Look page
-// (docs/behavior/preferences.md PREFS-127): its value on top (with its unit
-// or a word), a 2 px track 150 px tall whose fill rises from the bottom, a
-// 16 x 8 knob, and its name under it. It works as Preferences sliders do
-// (SliderDraft: steps, snapping, settling, the wheel, Backspace, Enter, Esc;
-// PREFS-55 to PREFS-60), with j/k or Down/Up for the value.
+// A slider laid flat along a strip of the Look page
+// (docs/behavior/preferences.md PREFS-127): its name at the left and its
+// value at the right (with its unit or a word) on one line, under it a 2 px
+// track as wide as the strip whose fill grows from the left, and an 8 x 16
+// knob. It works as Preferences sliders do (SliderDraft: steps, snapping,
+// settling, the wheel, Backspace, Enter, Esc; PREFS-55 to PREFS-60), with
+// h/l or Left/Right for the value; j/k are the desk's, which walks on.
 //
 // Pointer: press the track to jump there and keep dragging, press the knob to
 // drag it from where it was grabbed. The wheel changes it only while it has
@@ -29,8 +31,6 @@ Item {
   // Words for special values, such as the ends of the range.
   property var formatter: null
   property bool animate: true
-  // The name may use the room a strip leaves around the fader.
-  readonly property real labelWidth: parent && parent.room !== undefined ? width + parent.room : width
   signal edited(real value)
   signal drafted(real value)
 
@@ -63,68 +63,86 @@ Item {
   readonly property int deskHome: 0
   function deskFocus(stop, reason) { forceActiveFocus(reason === undefined ? Qt.OtherFocusReason : reason) }
   readonly property bool ownsFocusRing: true
-  readonly property var keyHints: [{ keys: "backspace", label: fader.defaultLabel }]
+  readonly property var keyHints: [{ keys: "h l", label: "Less, more (shift: five steps)" }, { keys: "backspace", label: fader.defaultLabel }]
     .concat(drafting ? [{ keys: "enter", label: "Apply now" }, { keys: "esc", label: "Drop the change" }] : [])
 
-  readonly property real trackLength: Style.space(150)
-  readonly property real knobWidth: Style.space(16)
-  readonly property real knobHeight: Style.space(8)
+  readonly property real knobWidth: Style.space(8)
+  readonly property real knobHeight: Style.space(16)
+  // The knob's centre travels between half a knob in from each end.
+  readonly property real trackLength: Math.max(1, width - knobWidth)
   readonly property real progress: SliderModel.progress(shown, minimum, maximum)
   readonly property int ticks: SliderModel.tickCount(minimum, maximum, stepSize)
-  function yFor(v) { return trackLength * (1 - SliderModel.progress(v, minimum, maximum)) }
+  function xFor(v) { return trackLength * SliderModel.progress(v, minimum, maximum) }
 
-  implicitWidth: Style.space(60)
+  Layout.fillWidth: true
+  implicitWidth: Style.space(120)
   implicitHeight: column.implicitHeight
   opacity: enabled ? 1 : 0.45
   activeFocusOnTab: false
   Accessible.role: Accessible.Slider
   Accessible.name: label
   Accessible.description: format(shown)
-  Keys.onPressed: function(event) { if (core.keyPressed(event, true)) event.accepted = true }
+  Keys.onPressed: function(event) { if (core.keyPressed(event, false)) event.accepted = true }
 
   Column {
     id: column
     width: parent.width
-    spacing: Style.space(6)
-    // An unapplied draft shows in the accent and turns back once the bar has it.
-    Text {
+    spacing: Style.space(4)
+    // The name, and the value at the right: an unapplied draft shows in the
+    // accent and turns back once the bar has it.
+    Item {
       width: parent.width
-      horizontalAlignment: Text.AlignHCenter
-      text: fader.format(fader.shown)
-      textFormat: Text.PlainText
-      color: fader.drafting ? Commons.Color.accent : Commons.Color.popups.text
-      font.family: Style.font.family
-      font.pixelSize: Style.font.caption
-      font.bold: fader.drafting
+      implicitHeight: Math.max(name.implicitHeight, valueText.implicitHeight)
+      height: implicitHeight
+      Text {
+        id: name
+        anchors.left: parent.left
+        anchors.right: valueText.left
+        anchors.rightMargin: Style.space(8)
+        anchors.baseline: valueText.baseline
+        text: fader.label
+        textFormat: Text.PlainText
+        color: Qt.alpha(Commons.Color.popups.text, 0.7)
+        font.family: Style.font.family
+        font.pixelSize: Style.font.bodySmall
+        elide: Text.ElideRight
+      }
+      Text {
+        id: valueText
+        anchors.right: parent.right
+        anchors.verticalCenter: parent.verticalCenter
+        text: fader.format(fader.shown)
+        textFormat: Text.PlainText
+        color: fader.drafting ? Commons.Color.accent : Commons.Color.popups.text
+        font.family: Style.font.family
+        font.pixelSize: Style.font.bodySmall
+        font.bold: fader.drafting
+      }
     }
     Item {
       id: rail
       objectName: "faderTrack"
       width: parent.width
-      // Room for half the knob past each end.
-      height: fader.trackLength + fader.knobHeight
-      readonly property real inset: fader.knobHeight / 2
+      height: fader.knobHeight
+      // Half the knob in from each end.
+      readonly property real inset: fader.knobWidth / 2
       Rectangle {
         id: track
-        x: (rail.width - width) / 2
-        y: rail.inset
-        width: Math.max(2, Style.space(2))
-        height: fader.trackLength
+        x: 0
+        y: (rail.height - height) / 2
+        width: rail.width
+        height: Math.max(2, Style.space(2))
         color: Qt.alpha(Commons.Color.popups.text, 0.18)
         antialiasing: true
       }
       Rectangle {
-        x: track.x
-        width: track.width
-        y: rail.inset + fader.trackLength * (1 - fader.progress)
-        height: fader.trackLength * fader.progress
+        y: track.y
+        height: track.height
+        x: 0
+        width: rail.inset + fader.trackLength * fader.progress
         color: Commons.Color.popups.text
         antialiasing: true
-        Behavior on y {
-          enabled: !fader.dragging && fader.animate
-          NumberAnimation { duration: 120; easing.type: Easing.OutCubic }
-        }
-        Behavior on height {
+        Behavior on width {
           enabled: !fader.dragging && fader.animate
           NumberAnimation { duration: 120; easing.type: Easing.OutCubic }
         }
@@ -134,10 +152,10 @@ Item {
         model: fader.ticks
         Rectangle {
           required property int index
-          x: (rail.width - width) / 2
-          y: rail.inset + fader.trackLength * index / (fader.ticks - 1) - height / 2
-          width: Style.space(6)
-          height: 1
+          x: rail.inset + fader.trackLength * index / (fader.ticks - 1) - width / 2
+          y: (rail.height - height) / 2
+          width: 1
+          height: Style.space(6)
           color: Qt.alpha(Commons.Color.popups.text, 0.3)
           Accessible.ignored: true
         }
@@ -145,10 +163,10 @@ Item {
       // The default, as a faint mark across the track.
       Rectangle {
         visible: fader.hasDefault
-        x: (rail.width - width) / 2
-        y: rail.inset + fader.yFor(fader.defaultValue) - height / 2
-        width: Style.space(12)
-        height: 1
+        x: rail.inset + fader.xFor(fader.defaultValue) - width / 2
+        y: (rail.height - height) / 2
+        width: 1
+        height: Style.space(12)
         color: Qt.alpha(Commons.Color.popups.text, 0.4)
         Accessible.ignored: true
       }
@@ -166,15 +184,15 @@ Item {
       }
       Rectangle {
         id: knob
-        x: (rail.width - width) / 2
-        y: rail.inset + fader.trackLength * (1 - fader.progress) - height / 2
+        x: rail.inset + fader.trackLength * fader.progress - width / 2
+        y: 0
         width: fader.knobWidth
         height: fader.knobHeight
         radius: Style.space(2)
         color: Commons.Color.popups.text
         antialiasing: true
         scale: fader.dragging ? 1.15 : pointer.containsMouse ? 1.1 : 1
-        Behavior on y {
+        Behavior on x {
           enabled: !fader.dragging && fader.animate
           NumberAnimation { duration: 120; easing.type: Easing.OutCubic }
         }
@@ -183,45 +201,35 @@ Item {
           NumberAnimation { duration: 110; easing.type: Easing.OutCubic }
         }
       }
-      MouseArea {
-        id: pointer
-        anchors.fill: parent
-        hoverEnabled: fader.enabled
-        enabled: fader.enabled
-        preventStealing: true
-        cursorShape: Qt.PointingHandCursor
-        // The value under a point along the rail, the grab kept.
-        function valueAt(y) {
-          return SliderModel.fromPosition(fader.trackLength - (y - core.grabOffset - rail.inset), fader.trackLength,
-            fader.minimum, fader.maximum, fader.stepSize)
-        }
-        onPressed: function(mouse) {
-          fader.forceActiveFocus(Qt.MouseFocusReason)
-          var centre = knob.y + knob.height / 2
-          // On the knob, keep the grab point; on the track, jump there.
-          core.grabOffset = Math.abs(mouse.y - centre) <= knob.height / 2 + Style.space(3) ? mouse.y - centre : 0
-          core.startDrag(valueAt(mouse.y))
-        }
-        onPositionChanged: function(mouse) { if (fader.dragging) core.setDraft(valueAt(mouse.y)) }
-        onReleased: core.endDrag()
-        onCanceled: core.endDrag()
-        onWheel: function(wheel) {
-          wheel.accepted = core.wheel(wheel.angleDelta.y !== 0 ? wheel.angleDelta.y : -wheel.angleDelta.x)
-        }
-      }
     }
-    Text {
-      x: (parent.width - width) / 2
-      width: fader.labelWidth
-      horizontalAlignment: Text.AlignHCenter
-      text: fader.label
-      textFormat: Text.PlainText
-      color: Qt.alpha(Commons.Color.popups.text, 0.7)
-      font.family: Style.font.family
-      font.pixelSize: Style.font.caption
-      wrapMode: Text.WordWrap
-      maximumLineCount: 2
-      elide: Text.ElideRight
+  }
+  // Over the whole fader, so the name line takes the cursor too; only a
+  // press on the track's line moves the value.
+  MouseArea {
+    id: pointer
+    anchors.fill: parent
+    hoverEnabled: fader.enabled
+    enabled: fader.enabled
+    preventStealing: true
+    cursorShape: Qt.PointingHandCursor
+    // The value under a point along the rail, the grab kept.
+    function valueAt(x) {
+      return SliderModel.fromPosition(x - core.grabOffset - rail.inset, fader.trackLength,
+        fader.minimum, fader.maximum, fader.stepSize)
+    }
+    onPressed: function(mouse) {
+      fader.forceActiveFocus(Qt.MouseFocusReason)
+      if (mouse.y < rail.y - Style.space(2)) return
+      var centre = knob.x + knob.width / 2
+      // On the knob, keep the grab point; on the track, jump there.
+      core.grabOffset = Math.abs(mouse.x - centre) <= knob.width / 2 + Style.space(3) ? mouse.x - centre : 0
+      core.startDrag(valueAt(mouse.x))
+    }
+    onPositionChanged: function(mouse) { if (fader.dragging) core.setDraft(valueAt(mouse.x)) }
+    onReleased: core.endDrag()
+    onCanceled: core.endDrag()
+    onWheel: function(wheel) {
+      wheel.accepted = core.wheel(wheel.angleDelta.y !== 0 ? wheel.angleDelta.y : -wheel.angleDelta.x)
     }
   }
 }

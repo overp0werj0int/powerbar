@@ -6,14 +6,13 @@ import qs.Commons as Commons
 // The Behavior page (docs/behavior/preferences.md PREFS-131): how the bar
 // comes and goes, where on-demand widgets show, and its keyboard, as three
 // strips of rows on a desk (DeskPage). Every control is a row, so h/l go to
-// the same row of the next strip. While the Notch style draws, Readable over
-// windows and In a drawer give way (PREFS-96).
+// the same row of the next strip. While the Notch style draws, Readable
+// over windows and In a drawer give way (PREFS-96).
 DeskPage {
   id: behavior
   // Where the first start's notification and the keyboard mode's opener put
   // the cursor (KEYS-66, KEYS-84).
   readonly property Item keyboardRow: barKeysRow
-  rowsAcross: true
   pageLines: [
     {
       keys: "j k",

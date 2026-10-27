@@ -7,9 +7,9 @@ import "PreferencesModel.js" as Model
 // One strip on a desk (DeskPage; docs/behavior/preferences.md PREFS-125): a
 // Layout page tile (ZoneTile: its colour, 1 px edge, radius and 6 px slab
 // edge) with 12 px of padding, its title, a caption, then its controls 10 px
-// apart, a footnote and its faders side by side at the bottom. The camera's
-// beam falls over its surface where the camera's column crosses it,
-// continuing the shade the gaps show. The desk places it and gives every
+// apart, a footnote and its faders at the bottom, one under the other. The
+// camera's beam falls over its surface where the camera's column crosses
+// it, continuing the shade the gaps show. The desk places it and gives every
 // strip the tallest one's height. Its accent edge says the cursor is in it.
 ZoneTile {
   id: strip
@@ -17,9 +17,9 @@ ZoneTile {
   property string title: ""
   property string caption: ""
   property string footnote: ""
-  // The controls, top to bottom; the faders go along the bottom.
+  // The controls, top to bottom; the faders go at the bottom.
   default property alias content: body.data
-  property alias faders: faderRow.data
+  property alias faders: faderColumn.data
   // Set by the desk.
   property Item desk: null
   readonly property real padding: Style.space(12)
@@ -36,7 +36,7 @@ ZoneTile {
     for (var i = 0; i < kids.length; i++)
       if (kids[i].deskStops !== undefined && kids[i].visible && kids[i].enabled)
         list.push(kids[i]);
-    kids = faderRow.children;
+    kids = faderColumn.children;
     for (var j = 0; j < kids.length; j++)
       if (kids[j].deskStops !== undefined && kids[j].visible && kids[j].enabled)
         list.push(kids[j]);
@@ -129,18 +129,12 @@ ZoneTile {
       font.pixelSize: Style.font.caption
       wrapMode: Text.WordWrap
     }
-    // Side by side with even room around each.
-    Item {
+    // Flat, each the strip's inner width, one under the other.
+    ColumnLayout {
+      id: faderColumn
       Layout.fillWidth: true
-      visible: faderRow.count > 0
-      implicitHeight: faderRow.implicitHeight
-      Row {
-        id: faderRow
-        readonly property int count: children.length
-        readonly property real room: count ? Math.max(0, (parent.width - count * Style.space(60)) / count) : 0
-        x: room / 2
-        spacing: room
-      }
+      visible: children.length > 0
+      spacing: Style.space(10)
     }
   }
 }

@@ -3,8 +3,8 @@ import QtTest
 import "../../"
 
 // The Look page's fader: drafts stay in the window while it is worked and
-// reach the config (edited) once, after the gesture settles; j/k and the
-// pointer run along its height.
+// reach the config (edited) once, after the gesture settles; h/l and the
+// pointer run along its width, j/k are left to the desk.
 // Needs Omarchy's kit: -import <dir> where <dir>/qs/{Commons,Ui} link to the
 // shell's Commons and Ui folders.
 // The window's root is a plain Item: a TestCase root receives no mouse events.
@@ -22,6 +22,7 @@ Item {
     Fader {
       id: slider
       x: 40; y: 20
+      width: 240
       label: "Space between widgets"
       minimum: 0; maximum: 16; stepSize: 1
       defaultValue: 0
@@ -51,11 +52,11 @@ Item {
   function knobPoint(v) {
     var rail = findChild(slider, "faderTrack")
     verify(rail)
-    return rail.mapToItem(slider, rail.width / 2, rail.inset + slider.yFor(v))
+    return rail.mapToItem(slider, rail.inset + slider.xFor(v), rail.height / 2)
   }
 
   function test_keysDraftThenApplyOnce() {
-    keyClick(Qt.Key_K); keyClick(Qt.Key_K); keyClick(Qt.Key_K)
+    keyClick(Qt.Key_L); keyClick(Qt.Key_L); keyClick(Qt.Key_L)
     compare(slider.shown, 7)
     compare(slider.drafting, true)
     compare(testCase.edits.length, 0, "nothing reaches the bar while keys are moving")
@@ -66,21 +67,21 @@ Item {
     compare(testCase.drafts[testCase.drafts.length - 1], NaN)
   }
   function test_shiftStepsFiveAndClamps() {
-    keyClick(Qt.Key_K, Qt.ShiftModifier)
+    keyClick(Qt.Key_L, Qt.ShiftModifier)
     compare(slider.shown, 9)
-    keyClick(Qt.Key_K, Qt.ShiftModifier); keyClick(Qt.Key_K, Qt.ShiftModifier)
+    keyClick(Qt.Key_L, Qt.ShiftModifier); keyClick(Qt.Key_L, Qt.ShiftModifier)
     compare(slider.shown, 16)
     keyClick(Qt.Key_Home)
     compare(slider.shown, 0)
   }
   function test_enterAppliesAtOnce() {
-    keyClick(Qt.Key_Up)
+    keyClick(Qt.Key_Right)
     keyClick(Qt.Key_Return)
     compare(testCase.edits, [5])
     compare(slider.drafting, false)
   }
   function test_escapeUndoesDraftThenReachesPage() {
-    keyClick(Qt.Key_K)
+    keyClick(Qt.Key_L)
     keyClick(Qt.Key_Escape)
     compare(slider.drafting, false)
     compare(slider.shown, 4)
@@ -97,32 +98,32 @@ Item {
     compare(testCase.edits, [0])
   }
   function test_leavingAppliesImmediately() {
-    keyClick(Qt.Key_K)
+    keyClick(Qt.Key_L)
     elsewhere.forceActiveFocus()
     compare(testCase.edits, [5])
   }
   function test_hidingAppliesImmediately() {
-    keyClick(Qt.Key_K)
+    keyClick(Qt.Key_L)
     slider.visible = false
     compare(testCase.edits, [5])
     slider.visible = true
   }
   function test_disablingDropsTheDraft() {
-    keyClick(Qt.Key_K)
+    keyClick(Qt.Key_L)
     slider.enabled = false
     wait(600)
     compare(testCase.edits.length, 0)
     compare(slider.shown, 4)
   }
   function test_noEditWhenTheDraftReturnsHome() {
-    keyClick(Qt.Key_K); keyClick(Qt.Key_J)
+    keyClick(Qt.Key_L); keyClick(Qt.Key_H)
     tryCompare(slider, "drafting", false, 1200)
     compare(testCase.edits.length, 0)
   }
   function test_dragAppliesOnlyAfterRelease() {
     var from = knobPoint(4), to = knobPoint(12)
     mousePress(slider, from.x, from.y)
-    for (var i = 1; i <= 8; i++) mouseMove(slider, from.x, from.y + (to.y - from.y) * i / 8)
+    for (var i = 1; i <= 8; i++) mouseMove(slider, from.x + (to.x - from.x) * i / 8, from.y)
     compare(slider.shown, 12)
     wait(600)
     compare(testCase.edits.length, 0, "a held knob never applies")
@@ -133,9 +134,9 @@ Item {
   }
   function test_grabbingTheKnobOffCentreDoesNotJump() {
     var p = knobPoint(4)
-    mousePress(slider, p.x, p.y + 2)
+    mousePress(slider, p.x + 2, p.y)
     compare(slider.shown, 4)
-    mouseRelease(slider, p.x, p.y + 2)
+    mouseRelease(slider, p.x + 2, p.y)
     wait(300)
     compare(testCase.edits.length, 0)
   }
@@ -173,21 +174,37 @@ Item {
     tryCompare(slider, "drafting", false, 1200)
     compare(testCase.edits, [3])
   }
-  function test_sideKeysAreLeftToThePage() {
-    keyClick(Qt.Key_L)
-    keyClick(Qt.Key_H)
-    compare(slider.shown, 4, "h and l walk the desk, not the value")
+  function test_verticalKeysAreLeftToThePage() {
+    keyClick(Qt.Key_J)
+    keyClick(Qt.Key_K)
+    keyClick(Qt.Key_Down)
+    keyClick(Qt.Key_Up)
+    compare(slider.shown, 4, "j and k walk the desk, not the value")
+    compare(slider.drafting, false)
+  }
+  function test_leftAndRightStep() {
+    keyClick(Qt.Key_Left)
+    compare(slider.shown, 3)
+    keyClick(Qt.Key_H, Qt.ShiftModifier)
+    compare(slider.shown, 0)
+    keyClick(Qt.Key_End)
+    compare(slider.shown, 16)
+  }
+  function test_pressingTheNameLineOnlyFocuses() {
+    elsewhere.forceActiveFocus()
+    mouseClick(slider, slider.width - 4, 4)
+    verify(slider.activeFocus)
     compare(slider.drafting, false)
   }
   function test_valueOutsideRangeShowsClamped() {
     slider.value = 28
     compare(slider.shown, 16)
-    keyClick(Qt.Key_K)
+    keyClick(Qt.Key_L)
     compare(slider.drafting, false, "already at the top: nothing to apply")
   }
   function test_halfSteps() {
     slider.minimum = 0.5; slider.maximum = 3; slider.stepSize = 0.5; slider.value = 1
-    keyClick(Qt.Key_K)
+    keyClick(Qt.Key_L)
     compare(slider.shown, 1.5)
     compare(slider.format(slider.shown), "1.5 px")
     keyClick(Qt.Key_Return)
