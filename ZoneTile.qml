@@ -45,6 +45,12 @@ Item {
     property bool shaded: false
     property real shadeX: 0
     property real shadeWidth: width
+    // The shade past the column's sides (Tuning's shadeSpread, PREFS-24) on
+    // every tile it reaches, cut to the tile, as on the desks' strips: the
+    // column at beamX, beamWidth wide, in the tile's coordinates.
+    property bool spillShown: false
+    property real beamX: shadeX
+    property real beamWidth: shadeWidth
     property real seenTop: 0
     property real line: 0
     property real tilt: 34
@@ -97,6 +103,26 @@ Item {
         topRightRadius: cell.topRadius
         color: cell.dashed ? "transparent" : Qt.tint(Qt.rgba(Commons.Color.popups.background.r, Commons.Color.popups.background.g, Commons.Color.popups.background.b, 1), Qt.alpha(Commons.Color.popups.text, cell.lead ? 0.09 : 0.065))
         borderSpec: cell.dashed ? Border.none() : cell.borderSpec
+    }
+    Item {
+        id: spillClip
+        readonly property real reach: Tuning.values.shadeSpread * Style.space(1)
+        visible: cell.spillShown && !!cell.camera && reach > 0 && cell.beamX + cell.beamWidth + reach > 0 && cell.beamX - reach < cell.width
+        anchors.fill: parent
+        clip: true
+        BeamShade {
+            spill: 1
+            outer: spillClip.reach
+            colWidth: cell.beamWidth
+            tilt: cell.tilt
+            planeDistance: cell.planeDistance
+            lightTheme: cell.camera ? cell.camera.lightTheme : false
+            x: cell.beamX - spillClip.reach
+            width: cell.beamWidth + 2 * spillClip.reach
+            height: parent.height
+            vTop: Model.tiltedDepth(cell.seenTop - cell.line, cell.tilt, cell.planeDistance)
+            vBottom: Model.tiltedDepth(cell.seenTop + Model.tiltedHeight(cell.height, cell.tilt, cell.planeDistance) - cell.line, cell.tilt, cell.planeDistance)
+        }
     }
     // The torn cap's shade (and the tear, where it reaches the tile) over
     // its surface and under its rows, continuing what the gaps show.

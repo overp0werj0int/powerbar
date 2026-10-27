@@ -2211,6 +2211,9 @@ Item {
         raise: cursorHere ? editor.tileRaise : 0
         camera: editor.beamCamera
         shaded: capped
+        spillShown: editor.cameraShown
+        beamX: editor.column("center").x - x
+        beamWidth: editor.column("center").width
         line: editor.stackTop
         tilt: editor.tilt
         planeDistance: editor.planeDistance
@@ -2436,6 +2439,9 @@ Item {
         raise: cursorHere ? editor.tileRaise : 0
         camera: editor.beamCamera
         shaded: editor.cameraShown && modelData === "center"
+        spillShown: editor.cameraShown
+        beamX: editor.column("center").x - x
+        beamWidth: editor.column("center").width
         line: editor.stackTop
         tilt: editor.tilt
         planeDistance: editor.planeDistance

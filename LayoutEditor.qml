@@ -1512,6 +1512,9 @@ Item {
         shaded: (cell.shaft || cell.mode === "hidden") && editor.previewCamera && !!editor.previewNotch
         shadeX: cell.mode === "hidden" ? editor.column("center").x - editor.column("hidden").x : 0
         shadeWidth: cell.mode === "hidden" ? editor.column("center").width : cell.width
+        spillShown: !cell.trayCell && editor.previewCamera && !!editor.previewNotch
+        beamX: editor.column("center").x - cell.x
+        beamWidth: editor.column("center").width
         line: editor.stackTop
         tilt: editor.tilt
         planeDistance: editor.planeDistance
