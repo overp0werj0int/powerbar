@@ -12,7 +12,7 @@ var PARAMS = [
   { key: "grain", label: "Grain", unit: "‰", min: 5, max: 80, value: 25 },
   { key: "octaves", label: "Detail", unit: "octaves", min: 1, max: 5, value: 3 },
   { key: "seed", label: "Seed", unit: "", min: 1, max: 60, value: 7 },
-  { key: "fringeSeed", label: "Fringe seed", unit: "", min: 1, max: 60, value: 19 },
+  { key: "fringeSeed", label: "Fringe seed", unit: "", min: 1, max: 60, value: 7 },
   { key: "fringeWidth", label: "Fringe width", unit: "px", min: 0, max: 12, value: 2 },
   { key: "fringeStrength", label: "Fringe strength", unit: "%", min: 0, max: 100, value: 80 },
   { key: "shadeBlur", label: "Shade blur", unit: "px", min: 0, max: 60, value: 18 },

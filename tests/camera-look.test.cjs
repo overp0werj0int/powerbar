@@ -8,7 +8,7 @@ const plain = (v) => JSON.parse(JSON.stringify(v));
 
 // PREFS-24, PREFS-132: the torn cap's numbers, kept in the cache file.
 const DEFAULTS = {
-  gapAbove: 8, tearDepth: 14, grain: 25, octaves: 3, seed: 7, fringeSeed: 19,
+  gapAbove: 8, tearDepth: 14, grain: 25, octaves: 3, seed: 7, fringeSeed: 7,
   fringeWidth: 2, fringeStrength: 80, shadeBlur: 18, shadeDrop: 10, shadeStrength: 45, shadeSpread: 0,
 };
 

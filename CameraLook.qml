@@ -19,7 +19,7 @@ Singleton {
     property int grain: 25
     property int octaves: 3
     property int seed: 7
-    property int fringeSeed: 19
+    property int fringeSeed: 7
     property int fringeWidth: 2
     property int fringeStrength: 80
     property int shadeBlur: 18
