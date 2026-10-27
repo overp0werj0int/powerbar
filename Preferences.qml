@@ -22,6 +22,8 @@ Item {
     property var bar: null
     property bool opened: false
     property var targetScreen: null
+    // The page's sheet: the pages measure the camera's top from its edge.
+    readonly property Item sheet: card
     property int page: 0
     // Changes save as they are made, so the footer stays quiet unless one fails.
     property string status: ""
@@ -663,15 +665,15 @@ Item {
             left: true
             right: true
         }
-        // The page fills the screen but the bar's edge: the bar stays in view,
-        // so the Layout page's camera shaft starts at the real notch and the Look
-        // and Behavior pages' changes show on the bar itself.
-        readonly property real barInset: {
-            if (!prefs.bar)
-                return 0;
-            var notch = prefs.bar.notchFor(prefs.targetScreen);
-            return Math.max(prefs.bar.barExtent, notch ? notch.height + prefs.bar.edgeGap : 0);
-        }
+        // The window covers the screen but the bar: on the bar's edge it starts
+        // where a floating bar's border would end (its gap off the screen and
+        // its thickness, whatever the style now, which is never thicker), so
+        // the bar stays in view and changes show on it, and the page's top
+        // never moves with the style. The page is a sheet one gap inside the
+        // window on every side; a click on that margin lands on this window
+        // and does nothing, never on a window under it (PREFS-102).
+        readonly property real gap: prefs.bar ? prefs.bar.edgeGap : 0
+        readonly property real barInset: prefs.bar ? prefs.bar.floatingThicknessFor(prefs.targetScreen) + gap : 0
         margins {
             top: prefs.bar && prefs.bar.position === "top" ? barInset : 0
             bottom: prefs.bar && prefs.bar.position === "bottom" ? barInset : 0
@@ -684,9 +686,6 @@ Item {
         WlrLayershell.layer: WlrLayer.Overlay
         WlrLayershell.keyboardFocus: prefs.opened ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
 
-        // The page: the whole screen under the bar, no card. The header and
-        // footer keep the sheet's margin, so the Layout page's layers line up
-        // with them (PREFS-99).
         // Omarchy's controls on the pages (buttons, fields, a dropdown's rows)
         // draw Text of their own in Qt's default rendering, LCD-antialiased:
         // gray it as Preferences open, change page or move focus (a dropdown
@@ -719,9 +718,21 @@ Item {
             }
         }
 
+        // The margin round the page: clicks there do nothing.
+        MouseArea {
+            anchors.fill: parent
+        }
+        // The page: a sheet one gap inside the window, the popups background
+        // with the floating bar's rounding and border, no shadow. The header and
+        // footer keep the sheet's margin, so the Layout page's layers line up
+        // with them (PREFS-99).
         Rectangle {
             id: card
             anchors.fill: parent
+            anchors.margins: window.gap
+            radius: Style.cornerRadius
+            border.width: 1
+            border.color: Commons.Color.popups.border
             readonly property real inset: Math.round(Math.min(Style.space(66), width / 23))
             color: Qt.rgba(Commons.Color.popups.background.r, Commons.Color.popups.background.g, Commons.Color.popups.background.b, 1)
             focus: true

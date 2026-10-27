@@ -107,7 +107,7 @@ Item {
     // The screen's middle (the camera's axis) in the editor, measured: the
     // page may not be centred on it.
     property real axis: width / 2
-    // Where the page's top (the bar's edge) is, above the editor.
+    // Where the page's top edge is, above the editor.
     property real pageTop: 0
     function measureAxis() {
         var win = editor.Window.window;
@@ -115,7 +115,7 @@ Item {
             return;
         var x = mapFromItem(null, win.width / 2, 0).x;
         axis = Math.abs(x - width / 2) < width * 0.1 ? x : width / 2;
-        pageTop = -mapToItem(null, 0, 0).y;
+        pageTop = -mapToItem(preferences.sheet || null, 0, 0).y;
     }
     onWidthChanged: Qt.callLater(measureAxis)
     Component.onCompleted: Qt.callLater(measureAxis)

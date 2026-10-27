@@ -296,6 +296,13 @@ test('a floating bar grows only to keep a band of one gap under the camera', () 
   assert.equal(notch.wrapThickness(null, 26, 4), 26);
 });
 
+test("a floating bar's thickness, whatever the style, for Preferences' page (PREFS-102)", () => {
+  assert.equal(notch.floatingThickness(n14, 26, 4, false), 36, 'wraps the camera: its depth plus a gap');
+  assert.equal(notch.floatingThickness(n14, 38, 4, false), 38, 'a large bar is deeper than that already');
+  assert.equal(notch.floatingThickness(null, 26, 4, false), 26, 'no notch: its own size');
+  assert.equal(notch.floatingThickness(null, 30, 4, true), 30, 'a side bar: its own size');
+});
+
 test("outer top corners are concentric with the screen's, bottom ones keep the rounding", () => {
   assert.deepEqual(J(notch.outerCorners(n14, 4, 8, 38)), { top: 16, bottom: 8 });
   assert.deepEqual(J(notch.outerCorners(n14, 4, 8, 20)), { top: 12, bottom: 8 }, 'kept within the height left by the bottom');

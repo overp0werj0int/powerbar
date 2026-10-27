@@ -2062,9 +2062,17 @@ Item {
     for (var i = 0; i < screens.length; i++) {
       var notch = notchFor(screens[i])
       sizes[screens[i].name] = fitsNotch(notch) ? notch.height
-        : wrapsNotch(notch) ? NotchModel.wrapThickness(notch, barSize, edgeGap) : Math.max(barSize, notch ? notch.height : 0)
+        : wrapsNotch(notch) ? NotchModel.floatingThickness(notch, barSize, edgeGap, vertical) : Math.max(barSize, notch ? notch.height : 0)
     }
     return sizes
+  }
+  // What a floating bar would be on this screen whatever the style now (its
+  // size as the large bar option makes it, round the camera on a notched
+  // top edge): Preferences keep their page that far and two gaps off the
+  // bar's edge, so the page's top never moves with the style (PREFS-102).
+  function floatingThicknessFor(screen) {
+    var size = (vertical ? Style.bar.sizeVertical : Style.bar.sizeHorizontal) + (barOptions.largeBar ? largeBarLip * 2 : 0)
+    return NotchModel.floatingThickness(notchFor(screen), size, edgeGap, vertical)
   }
   // A flat top bar on a notched screen is exactly as tall as the camera, large
   // or small (layout-zones.md ZONE-90); other screens keep the bar's size.

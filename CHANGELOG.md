@@ -21,8 +21,10 @@
 - A raised zone tile takes its edge with it, so every tile's edge reads the same (PREFS-104); the Preferences focus ring is a hairline with 5 px of room, in the theme's shape (PREFS-108); the inspector's zone map is square on a square theme (PREFS-26).
 - In the Layout page's inspector, Tab and Shift+Tab walk its controls (Layer, Zone, Shortcut, Peeks on activity, Group) and wrap round inside it instead of leaving it, and the legend names each control's own keys; the Group dropdown opens above itself, in view, instead of below the window's edge; the Layer list's own j/k line is gone, the legend shows it (PREFS-26, PREFS-101).
 - The Layout page's Hidden layer is one slab in bar order instead of five near-empty zones: a hidden widget keeps its zone, which the inspector shows and Shift with h or l changes; h and l walk along the slab (and the tray's), j and k go by rows, x on a hidden widget brings it back (PREFS-107).
-- **The Layout page is an exploded view of the bar.** Preferences now fill
-  the screen under the bar. On the bar, On demand, Hidden and the tray are
+- **The Layout page is an exploded view of the bar.** Preferences are now
+  a page under the bar: a rounded sheet a small gap off the screen's edges
+  and off a floating bar's border, its top in the same place whatever the
+  bar's style. On the bar, On demand, Hidden and the tray are
   plates tilted back in perspective, each with its name, its five zones (Hidden
   and the tray as one slab each) as
   tiles of one width mirrored about the screen's middle (Center under the
