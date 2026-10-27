@@ -50,6 +50,7 @@ Item {
     case "dotsBadge": return b.dotsBadge
     case "keyLegend": return b.keyLegend
     case "frameLog": return b.frameLog
+    case "tuning": return b.barOptions.tuning
     case "notchWidth": return b.screenNotch ? b.screenNotch.width : b.barOptions.notchWidth || null
     case "notchHeight": return b.screenNotch ? b.screenNotch.height : b.barOptions.notchHeight || null
     case "revealSeconds": return b.managedRevealSeconds
