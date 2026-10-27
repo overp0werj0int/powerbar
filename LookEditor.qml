@@ -38,6 +38,14 @@ DeskPage {
     }
   ]
 
+  // For now: a pane tuning the camera's torn cap (PREFS-132), at the page's
+  // bottom right, off the desk's walk.
+  overlays: [
+    CameraTearPane {
+      desk: look
+    }
+  ]
+
   // A strip's Scope choice (PREFS-73) and the line under it.
   component ScopeChoice: DeskChoice {
     property string tile: ""

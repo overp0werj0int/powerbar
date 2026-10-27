@@ -48,3 +48,9 @@ test('what is written reads back the same', () => {
   assert.deepEqual(Object.keys(JSON.parse(text)), Object.keys(DEFAULTS));
   assert.deepEqual(plain(model.parse(model.serialize({ grain: 999 }))), { ...DEFAULTS, grain: 80 });
 });
+
+test('the pane sits at the bottom, then shrinks its gaps, then goes under the desk', () => {
+  assert.deepEqual(plain(model.panePlace(900, 400, 340, 300, 8, 12)), { y: 552, compact: false });
+  assert.deepEqual(plain(model.panePlace(700, 400, 340, 280, 8, 12)), { y: 412, compact: true });
+  assert.deepEqual(plain(model.panePlace(600, 400, 340, 280, 8, 12)), { y: 412, compact: true }, 'under the desk even past the bottom');
+});

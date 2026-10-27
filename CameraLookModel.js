@@ -61,4 +61,15 @@ function serialize(values) {
   return JSON.stringify(out, null, 1) + "\n"
 }
 
-if (typeof module !== "undefined") module.exports = { PARAMS, param, defaults, clamp, parse, serialize }
+// Where the pane goes on the Look page: its bottom `margin` above the page's
+// bottom while that keeps it `gap` under the desk; else with its gaps
+// shrunk (compactHeight); else just under the desk, at its right edge.
+function panePlace(pageHeight, deskBottom, height, compactHeight, margin, gap) {
+  var y = pageHeight - margin - height
+  if (y >= deskBottom + gap) return { y: y, compact: false }
+  y = pageHeight - margin - compactHeight
+  if (y >= deskBottom + gap) return { y: y, compact: true }
+  return { y: deskBottom + gap, compact: true }
+}
+
+if (typeof module !== "undefined") module.exports = { PARAMS, param, defaults, clamp, parse, serialize, panePlace }

@@ -33,6 +33,9 @@ Item {
   // The page's own legend lines (PREFS-131).
   property var pageLines: []
   default property alias strips: plateFace.data
+  // Items on the page beside the desk, not on its plate and not in its walk
+  // (the Look page's temporary camera pane, PREFS-132).
+  property alias overlays: overlayLayer.data
   // The keys are a legend on the page (PREFS-103), so the footer hides; the
   // strips draw the cursor, so Preferences' focus ring stays away.
   readonly property var hints: []
@@ -114,6 +117,9 @@ Item {
   readonly property real beamLeft: shaft.axis - shaft.half - plate.x
   readonly property real beamWidth: 2 * shaft.half
   readonly property real seenTop: plate.y
+  // Where the plate's near edge is seen, its slab edge under it.
+  readonly property real seenBottom: plate.y + Model.tiltedHeight(stripHeight, tilt, planeDistance) + Style.space(6)
+  readonly property real seenRight: layout.axis + Model.tiltedSpread(plateX + plateWidth - layout.axis, Model.tiltedHeight(stripHeight, tilt, planeDistance), tilt, planeDistance)
   readonly property real line: shaft.line
 
   // ------------------------------------------------------------ the plate
@@ -133,6 +139,12 @@ Item {
       planeDistance: desk.planeDistance
       animate: desk.animate
     }
+  }
+
+  Item {
+    id: overlayLayer
+    anchors.fill: parent
+    z: 3
   }
 
   // ------------------------------------------------------------- the walk
