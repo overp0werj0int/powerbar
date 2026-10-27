@@ -570,8 +570,6 @@ Item {
             return;
         event.accepted = true;
     }
-    onPointerLiftChanged: if (!pointerLift)
-        autoScroll.target = null
 
     // ------------------------------------------------------------ geometry
     // The Layout page's: the same axis, columns, camera, tilt and tiles, so
@@ -1288,22 +1286,76 @@ Item {
     }
 
     // ------------------------------------------------------- the dragged copy
+    // The lifted chip or face, flat over the plates: under the pointer while
+    // it drags, over the landing place during a keyboard lift (PREFS-122).
+    // Over a "+" it rides a row higher, so the "+"'s highlight stays in sight.
+    property point keyLanding: Qt.point(0, 0)
+    property bool keyLandingShown: false
+    // The centre of the landing place in the editor: the placeholder in a
+    // drawer or the pool, the face a widget goes into, the "+" (a new group),
+    // or for a face the "+" of the zone it goes to (it lands at the end).
+    function landingItem() {
+        var t = liftTarget;
+        if (!lifted || !t)
+            return null;
+        if (liftingFace || t.area === "plus") {
+            var tile = faceTiles.of(t.zone);
+            return tile ? tile.plus : null;
+        }
+        var win = t.area === "drawer" ? drawerFor(t.id) : t.area === "pool" ? poolCell : t.area === "face" ? faceTiles.of(slots[t.id] ? slots[t.id].zone : "") : null;
+        if (!win || !win.tiles)
+            return null;
+        for (var i = 0; i < win.tiles.count; i++) {
+            var item = win.tiles.itemAt(i);
+            if (item && (t.area === "face" ? item.groupId === t.id : item.placeholder))
+                return item;
+        }
+        return null;
+    }
+    function updateKeyLanding() {
+        var item = !pointerLift ? landingItem() : null;
+        if (!item) {
+            keyLandingShown = false;
+            return;
+        }
+        keyLanding = item.mapToItem(editor, item.width / 2, item.height / 2);
+        keyLandingShown = true;
+    }
+    onLiftTargetChanged: { Qt.callLater(updateKeyLanding); keyLandingSettle.restart(); }
+    onLiftedChanged: Qt.callLater(updateKeyLanding)
+    onPointerLiftChanged: {
+        if (!pointerLift)
+            autoScroll.target = null;
+        Qt.callLater(updateKeyLanding);
+    }
+    // Again once the rows have moved aside for the landing place.
+    Timer {
+        id: keyLandingSettle
+        interval: 160
+        onTriggered: editor.updateKeyLanding()
+    }
+    readonly property bool copyShown: !!lifted && (pointerLift || keyLandingShown)
+    readonly property point copyAt: {
+        var p = pointerLift ? pointer : keyLanding;
+        var overPlus = !!liftTarget && (liftTarget.area === "plus" || liftingFace && !pointerLift);
+        return Qt.point(p.x, p.y - (overPlus ? chipHeight + chipGap : pointerLift ? 0 : Style.space(4)));
+    }
     Chip {
-        visible: editor.pointerLift && !!editor.lifted && !editor.liftingFace
+        visible: editor.copyShown && !editor.liftingFace
         record: editor.lifted && editor.lifted.record || ({})
         ghost: true
         width: editor.chipWidth
-        x: editor.pointer.x - width / 2
-        y: editor.pointer.y - height / 2
+        x: editor.copyAt.x - width / 2
+        y: editor.copyAt.y - height / 2
         z: 100
     }
     FaceLook {
-        visible: editor.pointerLift && editor.liftingFace
+        visible: editor.copyShown && editor.liftingFace
         group: editor.liftingFace ? editor.groupOf(editor.lifted.face) : null
         ghost: true
         width: editor.chipWidth
-        x: editor.pointer.x - width / 2
-        y: editor.pointer.y - height / 2
+        x: editor.copyAt.x - width / 2
+        y: editor.copyAt.y - height / 2
         z: 100
     }
 
