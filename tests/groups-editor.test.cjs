@@ -247,3 +247,14 @@ test('a lifted widget never walks into a closed drawer, it lands on the face', (
   assert.deepEqual(plain(m.stepLift(s, { area: 'pool' }, 0, -1, 'c')), { area: 'drawer', id: 'ai', pos: 3 }, 'a closed home gives way to the chosen drawer');
   assert.deepEqual(plain(m.dropAction({ key: 'k', group: 'ai' }, { area: 'face', id: 'b' })), { op: 'assign', key: 'k', id: 'b', before: '' });
 });
+
+test('zoneMove: a face carried away and back finds its place while the anchor is there', () => {
+  const layout = { left: [{ powerbarInstance: 'a' }, { powerbarInstance: 'b' }], right: [{ powerbarInstance: 'c' }] };
+  const out = m.zoneMove({}, { id: 'g', section: 'left', before: 'b' }, 'right', layout);
+  assert.deepEqual({ ...out.patch }, { section: 'right', before: '' }, 'a new zone: its end');
+  const back = m.zoneMove(out.memory, { id: 'g', section: 'right', before: '' }, 'left', layout);
+  assert.deepEqual({ ...back.patch }, { section: 'left', before: 'b' }, 'back: before b again');
+  const gone = m.zoneMove(out.memory, { id: 'g', section: 'right', before: '' }, 'left', { left: [{ powerbarInstance: 'a' }] });
+  assert.equal(gone.patch.before, '', 'the anchor left: the zone end');
+  assert.equal(m.zoneMove(out.memory, { id: 'h', section: 'right', before: 'c' }, 'left', layout).patch.before, '', 'memory is per group');
+});

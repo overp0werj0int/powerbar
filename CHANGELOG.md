@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Groups page: a group moved to another zone and back (Shift+h/l, or the inspector's Zone) returns to the place it had there, instead of the zone's end (PREFS-117).
 - Layout page: moving a widget past a group at its zone's end (Everything past the AI group) now works; it did nothing when the widget was the zone's last (PREFS-27).
 - Omapop's mark shows on the bar, in drawers and in menu rows; it drew nothing (on Omarchy's own bar too), because its icon fills a loader the kit leaves without a size. Powerbar now gives such icons the icon canvas (INTEG-156).
 - Drawers and menus over windows keep a minimum opacity: Look > Surface has a new "Over windows" fader (default 65 %), so with a clear or see-through bar the surfaces Powerbar draws beyond it (drawers, the menu and its submenus, the key legend and search, tooltips) stay at least that opaque. The bar itself is unchanged; 0 draws them as the bar, as before. Also `surface.overWindows` on the command line and `over-windows` in a theme's `powerbar.toml` (LOOK-150).

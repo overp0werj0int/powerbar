@@ -330,6 +330,23 @@ function nextZone(zones, zone, dx) {
   return n >= 0 && n < zones.length ? zones[n] : ""
 }
 
+// A face carried to another zone (Shift with h or l, the inspector's Zone):
+// a new zone clears a group's anchor (`before`), so the place it had in each
+// zone it leaves is remembered, and coming back to a zone finds that place
+// again while its anchor is still in that zone, else the zone's end.
+// Returns { patch, memory }: the Groups.edit patch and the memory to keep
+// ({ groupId: { zone: before } }, for the session).
+function zoneMove(memory, group, zone, layout) {
+  var kept = Object.assign({}, memory || {})
+  var mine = Object.assign({}, kept[group.id] || {})
+  if (group.section) mine[group.section] = String(group.before || "")
+  kept[group.id] = mine
+  var before = mine[zone] || ""
+  var list = layout && Array.isArray(layout[zone]) ? layout[zone] : []
+  if (before && !list.some(function(e) { return e && e.powerbarInstance === before })) before = ""
+  return { patch: { section: zone, before: before }, memory: kept }
+}
+
 // The pool: the widgets in no group, filtered by `query` (a part of the
 // title or the id, any case), in bar order zone by zone. grouped(key) tells
 // a member; title(record) its name.

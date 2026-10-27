@@ -291,6 +291,16 @@ Item {
                 Groups.edit(config, id, patch);
             });
     }
+    // A face to another zone, back at the place it had there this session
+    // while its anchor is still there (Editor.zoneMove).
+    property var zonePlaces: ({})
+    function moveToZone(group, zone) {
+        if (!group || group.section === zone)
+            return;
+        var moved = Editor.zoneMove(zonePlaces, group, zone, preferences.config && preferences.config.layout || ({}));
+        zonePlaces = moved.memory;
+        edit(group.id, moved.patch);
+    }
     // A new group in a zone (PREFS-38), with a widget as its first member.
     function createIn(zone, key) {
         var id = "g-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 7);
@@ -472,9 +482,7 @@ Item {
             if (dx) {
                 var zone = Editor.nextZone(zones, group.section, dx);
                 if (zone)
-                    edit(id, {
-                        section: zone
-                    });
+                    moveToZone(group, zone);
             } else {
                 var v = Editor.nextVisibility(group.visibility, dy);
                 if (v)
@@ -1752,9 +1760,9 @@ Item {
                         }
                         value: inspector.group ? inspector.group.section : ""
                         onChosen: function (value) {
-                            editor.edit(editor.selectedId, {
-                                section: value
-                            });
+                            var group = editor.groupOf(editor.selectedId);
+                            if (group)
+                                editor.moveToZone(group, value);
                         }
                     }
                     Text {
