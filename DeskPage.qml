@@ -113,25 +113,37 @@ Item {
   // The camera's column in the plate, and where the plate's top is seen.
   readonly property real beamLeft: shaft.axis - shaft.half - plate.x
   readonly property real beamWidth: 2 * shaft.half
-  readonly property real seenTop: plate.y
+  readonly property real seenTop: smoothing.y + plate.y
   readonly property real line: shaft.line
 
   // ------------------------------------------------------------ the plate
+  // The tilted plate draws through one multisampled layer (4 samples): the
+  // tilt turns every edge on it, the kit's controls' too, and only samples
+  // taken after the turn smooth them all. The layer is the page's width (the
+  // near edge is seen wider than the plate) and the seen plate's height with
+  // room for its slab edges; flat, there is no layer.
   Item {
-    id: plate
-    x: desk.plateX
+    id: smoothing
     y: desk.layout.stackTop
-    width: desk.plateWidth
-    height: desk.stripHeight
+    width: desk.width
+    height: Math.ceil(Model.tiltedHeight(desk.stripHeight, desk.tilt, desk.planeDistance)) + Style.space(24)
     z: 2
-    LayerPlate {
-      id: plateFace
-      width: plate.width
-      height: plate.height
-      axisX: desk.layout.axis - plate.x
-      tilt: desk.tilt
-      planeDistance: desk.planeDistance
-      animate: desk.animate
+    layer.enabled: desk.tilt !== 0
+    layer.samples: 4
+    Item {
+      id: plate
+      x: desk.plateX
+      width: desk.plateWidth
+      height: desk.stripHeight
+      LayerPlate {
+        id: plateFace
+        width: plate.width
+        height: plate.height
+        axisX: desk.layout.axis - plate.x
+        tilt: desk.tilt
+        planeDistance: desk.planeDistance
+        animate: desk.animate
+      }
     }
   }
 

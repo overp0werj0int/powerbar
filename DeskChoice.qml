@@ -75,8 +75,6 @@ RowLayout {
       text: modelData.label
       selected: index === choice.chosenIndex
       bordered: true
-      // Under the plate's tilt a square chip steps without it.
-      antialiasing: true
       foreground: Commons.Color.popups.text
       background: "transparent"
       fontSize: Style.font.caption

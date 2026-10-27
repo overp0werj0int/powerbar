@@ -120,8 +120,6 @@ BorderSurface {
   Layout.fillWidth: true
   implicitHeight: Math.max(Style.spacing.controlHeight + Style.space(8), labelColumn.implicitHeight + 2 * Style.space(6))
   radius: Math.max(0, Style.cornerRadius - Math.round(Style.spacing.rowPaddingX / 2))
-  // On a desk it lies under the plate's tilt, where a square edge steps.
-  antialiasing: true
   color: phase !== "idle" ? Qt.alpha(Commons.Color.accent, 0.1)
     : cursor ? Style.selectedFillFor(Commons.Color.popups.text, Commons.Color.accent)
     : rowMouse.containsMouse && usable ? Style.hoverFillFor(Commons.Color.popups.text, Commons.Color.accent) : "transparent"
@@ -220,7 +218,6 @@ BorderSurface {
       visible: row.phase === "confirm"
       text: "Take over"
       focusable: false
-      antialiasing: true
       foreground: Commons.Color.popups.text
       onClicked: row.confirm()
     }

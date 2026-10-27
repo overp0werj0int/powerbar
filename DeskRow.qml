@@ -10,9 +10,7 @@ import qs.Ui
 // a 14 px ring before the label, filled in the accent when chosen, a 6 px dot
 // in it (the same parity, so it sits on the ring's centre pixel). Space,
 // Enter or a click toggles the switch or chooses the row. With the cursor it
-// takes the chosen fill and the accent ring. Everything it draws is
-// antialiased, the kit's switch too: under the plate's tilt a rectangle
-// without it steps.
+// takes the chosen fill and the accent ring.
 BorderSurface {
   id: row
   property string label: ""
@@ -23,10 +21,6 @@ BorderSurface {
   // does not say it (a Look pick row's "Choose it").
   property string spaceHint: ""
   signal activated()
-  function smoothEdges(item) {
-    if (item.antialiasing !== undefined) item.antialiasing = true
-    for (var i = 0; i < item.children.length; i++) smoothEdges(item.children[i])
-  }
 
   // On a desk (DeskPage): one stop that draws its own cursor.
   readonly property int deskStops: 1
@@ -43,7 +37,6 @@ BorderSurface {
   Layout.rightMargin: -Style.space(8)
   implicitHeight: content.implicitHeight + 2 * Style.space(6)
   radius: Math.max(0, Math.min(Style.space(8), Style.cornerRadius))
-  antialiasing: true
   activeFocusOnTab: false
   opacity: enabled ? 1 : 0.45
   color: activeFocus ? Style.selectedFillFor(Commons.Color.popups.text, Commons.Color.accent)
@@ -116,16 +109,11 @@ BorderSurface {
       }
     }
     ToggleSwitch {
-      id: toggle
       visible: !row.pick
       Layout.alignment: Qt.AlignTop
       checked: row.checked
       interactive: false
       foreground: Commons.Color.popups.text
-      // The kit's track, knob and ring are plain rectangles: antialias them
-      // from here, as the desk's own are (a layer per switch would cost a
-      // texture each and blur the knob).
-      Component.onCompleted: row.smoothEdges(toggle)
     }
   }
   MouseArea {

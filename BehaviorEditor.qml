@@ -43,7 +43,6 @@ DeskPage {
   component Hairline: Rectangle {
     Layout.fillWidth: true
     implicitHeight: 1
-    antialiasing: true
     color: Qt.alpha(Commons.Color.popups.text, 0.12)
   }
   // A shortcut row as a desk control: one stop, its cursor in the desk's look.
