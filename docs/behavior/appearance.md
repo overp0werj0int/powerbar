@@ -350,6 +350,7 @@ Storage: the look lives in `bar.powerbarAppearance` of shell.json: `all` (values
 - **LOOK-126** `^powerbar-clear$` is for surfaces that must not blur (rule `blur = false`). Code: Bar.qml.
 
 - **LOOK-127** A blur change remaps the bar window (LOOK-2). The surface is gone for that moment, and Hyprland gives the pointer to what lies under it (Omarchy's background, whose double click opens the wallpaper selector) and keeps it there until the pointer moves, so a window the pointer is on keeps its surface until the pointer leaves it, then remaps (on the other screens at once); a change undone before then needs no remap. A double click that steps the background to or from glassy (LOOK-133) is followed at once by the next one on the bar, never by the wallpaper selector; the blur shows once the pointer is off the bar. Code: Bar.qml blurRemapPending, blurRemapWhenFree(), mappedBlur, blurRemap.
+- **LOOK-151** A screen that moves within the layout (a monitor unplugged or rearranged, so another one shifts) leaves the bar's surface at its old place until it is unmapped and mapped again, as Omarchy's ScreenMoveRemap does. The remap waits 200 ms for the positions to settle, then, as LOOK-127, until the pointer is off that bar window (other screens at once), so the unmap never hands a still pointer to Omarchy's background and its wallpaper selector; the layout stays frozen through it. Code: Bar.qml remapGuard, screenSettle, windowHover.
 
 ---
 

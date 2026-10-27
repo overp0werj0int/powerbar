@@ -4042,13 +4042,13 @@ Item {
     Timer { id: layoutThaw; interval: 250; onTriggered: if (!barWindow.remapping) barWindow.layoutFrozen = false }
     // A screen move that settles without a remap still thaws.
     Timer { id: layoutThawFallback; interval: 2000; onTriggered: if (!barWindow.remapping) barWindow.layoutFrozen = false }
-    // Omarchy's remap guard waits 200 ms after the screen moves before it
-    // hides the window; freeze on the move itself.
+    // The remap guard waits 200 ms after the screen moves (and for the
+    // pointer to leave) before it hides the window; freeze on the move itself.
     Connections {
       target: barWindow.screen
       ignoreUnknownSignals: true
-      function onXChanged() { barWindow.freezeLayout() }
-      function onYChanged() { barWindow.freezeLayout() }
+      function onXChanged() { barWindow.freezeLayout(); screenSettle.restart() }
+      function onYChanged() { barWindow.freezeLayout(); screenSettle.restart() }
     }
     // On the notch, windows stop under the camera even while the bar hides.
     exclusionMode: root.barHidden && !notchLook ? ExclusionMode.Ignore : ExclusionMode.Normal
@@ -4244,10 +4244,26 @@ Item {
     readonly property bool sliding: notchLook ? (zoneOut("left") && leftShift > 0.5) || (zoneOut("right") && rightShift > 0.5)
       : autoHideOffset > 0.5
 
-    ScreenMoveRemap {
+    // Omarchy's ScreenMoveRemap, waiting as the blur remap does: when the
+    // screen moves within the layout, Hyprland leaves the mapped surface at
+    // its old place until it is unmapped and mapped again. Positions settle
+    // for 200 ms, then the remap waits until the pointer is off the bar
+    // (LOOK-151): the unmap hands a still pointer to Omarchy's background,
+    // whose double click opens the wallpaper selector.
+    QtObject {
       id: remapGuard
-      window: barWindow
+      property bool remapping: false
+      property bool pending: false
+      function whenFree() {
+        if (!pending || windowHover.hovered) return
+        pending = false
+        barWindow.freezeLayout()
+        remapping = true
+      }
     }
+    Timer { id: screenSettle; interval: 200; onTriggered: { remapGuard.pending = true; remapGuard.whenFree() } }
+    // Unmapped for a beat, so the compositor sees the unmap before the map.
+    Timer { interval: 50; running: remapGuard.remapping; onTriggered: remapGuard.remapping = false }
     // Omarchy's glassy background blurs too.
     readonly property bool blurEnabled: !root.notchMode && (root.surfaceEffects.blur || root.glassy)
     // A remap unmaps the surface, and Hyprland gives the pointer to what lies
@@ -4271,7 +4287,7 @@ Item {
     }
     Connections {
       target: windowHover
-      function onHoveredChanged() { barWindow.blurRemapWhenFree() }
+      function onHoveredChanged() { barWindow.blurRemapWhenFree(); remapGuard.whenFree() }
     }
     // The layer-shell namespace is fixed at map time. Remap only for an
     // explicit blur preference change, never for drawer transitions.
