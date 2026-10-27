@@ -152,6 +152,16 @@ test("a kit button's text that leads with an icon splits into the icon and the r
   assert.equal(m.iconLead('100% \u{f0079}'), null, 'a value that ends in an icon');
   assert.equal(m.iconLead('\u{f0238} 1\n2'), null, 'several lines');
   assert.equal(m.iconLead(''), null);
+  assert.equal(m.countText(['3']), '3', "omabox's box count");
+  assert.equal(m.countText([' 12 ', 'omabox']), '12', 'the one number among texts');
+  assert.equal(m.countText(['99+']), '99+');
+  assert.equal(m.countText(['1234']), '', 'too long for a count');
+  assert.equal(m.countText(['3', '4']), '', 'two counts: neither');
+  assert.equal(m.countText(['3 new', '']), '', 'not a bare number');
+  assert.equal(m.countText([]), '');
+  assert.equal(m.countText(undefined), '');
+  assert.equal(m.countIconShift(48 / 2 + 8 + 4, 4, 16, 48), 0, 'icon centred alone, count after it');
+  assert.equal(m.countIconShift(48 / 2 + 8 - 6 + 4, 4, 16, 48), -6, 'icon and count centred together');
 });
 
 test('a menu row: text widgets show a value at its end; the widest row sets the width', () => {

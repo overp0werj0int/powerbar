@@ -178,13 +178,34 @@ Item {
   // A kit button whose text leads with an icon (Crash Desk's "󰈸 14") is split
   // in a row: its icon in the icon cell, the rest as the value, both drawn by
   // the row from the button's own text and colour (ManagedModel.iconLead).
+  // A kit icon button that draws a count beside its icon as a child of its
+  // own (omabox's mark and "3", ManagedModel.countText) keeps its own face,
+  // cut to the icon cell (`native`), and the row draws the count as its
+  // value; iconShift is how far its icon sits left of its measured ink.
   function menuSplit(slot) {
     if (!menuIcons || !slot || rowGroup(slot)) return null
     var targets = slot.slotTargets || []
     var button = targets.length === 1 ? targets[0] : null
     if (!button || typeof button.isIconGlyph !== "function" || !button.visible) return null
     var lead = Model.iconLead(button.text)
-    return lead ? { icon: lead.icon, rest: lead.rest, button: button } : null
+    if (lead) return { icon: lead.icon, rest: lead.rest, button: button, native: false, iconShift: 0 }
+    if (!button.iconComponent && !button.isIconGlyph(button.text)) return null
+    var texts = [], items = []
+    var kids = button.children || []
+    for (var i = 0; i < kids.length; i++) {
+      var k = kids[i]
+      if (!k || !k.visible || k.opacity <= 0 || !("paintedWidth" in k) || typeof k.text !== "string") continue
+      texts.push(k.text)
+      items.push(k)
+    }
+    var count = Model.countText(texts)
+    if (count === "") return null
+    var counter = items[texts.map(function(t) { return t.trim() }).indexOf(count)]
+    var ink = menuInk(slot)
+    // Where the count starts in the widget: its face is cut there.
+    var countLeft = counter.x + (slot.presentationItem ? button.mapToItem(slot.presentationItem, 0, 0).x : 0)
+    return { icon: "", rest: count, button: button, native: true, countLeft: countLeft,
+      iconShift: Model.countIconShift(counter.x, Style.space(4), ink.length, button.width) }
   }
   FontMetrics {
     id: splitMetrics
@@ -814,7 +835,21 @@ Item {
                 readonly property bool rowHovered: memberHover.hovered
                 // A split row draws its widget's icon and value itself (menuSplit).
                 readonly property var split: drawer.namedMenu && modelData ? drawer.menuSplit(modelData) : null
-                readonly property bool showNative: drawer.memberDisplay !== "name" && !opensSubmenu && !split
+                readonly property bool showNative: drawer.memberDisplay !== "name" && !opensSubmenu && (!split || split.native)
+                // A counted icon's own face, cut to the icon cell (menuSplit).
+                readonly property Item nativeParent: split && split.native ? iconClip : mount
+                readonly property real nativeX: contentOffsetX - (nativeParent === iconClip ? iconClip.x : 0)
+                readonly property real nativeY: contentOffsetY - (nativeParent === iconClip ? iconClip.y : 0)
+                Item {
+                  id: iconClip
+                  x: mount.animatedInsetX
+                  y: mount.animatedInsetY
+                  // To the cell's end, or where the count starts if sooner.
+                  width: !mount.split || !mount.split.native ? drawer.tokens.cell
+                    : Math.max(0, Math.min(drawer.tokens.cell, mount.contentOffsetX + mount.split.countLeft - x))
+                  height: mount.baseHeight
+                  clip: true
+                }
                 readonly property var place: modelData ? modelData.cellPlace : null
                 // Strip slots report their spill so the strip's ends follow the island rule.
                 readonly property real cellSpill: drawer.namedMenu || !place ? 0 : place.spill
@@ -833,7 +868,7 @@ Item {
                 // Where the widget's own box sits: its ink centred in its cell (strips),
                 // its glyph centred in the icon cell or its value right-aligned (menus).
                 readonly property real contentOffsetX: animatedInsetX + (!modelData ? 0
-                  : drawer.namedMenu ? (rowIcon ? drawer.tokens.cell / 2 - (rowInk.start + rowInk.length / 2)
+                  : drawer.namedMenu ? (rowIcon ? drawer.tokens.cell / 2 - (rowInk.start + rowInk.length / 2) - (split ? split.iconShift : 0)
                     : valueWidth > 0 ? drawer.menuRowWidth - drawer.tokens.air - (rowInk.start + rowInk.length) : 0)
                   : bar.vertical ? modelData.crossShift : modelData.inkShift)
                 readonly property real contentOffsetY: animatedInsetY + (!modelData ? 0
@@ -959,21 +994,24 @@ Item {
                 // A split row's icon, in the icon cell, and its value at the end,
                 // in the button's own font and colour.
                 Repeater {
-                  model: mount.split ? [mount.split.icon, mount.split.rest] : []
+                  model: !mount.split ? [] : mount.split.native ? [mount.split.rest] : [mount.split.icon, mount.split.rest]
                   Text {
                     required property string modelData
                     required property int index
+                    // 0 the icon, 1 the value.
+                    readonly property int part: mount.split && mount.split.native ? 1 : index
                     readonly property var button: mount.split ? mount.split.button : null
                     textFormat: Text.PlainText
                     text: modelData
                     color: !button ? label.color : button.active && button.useActiveColor ? button.activeColor : button.foreground
-                    opacity: button && button.dimmed ? 0.45 : 1
+                    // The button's own fade: dimmed, or a widget's own (omabox with no boxes).
+                    opacity: button ? button.opacity : 1
                     font.family: button ? button.fontFamily : drawer.bar.fontFamily
                     font.pixelSize: button ? button.fontSize : Style.font.body
                     renderType: Text.NativeRendering
-                    width: index === 1 ? Math.min(implicitWidth, CellModel.MAX_INK) : implicitWidth
+                    width: part === 1 ? Math.min(implicitWidth, CellModel.MAX_INK) : implicitWidth
                     elide: Text.ElideRight
-                    x: mount.animatedInsetX + (index === 0 ? (drawer.tokens.cell - width) / 2
+                    x: mount.animatedInsetX + (part === 0 ? (drawer.tokens.cell - width) / 2
                       : drawer.menuRowWidth - drawer.tokens.air - width)
                     y: (mount.baseHeight - height) / 2 + mount.animatedInsetY
                   }

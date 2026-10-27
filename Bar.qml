@@ -6538,7 +6538,8 @@ Item {
     Item {
       id: presentation
       property var powerbarSlotOwner: slot
-      parent: slot.drawerHost || slot
+      // A menu row may hold it in a clip of its own (ManagedDrawer nativeParent).
+      parent: slot.drawerHost ? slot.drawerHost.nativeParent || slot.drawerHost : slot
       // A widget off the bar (yielded to a moment, folded, waiting behind its
       // dots) keeps its box where the bar used to put it, and Qt still hovers
       // disabled and transparent items: it would take the pointer from
@@ -6546,8 +6547,8 @@ Item {
       // Once faded out it is parked far away. Not hidden: a widget's
       // visibility can change its own size, which the zone fit reads.
       readonly property bool parked: !slot.drawerHost && !slot.mainVisible && opacity === 0
-      x: parked ? -100000 : slot.drawerHost ? slot.drawerHost.contentOffsetX : slot.animatedInsetX + (root.vertical ? slot.crossShift : slot.inkShift)
-      y: slot.drawerHost ? slot.drawerHost.contentOffsetY : slot.animatedInsetY + (root.vertical ? slot.inkShift : slot.crossCentre)
+      x: parked ? -100000 : slot.drawerHost ? slot.drawerHost.nativeX : slot.animatedInsetX + (root.vertical ? slot.crossShift : slot.inkShift)
+      y: slot.drawerHost ? slot.drawerHost.nativeY : slot.animatedInsetY + (root.vertical ? slot.inkShift : slot.crossCentre)
       width: slot.naturalWidth
       height: slot.naturalHeight
       opacity: slot.drawerHost ? (slot.drawerHost.showNative === false ? 0 : 1) : slot.mainVisible && !slot.preview.hidden && !slot.settleHidden ? 1 : 0
