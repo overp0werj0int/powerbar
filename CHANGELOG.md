@@ -24,7 +24,8 @@
 - **The Layout page is an exploded view of the bar.** Preferences are now
   a page under the bar: a rounded sheet a small gap off the screen's edges
   and off a floating bar's border, its top in the same place whatever the
-  bar's style. On the bar, On demand, Hidden and the tray are
+  bar's style but one (the Notch style on a screen without a camera, a
+  taller bar, moves it down to keep the same gap). On the bar, On demand, Hidden and the tray are
   plates tilted back in perspective, each with its name, its five zones (Hidden
   and the tray as one slab each) as
   tiles of one width mirrored about the screen's middle (Center under the

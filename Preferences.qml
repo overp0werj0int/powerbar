@@ -673,7 +673,15 @@ Item {
         // window on every side; a click on that margin lands on this window
         // and does nothing, never on a window under it (PREFS-102).
         readonly property real gap: prefs.bar ? prefs.bar.edgeGap : 0
-        readonly property real barInset: prefs.bar ? prefs.bar.floatingThicknessFor(prefs.targetScreen) + gap : 0
+        // A bar thicker than the floating one (the Notch style on a screen
+        // without a camera) pushes the page down by what it takes more.
+        readonly property real barInset: {
+            if (!prefs.bar)
+                return 0;
+            var screen = prefs.targetScreen;
+            var now = screen ? prefs.bar.screenExtents[screen.name] || 0 : 0;
+            return Math.max(prefs.bar.floatingThicknessFor(screen) + gap, now - gap);
+        }
         margins {
             top: prefs.bar && prefs.bar.position === "top" ? barInset : 0
             bottom: prefs.bar && prefs.bar.position === "bottom" ? barInset : 0

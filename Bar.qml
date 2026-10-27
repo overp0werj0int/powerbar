@@ -2070,6 +2070,16 @@ Item {
   // size as the large bar option makes it, round the camera on a notched
   // top edge): Preferences keep their page that far and two gaps off the
   // bar's edge, so the page's top never moves with the style (PREFS-102).
+  // Each screen's bar window thickness now, by screen name, gaps included:
+  // Preferences keep their page clear of a bar thicker than the floating one
+  // (the Notch style's on a screen without a camera).
+  property var screenExtents: ({})
+  function noteExtent(name, extent) {
+    if (!name || screenExtents[name] === extent) return
+    var next = Object.assign({}, screenExtents)
+    next[name] = extent
+    screenExtents = next
+  }
   function floatingThicknessFor(screen) {
     var size = (vertical ? Style.bar.sizeVertical : Style.bar.sizeHorizontal) + (barOptions.largeBar ? largeBarLip * 2 : 0)
     return NotchModel.floatingThickness(notchFor(screen), size, edgeGap, vertical)
@@ -3952,7 +3962,8 @@ Item {
     // Center's widgets change ears with it (ZONE-96).
     readonly property string centerSide: root.barOptions.centerSide
     onCenterSideChanged: if (notchLook) reconcileWidgets()
-    Component.onCompleted: { reconcileWidgets(); syncStrip(true); if (!notchPending) notchWaitOver = true; mappedBlur = blurEnabled }
+    Component.onCompleted: { reconcileWidgets(); syncStrip(true); if (!notchPending) notchWaitOver = true; mappedBlur = blurEnabled; root.noteExtent(screen ? screen.name : "", extent) }
+    onExtentChanged: root.noteExtent(screen ? screen.name : "", extent)
 
     // Keep the Wayland surface stable across drawer opens/closes. Only the
     // input region and drawer visibility change; no full-bar buffer resize.
