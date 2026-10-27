@@ -93,6 +93,23 @@ function clippedInk(child, vertical, depth) {
   var lo = Math.max(0, part.start), hi = Math.min(size, part.start + part.length)
   return hi > lo ? { start: lo, length: hi - lo, glyph: part.glyph } : { start: 0, length: 0, glyph: false }
 }
+// The span of the non-empty text an item draws as its own direct children
+// (a count beside a drawn icon), or null.
+function textBeside(item) {
+  var lo = Infinity, hi = -Infinity
+  var children = paintedChildren(item)
+  for (var i = 0; i < children.length; i++) {
+    var c = children[i]
+    if (!("paintedWidth" in c) || typeof c.text !== "string" || c.text.trim() === "") continue
+    var painted = positive(c, "paintedWidth")
+    if (!(painted > 0)) continue
+    // Text.AlignRight is 2, Text.AlignHCenter 4.
+    var at = c.x + (c.horizontalAlignment === 4 ? (c.width - painted) / 2 : c.horizontalAlignment === 2 ? c.width - painted : 0)
+    lo = Math.min(lo, at)
+    hi = Math.max(hi, at + painted)
+  }
+  return hi > lo ? { start: lo, end: hi } : null
+}
 // Where an item visibly paints along one axis, relative to the item:
 // { start, length, glyph }. Kit widgets centre their glyph or label in their
 // box, so hints give a centred span; otherwise the span of painted children.
@@ -112,7 +129,14 @@ function inkRect(item, vertical, depth) {
     // icon, whatever its canvas: it paints the canvas the kit sizes for icons.
     if (item.iconComponent && String(item.labelText || "") === "") {
       var canvas = positive(item, "componentPaintedWidth") || positive(item, "opticalSize") || size
-      return centred(Math.min(canvas, size), true)
+      var icon = centred(Math.min(canvas, size), true)
+      // Text it draws beside the icon as a child of its own (omabox's count)
+      // is ink too, so its cell makes room for it; iconStart/iconLength keep
+      // the icon's own span for a menu row's icon cell.
+      var beside = vertical ? null : textBeside(item)
+      if (!beside) return icon
+      var from = Math.min(icon.start, beside.start), to = Math.max(icon.start + icon.length, beside.end)
+      return { start: from, length: to - from, glyph: true, iconStart: icon.start, iconLength: icon.length }
     }
     // The kit's icon button can carry a whole string ("100% 󰁹"); only a
     // painted width no wider than a large glyph reads as an icon.

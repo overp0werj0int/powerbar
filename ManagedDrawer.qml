@@ -175,6 +175,13 @@ Item {
   // battery) is a value, right-aligned one air from the row's end.
   readonly property bool menuIcons: namedMenu && memberDisplay === "both"
   function menuInk(slot) { return bar.vertical && slot.crossInk ? slot.crossInk : slot.ink }
+  // The icon's own span in that ink: a drawn icon with a count beside it
+  // (HighlightModel.inkRect's iconStart) centres its icon, not both, in the
+  // icon cell.
+  function menuIconInk(slot) {
+    var ink = menuInk(slot)
+    return ink && ink.iconLength > 0 ? { start: ink.iconStart, length: ink.iconLength, glyph: true } : ink
+  }
   // A kit button whose text leads with an icon (Crash Desk's "󰈸 14") is split
   // in a row: its icon in the icon cell, the rest as the value, both drawn by
   // the row from the button's own text and colour (ManagedModel.iconLead).
@@ -201,7 +208,7 @@ Item {
     var count = Model.countText(texts)
     if (count === "") return null
     var counter = items[texts.map(function(t) { return t.trim() }).indexOf(count)]
-    var ink = menuInk(slot)
+    var ink = menuIconInk(slot)
     // Where the count starts in the widget: its face is cut there.
     var countLeft = counter.x + (slot.presentationItem ? button.mapToItem(slot.presentationItem, 0, 0).x : 0)
     return { icon: "", rest: count, button: button, native: true, countLeft: countLeft,
@@ -276,8 +283,8 @@ Item {
     if (namedMenu) {
       if (bar.barDragImageLabelled || memberDisplay === "name")
         return { item: item, local: { x: menuRowWidth / 2, y: start + tokens.thickness / 2 } }
-      var ink = menuInk(source), value = menuValueWidth(source)
-      var ox = menuIcons && menuGlyph(source) ? tokens.cell / 2 - (ink.start + ink.length / 2)
+      var ink = menuInk(source), icon = menuIconInk(source), value = menuValueWidth(source)
+      var ox = menuIcons && menuGlyph(source) ? tokens.cell / 2 - (icon.start + icon.length / 2)
         : value > 0 ? menuRowWidth - tokens.air - (ink.start + ink.length) : 0
       return { item: item, local: { x: ox + source.naturalWidth / 2, y: start + (tokens.thickness - source.naturalHeight) / 2 + source.naturalHeight / 2 } }
     }
@@ -854,6 +861,7 @@ Item {
                 // Strip slots report their spill so the strip's ends follow the island rule.
                 readonly property real cellSpill: drawer.namedMenu || !place ? 0 : place.spill
                 readonly property var rowInk: modelData ? drawer.menuInk(modelData) : null
+                readonly property var rowIconInk: modelData ? drawer.menuIconInk(modelData) : null
                 readonly property bool rowIcon: drawer.menuIcons && !!modelData && drawer.menuGlyph(modelData)
                 readonly property real valueWidth: modelData ? drawer.menuValueWidth(modelData) : 0
                 readonly property real labelStart: modelData ? drawer.menuLabelStart(modelData) : 0
@@ -868,7 +876,7 @@ Item {
                 // Where the widget's own box sits: its ink centred in its cell (strips),
                 // its glyph centred in the icon cell or its value right-aligned (menus).
                 readonly property real contentOffsetX: animatedInsetX + (!modelData ? 0
-                  : drawer.namedMenu ? (rowIcon ? drawer.tokens.cell / 2 - (rowInk.start + rowInk.length / 2) - (split ? split.iconShift : 0)
+                  : drawer.namedMenu ? (rowIcon ? drawer.tokens.cell / 2 - (rowIconInk.start + rowIconInk.length / 2) - (split ? split.iconShift : 0)
                     : valueWidth > 0 ? drawer.menuRowWidth - drawer.tokens.air - (rowInk.start + rowInk.length) : 0)
                   : bar.vertical ? modelData.crossShift : modelData.inkShift)
                 readonly property real contentOffsetY: animatedInsetY + (!modelData ? 0

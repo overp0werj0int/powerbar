@@ -120,6 +120,15 @@ test('inkRect: kit glyphs and labels are centred; children give the painted span
   assert.deepEqual({ ...hl.inkRect(glyph, false) }, { start: 9, length: 9, glyph: true });
   const drawn = { width: 27, height: 26, glyphPaintedWidth: 0, opticalSize: 18, iconComponent: {}, labelText: '', componentPaintedWidth: 18, children: [] };
   assert.deepEqual({ ...hl.inkRect(drawn, false) }, { start: 4.5, length: 18, glyph: true }, 'a drawn icon is an icon');
+  // A count drawn beside the icon as the button's own text (omabox) is ink:
+  // the cell makes room for it, and the icon's own span is kept for menus.
+  const count = { x: 39, y: 5, width: 7, height: 16, paintedWidth: 7, text: '3', visible: true, opacity: 1, children: [] };
+  const counted = { ...drawn, width: 54, componentPaintedWidth: 16, children: [count] };
+  assert.deepEqual({ ...hl.inkRect(counted, false) }, { start: 19, length: 27, glyph: true, iconStart: 19, iconLength: 16 });
+  const k = cell.tokens({ bar: 26 });
+  assert.equal(cell.place(k, 27, cell.isGlyph(27, true), true).cell, 27 + 2 * k.air, 'the cell holds the count');
+  assert.deepEqual({ ...hl.inkRect({ ...counted, children: [{ ...count, visible: false }] }, false) }, { start: 19, length: 16, glyph: true }, 'a hidden count is not');
+  assert.deepEqual({ ...hl.inkRect({ ...counted, children: [{ ...count, text: '' }] }, false) }, { start: 19, length: 16, glyph: true }, 'nor an empty one');
   const labelled = { ...drawn, labelText: '3' };
   assert.equal(hl.inkRect(labelled, false).glyph, false, 'a drawn icon with a label is not');
   const battery = { width: 54, height: 26, glyphPaintedWidth: 41, opticalSize: 16, children: [] };
