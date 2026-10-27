@@ -369,6 +369,7 @@ border-width = 1
 [surface]
 opacity = 85         # percent, 0–100
 blur = true
+over-windows = 65    # percent: drawers and menus at least this opaque
 text = "light"       # theme | light | dark
 
 [shadow]

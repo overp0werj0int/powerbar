@@ -18,6 +18,8 @@ var ranges = {
   borderWidth: { min: 0.5, max: 3, step: 0.5, fallback: 1 },
   rounding: { min: 0, step: 1 },
   backgroundOpacity: { min: 0, max: 100, step: 5, fallback: 100 },
+  // The floor of the surfaces Powerbar draws over windows (overlayOpacity).
+  overWindows: { min: 0, max: 100, step: 5, fallback: 65 },
   shadowSize: { min: 2, max: 24, step: 1, fallback: 16 },
   shadowOpacity: { min: 5, max: 60, step: 5, fallback: 30 }
 }
@@ -52,6 +54,7 @@ function effects(config, themeOpacity) {
   return { blur: value("Blur", false) === true, backgroundOpacity: opacity / 100,
     shadow: value("Shadow", false) === true, shadowSize: number("ShadowSize", ranges.shadowSize),
     shadowOpacity: number("ShadowOpacity", ranges.shadowOpacity) / 100,
+    overWindows: clampTo(ranges.overWindows, c.powerbarOverWindows) / 100,
     readableOverlay: c.powerbarReadableOverlay !== false }
 }
 // Text and icons on Powerbar's surfaces: the theme's colours, or one fixed
@@ -83,9 +86,13 @@ function textPair(a, b) {
 // Surfaces laid over windows (drawers, an autohiding bar) keep text readable:
 // without blur they stay at least this opaque, unless the user opts out.
 var readableOpacity = 0.88
+// The surfaces Powerbar draws beyond the bar (drawers, menus, the key legend,
+// tooltips) are at least as opaque as Surface's Over windows (effects'
+// overWindows, 0–1; none given: no floor), then the readable minimum.
 function overlayOpacity(effects) {
   var e = effects || {}
   var opacity = typeof e.backgroundOpacity === "number" ? e.backgroundOpacity : 1
+  if (typeof e.overWindows === "number" && isFinite(e.overWindows)) opacity = Math.max(opacity, Math.min(1, e.overWindows))
   return e.readableOverlay !== false && !e.blur ? Math.max(opacity, readableOpacity) : opacity
 }
 // Omarchy's bar background: "opaque", "glassy" or "none" (`omarchy bar
@@ -161,26 +168,26 @@ var tileKeys = {
 //     themes: { "<theme>": { shape: { use: "this", rounding: 10 }, text: "dark" } } }
 var scopeTiles = {
   shape: ["rounding", "borders", "borderWidth"],
-  surface: ["opacity", "blur"],
+  surface: ["opacity", "blur", "overWindows"],
   shadow: ["enabled", "softness", "strength"]
 }
 var scopes = ["theme", "all", "this"]
 // The flat keys the bar's drawing code reads, one per value.
 var flatKeys = {
   rounding: "powerbarIslandRounding", borders: "powerbarIslandBorders", borderWidth: "powerbarIslandBorderWidth",
-  opacity: "powerbarBackgroundOpacity", blur: "powerbarBlur",
+  opacity: "powerbarBackgroundOpacity", blur: "powerbarBlur", overWindows: "powerbarOverWindows",
   enabled: "powerbarShadow", softness: "powerbarShadowSize", strength: "powerbarShadowOpacity"
 }
 function filled(o) { return isMap(o) && Object.keys(o).some(function(k) { return k !== "use" && o[k] !== undefined }) }
 function pick(o, key) { return isMap(o) && o[key] !== undefined ? o[key] : undefined }
 
 // A theme's powerbar.toml: [shape] rounding, borders, border-width;
-// [surface] opacity, blur, text; [shadow] enabled, softness, strength. Every
+// [surface] opacity, blur, over-windows, text; [shadow] enabled, softness, strength. Every
 // key is optional; unknown sections and keys are ignored. Returns
 // { shape: {…}, surface: {…}, shadow: {…} } holding only what the file sets.
 var lookKeys = {
   shape: { rounding: "rounding", borders: "borders", "border-width": "borderWidth" },
-  surface: { opacity: "opacity", blur: "blur", text: "text" },
+  surface: { opacity: "opacity", blur: "blur", "over-windows": "overWindows", text: "text" },
   shadow: { enabled: "enabled", softness: "softness", strength: "strength" }
 }
 function parseLook(text) {

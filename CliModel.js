@@ -46,6 +46,8 @@ var settings = [
   { name: "surface.scope", tile: "surface", type: "choice", choices: ["theme", "all", "this"], writer: "scope" },
   { name: "surface.opacity", tile: "surface", look: "opacity", type: "number", min: 0, max: 100, step: 5, writer: "look" },
   { name: "surface.blur", tile: "surface", look: "blur", type: "bool", writer: "look" },
+  // The floor of the surfaces drawn over windows (drawers, menus), in %.
+  { name: "surface.overWindows", tile: "surface", look: "overWindows", type: "number", min: 0, max: 100, step: 5, writer: "look" },
   { name: "surface.text", tile: "surface", type: "choice", choices: ["theme", "light", "dark"], writer: "text" },
   { name: "shadow.scope", tile: "shadow", type: "choice", choices: ["theme", "all", "this"], writer: "scope" },
   { name: "shadow.enabled", tile: "shadow", look: "enabled", type: "bool", writer: "look" },

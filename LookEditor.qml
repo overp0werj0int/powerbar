@@ -318,6 +318,25 @@ DeskPage {
         onEdited: function (v) {
           look.preferences.setLook("surface", "opacity", v);
         }
+      },
+      // The floor of the surfaces Powerbar draws over windows: drawers,
+      // menus, the key legend, tooltips (AppearanceModel.overlayOpacity).
+      Fader {
+        enabled: surfaceStrip.editable
+        label: "Over windows"
+        unit: "%"
+        minimum: look.preferences.ranges.overWindows.min
+        maximum: look.preferences.ranges.overWindows.max
+        stepSize: look.preferences.ranges.overWindows.step
+        defaultValue: look.preferences.ranges.overWindows.fallback
+        value: look.bar ? Math.round(look.bar.surfaceEffects.overWindows * 100) : look.preferences.ranges.overWindows.fallback
+        formatter: function (v) {
+          return v === 0 ? "As the bar" : v === 100 ? "Opaque" : "";
+        }
+        animate: look.preferences.motion
+        onEdited: function (v) {
+          look.preferences.setLook("surface", "overWindows", v);
+        }
       }
     ]
   }

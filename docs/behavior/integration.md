@@ -162,6 +162,7 @@ bar uses now, the stored value or its default:
 | `shape.borderWidth` | number 0.5 to 3, step 0.5 | `powerbarAppearance` | theme's border width |
 | `surface.opacity` | number 0 to 100, step 5 | `powerbarAppearance` | theme's bar background alpha (100 if none) |
 | `surface.blur` | bool | `powerbarAppearance` | false |
+| `surface.overWindows` | number 0 to 100, step 5 | `powerbarAppearance` | 65 |
 | `surface.text` | choice theme, light, dark | `powerbarAppearance` | theme |
 | `shadow.enabled` | bool | `powerbarAppearance` | false |
 | `shadow.softness` | number 2 to 24, step 1 | `powerbarAppearance` | 16 |

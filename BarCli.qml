@@ -63,6 +63,7 @@ Item {
       return AppearanceModel.clampTo(AppearanceModel.ranges.borderWidth, look.values.borderWidth, Border.top(b.themeIslandBorder) / Style.space(1))
     case "surface.opacity": return Math.round(fx.backgroundOpacity * 100)
     case "surface.blur": return fx.blur
+    case "surface.overWindows": return Math.round(fx.overWindows * 100)
     case "surface.text": return b.foregroundChoice
     case "shadow.enabled": return fx.shadow
     case "shadow.softness": return fx.shadowSize

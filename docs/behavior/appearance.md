@@ -24,6 +24,8 @@ Storage: the look lives in `bar.powerbarAppearance` of shell.json: `all` (values
 
 - **LOOK-8** With blur on, the readable minimum does not apply: the chosen opacity is used, since the blur keeps text readable. Code: AppearanceModel.overlayOpacity.
 
+- **LOOK-150** Over windows: the surfaces Powerbar draws beyond the bar, which lie over windows, are at least as opaque as Surface > "Over windows" (stored `overWindows`, 0 to 100 in steps of 5, default 65; clamped like LOOK-1): drawers, the on-demand menu and its submenus, the drag's name label, and the tooltip, name card, key legend and search card when Powerbar styles them (LOOK-6). They take the larger of the bar's opacity and that floor, and the readable minimum (LOOK-6 to LOOK-8) still applies on top: a Clear bar with blur draws its drawers at 0.65, without blur at 0.88. 0 ("As the bar") draws them at the bar's opacity, as before. The bar itself is unchanged, autohiding or not; drawers from the notch are opaque black anyway. It follows the Surface scope like `opacity`, so under Theme the default 65 applies unless the theme's `powerbar.toml` sets `[surface] over-windows`. Left out: tray menus (Omarchy's popup card, the theme's popup colour) and Omarchy's own panels. Code: AppearanceModel.overlayOpacity, effects (overWindows), ranges.overWindows; Bar.qml overlaySurfaceColor.
+
 - **LOOK-9** With no opacity chosen in any scope, the bar uses the alpha of the theme's own bar background (Omarchy's `[bar] background`), rounded to a whole percent: a theme with a see-through bar background draws see-through. Code: AppearanceModel.effects(config, Color.bar.background.a).
 
 ## Bar background (Omarchy's `bar.background`, `bar.transparent` before it)
@@ -114,7 +116,7 @@ Storage: the look lives in `bar.powerbarAppearance` of shell.json: `all` (values
 
 - **LOOK-40** `[shape]` takes `rounding`, `borders`, `border-width`: `rounding = 12`, `borders = true`, `border-width = 1.5` give rounding 12, borders true, border width 1.5. Key and section names are case-insensitive. Code: AppearanceModel.parseLook, lookKeys.
 
-- **LOOK-41** `[surface]` takes `opacity`, `blur`, `text`: `opacity = 85`, `blur = true`, `text = "dark"` give 85, true, "dark" (percent, boolean, string). Code: parseLook.
+- **LOOK-41** `[surface]` takes `opacity`, `blur`, `over-windows`, `text`: `opacity = 85`, `blur = true`, `over-windows = 80`, `text = "dark"` give 85, true, 80, "dark" (percent, boolean, percent, string). Code: parseLook.
 
 - **LOOK-42** `[shadow]` takes `enabled`, `softness`, `strength`. Code: parseLook.
 

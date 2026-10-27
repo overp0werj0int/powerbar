@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Drawers and menus over windows keep a minimum opacity: Look > Surface has a new "Over windows" fader (default 65 %), so with a clear or see-through bar the surfaces Powerbar draws beyond it (drawers, the menu and its submenus, the key legend and search, tooltips) stay at least that opaque. The bar itself is unchanged; 0 draws them as the bar, as before. Also `surface.overWindows` on the command line and `over-windows` in a theme's `powerbar.toml` (LOOK-150).
 - A menu row for a widget that draws a count beside its icon (omabox's box count) now shows the icon in the icon cell and the count at the row's end, instead of the count running into the name.
 - A double click on the bar no longer opens Omarchy's wallpaper selector. A step to or from glassy remaps the bar, and Hyprland handed the pointer to the desktop until it moved, so the next double click went to the wallpaper; the bar now waits for the pointer to leave before it remaps (the blur shows then). On the notch, a double click on the camera cycles the background too instead of reaching the desktop (LOOK-127, LOOK-133).
 - The "Center" caption beside the camera on the Layout and Groups pages answers the pointer like its dot: resting on it lights the dot, and a click or a drag on it swaps Center's side (PREFS-105).
