@@ -235,3 +235,17 @@ test('a group icon takes a layout place under its own key, never a widget key', 
   assert.equal(m.isGroupKey('pw-abc'), false);
   assert.equal(m.isGroupKey(undefined), false);
 });
+
+test('anchorOn: groups drawn at the zone end re-anchor on a widget dropped past them, in order', () => {
+  const config = fixture();
+  config.bar.powerbarGroups = [
+    { id: 'a', label: 'A', section: 'left', before: '', items: [] },
+    { id: 'b', label: 'B', section: 'left', before: 'two', items: [] },
+    { id: 'c', label: 'C', section: 'left', before: '', items: [] }
+  ];
+  assert.equal(m.anchorOn(config, 'left', 'three', ['a', 'c']), true);
+  assert.deepEqual(config.bar.powerbarGroups.map(g => [g.id, g.before]), [['a', 'three'], ['b', 'two'], ['c', 'three']]);
+  assert.equal(m.anchorOn(config, 'left', 'three', ['a', 'c']), false, 'already there');
+  assert.equal(m.anchorOn(config, 'right', 'three', ['b']), false, 'another zone');
+  assert.equal(m.anchorOn(config, 'left', 'three', []), false);
+});

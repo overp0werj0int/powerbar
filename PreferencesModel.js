@@ -154,6 +154,13 @@ function dropBefore(items, pos) {
   return pos >= 0 && pos < items.length ? items[pos].index : -1
 }
 
+// The groups drawn at a zone's end (`endAnchored`) that a drop at `pos`
+// lands after: the drop's index says "the zone's end" either way, so these
+// re-anchor on the dropped widget to put it after them (PREFS-27).
+function endGroupsPassed(items, pos) {
+  return (items || []).slice(0, Math.max(0, pos)).filter(function(r) { return r && r.groupId && r.endAnchored })
+    .map(function(r) { return r.groupId })
+}
 // Hiding with x and showing again returns a widget to the row it left.
 function toggledHidden(currentMode, rememberedMode) {
   if (currentMode !== "hidden") return "hidden"

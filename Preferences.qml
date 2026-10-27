@@ -78,6 +78,7 @@ Item {
                 mode: g.visibility,
                 section: g.section,
                 index: anchor ? anchor.index : (config.layout && config.layout[g.section] || []).length,
+                endAnchored: !anchor,
                 fingerprint: JSON.stringify(g)
             });
         });
@@ -466,7 +467,7 @@ Item {
     // and its new neighbour by instance key, so replayed on a layout that
     // changed meanwhile (a queued edit is re-run on each delivery) it lands
     // beside the same neighbour, or reports that the neighbour is gone.
-    function move(record, section, mode, before) {
+    function move(record, section, mode, before, passGroups) {
         if (!record || !bar || !bar.shell)
             return;
         var beforeKey = Model.anchorKey(config.layout, section, before, record.groupId ? "" : record.instanceKey);
@@ -504,7 +505,10 @@ Item {
             changed = BarModel.moveInstanceInConfig(config, from, record.instanceKey, section, beforeKey, mode);
             if (changed)
                 Groups.reanchor(config, from, record.instanceKey, next);
-            else
+            // Past groups drawn at the zone's end: they re-anchor on the widget.
+            if (!beforeKey && Groups.anchorOn(config, section, record.instanceKey, passGroups || []))
+                changed = true;
+            if (!changed)
                 inPlace = true;
         });
         status = accepted === false ? "Could not save the layout. Check that shell.json is writable." : changed || inPlace ? "" : "The layout changed elsewhere. Try again.";

@@ -727,7 +727,7 @@ Item {
         } else if (target.mode === "tray")
             preferences.returnToTray(record);
         else
-            preferences.move(record, section, target.mode, before);
+            preferences.move(record, section, target.mode, before, target.mode === "hidden" || record.groupId ? [] : Model.endGroupsPassed(into, target.pos));
     }
     // Keep an item's place in its zone when only its visibility changes.
     // Rows widgets were hidden from this session, so showing one again restores it.

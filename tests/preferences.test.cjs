@@ -453,3 +453,11 @@ test('a slab under the cursor lights no zone column, whatever zone its widget ke
   assert.equal(model.activeZone({ section: 'tray', mode: 'tray', pos: 0, home: 'right' }), '');
   assert.equal(model.activeZone(null), '');
 });
+
+test('endGroupsPassed: a drop past groups at the zone end names them, a drop before them none', () => {
+  const items = [{ index: 0, instanceKey: 'w1' }, { index: 3, groupId: 'g1', endAnchored: true }, { index: 3, groupId: 'g2', endAnchored: true }];
+  assert.deepEqual([...model.endGroupsPassed(items, 3)], ['g1', 'g2']);
+  assert.deepEqual([...model.endGroupsPassed(items, 2)], ['g1']);
+  assert.deepEqual([...model.endGroupsPassed(items, 1)], []);
+  assert.deepEqual([...model.endGroupsPassed([{ index: 1, groupId: 'g', endAnchored: false }], 1)], [], 'an anchored group is passed by the index itself');
+});
