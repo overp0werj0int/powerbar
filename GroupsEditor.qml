@@ -108,6 +108,10 @@ Item {
     property var liftTarget: null
     property string liftHome: ""
     property bool pointerLift: false
+    // Esc cancelled the pointer's lift while the button was still down: the
+    // press is spent, so moving lifts nothing and the release does nothing
+    // until the next press (PREFS-27).
+    property bool pressSpent: false
     property var pressed: null
     property point pressPoint: Qt.point(0, 0)
     property point pointer: Qt.point(0, 0)
@@ -420,6 +424,10 @@ Item {
         hoverOn(null);
     }
     function cancel() {
+        if (pointerLift) {
+            pressed = null;
+            pressSpent = true;
+        }
         lifted = null;
         liftTarget = null;
         liftOpened = ({});
@@ -1013,6 +1021,7 @@ Item {
                 editor.hoverOn(null);
                 if (editor.lifted)
                     editor.cancel();
+                editor.pressSpent = false;
                 var point = Qt.point(mouse.x, mouse.y);
                 editor.pressPoint = point;
                 var hit = editor.hitAt(point);
@@ -1022,8 +1031,9 @@ Item {
                 stage.forceActiveFocus(Qt.MouseFocusReason);
             }
             onReleased: function (mouse) {
-                var clicked = !editor.pointerLift;
+                var clicked = !editor.pointerLift && !editor.pressSpent;
                 editor.pressed = null;
+                editor.pressSpent = false;
                 if (editor.pointerLift)
                     editor.drop();
                 else if (clicked) {

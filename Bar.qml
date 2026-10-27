@@ -1786,6 +1786,24 @@ Item {
     return changed
   }
 
+  // Esc during a pointer drag (DRAG-42): the drop is forgotten and the image
+  // glides back as for a release outside; the release that follows finds no
+  // drag of its own and does nothing.
+  function cancelIconDrag() {
+    var slot = root.barDragSource
+    if (!slot || root.barDragSettling) return false
+    root.ev("drag", "cancel esc")
+    springOpen.stop()
+    springHandle.stop()
+    root.barDragDrop = null
+    var scene = root.barDragScene || { x: 0, y: 0 }
+    root.beginDragSettle(slot, scene, false)
+    if (!root.barDragSettling) return true
+    var epoch = root.barDragSettleEpoch
+    Qt.callLater(function() { if (root.barDragSettleEpoch === epoch) root.resolveDragSettle(false) })
+    return true
+  }
+
   function canSettleDrag() {
     return root.animationsEnabled && root.barDragImageReady && String(root.barDragImageUrl) !== ""
   }
@@ -4350,8 +4368,14 @@ Item {
 
     // While the keyboard mode is on this bar, it alone decides: a drawer it
     // entered must not hold the keys while a panel it opened has them.
+    // A pointer drag on this window (its drawer's rows included: the drawer
+    // lives in it) takes the keyboard while it runs, so Esc can cancel it
+    // (DRAG-42); the pointer is this window's for the drag already.
+    readonly property bool dragKeys: !!root.barDragSource && !root.barDragSettling && root.sameWindow(root.barDragWindow, barWindow)
+    onDragKeysChanged: if (dragKeys && !keysHere) Qt.callLater(function() { if (barWindow.dragKeys) keyCatcherItem.forceActiveFocus() })
     readonly property int keyboardFocusMode: wantsKeys
-      ? (keysFocusPrimed ? WlrKeyboardFocus.OnDemand : WlrKeyboardFocus.Exclusive) : WlrKeyboardFocus.None
+      ? (keysFocusPrimed ? WlrKeyboardFocus.OnDemand : WlrKeyboardFocus.Exclusive)
+      : dragKeys ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
     WlrLayershell.keyboardFocus: keyboardFocusMode
     // On the notch only the zones and the camera take the pointer: the bar's
     // empty stretches to the screen edges let it through. The camera does
@@ -4588,11 +4612,14 @@ Item {
     property Item prefsButton: null
     Item {
       id: keyCatcherItem
-      Keys.onPressed: function(event) { if (root.barKeys.barKey(event)) event.accepted = true }
+      Keys.onPressed: function(event) {
+        if (event.key === Qt.Key_Escape && root.cancelIconDrag()) event.accepted = true
+        else if (root.barKeys.barKey(event)) event.accepted = true
+      }
       Keys.onReleased: function(event) { if (!event.isAutoRepeat) root.barKeys.released() }
       // The mode's keys are its own: a widget's window-wide Shortcut (Plume's
       // Esc for its settings) would otherwise take them first in this window.
-      Keys.onShortcutOverride: function(event) { if (root.barKeys.here) event.accepted = true }
+      Keys.onShortcutOverride: function(event) { if (root.barKeys.here || barWindow.dragKeys && event.key === Qt.Key_Escape) event.accepted = true }
     }
 
     Item {
@@ -6894,7 +6921,7 @@ Item {
       // so mouseX only follows a press). No hover handler on this area: it
       // sits above the widget and would keep the pointer from the widget's
       // own buttons (their hover state and tooltips).
-      cursorShape: dragging ? Qt.ClosedHandCursor
+      cursorShape: dragging && root.barDragSource === slot ? Qt.ClosedHandCursor
         : !slotHover.hovered && !pressed ? Qt.ArrowCursor
         : root.moduleClickTargetAt(slot, pressed ? mouseX : slotHover.point.position.x, pressed ? mouseY : slotHover.point.position.y)
           ? Qt.PointingHandCursor : Qt.ArrowCursor

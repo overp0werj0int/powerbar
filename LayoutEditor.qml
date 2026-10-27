@@ -409,6 +409,10 @@ Item {
     property bool pointerLift: false
     property point pointer: Qt.point(0, 0)
     property var pressed: null
+    // Esc cancelled the pointer's lift while the button was still down: the
+    // press is spent, so moving lifts nothing and the release does nothing
+    // until the next press (PREFS-27).
+    property bool pressSpent: false
     property point pressPoint: Qt.point(0, 0)
     property string hoverKey: ""
     // Set while the editor moves focus itself, so a layer gaining focus only
@@ -698,6 +702,10 @@ Item {
         });
     }
     function cancel() {
+        if (pointerLift) {
+            pressed = null;
+            pressSpent = true;
+        }
         lifted = null;
         pointerLift = false;
         if (liftOrigin)
@@ -1429,6 +1437,7 @@ Item {
                 editor.hoverOn(null);
                 if (editor.lifted)
                     editor.cancel();
+                editor.pressSpent = false;
                 var point = mapToItem(editor, mouse.x, mouse.y);
                 editor.pressPoint = point;
                 var tile = editor.tileAt(point);
@@ -1457,7 +1466,11 @@ Item {
             }
             onReleased: {
                 var clicked = !!editor.pressed && !editor.pointerLift;
+                var spent = editor.pressSpent;
                 editor.pressed = null;
+                editor.pressSpent = false;
+                if (spent)
+                    return;
                 if (editor.pointerLift)
                     editor.drop();
                 else if (clicked)

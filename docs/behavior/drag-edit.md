@@ -106,7 +106,7 @@ Drag and drop on the live bar, into drawers and onto zone dots. The bar controll
 
 - **DRAG-41** After a glide-then-commit drop, if the committed slot is 2 px or more from where the image landed, a 90 ms correction glide (`dragSettleCorrectionDuration`) follows, the image staying frozen where it landed in between; less than 2 px ends at once. The committed slot is measured once its zone (and, for a drawer member, its drawer row) has been laid out, so a slot already in place shows at once. Code: Bar.qml resolveDragSettle.
 
-- **DRAG-42** A cancelled drag (DRAG-32) glides back to the source over the same 180 ms as the source regains its space. There is no Escape binding for a drag.
+- **DRAG-42** A cancelled drag (DRAG-32) glides back to the source over the same 180 ms as the source regains its space. Esc while the button is still down cancels the drag the same way: the gap closes, nothing is written, and the release that follows does nothing. For that the bar's window takes the keyboard (Exclusive) while a pointer drag runs on it, from the bar or its drawer's rows, and gives it back when the drag ends. Code: Bar.qml `cancelIconDrag()`, `barWindow.dragKeys`.
 
 ## Preview gap mechanics
 
