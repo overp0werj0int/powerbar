@@ -100,7 +100,7 @@ Other rules:
 
 - **Spacing modes.** `powerbarSpacingMode`: `"slots"` (default) or `"gaps"`.
 - **Preferences.** Style section, a `PrefsChoice` row "Spacing" with the chips
-  Equal slots and Equal gaps, above "Space between widgets".
+  Equal slots and Equal gaps, above "Widget spacing".
 - **Highlight.** The highlight is the layout box, centred on the ink. In Equal
   gaps, overlapping highlights stay symmetric; the newer one draws on top and
   the older one fades to 45%.

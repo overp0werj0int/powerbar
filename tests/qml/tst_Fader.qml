@@ -23,7 +23,7 @@ Item {
       id: slider
       x: 40; y: 20
       width: 240
-      label: "Space between widgets"
+      label: "Widget spacing"
       minimum: 0; maximum: 16; stepSize: 1
       defaultValue: 0
       value: 4

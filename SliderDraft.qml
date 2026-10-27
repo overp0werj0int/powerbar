@@ -88,13 +88,13 @@ Item {
     if (notches.steps !== 0) step(notches.steps)
     return true
   }
-  // The keys (PREFS-57). A slider takes h/l or Left/Right, a fader j/k or
-  // Down/Up (`vertical`), less first; returns whether the key was used.
-  function keyPressed(event, vertical) {
+  // The keys (PREFS-57): h/l or Left/Right, less first; returns whether
+  // the key was used.
+  function keyPressed(event) {
     var big = (event.modifiers & Qt.ShiftModifier) ? 5 : 1
     var t = event.text.toLowerCase()
-    var less = vertical ? event.key === Qt.Key_Down || t === "j" : event.key === Qt.Key_Left || t === "h"
-    var more = vertical ? event.key === Qt.Key_Up || t === "k" : event.key === Qt.Key_Right || t === "l"
+    var less = event.key === Qt.Key_Left || t === "h"
+    var more = event.key === Qt.Key_Right || t === "l"
     if (less) step(-big)
     else if (more) step(big)
     else if (event.key === Qt.Key_PageDown) step(-5)

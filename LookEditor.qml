@@ -175,7 +175,7 @@ DeskPage {
     }
     faders: [
       Fader {
-        label: "Space between widgets"
+        label: "Widget spacing"
         minimum: look.preferences.ranges.spacing.min
         maximum: look.preferences.ranges.spacing.max
         stepSize: look.preferences.ranges.spacing.step

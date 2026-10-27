@@ -82,7 +82,7 @@ Item {
   Accessible.role: Accessible.Slider
   Accessible.name: label
   Accessible.description: format(shown)
-  Keys.onPressed: function(event) { if (core.keyPressed(event, false)) event.accepted = true }
+  Keys.onPressed: function(event) { if (core.keyPressed(event)) event.accepted = true }
 
   Column {
     id: column

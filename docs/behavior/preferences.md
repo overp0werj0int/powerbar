@@ -182,7 +182,7 @@ Sources: Preferences.qml, PreferencesModel.js, DeskModel.js, ShelfModel.js, Slid
 
 - **PREFS-65** Style (the Look page's first strip): its caption is the chosen style's line, pick rows (PREFS-129, no captions) Flat "Edge to edge, like Omarchy", Floating "One bar, off the edges", Islands "A surface for each zone", and, with a notched screen or while it is in use, Notch "Notch applies on the top edge of the notched screen; elsewhere it draws as islands"; then "Screen edge" over one row of chips, Top, Bottom, Left, Right (PREFS-128); and the footnote "No scope: the bar sits in one place in every theme." Writes `bar.powerbarStyle` and `bar.position`. The default style is Flat, the default edge top. Code: LookEditor.qml; layout-zones.md ZONE-41, ZONE-82.
 
-- **PREFS-66** Size: Large bar (`powerbarLargeBar`, default off), two pick rows, Equal slots (the default) and Equal gaps (`powerbarSpacingMode`), and the fader "Space between widgets" (`powerbarSpacing`, 0 to 16 in steps of 1, default 4, "None" at 0). Layout meaning: layout-zones.md.
+- **PREFS-66** Size: Large bar (`powerbarLargeBar`, default off), two pick rows, Equal slots (the default) and Equal gaps (`powerbarSpacingMode`), and the fader "Widget spacing" (`powerbarSpacing`, 0 to 16 in steps of 1, default 4, "None" at 0). Layout meaning: layout-zones.md.
 
 - **PREFS-67** Shape (under Scope chips): Borders (switch) and the faders "Corner rounding" (0 "Square" up to the largest the bar's thickness can show, "Pill") and "Border thickness" (0.5 to 3, step 0.5; "Hairline" at the bottom; dimmed while Borders is off). The default rounding is the theme's.
 
