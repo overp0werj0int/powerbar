@@ -3,7 +3,7 @@
 ## Unreleased
 
 - Preferences' text, and the keycaps of the bar's key legend, no longer show blue and orange colour fringes: they are antialiased in grey, as the bar's own text is (PREFS-102).
-- Esc cancels a drag on the bar: with the button still down, the widget glides back, its gap closes and nothing is saved; letting go afterwards does nothing. The bar takes the keyboard while you drag for this (DRAG-42).
+- Esc cancels a drag on the bar while the keyboard mode is on there: with the button still down, the widget glides back, its gap closes and nothing is saved; letting go afterwards does nothing. Outside the keyboard mode the bar has no keyboard to hear it, and asking for one mid-drag would end the drag (DRAG-42).
 - Behavior page: a shortcut whose keys are taken says so in two lines at most ("Super B already opens …"), instead of a caption that wrapped to four lines and stretched the Keyboard strip (PREFS-72).
 - Groups page: a keyboard lift (Space) now shows the lifted widget or face over its landing place, as a pointer drag does (a face over its own row until it moves, then where it lands in the next zone), and a copy over a "+" no longer hides its highlight (PREFS-119).
 - Groups page: a group moved to another zone and back (Shift+h/l, or the inspector's Zone) returns to the place it had there, instead of the zone's end (PREFS-117).
