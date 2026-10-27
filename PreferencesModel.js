@@ -329,6 +329,13 @@ function layerStep(count, at, dx, dy, columnsFor, rowList, extra, perRow) {
   if (!isSlab(list[m])) home = column
   return { section: column, mode: list[m], pos: pos, home: home }
 }
+// The zone whose column reads brighter on every layer (PREFS-99): the zone
+// of the cell being worked on, and none while that cell is a slab (the
+// Hidden layer's or the tray's), whatever zone its widget keeps: a slab
+// chip under the cursor changes nothing on the layers of zones.
+function activeZone(cell) {
+  return cell && sections.indexOf(cell.section) >= 0 ? cell.section : ""
+}
 // Shift with j or k moves a widget to the next layer at once (PREFS-27):
 // the layer `dy` from `mode` in `rowList`, or "" past the first or last.
 function nextLayer(rowList, mode, dy) {

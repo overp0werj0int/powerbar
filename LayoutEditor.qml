@@ -426,8 +426,8 @@ Item {
     // The well being worked on: where the lifted chip would land, else the
     // cursor's. Its zone's names read brighter on every layer.
     readonly property var activeCell: lifted && liftTarget ? liftTarget : cursorCell
-    // Its zone: on a slab, the one it meets on the layers of zones.
-    readonly property string activeZone: sections.indexOf(activeCell.section) >= 0 ? activeCell.section : (activeCell.home || "")
+    // Its zone; none on a slab, so a slab chip lights no column (PREFS-99).
+    readonly property string activeZone: Model.activeZone(activeCell)
     readonly property Item focused: editor.Window.activeFocusItem
     function within(item, root) {
         for (var p = item; p; p = p.parent)

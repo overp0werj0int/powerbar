@@ -446,3 +446,10 @@ test('a slab flows five to a row: h and l walk it, j and k go a row and on to th
   assert.equal(model.stepLayerLift(count, { section: 'hidden', mode: 'hidden', pos: 6, home: 'left' }, 1, 0, cols, rows).pos, 7);
   assert.equal(model.stepLayerLift(count, { section: 'hidden', mode: 'hidden', pos: 2, home: 'left' }, 0, 1, cols, rows).pos, 7);
 });
+test('a slab under the cursor lights no zone column, whatever zone its widget keeps', () => {
+  assert.equal(model.activeZone({ section: 'center', mode: 'shown', pos: 0 }), 'center');
+  assert.equal(model.activeZone({ section: 'right', mode: 'managed', pos: 2, home: 'left' }), 'right');
+  assert.equal(model.activeZone({ section: 'hidden', mode: 'hidden', pos: 1, home: 'left' }), '');
+  assert.equal(model.activeZone({ section: 'tray', mode: 'tray', pos: 0, home: 'right' }), '');
+  assert.equal(model.activeZone(null), '');
+});
