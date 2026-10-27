@@ -963,13 +963,13 @@ Item {
         }
     }
 
-    // The camera's beam: the notch's cap, solid black from the page's top,
-    // giving way to a soft beam that falls through the layers behind them
-    // and fades out under the last (PREFS-24). One shade (shaders/beam.frag)
-    // draws it on the bar layer's own plane, as wide as Center, so its edges
-    // run on the lines that layer's Center tile edges lie on; the Center
-    // tiles it falls on draw the same shade over their own surface, so
-    // nothing steps where a tile meets a gap.
+    // The camera: the notch's cap, solid black from the page's top down to
+    // a torn edge a little above the bar layer, with a soft shade under it
+    // (PREFS-24). One shade (shaders/beam.frag) draws it on the bar layer's
+    // own plane, as wide as Center, so its sides run on the lines that
+    // layer's Center tile edges lie on; the Center tiles under it draw the
+    // same shade over their own surface, so nothing steps where a tile
+    // meets a gap.
     readonly property Item beamCamera: camera
     CameraShaft {
         id: camera
@@ -1506,8 +1506,8 @@ Item {
         Component.onCompleted: cellRepeater.register(this)
         Component.onDestruction: cellRepeater.unregister(this)
         onListChanged: Qt.callLater(editor.refreshInspected)
-        // The beam falls on a Center tile, and on Center's part of the
-        // hidden slab, which is solid across Center's column too.
+        // The cap's shade falls on a Center tile, and on Center's part of
+        // the hidden slab, which is solid across Center's column too.
         camera: editor.beamCamera
         shaded: (cell.shaft || cell.mode === "hidden") && editor.previewCamera && !!editor.previewNotch
         shadeX: cell.mode === "hidden" ? editor.column("center").x - editor.column("hidden").x : 0

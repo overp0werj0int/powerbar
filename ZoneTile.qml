@@ -7,8 +7,8 @@ import "PreferencesModel.js" as Model
 
 // A zone's tile on a layer plate (LayerPlate), as the Layout and Groups pages
 // draw it (docs/behavior/preferences.md PREFS-99, PREFS-106): its slab edge,
-// its surface, the camera's beam over it on Center (BeamShade, continuing
-// CameraShaft's), the zone's name at its top, an empty note, and a window of
+// its surface, the camera's cap and shade over it on Center (BeamShade,
+// continuing CameraShaft's), the zone's name at its top, an empty note, and a window of
 // rows that scrolls when the tile has more than its layer gives it, with
 // fades over the rows cut at its edges and a hairline thumb. A dashed tile
 // (the tray's) has no surface or edge. The page fills the window through
@@ -38,8 +38,8 @@ Item {
     transform: Translate {
         y: -cell.raise
     }
-    // The beam over the part `shadeX` and `shadeWidth` wide, from the
-    // camera's numbers; seenTop is where the plate's top is seen and `line`
+    // The camera's cap and shade over the part `shadeX` and `shadeWidth`
+    // wide (the camera's column); seenTop is where the plate's top is seen and `line`
     // the line the camera's plane turns about, both in the page.
     property Item camera: null
     property bool shaded: false
@@ -98,14 +98,13 @@ Item {
         color: cell.dashed ? "transparent" : Qt.tint(Qt.rgba(Commons.Color.popups.background.r, Commons.Color.popups.background.g, Commons.Color.popups.background.b, 1), Qt.alpha(Commons.Color.popups.text, cell.lead ? 0.09 : 0.065))
         borderSpec: cell.dashed ? Border.none() : cell.borderSpec
     }
-    // The beam falling on the tile, over its surface and under its rows,
-    // continuing the shade the gaps show.
+    // The torn cap's shade (and the tear, where it reaches the tile) over
+    // its surface and under its rows, continuing what the gaps show.
     BeamShade {
         visible: cell.shaded && !!cell.camera
-        peak: cell.camera ? cell.camera.peak : 0
-        capEnd: cell.camera ? cell.camera.capEnd : 0
-        capFade: cell.camera ? cell.camera.capFade : 0
-        span: cell.camera ? cell.camera.span : 1
+        tilt: cell.tilt
+        planeDistance: cell.planeDistance
+        lightTheme: cell.camera ? cell.camera.lightTheme : false
         x: cell.shadeX
         width: cell.shadeWidth
         height: parent.height

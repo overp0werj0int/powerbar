@@ -650,11 +650,10 @@ Item {
     }
 
     // ---------------------------------------------------------- the camera
-    // The Layout page's camera with the Layout page's own arguments, its
-    // beam's end included, so the two pages draw the same shade everywhere
-    // and switching pages changes nothing of it: its cap solid down to the
-    // first plate's Center tile, its beam through the Center tiles, fading
-    // out where the Layout page's does (PREFS-24, PREFS-109).
+    // The Layout page's camera with the Layout page's own arguments, so the
+    // two pages draw the same shade everywhere and switching pages changes
+    // nothing of it: its cap torn a little above the first plate, its shade
+    // over the Center tiles under it (PREFS-24, PREFS-109).
     readonly property Item layoutCamera: layout.beamCamera
     CameraShaft {
         id: camera

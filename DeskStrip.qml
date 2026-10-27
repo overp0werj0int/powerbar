@@ -8,8 +8,8 @@ import "PreferencesModel.js" as Model
 // Layout page tile (ZoneTile: its colour, 1 px edge, radius and 6 px slab
 // edge) with 12 px of padding, its title, a caption, then its controls 10 px
 // apart, a footnote and its faders at the bottom, one under the other. The
-// camera's beam falls over its surface where the camera's column crosses
-// it, continuing the shade the gaps show. The desk places it and gives every
+// camera's torn cap and its shade fall over its surface where the camera's
+// column crosses it, continuing what the gaps show. The desk places it and gives every
 // strip the tallest one's height. Its accent edge says the cursor is in it.
 ZoneTile {
   id: strip
@@ -57,8 +57,31 @@ ZoneTile {
   Accessible.role: Accessible.Grouping
   Accessible.name: title
 
-  // The beam over the part of the strip under the camera's column: the
-  // camera's whole width, cut to the strip.
+  // The camera's cap and shade over the part of the strip under the
+  // camera's column: the column's whole width, cut to the strip.
+  // The shade past the column's sides (CameraLook.shadeSpread), on every
+  // strip it reaches, cut to the strip.
+  Item {
+    id: spillClip
+    readonly property real reach: CameraLook.shadeSpread * Style.space(1)
+    visible: !!strip.desk && strip.desk.cameraShown && reach > 0 && beamClip.beamEnd + reach > 0 && beamClip.beamStart - reach < strip.width
+    anchors.fill: parent
+    clip: true
+    BeamShade {
+      readonly property Item camera: strip.desk ? strip.desk.camera : null
+      spill: 1
+      outer: spillClip.reach
+      colWidth: strip.desk ? strip.desk.beamWidth : 0
+      tilt: strip.desk ? strip.desk.tilt : 34
+      planeDistance: strip.desk ? strip.desk.planeDistance : 1600
+      lightTheme: camera ? camera.lightTheme : false
+      x: beamClip.beamStart - spillClip.reach
+      width: colWidth + 2 * spillClip.reach
+      height: parent.height
+      vTop: strip.desk ? Model.tiltedDepth(strip.desk.seenTop - strip.desk.line, strip.desk.tilt, strip.desk.planeDistance) : 0
+      vBottom: strip.desk ? Model.tiltedDepth(strip.desk.seenTop + Model.tiltedHeight(strip.height, strip.desk.tilt, strip.desk.planeDistance) - strip.desk.line, strip.desk.tilt, strip.desk.planeDistance) : 0
+    }
+  }
   Item {
     id: beamClip
     readonly property real beamStart: strip.desk ? strip.desk.beamLeft - strip.x : 0
@@ -68,10 +91,9 @@ ZoneTile {
     clip: true
     BeamShade {
       readonly property Item camera: strip.desk ? strip.desk.camera : null
-      peak: camera ? camera.peak : 0
-      capEnd: camera ? camera.capEnd : 0
-      capFade: camera ? camera.capFade : 0
-      span: camera ? camera.span : 1
+      tilt: strip.desk ? strip.desk.tilt : 34
+      planeDistance: strip.desk ? strip.desk.planeDistance : 1600
+      lightTheme: camera ? camera.lightTheme : false
       x: beamClip.beamStart
       width: strip.desk ? strip.desk.beamWidth : 0
       height: parent.height

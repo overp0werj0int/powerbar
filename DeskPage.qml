@@ -13,7 +13,7 @@ import "PreferencesModel.js" as Model
 // column; its strips (DeskStrip, the page's children) share its width
 // equally, 12 px apart, all as tall as the tallest. The Layout page's camera
 // hangs over it with the Layout page's own arguments; each strip draws the
-// beam over the part of its surface under the camera. The key legend is at
+// cap's shade over the part of its surface under the camera. The key legend is at
 // the bottom left (PREFS-103).
 //
 // The cursor walks the strips' controls (DeskModel.js; PREFS-126): j/k move
@@ -93,7 +93,7 @@ Item {
 
   // ---------------------------------------------------------- the camera
   // The Layout page's, with every argument its own (PREFS-109's rule), so
-  // switching pages changes nothing of its cap or beam.
+  // switching pages changes nothing of its cap or shade.
   readonly property Item layoutCamera: layout.beamCamera
   readonly property bool cameraShown: layout.previewCamera && !!layout.previewNotch
   CameraShaft {
@@ -110,7 +110,7 @@ Item {
     lightTheme: desk.layoutCamera.lightTheme
   }
   readonly property Item camera: shaft
-  // The beam's column in the plate, and where the plate's top is seen.
+  // The camera's column in the plate, and where the plate's top is seen.
   readonly property real beamLeft: shaft.axis - shaft.half - plate.x
   readonly property real beamWidth: 2 * shaft.half
   readonly property real seenTop: plate.y
