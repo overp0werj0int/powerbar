@@ -113,6 +113,7 @@ Item {
             color: Commons.Color.accent
         }
         Text {
+            id: sideLabel
             x: sideDot.onLeft ? -width - Style.space(6) : sideDot.width + Style.space(6)
             anchors.verticalCenter: parent.verticalCenter
             text: root.label
@@ -121,10 +122,15 @@ Item {
             font.family: Style.font.family
             font.pixelSize: Style.font.caption
         }
+        // The dot and its caption are one target: 8 px round the dot, and
+        // on to 4 px past the caption's far end.
         MouseArea {
             id: dotMouse
-            anchors.fill: parent
-            anchors.margins: -Style.space(8)
+            readonly property real pad: Style.space(8)
+            x: Math.min(-pad, sideLabel.x - Style.space(4))
+            y: -pad
+            width: Math.max(sideDot.width + pad, sideLabel.x + sideLabel.width + Style.space(4)) - x
+            height: sideDot.height + 2 * pad
             hoverEnabled: true
             cursorShape: Qt.SizeHorCursor
             property real pressX: 0
