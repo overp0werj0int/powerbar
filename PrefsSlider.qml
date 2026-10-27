@@ -39,16 +39,25 @@ BorderSurface {
   signal edited(real value)
   signal drafted(real value)
 
-  property bool drafting: false
-  property real draft: 0
-  property bool dragging: false
-  property real lastEdit: -Infinity
-  property real wheelRest: 0
-  property real grabOffset: 0
-
-  readonly property real committed: SliderModel.snap(value, minimum, maximum, stepSize)
-  readonly property real shown: drafting ? draft : committed
-  readonly property bool hasDefault: isFinite(defaultValue) && defaultValue >= minimum && defaultValue <= maximum
+  // The draft, its settling and the keys (SliderDraft, shared with Fader).
+  SliderDraft {
+    id: core
+    host: row
+    minimum: row.minimum
+    maximum: row.maximum
+    stepSize: row.stepSize
+    value: row.value
+    defaultValue: row.defaultValue
+    onEdited: function(v) { row.edited(v) }
+    onDrafted: function(v) { row.drafted(v) }
+  }
+  property alias drafting: core.drafting
+  property alias dragging: core.dragging
+  property alias lastEdit: core.lastEdit
+  property alias wheelRest: core.wheelRest
+  readonly property alias committed: core.committed
+  readonly property alias shown: core.shown
+  readonly property alias hasDefault: core.hasDefault
   readonly property bool hot: hover.hovered
   // Footer keys while this slider has focus.
   readonly property var keyHints: [{ keys: "h l", label: "Adjust" }, { keys: "shift", label: "Faster" }]
@@ -60,44 +69,11 @@ BorderSurface {
     if (custom) return custom
     return (stepSize < 1 ? v.toFixed(1) : Math.round(v)) + (unit === "%" ? "%" : unit ? " " + unit : "")
   }
-  // Moves the draft and, unless the pointer still holds the knob, schedules
-  // it to apply once the user goes quiet.
-  function setDraft(v) {
-    var next = SliderModel.snap(v, minimum, maximum, stepSize)
-    var now = Date.now()
-    var gap = now - lastEdit
-    lastEdit = now
-    if (!drafting && next === committed) return
-    draft = next
-    drafting = true
-    drafted(next)
-    settle.interval = SliderModel.settleDelay(gap)
-    if (!dragging) settle.restart()
-  }
-  function step(count) { setDraft(shown + count * stepSize) }
-  function flush() {
-    settle.stop()
-    if (!drafting) return
-    var v = draft
-    drafting = false
-    if (v !== committed) edited(v)
-    drafted(NaN)
-  }
-  function cancel() {
-    settle.stop()
-    dragging = false
-    if (!drafting) return false
-    drafting = false
-    drafted(NaN)
-    return true
-  }
-  function endDrag() {
-    if (!dragging) return
-    dragging = false
-    if (!drafting) return
-    settle.interval = SliderModel.RELEASE
-    settle.restart()
-  }
+  function setDraft(v) { core.setDraft(v) }
+  function step(count) { core.step(count) }
+  function flush() { core.flush() }
+  function cancel() { return core.cancel() }
+  function endDrag() { core.endDrag() }
 
   Layout.fillWidth: true
   implicitHeight: content.implicitHeight + (compact ? Style.space(8) : Style.space(20))
@@ -111,33 +87,7 @@ BorderSurface {
   Accessible.name: label
   Accessible.description: format(shown)
 
-  Keys.onPressed: function(event) {
-    var big = (event.modifiers & Qt.ShiftModifier) ? 5 : 1
-    var t = event.text.toLowerCase()
-    if (event.key === Qt.Key_Left || t === "h") row.step(-big)
-    else if (event.key === Qt.Key_Right || t === "l") row.step(big)
-    else if (event.key === Qt.Key_PageDown) row.step(-5)
-    else if (event.key === Qt.Key_PageUp) row.step(5)
-    else if (event.key === Qt.Key_Home) row.setDraft(row.minimum)
-    else if (event.key === Qt.Key_End) row.setDraft(row.maximum)
-    else if ((event.key === Qt.Key_Backspace || event.key === Qt.Key_Delete) && row.hasDefault) row.setDraft(row.defaultValue)
-    else if ((event.key === Qt.Key_Return || event.key === Qt.Key_Enter) && row.drafting) row.flush()
-    else if (event.key === Qt.Key_Escape && row.cancel()) {}
-    else return
-    event.accepted = true
-  }
-  // Leaving the slider, its page or the window applies what is pending.
-  onActiveFocusChanged: if (!activeFocus && enabled) { endDrag(); flush() }
-  onVisibleChanged: if (!visible) { endDrag(); flush() }
-  onEnabledChanged: if (!enabled) cancel()
-  Component.onDestruction: flush()
-  Connections {
-    target: row.Window.window
-    ignoreUnknownSignals: true
-    function onVisibleChanged() { if (row.Window.window && !row.Window.window.visible) { row.endDrag(); row.flush() } }
-  }
-
-  Timer { id: settle; onTriggered: row.flush() }
+  Keys.onPressed: function(event) { if (core.keyPressed(event, false)) event.accepted = true }
   HoverHandler { id: hover }
 
   ColumnLayout {
@@ -279,27 +229,21 @@ BorderSurface {
         preventStealing: true
         cursorShape: Qt.PointingHandCursor
         function valueAt(x) {
-          return SliderModel.fromPosition(x - row.grabOffset - slider.knobSize / 2, slider.span,
+          return SliderModel.fromPosition(x - core.grabOffset - slider.knobSize / 2, slider.span,
             row.minimum, row.maximum, row.stepSize)
         }
         onPressed: function(mouse) {
-          settle.stop()
           row.forceActiveFocus(Qt.MouseFocusReason)
           var centre = knob.x + knob.width / 2
           // On the knob, keep the grab point; on the track, jump there.
-          row.grabOffset = Math.abs(mouse.x - centre) <= knob.width / 2 + Style.space(2) ? mouse.x - centre : 0
-          row.dragging = true
-          row.setDraft(valueAt(mouse.x))
+          core.grabOffset = Math.abs(mouse.x - centre) <= knob.width / 2 + Style.space(2) ? mouse.x - centre : 0
+          core.startDrag(valueAt(mouse.x))
         }
         onPositionChanged: function(mouse) { if (row.dragging) row.setDraft(valueAt(mouse.x)) }
         onReleased: row.endDrag()
         onCanceled: row.endDrag()
         onWheel: function(wheel) {
-          if (!row.activeFocus || row.dragging) { wheel.accepted = false; return }
-          var delta = wheel.angleDelta.y !== 0 ? wheel.angleDelta.y : -wheel.angleDelta.x
-          var notches = SliderModel.wheelSteps(row.wheelRest, delta)
-          row.wheelRest = notches.rest
-          if (notches.steps !== 0) row.step(notches.steps)
+          wheel.accepted = core.wheel(wheel.angleDelta.y !== 0 ? wheel.angleDelta.y : -wheel.angleDelta.x)
         }
       }
     }
