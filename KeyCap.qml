@@ -13,6 +13,8 @@ BorderSurface {
   // taller line, and caps of one row must share one height.
   implicitHeight: Math.ceil(metrics.height) + Style.space(4)
   radius: Math.min(Style.cornerRadius, Style.space(4))
+  // Under a desk's tilt a square cap steps without it.
+  antialiasing: true
   color: Qt.alpha(foreground, 0.07)
   borderSpec: Border.flat(Qt.alpha(foreground, 0.22), 1)
   Accessible.ignored: true

@@ -157,6 +157,7 @@ Item {
           width: 1
           height: Style.space(6)
           color: Qt.alpha(Commons.Color.popups.text, 0.3)
+          antialiasing: true
           Accessible.ignored: true
         }
       }
@@ -168,6 +169,7 @@ Item {
         width: 1
         height: Style.space(12)
         color: Qt.alpha(Commons.Color.popups.text, 0.4)
+        antialiasing: true
         Accessible.ignored: true
       }
       // The focus ring: a gap in the page's colour, then the accent.
