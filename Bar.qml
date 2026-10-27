@@ -486,7 +486,7 @@ Item {
   readonly property bool onDemandMenu: onDemandMode === "menu"
   // On-demand widgets wait behind their zone's dots (inline and menu).
   readonly property bool onDemandDots: onDemandInline || onDemandMenu
-  // The keyboard mode's key strip (Preferences → Bar → Keyboard).
+  // The keyboard mode's key strip (Preferences → Behavior → Keyboard).
   readonly property bool keyLegend: barOptions.keyLegend
   // The count badge on a zone's dots (drawer handle and yield marker).
   readonly property bool dotsBadge: barOptions.dotsBadge
@@ -694,7 +694,7 @@ Item {
       preferencesPane.show(screen)
     }
     function closePreferences(): void { preferencesPane.close() }
-    // Bar → Keyboard with the cursor on the keyboard mode's shortcut: where
+    // Behavior → Keyboard with the cursor on the keyboard mode's shortcut: where
     // the first start's notification leads (KEYS-84).
     function preferencesKeyboard(): void { root.showPreferencesKeyboard() }
     function preferencesPage(page: int): void {
@@ -719,7 +719,7 @@ Item {
       if (owner && owner.opened && owner.groupId === id) root.closeManagedDrawer()
       else group(id)
     }
-    // Groups is the second page (Layout, Groups, Bar).
+    // Groups is the second page (Layout, Groups, Look, Behavior).
     function groupsPreferences(): void { preferences(); preferencesPane.setPage(1) }
     function popupStatus(): string {
       return JSON.stringify(root.popupPlacements.filter(function(record) { return record.panel && record.panel.open }).map(function(record) {

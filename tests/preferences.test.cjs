@@ -157,12 +157,13 @@ test('the five zones are five columns on every row, the tray meets the last', ()
 });
 
 test('preferencesPage counts from 1 and clamps to the pages there are', () => {
-  assert.equal(model.pageIndex(1, 3), 0);
-  assert.equal(model.pageIndex(2, 3), 1);
-  assert.equal(model.pageIndex(3, 3), 2);
-  assert.equal(model.pageIndex(4, 3), 2);
-  assert.equal(model.pageIndex(0, 3), 0);
-  assert.equal(model.pageIndex(-2, 3), 0);
+  assert.equal(model.pageIndex(1, 4), 0);
+  assert.equal(model.pageIndex(2, 4), 1);
+  assert.equal(model.pageIndex(3, 4), 2);
+  assert.equal(model.pageIndex(4, 4), 3);
+  assert.equal(model.pageIndex(5, 4), 3);
+  assert.equal(model.pageIndex(0, 4), 0);
+  assert.equal(model.pageIndex(-2, 4), 0);
 });
 
 test('a panel hotkey by position opens the copy it counted when a widget is on the bar twice', () => {

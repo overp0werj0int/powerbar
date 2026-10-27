@@ -265,7 +265,7 @@ ZONE-72 to ZONE-78 described the zone modes (three zones, two zones, the notch),
 ## Doc drift
 
 - docs/design/zone-fit.md:218 says the fit's `inset` is "0 on Flat, edgeGap otherwise". Code: a flat bar's inset is `CellModel.flatEdge` (8.5 px on the 26 px bar), Bar.qml:1848.
-- docs/design/spacing.md:102 puts the "Spacing" choice in a "Style section"; in Preferences it is in the Size tile (Preferences.qml:633, :644).
+- docs/design/spacing.md:102 puts the "Spacing" choice in a "Style section"; in Preferences it is in the Look page's Size strip (LookEditor.qml, preferences.md PREFS-66).
 - CONTEXT.md ("Inline expansion") says the zone falls back to the drawer "only when the expanded zone can't fit the bar line"; the fit also falls back when the source widget is folded, when two growing zones meet and the other cannot yield, or when it would run over a camera notch (ZoneFitModel.js fitMoment, reasons `folded`, `neighbour` and `notch`).
 
 ## Open questions

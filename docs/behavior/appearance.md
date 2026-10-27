@@ -4,7 +4,7 @@ How Powerbar looks and when it shows: surface (opacity, blur, readable minimum),
 
 Storage: the look lives in `bar.powerbarAppearance` of shell.json: `all` (values shared by every theme) and `themes.<theme>` (values for one theme, plus that theme's `text`), each tile holding `use` (`this` or `all`; absent means the default scope) and its values: shape `{ rounding, borders, borderWidth }`, surface `{ opacity, blur }`, shadow `{ enabled, softness, strength }`. Behaviour switches stay flat in `bar`: `powerbarAutoHide`, `powerbarAutoHideActivity`, `powerbarReadableOverlay`, `powerbarAnimations`, `powerbarLargeBar` (layout-zones.md), and Omarchy's own `background` (or `transparent`). Keys from earlier versions are migrated (see Legacy migration).
 
-**Sources:** AppearanceModel.js, RenderModel.js (captureDelta), TooltipModel.js, EffectSurface.qml, BarBackdrop.qml, BarFace.qml, TintedImage.qml, WidgetIcon.qml, Bar.qml (grep: autoHide, barOpacity, surfaceEffects, overlayStyled, tooltip, themeLook, barForeground, transparent, namespace), Preferences.qml (Shape, Surface, Shadow, Behavior tiles; scopeHint), tests/appearance.test.cjs, tests/render.test.cjs, tests/tooltip-model.test.cjs, tests/clean-defaults.test.cjs.
+**Sources:** AppearanceModel.js, RenderModel.js (captureDelta), TooltipModel.js, EffectSurface.qml, BarFace.qml, TintedImage.qml, WidgetIcon.qml, Bar.qml (grep: autoHide, barOpacity, surfaceEffects, overlayStyled, tooltip, themeLook, barForeground, transparent, namespace), Preferences.qml (setLook, scopeHint), LookEditor.qml (the Shape, Surface and Shadow strips), BehaviorEditor.qml, tests/appearance.test.cjs, tests/render.test.cjs, tests/tooltip-model.test.cjs, tests/clean-defaults.test.cjs.
 
 ## Surface effects (opacity, blur, shadow)
 
@@ -307,7 +307,7 @@ Storage: the look lives in `bar.powerbarAppearance` of shell.json: `all` (values
 
 - **LOOK-107** The bar's background and urgent colours crossfade over 420 ms, InOutCubic, with Animations on. Code: Bar.qml Behavior on background / urgent.
 
-- **LOOK-108** In Preferences' bar placement graphic the wallpaper fades in over 160 ms when it loads, with Animations on; off, it appears at once. Code: BarBackdrop.qml.
+- **LOOK-108** Superseded: Preferences no longer draw a bar placement graphic (the Look page has no bar preview, preferences.md PREFS-124).
 
 ## Capture invalidation
 
@@ -325,15 +325,15 @@ Storage: the look lives in `bar.powerbarAppearance` of shell.json: `all` (values
 
 - **LOOK-114** A text face is drawn in the bar's font and current text colour. Code: BarFace.qml.
 
-## Bar backdrop (placement graphic)
+## Bar backdrop (placement graphic, gone)
 
-- **LOOK-119** The placement graphic in Preferences' Bar tile shows the current wallpaper at the monitor's aspect ratio with the bar drawn on the chosen edge in the chosen style (flat: one strip, no gap or rounding; floating: one surface off the edges; islands: three surfaces), using the bar's real surface colour, opacity and island border, so they show as they will look; clicking an edge moves the bar there. Code: BarPlacement.qml, BarBackdrop.qml.
+- **LOOK-119** Superseded by preferences.md PREFS-124 and PREFS-65 (no placement graphic; the Screen edge grid moves the bar and the real bar shows the style).
 
-- **LOOK-120** The wallpaper is cropped to fill the graphic, top-aligned and horizontally centred (the placement graphic always passes position "top"). Code: BarBackdrop.qml, BarPlacement.qml.
+- **LOOK-120** Superseded: the placement graphic and its wallpaper are gone (PREFS-124).
 
-- **LOOK-121** BarBackdrop aligns the image to the bottom when its `position` is bottom or right, and to the top otherwise; the placement graphic does not use this. Code: BarBackdrop.qml.
+- **LOOK-121** Superseded: BarBackdrop is gone with the placement graphic (PREFS-124).
 
-- **LOOK-122** The wallpaper fades in over 160 ms when ready (LOOK-108). Code: BarBackdrop.qml.
+- **LOOK-122** Superseded: no wallpaper is drawn in Preferences (LOOK-108).
 
 ## Icon colour in Preferences (WidgetIcon)
 

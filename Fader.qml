@@ -29,6 +29,8 @@ Item {
   // Words for special values, such as the ends of the range.
   property var formatter: null
   property bool animate: true
+  // The name may use the room a strip leaves around the fader.
+  readonly property real labelWidth: parent && parent.room !== undefined ? width + parent.room : width
   signal edited(real value)
   signal drafted(real value)
 
@@ -209,7 +211,8 @@ Item {
       }
     }
     Text {
-      width: parent.width
+      x: (parent.width - width) / 2
+      width: fader.labelWidth
       horizontalAlignment: Text.AlignHCenter
       text: fader.label
       textFormat: Text.PlainText

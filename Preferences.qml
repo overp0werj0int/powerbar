@@ -12,12 +12,11 @@ import "BarModel.js" as BarModel
 import "AppearanceModel.js" as AppearanceModel
 import "GroupsModel.js" as Groups
 import "RenderModel.js" as RenderModel
-import "BentoModel.js" as BentoModel
 import "TrayItemsModel.js" as TrayItemsModel
 
-// Powerbar preferences. Everything is reachable from the keyboard: 1-3 switch
-// pages, Tab and j/k walk controls, h/l adjust them, Esc closes. The footer
-// always lists the keys that apply to whatever has focus.
+// Powerbar preferences. Everything is reachable from the keyboard: 1-4 switch
+// pages, each page walks its own controls, Esc closes. Every page shows the
+// keys that apply to whatever has focus as a legend at its bottom left.
 Item {
     id: prefs
     property var bar: null
@@ -32,7 +31,6 @@ Item {
     property var snapshotBatch: ({})
     property var pendingCaptureKeys: []
     property var previousCaptureConfig: ({})
-    readonly property string wallpaper: bar ? "file://" + bar.stateHome + "/omarchy/current/background?v=" + openSerial : ""
     readonly property var config: bar ? bar.barConfig : ({})
     // The bar's options as the bar reads them, defaults included.
     readonly property var options: BarModel.options(config)
@@ -97,11 +95,15 @@ Item {
             icon: "󰉋"
         },
         {
-            title: "Bar",
+            title: "Look",
+            icon: "󰏘"
+        },
+        {
+            title: "Behavior",
             icon: "󰒓"
         }
     ]
-    readonly property var pageItems: [layoutPage.item, groupsPage.item, barPage.item]
+    readonly property var pageItems: [layoutPage.item, groupsPage.item, lookPage.item, behaviorPage.item]
     // Built on the first open (the page Loaders), then kept.
     property bool pagesLoaded: false
     // A group asked for before its page exists, selected as it loads.
@@ -128,7 +130,6 @@ Item {
         pendingCaptureKeys = [];
         openSerial++;
         cacheListing.running = true;
-        gapsInProc.running = true;
         opened = true;
         bar.readWidgetGlyphs();
         refreshSnapshots();
@@ -166,14 +167,14 @@ Item {
         targetScreen = screen;
         open("{}");
     }
-    // Bar → Keyboard, the cursor on the keyboard mode's shortcut row.
+    // Behavior → Keyboard, the cursor on the keyboard mode's shortcut row.
     property bool pendingKeyboard: false
     function showKeyboard(screen) {
         pendingKeyboard = true;
         if (opened)
-            setPage(2);
+            setPage(3);
         else {
-            page = 2;
+            page = 3;
             show(screen);
         }
     }
@@ -199,7 +200,7 @@ Item {
             return;
         if (pendingKeyboard && item.keyboardRow) {
             pendingKeyboard = false;
-            item.keyboardRow.forceActiveFocus(Qt.OtherFocusReason);
+            item.keyboardRow.deskFocus(0, Qt.OtherFocusReason);
         } else
             item.focusFirst();
     }
@@ -373,46 +374,6 @@ Item {
             return own ? "Yours everywhere; " + theme + " has its own look." : "Yours, in every theme that has no own choice.";
         return "Yours, only while " + theme + " is on.";
     }
-    component ScopeChoice: ButtonGroup {
-        property string tile: ""
-        anchors.verticalCenter: parent ? parent.verticalCenter : undefined
-        options: [
-            {
-                value: "theme",
-                label: "Theme"
-            },
-            {
-                value: "all",
-                label: "Everywhere"
-            },
-            {
-                value: "this",
-                label: "Just here"
-            }
-        ]
-        value: prefs.scopeOf(tile)
-        foreground: Commons.Color.popups.text
-        background: "transparent"
-        fontSize: Style.font.caption
-        Accessible.name: tile.charAt(0).toUpperCase() + tile.slice(1) + " values"
-        onChanged: function (value) {
-            prefs.setScope(tile, value);
-        }
-    }
-    component ScopeHint: Text {
-        property string tile: ""
-        text: prefs.scopeHint(tile)
-        textFormat: Text.PlainText
-        color: Qt.alpha(Commons.Color.popups.text, 0.55)
-        font.family: Style.font.family
-        font.pixelSize: Style.font.caption
-        elide: Text.ElideRight
-        Accessible.name: text
-        Layout.fillWidth: true
-        Layout.leftMargin: Style.spacing.rowPaddingX
-        Layout.rightMargin: Style.spacing.rowPaddingX
-        Layout.bottomMargin: Style.space(2)
-    }
     function setBarStyle(value) {
         if (!bar || !bar.shell)
             return;
@@ -427,24 +388,6 @@ Item {
     // that only the islands use hide when every screen has the notch look.
     readonly property bool notchMode: !!bar && bar.notchMode
     readonly property bool motion: !bar || bar.animationsEnabled
-    // Tiles sit apart like tiled windows: twice Hyprland's inner gap, read once
-    // per opening; 8 px until it is known or when it cannot be read.
-    property int gapsIn: -1
-    readonly property real tileGap: gapsIn >= 0 ? gapsIn * 2 : Style.space(8)
-    Process {
-        id: gapsInProc
-        command: ["hyprctl", "-j", "getoption", "general:gaps_in"]
-        stdout: StdioCollector {
-            onStreamFinished: {
-                try {
-                    var json = JSON.parse(text || "{}");
-                    var n = Number((String(json.css || "").match(/-?\d+(?:\.\d+)?/) || [json.int])[0]);
-                    if (isFinite(n) && n >= 0)
-                        prefs.gapsIn = Math.round(n);
-                } catch (e) {}
-            }
-        }
-    }
 
     Connections {
         target: prefs.bar
@@ -651,8 +594,8 @@ Item {
             right: true
         }
         // The page fills the screen but the bar's edge: the bar stays in view,
-        // so the Layout page's camera shaft starts at the real notch and the Bar
-        // page's changes show on the bar itself.
+        // so the Layout page's camera shaft starts at the real notch and the Look
+        // and Behavior pages' changes show on the bar itself.
         readonly property real barInset: {
             if (!prefs.bar)
                 return 0;
@@ -726,6 +669,10 @@ Item {
                 sequences: ["Ctrl+3"]
                 onActivated: prefs.setPage(2)
             }
+            Shortcut {
+                sequences: ["Ctrl+4"]
+                onActivated: prefs.setPage(3)
+            }
             MouseArea {
                 anchors.fill: parent
             } // Keep clicks inside the card.
@@ -761,10 +708,14 @@ Item {
                         glideEnd.restart();
                         follow();
                     }
+                    // A page that draws its own cursor (the desks) keeps the ring away.
                     function onPages(item) {
-                        for (var p = item; p; p = p.parent)
+                        for (var p = item; p; p = p.parent) {
+                            if (p.ownsFocusRings === true)
+                                return false;
                             if (p === pages)
                                 return true;
+                        }
                         return false;
                     }
                     function viewportOf(item) {
@@ -962,6 +913,23 @@ Item {
                             }
                         }
                     }
+                    // The other pages take the Layout page's geometry and camera, but
+                    // the stack sizes only the page in view: keep it at the pages' size
+                    // while another one shows.
+                    Binding {
+                        target: layoutPage.item
+                        when: !!layoutPage.item
+                        property: "width"
+                        value: pages.width
+                        restoreMode: Binding.RestoreNone
+                    }
+                    Binding {
+                        target: layoutPage.item
+                        when: !!layoutPage.item
+                        property: "height"
+                        value: pages.height
+                        restoreMode: Binding.RestoreNone
+                    }
                     Loader {
                         id: groupsPage
                         active: prefs.pagesLoaded && !!layoutPage.item
@@ -977,546 +945,25 @@ Item {
                         }
                     }
 
-                    // General and Appearance as one page of tiles. Changes show on
-                    // the bar itself, so the page draws no preview of its own.
+                    // The Look and Behavior desks (PREFS-124). Changes show on the
+                    // bar itself, so neither draws a preview of its own.
                     Loader {
-                        id: barPage
-                        active: prefs.pagesLoaded
+                        id: lookPage
+                        active: prefs.pagesLoaded && !!layoutPage.item
                         sourceComponent: Component {
-                            PrefsForm {
-                                maxContentWidth: Style.space(1180)
-                                readonly property Item keyboardRow: barKeysRow
-
-                                PrefsBento {
-                                    id: bento
-                                    Layout.fillWidth: true
-                                    columns: BentoModel.columnsFor(card.width / Style.spacing.scale)
-                                    gap: prefs.tileGap
-
-                                    PrefsTile {
-                                        title: "Style and position"
-                                        span12: 8
-                                        span6: 6
-                                        GridLayout {
-                                            id: placement
-                                            readonly property var screen: prefs.targetScreen
-                                            Layout.fillWidth: true
-                                            Layout.leftMargin: Style.spacing.rowPaddingX
-                                            Layout.topMargin: Style.space(4)
-                                            Layout.bottomMargin: Style.space(4)
-                                            columns: width >= Style.space(560) ? 2 : 1
-                                            columnSpacing: Style.space(16)
-                                            rowSpacing: Style.space(8)
-                                            BarPlacement {
-                                                Layout.alignment: Qt.AlignTop | Qt.AlignHCenter
-                                                bar: prefs.bar
-                                                source: prefs.wallpaper
-                                                aspect: placement.screen && placement.screen.height > 0 ? placement.screen.width / placement.screen.height : 16 / 10
-                                                onEdgeChosen: function (edge) {
-                                                    prefs.setOption("position", edge);
-                                                }
-                                            }
-                                            ColumnLayout {
-                                                Layout.fillWidth: true
-                                                Layout.alignment: Qt.AlignTop
-                                                spacing: Style.space(2)
-                                                PrefsChoice {
-                                                    compact: true
-                                                    Layout.leftMargin: 0
-                                                    stacked: true
-                                                    label: "Style"
-                                                    description: value === "islands" ? "A surface for each zone" : value === "floating" ? "One bar, off the edges" : value === "notch" ? "Notch applies on the top edge of the notched screen; elsewhere it draws as islands" : "Edge to edge, like Omarchy"
-                                                    // Notch is offered where a screen has one.
-                                                    options: [
-                                                        {
-                                                            value: "flat",
-                                                            label: "Flat"
-                                                        },
-                                                        {
-                                                            value: "floating",
-                                                            label: "Floating"
-                                                        },
-                                                        {
-                                                            value: "islands",
-                                                            label: "Islands"
-                                                        }
-                                                    ].concat(prefs.bar && (prefs.bar.screenNotch || prefs.bar.notchStyle) ? [
-                                                        {
-                                                            value: "notch",
-                                                            label: "Notch"
-                                                        }
-                                                    ] : [])
-                                                    value: prefs.bar ? (prefs.bar.notchStyle ? "notch" : prefs.bar.barStyle) : "flat"
-                                                    onChosen: function (value) {
-                                                        prefs.setBarStyle(value);
-                                                    }
-                                                }
-                                                PrefsChoice {
-                                                    compact: true
-                                                    Layout.leftMargin: 0
-                                                    stacked: true
-                                                    label: "Screen edge"
-                                                    options: [
-                                                        {
-                                                            value: "top",
-                                                            label: "Top"
-                                                        },
-                                                        {
-                                                            value: "bottom",
-                                                            label: "Bottom"
-                                                        },
-                                                        {
-                                                            value: "left",
-                                                            label: "Left"
-                                                        },
-                                                        {
-                                                            value: "right",
-                                                            label: "Right"
-                                                        }
-                                                    ]
-                                                    value: prefs.bar ? prefs.bar.position : "top"
-                                                    onChosen: function (value) {
-                                                        prefs.setOption("position", value);
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-                                    PrefsTile {
-                                        title: "Size"
-                                        span12: 4
-                                        span6: 3
-                                        // The notch's bar is always as tall as the camera.
-                                        PrefsToggle {
-                                            visible: !prefs.notchMode
-                                            compact: true
-                                            label: "Large bar"
-                                            checked: prefs.bar ? prefs.bar.largeBar : false
-                                            onToggled: function (checked) {
-                                                prefs.setOption("powerbarLargeBar", checked);
-                                            }
-                                        }
-                                        PrefsChoice {
-                                            compact: true
-                                            stacked: true
-                                            label: "Spacing"
-                                            options: [
-                                                {
-                                                    value: "slots",
-                                                    label: "Equal slots"
-                                                },
-                                                {
-                                                    value: "gaps",
-                                                    label: "Equal gaps"
-                                                }
-                                            ]
-                                            value: prefs.bar ? prefs.bar.spacingMode : "slots"
-                                            onChosen: function (value) {
-                                                prefs.setOption("powerbarSpacingMode", value);
-                                            }
-                                        }
-                                        PrefsSlider {
-                                            compact: true
-                                            label: "Space between widgets"
-                                            minimum: prefs.ranges.spacing.min
-                                            maximum: prefs.ranges.spacing.max
-                                            stepSize: prefs.ranges.spacing.step
-                                            defaultValue: prefs.ranges.spacing.fallback
-                                            value: AppearanceModel.clampTo(prefs.ranges.spacing, prefs.config.powerbarSpacing)
-                                            formatter: function (v) {
-                                                return v === 0 ? "None" : "";
-                                            }
-                                            animate: prefs.motion
-                                            onEdited: function (v) {
-                                                prefs.setOption("powerbarSpacing", v);
-                                            }
-                                        }
-                                    }
-                                    // The notch's zones take the camera's corners and have no
-                                    // border: nothing here applies to them.
-                                    PrefsTile {
-                                        id: shapeTile
-                                        readonly property bool editable: prefs.scopeOf("shape") !== "theme"
-                                        visible: !prefs.notchMode
-                                        title: "Shape"
-                                        span12: 4
-                                        span6: 3
-                                        animate: prefs.motion
-                                        ScopeChoice {
-                                            parent: shapeTile.headerSlot
-                                            tile: "shape"
-                                        }
-                                        ScopeHint {
-                                            tile: "shape"
-                                        }
-                                        PrefsSlider {
-                                            readonly property real themeRounding: Style.cornerRadius / Style.spacing.scale
-                                            compact: true
-                                            enabled: shapeTile.editable
-                                            label: "Corner rounding"
-                                            minimum: 0
-                                            maximum: prefs.bar ? prefs.bar.roundingMax : 16
-                                            stepSize: 1
-                                            defaultValue: Math.min(maximum, Math.round(themeRounding))
-                                            value: typeof prefs.lookValue("rounding") === "number" ? prefs.lookValue("rounding") : themeRounding
-                                            formatter: function (v) {
-                                                return v === 0 ? "Square" : v >= maximum ? "Pill" : "";
-                                            }
-                                            animate: prefs.motion
-                                            onEdited: function (v) {
-                                                prefs.setLook("shape", "rounding", v);
-                                            }
-                                        }
-                                        PrefsToggle {
-                                            compact: true
-                                            label: "Borders"
-                                            enabled: shapeTile.editable
-                                            opacity: enabled ? 1 : 0.45
-                                            checked: prefs.lookValue("borders") !== false
-                                            onToggled: function (checked) {
-                                                prefs.setLook("shape", "borders", checked);
-                                            }
-                                        }
-                                        PrefsSlider {
-                                            readonly property real themeWidth: prefs.bar ? Border.top(prefs.bar.themeIslandBorder) / Style.space(1) : 1
-                                            compact: true
-                                            label: "Border thickness"
-                                            minimum: prefs.ranges.borderWidth.min
-                                            maximum: prefs.ranges.borderWidth.max
-                                            stepSize: prefs.ranges.borderWidth.step
-                                            defaultValue: themeWidth
-                                            enabled: shapeTile.editable && prefs.lookValue("borders") !== false
-                                            value: AppearanceModel.clampTo(prefs.ranges.borderWidth, prefs.lookValue("borderWidth"), themeWidth)
-                                            formatter: function (v) {
-                                                return v === prefs.ranges.borderWidth.min ? "Hairline" : "";
-                                            }
-                                            animate: prefs.motion
-                                            onEdited: function (v) {
-                                                prefs.setLook("shape", "borderWidth", v);
-                                            }
-                                        }
-                                    }
-                                    // The Notch style's ears blend into the camera, which takes the
-                                    // place of Surface (black, no blur there). In every style the
-                                    // camera's size places the center and the large bar.
-                                    PrefsTile {
-                                        id: notchTile
-                                        readonly property var notch: prefs.bar ? prefs.bar.screenNotch : null
-                                        visible: !!notch
-                                        title: "Notch"
-                                        caption: prefs.notchMode ? "Black, like the camera" : "The camera's size"
-                                        span12: 4
-                                        span6: 3
-                                        // A size set by hand goes back to the measured or detected one.
-                                        readonly property bool customized: prefs.options.notchWidth > 0 || prefs.options.notchHeight > 0
-                                        Button {
-                                            parent: notchTile.headerSlot
-                                            visible: notchTile.customized
-                                            text: "Reset"
-                                            tooltipText: "Use the camera's measured size"
-                                            focusable: true
-                                            readonly property var keyHints: [
-                                                {
-                                                    keys: "enter",
-                                                    label: "Reset the notch"
-                                                }
-                                            ]
-                                            bordered: true
-                                            foreground: Commons.Color.popups.text
-                                            fontSize: Style.font.caption
-                                            verticalPadding: Style.space(2)
-                                            horizontalPadding: Style.space(8)
-                                            Keys.onPressed: function (event) {
-                                                if (event.key === Qt.Key_Space || event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
-                                                    clicked();
-                                                    event.accepted = true;
-                                                }
-                                            }
-                                            onClicked: {
-                                                // Focus stays in the tile once the button hides.
-                                                if (activeFocus)
-                                                    notchWidthSlider.forceActiveFocus(Qt.TabFocusReason);
-                                                prefs.clearOptions(["powerbarNotchWidth", "powerbarNotchHeight"]);
-                                            }
-                                        }
-                                        PrefsSlider {
-                                            id: notchWidthSlider
-                                            compact: true
-                                            label: "Notch width"
-                                            unit: "px"
-                                            minimum: 40
-                                            maximum: 600
-                                            stepSize: 1
-                                            defaultValue: notchTile.notch ? notchTile.notch.housing : 191
-                                            value: notchTile.notch ? notchTile.notch.width : (prefs.options.notchWidth || 191)
-                                            animate: prefs.motion
-                                            onEdited: function (v) {
-                                                prefs.setOption("powerbarNotchWidth", v === defaultValue ? undefined : v);
-                                            }
-                                        }
-                                        PrefsSlider {
-                                            visible: !!notchTile.notch
-                                            compact: true
-                                            label: "Notch height"
-                                            unit: "px"
-                                            minimum: 16
-                                            maximum: 96
-                                            stepSize: 1
-                                            defaultValue: notchTile.notch ? notchTile.notch.detectedHeight : 32
-                                            value: notchTile.notch ? notchTile.notch.height : 32
-                                            animate: prefs.motion
-                                            onEdited: function (v) {
-                                                prefs.setOption("powerbarNotchHeight", v === defaultValue ? undefined : v);
-                                            }
-                                        }
-                                    }
-                                    PrefsTile {
-                                        id: surfaceTile
-                                        readonly property bool editable: prefs.scopeOf("surface") !== "theme"
-                                        visible: !prefs.notchMode
-                                        title: "Surface"
-                                        span12: 4
-                                        span6: 3
-                                        animate: prefs.motion
-                                        ScopeChoice {
-                                            parent: surfaceTile.headerSlot
-                                            tile: "surface"
-                                        }
-                                        ScopeHint {
-                                            tile: "surface"
-                                        }
-                                        PrefsSlider {
-                                            compact: true
-                                            enabled: surfaceTile.editable
-                                            label: "Background opacity"
-                                            unit: "%"
-                                            minimum: prefs.ranges.backgroundOpacity.min
-                                            maximum: prefs.ranges.backgroundOpacity.max
-                                            stepSize: prefs.ranges.backgroundOpacity.step
-                                            defaultValue: prefs.ranges.backgroundOpacity.fallback
-                                            // A transparent bar (Omarchy's Transparency) shows as Clear,
-                                            // a glassy one as the opacity it draws.
-                                            value: !prefs.bar ? 100 : Math.round(AppearanceModel.barOpacity(prefs.bar.surfaceEffects, false, prefs.bar.requestedTransparent, prefs.bar.glassy) * 100)
-                                            formatter: function (v) {
-                                                return v === 0 ? "Clear" : v === 100 ? "Opaque" : "";
-                                            }
-                                            animate: prefs.motion
-                                            onEdited: function (v) {
-                                                prefs.setLook("surface", "opacity", v);
-                                            }
-                                        }
-                                        PrefsToggle {
-                                            compact: true
-                                            label: "Background blur"
-                                            enabled: surfaceTile.editable
-                                            opacity: enabled ? 1 : 0.45
-                                            checked: prefs.bar ? prefs.bar.surfaceEffects.blur : false
-                                            onToggled: function (checked) {
-                                                prefs.setLook("surface", "blur", checked);
-                                            }
-                                        }
-                                        // Kept per theme in every scope: a light or dark choice can't be
-                                        // shared between light and dark themes.
-                                        PrefsChoice {
-                                            compact: true
-                                            label: "Text and icons"
-                                            description: "Kept per theme"
-                                            options: [
-                                                {
-                                                    value: "theme",
-                                                    label: "Theme"
-                                                },
-                                                {
-                                                    value: "light",
-                                                    label: "Light"
-                                                },
-                                                {
-                                                    value: "dark",
-                                                    label: "Dark"
-                                                }
-                                            ]
-                                            value: prefs.bar ? prefs.bar.foregroundChoice : "theme"
-                                            onChosen: function (value) {
-                                                prefs.setText(value);
-                                            }
-                                        }
-                                    }
-                                    PrefsTile {
-                                        id: shadowTile
-                                        readonly property bool editable: prefs.scopeOf("shadow") !== "theme"
-                                        readonly property bool shadowOn: !!prefs.bar && prefs.bar.surfaceEffects.shadow
-                                        title: "Shadow"
-                                        span12: 4
-                                        span6: 3
-                                        animate: prefs.motion
-                                        ScopeChoice {
-                                            parent: shadowTile.headerSlot
-                                            tile: "shadow"
-                                        }
-                                        ScopeHint {
-                                            tile: "shadow"
-                                        }
-                                        PrefsToggle {
-                                            compact: true
-                                            label: "Shadow"
-                                            enabled: shadowTile.editable
-                                            opacity: enabled ? 1 : 0.45
-                                            checked: shadowTile.shadowOn
-                                            onToggled: function (checked) {
-                                                prefs.setLook("shadow", "enabled", checked);
-                                            }
-                                        }
-                                        PrefsSlider {
-                                            compact: true
-                                            label: "Softness"
-                                            minimum: prefs.ranges.shadowSize.min
-                                            maximum: prefs.ranges.shadowSize.max
-                                            stepSize: prefs.ranges.shadowSize.step
-                                            defaultValue: prefs.ranges.shadowSize.fallback
-                                            enabled: shadowTile.editable && shadowTile.shadowOn
-                                            value: prefs.bar ? prefs.bar.surfaceEffects.shadowSize : prefs.ranges.shadowSize.fallback
-                                            animate: prefs.motion
-                                            onEdited: function (v) {
-                                                prefs.setLook("shadow", "softness", v);
-                                            }
-                                        }
-                                        PrefsSlider {
-                                            compact: true
-                                            label: "Strength"
-                                            unit: "%"
-                                            minimum: prefs.ranges.shadowOpacity.min
-                                            maximum: prefs.ranges.shadowOpacity.max
-                                            stepSize: prefs.ranges.shadowOpacity.step
-                                            defaultValue: prefs.ranges.shadowOpacity.fallback
-                                            enabled: shadowTile.editable && shadowTile.shadowOn
-                                            value: prefs.bar ? Math.round(prefs.bar.surfaceEffects.shadowOpacity * 100) : prefs.ranges.shadowOpacity.fallback
-                                            animate: prefs.motion
-                                            onEdited: function (v) {
-                                                prefs.setLook("shadow", "strength", v);
-                                            }
-                                        }
-                                    }
-                                    PrefsTile {
-                                        title: "Behavior"
-                                        span12: 4
-                                        span6: 3
-                                        PrefsToggle {
-                                            compact: true
-                                            label: "Autohide"
-                                            checked: prefs.options.autoHide
-                                            onToggled: function (checked) {
-                                                prefs.setOption("powerbarAutoHide", checked);
-                                            }
-                                        }
-                                        // Peeks on an autohidden bar and on one switched off
-                                        // (Super+Shift+Space), so it holds whether Autohide is on.
-                                        PrefsToggle {
-                                            compact: true
-                                            label: "Show on widget activity"
-                                            checked: prefs.options.autoHideActivity
-                                            onToggled: function (checked) {
-                                                prefs.setOption("powerbarAutoHideActivity", checked);
-                                            }
-                                        }
-                                        // Powerbar's safety minimum for surfaces over windows, not a theme
-                                        // value, so it stays outside the appearance scopes. The notch is
-                                        // always opaque, so it has nothing to raise there.
-                                        PrefsToggle {
-                                            visible: !prefs.notchMode
-                                            compact: true
-                                            label: "Readable over windows"
-                                            checked: prefs.bar ? prefs.bar.surfaceEffects.readableOverlay : true
-                                            onToggled: function (checked) {
-                                                prefs.setOption("powerbarReadableOverlay", checked);
-                                            }
-                                        }
-                                        PrefsToggle {
-                                            compact: true
-                                            label: "Animations"
-                                            checked: prefs.bar ? prefs.bar.animationsEnabled : true
-                                            onToggled: function (checked) {
-                                                prefs.setOption("powerbarAnimations", checked);
-                                            }
-                                        }
-                                    }
-                                    PrefsTile {
-                                        title: "On demand"
-                                        span12: 4
-                                        span6: 3
-                                        // The notch has no drawers: there the choice is the bar or a menu.
-                                        PrefsChoice {
-                                            compact: true
-                                            // Three chips leave the label no room beside them.
-                                            stacked: bento.columns !== 12 || options.length > 2
-                                            label: "Show them"
-                                            readonly property string shown: prefs.notchMode && prefs.options.onDemand === "drawer" ? "inline" : prefs.options.onDemand
-                                            description: value === "inline" ? "Behind dots in their zone; they expand in the bar when you hover the dots" : value === "menu" ? "Behind dots in their zone; the dots open a menu of them, groups as submenus" : "Hovering a zone opens them in a drawer next to the bar"
-                                            options: prefs.notchMode ? [
-                                                {
-                                                    value: "inline",
-                                                    label: "In the bar"
-                                                },
-                                                {
-                                                    value: "menu",
-                                                    label: "In a menu"
-                                                }
-                                            ] : [
-                                                {
-                                                    value: "drawer",
-                                                    label: "In a drawer"
-                                                },
-                                                {
-                                                    value: "inline",
-                                                    label: "In the bar"
-                                                },
-                                                {
-                                                    value: "menu",
-                                                    label: "In a menu"
-                                                }
-                                            ]
-                                            value: shown
-                                            onChosen: function (value) {
-                                                prefs.setOption("powerbarOnDemand", value);
-                                            }
-                                        }
-                                        PrefsToggle {
-                                            compact: true
-                                            label: "Count on the dots"
-                                            checked: prefs.options.dotsBadge
-                                            onToggled: function (checked) {
-                                                prefs.setOption("powerbarDotsBadge", checked);
-                                            }
-                                        }
-                                    }
-                                    // The keyboard mode (docs/behavior/keyboard.md): its shortcuts (offered,
-                                    // never bound until taken here; KEYS-84) and its strip of keys.
-                                    PrefsTile {
-                                        title: "Keyboard"
-                                        span12: 4
-                                        span6: 6
-                                        ShortcutRow {
-                                            id: barKeysRow
-                                            label: "Bar keyboard"
-                                            store: prefs.shortcuts
-                                            target: "bar:keys"
-                                            suggested: prefs.shortcuts.suggested("bar:keys")
-                                        }
-                                        ShortcutRow {
-                                            label: "Bar search"
-                                            store: prefs.shortcuts
-                                            target: "bar:search"
-                                            suggested: prefs.shortcuts.suggested("bar:search")
-                                        }
-                                        PrefsToggle {
-                                            compact: true
-                                            label: "Key legend"
-                                            checked: prefs.options.keyLegend
-                                            onToggled: function (checked) {
-                                                prefs.setOption("powerbarKeyLegend", checked);
-                                            }
-                                        }
-                                    }
-                                }
+                            LookEditor {
+                                preferences: prefs
+                                layout: layoutPage.item
+                            }
+                        }
+                    }
+                    Loader {
+                        id: behaviorPage
+                        active: prefs.pagesLoaded && !!layoutPage.item
+                        sourceComponent: Component {
+                            BehaviorEditor {
+                                preferences: prefs
+                                layout: layoutPage.item
                             }
                         }
                     }

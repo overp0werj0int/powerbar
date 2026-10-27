@@ -234,7 +234,7 @@ function offerMessage(result) {
     out.push(result.taken.map(function(s) { return named(s, n++) + " is taken by " + s.by }).join("; ") + ".")
   }
   if (!out.length) return ""
-  out.push(result.free.length ? "Click to turn on shortcuts in Preferences → Bar → Keyboard." : "Click to choose keys in Preferences → Bar → Keyboard.")
+  out.push(result.free.length ? "Click to turn on shortcuts in Preferences → Behavior → Keyboard." : "Click to choose keys in Preferences → Behavior → Keyboard.")
   return out.join(" ")
 }
 

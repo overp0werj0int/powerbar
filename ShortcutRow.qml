@@ -24,6 +24,10 @@ BorderSurface {
   readonly property bool suggesting: phase === "idle" && usable && !!suggested && !info.keys && !info.positional && info.source !== "removed"
   // Where the label starts: compact rows indent; beside unindented choices, 0.
   property real padding: Style.spacing.rowPaddingX
+  // A line under the label (a desk's rows, PREFS-129), and the desk's cursor
+  // look: the chosen fill with the accent ring.
+  property string caption: ""
+  property bool cursor: false
 
   // "idle", "recording" or "confirm" (the keys belong to something else).
   property string phase: "idle"
@@ -111,11 +115,13 @@ BorderSurface {
   Component.onDestruction: if (phase === "recording") store.stopRecording()
 
   Layout.fillWidth: true
-  implicitHeight: Style.spacing.controlHeight + Style.space(8)
+  implicitHeight: Math.max(Style.spacing.controlHeight + Style.space(8), labelColumn.implicitHeight + 2 * Style.space(6))
   radius: Math.max(0, Style.cornerRadius - Math.round(Style.spacing.rowPaddingX / 2))
   color: phase !== "idle" ? Qt.alpha(Commons.Color.accent, 0.1)
+    : cursor ? Style.selectedFillFor(Commons.Color.popups.text, Commons.Color.accent)
     : rowMouse.containsMouse && usable ? Style.hoverFillFor(Commons.Color.popups.text, Commons.Color.accent) : "transparent"
-  borderSpec: phase !== "idle" ? Border.controlSpec("focus", Commons.Color.popups.text, Commons.Color.accent) : Border.none()
+  borderSpec: phase !== "idle" ? Border.controlSpec("focus", Commons.Color.popups.text, Commons.Color.accent)
+    : cursor ? Border.flat(Commons.Color.accent, 1) : Border.none()
   opacity: usable ? 1 : 0.45
   activeFocusOnTab: true
   Accessible.role: Accessible.Button
@@ -164,16 +170,31 @@ BorderSurface {
     anchors.leftMargin: row.padding
     anchors.rightMargin: row.padding
     spacing: Style.space(8)
-    Text {
-      text: row.label
-      textFormat: Text.PlainText
-      color: Commons.Color.popups.text
-      font.family: Style.font.family
-      font.pixelSize: Style.font.body
-      font.bold: true
+    ColumnLayout {
+      id: labelColumn
+      Layout.fillWidth: row.caption !== ""
+      spacing: Style.space(2)
+      Text {
+        text: row.label
+        textFormat: Text.PlainText
+        color: Commons.Color.popups.text
+        font.family: Style.font.family
+        font.pixelSize: Style.font.body
+        font.bold: true
+      }
+      Text {
+        visible: row.caption !== ""
+        Layout.fillWidth: true
+        text: row.caption
+        textFormat: Text.PlainText
+        color: Qt.alpha(Commons.Color.popups.text, 0.55)
+        font.family: Style.font.family
+        font.pixelSize: Style.font.caption
+        wrapMode: Text.WordWrap
+      }
     }
     Text {
-      Layout.fillWidth: true
+      Layout.fillWidth: row.caption === ""
       horizontalAlignment: Text.AlignRight
       text: row.tag
       textFormat: Text.PlainText

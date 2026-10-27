@@ -210,7 +210,7 @@ Setting names are those of Preferences. `set` of `style` also drops `powerbarIsl
 
 - **INTEG-46** `preferences` opens Preferences on the focused monitor, or on the first screen when none is focused. `closePreferences` closes it.
 - **INTEG-48** `preferencesPage <n>` opens Preferences (if closed) at page `n`: 1 Layout, 2 Groups, 3 Bar; `n` above 3 opens Bar; 0 or negative changes nothing (the window still opens). Code: `setPage(min(n, pages) - 1)` ignores an index below 0.
-- **INTEG-150** `preferencesKeyboard` opens Preferences (if closed) on the focused monitor at the Bar page, the cursor on the "Bar keyboard" shortcut row; when Preferences are open it switches to that page. The first start's notification runs it (KEYS-84).
+- **INTEG-150** `preferencesKeyboard` opens Preferences (if closed) on the focused monitor at the Behavior page, the cursor on the "Bar keyboard" shortcut row; when Preferences are open it switches to that page. The first start's notification runs it (KEYS-84).
 - **INTEG-54** `groupsPreferences` opens Preferences at Groups (page 2).
 - **INTEG-49** `managed <zone>` (`left`, `centerBegin`, `center`, `centerEnd` or `right`; the three center lists open the center's drawer) opens that zone's On demand drawer for the keyboard on the focused monitor's bar (another monitor's only while no monitor is focused, as `keys` picks it); any other zone, or a focused monitor with no bar, does nothing and answers nothing. `closeManaged` closes the open drawer or group menu.
 - **INTEG-52** `group <id>` opens that group's drawer on the focused monitor's bar for the keyboard (chosen as `managed` does); nothing happens if the id or monitor is unknown. `toggleGroup <id>` closes it when that group's drawer is open, else opens it.
