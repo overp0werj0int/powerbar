@@ -1288,26 +1288,30 @@ Item {
     // ------------------------------------------------------- the dragged copy
     // The lifted chip or face, flat over the plates: under the pointer while
     // it drags, over the landing place during a keyboard lift (PREFS-122).
-    // Over a "+" it rides a row higher, so the "+"'s highlight stays in sight.
+    // A widget over a "+" rides a row higher, so the "+"'s highlight stays in
+    // sight; a face sits on the row it lands on.
     property point keyLanding: Qt.point(0, 0)
     property bool keyLandingShown: false
     // The centre of the landing place in the editor: the placeholder in a
     // drawer or the pool, the face a widget goes into, the "+" (a new group),
-    // or for a face the "+" of the zone it goes to (it lands at the end).
+    // or for a face its own row while over its own zone, else the "+" of the
+    // zone it goes to (it lands at the end, where the "+" is).
     function landingItem() {
         var t = liftTarget;
         if (!lifted || !t)
             return null;
-        if (liftingFace || t.area === "plus") {
+        var home = liftingFace && t.zone === lifted.zone;
+        if (liftingFace && !home || t.area === "plus") {
             var tile = faceTiles.of(t.zone);
             return tile ? tile.plus : null;
         }
-        var win = t.area === "drawer" ? drawerFor(t.id) : t.area === "pool" ? poolCell : t.area === "face" ? faceTiles.of(slots[t.id] ? slots[t.id].zone : "") : null;
+        var win = home ? faceTiles.of(t.zone) : t.area === "drawer" ? drawerFor(t.id) : t.area === "pool" ? poolCell : t.area === "face" ? faceTiles.of(slots[t.id] ? slots[t.id].zone : "") : null;
         if (!win || !win.tiles)
             return null;
+        var id = home ? lifted.face : t.id;
         for (var i = 0; i < win.tiles.count; i++) {
             var item = win.tiles.itemAt(i);
-            if (item && (t.area === "face" ? item.groupId === t.id : item.placeholder))
+            if (item && (home || t.area === "face" ? item.groupId === id : item.placeholder))
                 return item;
         }
         return null;
@@ -1337,7 +1341,7 @@ Item {
     readonly property bool copyShown: !!lifted && (pointerLift || keyLandingShown)
     readonly property point copyAt: {
         var p = pointerLift ? pointer : keyLanding;
-        var overPlus = !!liftTarget && (liftTarget.area === "plus" || liftingFace && !pointerLift);
+        var overPlus = !!liftTarget && liftTarget.area === "plus";
         return Qt.point(p.x, p.y - (overPlus ? chipHeight + chipGap : pointerLift ? 0 : Style.space(4)));
     }
     Chip {
