@@ -228,13 +228,13 @@ lists the keys for whatever has focus):
   shortcut. A fourth
   shelf, In the tray, lists the icons in Omarchy's tray: drag one onto a
   shelf above to move it out of the tray, or back to return it.
-- **Groups**: the Layout page's camera over three of its tilted plates. The
-  first holds every group's face where the bar puts it, a row each in its
-  zone's tile (on demand ones with a ring, hidden ones dashed; four in view,
-  more scroll) with a "+" under them; the second is each zone's drawer,
-  showing the group whose face you choose (the faces are its tabs); the third
-  is the widgets in no group, in bar order. Pick up a widget and drop it in a
-  drawer, on a face, the slab or a zone's "+" (a new group there);
+- **Groups**: the Layout page's camera over two of its tilted plates. The
+  first lists in each zone's tile its groups' faces where the bar puts them
+  (on demand ones with a ring, hidden ones dashed), every group's widgets
+  right under its face (eight rows in view, more scroll), with a "+" under
+  them; the second is the widgets in no group, in bar order. j and k walk
+  down a zone and h and l across. Pick up a widget and drop it in any
+  group, the slab or a zone's "+" (a new group there);
   the inspector at the bottom right holds the chosen group's name, how it
   shows, its layer, zone, icon (your widgets' glyphs, Omarchy's icons and
   emoji, or your own SVG or PNG) and shortcut.
