@@ -476,9 +476,15 @@ Item {
             return;
         }
         if (carry && cursorRecord) {
+            // A moved widget stays among its zone's groups: a step that
+            // would land it on a "+" (a new group) or in the pool is not
+            // a move, so it stays put.
             lift();
             step(dx, dy, false);
-            drop();
+            if (liftTarget && (liftTarget.area === "plus" || liftTarget.area === "pool"))
+                cancel();
+            else
+                drop();
             return;
         }
         place(Editor.step(stepState, at, dx, dy));
