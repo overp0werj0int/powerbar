@@ -9,19 +9,19 @@ import "PreferencesModel.js" as Model
 import "GroupsModel.js" as Groups
 import "GroupsEditorModel.js" as Editor
 
-// The Groups page (docs/behavior/preferences.md PREFS-109 on), a stack of
-// the Layout page's plates under the same camera (LayerPlate, ZoneTile,
-// CameraShaft, CenterSideDot): "Groups", every group's face as a row in its
-// zone's tile where the bar puts it, with the zone's "+" under them; "In the
-// group", one drawer per zone showing its open group's widgets (the faces
-// are its tabs, PREFS-120); the pool of widgets in no group as one dashed
-// slab under both; and the chosen group's inspector at the bottom right with
-// the keys beside it.
+// The Groups page (docs/behavior/preferences.md PREFS-109 on), two of the
+// Layout page's plates under the same camera (LayerPlate, ZoneTile,
+// CameraShaft, CenterSideDot): "Groups", each zone's tile a list of its
+// groups in bar order, every group's widgets indented right under its face,
+// then the zone's "+"; the pool of widgets in no group as one dashed slab
+// under it; and the chosen group's inspector at the bottom right with the
+// keys beside it.
 //
 // Keyboard and pointer share one state machine (GroupsEditorModel.js): a
-// cursor rests on a face, a zone's "+", a drawer's header or widget, or a
-// widget in the pool; Space (or a drag) lifts a widget or a face, moving it
-// previews where it lands (in a drawer, the pool, on a face, or a "+" for a
+// cursor rests on a face, a widget row, a zone's "+" or a widget in the
+// pool; j/k walk one list per zone and on to the pool, h/l the same row in
+// the next zone. Space (or a drag) lifts a widget or a face, moving it
+// previews where it lands (at a gap of any group, the pool, or a "+" for a
 // new group; a face in a zone) and Space (or release) drops it. The plates
 // are one Tab stop; the Center dot and the inspector are the others.
 Item {
@@ -55,19 +55,7 @@ Item {
     }
     // Every group's face per zone in bar order, hidden ones where they would sit.
     readonly property var faces: Editor.railFaces(Groups.render(preferences.config && preferences.config.layout || ({}), Editor.railGroups(groups)), zones)
-    readonly property var order: Editor.drawerOrder(faces, zones)
-    readonly property var slots: Editor.drawerSlots(faces, zones)
-    // Groups a drag opened by resting on their face (PREFS-120), per zone,
-    // while it lasts.
-    property var liftOpened: ({})
-    // Each zone's open group, the one its drawer shows (PREFS-120).
-    readonly property var openIds: {
-        var out = ({});
-        zones.forEach(function (zone) {
-            out[zone] = Editor.openGroup(editor.faces, zone, editor.selectedId, editor.liftOpened);
-        });
-        return out;
-    }
+    readonly property var order: Editor.faceOrder(faces, zones)
     // Each group's members (widgets still in the layout), in its order.
     readonly property var memberLists: {
         var out = ({});
@@ -101,9 +89,8 @@ Item {
     // The cursor's place (GroupsEditorModel), and what is there, so it
     // follows a face or a widget when the layout changes under it.
     property var at: ({
-            area: "rail",
-            zone: "left",
-            slot: 0
+            area: "plus",
+            zone: "left"
         })
     property string cursorKey: ""
     property var lifted: null
@@ -122,31 +109,31 @@ Item {
     property string pendingDissolve: ""
     readonly property string liftedKey: lifted && lifted.key ? lifted.key : ""
     readonly property bool liftingFace: !!lifted && !!lifted.face
-    readonly property var counts: {
+    // Each group's member keys without a lifted widget, and how many.
+    readonly property var liveKeys: {
         var out = ({});
         for (var id in memberLists)
             out[id] = memberLists[id].filter(function (r) {
                 return r.instanceKey !== editor.liftedKey;
-            }).length;
+            }).map(function (r) {
+                return r.instanceKey;
+            });
         return out;
     }
-    // A drawer as drawn: its members without a lifted widget, the lifted
-    // one's landing place among them.
-    function drawerList(id) {
-        var list = (memberLists[id] || []).filter(function (r) {
-            return r.instanceKey !== liftedKey;
-        }).map(function (r) {
-            return {
-                record: r,
-                placeholder: false
-            };
+    readonly property var counts: {
+        var out = ({});
+        for (var id in liveKeys)
+            out[id] = liveKeys[id].length;
+        return out;
+    }
+    // Each zone's list as drawn (Editor.drawnRows): faces, widget rows, an
+    // empty group's note, and a lifted widget's landing place among them.
+    readonly property var lists: {
+        var out = ({}), target = lifted && !liftingFace ? liftTarget : null;
+        zones.forEach(function (zone) {
+            out[zone] = Editor.drawnRows(editor.faces[zone], editor.liveKeys, target);
         });
-        if (lifted && !liftingFace && liftTarget && liftTarget.area === "drawer" && liftTarget.id === id)
-            list.splice(Math.min(liftTarget.pos, list.length), 0, {
-                record: lifted.record,
-                placeholder: true
-            });
-        return list;
+        return out;
     }
     // The pool as drawn: a lifted widget landing in it shows where it goes,
     // in bar order.
@@ -179,21 +166,18 @@ Item {
             members: counts,
             pool: poolCount,
             perRow: poolPerRow,
-            chosen: selectedId,
-            opened: liftOpened
+            chosen: selectedId
         })
     function keyOf(p) {
         if (!p)
             return "";
-        if (p.area === "rail") {
-            var id = (faces[p.zone] || [])[p.slot];
-            return id ? "face:" + id : "plus:" + p.zone;
-        }
-        if (p.area === "drawer") {
-            var m = p.pos < 0 ? null : (memberLists[p.id] || []).filter(function (r) {
-                return r.instanceKey !== editor.liftedKey;
-            })[p.pos];
-            return m ? "member:" + m.instanceKey : "header:" + p.id;
+        if (p.area === "face")
+            return "face:" + p.id;
+        if (p.area === "plus")
+            return "plus:" + p.zone;
+        if (p.area === "member") {
+            var m = (liveKeys[p.id] || [])[p.pos];
+            return m ? "member:" + m : "face:" + p.id;
         }
         var v = poolShown.filter(function (r) {
             return r.instanceKey !== editor.liftedKey;
@@ -216,25 +200,13 @@ Item {
         if (kind === "face")
             return Editor.facePlace(stepState, rest);
         if (kind === "plus")
-            return zones.indexOf(rest) >= 0 ? {
-                area: "rail",
-                zone: rest,
-                slot: (faces[rest] || []).length
-            } : null;
-        if (kind === "header")
-            return Editor.facePlace(stepState, rest) ? {
-                area: "drawer",
-                id: rest,
-                pos: -1
-            } : null;
+            return zones.indexOf(rest) >= 0 ? Editor.plusPlace(stepState, rest) : null;
         if (kind === "member") {
-            for (var id in memberLists) {
-                var i = memberLists[id].findIndex(function (r) {
-                    return r.instanceKey === rest;
-                });
+            for (var id in liveKeys) {
+                var i = liveKeys[id].indexOf(rest);
                 if (i >= 0 && Editor.facePlace(stepState, id))
                     return {
-                        area: "drawer",
+                        area: "member",
                         id: id,
                         pos: i
                     };
@@ -371,10 +343,8 @@ Item {
 
     // -------------------------------------------------------------- lifts
     readonly property var cursorRecord: {
-        if (at.area === "drawer" && at.pos >= 0)
-            return (memberLists[at.id] || []).filter(function (r) {
-                return r.instanceKey !== editor.liftedKey;
-            })[at.pos] || null;
+        if (at.area === "member")
+            return entryIndex[(liveKeys[at.id] || [])[at.pos]] || null;
         if (at.area === "pool")
             return poolShown[at.pos] || null;
         return null;
@@ -384,18 +354,14 @@ Item {
         if (!record)
             return;
         liftOrigin = at;
-        if (at.area === "drawer") {
+        if (at.area === "member") {
             lifted = {
                 key: record.instanceKey,
                 group: at.id,
                 pos: at.pos,
                 record: record
             };
-            liftTarget = {
-                area: "drawer",
-                id: at.id,
-                pos: at.pos
-            };
+            liftTarget = Editor.liftStart(at);
             liftHome = at.id;
         } else {
             lifted = {
@@ -433,8 +399,6 @@ Item {
         }
         lifted = null;
         liftTarget = null;
-        liftOpened = ({});
-        faceRest.stop();
         pointerLift = false;
         if (liftOrigin)
             place(liftOrigin);
@@ -443,16 +407,10 @@ Item {
         if (!lifted)
             return;
         var carried = lifted, target = liftTarget;
-        var into = target && target.area === "drawer" ? (memberLists[target.id] || []).filter(function (r) {
-            return r.instanceKey !== carried.key;
-        }).map(function (r) {
-            return r.instanceKey;
-        }) : [];
+        var into = target && target.area === "gap" ? (liveKeys[target.id] || []) : [];
         var act = Editor.dropAction(carried, target, into, carried.group && target && target.id === carried.group ? carried.pos : -1);
         lifted = null;
         liftTarget = null;
-        liftOpened = ({});
-        faceRest.stop();
         pointerLift = false;
         if (act.op === "assign") {
             bar.assignGroup(act.key, act.id, act.before);
@@ -471,12 +429,29 @@ Item {
             cursorKey = (carried.group ? "member:" : "pool:") + carried.key;
         syncLater.restart();
     }
+    // A face past the next (dy > 0) or previous group in its zone, in bar
+    // order (Shift+j/k, PREFS-117). GroupsModel.moveHeader takes a group on
+    // the bar or on demand; a hidden one moves as if shown and is hidden
+    // again in the same edit, so it takes the same place.
+    function moveFace(group, dy) {
+        var past = Editor.neighbourFace(stepState, group.id, dy);
+        if (!past)
+            return;
+        var hidden = group.visibility === "hidden";
+        bar.editGroups(function (config) {
+            if (Groups.moveHeader(config, group.id, group.section, "", past, dy > 0, hidden ? "shown" : group.visibility) && hidden)
+                Groups.edit(config, group.id, {
+                    visibility: "hidden"
+                });
+        });
+    }
     // A step of the cursor, or of a lifted widget's landing place; with
-    // Shift a face changes zone (h l) or layer (j k), a widget moves at once.
+    // Shift a face changes zone (h l) or moves past a group (j k), a widget
+    // moves at once.
     function step(dx, dy, carry) {
         if (lifted && !liftingFace) {
             liftTarget = Editor.stepLift(stepState, liftTarget, dx, dy, liftHome);
-            if (liftTarget.area === "drawer")
+            if (liftTarget.area === "gap")
                 liftHome = liftTarget.id;
             revealCursor();
             return;
@@ -486,22 +461,17 @@ Item {
                 liftTarget = Editor.stepLift(stepState, liftTarget, dx, 0);
             return;
         }
-        if (carry && (at.area === "rail" || at.area === "drawer" && at.pos < 0)) {
-            var id = Editor.groupAt(stepState, at), group = groupOf(id);
+        if (carry && at.area === "face") {
+            var group = groupOf(at.id);
             if (!group)
                 return;
             if (dx) {
                 var zone = Editor.nextZone(zones, group.section, dx);
                 if (zone)
                     moveToZone(group, zone);
-            } else {
-                var v = Editor.nextVisibility(group.visibility, dy);
-                if (v)
-                    edit(id, {
-                        visibility: v
-                    });
-            }
-            cursorKey = (at.area === "drawer" ? "header:" : "face:") + id;
+            } else
+                moveFace(group, dy);
+            cursorKey = "face:" + group.id;
             syncLater.restart();
             return;
         }
@@ -513,7 +483,7 @@ Item {
         }
         place(Editor.step(stepState, at, dx, dy));
     }
-    function toRail() {
+    function toChosenFace() {
         place(Editor.firstPlace(stepState));
         stage.forceActiveFocus(Qt.OtherFocusReason);
     }
@@ -545,9 +515,9 @@ Item {
             event.accepted = true;
             return;
         }
-        // A face, or a drawer's header: the group itself.
-        var faceId = at.area === "rail" || at.area === "drawer" && at.pos < 0 ? Editor.groupAt(stepState, at) : "";
-        var zone = at.area === "rail" ? at.zone : at.area === "drawer" ? Editor.zoneOfGroup(stepState, at.id) : "";
+        // A face: the group itself.
+        var faceId = at.area === "face" ? Editor.groupAt(stepState, at) : "";
+        var zone = Editor.zoneAt(stepState, at);
         if (at.area === "pool" && key === Qt.Key_Backspace && filterText)
             filterText = filterText.slice(0, -1);
         else if (at.area === "pool" && key === Qt.Key_Escape && filterText)
@@ -560,23 +530,23 @@ Item {
             });
         } else if (key === Qt.Key_Space && cursorRecord)
             lift();
-        else if (key === Qt.Key_Space && faceId && at.area === "rail")
+        else if (key === Qt.Key_Space && faceId)
             liftFace(faceId);
         else if (enter && faceId) {
             nameField.forceActiveFocus(Qt.TabFocusReason);
             nameField.selectAll();
-        } else if (enter && at.area === "rail" || c === "n" && zone)
+        } else if (enter && at.area === "plus" || c === "n" && zone)
             createIn(zone, "");
-        else if (enter && at.area === "drawer" && cursorRecord)
+        else if (enter && at.area === "member" && cursorRecord)
             countField.forceActiveFocus(Qt.TabFocusReason);
         else if (enter && at.area === "pool")
             addToChosen(cursorRecord);
         else if ((c === "x" || key === Qt.Key_Delete) && faceId)
             dissolve(faceId);
-        else if ((c === "x" || key === Qt.Key_Delete) && at.area === "drawer" && cursorRecord)
+        else if ((c === "x" || key === Qt.Key_Delete) && at.area === "member" && cursorRecord)
             takeOut(cursorRecord);
-        else if (key === Qt.Key_Escape && at.area !== "rail")
-            toRail();
+        else if (key === Qt.Key_Escape && at.area === "pool")
+            toChosenFace();
         else
             return;
         event.accepted = true;
@@ -618,11 +588,8 @@ Item {
     function pillWidth(n) {
         return layout.textInk(String(n), Style.font.family, Style.font.caption).advance + Style.space(10);
     }
-    // A drawer's header row and the hairline under it.
-    readonly property real headerBlock: chipHeight + Style.space(5)
-    function drawerNote(g) {
-        return !g ? "" : g.visibility === "hidden" ? "Hidden: kept, never opens" : g.visibility === "managed" ? "On demand: behind its circle" : "";
-    }
+    // A widget row's indent under its face, and the branch tying them.
+    readonly property real indent: Style.space(12)
     readonly property real poolSpacing: layout.columnGap
     readonly property int poolPerRow: Editor.perRow(slabBox.width - 2 * tilePad, chipWidth, poolSpacing)
     readonly property int poolRows: Math.ceil(poolList.length / poolPerRow)
@@ -636,20 +603,16 @@ Item {
     readonly property real legendBand: Style.space(8) + Style.space(24) + 9 * capProbe.implicitHeight + 8 * Style.space(10)
     readonly property real bottomBand: Math.max(legendBand, selectedGroup ? inspector.height + Style.space(24) : 0)
     // The plates share the room as the Layout page's layers do (PREFS-106,
-    // PREFS-115): the faces' plate fixed at four rows and the "+", the
-    // drawers' as tall as the tallest drawer (four rows at most) and met
-    // first, the pool its rows with what is left.
-    readonly property var drawerSizes: drawerTiles.list.map(function (d) {
-        return d.size;
-    })
+    // PREFS-115): the list's plate as tall as its tallest zone (eight rows at
+    // most) and the "+", met first, the pool its rows with what is left.
     readonly property var needs: Editor.plateNeeds({
         pad: tilePad,
         nameRow: nameRow,
         chip: chipHeight,
         gap: chipGap,
-        header: headerBlock,
-        drawers: drawerSizes,
-        slack: Style.space(4),
+        zoneRows: zones.map(function (zone) {
+            return (editor.lists[zone] || []).length;
+        }),
         poolRows: poolRows,
         poolGap: poolSpacing,
         poolLabel: poolFace.labelBottom + Style.space(8) + filterBox.height + Style.space(8),
@@ -692,9 +655,7 @@ Item {
     // (PREFS-105, PREFS-123): the same dot and leader, from this page's
     // Center tile.
     readonly property real centerTileRaise: {
-        var t = faceTiles.list.find(function (c) {
-            return c.zone === "center";
-        });
+        var t = listTiles.of("center");
         return t ? t.raise : 0;
     }
     CenterSideDot {
@@ -717,7 +678,7 @@ Item {
     }
     readonly property Item sideDot: centerDot.dot
 
-    // Tiles by zone, for the pointer, the leaders and the windows.
+    // Tiles by zone, for the pointer and the windows.
     component TileList: QtObject {
         property var list: []
         function add(t) {
@@ -735,85 +696,49 @@ Item {
         }
     }
     TileList {
-        id: faceTiles
-    }
-    TileList {
-        id: drawerTiles
+        id: listTiles
     }
 
-    // ------------------------------------------------------ the faces' plate
-    // The Layout page's bar layer: each zone's tile holds its groups' faces
-    // in bar order, a row each, four in view (PREFS-121), its "+" under them.
+    // ------------------------------------------------------- the list's plate
+    // The Layout page's bar layer: each zone's tile lists its groups in bar
+    // order, every group's widgets under its face, eight rows in view
+    // (PREFS-121), its "+" under them.
     Item {
-        id: facesPlate
+        id: listPlate
         x: editor.plateX
         y: editor.stackTop + (editor.stack.layers[0] ? editor.stack.layers[0].top : 0)
         width: editor.plateWidth
         height: editor.stack.layers[0] ? editor.stack.layers[0].height : 0
         z: 2
         LayerPlate {
-            id: facesFace
-            width: facesPlate.width
+            id: listFace
+            width: listPlate.width
             height: editor.plateHeights[0] || 0
             columns: editor.columns
             pad: editor.platePad
-            axisX: editor.axis - editor.slide - facesPlate.x
+            axisX: editor.axis - editor.slide - listPlate.x
             tilt: editor.tilt
             planeDistance: editor.planeDistance
             animate: editor.bar.animationsEnabled
             title: "Groups"
-            caption: "Each face where the bar puts it"
-            count: editor.groups.length + (editor.groups.length === 1 ? " group" : " groups")
+            caption: "Each face where the bar puts it, its widgets under it"
+            count: editor.groups.length + (editor.groups.length === 1 ? " group, " : " groups, ") + editor.memberTotal + (editor.memberTotal === 1 ? " widget" : " widgets")
             Repeater {
                 model: editor.zones
-                FaceTile {
-                    seenTop: facesPlate.y
-                    height: facesFace.height
-                }
-            }
-        }
-    }
-    // Each zone's open face (PREFS-120) has a dot at its bottom middle and a
-    // dashed leader straight down to its drawer's header on the next plate:
-    // full accent for the chosen group, 45 % for the others.
-    Repeater {
-        model: editor.zones
-        Shape {
-            id: faceLeader
-            required property string modelData
-            readonly property string groupId: editor.openIds[modelData] || ""
-            readonly property Item tile: faceTiles.of(modelData)
-            readonly property Item drawer: drawerTiles.of(modelData)
-            readonly property int row: (editor.faces[modelData] || []).indexOf(groupId)
-            readonly property var box: editor.column(modelData)
-            // The face's bottom middle, or the window's edge it went past.
-            readonly property real rowBottom: tile ? Math.max(tile.viewTop, Math.min(tile.viewTop + tile.viewHeight, tile.viewTop + row * tile.rowStep - tile.scroll + editor.chipHeight)) : 0
-            readonly property point from: tile ? editor.seen(facesPlate, box.x + box.width / 2, rowBottom - tile.raise) : Qt.point(0, 0)
-            readonly property point to: drawer ? editor.seen(drawersPlate, box.x + box.width / 2, drawer.pad + editor.nameRow - drawer.raise) : Qt.point(0, 0)
-            visible: !!groupId && row >= 0 && !!tile && !!drawer
-            z: 4
-            anchors.fill: parent
-            ShapePath {
-                strokeColor: Qt.alpha(Commons.Color.accent, faceLeader.groupId === editor.selectedId ? 1 : 0.45)
-                strokeWidth: 1
-                strokeStyle: ShapePath.DashLine
-                dashPattern: [3, 3]
-                fillColor: "transparent"
-                startX: faceLeader.from.x
-                startY: faceLeader.from.y
-                PathLine {
-                    x: faceLeader.to.x
-                    y: faceLeader.to.y
+                ListTile {
+                    seenTop: listPlate.y
+                    height: listFace.height
                 }
             }
         }
     }
 
-    // ---------------------------------------------------- the drawers' plate
-    // The same plate again: each zone's tile is its one drawer, showing its
-    // open group (PREFS-113, PREFS-120, PREFS-122).
+    // ------------------------------------------------------------ the pool
+    // One dashed slab across the zones' columns under the list's plate,
+    // tilted like a layer, its name, count and the filter on its label
+    // column (PREFS-114).
     Item {
-        id: drawersPlate
+        id: poolPlate
         x: editor.plateX
         y: editor.stackTop + (editor.stack.layers[1] ? editor.stack.layers[1].top : 0)
         width: editor.plateWidth
@@ -827,55 +752,9 @@ Item {
             }
         }
         LayerPlate {
-            id: drawersFace
-            width: drawersPlate.width
-            height: editor.plateHeights[1] || 0
-            columns: editor.columns
-            pad: editor.platePad
-            axisX: editor.axis - editor.slide - drawersPlate.x
-            tilt: editor.tilt
-            planeDistance: editor.planeDistance
-            animate: editor.bar.animationsEnabled
-            title: "In the group"
-            caption: "What the open group in each zone holds"
-            count: {
-                var n = 0;
-                editor.zones.forEach(function (zone) {
-                    n += (editor.memberLists[editor.openIds[zone]] || []).length;
-                });
-                return n + (n === 1 ? " widget" : " widgets");
-            }
-            Repeater {
-                model: editor.zones
-                DrawerTile {
-                    seenTop: drawersPlate.y
-                    height: drawersFace.height
-                }
-            }
-        }
-    }
-
-    // ------------------------------------------------------------ the pool
-    // One dashed slab across the zones' columns under both, tilted like a
-    // layer, its name, count and the filter on its label column (PREFS-114).
-    Item {
-        id: poolPlate
-        x: editor.plateX
-        y: editor.stackTop + (editor.stack.layers[2] ? editor.stack.layers[2].top : 0)
-        width: editor.plateWidth
-        height: editor.stack.layers[2] ? editor.stack.layers[2].height : 0
-        z: 1
-        Behavior on y {
-            enabled: editor.bar.animationsEnabled
-            NumberAnimation {
-                duration: 140
-                easing.type: Easing.OutCubic
-            }
-        }
-        LayerPlate {
             id: poolFace
             width: poolPlate.width
-            height: editor.plateHeights[2] || 0
+            height: editor.plateHeights[1] || 0
             columns: editor.columns
             pad: editor.platePad
             axisX: editor.axis - editor.slide - poolPlate.x
@@ -934,7 +813,7 @@ Item {
                     y: poolCell.pad + Style.space(5)
                     width: parent.width - 2 * x
                     visible: editor.poolList.length === 0
-                    text: editor.filterText ? "No widget matches “" + editor.filterText + "”. Esc clears the filter." : "Every widget is in a group. x on one in a drawer, or a drag here, takes it out."
+                    text: editor.filterText ? "No widget matches “" + editor.filterText + "”. Esc clears the filter." : "Every widget is in a group. x on one under its group, or a drag here, takes it out."
                     textFormat: Text.PlainText
                     color: Qt.alpha(Commons.Color.popups.text, 0.3)
                     font.family: Style.font.family
@@ -991,7 +870,7 @@ Item {
             anchors.fill: parent
             hoverEnabled: true
             preventStealing: true
-            cursorShape: editor.pointerLift ? Qt.ClosedHandCursor : editor.hoverKey.indexOf("member:") === 0 || editor.hoverKey.indexOf("pool:") === 0 || editor.hoverKey.indexOf("face:") === 0 ? Qt.OpenHandCursor : editor.hoverKey.indexOf("plus:") === 0 || editor.hoverKey.indexOf("header:") === 0 ? Qt.PointingHandCursor : Qt.ArrowCursor
+            cursorShape: editor.pointerLift ? Qt.ClosedHandCursor : editor.hoverKey.indexOf("member:") === 0 || editor.hoverKey.indexOf("pool:") === 0 || editor.hoverKey.indexOf("face:") === 0 ? Qt.OpenHandCursor : editor.hoverKey.indexOf("plus:") === 0 ? Qt.PointingHandCursor : Qt.ArrowCursor
             onPositionChanged: function (mouse) {
                 var point = Qt.point(mouse.x, mouse.y);
                 if (!editor.pointerLift) {
@@ -1056,8 +935,8 @@ Item {
         }
     }
     // What is under the pointer, in the editor, through the plates' tilt: a
-    // face, a "+", a zone's tile on the first plate; a drawer's header, a
-    // member or the drawer; a pool chip or the pool.
+    // "+", a face, a widget row, an empty group's note or else a zone's tile
+    // on the list's plate; a pool chip or the pool.
     function inside(item, point) {
         if (!item || !item.visible)
             return false;
@@ -1069,79 +948,49 @@ Item {
     }
     function hitAt(point) {
         for (var z = 0; z < zones.length; z++) {
-            var t = faceTiles.of(zones[z]);
+            var t = listTiles.of(zones[z]);
             if (!inside(t, point))
                 continue;
             if (inside(t.plus, point))
                 return {
                     kind: "plus",
                     zone: t.zone,
+                    tile: t,
                     key: "plus:" + t.zone,
-                    place: {
-                        area: "rail",
-                        zone: t.zone,
-                        slot: (faces[t.zone] || []).length
-                    }
+                    place: Editor.plusPlace(stepState, t.zone)
                 };
             var row = inView(t, point) ? tileIn(t, point) : null;
-            if (row)
+            if (row && row.kind === "face")
                 return {
                     kind: "face",
                     id: row.groupId,
+                    zone: t.zone,
+                    tile: t,
                     key: "face:" + row.groupId,
                     place: {
-                        area: "rail",
-                        zone: t.zone,
-                        slot: row.index
+                        area: "face",
+                        id: row.groupId
+                    }
+                };
+            if (row && row.kind === "member")
+                return {
+                    kind: "member",
+                    id: row.groupId,
+                    zone: t.zone,
+                    tile: t,
+                    record: row.record,
+                    key: "member:" + row.record.instanceKey,
+                    place: {
+                        area: "member",
+                        id: row.groupId,
+                        pos: row.pos
                     }
                 };
             return {
                 kind: "zone",
                 zone: t.zone,
+                tile: t,
                 key: ""
-            };
-        }
-        for (var d = 0; d < zones.length; d++) {
-            var drawer = drawerTiles.of(zones[d]);
-            if (!inside(drawer, point))
-                continue;
-            if (!drawer.groupId)
-                return null;
-            if (inside(drawer.header, point))
-                return {
-                    kind: "header",
-                    id: drawer.groupId,
-                    key: "header:" + drawer.groupId,
-                    drawer: drawer,
-                    place: {
-                        area: "drawer",
-                        id: drawer.groupId,
-                        pos: -1
-                    }
-                };
-            var tile = inView(drawer, point) ? tileIn(drawer, point) : null;
-            if (tile)
-                return {
-                    kind: "member",
-                    id: drawer.groupId,
-                    record: tile.record,
-                    key: "member:" + tile.record.instanceKey,
-                    place: {
-                        area: "drawer",
-                        id: drawer.groupId,
-                        pos: tile.pos
-                    }
-                };
-            return {
-                kind: "drawer",
-                id: drawer.groupId,
-                key: "",
-                drawer: drawer,
-                place: Editor.facePlace(stepState, drawer.groupId) ? {
-                    area: "drawer",
-                    id: drawer.groupId,
-                    pos: -1
-                } : null
             };
         }
         if (inside(poolCell, point)) {
@@ -1178,29 +1027,57 @@ Item {
         }
         return null;
     }
-    // The gap in a drawer under the pointer: before the first real chip
-    // whose middle the pointer has not passed.
+    // The gap under the pointer in a zone's list, as { id, pos }: on a face
+    // row or an empty group's note, that group's first gap; on its widgets,
+    // before the first whose middle the pointer has not passed; above a face,
+    // the end of the group over it; past the last row, the last group's end.
+    // null for a zone without groups.
     function gapIn(win, point) {
-        var pos = 0;
+        var id = "", pos = 0;
         for (var i = 0; i < win.tiles.count; i++) {
-            var tile = win.tiles.itemAt(i);
-            if (!tile || tile.placeholder)
+            var row = win.tiles.itemAt(i);
+            if (!row || row.placeholder)
                 continue;
-            if (tile.mapFromItem(editor, point.x, point.y).y < tile.height / 2)
-                return pos;
-            pos++;
+            var y = row.mapFromItem(editor, point.x, point.y).y;
+            if (row.kind === "face") {
+                if (y < 0 && id)
+                    return {
+                        id: id,
+                        pos: pos
+                    };
+                id = row.groupId;
+                pos = 0;
+                if (y < row.height)
+                    return {
+                        id: id,
+                        pos: 0
+                    };
+            } else if (row.kind === "note") {
+                if (y < row.height)
+                    return {
+                        id: id,
+                        pos: 0
+                    };
+            } else {
+                if (y < row.height / 2)
+                    return {
+                        id: id,
+                        pos: pos
+                    };
+                pos++;
+            }
         }
-        return pos;
+        return id ? {
+            id: id,
+            pos: pos
+        } : null;
     }
-    // The scrolling window under the pointer: a zone's faces, a drawer or the pool.
+    // The scrolling window under the pointer: a zone's list or the pool.
     function windowAt(point) {
         for (var z = 0; z < zones.length; z++) {
-            var t = faceTiles.of(zones[z]);
+            var t = listTiles.of(zones[z]);
             if (inside(t, point))
                 return t;
-            var d = drawerTiles.of(zones[z]);
-            if (inside(d, point))
-                return d.groupId ? d : null;
         }
         return inside(poolCell, point) ? poolCell : null;
     }
@@ -1210,38 +1087,28 @@ Item {
             return;
         var hit = hitAt(point), next = null;
         if (liftingFace)
-            next = hit && (hit.kind === "zone" || hit.kind === "face" || hit.kind === "plus") ? {
+            next = hit && hit.tile ? {
                 area: "zone",
-                zone: hit.kind === "face" ? slots[hit.id].zone : hit.zone
+                zone: hit.zone
             } : null;
-        else if (hit && (hit.kind === "member" || hit.kind === "drawer" || hit.kind === "header"))
-            next = {
-                area: "drawer",
-                id: hit.id,
-                pos: hit.kind === "header" ? 0 : gapIn(hit.drawer || drawerFor(hit.id), point)
-            };
-        else if (hit && (hit.kind === "pool" || hit.kind === "poolchip"))
-            next = {
-                area: "pool"
-            };
         else if (hit && hit.kind === "plus")
             next = {
                 area: "plus",
                 zone: hit.zone
             };
-        else if (hit && hit.kind === "face")
+        else if (hit && hit.tile) {
+            var gap = inView(hit.tile, point) ? gapIn(hit.tile, point) : null;
+            next = gap ? {
+                area: "gap",
+                id: gap.id,
+                pos: gap.pos
+            } : null;
+        } else if (hit && (hit.kind === "pool" || hit.kind === "poolchip"))
             next = {
-                area: "face",
-                id: hit.id
+                area: "pool"
             };
-        if (JSON.stringify(next) !== JSON.stringify(liftTarget)) {
+        if (JSON.stringify(next) !== JSON.stringify(liftTarget))
             liftTarget = next;
-            // Resting 400 ms on a face opens its group in the zone's drawer.
-            if (next && next.area === "face")
-                faceRest.restart();
-            else
-                faceRest.stop();
-        }
         // Held near a scrolling window's top or bottom edge, the drag scrolls it.
         var win = windowAt(point), dir = 0;
         if (win && win.overflows) {
@@ -1255,23 +1122,6 @@ Item {
         autoScroll.dir = dir;
     }
     Timer {
-        id: faceRest
-        interval: 400
-        onTriggered: {
-            var t = editor.liftTarget, slot = t && t.area === "face" ? editor.slots[t.id] : null;
-            if (!editor.pointerLift || !slot || editor.openIds[slot.zone] === t.id)
-                return;
-            var o = Object.assign({}, editor.liftOpened);
-            o[slot.zone] = t.id;
-            editor.liftOpened = o;
-        }
-    }
-    function drawerFor(id) {
-        return drawerTiles.list.find(function (d) {
-            return !!id && d.groupId === id;
-        }) || null;
-    }
-    Timer {
         id: autoScroll
         property Item target: null
         property int dir: 0
@@ -1283,18 +1133,20 @@ Item {
             editor.pointerMoved(editor.pointer);
         }
     }
-    // The cursor's row, or a lifted one's landing place, scrolls into view.
+    // A place's row in its zone's list as drawn, -1 for none.
+    function rowOf(zone, p) {
+        return (lists[zone] || []).findIndex(function (r) {
+            return p.area === "face" ? r.kind === "face" && r.id === p.id : p.area === "member" ? r.kind === "member" && r.id === p.id && r.pos === p.pos : p.area === "gap" ? r.kind === "gap" : false;
+        });
+    }
+    // The cursor's row, or a lifted one's landing place, scrolls into view
+    // (a "+" is always in view).
     function revealCursor() {
         var p = lifted && liftTarget ? liftTarget : at;
-        if (p.area === "rail" || p.area === "face" || p.area === "plus") {
-            var face = p.area === "rail" ? p : p.area === "face" ? Editor.facePlace(stepState, p.id) : null;
-            var t = face ? faceTiles.of(face.zone) : null;
-            if (t && face.slot < (faces[face.zone] || []).length)
-                t.reveal(face.slot);
-        } else if (p.area === "drawer") {
-            var d = drawerFor(p.id);
-            if (d && p.pos >= 0)
-                d.reveal(p.pos);
+        if (p.area === "face" || p.area === "member" || p.area === "gap") {
+            var zone = Editor.zoneAt(stepState, p), t = listTiles.of(zone), i = rowOf(zone, p);
+            if (t && i >= 0)
+                t.reveal(i);
         } else if (p.area === "pool")
             poolCell.reveal(lifted ? Math.max(0, poolList.findIndex(function (v) {
                 return v.placeholder;
@@ -1303,32 +1155,31 @@ Item {
 
     // ------------------------------------------------------- the dragged copy
     // The lifted chip or face, flat over the plates: under the pointer while
-    // it drags, over the landing place during a keyboard lift (PREFS-122).
+    // it drags, over the landing place during a keyboard lift (PREFS-119).
     // A widget over a "+" rides a row higher, so the "+"'s highlight stays in
     // sight; a face sits on the row it lands on.
     property point keyLanding: Qt.point(0, 0)
     property bool keyLandingShown: false
     // The centre of the landing place in the editor: the placeholder in a
-    // drawer or the pool, the face a widget goes into, the "+" (a new group),
-    // or for a face its own row while over its own zone, else the "+" of the
-    // zone it goes to (it lands at the end, where the "+" is).
+    // group's rows or the pool, the "+" (a new group), or for a face its own
+    // row while over its own zone, else the "+" of the zone it goes to (it
+    // lands at the end, where the "+" is).
     function landingItem() {
         var t = liftTarget;
         if (!lifted || !t)
             return null;
         var home = liftingFace && t.zone === lifted.zone;
         if (liftingFace && !home || t.area === "plus") {
-            var tile = faceTiles.of(t.zone);
+            var tile = listTiles.of(t.zone);
             return tile ? tile.plus : null;
         }
-        var win = home ? faceTiles.of(t.zone) : t.area === "drawer" ? drawerFor(t.id) : t.area === "pool" ? poolCell : t.area === "face" ? faceTiles.of(slots[t.id] ? slots[t.id].zone : "") : null;
+        var win = home ? listTiles.of(t.zone) : t.area === "gap" ? listTiles.of(Editor.zoneAt(stepState, t)) : t.area === "pool" ? poolCell : null;
         if (!win || !win.tiles)
             return null;
-        var id = home ? lifted.face : t.id;
         for (var i = 0; i < win.tiles.count; i++) {
             var item = win.tiles.itemAt(i);
-            if (item && (home || t.area === "face" ? item.groupId === id : item.placeholder))
-                return item;
+            if (item && (home ? item.kind === "face" && item.groupId === lifted.face : item.placeholder))
+                return item.landing || item;
         }
         return null;
     }
@@ -1486,7 +1337,7 @@ Item {
 
     // -------------------------------------------------------- the inspector
     // The member the cursor is on, for its badge sources.
-    readonly property var member: !lifted && at.area === "drawer" && at.id === selectedId ? cursorRecord : null
+    readonly property var member: !lifted && at.area === "member" && at.id === selectedId ? cursorRecord : null
     BorderSurface {
         id: inspector
         readonly property bool shown: !!editor.selectedGroup
@@ -1527,11 +1378,11 @@ Item {
                 easing.type: Easing.OutCubic
             }
         }
-        // Esc returns to the rail; a control that takes it gets it first.
+        // Esc returns to the chosen face; a control that takes it gets it first.
         Keys.onPressed: function (event) {
             if (event.key !== Qt.Key_Escape)
                 return;
-            editor.toRail();
+            editor.toChosenFace();
             event.accepted = true;
         }
         Connections {
@@ -1621,7 +1472,7 @@ Item {
                             })
                         Keys.onEscapePressed: function (event) {
                             text = inspector.group ? inspector.group.label : "";
-                            editor.toRail();
+                            editor.toChosenFace();
                             event.accepted = true;
                         }
                     }
@@ -1885,7 +1736,7 @@ Item {
                 GrayText {
                     Layout.fillWidth: true
                     Layout.preferredWidth: 3
-                    text: editor.member ? editor.preferences.title(editor.member) + ", in this drawer" : "Put the cursor on a widget in the drawer to set where its badge count comes from"
+                    text: editor.member ? editor.preferences.title(editor.member) + ", in " + (inspector.group ? inspector.group.label : "") : "Put the cursor on one of its widgets to set where its badge count comes from"
                     textFormat: Text.PlainText
                     color: Qt.alpha(Commons.Color.popups.text, editor.member ? 0.8 : 0.45)
                     font.family: Style.font.family
@@ -1984,13 +1835,13 @@ Item {
     readonly property bool stageFocused: stage.activeFocus
     readonly property bool inspectorFocused: within(focused, inspector)
     // The row being worked on: where the lifted widget or face would land,
-    // else the cursor's. Its zone's names read brighter on both plates, bold
-    // on its own (PREFS-110).
+    // else the cursor's. Its zone's name reads brighter, bold while it is on
+    // the list's plate (PREFS-110).
     readonly property var activeAt: lifted && liftTarget ? liftTarget : at
-    readonly property string activeZone: activeAt.area === "rail" || activeAt.area === "plus" || activeAt.area === "zone" ? activeAt.zone : activeAt.area === "drawer" || activeAt.area === "face" ? Editor.zoneOfGroup(stepState, activeAt.id) : ""
-    readonly property int activePlate: activeAt.area === "drawer" ? 1 : activeAt.area === "pool" ? 2 : 0
+    readonly property string activeZone: Editor.zoneAt(stepState, activeAt)
+    readonly property int activePlate: activeAt.area === "pool" ? 1 : 0
     readonly property string cursorGroup: Editor.groupAt(stepState, at)
-    readonly property string cursorZone: at.area === "rail" ? at.zone : at.area === "drawer" ? Editor.zoneOfGroup(stepState, at.id) : ""
+    readonly property string cursorZone: Editor.zoneAt(stepState, at)
     readonly property var legend: picker.opened ? picker.hints : focused === sideDot ? sideDot.keyHints.concat([
         {
             keys: "tab",
@@ -2012,49 +1863,54 @@ Item {
     ] : lifted ? [
         {
             keys: "h l",
-            label: layout.previewCamera ? "Along the layer, across the camera" : "Along the layer"
+            label: layout.previewCamera ? "The same row in the next zone, across the camera" : "The same row in the next zone"
         },
         {
             keys: "j k",
-            label: "Down the zone, on to the next layer"
+            label: "Down the zone, on to the pool"
         },
         {
             keys: "space",
-            label: liftTarget && liftTarget.area === "plus" ? "Drop: a new group in " + layout.zoneNames[liftTarget.zone] : liftTarget && liftTarget.area === "face" && groupOf(liftTarget.id) ? "Drop: at the end of " + groupOf(liftTarget.id).label : "Drop"
+            label: liftTarget && liftTarget.area === "plus" ? "Drop: a new group in " + layout.zoneNames[liftTarget.zone] : "Drop"
         },
         {
             keys: "esc",
             label: "Put it back"
         }
-    ] : stageFocused && (at.area === "rail" || at.area === "drawer" && at.pos < 0) ? [
+    ] : stageFocused && at.area !== "pool" ? [
         {
             keys: "h l",
-            label: layout.previewCamera ? "Along the layer, across the camera" : "Along the layer"
+            label: layout.previewCamera ? "The same row in the next zone, across the camera" : "The same row in the next zone"
         },
         {
             keys: "j k",
-            label: "Down the zone, on to the next layer"
+            label: "Down the zone, on to the pool"
         }
-    ].concat(cursorGroup && at.area === "rail" ? [
+    ].concat(at.area === "face" || at.area === "member" ? [
         {
             keys: "space",
             label: "Pick up, then drop"
         }
-    ] : []).concat(cursorGroup ? [
+    ] : []).concat(at.area === "face" ? [
         {
             keys: "shift h l",
             label: "Move the face to the next zone"
         },
         {
             keys: "shift j k",
-            label: "On the bar, on demand, hidden"
+            label: "Move the face past the next group"
+        }
+    ] : at.area === "member" ? [
+        {
+            keys: "shift h j k l",
+            label: "Move it a row, or a zone"
         }
     ] : []).concat([
         {
             keys: "n",
             label: "New group in " + layout.zoneNames[cursorZone]
         }
-    ]).concat(cursorGroup ? [
+    ]).concat(at.area === "face" ? [
         {
             keys: "x",
             label: pendingDissolve && pendingDissolve === cursorGroup ? "Again to dissolve" : "Dissolve, asked twice"
@@ -2062,6 +1918,15 @@ Item {
         {
             keys: "enter",
             label: "Inspect, at its name"
+        }
+    ] : at.area === "member" ? [
+        {
+            keys: "x",
+            label: "Take it out"
+        },
+        {
+            keys: "enter",
+            label: "Count from"
         }
     ] : [
         {
@@ -2073,47 +1938,14 @@ Item {
             keys: "tab",
             label: "The inspector"
         }
-    ]) : stageFocused && at.area === "drawer" ? [
-        {
-            keys: "h l",
-            label: layout.previewCamera ? "Along the layer, across the camera" : "Along the layer"
-        },
-        {
-            keys: "j k",
-            label: "Down the zone, on to the next layer"
-        },
-        {
-            keys: "space",
-            label: "Pick up, then drop"
-        },
-        {
-            keys: "shift h j k l",
-            label: "Move it at once"
-        },
-        {
-            keys: "x",
-            label: "Take it out"
-        },
-        {
-            keys: "enter",
-            label: "Its Count from"
-        },
-        {
-            keys: "esc",
-            label: "Back to the faces"
-        },
-        {
-            keys: "tab",
-            label: "The inspector"
-        }
-    ] : stageFocused && at.area === "pool" ? [
+    ]) : stageFocused && at.area === "pool" ? [
         {
             keys: filterText ? "← →" : "h l",
             label: "Walk the widgets"
         },
         {
             keys: filterText ? "↑ ↓" : "j k",
-            label: "By rows, up to the chosen drawer"
+            label: "By rows, up to the chosen group"
         },
         {
             keys: "space",
@@ -2207,15 +2039,16 @@ Item {
         }
     }
     // ---------------------------------------------------------- components
-    // A zone's tile on the faces' plate: the Layout page's bar-layer tile
-    // (ZoneTile), its groups' faces a row each in a window at most four rows
-    // tall that scrolls (PREFS-106, PREFS-121), its "+" right under it.
-    component FaceTile: ZoneTile {
-        id: faceTile
+    // A zone's tile on the list's plate: the Layout page's bar-layer tile
+    // (ZoneTile), its groups' faces in bar order with each group's widgets
+    // under its face (PREFS-111), in a window at most eight rows tall that
+    // scrolls (PREFS-106, PREFS-121), its "+" right under it.
+    component ListTile: ZoneTile {
+        id: listTile
         required property string modelData
         readonly property string zone: modelData
-        readonly property var ids: editor.faces[modelData] || []
-        readonly property bool cursorHere: !editor.lifted && editor.at.area === "rail" && editor.at.zone === modelData
+        readonly property var rows: editor.lists[modelData] || []
+        readonly property bool cursorHere: !editor.lifted && editor.at.area !== "pool" && editor.cursorZone === modelData
         // A lifted face over another zone's tile.
         readonly property bool targeted: editor.liftingFace && !!editor.liftTarget && editor.liftTarget.zone === modelData && editor.liftTarget.zone !== editor.lifted.zone
         readonly property bool capped: editor.cameraShown && modelData === "center"
@@ -2242,43 +2075,124 @@ Item {
         nameActive: editor.activeZone === modelData
         nameBold: editor.activeZone === modelData && editor.activePlate === 0
         nameRow: editor.nameRow
-        // The window holds the faces, four rows at most, and the "+" row
-        // follows it (PREFS-112, PREFS-121); the rest of the tile stays empty.
-        readonly property var view: Editor.faceView(ids.length, editor.chipHeight, editor.chipGap)
+        // The window holds the rows, eight at most, less when the plate has
+        // less room under its "+" (PREFS-115), and the "+" row follows it
+        // (PREFS-112, PREFS-121); the rest of the tile stays empty.
+        readonly property var view: Editor.listView(rows.length, editor.chipHeight, editor.chipGap)
+        readonly property real plusGap: view.rows ? editor.chipGap : 0
+        readonly property real windowHeight: Math.max(0, Math.min(view.height, height - viewTop - plusGap - editor.chipHeight - pad))
         viewTop: pad + editor.nameRow
-        viewBottom: Math.max(0, height - viewTop - view.height)
+        viewBottom: Math.max(0, height - viewTop - windowHeight)
         chipHeight: editor.chipHeight
         spacing: editor.chipGap
         flowWidth: editor.chipWidth
         current: cursorHere
-        model: faceRows.model
-        Component.onCompleted: faceTiles.add(this)
-        Component.onDestruction: faceTiles.drop(this)
+        model: listRows.model
+        Component.onCompleted: listTiles.add(this)
+        Component.onDestruction: listTiles.drop(this)
         RetainedList {
-            id: faceRows
+            id: listRows
             recordProperty: "retainedRecord"
-            records: faceTile.ids.map(function (id, index) {
+            records: listTile.rows.map(function (r) {
                 return {
-                    key: id,
-                    id: id,
-                    index: index
+                    key: r.kind === "face" ? "face:" + r.id : r.kind === "member" ? "member:" + r.key : r.kind === "gap" ? "insertion-gap" : "note:" + r.id,
+                    row: r,
+                    entry: r.kind === "member" ? editor.entryIndex[r.key] || null : r.kind === "gap" && editor.lifted ? editor.lifted.record : null
                 };
             })
             factory: Component {
-                FaceChip {
+                ListRow {
                     required property var retainedRecord
-                    groupId: retainedRecord.id
-                    index: retainedRecord.index
-                    zone: faceTile.zone
+                    row: retainedRecord.row
+                    record: retainedRecord.entry
                 }
             }
         }
         PlusSlot {
             id: plusSlot
-            zone: faceTile.zone
-            x: faceTile.pad
-            y: faceTile.viewTop + faceTile.view.height + (faceTile.view.rows ? editor.chipGap : 0)
+            zone: listTile.zone
+            x: listTile.pad
+            y: listTile.viewTop + listTile.windowHeight + listTile.plusGap
             width: editor.chipWidth
+        }
+    }
+    // A row of a zone's list (Editor.drawnRows): a face; a widget, the
+    // Layout page's chip indented under its face, a branch hairline tying it
+    // there; a lifted widget's landing place, drawn the same; or an empty
+    // group's note. A hidden group's widgets are at 60 %, like its face.
+    component ListRow: Item {
+        id: listRow
+        property var row: ({})
+        property var record: null
+        readonly property string kind: row.kind || ""
+        readonly property string groupId: row.id || ""
+        readonly property int pos: row.pos || 0
+        readonly property bool placeholder: kind === "gap"
+        readonly property bool widget: kind === "member" || kind === "gap"
+        readonly property var group: editor.groupOf(groupId)
+        readonly property real fade: group && group.visibility === "hidden" ? 0.6 : 1
+        // Where a keyboard lift's copy sits over a landing place.
+        readonly property var landing: widgetLoader.item
+        width: editor.chipWidth
+        height: editor.chipHeight
+        z: widgetLoader.item && widgetLoader.item.raised ? 1 : 0
+        Loader {
+            active: listRow.kind === "face"
+            anchors.fill: parent
+            sourceComponent: Component {
+                FaceChip {
+                    groupId: listRow.groupId
+                }
+            }
+        }
+        // The branch: from under the face's icon down to this row's middle,
+        // and on past it to the next widget row, with a tick to the row.
+        Rectangle {
+            visible: listRow.widget
+            x: Style.space(5)
+            y: listRow.row.first ? -(editor.chipGap + (editor.chipHeight - Style.space(16)) / 2) : -editor.chipGap
+            width: 1
+            height: (listRow.row.last ? Math.round(listRow.height / 2) : listRow.height) - y
+            color: Qt.alpha(Commons.Color.popups.text, 0.25)
+            opacity: listRow.fade
+        }
+        Rectangle {
+            visible: listRow.widget
+            x: Style.space(5)
+            y: Math.round(listRow.height / 2)
+            width: Style.space(6)
+            height: 1
+            color: Qt.alpha(Commons.Color.popups.text, 0.25)
+            opacity: listRow.fade
+        }
+        Loader {
+            id: widgetLoader
+            active: listRow.widget
+            x: editor.indent
+            width: listRow.width - editor.indent
+            height: listRow.height
+            sourceComponent: Component {
+                Chip {
+                    record: listRow.record || ({})
+                    placeholder: listRow.placeholder
+                    area: "member"
+                    pos: listRow.pos
+                    opacity: listRow.fade
+                }
+            }
+        }
+        GrayText {
+            visible: listRow.kind === "note"
+            x: editor.indent + Style.space(2)
+            width: listRow.width - x
+            anchors.verticalCenter: parent.verticalCenter
+            text: "Empty: space on a pool widget adds here"
+            textFormat: Text.PlainText
+            color: Qt.alpha(Commons.Color.popups.text, 0.55)
+            font.family: Style.font.family
+            font.pixelSize: Style.font.caption
+            elide: Text.ElideRight
+            opacity: listRow.fade
         }
     }
     // A face, drawn by its layer: on the bar accent-tinted, on demand plain
@@ -2290,7 +2204,6 @@ Item {
         property bool ghost: false
         property bool isCursor: false
         property bool chosen: false
-        property bool targeted: false
         property bool hovered: false
         readonly property string visibility: group ? group.visibility : "shown"
         readonly property int count: group ? (editor.memberLists[group.id] || []).length : 0
@@ -2299,7 +2212,7 @@ Item {
             anchors.fill: parent
             antialiasing: true
             radius: editor.chipRadius
-            color: look.targeted ? Qt.alpha(Commons.Color.accent, 0.4) : look.ghost ? Qt.tint(editor.pageColor, Qt.alpha(Commons.Color.popups.text, 0.15)) : look.visibility === "shown" ? Qt.alpha(Commons.Color.accent, look.hovered ? 0.3 : 0.22) : look.visibility === "managed" ? Qt.alpha(Commons.Color.popups.text, look.hovered ? 0.12 : 0.06) : look.hovered ? Qt.alpha(Commons.Color.popups.text, 0.06) : "transparent"
+            color: look.ghost ? Qt.tint(editor.pageColor, Qt.alpha(Commons.Color.popups.text, 0.15)) : look.visibility === "shown" ? Qt.alpha(Commons.Color.accent, look.hovered ? 0.3 : 0.22) : look.visibility === "managed" ? Qt.alpha(Commons.Color.popups.text, look.hovered ? 0.12 : 0.06) : look.hovered ? Qt.alpha(Commons.Color.popups.text, 0.06) : "transparent"
             borderSpec: look.ghost ? Border.flat(Commons.Color.accent, Math.max(1, Math.round(Style.space(1.5)))) : look.isCursor && editor.stageFocused ? Border.controlSpec("focus", Commons.Color.popups.text, Commons.Color.accent) : look.chosen ? Border.flat(Commons.Color.accent, 1) : look.isCursor ? Border.flat(Qt.alpha(Commons.Color.popups.text, 0.35), 1) : Border.none()
         }
         DashedFrame {
@@ -2365,32 +2278,14 @@ Item {
             }
         }
     }
-    // A face in its zone's tile, a row as wide as the Layout page's chips;
-    // the open one (PREFS-120) has the leader's dot at its bottom middle.
+    // A face in its zone's list, a row as wide as the Layout page's chips.
     component FaceChip: FaceLook {
-        id: chip
         property string groupId: ""
-        property int index: 0
-        property string zone: ""
-        readonly property bool placeholder: false
-        readonly property bool open: editor.openIds[zone] === groupId
         group: editor.groupOf(groupId)
         isCursor: !editor.lifted && editor.cursorKey === "face:" + groupId
         chosen: editor.selectedId === groupId
-        targeted: !!editor.lifted && !editor.liftingFace && !!editor.liftTarget && editor.liftTarget.area === "face" && editor.liftTarget.id === groupId
         hovered: editor.hoverKey === "face:" + groupId
         opacity: editor.liftingFace && editor.lifted.face === groupId ? 0.35 : 1
-        width: editor.chipWidth
-        Rectangle {
-            visible: chip.open
-            x: (chip.width - width) / 2
-            y: chip.height - height / 2
-            z: 1
-            width: Style.space(6)
-            height: width
-            radius: width / 2
-            color: Qt.alpha(Commons.Color.accent, chip.chosen ? 1 : 0.45)
-        }
     }
     // A zone's "+", the last row of its tile: a new group there (n or Enter
     // on it, a click, or a widget dropped on it).
@@ -2422,200 +2317,6 @@ Item {
             color: plus.lit ? Commons.Color.accent : Qt.alpha(Commons.Color.popups.text, 0.5)
             font.family: Style.font.family
             font.pixelSize: Style.font.body
-        }
-    }
-    // A zone's tile on the drawers' plate: its one drawer, showing its open
-    // group (PREFS-113, PREFS-122): a header row with the group's icon, name
-    // and count over a hairline, a note for a hidden or on-demand group, then
-    // its widgets as the Layout page's chips in a window that scrolls
-    // (PREFS-106). Another face opened swaps it at once.
-    component DrawerTile: ZoneTile {
-        id: drawer
-        required property string modelData
-        readonly property string zone: modelData
-        readonly property string groupId: editor.openIds[modelData] || ""
-        readonly property var group: editor.groupOf(groupId)
-        readonly property bool chosen: !!groupId && editor.selectedId === groupId
-        readonly property var list: groupId ? editor.drawerList(groupId) : []
-        readonly property string note: editor.drawerNote(group)
-        readonly property bool targeted: !!editor.lifted && !editor.liftingFace && !!editor.liftTarget && editor.liftTarget.area === "drawer" && editor.liftTarget.id === groupId
-        readonly property bool cursorHere: !editor.lifted && editor.at.area === "drawer" && editor.at.id === groupId
-        readonly property bool headerCursor: cursorHere && editor.at.pos < 0
-        readonly property alias header: headerRow
-        readonly property real headerTop: pad + editor.nameRow
-        readonly property real noteHeight: note ? noteText.implicitHeight + Style.space(4) : 0
-        // What it holds under its header, for the plate's height (PREFS-115).
-        readonly property var size: ({
-                note: noteHeight,
-                rows: list.length,
-                text: !groupId ? noGroup.implicitHeight : emptyText.implicitHeight
-            })
-        x: editor.column(modelData).x
-        width: editor.column(modelData).width
-        animate: editor.bar.animationsEnabled
-        lightTheme: editor.lightTheme
-        lead: chosen
-        borderSpec: chosen || targeted && list.length === 1 ? Border.flat(Qt.alpha(Commons.Color.accent, 0.7), 1) : Border.flat(Qt.alpha(Commons.Color.popups.text, 0.12), 1)
-        pad: editor.tilePad
-        raise: cursorHere ? editor.tileRaise : 0
-        camera: editor.beamCamera
-        shaded: editor.cameraShown && modelData === "center"
-        spillShown: editor.cameraShown
-        beamX: editor.column("center").x - x - editor.slide
-        sliding: editor.slide !== 0
-        beamWidth: editor.column("center").width
-        line: editor.stackTop
-        tilt: editor.tilt
-        planeDistance: editor.planeDistance
-        name: editor.layout.zoneNames[modelData] || ""
-        nameActive: editor.activeZone === modelData
-        nameBold: editor.activeZone === modelData && editor.activePlate === 1
-        nameRow: editor.nameRow
-        viewTop: headerTop + editor.headerBlock + noteHeight
-        chipHeight: editor.chipHeight
-        spacing: editor.chipGap
-        flowWidth: editor.chipWidth
-        current: cursorHere
-        model: memberTiles.model
-        Component.onCompleted: drawerTiles.add(this)
-        Component.onDestruction: drawerTiles.drop(this)
-        // A swapped group starts at its top, the cursor's widget in view.
-        onGroupIdChanged: {
-            scroll = 0;
-            Qt.callLater(editor.revealCursor);
-        }
-        GrayText {
-            id: noGroup
-            visible: !drawer.groupId
-            x: drawer.pad + Style.space(2)
-            y: drawer.headerTop
-            width: drawer.width - 2 * x
-            text: "No group in " + (editor.layout.zoneNames[drawer.zone] || "") + " yet. Press n on its + above."
-            textFormat: Text.PlainText
-            color: Qt.alpha(Commons.Color.popups.text, 0.4)
-            font.family: Style.font.family
-            font.pixelSize: Style.font.caption
-            wrapMode: Text.WordWrap
-        }
-        Item {
-            id: headerRow
-            visible: !!drawer.groupId
-            x: drawer.pad
-            y: drawer.headerTop
-            width: editor.chipWidth
-            height: editor.chipHeight
-            opacity: drawer.group && drawer.group.visibility === "hidden" ? 0.6 : 1
-            BorderSurface {
-                anchors.fill: parent
-                antialiasing: true
-                radius: editor.chipRadius
-                color: drawer.headerCursor && editor.stageFocused ? Style.focusFillFor(Commons.Color.popups.text, Commons.Color.accent) : editor.hoverKey === "header:" + drawer.groupId ? Qt.alpha(Commons.Color.popups.text, 0.08) : "transparent"
-                borderSpec: drawer.headerCursor && editor.stageFocused ? Border.controlSpec("focus", Commons.Color.popups.text, Commons.Color.accent) : drawer.headerCursor ? Border.flat(Qt.alpha(Commons.Color.popups.text, 0.35), 1) : Border.none()
-            }
-            Row {
-                x: Style.space(6)
-                width: parent.width - 2 * x
-                height: parent.height
-                spacing: Style.space(6)
-                Item {
-                    anchors.verticalCenter: parent.verticalCenter
-                    width: Style.space(16)
-                    height: Style.space(16)
-                    GroupFace {
-                        anchors.centerIn: parent
-                        group: drawer.group
-                        faceMode: "glyph"
-                        color: Commons.Color.popups.text
-                        fontFamily: editor.layout.barFont
-                        fontSize: Style.font.body
-                    }
-                }
-                GrayText {
-                    anchors.verticalCenter: parent.verticalCenter
-                    width: Math.max(0, parent.width - Style.space(16) - 2 * parent.spacing - drawerPill.width)
-                    text: drawer.group ? drawer.group.label : ""
-                    textFormat: Text.PlainText
-                    color: Commons.Color.popups.text
-                    font.family: Style.font.family
-                    font.pixelSize: Style.font.bodySmall
-                    font.weight: drawer.chosen ? Font.DemiBold : Font.Normal
-                    elide: Text.ElideRight
-                }
-                Rectangle {
-                    id: drawerPill
-                    anchors.verticalCenter: parent.verticalCenter
-                    readonly property int n: (editor.memberLists[drawer.groupId] || []).length
-                    width: editor.pillWidth(n)
-                    height: Style.space(16)
-                    radius: height / 2
-                    color: Qt.alpha(Commons.Color.popups.text, 0.12)
-                    GrayText {
-                        anchors.centerIn: parent
-                        text: drawerPill.n
-                        textFormat: Text.PlainText
-                        color: Commons.Color.popups.text
-                        font.family: Style.font.family
-                        font.pixelSize: Style.font.caption
-                    }
-                }
-            }
-        }
-        Rectangle {
-            visible: !!drawer.groupId
-            x: drawer.pad
-            y: drawer.headerTop + editor.chipHeight + Style.space(2)
-            width: editor.chipWidth
-            height: 1
-            color: Qt.alpha(Commons.Color.popups.text, 0.1)
-        }
-        GrayText {
-            id: noteText
-            visible: drawer.note !== ""
-            x: drawer.pad + Style.space(2)
-            y: drawer.headerTop + editor.headerBlock
-            width: drawer.width - 2 * x
-            text: drawer.note
-            textFormat: Text.PlainText
-            color: Qt.alpha(Commons.Color.popups.text, 0.5)
-            font.family: Style.font.family
-            font.pixelSize: Style.font.caption
-            wrapMode: Text.WordWrap
-        }
-        GrayText {
-            id: emptyText
-            visible: !!drawer.groupId && drawer.list.length === 0
-            x: drawer.pad + Style.space(2)
-            y: drawer.viewTop
-            width: drawer.width - 2 * x
-            text: "Empty. Drop widgets here, or press space on one in the pool."
-            textFormat: Text.PlainText
-            color: Qt.alpha(Commons.Color.popups.text, 0.4)
-            font.family: Style.font.family
-            font.pixelSize: Style.font.caption
-            wrapMode: Text.WordWrap
-        }
-        RetainedList {
-            id: memberTiles
-            recordProperty: "retainedRecord"
-            records: drawer.list.map(function (value, index) {
-                return {
-                    key: value.placeholder ? "insertion-gap" : value.record.instanceKey,
-                    entry: value.record,
-                    placeholder: value.placeholder,
-                    index: index
-                };
-            })
-            factory: Component {
-                Chip {
-                    required property var retainedRecord
-                    record: retainedRecord.entry
-                    placeholder: retainedRecord.placeholder
-                    area: "drawer"
-                    pos: retainedRecord.index
-                    width: editor.chipWidth
-                    opacity: drawer.group && drawer.group.visibility === "hidden" ? 0.6 : 1
-                }
-            }
         }
     }
     // A widget's chip, the Layout page's (PREFS-22, PREFS-104): its icon and
@@ -2711,7 +2412,7 @@ Item {
             }
         }
     }
-    // A dashed edge: the tray's (PREFS-97), a hidden face's or drawer's, a "+".
+    // A dashed edge: the tray's (PREFS-97), a hidden face's, a "+".
     component DashedFrame: Shape {
         id: frame
         property real radius: 0
