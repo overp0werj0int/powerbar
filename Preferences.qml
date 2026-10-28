@@ -88,13 +88,33 @@ Item {
             return a.index - b.index || (a.groupId ? -1 : b.groupId ? 1 : 0);
         });
     }
+    // A page in the pages' strip: as large as the strip, shown while it is
+    // the page or slides out, and told how far it is off its place.
+    component PageSlot: Loader {
+        id: slot
+        property int page: 0
+        property Item strip: null
+        width: strip ? strip.width : 0
+        height: strip ? strip.height : 0
+        x: strip ? strip.offsetOf(page) : 0
+        visible: !!strip && strip.shows(page)
+        Binding {
+            target: slot.item
+            when: !!slot.item && slot.item.slide !== undefined
+            property: "slide"
+            value: slot.x
+        }
+    }
     // A page's tab in the header (PREFS-6): its number as a keycap and its
-    // name, bold with an accent underline while it is the page shown.
+    // name, bold while it is the page shown, the header's one accent
+    // underline under it.
     component PageTab: Item {
         id: tab
         required property var modelData
         required property int index
         readonly property bool current: prefs.page === index
+        Component.onCompleted: prefs.registerTab(this)
+        Component.onDestruction: prefs.unregisterTab(this)
         implicitWidth: tabRow.implicitWidth + Style.space(20)
         implicitHeight: tabRow.implicitHeight + Style.space(18)
         Accessible.role: Accessible.PageTab
@@ -119,21 +139,6 @@ Item {
                 anchors.verticalCenter: parent.verticalCenter
             }
         }
-        Rectangle {
-            anchors.bottom: parent.bottom
-            anchors.horizontalCenter: parent.horizontalCenter
-            width: tab.current ? parent.width - Style.space(12) : 0
-            height: Math.max(2, Style.space(2))
-            radius: height / 2
-            color: Commons.Color.accent
-            Behavior on width {
-                enabled: prefs.bar && prefs.bar.animationsEnabled
-                NumberAnimation {
-                    duration: 160
-                    easing.type: Easing.OutCubic
-                }
-            }
-        }
         MouseArea {
             id: tabMouse
             anchors.fill: parent
@@ -143,6 +148,20 @@ Item {
         }
     }
 
+    // The tabs drawn, for the underline to find the current one.
+    property var tabItems: []
+    function registerTab(tab) {
+        tabItems = tabItems.concat([tab]);
+    }
+    function unregisterTab(tab) {
+        tabItems = tabItems.filter(function (t) {
+            return t !== tab;
+        });
+    }
+    // A page switch's motion: the page under the camera slides and the
+    // tab's underline glides, on one clock; nothing else moves.
+    readonly property int turnDuration: 240
+    readonly property var turnCurve: [0.23, 1, 0.32, 1, 1, 1]
     readonly property var pagesAlways: [
         {
             title: "Layout",
@@ -743,6 +762,8 @@ Item {
             border.color: Commons.Color.popups.border
             readonly property real inset: Math.round(Math.min(Style.space(66), width / 23))
             color: Qt.rgba(Commons.Color.popups.background.r, Commons.Color.popups.background.g, Commons.Color.popups.background.b, 1)
+            // Pages sliding off keep to the card.
+            clip: pages.sliding
             focus: true
             opacity: prefs.opened ? 1 : 0
             Behavior on opacity {
@@ -876,28 +897,28 @@ Item {
                         onChanged: focusRing.follow()
                     }
                     Behavior on x {
-                        enabled: focusRing.gliding && prefs.bar.animationsEnabled
+                        enabled: focusRing.gliding && !pages.sliding && prefs.bar.animationsEnabled
                         NumberAnimation {
                             duration: 120
                             easing.type: Easing.OutCubic
                         }
                     }
                     Behavior on y {
-                        enabled: focusRing.gliding && prefs.bar.animationsEnabled
+                        enabled: focusRing.gliding && !pages.sliding && prefs.bar.animationsEnabled
                         NumberAnimation {
                             duration: 120
                             easing.type: Easing.OutCubic
                         }
                     }
                     Behavior on width {
-                        enabled: focusRing.gliding && prefs.bar.animationsEnabled
+                        enabled: focusRing.gliding && !pages.sliding && prefs.bar.animationsEnabled
                         NumberAnimation {
                             duration: 120
                             easing.type: Easing.OutCubic
                         }
                     }
                     Behavior on height {
-                        enabled: focusRing.gliding && prefs.bar.animationsEnabled
+                        enabled: focusRing.gliding && !pages.sliding && prefs.bar.animationsEnabled
                         NumberAnimation {
                             duration: 120
                             easing.type: Easing.OutCubic
@@ -915,82 +936,197 @@ Item {
                 spacing: 0
 
                 // ---------------------------------------------------------- header
-                RowLayout {
+                Item {
+                    id: header
                     Layout.fillWidth: true
-                    spacing: Style.space(28)
-                    GrayText {
-                        text: "Powerbar"
-                        textFormat: Text.PlainText
-                        color: Commons.Color.popups.text
-                        font.family: Style.font.family
-                        font.pixelSize: Style.font.heading
-                        font.bold: true
-                    }
-                    Row {
-                        spacing: Style.space(4)
-                        Repeater {
-                            model: prefs.pages.filter(function (p) {
-                                return !p.aside;
-                            })
-                            PageTab {}
+                    implicitHeight: headerRow.implicitHeight
+                    // The current tab's underline, gliding from tab to tab.
+                    Rectangle {
+                        id: tabLine
+                        readonly property Item tab: {
+                            var list = prefs.tabItems;
+                            for (var i = 0; i < list.length; i++)
+                                if (list[i].index === prefs.page && list[i].visible)
+                                    return list[i];
+                            return null;
+                        }
+                        // Read where the tab is whenever the row lays it out again.
+                        readonly property point at: tab ? (headerRow.width, tab.x, tab.width, tab.parent.x, tab.mapToItem(header, 0, tab.height)) : Qt.point(0, 0)
+                        visible: !!tab
+                        x: at.x + Style.space(6)
+                        y: at.y - height
+                        width: tab ? tab.width - Style.space(12) : 0
+                        height: Math.max(2, Style.space(2))
+                        radius: height / 2
+                        color: Commons.Color.accent
+                        Behavior on x {
+                            enabled: prefs.opened && prefs.bar && prefs.bar.animationsEnabled
+                            NumberAnimation {
+                                duration: prefs.turnDuration
+                                easing.type: Easing.BezierSpline
+                                easing.bezierCurve: prefs.turnCurve
+                            }
+                        }
+                        Behavior on width {
+                            enabled: prefs.opened && prefs.bar && prefs.bar.animationsEnabled
+                            NumberAnimation {
+                                duration: prefs.turnDuration
+                                easing.type: Easing.BezierSpline
+                                easing.bezierCurve: prefs.turnCurve
+                            }
                         }
                     }
-                    Item {
-                        Layout.fillWidth: true
-                    }
-                    // The Tuning page's tab, at the right beside Close (PREFS-132).
-                    PageTab {
-                        visible: prefs.pages.length > 4
-                        index: 4
-                        modelData: prefs.pages[4] || ({
-                                title: ""
-                            })
-                    }
-                    Item {
-                        implicitWidth: closeRow.implicitWidth
-                        implicitHeight: closeRow.implicitHeight
-                        opacity: closeMouse.containsMouse ? 1 : 0.65
-                        Accessible.role: Accessible.Button
-                        Accessible.name: "Close"
+                    RowLayout {
+                        id: headerRow
+                        anchors.fill: parent
+                        spacing: Style.space(28)
+                        GrayText {
+                            text: "Powerbar"
+                            textFormat: Text.PlainText
+                            color: Commons.Color.popups.text
+                            font.family: Style.font.family
+                            font.pixelSize: Style.font.heading
+                            font.bold: true
+                        }
                         Row {
-                            id: closeRow
-                            spacing: Style.space(8)
-                            KeyCap {
-                                text: "esc"
-                                anchors.verticalCenter: parent.verticalCenter
-                            }
-                            GrayText {
-                                text: "Close"
-                                textFormat: Text.PlainText
-                                color: Commons.Color.popups.text
-                                font.family: Style.font.family
-                                font.pixelSize: Style.font.bodySmall
-                                anchors.verticalCenter: parent.verticalCenter
+                            spacing: Style.space(4)
+                            Repeater {
+                                model: prefs.pages.filter(function (p) {
+                                    return !p.aside;
+                                })
+                                PageTab {}
                             }
                         }
-                        MouseArea {
-                            id: closeMouse
-                            anchors.fill: parent
-                            anchors.margins: -Style.space(6)
-                            hoverEnabled: true
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: prefs.close()
+                        Item {
+                            Layout.fillWidth: true
+                        }
+                        // The Tuning page's tab, at the right beside Close (PREFS-132).
+                        PageTab {
+                            visible: prefs.pages.length > 4
+                            index: 4
+                            modelData: prefs.pages[4] || ({
+                                    title: ""
+                                })
+                        }
+                        Item {
+                            implicitWidth: closeRow.implicitWidth
+                            implicitHeight: closeRow.implicitHeight
+                            opacity: closeMouse.containsMouse ? 1 : 0.65
+                            Accessible.role: Accessible.Button
+                            Accessible.name: "Close"
+                            Row {
+                                id: closeRow
+                                spacing: Style.space(8)
+                                KeyCap {
+                                    text: "esc"
+                                    anchors.verticalCenter: parent.verticalCenter
+                                }
+                                GrayText {
+                                    text: "Close"
+                                    textFormat: Text.PlainText
+                                    color: Commons.Color.popups.text
+                                    font.family: Style.font.family
+                                    font.pixelSize: Style.font.bodySmall
+                                    anchors.verticalCenter: parent.verticalCenter
+                                }
+                            }
+                            MouseArea {
+                                id: closeMouse
+                                anchors.fill: parent
+                                anchors.margins: -Style.space(6)
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: prefs.close()
+                            }
                         }
                     }
                 }
                 // ----------------------------------------------------------- pages
-                StackLayout {
+                // One page shows at a time. A switch while open slides what is
+                // under the camera: the page out and the next one in beside it,
+                // in the tabs' order, a card's width, their plates moving in their
+                // own plane (each page's `slide`) under a camera that stays put.
+                // At rest every page sits at 0, so pages that measure their place
+                // (the Layout page's camera axis) measure it unmoved.
+                Item {
                     id: pages
                     Layout.fillWidth: true
                     Layout.fillHeight: true
                     Layout.topMargin: Style.space(4)
                     Layout.bottomMargin: Style.space(10)
-                    currentIndex: prefs.page
+
+                    property int current: 0
+                    property int leaving: -1
+                    property int direction: 1
+                    // The page coming in, off its rest place; the leaving page
+                    // keeps beside it.
+                    property real shift: 0
+                    readonly property bool sliding: leaving >= 0
+                    readonly property real travel: card.width
+                    Component.onCompleted: current = prefs.page
+                    Connections {
+                        target: prefs
+                        function onPageChanged() {
+                            pages.turnTo(prefs.page);
+                        }
+                    }
+                    // A switch during a slide carries on from where the strip is.
+                    function turnTo(index) {
+                        if (index === current)
+                            return;
+                        slide.stop();
+                        if (!prefs.opened || !prefs.bar || !prefs.bar.animationsEnabled || width <= 0) {
+                            shift = 0;
+                            current = index;
+                            return;
+                        }
+                        direction = index > current ? 1 : -1;
+                        leaving = current;
+                        current = index;
+                        slide.from = shift + direction * travel;
+                        slide.restart();
+                    }
+                    function shows(index) {
+                        return index === current || index === leaving;
+                    }
+                    function offsetOf(index) {
+                        if (index === current)
+                            return shift;
+                        return index === leaving ? shift - direction * travel : 0;
+                    }
+                    NumberAnimation {
+                        id: slide
+                        target: pages
+                        property: "shift"
+                        to: 0
+                        duration: prefs.turnDuration
+                        easing.type: Easing.BezierSpline
+                        easing.bezierCurve: prefs.turnCurve
+                        onStopped: pages.leaving = -1
+                    }
+                    // The camera while pages slide: the Layout page's, with its
+                    // arguments, behind both pages; theirs hide meanwhile.
+                    CameraShaft {
+                        readonly property Item editor: layoutPage.item
+                        readonly property Item source: editor ? editor.beamCamera : null
+                        visible: pages.sliding && !!editor && editor.previewCamera && !!editor.previewNotch
+                        z: -1
+                        axis: source ? source.axis : 0
+                        half: source ? source.half : 0
+                        line: source ? source.line : 0
+                        pageTop: source ? source.pageTop : 0
+                        beamBottom: source ? source.beamBottom : 0
+                        tilt: source ? source.tilt : 0
+                        planeDistance: source ? source.planeDistance : 1600
+                        lightTheme: source ? source.lightTheme : false
+                    }
 
                     // The pages are built the first time Preferences opens, not at the
                     // shell's start, and then kept: nothing in them shows while closed.
-                    Loader {
+                    PageSlot {
                         id: layoutPage
+                        page: 0
+                        strip: pages
                         active: prefs.pagesLoaded
                         sourceComponent: Component {
                             LayoutEditor {
@@ -998,25 +1134,10 @@ Item {
                             }
                         }
                     }
-                    // The other pages take the Layout page's geometry and camera, but
-                    // the stack sizes only the page in view: keep it at the pages' size
-                    // while another one shows.
-                    Binding {
-                        target: layoutPage.item
-                        when: !!layoutPage.item
-                        property: "width"
-                        value: pages.width
-                        restoreMode: Binding.RestoreNone
-                    }
-                    Binding {
-                        target: layoutPage.item
-                        when: !!layoutPage.item
-                        property: "height"
-                        value: pages.height
-                        restoreMode: Binding.RestoreNone
-                    }
-                    Loader {
+                    PageSlot {
                         id: groupsPage
+                        page: 1
+                        strip: pages
                         active: prefs.pagesLoaded && !!layoutPage.item
                         sourceComponent: Component {
                             GroupsEditor {
@@ -1032,8 +1153,10 @@ Item {
 
                     // The Look and Behavior desks (PREFS-124). Changes show on the
                     // bar itself, so neither draws a preview of its own.
-                    Loader {
+                    PageSlot {
                         id: lookPage
+                        page: 2
+                        strip: pages
                         active: prefs.pagesLoaded && !!layoutPage.item
                         sourceComponent: Component {
                             LookEditor {
@@ -1042,8 +1165,10 @@ Item {
                             }
                         }
                     }
-                    Loader {
+                    PageSlot {
                         id: behaviorPage
+                        page: 3
+                        strip: pages
                         active: prefs.pagesLoaded && !!layoutPage.item
                         sourceComponent: Component {
                             BehaviorEditor {
@@ -1053,8 +1178,10 @@ Item {
                         }
                     }
                     // The Tuning page, only with `powerbarTuning` on (PREFS-132).
-                    Loader {
+                    PageSlot {
                         id: tuningPage
+                        page: 4
+                        strip: pages
                         active: prefs.pagesLoaded && !!layoutPage.item && prefs.options.tuning === true
                         sourceComponent: Component {
                             TuningEditor {

@@ -30,6 +30,9 @@ Item {
   // The Layout page's editor: its geometry and camera.
   required property var layout
   readonly property var bar: preferences.bar
+  // How far Preferences has slid the page off its place, as on the Layout
+  // page: the plate moves in its plane under a camera that stays put.
+  property real slide: 0
   // The page's own legend lines (PREFS-131).
   property var pageLines: []
   default property alias strips: plateFace.data
@@ -99,6 +102,8 @@ Item {
   CameraShaft {
     id: shaft
     visible: desk.cameraShown
+    // While the page slides, Preferences draws the camera, still.
+    opacity: desk.slide === 0 ? 1 : 0
     z: -1
     axis: desk.layoutCamera.axis
     half: desk.layoutCamera.half
@@ -111,7 +116,7 @@ Item {
   }
   readonly property Item camera: shaft
   // The camera's column in the plate, and where the plate's top is seen.
-  readonly property real beamLeft: shaft.axis - shaft.half - plate.x
+  readonly property real beamLeft: shaft.axis - shaft.half - desk.slide - desk.plateX
   readonly property real beamWidth: 2 * shaft.half
   readonly property real seenTop: smoothing.y + plate.y
   readonly property real line: shaft.line
@@ -121,25 +126,29 @@ Item {
   // tilt turns every edge on it, the kit's controls' too, and only samples
   // taken after the turn smooth them all. The layer is the page's width (the
   // near edge is seen wider than the plate) and the seen plate's height with
-  // room for its slab edges; flat, there is no layer.
+  // room for its slab edges; flat, there is no layer. While the page
+  // slides the plate moves in its plane, where the tilt draws it a little
+  // off the page's own move: the layer reaches past the page's sides then.
   Item {
     id: smoothing
+    readonly property real reach: desk.slide !== 0 ? Math.ceil(desk.width * 0.15) : 0
+    x: -reach
     y: desk.layout.stackTop
-    width: desk.width
+    width: desk.width + 2 * reach
     height: Math.ceil(Model.tiltedHeight(desk.stripHeight, desk.tilt, desk.planeDistance)) + Style.space(24)
     z: 2
     layer.enabled: desk.tilt !== 0
     layer.samples: 4
     Item {
       id: plate
-      x: desk.plateX
+      x: desk.plateX + smoothing.reach
       width: desk.plateWidth
       height: desk.stripHeight
       LayerPlate {
         id: plateFace
         width: plate.width
         height: plate.height
-        axisX: desk.layout.axis - plate.x
+        axisX: desk.layout.axis - desk.slide - desk.plateX
         tilt: desk.tilt
         planeDistance: desk.planeDistance
         animate: desk.animate

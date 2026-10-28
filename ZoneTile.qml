@@ -51,6 +51,10 @@ Item {
     property bool spillShown: false
     property real beamX: shadeX
     property real beamWidth: shadeWidth
+    // While the page slides under the camera, the cap's shade falls on
+    // whatever part of a tile passes under the column, not only on the
+    // part that rests there.
+    property bool sliding: false
     property real seenTop: 0
     property real line: 0
     property real tilt: 34
@@ -126,16 +130,20 @@ Item {
     }
     // The torn cap's shade (and the tear, where it reaches the tile) over
     // its surface and under its rows, continuing what the gaps show.
-    BeamShade {
-        visible: cell.shaded && !!cell.camera
-        tilt: cell.tilt
-        planeDistance: cell.planeDistance
-        lightTheme: cell.camera ? cell.camera.lightTheme : false
-        x: cell.shadeX
-        width: cell.shadeWidth
-        height: parent.height
-        vTop: Model.tiltedDepth(cell.seenTop - cell.line, cell.tilt, cell.planeDistance)
-        vBottom: Model.tiltedDepth(cell.seenTop + Model.tiltedHeight(cell.height, cell.tilt, cell.planeDistance) - cell.line, cell.tilt, cell.planeDistance)
+    Item {
+        anchors.fill: parent
+        clip: cell.sliding
+        visible: !!cell.camera && (cell.sliding ? cell.spillShown && cell.beamX + cell.beamWidth > 0 && cell.beamX < cell.width : cell.shaded)
+        BeamShade {
+            tilt: cell.tilt
+            planeDistance: cell.planeDistance
+            lightTheme: cell.camera ? cell.camera.lightTheme : false
+            x: cell.sliding ? cell.beamX : cell.shadeX
+            width: cell.sliding ? cell.beamWidth : cell.shadeWidth
+            height: parent.height
+            vTop: Model.tiltedDepth(cell.seenTop - cell.line, cell.tilt, cell.planeDistance)
+            vBottom: Model.tiltedDepth(cell.seenTop + Model.tiltedHeight(cell.height, cell.tilt, cell.planeDistance) - cell.line, cell.tilt, cell.planeDistance)
+        }
     }
     // The dashed edge.
     Shape {

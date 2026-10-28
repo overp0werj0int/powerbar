@@ -77,6 +77,9 @@ Item {
     // The screen the shelves picture: the bar is the same on every screen, but
     // a camera moves the center. Preferences' own screen unless another is picked.
     property string previewName: ""
+    // How far Preferences has slid the page off its place (a page switch):
+    // the plates move in their plane under a camera that stays put.
+    property real slide: 0
     readonly property var screens: Quickshell.screens
     readonly property var previewScreen: screens.find(function (s) {
         return s.name === previewName;
@@ -982,6 +985,8 @@ Item {
     CameraShaft {
         id: camera
         visible: editor.previewCamera && !!editor.previewNotch
+        // While the page slides, Preferences draws the camera, still.
+        opacity: editor.slide === 0 ? 1 : 0
         z: -1
         axis: editor.axis
         half: editor.columns.widths[3] / 2
@@ -1012,6 +1017,10 @@ Item {
     CenterSideDot {
         id: centerDot
         z: 115
+        // Beside the camera, which stays put while the page slides; it
+        // leaves with the page.
+        x: -editor.slide
+        opacity: 1 - Math.min(1, Math.abs(editor.slide) / Math.max(1, editor.width))
         width: editor.width
         height: editor.height
         camera: editor.beamCamera
@@ -1344,7 +1353,7 @@ Item {
             height: editor.plateHeights[plate.index] || 0
             columns: editor.columns
             pad: editor.platePad
-            axisX: editor.axis - plate.x
+            axisX: editor.axis - editor.slide - plate.x
             tilt: editor.tilt
             planeDistance: editor.planeDistance
             animate: editor.bar.animationsEnabled
@@ -1526,7 +1535,8 @@ Item {
         shadeX: cell.mode === "hidden" ? editor.column("center").x - editor.column("hidden").x : 0
         shadeWidth: cell.mode === "hidden" ? editor.column("center").width : cell.width
         spillShown: !cell.trayCell && editor.previewCamera && !!editor.previewNotch
-        beamX: editor.column("center").x - cell.x
+        beamX: editor.column("center").x - cell.x - editor.slide
+        sliding: editor.slide !== 0
         beamWidth: editor.column("center").width
         line: editor.stackTop
         tilt: editor.tilt

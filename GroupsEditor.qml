@@ -31,6 +31,9 @@ Item {
     required property var layout
     readonly property var bar: preferences.bar
     property string selectedId: ""
+    // How far Preferences has slid the page off its place, as on the
+    // Layout page.
+    property real slide: 0
     // The keys are a legend on the page (PREFS-103), so the footer hides.
     readonly property var hints: []
 
@@ -672,6 +675,7 @@ Item {
     CameraShaft {
         id: camera
         visible: editor.cameraShown
+        opacity: editor.slide === 0 ? 1 : 0
         z: -1
         axis: editor.layoutCamera.axis
         half: editor.layoutCamera.half
@@ -696,6 +700,8 @@ Item {
     CenterSideDot {
         id: centerDot
         z: 115
+        x: -editor.slide
+        opacity: 1 - Math.min(1, Math.abs(editor.slide) / Math.max(1, editor.width))
         width: editor.width
         height: editor.height
         camera: editor.beamCamera
@@ -751,7 +757,7 @@ Item {
             height: editor.plateHeights[0] || 0
             columns: editor.columns
             pad: editor.platePad
-            axisX: editor.axis - facesPlate.x
+            axisX: editor.axis - editor.slide - facesPlate.x
             tilt: editor.tilt
             planeDistance: editor.planeDistance
             animate: editor.bar.animationsEnabled
@@ -826,7 +832,7 @@ Item {
             height: editor.plateHeights[1] || 0
             columns: editor.columns
             pad: editor.platePad
-            axisX: editor.axis - drawersPlate.x
+            axisX: editor.axis - editor.slide - drawersPlate.x
             tilt: editor.tilt
             planeDistance: editor.planeDistance
             animate: editor.bar.animationsEnabled
@@ -872,7 +878,7 @@ Item {
             height: editor.plateHeights[2] || 0
             columns: editor.columns
             pad: editor.platePad
-            axisX: editor.axis - poolPlate.x
+            axisX: editor.axis - editor.slide - poolPlate.x
             tilt: editor.tilt
             planeDistance: editor.planeDistance
             animate: editor.bar.animationsEnabled
@@ -2226,7 +2232,8 @@ Item {
         camera: editor.beamCamera
         shaded: capped
         spillShown: editor.cameraShown
-        beamX: editor.column("center").x - x
+        beamX: editor.column("center").x - x - editor.slide
+        sliding: editor.slide !== 0
         beamWidth: editor.column("center").width
         line: editor.stackTop
         tilt: editor.tilt
@@ -2454,7 +2461,8 @@ Item {
         camera: editor.beamCamera
         shaded: editor.cameraShown && modelData === "center"
         spillShown: editor.cameraShown
-        beamX: editor.column("center").x - x
+        beamX: editor.column("center").x - x - editor.slide
+        sliding: editor.slide !== 0
         beamWidth: editor.column("center").width
         line: editor.stackTop
         tilt: editor.tilt
