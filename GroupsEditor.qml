@@ -577,7 +577,6 @@ Item {
     readonly property real chipHeight: layout.chipHeight
     readonly property real chipGap: layout.chipGap
     readonly property real chipWidth: layout.chipWidth
-    readonly property real tileRaise: Style.space(5)
     // A zone's tile on a plate, in the plate: Center under the camera, as
     // on the Layout page.
     function column(zone) {
@@ -2067,7 +2066,6 @@ Item {
         borderSpec: targeted ? Border.flat(Commons.Color.accent, 1) : Border.flat(Qt.alpha(Commons.Color.popups.text, 0.12), 1)
         pad: editor.tilePad
         topRadius: capped ? 0 : radius
-        raise: cursorHere ? editor.tileRaise : 0
         camera: editor.beamCamera
         shaded: capped
         spillShown: editor.cameraShown

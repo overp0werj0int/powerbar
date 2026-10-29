@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- The strip the cursor is in on the Look, Behavior and Tuning pages rises 5 px off its plate like the cursor's tile on the Layout and Groups pages; the rise now lives in the shared tile (ZoneTile), so every card lifts the same way (PREFS-104, PREFS-125).
+- The inspector's zone map draws its camera under a chosen or focused Center cell's border instead of over it (PREFS-26).
 - Preferences' tilted pages are their own switch: Behavior > Comes and goes > "Pages in perspective" (`powerbarPreferencesTilt`, default on, `preferencesTilt` on the CLI). Before, turning Animations off also laid every page flat (PREFS-70, PREFS-99).
 - The Look page's Notch strip has a "Back to the camera's size" row above its faders: Space, Enter or a click puts both the width and the height back to the measured size in one write, and the row dims while they are there (PREFS-95).
 - On the Look, Behavior and Tuning desks h/l now walk as one grid: at the ends of a row of chips (Scope, Text and icons, Screen edge) they go on to the same row of the next or previous strip, as they do from a switch or a pick row, entering a chip row at the chip nearest the way in; before, the row's ends swallowed them. Faders alone keep h/l for their value (PREFS-126, PREFS-128).

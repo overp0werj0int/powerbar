@@ -1521,9 +1521,9 @@ Item {
         borderSpec: cell.targeted && cell.list.length === 1 ? Border.flat(Commons.Color.accent, 1) : Border.flat(Qt.alpha(Commons.Color.popups.text, 0.12), 1)
         pad: editor.tilePad
         topRadius: capped ? 0 : radius
-        // The cursor's tile rises a little off its layer (PREFS-104); the
-        // leader follows the rise.
-        raise: cursorHere && !flows ? Style.space(5) : 0
+        // The cursor's tile rises off its layer (ZoneTile, PREFS-104), a
+        // flowing slab not; the leader follows the rise.
+        rises: !flows
         onRaiseChanged: Qt.callLater(editor.trackLeader)
         Component.onCompleted: cellRepeater.register(this)
         Component.onDestruction: cellRepeater.unregister(this)

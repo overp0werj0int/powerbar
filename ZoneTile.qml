@@ -26,8 +26,11 @@ Item {
     property real pad: Style.space(8)
     property real radius: Math.min(Style.space(10), Style.cornerRadius)
     property real topRadius: radius
-    // How far it rises off its layer (the cursor's tile, PREFS-104).
-    property real raise: 0
+    // The cursor's tile rises 5 px off its layer (PREFS-104), every tile
+    // alike: a zone on the Layout and Groups pages, a desk's strip. A dashed
+    // slab (the tray's, the Hidden layer's) and a tile that flows do not.
+    property bool rises: !dashed
+    property real raise: current && rises ? Style.space(5) : 0
     Behavior on raise {
         enabled: cell.animate
         NumberAnimation {

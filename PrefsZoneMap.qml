@@ -113,12 +113,16 @@ GridLayout {
             : Qt.alpha(Commons.Color.popups.text, 0.07)
           borderSpec: hot ? Border.controlSpec("focus", Commons.Color.popups.text, Commons.Color.accent)
             : chosen ? Border.flat(Qt.alpha(Commons.Color.popups.text, 0.35), 1) : Border.none()
+          // The camera over Center: a black tab from the cell's top edge,
+          // under the cell's own border when it has one (chosen or focused),
+          // so the border's line stays whole over it (PREFS-26).
           Rectangle {
             visible: row.cameraOver === zoneCell.modelData.value
             anchors.top: parent.top
+            anchors.topMargin: zoneCell.borderTop
             anchors.horizontalCenter: parent.horizontalCenter
             width: Math.round(parent.width * 0.7)
-            height: Style.space(5)
+            height: Style.space(5) - zoneCell.borderTop
             color: "black"
             bottomLeftRadius: Style.space(3)
             bottomRightRadius: Style.space(3)

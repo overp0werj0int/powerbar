@@ -127,22 +127,26 @@ Item {
   // tilt turns every edge on it, the kit's controls' too, and only samples
   // taken after the turn smooth them all. The layer is the page's width (the
   // near edge is seen wider than the plate) and the seen plate's height with
-  // room for its slab edges; flat, there is no layer. While the page
-  // slides the plate moves in its plane, where the tilt draws it a little
-  // off the page's own move: the layer reaches past the page's sides then.
+  // room for its slab edges and, above, for the cursor's strip to rise
+  // (ZoneTile, PREFS-104) without the layer cutting it; flat, there is no
+  // layer. While the page slides the plate moves in its plane, where the
+  // tilt draws it a little off the page's own move: the layer reaches past
+  // the page's sides then.
   Item {
     id: smoothing
     readonly property real reach: desk.slide !== 0 ? Math.ceil(desk.width * 0.15) : 0
+    readonly property real headroom: Style.space(8)
     x: -reach
-    y: desk.layout.stackTop
+    y: desk.layout.stackTop - headroom
     width: desk.width + 2 * reach
-    height: Math.ceil(Model.tiltedHeight(desk.stripHeight, desk.tilt, desk.planeDistance)) + Style.space(24)
+    height: Math.ceil(Model.tiltedHeight(desk.stripHeight, desk.tilt, desk.planeDistance)) + Style.space(24) + headroom
     z: 2
     layer.enabled: desk.tilt !== 0
     layer.samples: 4
     Item {
       id: plate
       x: desk.plateX + smoothing.reach
+      y: smoothing.headroom
       width: desk.plateWidth
       height: desk.stripHeight
       LayerPlate {
