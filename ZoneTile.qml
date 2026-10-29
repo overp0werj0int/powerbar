@@ -29,14 +29,14 @@ Item {
     // The cursor's tile rises 5 px off its layer (PREFS-104), every tile
     // alike: a zone on the Layout and Groups pages, a desk's strip. A dashed
     // slab (the tray's, the Hidden layer's) and a tile that flows do not.
+    // It glides up and drops at once (Rise).
     property bool rises: !dashed
-    property real raise: current && rises ? Style.space(5) : 0
-    Behavior on raise {
-        enabled: cell.animate
-        NumberAnimation {
-            duration: 120
-            easing.type: Easing.OutCubic
-        }
+    readonly property real raise: lift.value
+    Rise {
+        id: lift
+        up: cell.current && cell.rises
+        height: Style.space(5)
+        animate: cell.animate
     }
     transform: Translate {
         y: -cell.raise

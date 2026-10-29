@@ -2346,18 +2346,17 @@ Item {
                 easing.type: Easing.OutCubic
             }
         }
-        property real raise: raised ? Style.space(area === "pool" ? 8 : 4) : 0
-        Behavior on raise {
-            enabled: editor.bar.animationsEnabled
-            NumberAnimation {
-                duration: 120
-                easing.type: Easing.OutCubic
-            }
+        readonly property real raise: lift.value
+        Rise {
+            id: lift
+            up: tile.raised
+            height: Style.space(tile.area === "pool" ? 8 : 4)
+            animate: editor.bar.animationsEnabled
         }
         transform: Translate {
             y: -tile.raise
         }
-        // Over its neighbours while it is up, and while it comes down.
+        // Over its neighbours while it is up.
         z: raised || raise > 0 ? 1 : 0
         height: editor.chipHeight
         // The shadow it casts on its tile: one flat band in its shape, as
