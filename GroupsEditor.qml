@@ -2106,51 +2106,14 @@ Item {
         },
         filterLine
     ]
-    GridLayout {
+    KeyLegend {
         id: legendGrid
         anchors.left: parent.left
         anchors.bottom: parent.bottom
         anchors.bottomMargin: Style.space(8)
         width: Math.max(Style.space(200), Math.min(Style.space(640), (inspector.shown ? inspector.x : editor.width) - Style.space(32)))
         z: 118
-        columns: 2
-        columnSpacing: Style.space(14)
-        rowSpacing: Style.space(10)
-        Repeater {
-            model: editor.legend
-            Row {
-                id: keysRow
-                required property var modelData
-                required property int index
-                Layout.row: index
-                Layout.column: 0
-                spacing: Style.space(4)
-                Repeater {
-                    model: String(keysRow.modelData.keys).split(" ")
-                    KeyCap {
-                        required property string modelData
-                        text: modelData
-                        anchors.verticalCenter: parent ? parent.verticalCenter : undefined
-                    }
-                }
-            }
-        }
-        Repeater {
-            model: editor.legend
-            GrayText {
-                required property var modelData
-                required property int index
-                Layout.row: index
-                Layout.column: 1
-                Layout.fillWidth: true
-                text: modelData.label
-                textFormat: Text.PlainText
-                color: Qt.alpha(Commons.Color.popups.text, 0.7)
-                font.family: Style.font.family
-                font.pixelSize: Style.font.caption
-                elide: Text.ElideRight
-            }
-        }
+        lines: editor.legend
     }
     // ---------------------------------------------------------- components
     // A zone's tile on the list's plate: the Layout page's bar-layer tile

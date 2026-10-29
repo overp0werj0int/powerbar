@@ -68,6 +68,8 @@ Item {
 
   readonly property real knobWidth: Style.space(8)
   readonly property real knobHeight: Style.space(16)
+  // The ticks and the default's mark: one height, told apart by strength.
+  readonly property real markHeight: Style.space(8)
   // The knob's centre travels between half a knob in from each end.
   readonly property real trackLength: Math.max(1, width - knobWidth)
   readonly property real progress: SliderModel.progress(shown, minimum, maximum)
@@ -90,8 +92,8 @@ Item {
     lightTheme: fader.strip ? fader.strip.lightTheme : false
     radius: Math.max(0, Math.min(Style.space(5), Style.cornerRadius - Style.space(3)))
     plate: fader.strip ? fader.strip.surfaceColor : "transparent"
-    padX: Style.space(8)
-    padY: Style.space(6)
+    padX: Style.space(4)
+    padY: Style.space(4)
   }
   // Tuning's Mark the whole control (PREFS-132), on by default: the fader's
   // area takes the focus fill and ring as a switch row does, the knob
@@ -99,10 +101,10 @@ Item {
   BorderSurface {
     visible: fader.activeFocus && Tuning.values.areaRing !== 0
     anchors.fill: parent
-    anchors.leftMargin: -Style.space(8)
-    anchors.rightMargin: -Style.space(8)
-    anchors.topMargin: -Style.space(6)
-    anchors.bottomMargin: -Style.space(6)
+    anchors.leftMargin: -Style.space(4)
+    anchors.rightMargin: -Style.space(4)
+    anchors.topMargin: -Style.space(4)
+    anchors.bottomMargin: -Style.space(4)
     radius: Math.max(0, Math.min(Style.space(5), Style.cornerRadius - Style.space(3)))
     color: Qt.tint(fader.strip ? fader.strip.surfaceColor : "transparent", Style.focusFillFor(Commons.Color.popups.text, Commons.Color.accent))
     borderSpec: Border.controlSpec("focus", Commons.Color.popups.text, Commons.Color.accent)
@@ -183,7 +185,8 @@ Item {
           NumberAnimation { duration: 120; easing.type: Easing.OutCubic }
         }
       }
-      // One tick per step when there are few enough to read (PREFS-60).
+      // One tick per step when there are few enough to read (PREFS-60),
+      // all one height with the default's mark on every fader (PREFS-127).
       Repeater {
         model: fader.ticks
         Rectangle {
@@ -191,8 +194,8 @@ Item {
           x: rail.inset + fader.trackLength * index / (fader.ticks - 1) - width / 2
           y: (rail.height - height) / 2
           width: 1
-          height: Style.space(6)
-          color: Qt.alpha(Commons.Color.popups.text, 0.3)
+          height: fader.markHeight
+          color: Qt.alpha(Commons.Color.popups.text, 0.25)
           Accessible.ignored: true
         }
       }
@@ -202,8 +205,8 @@ Item {
         x: rail.inset + fader.xFor(fader.defaultValue) - width / 2
         y: (rail.height - height) / 2
         width: 1
-        height: Style.space(12)
-        color: Qt.alpha(Commons.Color.popups.text, 0.4)
+        height: fader.markHeight
+        color: Qt.alpha(Commons.Color.popups.text, 0.5)
         Accessible.ignored: true
       }
       // The focus ring: a gap in the page's colour, then the accent.

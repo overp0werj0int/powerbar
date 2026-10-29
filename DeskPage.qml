@@ -47,7 +47,7 @@ Item {
   readonly property bool lightTheme: layout.lightTheme
   readonly property real tilt: layout.tilt
   readonly property real planeDistance: layout.planeDistance
-  readonly property real stripGap: Style.space(12)
+  readonly property real stripGap: Style.space(8)
   readonly property var stripList: {
     var out = [];
     var kids = plateFace.children;
@@ -254,49 +254,12 @@ Item {
 
   // ------------------------------------------------------------ the legend
   readonly property var legend: DeskModel.legend(pageLines, focusedControl && focusedControl.keyHints ? focusedControl.keyHints : [])
-  GridLayout {
+  KeyLegend {
     anchors.left: parent.left
     anchors.bottom: parent.bottom
     anchors.bottomMargin: Style.space(8)
     width: Math.min(desk.width, Style.space(640))
     z: 118
-    columns: 2
-    columnSpacing: Style.space(14)
-    rowSpacing: Style.space(10)
-    Repeater {
-      model: desk.legend
-      Row {
-        id: keysRow
-        required property var modelData
-        required property int index
-        Layout.row: index
-        Layout.column: 0
-        spacing: Style.space(4)
-        Repeater {
-          model: String(keysRow.modelData.keys).split(" ")
-          KeyCap {
-            required property string modelData
-            text: modelData
-            anchors.verticalCenter: parent ? parent.verticalCenter : undefined
-          }
-        }
-      }
-    }
-    Repeater {
-      model: desk.legend
-      GrayText {
-        required property var modelData
-        required property int index
-        Layout.row: index
-        Layout.column: 1
-        Layout.fillWidth: true
-        text: modelData.label
-        textFormat: Text.PlainText
-        color: Qt.alpha(Commons.Color.popups.text, 0.7)
-        font.family: Style.font.family
-        font.pixelSize: Style.font.caption
-        elide: Text.ElideRight
-      }
-    }
+    lines: desk.legend
   }
 }

@@ -55,10 +55,10 @@ DeskPage {
     store: behavior.preferences.shortcuts
     suggested: behavior.preferences.shortcuts.suggested(target)
     cursor: activeFocus
-    padding: Style.space(8)
+    padding: Style.space(4)
     activeFocusOnTab: false
-    Layout.leftMargin: -Style.space(8)
-    Layout.rightMargin: -Style.space(8)
+    Layout.leftMargin: -Style.space(4)
+    Layout.rightMargin: -Style.space(4)
   }
 
   // ---------------------------------------------------- 1 Comes and goes

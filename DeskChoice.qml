@@ -63,8 +63,8 @@ Item {
   }
   // As far as a row's surface reaches: into the strip's padding along, and
   // a row's padding above and below.
-  readonly property real padX: Style.space(8)
-  readonly property real padY: Style.space(6)
+  readonly property real padX: Style.space(4)
+  readonly property real padY: Style.space(4)
   // Tuning's Mark the whole control (PREFS-132), on by default: the row of
   // chips' area takes the focus fill and ring as a switch row does, the
   // cursor's chip keeping its own; off, only the cursor's chip is marked.

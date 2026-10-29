@@ -64,9 +64,10 @@ BorderSurface {
   z: lift.raised ? 1 : 0
   Layout.fillWidth: true
   // The surface reaches into the strip's padding; the text stays in line.
-  Layout.leftMargin: -Style.space(8)
-  Layout.rightMargin: -Style.space(8)
-  implicitHeight: content.implicitHeight + 2 * Style.space(6)
+  Layout.leftMargin: -Style.space(4)
+  Layout.rightMargin: -Style.space(4)
+  // A Layout page chip's height at least (PREFS-125).
+  implicitHeight: Math.max(Style.space(24), content.implicitHeight + 2 * Style.space(4))
   radius: Math.max(0, Math.min(Style.space(5), Style.cornerRadius - Style.space(3)))
   activeFocusOnTab: false
   opacity: enabled ? 1 : 0.45
@@ -92,9 +93,9 @@ BorderSurface {
 
   RowLayout {
     id: content
-    x: Style.space(8)
-    y: Style.space(6)
-    width: row.width - 2 * Style.space(8)
+    x: Style.space(4)
+    y: (row.height - height) / 2
+    width: row.width - 2 * Style.space(4)
     spacing: Style.space(10)
     // The pick mark.
     Rectangle {

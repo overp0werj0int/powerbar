@@ -200,7 +200,8 @@ BorderSurface {
         color: Commons.Color.popups.text
         font.family: Style.font.family
         font.pixelSize: Style.font.body
-        font.bold: true
+        // On a desk (a caption under it), regular as the desk's other rows.
+        font.bold: row.caption === ""
       }
       GrayText {
         visible: row.caption !== ""
