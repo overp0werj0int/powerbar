@@ -49,7 +49,9 @@ Item {
     case "onDemand": return b.onDemandMode
     case "dotsBadge": return b.dotsBadge
     case "keyLegend": return b.keyLegend
+    case "preferencesTilt": return b.barOptions.preferencesTilt
     case "frameLog": return b.frameLog
+    case "tuning": return b.barOptions.tuning
     case "notchWidth": return b.screenNotch ? b.screenNotch.width : b.barOptions.notchWidth || null
     case "notchHeight": return b.screenNotch ? b.screenNotch.height : b.barOptions.notchHeight || null
     case "revealSeconds": return b.managedRevealSeconds
@@ -63,6 +65,7 @@ Item {
       return AppearanceModel.clampTo(AppearanceModel.ranges.borderWidth, look.values.borderWidth, Border.top(b.themeIslandBorder) / Style.space(1))
     case "surface.opacity": return Math.round(fx.backgroundOpacity * 100)
     case "surface.blur": return fx.blur
+    case "surface.overWindows": return Math.round(fx.overWindows * 100)
     case "surface.text": return b.foregroundChoice
     case "shadow.enabled": return fx.shadow
     case "shadow.softness": return fx.shadowSize

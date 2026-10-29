@@ -93,6 +93,23 @@ function clippedInk(child, vertical, depth) {
   var lo = Math.max(0, part.start), hi = Math.min(size, part.start + part.length)
   return hi > lo ? { start: lo, length: hi - lo, glyph: part.glyph } : { start: 0, length: 0, glyph: false }
 }
+// The span of the non-empty text an item draws as its own direct children
+// (a count beside a drawn icon), or null.
+function textBeside(item) {
+  var lo = Infinity, hi = -Infinity
+  var children = paintedChildren(item)
+  for (var i = 0; i < children.length; i++) {
+    var c = children[i]
+    if (!("paintedWidth" in c) || typeof c.text !== "string" || c.text.trim() === "") continue
+    var painted = positive(c, "paintedWidth")
+    if (!(painted > 0)) continue
+    // Text.AlignRight is 2, Text.AlignHCenter 4.
+    var at = c.x + (c.horizontalAlignment === 4 ? (c.width - painted) / 2 : c.horizontalAlignment === 2 ? c.width - painted : 0)
+    lo = Math.min(lo, at)
+    hi = Math.max(hi, at + painted)
+  }
+  return hi > lo ? { start: lo, end: hi } : null
+}
 // Where an item visibly paints along one axis, relative to the item:
 // { start, length, glyph }. Kit widgets centre their glyph or label in their
 // box, so hints give a centred span; otherwise the span of painted children.
@@ -112,7 +129,14 @@ function inkRect(item, vertical, depth) {
     // icon, whatever its canvas: it paints the canvas the kit sizes for icons.
     if (item.iconComponent && String(item.labelText || "") === "") {
       var canvas = positive(item, "componentPaintedWidth") || positive(item, "opticalSize") || size
-      return centred(Math.min(canvas, size), true)
+      var icon = centred(Math.min(canvas, size), true)
+      // Text it draws beside the icon as a child of its own (omabox's count)
+      // is ink too, so its cell makes room for it; iconStart/iconLength keep
+      // the icon's own span for a menu row's icon cell.
+      var beside = vertical ? null : textBeside(item)
+      if (!beside) return icon
+      var from = Math.min(icon.start, beside.start), to = Math.max(icon.start + icon.length, beside.end)
+      return { start: from, length: to - from, glyph: true, iconStart: icon.start, iconLength: icon.length }
     }
     // The kit's icon button can carry a whole string ("100% 󰁹"); only a
     // painted width no wider than a large glyph reads as an icon.
@@ -155,6 +179,36 @@ function inkRect(item, vertical, depth) {
   }
   if (depth > 0) return { start: 0, length: Math.max(0, size), glyph: size > 0 && size <= 16 }
   return { start: 0, length: Math.max(0, size), glyph: false }
+}
+// The kit's drawn-icon loaders that left their icon no size (INTEG-156): a
+// kit icon button draws an `iconComponent` in a Loader of no size of its own
+// (BarIconContent) and gives the loaded item the canvas only when the item
+// has no width; an item that fills its parent (`anchors.fill: parent`, as
+// Omapop's mark does) is held at the Loader's zero size and paints nothing,
+// on any bar. Returns [{ loader, content }] for each such Loader in the
+// widget, content (its BarIconContent) holding the canvas the kit meant to
+// give as `sourceSize`.
+function unsizedIconLoaders(item) {
+  var out = [], stack = [item], seen = 0
+  while (stack.length && seen < 400) {
+    var node = stack.pop()
+    seen++
+    if (!node) continue
+    var kids = node.children || []
+    if ("sourceComponent" in node && "sourceSize" in node && "contentScale" in node) {
+      for (var i = 0; i < kids.length; i++) {
+        var loader = kids[i]
+        if (!loader || !("item" in loader) || !("sourceComponent" in loader)) continue
+        var icon = loader.item
+        if (!icon || !icon.anchors || icon.anchors.fill !== loader) continue
+        if (loader.width > 0 && loader.height > 0) continue
+        if (positive(node, "sourceSize") > 0) out.push({ loader: loader, content: node })
+      }
+      continue
+    }
+    for (var k = kids.length - 1; k >= 0; k--) stack.push(kids[k])
+  }
+  return out
 }
 // Whether an item paints a picture and no text: an image (Reprieve's mark, an
 // app icon) with at most shapes beside it (a status dot). Such a widget reads
@@ -200,4 +254,4 @@ function pill(o) {
   return { start: start, length: length, radius: Math.max(0, Math.min(thickness / 2, o.rounding)) }
 }
 
-if (typeof module !== "undefined") module.exports = { inkWidth: inkWidth, inkRect: inkRect, picture: picture, pill: pill, withoutBadges: withoutBadges }
+if (typeof module !== "undefined") module.exports = { inkWidth: inkWidth, inkRect: inkRect, unsizedIconLoaders: unsizedIconLoaders, picture: picture, pill: pill, withoutBadges: withoutBadges }

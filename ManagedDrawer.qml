@@ -100,6 +100,9 @@ Item {
   Connections {
     target: drawer.bar
     function onActivePopoutChanged() { if (drawer.steppedAside && !asideEnd.running) asideEnd.restart() }
+    // A drawer pinned by a click stays while the pointer is anywhere on the
+    // bar, on any monitor; leaving it restarts the one-shot timer (DEMAND-104).
+    function onBarHoveredChanged() { if (drawer.clickPinned) drawer.scheduleDismissal() }
   }
   property real asideOpacity: steppedAside ? 0 : 1
   Behavior on asideOpacity { enabled: bar.animationsEnabled && drawer.opened; NumberAnimation { duration: 110; easing.type: Easing.OutCubic } }
@@ -128,7 +131,12 @@ Item {
   Timer { id: grabDelay; interval: 250; onTriggered: drawer.grabReady = drawer.opened }
   // A click pinning a hover drawer waits the same moment: a grab that starts
   // before the bar has the keyboard is cleared at once, closing the drawer.
-  onKeyboardModeChanged: if (keyboardMode && opened && !grabDelay.running) { grabReady = false; grabDelay.restart() }
+  // A drawer that lets go of the keys (a pointer drag, the keyboard mode
+  // letting it go) closes as a hover drawer does: no longer pinned either.
+  onKeyboardModeChanged: {
+    if (!keyboardMode) clickPinned = false
+    if (keyboardMode && opened && !grabDelay.running) { grabReady = false; grabDelay.restart() }
+  }
   property string zone: ""
   // What a zone's drawer opened for: its region, or in menu mode the side of
   // it whose dots opened it ("center:start"); `zone` is the region either way.
@@ -175,16 +183,44 @@ Item {
   // battery) is a value, right-aligned one air from the row's end.
   readonly property bool menuIcons: namedMenu && memberDisplay === "both"
   function menuInk(slot) { return bar.vertical && slot.crossInk ? slot.crossInk : slot.ink }
+  // The icon's own span in that ink: a drawn icon with a count beside it
+  // (HighlightModel.inkRect's iconStart) centres its icon, not both, in the
+  // icon cell.
+  function menuIconInk(slot) {
+    var ink = menuInk(slot)
+    return ink && ink.iconLength > 0 ? { start: ink.iconStart, length: ink.iconLength, glyph: true } : ink
+  }
   // A kit button whose text leads with an icon (Crash Desk's "󰈸 14") is split
   // in a row: its icon in the icon cell, the rest as the value, both drawn by
   // the row from the button's own text and colour (ManagedModel.iconLead).
+  // A kit icon button that draws a count beside its icon as a child of its
+  // own (omabox's mark and "3", ManagedModel.countText) keeps its own face,
+  // cut to the icon cell (`native`), and the row draws the count as its
+  // value; iconShift is how far its icon sits left of its measured ink.
   function menuSplit(slot) {
     if (!menuIcons || !slot || rowGroup(slot)) return null
     var targets = slot.slotTargets || []
     var button = targets.length === 1 ? targets[0] : null
     if (!button || typeof button.isIconGlyph !== "function" || !button.visible) return null
     var lead = Model.iconLead(button.text)
-    return lead ? { icon: lead.icon, rest: lead.rest, button: button } : null
+    if (lead) return { icon: lead.icon, rest: lead.rest, button: button, native: false, iconShift: 0 }
+    if (!button.iconComponent && !button.isIconGlyph(button.text)) return null
+    var texts = [], items = []
+    var kids = button.children || []
+    for (var i = 0; i < kids.length; i++) {
+      var k = kids[i]
+      if (!k || !k.visible || k.opacity <= 0 || !("paintedWidth" in k) || typeof k.text !== "string") continue
+      texts.push(k.text)
+      items.push(k)
+    }
+    var count = Model.countText(texts)
+    if (count === "") return null
+    var counter = items[texts.map(function(t) { return t.trim() }).indexOf(count)]
+    var ink = menuIconInk(slot)
+    // Where the count starts in the widget: its face is cut there.
+    var countLeft = counter.x + (slot.presentationItem ? button.mapToItem(slot.presentationItem, 0, 0).x : 0)
+    return { icon: "", rest: count, button: button, native: true, countLeft: countLeft,
+      iconShift: Model.countIconShift(counter.x, Style.space(4), ink.length, button.width) }
   }
   FontMetrics {
     id: splitMetrics
@@ -218,6 +254,11 @@ Item {
   property bool sourceHovered: false
   property bool entered: false
   property bool keyboardMode: false
+  // Opened or pinned by a click (the dots, a zone's drawer button, a group's
+  // icon): it takes the keys as a keyboard drawer does, but also closes on
+  // its own once the pointer has left it and the bar (DEMAND-104). A key
+  // pressed in it, or an open for the keyboard, makes it a keyboard drawer.
+  property bool clickPinned: false
   // Opened from the bar's keyboard cursor (BarKeys.qml): it stays while the
   // cursor is on it, and its keys go to the cursor's rules first.
   property bool barKeysHeld: false
@@ -255,8 +296,8 @@ Item {
     if (namedMenu) {
       if (bar.barDragImageLabelled || memberDisplay === "name")
         return { item: item, local: { x: menuRowWidth / 2, y: start + tokens.thickness / 2 } }
-      var ink = menuInk(source), value = menuValueWidth(source)
-      var ox = menuIcons && menuGlyph(source) ? tokens.cell / 2 - (ink.start + ink.length / 2)
+      var ink = menuInk(source), icon = menuIconInk(source), value = menuValueWidth(source)
+      var ox = menuIcons && menuGlyph(source) ? tokens.cell / 2 - (icon.start + icon.length / 2)
         : value > 0 ? menuRowWidth - tokens.air - (ink.start + ink.length) : 0
       return { item: item, local: { x: ox + source.naturalWidth / 2, y: start + (tokens.thickness - source.naturalHeight) / 2 + source.naturalHeight / 2 } }
     }
@@ -268,8 +309,10 @@ Item {
     var cross = (along ? item.width : item.height) / 2
     return { item: item, local: along ? { x: cross, y: centre } : { x: centre, y: cross } }
   }
-  readonly property bool interactionHeld: keyboardMode || barKeysHeld || bar.dragMotionActive || memberPanelOpen
-    || (!!submenu && submenu.opened && submenu.keyboardMode)
+  // A drawer pinned by a click is not held by its keys: the pointer decides
+  // when it goes (DEMAND-104); a keyboard drawer has no timer (DEMAND-50).
+  readonly property bool interactionHeld: (keyboardMode && !clickPinned) || barKeysHeld || bar.dragMotionActive || memberPanelOpen
+    || (!!submenu && submenu.opened && submenu.keyboardMode && !submenu.clickPinned)
   // Menu padding, and the pitch a drag opens between rows.
   readonly property real padding: tokens.inset
   readonly property real rowPitch: tokens.thickness + tokens.inset
@@ -359,8 +402,9 @@ Item {
   focus: opened && keyboardMode
 
   // nextZone: a region, or in menu mode a side's token ("center:end");
-  // nextHandle: the dots a zone's menu hangs from.
-  function openZone(nextZone, keyboard, nextGroup, nextAnchor, nextHandle) {
+  // nextHandle: the dots a zone's menu hangs from; byClick: a click opened it
+  // for the keys, so it is pinned by the click (DEMAND-104).
+  function openZone(nextZone, keyboard, nextGroup, nextAnchor, nextHandle, byClick) {
     nextGroup = nextGroup || ""
     // A click or key decides: a hover still waiting on its intent (the pointer
     // just arrived) would reopen the drawer for hovering only.
@@ -391,6 +435,7 @@ Item {
     anchorHandle = bar.onDemandMenu && !nextGroup ? nextHandle || handleFor(nextToken) : null
     anchorCenter = -1
     keyboardMode = keyboard === true
+    clickPinned = keyboardMode && byClick === true
     instantClose = false
     opened = true
     bar.managedOwner = drawer
@@ -400,26 +445,30 @@ Item {
       revealStart.restart()
     }
     dismissal.stop()
+    // A click from a drawer's row may leave the pointer off the bar and off
+    // what opens: its timer starts now rather than on the next hover change.
+    if (clickPinned) scheduleDismissal()
     if (keyboardMode) Qt.callLater(function() { drawer.forceActiveFocus() })
   }
-  function openGroup(id, slot, keyboard) {
+  function openGroup(id, slot, keyboard, byClick) {
     // A managed group header returns to its hidden main slot when switching
     // drawers. Keep the clicked position as the anchor during that switch.
     var fromDrawer = !!slot.drawerHost
     var item = slot.presentationItem
     var point = fromDrawer ? item.mapToItem(hostWindow.contentItem, item.width / 2, item.height / 2) : null
-    openZone(slot.region, keyboard, id, fromDrawer ? null : slot)
+    openZone(slot.region, keyboard, id, fromDrawer ? null : slot, null, byClick)
     if (point && groupId === id) anchorCenter = bar.vertical ? point.y : point.x
   }
+  // A click on a group's icon (GROUP-36): the drawer is pinned by the click.
   function toggleGroup(id, slot) {
     // Its icon while a member's panel is open: the panel closes and the
     // drawer comes back pinned, rather than closing under the panel.
     if (opened && groupId === id && steppedAside) {
       closeMemberPanel()
-      openGroup(id, slot, true)
+      openGroup(id, slot, true, true)
       asideCheck()
     } else if (opened && groupId === id && keyboardMode) close()
-    else openGroup(id, slot, true)
+    else openGroup(id, slot, true, true)
   }
   // A member's panel is anchored to the member: it closes with the drawer,
   // or it would follow the member back to its hidden slot on the bar.
@@ -446,6 +495,8 @@ Item {
     parentRow = row
     rowRevision++
     keyboardMode = keyboard === true
+    // Its menu's timer covers it, pinned or not (DEMAND-104).
+    clickPinned = false
     cursorActive = keyboardMode
     if (keyboardMode) cursor = 0
     instantClose = false
@@ -560,6 +611,7 @@ Item {
       reveal = 0
     }
     keyboardMode = false
+    clickPinned = false
     cursorActive = false
     sourceHovered = false
     entered = false
@@ -631,7 +683,8 @@ Item {
     dismissal.stop()
     // A submenu goes with its menu.
     if (!opened || isSubmenu) return
-    var delay = Model.dismissDelay(sourceHovered, containsMouse, interactionHeld, entered, bar.managedEntrySeconds, bar.managedExitSeconds)
+    var delay = Model.dismissDelay(sourceHovered, containsMouse, interactionHeld, entered, bar.managedEntrySeconds, bar.managedExitSeconds,
+      clickPinned, bar.barHovered)
     if (delay > 0) { dismissal.interval = delay; dismissal.start() }
   }
   onContainsMouseChanged: {
@@ -645,7 +698,18 @@ Item {
   }
   Component.onCompleted: refreshMounts()
   Component.onDestruction: if (bar.managedOwner === drawer) bar.managedOwner = null
-  Timer { id: dismissal; repeat: false; onTriggered: drawer.close("timeout") }
+  // Said just before a drawer pinned by a click closes on its timer, while it
+  // still has the keys: the bar gives them back to the window that had them
+  // (DEMAND-104, Bar.qml returnFocus).
+  signal pinnedTimeout()
+  Timer {
+    id: dismissal
+    repeat: false
+    onTriggered: {
+      if (drawer.clickPinned && drawer.keyboardMode) drawer.pinnedTimeout()
+      drawer.close("timeout")
+    }
+  }
 
   // The cell showing member i (the keyboard's name card anchors on it).
   function cellAt(i) { return widgets.itemAt(i) }
@@ -672,6 +736,10 @@ Item {
   // widget declares (Bar.qml keyCatcher).
   Keys.onShortcutOverride: function(event) { if (keyboardMode || barKeysHeld) event.accepted = true }
   Keys.onPressed: function(event) {
+    // Keys now drive it: a drawer pinned by a click becomes a keyboard drawer,
+    // with no close timer (DEMAND-104, DEMAND-50).
+    if (clickPinned) clickPinned = false
+    if (isSubmenu && parentMenu.clickPinned) parentMenu.clickPinned = false
     if (subKey(event)) { event.accepted = true; return }
     if (barKeysHeld && bar.barKeys.drawerKey(event)) { event.accepted = true; return }
     switch (event.key) {
@@ -814,11 +882,26 @@ Item {
                 readonly property bool rowHovered: memberHover.hovered
                 // A split row draws its widget's icon and value itself (menuSplit).
                 readonly property var split: drawer.namedMenu && modelData ? drawer.menuSplit(modelData) : null
-                readonly property bool showNative: drawer.memberDisplay !== "name" && !opensSubmenu && !split
+                readonly property bool showNative: drawer.memberDisplay !== "name" && !opensSubmenu && (!split || split.native)
+                // A counted icon's own face, cut to the icon cell (menuSplit).
+                readonly property Item nativeParent: split && split.native ? iconClip : mount
+                readonly property real nativeX: contentOffsetX - (nativeParent === iconClip ? iconClip.x : 0)
+                readonly property real nativeY: contentOffsetY - (nativeParent === iconClip ? iconClip.y : 0)
+                Item {
+                  id: iconClip
+                  x: mount.animatedInsetX
+                  y: mount.animatedInsetY
+                  // To the cell's end, or where the count starts if sooner.
+                  width: !mount.split || !mount.split.native ? drawer.tokens.cell
+                    : Math.max(0, Math.min(drawer.tokens.cell, mount.contentOffsetX + mount.split.countLeft - x))
+                  height: mount.baseHeight
+                  clip: true
+                }
                 readonly property var place: modelData ? modelData.cellPlace : null
                 // Strip slots report their spill so the strip's ends follow the island rule.
                 readonly property real cellSpill: drawer.namedMenu || !place ? 0 : place.spill
                 readonly property var rowInk: modelData ? drawer.menuInk(modelData) : null
+                readonly property var rowIconInk: modelData ? drawer.menuIconInk(modelData) : null
                 readonly property bool rowIcon: drawer.menuIcons && !!modelData && drawer.menuGlyph(modelData)
                 readonly property real valueWidth: modelData ? drawer.menuValueWidth(modelData) : 0
                 readonly property real labelStart: modelData ? drawer.menuLabelStart(modelData) : 0
@@ -833,7 +916,7 @@ Item {
                 // Where the widget's own box sits: its ink centred in its cell (strips),
                 // its glyph centred in the icon cell or its value right-aligned (menus).
                 readonly property real contentOffsetX: animatedInsetX + (!modelData ? 0
-                  : drawer.namedMenu ? (rowIcon ? drawer.tokens.cell / 2 - (rowInk.start + rowInk.length / 2)
+                  : drawer.namedMenu ? (rowIcon ? drawer.tokens.cell / 2 - (rowIconInk.start + rowIconInk.length / 2) - (split ? split.iconShift : 0)
                     : valueWidth > 0 ? drawer.menuRowWidth - drawer.tokens.air - (rowInk.start + rowInk.length) : 0)
                   : bar.vertical ? modelData.crossShift : modelData.inkShift)
                 readonly property real contentOffsetY: animatedInsetY + (!modelData ? 0
@@ -959,21 +1042,24 @@ Item {
                 // A split row's icon, in the icon cell, and its value at the end,
                 // in the button's own font and colour.
                 Repeater {
-                  model: mount.split ? [mount.split.icon, mount.split.rest] : []
+                  model: !mount.split ? [] : mount.split.native ? [mount.split.rest] : [mount.split.icon, mount.split.rest]
                   Text {
                     required property string modelData
                     required property int index
+                    // 0 the icon, 1 the value.
+                    readonly property int part: mount.split && mount.split.native ? 1 : index
                     readonly property var button: mount.split ? mount.split.button : null
                     textFormat: Text.PlainText
                     text: modelData
                     color: !button ? label.color : button.active && button.useActiveColor ? button.activeColor : button.foreground
-                    opacity: button && button.dimmed ? 0.45 : 1
+                    // The button's own fade: dimmed, or a widget's own (omabox with no boxes).
+                    opacity: button ? button.opacity : 1
                     font.family: button ? button.fontFamily : drawer.bar.fontFamily
                     font.pixelSize: button ? button.fontSize : Style.font.body
                     renderType: Text.NativeRendering
-                    width: index === 1 ? Math.min(implicitWidth, CellModel.MAX_INK) : implicitWidth
+                    width: part === 1 ? Math.min(implicitWidth, CellModel.MAX_INK) : implicitWidth
                     elide: Text.ElideRight
-                    x: mount.animatedInsetX + (index === 0 ? (drawer.tokens.cell - width) / 2
+                    x: mount.animatedInsetX + (part === 0 ? (drawer.tokens.cell - width) / 2
                       : drawer.menuRowWidth - drawer.tokens.air - width)
                     y: (mount.baseHeight - height) / 2 + mount.animatedInsetY
                   }

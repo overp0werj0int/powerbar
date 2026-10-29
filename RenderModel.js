@@ -39,16 +39,17 @@ function reconcileLists(models, lists, parking) {
 // The bar's zone lists in order (SectionsModel.lists), and the zone each one
 // belongs to: the three center lists share the center zone. Under the Notch
 // style's camera (ears) there are two zones, one each side of the camera:
-// Left with Left of center, and the box with Right of center and Right.
+// Left with Left of center, and Right of center with Right; the box goes
+// with the side `centerSide` names ("right" unless "left"; ZONE-96).
 var lists = ["left", "centerBegin", "center", "centerEnd", "right"]
-function zoneOf(list, ears) {
-  if (ears) return list === "left" || list === "centerBegin" ? "left" : "right"
+function zoneOf(list, ears, centerSide) {
+  if (ears) return list === "left" || list === "centerBegin" || (list === "center" && centerSide === "left") ? "left" : "right"
   return list === "centerBegin" || list === "centerEnd" ? "center" : list
 }
 // One record per entry: its zone (region), the list it is drawn in, and the
 // list it is saved in (an entry of Omarchy's tray section is drawn beside the
 // tray, powerbarList "tray").
-function records(layout, ears) {
+function records(layout, ears, centerSide) {
   var result = []
   for (var list of lists) {
     var entries = layout && Array.isArray(layout[list]) ? layout[list] : []
@@ -58,7 +59,7 @@ function records(layout, ears) {
       var id = typeof entry === "string" ? entry : entry.id
       if (!id) continue
       var saved = typeof entry === "object" && entry.powerbarList === "tray" ? "tray" : list
-      result.push({ key: entry.powerbarInstance || id + ":" + list + ":" + i, region: zoneOf(list, ears), drawn: list, list: saved, entry: entry })
+      result.push({ key: entry.powerbarInstance || id + ":" + list + ":" + i, region: zoneOf(list, ears, centerSide), drawn: list, list: saved, entry: entry })
     }
   }
   return result
@@ -104,4 +105,20 @@ function captureDelta(previous, next) {
   for (var key in newEntries) if (!equal(oldEntries[key], newEntries[key])) keys.push(key)
   return keys
 }
-if (typeof module !== "undefined") module.exports = { lists, zoneOf, equal, shallowSame, sameItems, reconcileLists, records, split, groupIndex, entryIndex, captureDelta }
+// Every text item under root still drawn as `from` (Qt Quick's default,
+// distance fields, which antialias with LCD subpixels on desktop GPUs and
+// fringe on a translucent window) switched to `to`; text that chose its own
+// render type keeps it. For controls whose Text Powerbar does not declare
+// (Omarchy's buttons, fields, a dropdown's rows). Returns how many changed.
+function grayText(root, from, to) {
+  var stack = [root], changed = 0
+  while (stack.length) {
+    var item = stack.pop()
+    if (!item) continue
+    if (item.renderType === from) { item.renderType = to; changed++ }
+    var kids = item.children
+    if (kids) for (var i = 0; i < kids.length; i++) stack.push(kids[i])
+  }
+  return changed
+}
+if (typeof module !== "undefined") module.exports = { grayText, lists, zoneOf, equal, shallowSame, sameItems, reconcileLists, records, split, groupIndex, entryIndex, captureDelta }

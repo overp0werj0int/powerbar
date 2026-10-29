@@ -56,6 +56,10 @@ Item {
   // the frames of the motion it starts.
   readonly property bool frameLog: barOptions.frameLog
   FrameLog { id: frameLogItem; enabled: root.frameLog }
+  // `powerbarTuning` (shell.json only): the Preferences' Tuning page, the
+  // development numbers behind the look, and the cache file they are kept
+  // in while it is on (Tuning.qml, INTEG-155).
+  Binding { target: Tuning; property: "on"; value: root.barOptions.tuning }
   function ev(kind, detail, ms) { if (frameLog) frameLogItem.ev(kind, detail, ms) }
   function motion(label, ms) { if (frameLog) frameLogItem.motion(label, ms) }
   function evCard() { return evName(tooltipTarget) + " " + JSON.stringify(String(tooltipText).split("\n")[0].slice(0, 40)) }
@@ -486,7 +490,7 @@ Item {
   readonly property bool onDemandMenu: onDemandMode === "menu"
   // On-demand widgets wait behind their zone's dots (inline and menu).
   readonly property bool onDemandDots: onDemandInline || onDemandMenu
-  // The keyboard mode's key strip (Preferences → Bar → Keyboard).
+  // The keyboard mode's key strip (Preferences → Behavior → Keyboard).
   readonly property bool keyLegend: barOptions.keyLegend
   // The count badge on a zone's dots (drawer handle and yield marker).
   readonly property bool dotsBadge: barOptions.dotsBadge
@@ -694,7 +698,7 @@ Item {
       preferencesPane.show(screen)
     }
     function closePreferences(): void { preferencesPane.close() }
-    // Bar → Keyboard with the cursor on the keyboard mode's shortcut: where
+    // Behavior → Keyboard with the cursor on the keyboard mode's shortcut: where
     // the first start's notification leads (KEYS-84).
     function preferencesKeyboard(): void { root.showPreferencesKeyboard() }
     function preferencesPage(page: int): void {
@@ -719,7 +723,7 @@ Item {
       if (owner && owner.opened && owner.groupId === id) root.closeManagedDrawer()
       else group(id)
     }
-    // Groups is the second page (Layout, Groups, Bar).
+    // Groups is the second page (Layout, Groups, Look, Behavior).
     function groupsPreferences(): void { preferences(); preferencesPane.setPage(1) }
     function popupStatus(): string {
       return JSON.stringify(root.popupPlacements.filter(function(record) { return record.panel && record.panel.open }).map(function(record) {
@@ -1782,6 +1786,24 @@ Item {
     return changed
   }
 
+  // Esc during a pointer drag (DRAG-42): the drop is forgotten and the image
+  // glides back as for a release outside; the release that follows finds no
+  // drag of its own and does nothing.
+  function cancelIconDrag() {
+    var slot = root.barDragSource
+    if (!slot || root.barDragSettling) return false
+    root.ev("drag", "cancel esc")
+    springOpen.stop()
+    springHandle.stop()
+    root.barDragDrop = null
+    var scene = root.barDragScene || { x: 0, y: 0 }
+    root.beginDragSettle(slot, scene, false)
+    if (!root.barDragSettling) return true
+    var epoch = root.barDragSettleEpoch
+    Qt.callLater(function() { if (root.barDragSettleEpoch === epoch) root.resolveDragSettle(false) })
+    return true
+  }
+
   function canSettleDrag() {
     return root.animationsEnabled && root.barDragImageReady && String(root.barDragImageUrl) !== ""
   }
@@ -2040,9 +2062,27 @@ Item {
     for (var i = 0; i < screens.length; i++) {
       var notch = notchFor(screens[i])
       sizes[screens[i].name] = fitsNotch(notch) ? notch.height
-        : wrapsNotch(notch) ? NotchModel.wrapThickness(notch, barSize, edgeGap) : Math.max(barSize, notch ? notch.height : 0)
+        : wrapsNotch(notch) ? NotchModel.floatingThickness(notch, barSize, edgeGap, vertical) : Math.max(barSize, notch ? notch.height : 0)
     }
     return sizes
+  }
+  // What a floating bar would be on this screen whatever the style now (its
+  // size as the large bar option makes it, round the camera on a notched
+  // top edge): Preferences keep their page that far and two gaps off the
+  // bar's edge, so the page's top never moves with the style (PREFS-102).
+  // Each screen's bar window thickness now, by screen name, gaps included:
+  // Preferences keep their page clear of a bar thicker than the floating one
+  // (the Notch style's on a screen without a camera).
+  property var screenExtents: ({})
+  function noteExtent(name, extent) {
+    if (!name || screenExtents[name] === extent) return
+    var next = Object.assign({}, screenExtents)
+    next[name] = extent
+    screenExtents = next
+  }
+  function floatingThicknessFor(screen) {
+    var size = (vertical ? Style.bar.sizeVertical : Style.bar.sizeHorizontal) + (barOptions.largeBar ? largeBarLip * 2 : 0)
+    return NotchModel.floatingThickness(notchFor(screen), size, edgeGap, vertical)
   }
   // A flat top bar on a notched screen is exactly as tall as the camera, large
   // or small (layout-zones.md ZONE-90); other screens keep the bar's size.
@@ -2174,6 +2214,15 @@ Item {
     var kids = HighlightModel.withoutBadges(HighlightModel.paintedChildren(item)
       .filter(function(c) { return !HighlightModel.isBackground(c, item, false) }))
     return kids.length === 1 ? findKitGlyph(kids[0], depth + 1) : null
+  }
+  // A drawn icon that fills the kit's sizeless Loader gets the canvas the kit
+  // meant for it (HighlightModel.unsizedIconLoaders, INTEG-156).
+  function sizeDrawnIcons(item) {
+    HighlightModel.unsizedIconLoaders(item).forEach(function(found) {
+      var content = found.content
+      found.loader.width = Qt.binding(function() { return content.sourceSize })
+      found.loader.height = Qt.binding(function() { return content.sourceSize })
+    })
   }
   // The Text item inside a kit button that paints `text`.
   function findGlyphText(item, text, depth) {
@@ -2462,7 +2511,7 @@ Item {
   // A zone's lists in bar order, and their entries as one run (ears: under
   // the Notch style's camera, RenderModel.zoneOf).
   function zoneLists(zone, ears) {
-    return SectionsModel.lists.filter(function(list) { return RenderModel.zoneOf(list, ears) === zone })
+    return SectionsModel.lists.filter(function(list) { return RenderModel.zoneOf(list, ears, root.barOptions.centerSide) === zone })
   }
   function zoneEntries(zone, ears) {
     return [].concat.apply([], zoneLists(zone, ears).map(function(list) { return layoutEntries(list) }))
@@ -3623,6 +3672,7 @@ Item {
         length: i.length, inset: i.inset, gap: i.gap, gutter: i.gutter, momentGap: i.momentGap,
         notch: notchSlotOf(i.notch),
         notchPads: notchSplit,
+        boxBefore: notchSplit && root.barOptions.centerSide === "left",
         wrap: i.wrap,
         pad: function(spill) { return barWindow.endPad(spill) },
         handle: { extent: handle.extent, spill: handle.spill },
@@ -3883,12 +3933,12 @@ Item {
       return (notchLook ? [zone] : root.zoneLists(zone)).map(function(name) { return widgetModels[name] })
     }
     function reconcileWidgets() {
-      var records = RenderModel.records(root.layoutConfig, notchLook)
+      var records = RenderModel.records(root.layoutConfig, notchLook, root.barOptions.centerSide)
       widgetStore.reconcile(records)
       var partition = RenderModel.split(records)
       var keys = {}
       for (var list of SectionsModel.lists) {
-        var into = notchLook ? RenderModel.zoneOf(list, true) : list
+        var into = notchLook ? RenderModel.zoneOf(list, true, root.barOptions.centerSide) : list
         keys[into] = (keys[into] || []).concat(partition[list])
       }
       var models = [], lists = []
@@ -3909,7 +3959,11 @@ Item {
     }
     // The notch draws on-demand runs at the zones' far ends.
     onNotchLookChanged: reconcileWidgets()
-    Component.onCompleted: { reconcileWidgets(); syncStrip(true); if (!notchPending) notchWaitOver = true }
+    // Center's widgets change ears with it (ZONE-96).
+    readonly property string centerSide: root.barOptions.centerSide
+    onCenterSideChanged: if (notchLook) reconcileWidgets()
+    Component.onCompleted: { reconcileWidgets(); syncStrip(true); if (!notchPending) notchWaitOver = true; mappedBlur = blurEnabled; root.noteExtent(screen ? screen.name : "", extent) }
+    onExtentChanged: root.noteExtent(screen ? screen.name : "", extent)
 
     // Keep the Wayland surface stable across drawer opens/closes. Only the
     // input region and drawer visibility change; no full-bar buffer resize.
@@ -4025,13 +4079,13 @@ Item {
     Timer { id: layoutThaw; interval: 250; onTriggered: if (!barWindow.remapping) barWindow.layoutFrozen = false }
     // A screen move that settles without a remap still thaws.
     Timer { id: layoutThawFallback; interval: 2000; onTriggered: if (!barWindow.remapping) barWindow.layoutFrozen = false }
-    // Omarchy's remap guard waits 200 ms after the screen moves before it
-    // hides the window; freeze on the move itself.
+    // The remap guard waits 200 ms after the screen moves (and for the
+    // pointer to leave) before it hides the window; freeze on the move itself.
     Connections {
       target: barWindow.screen
       ignoreUnknownSignals: true
-      function onXChanged() { barWindow.freezeLayout() }
-      function onYChanged() { barWindow.freezeLayout() }
+      function onXChanged() { barWindow.freezeLayout(); screenSettle.restart() }
+      function onYChanged() { barWindow.freezeLayout(); screenSettle.restart() }
     }
     // On the notch, windows stop under the camera even while the bar hides.
     exclusionMode: root.barHidden && !notchLook ? ExclusionMode.Ignore : ExclusionMode.Normal
@@ -4227,14 +4281,50 @@ Item {
     readonly property bool sliding: notchLook ? (zoneOut("left") && leftShift > 0.5) || (zoneOut("right") && rightShift > 0.5)
       : autoHideOffset > 0.5
 
-    ScreenMoveRemap {
+    // Omarchy's ScreenMoveRemap, waiting as the blur remap does: when the
+    // screen moves within the layout, Hyprland leaves the mapped surface at
+    // its old place until it is unmapped and mapped again. Positions settle
+    // for 200 ms, then the remap waits until the pointer is off the bar
+    // (LOOK-151): the unmap hands a still pointer to Omarchy's background,
+    // whose double click opens the wallpaper selector.
+    QtObject {
       id: remapGuard
-      window: barWindow
+      property bool remapping: false
+      property bool pending: false
+      function whenFree() {
+        if (!pending || windowHover.hovered) return
+        pending = false
+        barWindow.freezeLayout()
+        remapping = true
+      }
     }
+    Timer { id: screenSettle; interval: 200; onTriggered: { remapGuard.pending = true; remapGuard.whenFree() } }
+    // Unmapped for a beat, so the compositor sees the unmap before the map.
+    Timer { interval: 50; running: remapGuard.remapping; onTriggered: remapGuard.remapping = false }
     // Omarchy's glassy background blurs too.
     readonly property bool blurEnabled: !root.notchMode && (root.surfaceEffects.blur || root.glassy)
-    onBlurEnabledChanged: {
-      if (visible) { freezeLayout(); blurRemap.restart() }
+    // A remap unmaps the surface, and Hyprland gives the pointer to what lies
+    // under it (Omarchy's background, whose double click opens the wallpaper
+    // selector) and hands it back only when the pointer moves. A double click
+    // that cycled the bar to or from glassy sent the next one, pointer still,
+    // to the wallpaper. So the remap waits until the pointer is off the bar
+    // (LOOK-127).
+    // The blur the mapped surface's namespace has; a change undone before the
+    // pointer left needs no remap.
+    property bool mappedBlur: false
+    onVisibleChanged: if (visible) mappedBlur = blurEnabled
+    property bool blurRemapPending: false
+    onBlurEnabledChanged: if (visible) { blurRemapPending = true; blurRemapWhenFree() }
+    function blurRemapWhenFree() {
+      if (!blurRemapPending || windowHover.hovered) return
+      blurRemapPending = false
+      if (!visible || blurEnabled === mappedBlur) return
+      freezeLayout()
+      blurRemap.restart()
+    }
+    Connections {
+      target: windowHover
+      function onHoveredChanged() { barWindow.blurRemapWhenFree(); remapGuard.whenFree() }
     }
     // The layer-shell namespace is fixed at map time. Remap only for an
     // explicit blur preference change, never for drawer transitions.
@@ -4265,6 +4355,34 @@ Item {
     // the panel got none.
     readonly property bool drawerKeys: !root.barKeys.heldBy(barWindow) && drawer.opened && drawer.keyboardMode && !drawer.steppedAside
     readonly property bool wantsKeys: keysHere || drawerKeys
+    // Focus back (DEMAND-104): a drawer pinned by a click that closes on its
+    // timer gives the keys back to the window that had them when it took
+    // them, since the bar letting go of the keys focuses no window by itself.
+    // Only for the timer: an outside click focuses what it lands on
+    // (DEMAND-25), and Esc or a second click leave the pointer on the bar.
+    // The window's Hyprland address ("0x…") when the drawer took the keys,
+    // kept until it closes (not lost to a moment without a focused window,
+    // such as back from a member's panel).
+    property string keysTakenFrom: ""
+    onDrawerKeysChanged: if (drawerKeys) keysTakenFrom = hyprAddress(Hyprland.activeToplevel) || keysTakenFrom
+    function hyprAddress(toplevel) {
+      var address = toplevel ? String(toplevel.address || "") : ""
+      if (address && !/^0x/i.test(address)) address = "0x" + address
+      return /^0x[0-9a-f]+$/i.test(address) ? address : ""
+    }
+    // Once the bar has stopped asking for the keys, and only if the window is
+    // still there on a shown workspace (focusing it must not switch one).
+    // Newer Omarchy runs Hyprland on Lua, where a dispatch is Lua.
+    function returnFocus(address) {
+      if (!address || barWindow.keyboardFocusMode !== WlrKeyboardFocus.None) return
+      var target = (Hyprland.toplevels ? Hyprland.toplevels.values : []).find(function(t) { return barWindow.hyprAddress(t) === address })
+      if (!target || (target.workspace && !target.workspace.active)) return
+      Hyprland.dispatch(Hyprland.usingLua === true ? 'hl.dsp.focus({window = hl.get_window("address:' + address + '")})'
+        : "focuswindow address:" + address)
+    }
+    // A moment after the close, so the layer's release of the keys reaches
+    // Hyprland before the focus request.
+    Timer { id: focusBack; interval: 50; property string address: ""; onTriggered: barWindow.returnFocus(address) }
     // As Omarchy's keyboard panels do: Exclusive takes the keyboard, then
     // OnDemand keeps it. Exclusive alone would send every click to the bar,
     // so a click elsewhere could never clear the mode's grab (keysGrab) or a
@@ -4297,11 +4415,16 @@ Item {
 
     // While the keyboard mode is on this bar, it alone decides: a drawer it
     // entered must not hold the keys while a panel it opened has them.
+    // A pointer drag does not take the keyboard: a layer that asks for it
+    // (Exclusive) mid-press loses the press, and the drag drops at once
+    // (DRAG-42). Esc cancels a drag only while the keyboard mode is here.
     readonly property int keyboardFocusMode: wantsKeys
       ? (keysFocusPrimed ? WlrKeyboardFocus.OnDemand : WlrKeyboardFocus.Exclusive) : WlrKeyboardFocus.None
     WlrLayershell.keyboardFocus: keyboardFocusMode
     // On the notch only the zones and the camera take the pointer: the bar's
-    // empty stretches to the screen edges let it through.
+    // empty stretches to the screen edges let it through. The camera does
+    // whether or not the bar autohides, so a double click on it reaches the
+    // bar (LOOK-133), not Omarchy's background and its wallpaper selector.
     mask: Region {
       x: mainStrip.x; y: mainStrip.y
       width: barWindow.notchLook ? 0 : mainStrip.width
@@ -4314,21 +4437,22 @@ Item {
       // the screen beside its round corners stays the windows'. The band over
       // its shoulders, where the top edge curves into it, is the full width.
       Region {
-        readonly property var corners: NotchModel.cornersOf(barWindow.notch, autoHideStrip.width)
-        readonly property bool on: barWindow.notchLook && autoHideStrip.visible
-        x: autoHideStrip.x + Math.round(corners.shoulder)
-        y: autoHideStrip.y
-        width: on ? autoHideStrip.width - Math.round(corners.shoulder) * 2 : 0
-        height: on ? autoHideStrip.height : 0
+        readonly property real span: barWindow.notchRight - barWindow.notchLeft
+        readonly property var corners: NotchModel.cornersOf(barWindow.notch, span)
+        readonly property bool on: barWindow.notchLook
+        x: barWindow.notchLeft + Math.round(corners.shoulder)
+        y: 0
+        width: on ? span - Math.round(corners.shoulder) * 2 : 0
+        height: on ? barWindow.notch.height : 0
         bottomLeftRadius: Math.round(corners.radius)
         bottomRightRadius: Math.round(corners.radius)
         intersection: Intersection.Combine
       }
       Region {
-        x: autoHideStrip.x
-        y: autoHideStrip.y
-        width: barWindow.notchLook && autoHideStrip.visible ? autoHideStrip.width : 0
-        height: barWindow.notchLook ? Math.ceil(NotchModel.cornersOf(barWindow.notch, autoHideStrip.width).shoulder) : 0
+        x: barWindow.notchLeft
+        y: 0
+        width: barWindow.notchLook ? barWindow.notchRight - barWindow.notchLeft : 0
+        height: barWindow.notchLook ? Math.ceil(NotchModel.cornersOf(barWindow.notch, barWindow.notchRight - barWindow.notchLeft).shoulder) : 0
         intersection: Intersection.Combine
       }
       Region {
@@ -4397,9 +4521,16 @@ Item {
       // Only an explicitly opened keyboard drawer needs outside-click dismissal.
       active: drawer.opened && drawer.keyboardMode && drawer.grabReady && !root.activePopout && !barWindow.keysHere
       windows: [barWindow]
-      onCleared: drawer.close("outside")
+      // A drawer already closed (its timer, Esc) has nothing left to close.
+      onCleared: if (drawer.opened) drawer.close("outside")
     }
-    ManagedDrawer { id: drawer; bar: root; hostWindow: barWindow }
+    ManagedDrawer {
+      id: drawer
+      bar: root
+      hostWindow: barWindow
+      onPinnedTimeout: if (barWindow.drawerKeys) { focusBack.address = barWindow.keysTakenFrom; focusBack.restart() }
+      onOpenedChanged: if (!opened) barWindow.keysTakenFrom = ""
+    }
     // A group's submenu beside its row in a zone's menu (On demand "menu").
     ManagedDrawer { id: submenu; bar: root; hostWindow: barWindow; parentMenu: drawer }
     // On the notch the camera alone reveals the bar.
@@ -4532,7 +4663,10 @@ Item {
     property Item prefsButton: null
     Item {
       id: keyCatcherItem
-      Keys.onPressed: function(event) { if (root.barKeys.barKey(event)) event.accepted = true }
+      Keys.onPressed: function(event) {
+        if (event.key === Qt.Key_Escape && root.cancelIconDrag()) event.accepted = true
+        else if (root.barKeys.barKey(event)) event.accepted = true
+      }
       Keys.onReleased: function(event) { if (!event.isAutoRepeat) root.barKeys.released() }
       // The mode's keys are its own: a widget's window-wide Shortcut (Plume's
       // Esc for its settings) would otherwise take them first in this window.
@@ -4565,7 +4699,8 @@ Item {
             })
             anchors.centerIn: parent
             width: root.barSize; height: root.barSize
-            onPressed: drawer.openZone(zoneTarget.modelData, true)
+            // A click pins the drawer (DEMAND-104).
+            onPressed: drawer.openZone(zoneTarget.modelData, true, "", null, null, true)
             HoverHandler {
               id: zoneHover
               enabled: parent.visible && !root.barHidden && !preferencesPane.opened
@@ -5564,6 +5699,9 @@ Item {
     id: centerRoot
     property var homeWindow: null
     readonly property real split: homeWindow && homeWindow.notchSplit ? homeWindow.notchKeepOut : 0
+    // The box left of the camera (ZONE-96): it ends at the slot with Left of
+    // center, and Right of center alone starts past it.
+    readonly property bool boxBefore: split > 0 && root.barOptions.centerSide === "left"
     readonly property real middle: (root.vertical ? height : width) / 2
     function along(list) { return root.vertical ? list.y : list.x }
     // Where a run of lists shows along the bar, past the yielded slots at its
@@ -5575,8 +5713,8 @@ Item {
       return { start: along(first) + first.shownLead, end: along(last) + last.listLength - last.shownTrail,
         leadSpill: first.leadSpill, trailSpill: last.trailSpill }
     }
-    readonly property var beginSpan: split > 0 ? span([beginModules]) : null
-    readonly property var mainSpan: split > 0 ? span([boxModules, endModules]) : span([beginModules, boxModules, endModules])
+    readonly property var beginSpan: split > 0 ? span(boxBefore ? [beginModules, boxModules] : [beginModules]) : null
+    readonly property var mainSpan: split > 0 ? span(boxBefore ? [endModules] : [boxModules, endModules]) : span([beginModules, boxModules, endModules])
     IslandSurface {
       id: centerBeginIsland
       readonly property var span: centerRoot.beginSpan
@@ -5629,7 +5767,7 @@ Item {
       listRole: "centerBegin"
       region: "center"
       previewEnd: false
-      readonly property real trailEdge: centerRoot.split > 0
+      readonly property real trailEdge: centerRoot.split > 0 && !centerRoot.boxBefore
         ? centerRoot.middle - centerRoot.split / 2 - root.endPadIn(centerRoot.homeWindow, trailSpill) + shownTrail
         : centerRoot.along(boxModules)
       x: root.vertical ? (parent.width - width) / 2 : trailEdge - width
@@ -5644,16 +5782,19 @@ Item {
       readonly property real lead: centerRoot.split > 0
         ? centerRoot.middle + centerRoot.split / 2 + root.endPadIn(centerRoot.homeWindow, leadSpill) - shownLead
         : centerRoot.middle - listLength / 2
-      x: root.vertical ? (parent.width - width) / 2 : lead
-      y: root.vertical ? lead : (parent.height - height) / 2
+      readonly property real trailEdge: centerRoot.middle - centerRoot.split / 2 - root.endPadIn(centerRoot.homeWindow, trailSpill) + shownTrail
+      readonly property real along: centerRoot.boxBefore ? trailEdge - (root.vertical ? height : width) : lead
+      x: root.vertical ? (parent.width - width) / 2 : along
+      y: root.vertical ? along : (parent.height - height) / 2
     }
     ModuleList {
       id: endModules
       homeWindow: centerRoot.homeWindow
       listRole: "centerEnd"
       region: "center"
-      // An empty box under a camera: Right of center starts right of it.
-      readonly property real lead: centerRoot.split > 0 && !(boxModules.listLength > 0)
+      // An empty box under a camera, or one left of it: Right of center
+      // starts right of the camera.
+      readonly property real lead: centerRoot.split > 0 && (centerRoot.boxBefore || !(boxModules.listLength > 0))
         ? centerRoot.middle + centerRoot.split / 2 + root.endPadIn(centerRoot.homeWindow, leadSpill) - shownLead
         : centerRoot.along(boxModules) + boxModules.listLength
       x: root.vertical ? (parent.width - width) / 2 : lead
@@ -5885,8 +6026,8 @@ Item {
       onClicked: {
         if (!foldHandle.enabled) return
         if (root.onDemandInline && foldHandle.homeWindow) foldHandle.homeWindow.inlineEnter(foldHandle.inlineToken, true)
-        // Menu mode: a click pins the menu, as on a group's icon.
-        else if (foldHandle.drawerRef) foldHandle.drawerRef.openZone(foldHandle.drawerToken, root.onDemandMenu, "", null, foldHandle)
+        // Menu mode: a click pins the menu, as on a group's icon (DEMAND-104).
+        else if (foldHandle.drawerRef) foldHandle.drawerRef.openZone(foldHandle.drawerToken, root.onDemandMenu, "", null, foldHandle, true)
       }
     }
   }
@@ -6122,7 +6263,7 @@ Item {
     readonly property string drawnList: record.drawn
     readonly property string savedList: record.list
     // The side of the centre's box it waits on, and so the dots it waits behind.
-    readonly property string centerSide: SectionsModel.sideOf(drawnList) || "end"
+    readonly property string centerSide: SectionsModel.sideOf(drawnList, root.barOptions.centerSide) || "end"
     // The expansion that shows it in inline mode: its zone, the centre by side.
     readonly property string inlineToken: region === "center" ? "center:" + centerSide : region
     readonly property string moduleName: root.entryId(entry)
@@ -6465,6 +6606,9 @@ Item {
         // the highlight and tooltip that follow never share the bar with it.
         if (hovered) window.managedDrawer.pointerOnStop(slot)
         if (hovered && slot.groupHeader) window.managedDrawer.sourceEnterGroup(slot.entry.powerbarGroupId, slot)
+        // Leaving a group's icon starts its drawer's grace in every mode, the
+        // menu mode's included (GROUP-37).
+        else if (slot.groupHeader) window.managedDrawer.sourceLeave(slot.region)
         // Inline mode: only the dots expand a zone; moving on to another zone
         // collapses the expanded one at once, as a drawer would switch.
         else if (root.onDemandInline && !slot.groupHeader) {
@@ -6501,7 +6645,8 @@ Item {
     Item {
       id: presentation
       property var powerbarSlotOwner: slot
-      parent: slot.drawerHost || slot
+      // A menu row may hold it in a clip of its own (ManagedDrawer nativeParent).
+      parent: slot.drawerHost ? slot.drawerHost.nativeParent || slot.drawerHost : slot
       // A widget off the bar (yielded to a moment, folded, waiting behind its
       // dots) keeps its box where the bar used to put it, and Qt still hovers
       // disabled and transparent items: it would take the pointer from
@@ -6509,8 +6654,8 @@ Item {
       // Once faded out it is parked far away. Not hidden: a widget's
       // visibility can change its own size, which the zone fit reads.
       readonly property bool parked: !slot.drawerHost && !slot.mainVisible && opacity === 0
-      x: parked ? -100000 : slot.drawerHost ? slot.drawerHost.contentOffsetX : slot.animatedInsetX + (root.vertical ? slot.crossShift : slot.inkShift)
-      y: slot.drawerHost ? slot.drawerHost.contentOffsetY : slot.animatedInsetY + (root.vertical ? slot.inkShift : slot.crossCentre)
+      x: parked ? -100000 : slot.drawerHost ? slot.drawerHost.nativeX : slot.animatedInsetX + (root.vertical ? slot.crossShift : slot.inkShift)
+      y: slot.drawerHost ? slot.drawerHost.nativeY : slot.animatedInsetY + (root.vertical ? slot.inkShift : slot.crossCentre)
       width: slot.naturalWidth
       height: slot.naturalHeight
       opacity: slot.drawerHost ? (slot.drawerHost.showNative === false ? 0 : 1) : slot.mainVisible && !slot.preview.hidden && !slot.settleHidden ? 1 : 0
@@ -6915,6 +7060,7 @@ Item {
         ? root : root.pluginBarApiFor(pluginApiId, moduleName, registered)
       if ("moduleName" in target) target.moduleName = moduleName
       if ("settings" in target) target.settings = moduleSettings
+      root.sizeDrawnIcons(target)
     }
 
     Component {

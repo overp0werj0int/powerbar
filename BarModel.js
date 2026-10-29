@@ -36,12 +36,18 @@ function options(config) {
     onDemand: c.powerbarOnDemand === "inline" || c.powerbarOnDemand === "menu" ? c.powerbarOnDemand : "drawer",
     animations: c.powerbarAnimations !== false,
     keyLegend: c.powerbarKeyLegend !== false,
+    // Preferences' pages as tilted plates (PREFS-99); false lays them flat.
+    preferencesTilt: c.powerbarPreferencesTilt !== false,
     dotsBadge: c.powerbarDotsBadge !== false,
     frameLog: c.powerbarFrameLog === true,
+    // The Tuning page, for development (INTEG-155).
+    tuning: c.powerbarTuning === true,
     // A camera notch's width in logical px where the default housing is off
     // (0: the default; NotchModel.js). Two-zone modes keep a gap that wide.
     notchWidth: typeof c.powerbarNotchWidth === "number" && c.powerbarNotchWidth > 0 ? Math.round(c.powerbarNotchWidth) : 0,
-    notchHeight: typeof c.powerbarNotchHeight === "number" && c.powerbarNotchHeight > 0 ? Math.round(c.powerbarNotchHeight) : 0
+    notchHeight: typeof c.powerbarNotchHeight === "number" && c.powerbarNotchHeight > 0 ? Math.round(c.powerbarNotchHeight) : 0,
+    // Which side of a camera the Center zone's widgets sit on (ZONE-96).
+    centerSide: c.powerbarCenterSide === "left" ? "left" : "right"
   }
 }
 

@@ -26,15 +26,19 @@ var settings = [
   { name: "onDemand", key: "powerbarOnDemand", type: "choice", choices: ["drawer", "inline", "menu"], writer: "option" },
   { name: "dotsBadge", key: "powerbarDotsBadge", type: "bool", writer: "option" },
   { name: "keyLegend", key: "powerbarKeyLegend", type: "bool", writer: "option" },
+  { name: "preferencesTilt", key: "powerbarPreferencesTilt", type: "bool", writer: "option" },
   // Not in Preferences; shell.json keys kept for anyone who sets them by hand.
   { name: "revealSeconds", key: "powerbarManagedRevealSeconds", type: "number", min: 1, max: 60, writer: "option" },
   { name: "entryGraceSeconds", key: "powerbarManagedEntryGraceSeconds", type: "number", min: 1, max: 15, writer: "option" },
   { name: "exitGraceSeconds", key: "powerbarManagedExitGraceSeconds", type: "number", min: 1, max: 15, writer: "option" },
   { name: "frameLog", key: "powerbarFrameLog", type: "bool", writer: "option" },
+  { name: "tuning", key: "powerbarTuning", type: "bool", writer: "option" },
   // A camera notch's width in logical px.
   { name: "notchWidth", key: "powerbarNotchWidth", type: "number", min: 40, max: 600, step: 1, writer: "option" },
   // Its height in logical px, on a notched screen.
   { name: "notchHeight", key: "powerbarNotchHeight", type: "number", min: 16, max: 96, step: 1, writer: "option" },
+  // Which side of the camera the Center zone sits on, on a notched screen.
+  { name: "centerSide", key: "powerbarCenterSide", type: "choice", choices: ["right", "left"], writer: "option" },
   // Appearance (bar.powerbarAppearance), in the scope each tile follows now.
   { name: "shape.scope", tile: "shape", type: "choice", choices: ["theme", "all", "this"], writer: "scope" },
   { name: "shape.rounding", tile: "shape", look: "rounding", type: "number", min: 0, max: "roundingMax", step: 1, writer: "look" },
@@ -43,6 +47,8 @@ var settings = [
   { name: "surface.scope", tile: "surface", type: "choice", choices: ["theme", "all", "this"], writer: "scope" },
   { name: "surface.opacity", tile: "surface", look: "opacity", type: "number", min: 0, max: 100, step: 5, writer: "look" },
   { name: "surface.blur", tile: "surface", look: "blur", type: "bool", writer: "look" },
+  // The floor of the surfaces drawn over windows (drawers, menus), in %.
+  { name: "surface.overWindows", tile: "surface", look: "overWindows", type: "number", min: 0, max: 100, step: 5, writer: "look" },
   { name: "surface.text", tile: "surface", type: "choice", choices: ["theme", "light", "dark"], writer: "text" },
   { name: "shadow.scope", tile: "shadow", type: "choice", choices: ["theme", "all", "this"], writer: "scope" },
   { name: "shadow.enabled", tile: "shadow", look: "enabled", type: "bool", writer: "look" },
@@ -291,8 +297,8 @@ var functions = [
   ["managedStatus", "", "On demand widgets: where they are and whether they show, as JSON"],
   ["popupStatus", "", "the open widget panel, as JSON"],
   ["preferences", "", "open Preferences on the focused monitor"],
-  ["preferencesPage", "<1-3>", "open Preferences at Layout (1), Groups (2) or Bar (3)"],
-  ["preferencesKeyboard", "", "open Preferences at the keyboard mode's shortcuts (Bar → Keyboard)"],
+  ["preferencesPage", "<1-5>", "open Preferences at Layout (1), Groups (2), Look (3), Behavior (4) or, with powerbarTuning on, Tuning (5)"],
+  ["preferencesKeyboard", "", "open Preferences at the keyboard mode's shortcuts (Behavior → Keyboard)"],
   ["groupsPreferences", "", "open Preferences at Groups"],
   ["closePreferences", "", "close Preferences"],
   ["build", "", "the code this shell is running: version, digest of the loaded files, git commit, when it loaded (tools/build-check.sh compares it with a checkout)"],

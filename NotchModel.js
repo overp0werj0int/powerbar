@@ -164,6 +164,12 @@ function cornersOf(notch, width) {
 function wrapThickness(notch, barSize, gap) {
   return notch ? Math.max(barSize, notch.height + gap) : barSize
 }
+// A floating bar's thickness on a screen, whatever style the bar has now:
+// round the notch it wraps on a horizontal bar, else its own size (or the
+// notch's depth when that is more, as Omarchy's barSizes reports it).
+function floatingThickness(notch, barSize, gap, vertical) {
+  return notch && !vertical ? wrapThickness(notch, barSize, gap) : Math.max(barSize, notch ? notch.height : 0)
+}
 // The outer corners of a surface held `gap` off the screen's rounded top
 // corners: the top ones concentric with the screen's (its radius less the
 // gap, or the rounding when that is more, as for a screen whose corners are

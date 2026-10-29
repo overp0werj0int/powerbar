@@ -4,13 +4,13 @@ How Powerbar looks and when it shows: surface (opacity, blur, readable minimum),
 
 Storage: the look lives in `bar.powerbarAppearance` of shell.json: `all` (values shared by every theme) and `themes.<theme>` (values for one theme, plus that theme's `text`), each tile holding `use` (`this` or `all`; absent means the default scope) and its values: shape `{ rounding, borders, borderWidth }`, surface `{ opacity, blur }`, shadow `{ enabled, softness, strength }`. Behaviour switches stay flat in `bar`: `powerbarAutoHide`, `powerbarAutoHideActivity`, `powerbarReadableOverlay`, `powerbarAnimations`, `powerbarLargeBar` (layout-zones.md), and Omarchy's own `background` (or `transparent`). Keys from earlier versions are migrated (see Legacy migration).
 
-**Sources:** AppearanceModel.js, RenderModel.js (captureDelta), TooltipModel.js, EffectSurface.qml, BarBackdrop.qml, BarFace.qml, TintedImage.qml, WidgetIcon.qml, Bar.qml (grep: autoHide, barOpacity, surfaceEffects, overlayStyled, tooltip, themeLook, barForeground, transparent, namespace), Preferences.qml (Shape, Surface, Shadow, Behavior tiles; scopeHint), tests/appearance.test.cjs, tests/render.test.cjs, tests/tooltip-model.test.cjs, tests/clean-defaults.test.cjs.
+**Sources:** AppearanceModel.js, RenderModel.js (captureDelta), TooltipModel.js, EffectSurface.qml, BarFace.qml, TintedImage.qml, WidgetIcon.qml, Bar.qml (grep: autoHide, barOpacity, surfaceEffects, overlayStyled, tooltip, themeLook, barForeground, transparent, namespace), Preferences.qml (setLook, scopeHint), LookEditor.qml (the Shape, Surface and Shadow strips), BehaviorEditor.qml, tests/appearance.test.cjs, tests/render.test.cjs, tests/tooltip-model.test.cjs, tests/clean-defaults.test.cjs.
 
 ## Surface effects (opacity, blur, shadow)
 
 - **LOOK-1** The bar's surface opacity is the value of Surface > "Background opacity" (stored `opacity`, 0 to 100): it is clamped to 0 to 100 and drawn as a fraction (0 gives 0, 50 gives 0.5, 100 or 140 gives 1, a negative gives 0; no step snapping on read; the slider moves in 5% steps and shows "Clear" at 0, "Opaque" at 100). The default, with nothing chosen and no theme value, is the theme's own bar background alpha (LOOK-9), else 100. Code: AppearanceModel.effects, ranges.backgroundOpacity.
 
-- **LOOK-2** Surface > "Background blur" (stored `blur`, true only when exactly true; default off) puts the bar's layer on the Hyprland namespace `powerbar` (blurred by the user's layer rule, see LOOK-125); off, the namespace is `powerbar-clear`. Changing it hides the bar window for 60 ms with the layout frozen so the new namespace maps; widgets keep their sizes meanwhile. Code: AppearanceModel.effects; Bar.qml WlrLayershell.namespace, blurRemap.
+- **LOOK-2** Surface > "Background blur" (stored `blur`, true only when exactly true; default off) puts the bar's layer on the Hyprland namespace `powerbar` (blurred by the user's layer rule, see LOOK-125); off, the namespace is `powerbar-clear`. Changing it hides the bar window for 60 ms (once the pointer is off it, LOOK-127) with the layout frozen so the new namespace maps; widgets keep their sizes meanwhile. Code: AppearanceModel.effects; Bar.qml WlrLayershell.namespace, blurRemap.
 
 - **LOOK-3** Shadow > "Shadow" (stored `enabled`, default off) paints a shadow behind the flat strip, the floating surface, each island, drawers, and the tooltip, name card and key legend when their look follows Powerbar's (LOOK-91). Code: EffectSurface.qml RectangularShadow; Bar.qml shadowEnabled, overlayShadow.
 
@@ -23,6 +23,8 @@ Storage: the look lives in `bar.powerbarAppearance` of shell.json: `all` (values
 - **LOOK-7** With `powerbarReadableOverlay: false` those surfaces use the chosen opacity as it is. The setting is not part of the appearance scopes: it is one flat key for every theme. Code: AppearanceModel.overlayOpacity (`readableOverlay !== false`).
 
 - **LOOK-8** With blur on, the readable minimum does not apply: the chosen opacity is used, since the blur keeps text readable. Code: AppearanceModel.overlayOpacity.
+
+- **LOOK-150** Over windows: the surfaces Powerbar draws beyond the bar, which lie over windows, are at least as opaque as Surface > "Over windows" (stored `overWindows`, 0 to 100 in steps of 5, default 65; clamped like LOOK-1): drawers, the on-demand menu and its submenus, the drag's name label, and the tooltip, name card, key legend and search card when Powerbar styles them (LOOK-6). They take the larger of the bar's opacity and that floor, and the readable minimum (LOOK-6 to LOOK-8) still applies on top: a Clear bar with blur draws its drawers at 0.65, without blur at 0.88. 0 ("As the bar") draws them at the bar's opacity, as before. The bar itself is unchanged, autohiding or not; drawers from the notch are opaque black anyway. It follows the Surface scope like `opacity`, so under Theme the default 65 applies unless the theme's `powerbar.toml` sets `[surface] over-windows`. Left out: tray menus (Omarchy's popup card, the theme's popup colour) and Omarchy's own panels. Code: AppearanceModel.overlayOpacity, effects (overWindows), ranges.overWindows; Bar.qml overlaySurfaceColor.
 
 - **LOOK-9** With no opacity chosen in any scope, the bar uses the alpha of the theme's own bar background (Omarchy's `[bar] background`), rounded to a whole percent: a theme with a see-through bar background draws see-through. Code: AppearanceModel.effects(config, Color.bar.background.a).
 
@@ -42,7 +44,7 @@ Storage: the look lives in `bar.powerbarAppearance` of shell.json: `all` (values
 
 - **LOOK-132** Preferences' Surface > "Background opacity" slider shows 0 ("Clear") while the bar is clear, and the opacity it draws while glassy. Moving it writes the opacity and deletes `bar.transparent` and `bar.background`, ending a clear or glassy bar. Code: Preferences.qml setLook; slider value.
 
-- **LOOK-133** Double-clicking empty bar space (not on a widget) steps the background from clear to glassy to opaque and around, as on Omarchy's bar; with an Omarchy without glassy it toggles clear and opaque. The shell's `cycleBackground()` (Omarchy's menu) does the same, and its older `toggleTransparency()` toggles clear and opaque. A hold or drag on empty space moves the bar instead (layout-zones.md ZONE-38). Code: Bar.qml CenterGestureArea onDoubleClicked, cycleBackground, toggleTransparency; AppearanceModel.nextBackground.
+- **LOOK-133** Double-clicking empty bar space (not on a widget) steps the background from clear to glassy to opaque and around, as on Omarchy's bar, every time, the pointer moved or not (LOOK-127); on the notch the camera counts as empty bar space, since it takes the pointer whether or not the bar autohides; with an Omarchy without glassy it toggles clear and opaque. The shell's `cycleBackground()` (Omarchy's menu) does the same, and its older `toggleTransparency()` toggles clear and opaque. A hold or drag on empty space moves the bar instead (layout-zones.md ZONE-38). Code: Bar.qml CenterGestureArea onDoubleClicked, cycleBackground, toggleTransparency; AppearanceModel.nextBackground.
 
 - **LOOK-134** Turning transparency off returns the surface and text to the theme's at once: the text colour changes without its 420 ms crossfade while the switch settles. Code: Bar.qml setRequestedTransparency (foregroundAnimationEnabled).
 
@@ -114,7 +116,7 @@ Storage: the look lives in `bar.powerbarAppearance` of shell.json: `all` (values
 
 - **LOOK-40** `[shape]` takes `rounding`, `borders`, `border-width`: `rounding = 12`, `borders = true`, `border-width = 1.5` give rounding 12, borders true, border width 1.5. Key and section names are case-insensitive. Code: AppearanceModel.parseLook, lookKeys.
 
-- **LOOK-41** `[surface]` takes `opacity`, `blur`, `text`: `opacity = 85`, `blur = true`, `text = "dark"` give 85, true, "dark" (percent, boolean, string). Code: parseLook.
+- **LOOK-41** `[surface]` takes `opacity`, `blur`, `over-windows`, `text`: `opacity = 85`, `blur = true`, `over-windows = 80`, `text = "dark"` give 85, true, 80, "dark" (percent, boolean, percent, string). Code: parseLook.
 
 - **LOOK-42** `[shadow]` takes `enabled`, `softness`, `strength`. Code: parseLook.
 
@@ -307,7 +309,7 @@ Storage: the look lives in `bar.powerbarAppearance` of shell.json: `all` (values
 
 - **LOOK-107** The bar's background and urgent colours crossfade over 420 ms, InOutCubic, with Animations on. Code: Bar.qml Behavior on background / urgent.
 
-- **LOOK-108** In Preferences' bar placement graphic the wallpaper fades in over 160 ms when it loads, with Animations on; off, it appears at once. Code: BarBackdrop.qml.
+- **LOOK-108** Superseded: Preferences no longer draw a bar placement graphic (the Look page has no bar preview, preferences.md PREFS-124).
 
 ## Capture invalidation
 
@@ -325,15 +327,15 @@ Storage: the look lives in `bar.powerbarAppearance` of shell.json: `all` (values
 
 - **LOOK-114** A text face is drawn in the bar's font and current text colour. Code: BarFace.qml.
 
-## Bar backdrop (placement graphic)
+## Bar backdrop (placement graphic, gone)
 
-- **LOOK-119** The placement graphic in Preferences' Bar tile shows the current wallpaper at the monitor's aspect ratio with the bar drawn on the chosen edge in the chosen style (flat: one strip, no gap or rounding; floating: one surface off the edges; islands: three surfaces), using the bar's real surface colour, opacity and island border, so they show as they will look; clicking an edge moves the bar there. Code: BarPlacement.qml, BarBackdrop.qml.
+- **LOOK-119** Superseded by preferences.md PREFS-124 and PREFS-65 (no placement graphic; the Screen edge chips move the bar and the real bar shows the style).
 
-- **LOOK-120** The wallpaper is cropped to fill the graphic, top-aligned and horizontally centred (the placement graphic always passes position "top"). Code: BarBackdrop.qml, BarPlacement.qml.
+- **LOOK-120** Superseded: the placement graphic and its wallpaper are gone (PREFS-124).
 
-- **LOOK-121** BarBackdrop aligns the image to the bottom when its `position` is bottom or right, and to the top otherwise; the placement graphic does not use this. Code: BarBackdrop.qml.
+- **LOOK-121** Superseded: BarBackdrop is gone with the placement graphic (PREFS-124).
 
-- **LOOK-122** The wallpaper fades in over 160 ms when ready (LOOK-108). Code: BarBackdrop.qml.
+- **LOOK-122** Superseded: no wallpaper is drawn in Preferences (LOOK-108).
 
 ## Icon colour in Preferences (WidgetIcon)
 
@@ -347,7 +349,8 @@ Storage: the look lives in `bar.powerbarAppearance` of shell.json: `all` (values
 
 - **LOOK-126** `^powerbar-clear$` is for surfaces that must not blur (rule `blur = false`). Code: Bar.qml.
 
-- **LOOK-127** A blur change remaps the bar window (LOOK-2). Code: Bar.qml blurRemap.
+- **LOOK-127** A blur change remaps the bar window (LOOK-2). The surface is gone for that moment, and Hyprland gives the pointer to what lies under it (Omarchy's background, whose double click opens the wallpaper selector) and keeps it there until the pointer moves, so a window the pointer is on keeps its surface until the pointer leaves it, then remaps (on the other screens at once); a change undone before then needs no remap. A double click that steps the background to or from glassy (LOOK-133) is followed at once by the next one on the bar, never by the wallpaper selector; the blur shows once the pointer is off the bar. Code: Bar.qml blurRemapPending, blurRemapWhenFree(), mappedBlur, blurRemap.
+- **LOOK-151** A screen that moves within the layout (a monitor unplugged or rearranged, so another one shifts) leaves the bar's surface at its old place until it is unmapped and mapped again, as Omarchy's ScreenMoveRemap does. The remap waits 200 ms for the positions to settle, then, as LOOK-127, until the pointer is off that bar window (other screens at once), so the unmap never hands a still pointer to Omarchy's background and its wallpaper selector; the layout stays frozen through it. Code: Bar.qml remapGuard, screenSettle, windowHover.
 
 ---
 

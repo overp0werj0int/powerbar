@@ -2,8 +2,9 @@ import QtQuick
 import QtTest
 import "../../"
 
-// The Preferences slider: drafts stay in the window while it is worked and
-// reach the config (edited) once, after the gesture settles.
+// The Look page's fader: drafts stay in the window while it is worked and
+// reach the config (edited) once, after the gesture settles; h/l and the
+// pointer run along its width, j/k are left to the desk.
 // Needs Omarchy's kit: -import <dir> where <dir>/qs/{Commons,Ui} link to the
 // shell's Commons and Ui folders.
 // The window's root is a plain Item: a TestCase root receives no mouse events.
@@ -18,10 +19,11 @@ Item {
     id: page
     anchors.fill: parent
     Keys.onEscapePressed: testCase.escapeReachedPage = true
-    PrefsSlider {
+    Fader {
       id: slider
-      width: 500
-      label: "Space between widgets"
+      x: 40; y: 20
+      width: 240
+      label: "Widget spacing"
       minimum: 0; maximum: 16; stepSize: 1
       defaultValue: 0
       value: 4
@@ -29,11 +31,11 @@ Item {
       onEdited: function(v) { testCase.edits.push(v); value = v }
       onDrafted: function(v) { testCase.drafts.push(v) }
     }
-    Rectangle { id: elsewhere; y: 200; width: 50; height: 50; activeFocusOnTab: true }
+    Rectangle { id: elsewhere; x: 300; y: 200; width: 50; height: 50; activeFocusOnTab: true }
   }
 
   TestCase {
-  name: "PrefsSlider"
+  name: "Fader"
   when: windowShown
 
   function init() {
@@ -48,9 +50,9 @@ Item {
   }
   // Where the knob's centre sits for value v, in the slider's coordinates.
   function knobPoint(v) {
-    var bar = findChild(slider, "sliderTrack")
-    verify(bar)
-    return bar.mapToItem(slider, bar.xFor(v), bar.height / 2)
+    var rail = findChild(slider, "faderTrack")
+    verify(rail)
+    return rail.mapToItem(slider, rail.inset + slider.xFor(v), rail.height / 2)
   }
 
   function test_keysDraftThenApplyOnce() {
@@ -132,9 +134,9 @@ Item {
   }
   function test_grabbingTheKnobOffCentreDoesNotJump() {
     var p = knobPoint(4)
-    mousePress(slider, p.x + 4, p.y)
+    mousePress(slider, p.x + 2, p.y)
     compare(slider.shown, 4)
-    mouseRelease(slider, p.x + 4, p.y)
+    mouseRelease(slider, p.x + 2, p.y)
     wait(300)
     compare(testCase.edits.length, 0)
   }
@@ -171,6 +173,28 @@ Item {
     compare(testCase.edits.length, 0)
     tryCompare(slider, "drafting", false, 1200)
     compare(testCase.edits, [3])
+  }
+  function test_verticalKeysAreLeftToThePage() {
+    keyClick(Qt.Key_J)
+    keyClick(Qt.Key_K)
+    keyClick(Qt.Key_Down)
+    keyClick(Qt.Key_Up)
+    compare(slider.shown, 4, "j and k walk the desk, not the value")
+    compare(slider.drafting, false)
+  }
+  function test_leftAndRightStep() {
+    keyClick(Qt.Key_Left)
+    compare(slider.shown, 3)
+    keyClick(Qt.Key_H, Qt.ShiftModifier)
+    compare(slider.shown, 0)
+    keyClick(Qt.Key_End)
+    compare(slider.shown, 16)
+  }
+  function test_pressingTheNameLineOnlyFocuses() {
+    elsewhere.forceActiveFocus()
+    mouseClick(slider, slider.width - 4, 4)
+    verify(slider.activeFocus)
+    compare(slider.drafting, false)
   }
   function test_valueOutsideRangeShowsClamped() {
     slider.value = 28

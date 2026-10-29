@@ -20,6 +20,8 @@ GridLayout {
   property string value: ""
   // The camera sits after this zone ("" for none).
   property string cameraAfter: ""
+  // Or over this zone, as the Layout page's layers draw it ("" for none).
+  property string cameraOver: ""
   // A note for a zone after its name, such as where it sits by the camera.
   property var noteFor: function(zone) { return "" }
   // What fills the chosen cell (the widget's icon), or nothing.
@@ -41,7 +43,7 @@ GridLayout {
   readonly property int shown: map.activeFocus && map.cursor >= 0 ? map.cursor : indexOf(value)
   readonly property var shownZone: shown >= 0 ? zones[shown] : null
 
-  Text {
+  GrayText {
     text: row.label
     textFormat: Text.PlainText
     color: Commons.Color.popups.text
@@ -105,12 +107,26 @@ GridLayout {
           x: map.span(index).x
           width: map.span(index).width
           height: map.cellHeight
-          radius: Style.space(4)
+          radius: Math.min(Style.space(4), Style.cornerRadius)
           color: chosen ? Style.selectedFillFor(Commons.Color.popups.text, Commons.Color.accent)
             : cellMouse.containsMouse ? Style.hoverFillFor(Commons.Color.popups.text, Commons.Color.accent)
             : Qt.alpha(Commons.Color.popups.text, 0.07)
           borderSpec: hot ? Border.controlSpec("focus", Commons.Color.popups.text, Commons.Color.accent)
             : chosen ? Border.flat(Qt.alpha(Commons.Color.popups.text, 0.35), 1) : Border.none()
+          // The camera over Center: a black tab from the cell's top edge,
+          // under the cell's own border when it has one (chosen or focused),
+          // so the border's line stays whole over it (PREFS-26).
+          Rectangle {
+            visible: row.cameraOver === zoneCell.modelData.value
+            anchors.top: parent.top
+            anchors.topMargin: zoneCell.borderTop
+            anchors.horizontalCenter: parent.horizontalCenter
+            width: Math.round(parent.width * 0.7)
+            height: Style.space(5) - zoneCell.borderTop
+            color: "black"
+            bottomLeftRadius: Style.space(3)
+            bottomRightRadius: Style.space(3)
+          }
           Loader {
             anchors.centerIn: parent
             active: zoneCell.chosen && !!row.marker
@@ -134,7 +150,7 @@ GridLayout {
         x: before.x + before.width + map.gap
         width: map.cameraWidth
         height: map.cellHeight
-        radius: Style.space(4)
+        radius: Math.min(Style.space(4), Style.cornerRadius)
         color: "black"
         Rectangle {
           anchors.centerIn: parent
@@ -147,7 +163,7 @@ GridLayout {
         }
       }
     }
-    Text {
+    GrayText {
       Layout.preferredWidth: map.implicitWidth
       text: row.shownZone ? row.shownZone.label + (row.noteFor(row.shownZone.value) ? ", " + row.noteFor(row.shownZone.value) : "") : ""
       textFormat: Text.PlainText

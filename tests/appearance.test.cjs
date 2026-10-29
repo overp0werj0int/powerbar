@@ -29,6 +29,37 @@ test('surfaces over windows keep a readable opacity unless blurred or opted out'
   assert.equal(model.effects({ powerbarReadableOverlay: false }).readableOverlay, false);
   assert.equal(model.effects({}).readableOverlay, true);
 });
+test('surfaces over windows are at least as opaque as Over windows; the bar is not', () => {
+  assert.equal(model.effects({}).overWindows, 0.65, 'the default floor');
+  assert.equal(model.effects({ powerbarOverWindows: 140 }).overWindows, 1);
+  assert.equal(model.effects({ powerbarOverWindows: 0 }).overWindows, 0);
+  // A clear bar with blur (no readable minimum): the floor holds the drawers.
+  assert.equal(model.overlayOpacity({ backgroundOpacity: 0, blur: true, overWindows: 0.65 }), 0.65);
+  assert.equal(model.overlayOpacity({ backgroundOpacity: 0.8, blur: true, overWindows: 0.65 }), 0.8, 'never below the bar');
+  assert.equal(model.overlayOpacity({ backgroundOpacity: 0, blur: true, overWindows: 0 }), 0, '0: as the bar');
+  assert.equal(model.overlayOpacity({ backgroundOpacity: 0, overWindows: 0.65 }), 0.88, 'the readable minimum still applies');
+  assert.equal(model.overlayOpacity({ backgroundOpacity: 0, overWindows: 0.95 }), 0.95);
+  assert.equal(model.overlayOpacity({ backgroundOpacity: 0, readableOverlay: false, overWindows: 0.4 }), 0.4);
+  const fx = model.effects({ powerbarBackgroundOpacity: 0, powerbarBlur: true });
+  assert.equal(model.barOpacity(fx, false, false, false), 0, 'the bar keeps its own opacity');
+  assert.equal(model.barOpacity(fx, true, false, false), 0, 'an autohiding bar too');
+  assert.equal(model.overlayOpacity(fx), 0.65);
+});
+test('Over windows follows the Surface scope', () => {
+  const bar = { powerbarAppearance: { themes: { nord: { surface: { use: 'this', overWindows: 40 } } } } };
+  assert.equal(model.resolve(bar.powerbarAppearance, 'nord', {}).values.overWindows, 40);
+  assert.equal(model.effects(model.flatten(bar, 'nord', {})).overWindows, 0.4);
+  assert.equal(model.resolve(bar.powerbarAppearance, 'rose', {}).values.overWindows, undefined, 'another theme: Theme');
+  assert.equal(model.effects(model.flatten(bar, 'rose', {})).overWindows, 0.65, 'Theme: the default');
+  model.setValue(bar, 'rose', 'surface', 'overWindows', 30);
+  assert.equal(model.resolve(bar.powerbarAppearance, 'rose', {}).values.overWindows, undefined, 'nothing written under Theme');
+  model.setScope(bar, 'rose', 'surface', 'all');
+  model.setValue(bar, 'rose', 'surface', 'overWindows', 30);
+  assert.equal(bar.powerbarAppearance.all.surface.overWindows, 30);
+  assert.equal(model.resolve(bar.powerbarAppearance, 'nord', {}).values.overWindows, 40, 'This theme keeps its own');
+  assert.deepEqual(J(model.parseLook('[surface]\nover-windows = 80\n')), { surface: { overWindows: 80 } });
+  assert.equal(model.resolve({}, 'rose', { surface: { overWindows: 80 } }).values.overWindows, 80, "the theme's file");
+});
 test('stored values clamp to the ranges the sliders offer', () => {
   const e = model.effects({ powerbarShadow: true, powerbarShadowSize: 0, powerbarShadowOpacity: 0,
     powerbarBackgroundOpacity: 140 });

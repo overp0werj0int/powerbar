@@ -271,7 +271,7 @@ test('a first start offers each suggested bar shortcut that is free', () => {
   assert.deepEqual(plain(r.taken), []);
   assert.equal(r.next, undefined, 'nothing is bound');
   assert.equal(m.offerMessage(r),
-    'Super + B (the keyboard mode) and Super + Ctrl + / (its search) are free. Click to turn on shortcuts in Preferences → Bar → Keyboard.');
+    'Super + B (the keyboard mode) and Super + Ctrl + / (its search) are free. Click to turn on shortcuts in Preferences → Behavior → Keyboard.');
 });
 
 test('a suggested key something else holds is named with what holds it', () => {
@@ -280,13 +280,13 @@ test('a suggested key something else holds is named with what holds it', () => {
   assert.deepEqual(plain(r.free), []);
   assert.deepEqual(plain(r.taken.map(s => [s.target, s.by])), [['bar:keys', 'Browser'], ['bar:search', 'Audio']]);
   assert.equal(m.offerMessage(r),
-    'Super + B (the keyboard mode) is taken by Browser; Super + Ctrl + / (its search) is taken by Audio. Click to choose keys in Preferences → Bar → Keyboard.');
+    'Super + B (the keyboard mode) is taken by Browser; Super + Ctrl + / (its search) is taken by Audio. Click to choose keys in Preferences → Behavior → Keyboard.');
 });
 
 test('one free and one taken: both named', () => {
   const r = m.offer({}, [{ keys: 'SUPER + B', description: 'Browser', submap: '' }], {}, []);
   assert.equal(m.offerMessage(r),
-    'Super + Ctrl + / (the keyboard mode\'s search) is free. Super + B (the keyboard mode) is taken by Browser. Click to turn on shortcuts in Preferences → Bar → Keyboard.');
+    'Super + Ctrl + / (the keyboard mode\'s search) is free. Super + B (the keyboard mode) is taken by Browser. Click to turn on shortcuts in Preferences → Behavior → Keyboard.');
 });
 
 test('a bar shortcut already decided is not offered again, removed ones included', () => {
@@ -307,4 +307,10 @@ test('Lua strings escape every control character, so a name can never break a li
   assert.equal(m.luaString('a"b\\c\nd'), '"a\\"b\\\\c\\nd"');
   assert.equal(m.luaString('x\ry\x1b\x00z\x7f'), '"x\\013y\\027\\000z\\127"');
   assert.ok(!/[\x00-\x1f\x7f]/.test(m.luaString('\r\n\t\v\f')));
+});
+
+test('clashText: the keys first and whole, then what they open now', () => {
+  assert.equal(m.clashText('SUPER + B', [{ description: 'Open the browser' }]), 'Super B already opens Open the browser');
+  assert.equal(m.clashText('SUPER + B', [{ description: 'One' }, { description: 'Two' }]), 'Super B already opens One, Two');
+  assert.equal(m.clashText('SUPER + B', [{ description: '' }]), 'Super B already opens another binding');
 });

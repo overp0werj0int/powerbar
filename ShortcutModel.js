@@ -74,6 +74,14 @@ function caps(keys) {
 }
 function label(keys) { return caps(keys).join(" ") }
 
+// A row's clash line: the keys first, whole, then what they open now, so a
+// line cut at its end (two lines at most on the Behavior page, PREFS-72)
+// only ever shortens the other binding's description.
+function clashText(keys, clashes) {
+  var what = (clashes || []).map(function(c) { return String(c && c.description || "").trim() || "another binding" })
+  return label(keys) + " already opens " + (what.length ? what.join(", ") : "another binding")
+}
+
 // hyprctl binds (plain text: its JSON drops `code:` keys) → [{ keys, mask,
 // key, description, submap }]. Records are blocks of "name: value" lines.
 function parseBinds(text) {
@@ -234,7 +242,7 @@ function offerMessage(result) {
     out.push(result.taken.map(function(s) { return named(s, n++) + " is taken by " + s.by }).join("; ") + ".")
   }
   if (!out.length) return ""
-  out.push(result.free.length ? "Click to turn on shortcuts in Preferences → Bar → Keyboard." : "Click to choose keys in Preferences → Bar → Keyboard.")
+  out.push(result.free.length ? "Click to turn on shortcuts in Preferences → Behavior → Keyboard." : "Click to choose keys in Preferences → Behavior → Keyboard.")
   return out.join(" ")
 }
 
@@ -365,5 +373,5 @@ function recordLua(start) {
     + "hl.timer(function() " + leave + " end, { timeout = 15000, type = \"oneshot\" })"
 }
 
-if (typeof module !== "undefined") module.exports = { MODS, MASK, SUBMAP, BEGIN, END, OLD_START, OLD_END, paired, safeId, strip, blockKeys, parse, format, normalize, same, caps, label,
+if (typeof module !== "undefined") module.exports = { MODS, MASK, SUBMAP, BEGIN, END, OLD_START, OLD_END, paired, safeId, strip, blockKeys, parse, format, normalize, same, caps, label, clashText,
   parseBinds, parseDefaults, readDefaults, live, effective, positional, conflicts, assign, restore, SUGGESTED, suggested, offer, offerMessage, fromKeyEvent, command, render, recordLua }

@@ -100,7 +100,7 @@ Item {
     tint: icon.trayUrl.split("?")[0].slice(-9) === "-symbolic"
     color: icon.color
   }
-  Text {
+  GrayText {
     id: glyph
     anchors.centerIn: parent
     visible: !icon.hasImage && !icon.isGroup && !icon.trayShown

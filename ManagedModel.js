@@ -69,8 +69,13 @@ function placeholder(entry, mode) {
 }
 function deadline(now, duration) { return now + duration * 1000 }
 function remaining(until, now) { return Math.max(0, until - now) }
-function dismissDelay(sourceHovered, drawerHovered, interactionHeld, entered, entrySeconds, exitSeconds) {
+// How long until a drawer closes on its own, in ms; 0 runs no timer. A drawer
+// pinned by a click (clickPinned) also stays while the pointer is anywhere on
+// the bar, and once it has left both goes after the exit grace, entered or not
+// (on-demand-drawers.md DEMAND-104).
+function dismissDelay(sourceHovered, drawerHovered, interactionHeld, entered, entrySeconds, exitSeconds, clickPinned, barHovered) {
   if (sourceHovered || drawerHovered || interactionHeld) return 0
+  if (clickPinned) return barHovered ? 0 : exitSeconds * 1000
   return (entered ? exitSeconds : entrySeconds) * 1000
 }
 // The pointer landed on another stop on the bar (stop: { groupId, region }).
@@ -120,6 +125,23 @@ function iconLead(text) {
   if (!icon || !/^\s/.test(s.slice(size)) || s.indexOf("\n") >= 0) return null
   var rest = s.slice(size).trim()
   return rest === "" ? null : { icon: s.slice(0, size), rest: rest }
+}
+// A count a kit icon button draws beside its icon as a child of its own
+// (omabox's "3" right of its mark): the one visible text among the button's
+// own children that is a short number ("3", "12", "99+"). "" when there is
+// none, or more than one.
+function countText(texts) {
+  var found = (texts || []).map(function(t) { return String(t === undefined || t === null ? "" : t).trim() })
+    .filter(function(t) { return /^\d{1,3}\+?$/.test(t) })
+  return found.length === 1 ? found[0] : ""
+}
+// How far a counted button's icon sits left of the centre its ink was
+// measured at (0 or less): a shell that centres the icon alone leaves it
+// there; one that centres icon and count together moves it left, so the
+// count starts one gap after it. countX is the count's left edge in the
+// button, iconLength the icon's width.
+function countIconShift(countX, gap, iconLength, buttonWidth) {
+  return Math.min(0, countX - gap - iconLength / 2 - buttonWidth / 2)
 }
 // Whether a menu row shows its widget in the icon cell: a glyph, or a
 // picture (an image, no text) whose ink fits the cell.

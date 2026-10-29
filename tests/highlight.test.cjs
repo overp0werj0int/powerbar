@@ -56,3 +56,19 @@ test('a badge drawn inside its button is decoration: the button alone is measure
   const other = node(10, 2, 12, 12, { glyphPaintedWidth: 10, glyphFontSize: 13 });
   assert.equal(model.withoutBadges([bell, other]).length, 2);
 });
+
+test('unsizedIconLoaders: a drawn icon that fills the kit loader at zero size is found once', () => {
+  const loader = { width: 0, height: 0, item: null, sourceComponent: {}, children: [] };
+  loader.item = { anchors: { fill: loader }, width: 0, height: 0, children: [] };
+  const content = { sourceComponent: {}, sourceSize: 16, contentScale: 1, children: [loader] };
+  const button = { children: [{ children: [content] }] };
+  const widget = { children: [button] };
+  const found = model.unsizedIconLoaders(widget);
+  assert.equal(found.length, 1);
+  assert.equal(found[0].loader, loader);
+  assert.equal(found[0].content, content);
+  // Once sized, or when the icon keeps its own size, nothing to do.
+  assert.equal(model.unsizedIconLoaders({ children: [{ ...content, children: [{ ...loader, width: 16, height: 16 }] }] }).length, 0);
+  const own = { width: 0, height: 0, item: { anchors: { fill: null }, width: 16, height: 16 }, sourceComponent: {}, children: [] };
+  assert.equal(model.unsizedIconLoaders({ children: [{ ...content, children: [own] }] }).length, 0);
+});

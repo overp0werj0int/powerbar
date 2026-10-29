@@ -224,6 +224,18 @@ function passGroups(config, section, key, id) {
   config.bar.powerbarGroups = rest
   return true
 }
+// A widget dropped past groups drawn at its zone's end (no anchor, or one
+// that is not there) lands after them: those groups re-anchor on the widget,
+// in their order. Nothing in the layout moves.
+function anchorOn(config, section, key, ids) {
+  if (!config || !config.bar || !key || !ids || !ids.length) return false
+  var list = groups(config.bar), changed = false
+  list.forEach(function(g) {
+    if (g.section === section && ids.indexOf(g.id) >= 0 && g.before !== key) { g.before = key; changed = true }
+  })
+  if (changed) config.bar.powerbarGroups = list
+  return changed
+}
 function remove(config, id) {
   var list = groups(config.bar), next = list.filter(function(g) { return g.id !== id })
   if (next.length === list.length) return false

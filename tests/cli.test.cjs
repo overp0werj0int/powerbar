@@ -45,6 +45,10 @@ test('values are checked as Preferences offers them', () => {
   assert.match(m.check(m.find('shape.borderWidth'), 1.2).error, /steps of 0.5/);
   assert.match(m.check(m.find('surface.opacity'), 42).error, /steps of 5/);
   assert.deepEqual(J(m.check(m.find('surface.opacity'), 45)), { value: 45 });
+  assert.deepEqual(J(m.check(m.find('surface.overWindows'), 65)), { value: 65 });
+  assert.match(m.check(m.find('surface.overWindows'), 62).error, /steps of 5/);
+  assert.match(m.check(m.find('surface.overWindows'), 105).error, /from 0 to 100/);
+  assert.equal(m.find('surface.overWindows').writer, 'look');
   assert.deepEqual(J(m.check(m.find('shape.rounding'), 13, ctx)), { value: 13 });
   assert.match(m.check(m.find('shape.rounding'), 14, ctx).error, /from 0 to 13/);
   assert.deepEqual(J(m.check(m.find('revealSeconds'), 2.5)), { value: 2.5 });

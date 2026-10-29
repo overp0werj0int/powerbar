@@ -37,6 +37,20 @@ test('hover and interaction suspend dismissal; entry and exit remain distinct', 
   assert.equal(m.dismissDelay(false, false, true, true, 5, 7), 0);
   assert.equal(m.dismissDelay(false, false, false, false, 5, 7), 5000);
   assert.equal(m.dismissDelay(false, false, false, true, 5, 7), 7000);
+  // Hovering the rest of the bar keeps no hover drawer.
+  assert.equal(m.dismissDelay(false, false, false, false, 5, 7, false, true), 5000);
+});
+test('a drawer pinned by a click stays while the pointer is on the bar and goes after the exit grace once it has left', () => {
+  // The pointer anywhere on the bar, the source or the drawer: no timer.
+  assert.equal(m.dismissDelay(false, false, false, false, 5, 7, true, true), 0);
+  assert.equal(m.dismissDelay(true, false, false, false, 5, 7, true, false), 0);
+  assert.equal(m.dismissDelay(false, true, false, true, 5, 7, true, false), 0);
+  // Left the bar and the drawer: the exit grace, whether it was entered or not.
+  assert.equal(m.dismissDelay(false, false, false, false, 5, 7, true, false), 7000);
+  assert.equal(m.dismissDelay(false, false, false, true, 5, 7, true, false), 7000);
+  // Held (driven by keys, a panel open, a drag): no timer.
+  assert.equal(m.dismissDelay(false, false, true, true, 5, 7, true, false), 0);
+  assert.equal(m.dismissDelay(false, false, true, true, 5, 7, false, false), 0);
 });
 test('only public presentation values enter the activity snapshot', () => {
   const widget = { text: '4', icon: 'bell', value: 4, width: 20, visible: false, opacity: 0 };
@@ -152,6 +166,16 @@ test("a kit button's text that leads with an icon splits into the icon and the r
   assert.equal(m.iconLead('100% \u{f0079}'), null, 'a value that ends in an icon');
   assert.equal(m.iconLead('\u{f0238} 1\n2'), null, 'several lines');
   assert.equal(m.iconLead(''), null);
+  assert.equal(m.countText(['3']), '3', "omabox's box count");
+  assert.equal(m.countText([' 12 ', 'omabox']), '12', 'the one number among texts');
+  assert.equal(m.countText(['99+']), '99+');
+  assert.equal(m.countText(['1234']), '', 'too long for a count');
+  assert.equal(m.countText(['3', '4']), '', 'two counts: neither');
+  assert.equal(m.countText(['3 new', '']), '', 'not a bare number');
+  assert.equal(m.countText([]), '');
+  assert.equal(m.countText(undefined), '');
+  assert.equal(m.countIconShift(48 / 2 + 8 + 4, 4, 16, 48), 0, 'icon centred alone, count after it');
+  assert.equal(m.countIconShift(48 / 2 + 8 - 6 + 4, 4, 16, 48), -6, 'icon and count centred together');
 });
 
 test('a menu row: text widgets show a value at its end; the widest row sets the width', () => {
