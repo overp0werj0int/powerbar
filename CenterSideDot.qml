@@ -118,7 +118,7 @@ Item {
             anchors.verticalCenter: parent.verticalCenter
             text: root.label
             textFormat: Text.PlainText
-            color: Qt.alpha(Commons.Color.popups.text, 0.55)
+            color: Ink.tint(Ink.secondary)
             font.family: Style.font.family
             font.pixelSize: Style.font.caption
         }

@@ -54,40 +54,32 @@ Item {
 
     Column {
         id: labelColumn
-        x: face.pad + face.columns.xs[0] + Style.space(2)
-        y: Style.space(6)
-        width: face.columns.widths[0] - Style.space(6)
-        spacing: Style.space(8)
-        GrayText {
+        // In line with the zones' names: a tile's padding down, a text pair
+        // (PREFS-133).
+        x: face.pad + face.columns.xs[0]
+        y: Gap.m
+        width: face.columns.widths[0]
+        spacing: Gap.xxs
+        InkText {
             width: parent.width
             text: face.title
-            textFormat: Text.PlainText
-            color: Commons.Color.popups.text
-            font.family: Style.font.family
-            font.pixelSize: Style.font.title
-            font.weight: Font.DemiBold
+            role: "section"
             elide: Text.ElideRight
         }
-        GrayText {
+        InkText {
             id: captionText
             width: parent.width
             text: face.caption
-            textFormat: Text.PlainText
-            color: Qt.alpha(Commons.Color.popups.text, 0.55)
-            font.family: Style.font.family
-            font.pixelSize: Style.font.bodySmall
+            role: "caption"
             wrapMode: Text.WordWrap
         }
     }
-    GrayText {
+    InkText {
         x: face.pad + face.columns.xs[6]
         y: labelColumn.y + captionText.y
         width: face.columns.widths[6] - Style.space(2)
         horizontalAlignment: Text.AlignRight
         text: face.count
-        textFormat: Text.PlainText
-        color: Qt.alpha(Commons.Color.popups.text, 0.4)
-        font.family: Style.font.family
-        font.pixelSize: Style.font.bodySmall
+        role: "caption"
     }
 }

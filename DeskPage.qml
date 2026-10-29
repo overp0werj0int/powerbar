@@ -47,7 +47,7 @@ Item {
   readonly property bool lightTheme: layout.lightTheme
   readonly property real tilt: layout.tilt
   readonly property real planeDistance: layout.planeDistance
-  readonly property real stripGap: Style.space(8)
+  readonly property real stripGap: Gap.xl
   readonly property var stripList: {
     var out = [];
     var kids = plateFace.children;
@@ -257,7 +257,6 @@ Item {
   KeyLegend {
     anchors.left: parent.left
     anchors.bottom: parent.bottom
-    anchors.bottomMargin: Style.space(8)
     width: Math.min(desk.width, Style.space(640))
     z: 118
     lines: desk.legend

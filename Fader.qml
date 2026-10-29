@@ -90,10 +90,10 @@ Item {
     up: fader.activeFocus
     animate: fader.animate
     lightTheme: fader.strip ? fader.strip.lightTheme : false
-    radius: Math.max(0, Math.min(Style.space(5), Style.cornerRadius - Style.space(3)))
+    radius: Round.control
     plate: fader.strip ? fader.strip.surfaceColor : "transparent"
-    padX: Style.space(4)
-    padY: Style.space(4)
+    padX: Gap.s
+    padY: Gap.xs
   }
   // Tuning's Mark the whole control (PREFS-132), on by default: the fader's
   // area takes the focus fill and ring as a switch row does, the knob
@@ -101,11 +101,11 @@ Item {
   BorderSurface {
     visible: fader.activeFocus && Tuning.values.areaRing !== 0
     anchors.fill: parent
-    anchors.leftMargin: -Style.space(4)
-    anchors.rightMargin: -Style.space(4)
-    anchors.topMargin: -Style.space(4)
-    anchors.bottomMargin: -Style.space(4)
-    radius: Math.max(0, Math.min(Style.space(5), Style.cornerRadius - Style.space(3)))
+    anchors.leftMargin: -Gap.s
+    anchors.rightMargin: -Gap.s
+    anchors.topMargin: -Gap.xs
+    anchors.bottomMargin: -Gap.xs
+    radius: Round.control
     color: Qt.tint(fader.strip ? fader.strip.surfaceColor : "transparent", Style.focusFillFor(Commons.Color.popups.text, Commons.Color.accent))
     borderSpec: Border.controlSpec("focus", Commons.Color.popups.text, Commons.Color.accent)
   }
@@ -115,7 +115,7 @@ Item {
   Layout.fillWidth: true
   implicitWidth: Style.space(120)
   implicitHeight: column.implicitHeight
-  opacity: enabled ? 1 : 0.45
+  opacity: enabled ? 1 : Ink.disabled
   activeFocusOnTab: false
   Accessible.role: Accessible.Slider
   Accessible.name: label
@@ -125,35 +125,30 @@ Item {
   Column {
     id: column
     width: parent.width
-    spacing: Style.space(4)
+    // Name to rail s (PREFS-133).
+    spacing: Gap.s
     // The name, and the value at the right: an unapplied draft shows in the
     // accent and turns back once the bar has it.
     Item {
       width: parent.width
       implicitHeight: Math.max(name.implicitHeight, valueText.implicitHeight)
       height: implicitHeight
-      GrayText {
+      InkText {
         id: name
         anchors.left: parent.left
         anchors.right: valueText.left
-        anchors.rightMargin: Style.space(8)
+        anchors.rightMargin: Gap.m
         anchors.baseline: valueText.baseline
         text: fader.label
-        textFormat: Text.PlainText
-        color: Qt.alpha(Commons.Color.popups.text, 0.7)
-        font.family: Style.font.family
-        font.pixelSize: Style.font.bodySmall
         elide: Text.ElideRight
       }
-      GrayText {
+      InkText {
         id: valueText
         anchors.right: parent.right
         anchors.verticalCenter: parent.verticalCenter
         text: fader.format(fader.shown)
-        textFormat: Text.PlainText
-        color: fader.drafting ? Commons.Color.accent : Commons.Color.popups.text
-        font.family: Style.font.family
-        font.pixelSize: Style.font.bodySmall
+        tier: Ink.secondary
+        color: fader.drafting ? Commons.Color.accent : Ink.tint(tier)
         font.bold: fader.drafting
       }
     }
@@ -215,7 +210,7 @@ Item {
         anchors.centerIn: knob
         width: knob.width + Style.space(8)
         height: knob.height + Style.space(8)
-        radius: Style.space(5)
+        radius: knob.radius > 0 ? knob.radius + Style.space(4) : 0
         color: "transparent"
         border.width: 1
         border.color: Border.controlSpec("focus", Commons.Color.popups.text, Commons.Color.accent).color
@@ -227,7 +222,7 @@ Item {
         y: 0
         width: fader.knobWidth
         height: fader.knobHeight
-        radius: Style.space(2)
+        radius: Round.small
         color: Commons.Color.popups.text
         antialiasing: true
         scale: fader.dragging ? 1.15 : pointer.containsMouse ? 1.1 : 1

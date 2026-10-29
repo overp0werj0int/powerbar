@@ -62,14 +62,12 @@ Item {
     Column {
         id: rows
         width: parent.width
-        spacing: 0
-        GrayText {
+        // A field (PREFS-133): its label, xxs, then its rows a control tall
+        // and xs apart.
+        spacing: Gap.xs
+        InkText {
             text: "Layer"
-            textFormat: Text.PlainText
-            color: Qt.alpha(Commons.Color.popups.text, 0.55)
-            font.family: Style.font.family
-            font.pixelSize: Style.font.caption
-            bottomPadding: Style.space(6)
+            bottomPadding: Gap.xxs - Gap.xs
         }
         Repeater {
             model: picker.options
@@ -78,8 +76,8 @@ Item {
                 required property var modelData
                 readonly property bool chosen: modelData.value === picker.value
                 width: rows.width
-                height: Style.space(30)
-                radius: Math.min(Style.space(5), Style.cornerRadius)
+                height: Gap.control
+                radius: Round.control
                 color: chosen ? Qt.alpha(Commons.Color.accent, 0.28) : rowMouse.containsMouse ? Qt.alpha(Commons.Color.popups.text, 0.06) : "transparent"
                 Behavior on color {
                     enabled: picker.animate
@@ -88,12 +86,14 @@ Item {
                     }
                 }
                 // The sheet, seen in the layers' perspective.
+                // Its slant's foot s in from the row's edge.
                 Rectangle {
-                    x: Style.space(18)
+                    id: sheet
+                    x: Gap.s + Math.round(0.84 * height)
                     anchors.verticalCenter: parent.verticalCenter
                     width: Style.space(34)
                     height: Style.space(10)
-                    radius: Style.space(2)
+                    radius: Round.small
                     color: row.chosen ? Commons.Color.accent : "transparent"
                     border.width: 1
                     border.color: row.chosen ? Qt.alpha(Commons.Color.accent, 0.9) : Qt.alpha(Commons.Color.popups.text, 0.4)
@@ -101,14 +101,10 @@ Item {
                         matrix: Qt.matrix4x4(1, -0.84, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1)
                     }
                 }
-                GrayText {
-                    x: Style.space(56)
+                InkText {
+                    x: sheet.x + sheet.width + Gap.m
                     anchors.verticalCenter: parent.verticalCenter
                     text: row.modelData.label
-                    textFormat: Text.PlainText
-                    color: Qt.alpha(Commons.Color.popups.text, row.chosen ? 1 : 0.7)
-                    font.family: Style.font.family
-                    font.pixelSize: Style.font.body
                 }
                 MouseArea {
                     id: rowMouse

@@ -32,7 +32,7 @@ Drag and drop on the live bar, into drawers and onto zone dots. The bar controll
 
 - **DRAG-7** The gap is the dragged widget's own landing extent (`dragLandingExtent`: its cell plus a gutter in Equal slots, its glyph plus a gap in Equal gaps; see layout-zones.md). Without one it is max(bar size, image size / bar scale) + gutter.
 
-- **DRAG-8** Neighbours make way over `150 * sqrt(gap / iconGap)` ms, clamped to 150..250 ms, with a sine in-out ease (see DRAG-67). With animations off (`powerbarAnimations: false`) slots move at once and there is no settle glide (DRAG-35).
+- **DRAG-8** Neighbours make way over `150 * sqrt(gap / iconGap)` ms, clamped to 150..250 ms, with a sine in-out ease (see DRAG-67). With animations off (`powerbarAnimations: false` or Hyprland's, INTEG-21) slots move at once and there is no settle glide (DRAG-35).
 
 - **DRAG-10** The side of the gap (before or after a cell) flips only when the probe point crosses that cell's centre by more than the 3 px dead zone (`Style.space(3)`): with no earlier decision after = probe > centre; once after, it stays after while probe >= centre - 3; once before, it flips to after only when probe > centre + 3. Code: DragModel.afterCentre()
 

@@ -6,8 +6,9 @@ import "PreferencesModel.js" as Model
 
 // One strip on a desk (DeskPage; docs/behavior/preferences.md PREFS-125): a
 // Layout page tile (ZoneTile: its colour, 1 px edge, radius and 6 px slab
-// edge) with 8 px of padding as a Layout tile has, its title, a caption,
-// then its controls 4 px apart, a footnote and its faders at the bottom, one under the other. The
+// edge) with l of padding, its title and caption a text pair, then l below
+// its controls m apart, a footnote and its faders at the bottom, one under
+// the other (the golden spacing, PREFS-133). The
 // camera's torn cap and its shade fall over its surface where the camera's
 // column crosses it, continuing what the gaps show. The desk places it and gives every
 // strip the tallest one's height. Its lift says the cursor is in it, as a
@@ -23,7 +24,7 @@ ZoneTile {
   property alias faders: faderColumn.data
   // Set by the desk.
   property Item desk: null
-  readonly property real padding: Style.space(8)
+  readonly property real padding: Gap.l
   readonly property bool holdsCursor: {
     for (var p = strip.Window.activeFocusItem; p; p = p.parent)
       if (p === strip)
@@ -115,47 +116,37 @@ ZoneTile {
     y: strip.padding
     width: strip.width - 2 * strip.padding
     height: Math.max(implicitHeight, strip.height - 2 * strip.padding)
-    spacing: Style.space(8)
+    spacing: Gap.l
     ColumnLayout {
       Layout.fillWidth: true
-      spacing: Style.space(2)
-      GrayText {
+      spacing: Gap.xxs
+      InkText {
         Layout.fillWidth: true
         text: strip.title
-        textFormat: Text.PlainText
-        color: Commons.Color.popups.text
-        font.family: Style.font.family
-        font.pixelSize: Style.font.title
-        font.weight: Font.DemiBold
+        role: "section"
         elide: Text.ElideRight
       }
-      GrayText {
+      InkText {
         visible: strip.caption !== ""
         Layout.fillWidth: true
         text: strip.caption
-        textFormat: Text.PlainText
-        color: Qt.alpha(Commons.Color.popups.text, 0.55)
-        font.family: Style.font.family
-        font.pixelSize: Style.font.bodySmall
+        role: "caption"
         wrapMode: Text.WordWrap
       }
     }
     ColumnLayout {
       id: body
       Layout.fillWidth: true
-      spacing: Style.space(4)
+      spacing: Gap.m
     }
     Item {
       Layout.fillHeight: true
     }
-    GrayText {
+    InkText {
       visible: strip.footnote !== ""
       Layout.fillWidth: true
       text: strip.footnote
-      textFormat: Text.PlainText
-      color: Qt.alpha(Commons.Color.popups.text, 0.55)
-      font.family: Style.font.family
-      font.pixelSize: Style.font.caption
+      role: "caption"
       wrapMode: Text.WordWrap
     }
     // Flat, each the strip's inner width, one under the other.
@@ -163,7 +154,7 @@ ZoneTile {
       id: faderColumn
       Layout.fillWidth: true
       visible: children.length > 0
-      spacing: Style.space(8)
+      spacing: Gap.m
     }
   }
 }

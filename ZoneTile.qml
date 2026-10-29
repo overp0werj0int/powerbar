@@ -23,8 +23,8 @@ Item {
     // The surface: the bar layer's a little stronger.
     property bool lead: false
     property var borderSpec: Border.flat(Qt.alpha(Commons.Color.popups.text, 0.12), 1)
-    property real pad: Style.space(8)
-    property real radius: Math.min(Style.space(10), Style.cornerRadius)
+    property real pad: Gap.m
+    property real radius: Round.container
     property real topRadius: radius
     // The cursor's tile rises 10 px off its layer (PREFS-104), every tile
     // alike: a zone on the Layout and Groups pages, a desk's strip. A dashed
@@ -68,7 +68,7 @@ Item {
     property bool nameShown: true
     property bool nameActive: false
     property bool nameBold: false
-    property real nameRow: Style.space(20)
+    property real nameRow: Ink.line(Ink.caption) + Gap.s
     // A note while it holds nothing.
     property string emptyText: ""
     property bool emptyShown: false
@@ -79,8 +79,8 @@ Item {
     // flowWidth wide) and how bright the thumb is.
     property real viewTop: pad + nameRow
     property real viewBottom: Style.space(2)
-    property real chipHeight: Style.space(24)
-    property real spacing: Style.space(3)
+    property real chipHeight: Gap.control
+    property real spacing: Gap.xs
     property real flowWidth: Math.max(1, width - 2 * pad)
     property int perRow: 1
     property bool current: false
@@ -211,37 +211,34 @@ Item {
         }
     }
 
-    GrayText {
+    // The zone's name, a caption in line with its rows' text (PREFS-133):
+    // primary in the cursor's zone, semi-bold in its layer's.
+    InkText {
         visible: cell.nameShown
-        x: cell.pad + Style.space(2)
+        x: cell.pad + Gap.s
         y: cell.pad
         z: 3
         width: cell.width - x - cell.pad
         text: cell.name
-        textFormat: Text.PlainText
-        color: Qt.alpha(Commons.Color.popups.text, cell.nameActive ? 0.9 : 0.5)
-        font.family: Style.font.family
-        font.pixelSize: Style.font.caption
+        role: "caption"
+        tier: cell.nameActive ? 1 : Ink.secondary
         font.weight: cell.nameBold ? Font.DemiBold : Font.Normal
         elide: Text.ElideRight
     }
-    GrayText {
-        x: cell.pad + Style.space(2)
+    InkText {
+        x: cell.pad + Gap.s
         y: cell.emptyY
         visible: cell.emptyShown
         text: cell.emptyText
-        textFormat: Text.PlainText
-        color: Qt.alpha(Commons.Color.popups.text, 0.3)
-        font.family: Style.font.family
-        font.pixelSize: Style.font.caption
+        role: "caption"
     }
     BorderSurface {
         anchors.fill: parent
-        anchors.margins: Style.space(3)
+        anchors.margins: Gap.xs
         visible: cell.focusOutline
         antialiasing: true
         color: "transparent"
-        radius: Math.max(0, cell.radius - Style.space(3))
+        radius: Math.max(0, cell.radius - Gap.xs)
         borderSpec: Border.controlSpec("focus", Commons.Color.popups.text, Commons.Color.accent)
     }
     // The rows, in a window that scrolls when the tile has more rows than

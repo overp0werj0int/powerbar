@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Preferences follows one golden type, spacing and corner scale on every page, the inspectors included: four text sizes from the theme's base size on golden line heights, three text strengths, gaps of 2, 3, 5, 8, 13, 21, 34 and 55 px by how closely things belong together, every control 25 px tall, and corners stepped down from the theme's rounding (square on a square theme). Inspector switch rows and choice chips now match the desks, desk chips drop to the caption size before cutting a word, and the name tip is a small floating surface (PREFS-133, PREFS-134).
+- With Hyprland's animations off (`omarchy toggle animations`) Powerbar no longer animates either, as Omarchy's own widgets do; its own Animations switch still turns motion off on an animated desktop, and its caption says why nothing moves while Hyprland's are off (INTEG-21).
 - The Look, Behavior and Tuning pages now share the Layout page's spacing and type: strips have a tile's 8 px padding and sit 8 px apart, controls are 4 px apart, rows are a chip's height with 4 px of padding, the marked area of a row, fader or row of chips reaches 4 px out, strip captions are the layer captions' size, and shortcut labels are regular weight like the other rows (PREFS-124, PREFS-125, PREFS-129).
 - A fader's tick marks and its default mark are now one height on every page, told apart by strength; before, sliders with few steps showed short ticks and the rest only a tall default mark (PREFS-60, PREFS-127).
 - The key legend's labels start at the same line on every page; before, each page's key column was as wide as its own widest keys (PREFS-103).

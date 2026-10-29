@@ -40,8 +40,11 @@ DeskPage {
     }
   ]
 
+  // l each side of it (PREFS-133), in a body m apart.
   component Hairline: Rectangle {
     Layout.fillWidth: true
+    Layout.topMargin: Gap.l - Gap.m
+    Layout.bottomMargin: Gap.l - Gap.m
     implicitHeight: 1
     color: Qt.alpha(Commons.Color.popups.text, 0.12)
   }
@@ -55,10 +58,7 @@ DeskPage {
     store: behavior.preferences.shortcuts
     suggested: behavior.preferences.shortcuts.suggested(target)
     cursor: activeFocus
-    padding: Style.space(4)
     activeFocusOnTab: false
-    Layout.leftMargin: -Style.space(4)
-    Layout.rightMargin: -Style.space(4)
   }
 
   // ---------------------------------------------------- 1 Comes and goes
@@ -91,8 +91,12 @@ DeskPage {
     }
     DeskRow {
       label: "Animations"
-      caption: "Drawers, drops and peeks move. Off, they snap, and nothing runs each frame."
-      checked: behavior.bar ? behavior.bar.animationsEnabled : true
+      // Powerbar's own option; Hyprland's animations off stops motion too
+      // (INTEG-21), and the caption says so rather than flipping the switch.
+      caption: behavior.bar && !behavior.bar.systemMotion
+        ? "Off while Hyprland's animations are off (omarchy toggle animations)."
+        : "Drawers, drops and peeks move. Off, they snap, and nothing runs each frame."
+      checked: behavior.bar ? behavior.bar.barOptions.animations : true
       onActivated: behavior.preferences.setOption("powerbarAnimations", !checked)
     }
     // Preferences' own look, apart from the bar's motion: the exploded
