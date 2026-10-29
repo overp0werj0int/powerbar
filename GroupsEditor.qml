@@ -2139,7 +2139,7 @@ Item {
         readonly property var landing: widgetLoader.item
         width: editor.chipWidth
         height: editor.chipHeight
-        z: widgetLoader.item && widgetLoader.item.raised ? 1 : 0
+        z: widgetLoader.item && (widgetLoader.item.raised || widgetLoader.item.raise > 0) ? 1 : 0
         Loader {
             active: listRow.kind === "face"
             anchors.fill: parent
@@ -2357,26 +2357,19 @@ Item {
         transform: Translate {
             y: -tile.raise
         }
-        z: raised ? 1 : 0
+        // Over its neighbours while it is up, and while it comes down.
+        z: raised || raise > 0 ? 1 : 0
         height: editor.chipHeight
-        Item {
-            readonly property real drop: tile.ghost ? Style.space(6) : tile.raise + Style.space(3)
-            readonly property real ring: tile.ghost ? 0.09 : editor.lightTheme ? 0.045 : 0.08
+        // The shadow it casts on its tile: one flat band in its shape, as
+        // the Layout page's chips cast (PREFS-104).
+        Rectangle {
             visible: tile.ghost || tile.raise > 0
-            anchors.fill: parent
-            Repeater {
-                model: 6
-                Rectangle {
-                    required property int index
-                    x: -index
-                    y: parent.drop - index
-                    width: parent.width + 2 * index
-                    height: parent.height + 3 * index
-                    radius: editor.chipRadius + index
-                    antialiasing: true
-                    color: Qt.rgba(0, 0, 0, parent.ring)
-                }
-            }
+            y: tile.ghost ? Style.space(6) : tile.raise + Style.space(3)
+            width: parent.width
+            height: parent.height
+            radius: editor.chipRadius
+            antialiasing: true
+            color: Qt.rgba(0, 0, 0, editor.lightTheme ? 0.2 : 0.3)
         }
         readonly property color fill: tile.placeholder ? "transparent" : tile.ghost ? Qt.tint(editor.pageColor, Qt.alpha(Commons.Color.popups.text, 0.15)) : tile.isCursor && editor.stageFocused ? Style.focusFillFor(Commons.Color.popups.text, Commons.Color.accent) : tile.isCursor ? Style.selectedFillFor(Commons.Color.popups.text, Commons.Color.accent) : tile.hovered ? Qt.alpha(Commons.Color.popups.text, 0.14) : Qt.alpha(Commons.Color.popups.text, 0.06)
         BorderSurface {

@@ -1630,31 +1630,23 @@ Item {
         transform: Translate {
             y: -tile.raise
         }
-        z: raised ? 1 : 0
+        // Over its neighbours while it is up, and while it comes down.
+        z: raised || raise > 0 ? 1 : 0
         width: editor.chipWidth
         height: editor.chipHeight
 
-        // The soft shadow a pulled-out or raised chip casts, as far below
-        // it as it has risen: six faint rings, each 2 px wider, which stay
-        // smooth where a blur steps. Lighter on a light theme.
-        Item {
-            readonly property real drop: tile.pulled ? Style.space(6) : tile.raise + Style.space(3)
-            readonly property real ring: (tile.pulled ? 0.09 : editor.lightTheme ? 0.045 : 0.08)
+        // The shadow a pulled-out or raised chip casts on its tile, as far
+        // below it as it has risen: one flat band in the chip's shape, as a
+        // slab's edge and the inspector's shadow are (PREFS-104). Lighter
+        // on a light theme.
+        Rectangle {
             visible: tile.pulled || tile.raise > 0
-            anchors.fill: parent
-            Repeater {
-                model: 6
-                Rectangle {
-                    required property int index
-                    x: -index
-                    y: parent.drop - index
-                    width: parent.width + 2 * index
-                    height: parent.height + 3 * index
-                    radius: surface.radius + index
-                    antialiasing: true
-                    color: Qt.rgba(0, 0, 0, parent.ring)
-                }
-            }
+            y: tile.pulled ? Style.space(6) : tile.raise + Style.space(3)
+            width: parent.width
+            height: parent.height
+            radius: surface.radius
+            antialiasing: true
+            color: Qt.rgba(0, 0, 0, editor.lightTheme ? 0.2 : 0.3)
         }
         // The fill, and under a raised chip its tile's own colour, so what
         // it rises over does not show through.
