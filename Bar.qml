@@ -1969,9 +1969,11 @@ Item {
   property var popupPlacements: []
 
   function placeWidgetPopups(owner) {
-    // KeyboardPanel measures its distance from the whole layer surface.
-    // Our layer includes transparent drawer/shadow space, so compensate its
-    // gap to open at the bar's edge, as Omarchy's bar does. A panel from a
+    // KeyboardPanel measures its distance from the bar's thickness
+    // (barThickness, our barSizeFor(screen name), no edge gaps); an older
+    // Omarchy measured from the whole layer surface, which includes our
+    // transparent drawer/shadow space. Either way, compensate its gap to
+    // open at the bar's edge (extentOf), as Omarchy's bar does. A panel from a
     // drawer member opens there too: the drawer steps aside for it
     // (ManagedDrawer.steppedAside). PopupCard uses item anchors and must keep
     // its existing positioning.
@@ -1990,7 +1992,8 @@ Item {
             item.gap = Qt.binding(function() {
               var host = item.anchorWindow
               if (!host) return Style.gapsOut + record.gapOffset
-              return Style.gapsOut + record.gapOffset + root.extentOf(host) - (root.vertical ? host.width : host.height)
+              var from = "barThickness" in item ? item.barThickness : (root.vertical ? host.width : host.height)
+              return Math.round(Style.gapsOut + record.gapOffset + root.extentOf(host) - from)
             })
           }
         }
