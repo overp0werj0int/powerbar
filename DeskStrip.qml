@@ -10,7 +10,8 @@ import "PreferencesModel.js" as Model
 // apart, a footnote and its faders at the bottom, one under the other. The
 // camera's torn cap and its shade fall over its surface where the camera's
 // column crosses it, continuing what the gaps show. The desk places it and gives every
-// strip the tallest one's height. Its accent edge says the cursor is in it.
+// strip the tallest one's height. Its lift says the cursor is in it, as a
+// tile's does on the Layout page; no outline.
 ZoneTile {
   id: strip
   readonly property bool isDeskStrip: true
@@ -53,7 +54,7 @@ ZoneTile {
   animate: !!desk && desk.animate
   lightTheme: !!desk && desk.lightTheme
   current: holdsCursor
-  borderSpec: holdsCursor ? Border.flat(Qt.alpha(Commons.Color.accent, 0.7), 1) : Border.flat(Qt.alpha(Commons.Color.popups.text, 0.12), 1)
+  borderSpec: Border.flat(Qt.alpha(Commons.Color.popups.text, 0.12), 1)
   Accessible.role: Accessible.Grouping
   Accessible.name: title
 

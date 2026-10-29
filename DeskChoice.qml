@@ -6,7 +6,7 @@ import qs.Ui
 
 // A row of chips on a desk strip (docs/behavior/preferences.md PREFS-128):
 // the chips share the strip by their labels, the chosen one in the selected
-// look, the cursor's chip with an accent ring. Every chip is a stop of its
+// look, the cursor's chip with the focus fill and ring (the Layout chip's). Every chip is a stop of its
 // own: the desk's h/l walk them and go on past the row's ends to the same
 // row of the next strip, Space or Enter chooses, a click chooses.
 RowLayout {
@@ -85,14 +85,14 @@ RowLayout {
         choice.forceActiveFocus(Qt.MouseFocusReason);
         choice.chosen(modelData.value);
       }
-      // The cursor's accent ring.
+      // The cursor's focus fill and ring.
       Rectangle {
         anchors.fill: parent
         visible: chip.cursorHere
-        color: "transparent"
+        color: Style.focusFillFor(Commons.Color.popups.text, Commons.Color.accent)
         radius: chip.radius
         border.width: 1
-        border.color: Commons.Color.accent
+        border.color: Border.controlSpec("focus", Commons.Color.popups.text, Commons.Color.accent).color
         antialiasing: true
       }
     }

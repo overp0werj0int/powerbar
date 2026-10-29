@@ -11,7 +11,9 @@ import qs.Ui
 // in it (the same parity, so it sits on the ring's centre pixel); an action
 // row (`action`) has neither, its label in the accent, like a link. Space,
 // Enter or a click toggles the switch, chooses the row or does the action.
-// With the cursor it takes the chosen fill and the accent ring.
+// With the cursor it looks and lifts as the Layout page's chip does
+// (PREFS-104): the focus fill over the strip's own colour, the focus ring,
+// risen 8 px with its shadow band.
 BorderSurface {
   id: row
   property string label: ""
@@ -33,17 +35,37 @@ BorderSurface {
     .concat(spaceHint ? [{ keys: "space", label: spaceHint }] : [])
 
   readonly property bool hot: mouse.containsMouse && enabled
+  // The strip it is on, for its colour and theme.
+  readonly property Item strip: {
+    for (var p = parent; p; p = p.parent)
+      if (p.isDeskStrip)
+        return p
+    return null
+  }
+  readonly property color base: strip ? strip.surfaceColor : "transparent"
+  CursorLift {
+    id: lift
+    up: row.activeFocus
+    animate: row.strip && row.strip.desk ? row.strip.desk.animate : true
+    lightTheme: row.strip ? row.strip.lightTheme : false
+    radius: row.radius
+  }
+  transform: Translate { y: -lift.raise }
+  scale: lift.grown
+  z: lift.raised ? 1 : 0
   Layout.fillWidth: true
   // The surface reaches into the strip's padding; the text stays in line.
   Layout.leftMargin: -Style.space(8)
   Layout.rightMargin: -Style.space(8)
   implicitHeight: content.implicitHeight + 2 * Style.space(6)
-  radius: Math.max(0, Math.min(Style.space(8), Style.cornerRadius))
+  radius: Math.max(0, Math.min(Style.space(5), Style.cornerRadius - Style.space(3)))
   activeFocusOnTab: false
   opacity: enabled ? 1 : 0.45
-  color: activeFocus ? Style.selectedFillFor(Commons.Color.popups.text, Commons.Color.accent)
-    : hot ? Style.hoverFillFor(Commons.Color.popups.text, Commons.Color.accent) : "transparent"
-  borderSpec: activeFocus ? Border.flat(Commons.Color.accent, 1) : Border.none()
+  // Risen, the strip's own colour under the fill, so the row it rises over
+  // does not show through.
+  color: activeFocus ? Qt.tint(base, Style.focusFillFor(Commons.Color.popups.text, Commons.Color.accent))
+    : hot ? Qt.alpha(Commons.Color.popups.text, 0.14) : "transparent"
+  borderSpec: activeFocus ? Border.controlSpec("focus", Commons.Color.popups.text, Commons.Color.accent) : Border.none()
   Accessible.role: action ? Accessible.Button : pick ? Accessible.RadioButton : Accessible.CheckBox
   Accessible.name: label
   Accessible.description: caption
@@ -96,7 +118,6 @@ BorderSurface {
         color: row.action ? Commons.Color.accent : Commons.Color.popups.text
         font.family: Style.font.family
         font.pixelSize: Style.font.body
-        font.bold: true
         elide: Text.ElideRight
       }
       GrayText {

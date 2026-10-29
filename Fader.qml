@@ -179,7 +179,7 @@ Item {
         radius: Style.space(5)
         color: "transparent"
         border.width: 1
-        border.color: Commons.Color.accent
+        border.color: Border.controlSpec("focus", Commons.Color.popups.text, Commons.Color.accent).color
         antialiasing: true
       }
       Rectangle {

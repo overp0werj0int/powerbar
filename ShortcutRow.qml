@@ -25,9 +25,27 @@ BorderSurface {
   // Where the label starts: compact rows indent; beside unindented choices, 0.
   property real padding: Style.spacing.rowPaddingX
   // A line under the label (a desk's rows, PREFS-129), and the desk's cursor
-  // look: the chosen fill with the accent ring.
+  // look: the Layout chip's focus fill and ring, risen with its shadow band
+  // (PREFS-104).
   property string caption: ""
   property bool cursor: false
+  readonly property Item strip: {
+    for (var p = parent; p; p = p.parent)
+      if (p.isDeskStrip)
+        return p
+    return null
+  }
+  readonly property color base: strip ? strip.surfaceColor : "transparent"
+  CursorLift {
+    id: lift
+    up: row.cursor
+    animate: row.strip && row.strip.desk ? row.strip.desk.animate : true
+    lightTheme: row.strip ? row.strip.lightTheme : false
+    radius: row.radius
+  }
+  transform: Translate { y: -lift.raise }
+  scale: lift.grown
+  z: lift.raised ? 1 : 0
 
   // "idle", "recording" or "confirm" (the keys belong to something else).
   property string phase: "idle"
@@ -119,12 +137,11 @@ BorderSurface {
 
   Layout.fillWidth: true
   implicitHeight: Math.max(Style.spacing.controlHeight + Style.space(8), labelColumn.implicitHeight + 2 * Style.space(6))
-  radius: Math.max(0, Style.cornerRadius - Math.round(Style.spacing.rowPaddingX / 2))
-  color: phase !== "idle" ? Qt.alpha(Commons.Color.accent, 0.1)
-    : cursor ? Style.selectedFillFor(Commons.Color.popups.text, Commons.Color.accent)
-    : rowMouse.containsMouse && usable ? Style.hoverFillFor(Commons.Color.popups.text, Commons.Color.accent) : "transparent"
-  borderSpec: phase !== "idle" ? Border.controlSpec("focus", Commons.Color.popups.text, Commons.Color.accent)
-    : cursor ? Border.flat(Commons.Color.accent, 1) : Border.none()
+  radius: Math.max(0, Math.min(Style.space(5), Style.cornerRadius - Style.space(3)))
+  color: phase !== "idle" ? Qt.tint(base, Qt.alpha(Commons.Color.accent, 0.1))
+    : cursor ? Qt.tint(base, Style.focusFillFor(Commons.Color.popups.text, Commons.Color.accent))
+    : rowMouse.containsMouse && usable ? Qt.alpha(Commons.Color.popups.text, 0.14) : "transparent"
+  borderSpec: phase !== "idle" || cursor ? Border.controlSpec("focus", Commons.Color.popups.text, Commons.Color.accent) : Border.none()
   opacity: usable ? 1 : 0.45
   activeFocusOnTab: true
   Accessible.role: Accessible.Button
