@@ -75,13 +75,14 @@ Item {
         return n;
     }
     property string filterText: ""
-    // The filter takes the keys (PREFS-42): / opens it from anywhere on
-    // the page, Esc clears it and goes back to where / was pressed, Enter
-    // or Down goes to the matches keeping it.
+    // The filter takes the keys (PREFS-42): / opens it while walking the
+    // groups and widgets (not from the inspector, which edits one group,
+    // nor its icon picker), Esc clears it and goes back to where / was
+    // pressed, Enter or Down goes to the matches keeping it.
     property bool filtering: false
     property var filterFrom: null
     function openFilter() {
-        if (lifted)
+        if (lifted || picker.opened || within(focused, inspector))
             return;
         if (!filtering)
             filterFrom = {
@@ -2093,7 +2094,7 @@ Item {
             keys: "space",
             label: "Move it to that zone"
         }
-    ] : []).concat(focused && focused.cursorPosition !== undefined ? [] : [filterLine]).concat([
+    ] : []).concat([
         {
             keys: "esc",
             label: "Back to the faces"
