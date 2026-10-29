@@ -88,19 +88,23 @@ Item {
     readonly property alias tiles: chipTiles
     readonly property color surfaceColor: well.color
 
-    // The slab's thickness, below it, the same on every tile. A raised
-    // tile's edge reaches down to the line it rested on, one block with no
-    // seam (the chips' attached band, PREFS-104), so a lifted tile reads as
-    // lifted and not as one drawn a little higher. Edges under the tilt
-    // are drawn antialiased, or they step.
+    // The slab's thickness, below it, the same on every tile: only the
+    // band under the tile is drawn, from its bottom edge down, half a
+    // pixel in from each side so nothing of it shows along the tile's
+    // sides under the tilt, square at the top and rounded at the bottom.
+    // A raised tile's edge reaches down to the line it rested on, one
+    // block with no seam (the chips' attached band, PREFS-104), so a lifted
+    // tile reads as lifted and not as one drawn a little higher. Edges
+    // under the tilt are drawn antialiased, or they step.
     Rectangle {
         visible: !cell.dashed
-        y: Style.space(6)
-        width: parent.width
-        height: parent.height + cell.raise
+        x: 0.5
+        y: parent.height
+        width: parent.width - 1
+        height: Style.space(6) + cell.raise
         radius: cell.radius
-        topLeftRadius: cell.topRadius
-        topRightRadius: cell.topRadius
+        topLeftRadius: 0
+        topRightRadius: 0
         antialiasing: true
         color: Qt.rgba(0, 0, 0, cell.lightTheme ? 0.3 : 0.45)
     }
