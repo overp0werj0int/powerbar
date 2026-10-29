@@ -203,8 +203,22 @@ Item {
     return null;
   }
   property var remembered: null
-  onFocusedControlChanged: if (focusedControl)
-    remembered = locate()
+  // The control the cursor was last on, to see it give way.
+  property Item lastControl: null
+  onFocusedControlChanged: {
+    if (focusedControl) {
+      remembered = locate();
+      lastControl = focusedControl;
+      return;
+    }
+    // The control under the cursor gave way (the Notch strip's action row
+    // dims once used): the cursor stays in the strip, on the nearest
+    // control left, instead of leaving the desk with nothing focused.
+    var gone = lastControl;
+    lastControl = null;
+    if (gone && !gone.enabled)
+      Qt.callLater(focusFirst);
+  }
   function go(place, reason) {
     if (!place || !stripList[place.strip])
       return;
