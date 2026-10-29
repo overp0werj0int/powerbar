@@ -88,29 +88,16 @@ Item {
     readonly property alias tiles: chipTiles
     readonly property color surfaceColor: well.color
 
-    // The shadow a raised tile casts on its layer, where it stood: a flat
-    // band in the tile's shape (the chips' shadow, PREFS-104) whose bottom
-    // stays on the resting edge's line, with a sliver of the layer showing
-    // between the edge the tile took with it and the shadow, so the tile
-    // reads as lifted and not as a tile drawn a little higher.
-    Rectangle {
-        readonly property real gap: Style.space(3)
-        visible: !cell.dashed && cell.raise > gap
-        y: cell.height + Style.space(6) + gap
-        width: parent.width
-        height: Math.max(0, cell.raise - gap)
-        radius: cell.radius
-        antialiasing: true
-        color: Qt.rgba(0, 0, 0, cell.lightTheme ? 0.2 : 0.3)
-    }
-    // The slab's thickness, below it, the same on every tile: a raised
-    // tile takes its edge with it. Edges under the tilt are drawn
-    // antialiased, or they step.
+    // The slab's thickness, below it, the same on every tile. A raised
+    // tile's edge reaches down to the line it rested on, one block with no
+    // seam (the chips' attached band, PREFS-104), so a lifted tile reads as
+    // lifted and not as one drawn a little higher. Edges under the tilt
+    // are drawn antialiased, or they step.
     Rectangle {
         visible: !cell.dashed
         y: Style.space(6)
         width: parent.width
-        height: parent.height
+        height: parent.height + cell.raise
         radius: cell.radius
         topLeftRadius: cell.topRadius
         topRightRadius: cell.topRadius
