@@ -952,12 +952,12 @@ Item {
             anchors.fill: parent
             hoverEnabled: true
             preventStealing: true
-            cursorShape: editor.pointerLift ? Qt.ClosedHandCursor : editor.hoverKey.indexOf("member:") === 0 || editor.hoverKey.indexOf("pool:") === 0 || editor.hoverKey.indexOf("face:") === 0 ? Qt.OpenHandCursor : editor.hoverKey.indexOf("plus:") === 0 ? Qt.PointingHandCursor : Qt.ArrowCursor
+            cursorShape: editor.pointerLift ? Qt.ClosedHandCursor : editor.hoverKey === "filter:" ? Qt.IBeamCursor : editor.hoverKey.indexOf("member:") === 0 || editor.hoverKey.indexOf("pool:") === 0 || editor.hoverKey.indexOf("face:") === 0 ? Qt.OpenHandCursor : editor.hoverKey.indexOf("plus:") === 0 ? Qt.PointingHandCursor : Qt.ArrowCursor
             onPositionChanged: function (mouse) {
                 var point = Qt.point(mouse.x, mouse.y);
                 if (!editor.pointerLift) {
-                    var hit = editor.hitAt(point);
-                    editor.hoverKey = hit ? hit.key : "";
+                    var hit = editor.overFilter(point) ? null : editor.hitAt(point);
+                    editor.hoverKey = hit ? hit.key : editor.overFilter(point) ? "filter:" : "";
                     editor.hoverOn(pressed ? null : hit);
                 }
                 if (pressed && editor.pressed && !editor.pointerLift && Math.abs(point.x - editor.pressPoint.x) + Math.abs(point.y - editor.pressPoint.y) > Style.space(6)) {
@@ -990,6 +990,18 @@ Item {
                     editor.cancel();
                 editor.pressSpent = false;
                 var point = Qt.point(mouse.x, mouse.y);
+                // A click on the filter opens it, as / does; anywhere else
+                // ends its hold on the keys, keeping its text.
+                if (editor.overFilter(point)) {
+                    editor.pressed = null;
+                    editor.pressSpent = true;
+                    editor.openFilter();
+                    return;
+                }
+                if (editor.filtering) {
+                    editor.filtering = false;
+                    editor.filterFrom = null;
+                }
                 editor.pressPoint = point;
                 var hit = editor.hitAt(point);
                 editor.pressed = hit && (hit.kind === "member" || hit.kind === "poolchip" || hit.kind === "face") ? hit : null;
@@ -1027,6 +1039,11 @@ Item {
     }
     function inView(win, point) {
         return win.viewContains(win.mapFromItem(editor, point.x, point.y));
+    }
+    // Whether a point on the stage is on the pool's filter, through the tilt.
+    function overFilter(point) {
+        var q = filterBox.mapFromItem(stage, point.x, point.y);
+        return filterBox.visible && q.x >= 0 && q.y >= 0 && q.x <= filterBox.width && q.y <= filterBox.height;
     }
     function hitAt(point) {
         for (var z = 0; z < zones.length; z++) {
