@@ -9,7 +9,7 @@ import qs.Ui
 // look, the cursor's chip with the focus fill and ring (the Layout chip's). Every chip is a stop of its
 // own: the desk's h/l walk them and go on past the row's ends to the same
 // row of the next strip, Space or Enter chooses, a click chooses.
-RowLayout {
+Item {
   id: choice
   // [{ value, label }]
   property var options: []
@@ -43,8 +43,32 @@ RowLayout {
   else if (cursor < 0)
     cursor = Math.max(0, chosenIndex)
 
-  spacing: Style.space(2)
+  // With the cursor the row lifts as one, as a desk row does (PREFS-104,
+  // PREFS-129), on a plate of the strip's colour.
+  readonly property Item strip: {
+    for (var p = parent; p; p = p.parent)
+      if (p.isDeskStrip)
+        return p;
+    return null;
+  }
+  CursorLift {
+    id: lift
+    up: choice.activeFocus
+    animate: choice.strip && choice.strip.desk ? choice.strip.desk.animate : true
+    lightTheme: choice.strip ? choice.strip.lightTheme : false
+    radius: Math.max(0, Math.min(Style.space(5), Style.cornerRadius - Style.space(3)))
+    plate: choice.strip ? choice.strip.surfaceColor : "transparent"
+    padX: Style.space(4)
+    padY: Style.space(4)
+  }
+  transform: Translate {
+    y: -lift.raise
+  }
+  scale: lift.grown
+  z: lift.raised ? 1 : 0
   Layout.fillWidth: true
+  implicitWidth: chips.implicitWidth
+  implicitHeight: chips.implicitHeight
   opacity: enabled ? 1 : 0.45
   activeFocusOnTab: false
   Accessible.role: Accessible.RadioButton
@@ -62,38 +86,43 @@ RowLayout {
     event.accepted = true;
   }
 
-  Repeater {
-    model: choice.options
-    Button {
-      id: chip
-      required property var modelData
-      required property int index
-      readonly property bool cursorHere: choice.activeFocus && index === choice.cursor
-      Layout.fillWidth: true
-      // The chips share the strip by their labels, so "Everywhere" fits.
-      Layout.preferredWidth: implicitWidth
-      text: modelData.label
-      selected: index === choice.chosenIndex
-      bordered: true
-      foreground: Commons.Color.popups.text
-      background: "transparent"
-      fontSize: Style.font.caption
-      verticalPadding: Style.space(4)
-      horizontalPadding: Style.space(3)
-      onClicked: {
-        choice.cursor = index;
-        choice.forceActiveFocus(Qt.MouseFocusReason);
-        choice.chosen(modelData.value);
-      }
-      // The cursor's focus fill and ring.
-      Rectangle {
-        anchors.fill: parent
-        visible: chip.cursorHere
-        color: Style.focusFillFor(Commons.Color.popups.text, Commons.Color.accent)
-        radius: chip.radius
-        border.width: 1
-        border.color: Border.controlSpec("focus", Commons.Color.popups.text, Commons.Color.accent).color
-        antialiasing: true
+  RowLayout {
+    id: chips
+    anchors.fill: parent
+    spacing: Style.space(2)
+    Repeater {
+      model: choice.options
+      Button {
+        id: chip
+        required property var modelData
+        required property int index
+        readonly property bool cursorHere: choice.activeFocus && index === choice.cursor
+        Layout.fillWidth: true
+        // The chips share the strip by their labels, so "Everywhere" fits.
+        Layout.preferredWidth: implicitWidth
+        text: modelData.label
+        selected: index === choice.chosenIndex
+        bordered: true
+        foreground: Commons.Color.popups.text
+        background: "transparent"
+        fontSize: Style.font.caption
+        verticalPadding: Style.space(4)
+        horizontalPadding: Style.space(3)
+        onClicked: {
+          choice.cursor = index;
+          choice.forceActiveFocus(Qt.MouseFocusReason);
+          choice.chosen(modelData.value);
+        }
+        // The cursor's focus fill and ring.
+        Rectangle {
+          anchors.fill: parent
+          visible: chip.cursorHere
+          color: Style.focusFillFor(Commons.Color.popups.text, Commons.Color.accent)
+          radius: chip.radius
+          border.width: 1
+          border.color: Border.controlSpec("focus", Commons.Color.popups.text, Commons.Color.accent).color
+          antialiasing: true
+        }
       }
     }
   }

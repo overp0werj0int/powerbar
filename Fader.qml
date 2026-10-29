@@ -74,6 +74,28 @@ Item {
   readonly property int ticks: SliderModel.tickCount(minimum, maximum, stepSize)
   function xFor(v) { return trackLength * SliderModel.progress(v, minimum, maximum) }
 
+  // With the cursor it lifts as a desk row does (PREFS-104, PREFS-129), on a
+  // plate of the strip's colour reaching into the strip's padding; the
+  // knob's ring stays its mark.
+  readonly property Item strip: {
+    for (var p = parent; p; p = p.parent)
+      if (p.isDeskStrip)
+        return p
+    return null
+  }
+  CursorLift {
+    id: lift
+    up: fader.activeFocus
+    animate: fader.animate
+    lightTheme: fader.strip ? fader.strip.lightTheme : false
+    radius: Math.max(0, Math.min(Style.space(5), Style.cornerRadius - Style.space(3)))
+    plate: fader.strip ? fader.strip.surfaceColor : "transparent"
+    padX: Style.space(8)
+    padY: Style.space(4)
+  }
+  transform: Translate { y: -lift.raise }
+  scale: lift.grown
+  z: lift.raised ? 1 : 0
   Layout.fillWidth: true
   implicitWidth: Style.space(120)
   implicitHeight: column.implicitHeight
