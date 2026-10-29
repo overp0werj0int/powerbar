@@ -46,7 +46,7 @@ name (INTEG-121).
 - **INTEG-18** `bar.powerbarManagedExitGraceSeconds`: default 1 s, clamped 1 to 15 (also the inline collapse delay).
 - **INTEG-19** `bar.powerbarKeyLegend` (bool, default `true`; only `false` hides it) shows the key legend in the keyboard mode.
 - **INTEG-20** `bar.powerbarDotsBadge` (bool, default `true`; only `false` hides) shows badges on the zone dots.
-- **INTEG-21** `bar.powerbarAnimations` (bool, default `true`; only `false` turns animations off).
+- **INTEG-21** `bar.powerbarAnimations` (bool, default `true`; only `false` turns animations off). `bar.powerbarPreferencesTilt` (bool, default `true`; only `false` lays Preferences' pages flat, PREFS-99).
 - **INTEG-22** `bar.powerbarLargeBar` (bool, default `false`) makes the bar thicker by `2 x Style.space(6)` over the theme's size. Code: `barSizeFor`.
 - **INTEG-23** `bar.powerbarSpacingMode` is `slots` or `gaps` (only the exact string `gaps` selects gaps; default `slots`).
 - **INTEG-24** `bar.powerbarSpacing`: number 0 to 16 in steps of 1, default 4, clamped. Code: `AppearanceModel.ranges.spacing`.
@@ -149,6 +149,7 @@ bar uses now, the stored value or its default:
 | `onDemand` | choice drawer, inline, menu | `powerbarOnDemand` | drawer |
 | `dotsBadge` | bool | `powerbarDotsBadge` | true |
 | `keyLegend` | bool | `powerbarKeyLegend` | true |
+| `preferencesTilt` | bool | `powerbarPreferencesTilt` | true |
 | `frameLog` | bool | `powerbarFrameLog` | false |
 | `tuning` | bool | `powerbarTuning` | false |
 | `notchWidth` | number 40 to 600, step 1 (logical px; the camera's keep-out, ZONE-89) | `powerbarNotchWidth` | the camera housing (191 at scale 2 on a 14" Pro), 191 on a machine without a notch; `get` answers the width in use, `null` with no notch and none set |

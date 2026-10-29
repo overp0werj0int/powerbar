@@ -36,6 +36,8 @@ function options(config) {
     onDemand: c.powerbarOnDemand === "inline" || c.powerbarOnDemand === "menu" ? c.powerbarOnDemand : "drawer",
     animations: c.powerbarAnimations !== false,
     keyLegend: c.powerbarKeyLegend !== false,
+    // Preferences' pages as tilted plates (PREFS-99); false lays them flat.
+    preferencesTilt: c.powerbarPreferencesTilt !== false,
     dotsBadge: c.powerbarDotsBadge !== false,
     frameLog: c.powerbarFrameLog === true,
     // The Tuning page, for development (INTEG-155).

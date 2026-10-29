@@ -95,6 +95,14 @@ DeskPage {
       checked: behavior.bar ? behavior.bar.animationsEnabled : true
       onActivated: behavior.preferences.setOption("powerbarAnimations", !checked)
     }
+    // Preferences' own look, apart from the bar's motion: the exploded
+    // view's tilt (PREFS-99), flat for a plainer page.
+    DeskRow {
+      label: "Pages in perspective"
+      caption: "Preferences draws its pages as plates tilted back. Off, they lie flat."
+      checked: behavior.preferences.options.preferencesTilt
+      onActivated: behavior.preferences.setOption("powerbarPreferencesTilt", !checked)
+    }
   }
 
   // --------------------------------------------------------- 2 On demand

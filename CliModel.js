@@ -26,6 +26,7 @@ var settings = [
   { name: "onDemand", key: "powerbarOnDemand", type: "choice", choices: ["drawer", "inline", "menu"], writer: "option" },
   { name: "dotsBadge", key: "powerbarDotsBadge", type: "bool", writer: "option" },
   { name: "keyLegend", key: "powerbarKeyLegend", type: "bool", writer: "option" },
+  { name: "preferencesTilt", key: "powerbarPreferencesTilt", type: "bool", writer: "option" },
   // Not in Preferences; shell.json keys kept for anyone who sets them by hand.
   { name: "revealSeconds", key: "powerbarManagedRevealSeconds", type: "number", min: 1, max: 60, writer: "option" },
   { name: "entryGraceSeconds", key: "powerbarManagedEntryGraceSeconds", type: "number", min: 1, max: 15, writer: "option" },

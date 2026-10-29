@@ -36,7 +36,7 @@ const firstParty = { firstParty: true };
 test('clean config gives a stock-like bar: flat, top, always out, theme size', () => {
   assert.deepEqual(plain(bar.options(stock())), {
     style: 'flat', autoHide: false, autoHideActivity: true, largeBar: false,
-    spacingMode: 'slots', onDemand: 'drawer', animations: true, keyLegend: true, dotsBadge: true,
+    spacingMode: 'slots', onDemand: 'drawer', animations: true, keyLegend: true, preferencesTilt: true, dotsBadge: true,
     frameLog: false, tuning: false, notchWidth: 0, notchHeight: 0, centerSide: 'right'
   });
   assert.deepEqual(plain(bar.options(undefined)), plain(bar.options({})));
@@ -48,11 +48,11 @@ test('clean config keeps every option the user set', () => {
   const set = Object.assign(stock(), {
     powerbarStyle: 'islands', powerbarAutoHide: true, powerbarAutoHideActivity: false, powerbarLargeBar: true,
     powerbarSpacingMode: 'gaps', powerbarOnDemand: 'inline', powerbarAnimations: false,
-    powerbarKeyLegend: false, powerbarDotsBadge: false, powerbarFrameLog: true, powerbarTuning: true
+    powerbarKeyLegend: false, powerbarPreferencesTilt: false, powerbarDotsBadge: false, powerbarFrameLog: true, powerbarTuning: true
   });
   assert.deepEqual(plain(bar.options(set)), {
     style: 'islands', autoHide: true, autoHideActivity: false, largeBar: true,
-    spacingMode: 'gaps', onDemand: 'inline', animations: false, keyLegend: false, dotsBadge: false,
+    spacingMode: 'gaps', onDemand: 'inline', animations: false, keyLegend: false, preferencesTilt: false, dotsBadge: false,
     frameLog: true, tuning: true, notchWidth: 0, notchHeight: 0, centerSide: 'right'
   });
   assert.equal(bar.options({ powerbarIslands: true }).style, 'islands');

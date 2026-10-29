@@ -92,8 +92,8 @@ Item {
     // ------------------------------------------------------------- geometry
     // The layers tilt back 34 degrees seen from 1600 px (Qt's
     // Rotation.distanceToPlane), as the design board draws them; with
-    // animations off they lie flat (PREFS-99).
-    readonly property real tilt: bar && !bar.animationsEnabled ? 0 : 34
+    // Behavior's "Pages in perspective" off they lie flat (PREFS-99).
+    readonly property real tilt: preferences.options.preferencesTilt ? 34 : 0
     readonly property real planeDistance: Style.space(1600)
     readonly property real layerGap: Style.space(30)
     readonly property real platePad: Style.space(12)

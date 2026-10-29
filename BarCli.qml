@@ -49,6 +49,7 @@ Item {
     case "onDemand": return b.onDemandMode
     case "dotsBadge": return b.dotsBadge
     case "keyLegend": return b.keyLegend
+    case "preferencesTilt": return b.barOptions.preferencesTilt
     case "frameLog": return b.frameLog
     case "tuning": return b.barOptions.tuning
     case "notchWidth": return b.screenNotch ? b.screenNotch.width : b.barOptions.notchWidth || null
