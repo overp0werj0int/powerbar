@@ -31,9 +31,11 @@ Item {
   anchors.topMargin: -padY
   anchors.bottomMargin: -padY
   z: -1
+  // Tuning's Controls rise (PREFS-132): off, nothing rises and the item
+  // keeps only its fill and ring.
   Rise {
     id: rise
-    up: lift.up
+    up: lift.up && Tuning.values.controlLift !== 0
     height: lift.reach
     animate: lift.animate
   }

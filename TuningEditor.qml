@@ -6,9 +6,9 @@ import qs.Commons as Commons
 // The Tuning page (docs/behavior/preferences.md PREFS-132), there only with
 // `powerbarTuning` on (INTEG-155): the development numbers behind the look as
 // faders on a desk (DeskPage) under the same camera, so what they change
-// shows as they move. One strip per section of TuningModel.SECTIONS, the
-// values in Tuning (the singleton), and a Debugging strip with the frame log
-// switch. Adding a number is one line in the model and one binding where it
+// shows as they move. One strip per section of TuningModel.SECTIONS (a
+// toggle is a switch row), the values in Tuning (the singleton), and a
+// Debugging strip with the frame log switch. Adding a number is one line in the model and one binding where it
 // is read.
 DeskPage {
   id: page
@@ -68,10 +68,24 @@ DeskPage {
       caption: modelData.caption
       faders: [
         Repeater {
-          model: strip.modelData.params
+          model: strip.modelData.params.filter(function (p) {
+            return !p.toggle;
+          })
           TuningFader {}
         }
       ]
+      Repeater {
+        model: strip.modelData.params.filter(function (p) {
+          return !!p.toggle;
+        })
+        DeskRow {
+          required property var modelData
+          label: modelData.label
+          caption: modelData.caption || ""
+          checked: Tuning.values[modelData.key] !== 0
+          onActivated: Tuning.set(modelData.key, checked ? 0 : 1)
+        }
+      }
     }
   }
 

@@ -9,13 +9,14 @@ const plain = (v) => JSON.parse(JSON.stringify(v));
 // PREFS-132, PREFS-24: the Tuning page's numbers, the shipped look as the
 // defaults, kept in the cache file while the page is on.
 const DEFAULTS = {
+  controlLift: 1,
   gapAbove: 35, tearDepth: 8, grain: 31, octaves: 3, seed: 24,
   fringeWidth: 12, fringeStrength: 13, fringeSeed: 12,
   shadeBlur: 4, shadeDrop: 7, shadeStrength: 16, shadeSpread: 0,
 };
 
-test('the sections hold the camera tear\'s twelve numbers, the shipped look as defaults', () => {
-  assert.deepEqual(plain(model.SECTIONS.map((s) => s.id)), ['tear', 'fringe', 'shade']);
+test('the sections hold the lift switch and the camera tear\'s twelve numbers, the shipped look as defaults', () => {
+  assert.deepEqual(plain(model.SECTIONS.map((s) => s.id)), ['lift', 'tear', 'fringe', 'shade']);
   assert.deepEqual(plain(model.defaults()), DEFAULTS);
   assert.deepEqual(plain(model.PARAMS.map((p) => p.key)), Object.keys(DEFAULTS));
   for (const p of model.PARAMS) {
@@ -23,6 +24,15 @@ test('the sections hold the camera tear\'s twelve numbers, the shipped look as d
     assert.ok(p.label && typeof p.unit === 'string', p.key);
   }
   for (const s of model.SECTIONS) assert.ok(s.title && s.caption, s.id);
+});
+
+test('a toggle is 1 on and 0 off, on by default', () => {
+  const toggles = model.PARAMS.filter((p) => p.toggle);
+  assert.deepEqual(plain(toggles.map((p) => p.key)), ['controlLift']);
+  for (const p of toggles) assert.deepEqual([p.min, p.max, p.value], [0, 1, 1], p.key);
+  assert.equal(model.clamp('controlLift', 0), 0);
+  assert.equal(model.clamp('controlLift', 7), 1);
+  assert.equal(model.parse(JSON.stringify({ controlLift: 0 })).controlLift, 0);
 });
 
 test('keys are unique across sections', () => {

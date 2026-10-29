@@ -13,7 +13,8 @@ import qs.Ui
 // Enter or a click toggles the switch, chooses the row or does the action.
 // With the cursor it looks and lifts as the Layout page's chip does
 // (PREFS-104): the focus fill over the strip's own colour, the focus ring,
-// risen 8 px with its shadow band; in a pick group the whole group lifts.
+// risen 8 px with its shadow band; in a pick group the whole group lifts
+// and draws the ring, and the row keeps its fill.
 BorderSurface {
   id: row
   property string label: ""
@@ -67,7 +68,7 @@ BorderSurface {
   // does not show through.
   color: activeFocus ? Qt.tint(base, Style.focusFillFor(Commons.Color.popups.text, Commons.Color.accent))
     : hot ? Qt.alpha(Commons.Color.popups.text, 0.14) : "transparent"
-  borderSpec: activeFocus ? Border.controlSpec("focus", Commons.Color.popups.text, Commons.Color.accent) : Border.none()
+  borderSpec: activeFocus && !grouped ? Border.controlSpec("focus", Commons.Color.popups.text, Commons.Color.accent) : Border.none()
   Accessible.role: action ? Accessible.Button : pick ? Accessible.RadioButton : Accessible.CheckBox
   Accessible.name: label
   Accessible.description: caption

@@ -7,10 +7,18 @@
 //
 // Adding a number: one entry here, one binding where it is read. Lengths
 // are page px; grain is thousandths of a bump per px; strengths are percent.
-// Every value is a whole number in its range; keys are unique across
-// sections.
+// A `toggle` is a switch row instead of a fader, 1 on and 0 off. Every value
+// is a whole number in its range; keys are unique across sections.
 
 var SECTIONS = [
+  {
+    id: "lift",
+    title: "Lift",
+    caption: "What rises with the cursor on the desks (PREFS-104). Widgets on Layout and Groups and the cards rise either way.",
+    params: [
+      { key: "controlLift", label: "Controls rise", caption: "Rows, groups of pick rows, faders and rows of chips. Off, they keep their fill and ring and stay down.", unit: "", min: 0, max: 1, value: 1, toggle: true }
+    ]
+  },
   {
     id: "tear",
     title: "Tear",
