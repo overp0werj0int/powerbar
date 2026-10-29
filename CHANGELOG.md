@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- A drawer, group drawer or menu opened by a click now closes on its own 1 s after the pointer has left it and the bar (the exit grace), and keyboard focus goes back to the window that had it; before, it stayed until Esc or a click outside. A key pressed in it makes it a keyboard drawer again, which keeps no timer. In menu mode, leaving a group's icon now starts its drawer's grace too (DEMAND-104, GROUP-36).
 - The strip the cursor is in on the Look, Behavior and Tuning pages rises 5 px off its plate like the cursor's tile on the Layout and Groups pages; the rise now lives in the shared tile (ZoneTile), so every card lifts the same way (PREFS-104, PREFS-125).
 - The inspector's zone map draws its camera under a chosen or focused Center cell's border instead of over it (PREFS-26).
 - Preferences' tilted pages are their own switch: Behavior > Comes and goes > "Pages in perspective" (`powerbarPreferencesTilt`, default on, `preferencesTilt` on the CLI). Before, turning Animations off also laid every page flat (PREFS-70, PREFS-99).

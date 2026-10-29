@@ -37,6 +37,20 @@ test('hover and interaction suspend dismissal; entry and exit remain distinct', 
   assert.equal(m.dismissDelay(false, false, true, true, 5, 7), 0);
   assert.equal(m.dismissDelay(false, false, false, false, 5, 7), 5000);
   assert.equal(m.dismissDelay(false, false, false, true, 5, 7), 7000);
+  // Hovering the rest of the bar keeps no hover drawer.
+  assert.equal(m.dismissDelay(false, false, false, false, 5, 7, false, true), 5000);
+});
+test('a drawer pinned by a click stays while the pointer is on the bar and goes after the exit grace once it has left', () => {
+  // The pointer anywhere on the bar, the source or the drawer: no timer.
+  assert.equal(m.dismissDelay(false, false, false, false, 5, 7, true, true), 0);
+  assert.equal(m.dismissDelay(true, false, false, false, 5, 7, true, false), 0);
+  assert.equal(m.dismissDelay(false, true, false, true, 5, 7, true, false), 0);
+  // Left the bar and the drawer: the exit grace, whether it was entered or not.
+  assert.equal(m.dismissDelay(false, false, false, false, 5, 7, true, false), 7000);
+  assert.equal(m.dismissDelay(false, false, false, true, 5, 7, true, false), 7000);
+  // Held (driven by keys, a panel open, a drag): no timer.
+  assert.equal(m.dismissDelay(false, false, true, true, 5, 7, true, false), 0);
+  assert.equal(m.dismissDelay(false, false, true, true, 5, 7, false, false), 0);
 });
 test('only public presentation values enter the activity snapshot', () => {
   const widget = { text: '4', icon: 'bell', value: 4, width: 20, visible: false, opacity: 0 };

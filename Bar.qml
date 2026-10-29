@@ -4355,6 +4355,34 @@ Item {
     // the panel got none.
     readonly property bool drawerKeys: !root.barKeys.heldBy(barWindow) && drawer.opened && drawer.keyboardMode && !drawer.steppedAside
     readonly property bool wantsKeys: keysHere || drawerKeys
+    // Focus back (DEMAND-104): a drawer pinned by a click that closes on its
+    // timer gives the keys back to the window that had them when it took
+    // them, since the bar letting go of the keys focuses no window by itself.
+    // Only for the timer: an outside click focuses what it lands on
+    // (DEMAND-25), and Esc or a second click leave the pointer on the bar.
+    // The window's Hyprland address ("0x…") when the drawer took the keys,
+    // kept until it closes (not lost to a moment without a focused window,
+    // such as back from a member's panel).
+    property string keysTakenFrom: ""
+    onDrawerKeysChanged: if (drawerKeys) keysTakenFrom = hyprAddress(Hyprland.activeToplevel) || keysTakenFrom
+    function hyprAddress(toplevel) {
+      var address = toplevel ? String(toplevel.address || "") : ""
+      if (address && !/^0x/i.test(address)) address = "0x" + address
+      return /^0x[0-9a-f]+$/i.test(address) ? address : ""
+    }
+    // Once the bar has stopped asking for the keys, and only if the window is
+    // still there on a shown workspace (focusing it must not switch one).
+    // Newer Omarchy runs Hyprland on Lua, where a dispatch is Lua.
+    function returnFocus(address) {
+      if (!address || barWindow.keyboardFocusMode !== WlrKeyboardFocus.None) return
+      var target = (Hyprland.toplevels ? Hyprland.toplevels.values : []).find(function(t) { return barWindow.hyprAddress(t) === address })
+      if (!target || (target.workspace && !target.workspace.active)) return
+      Hyprland.dispatch(Hyprland.usingLua === true ? 'hl.dsp.focus({window = hl.get_window("address:' + address + '")})'
+        : "focuswindow address:" + address)
+    }
+    // A moment after the close, so the layer's release of the keys reaches
+    // Hyprland before the focus request.
+    Timer { id: focusBack; interval: 50; property string address: ""; onTriggered: barWindow.returnFocus(address) }
     // As Omarchy's keyboard panels do: Exclusive takes the keyboard, then
     // OnDemand keeps it. Exclusive alone would send every click to the bar,
     // so a click elsewhere could never clear the mode's grab (keysGrab) or a
@@ -4493,9 +4521,16 @@ Item {
       // Only an explicitly opened keyboard drawer needs outside-click dismissal.
       active: drawer.opened && drawer.keyboardMode && drawer.grabReady && !root.activePopout && !barWindow.keysHere
       windows: [barWindow]
-      onCleared: drawer.close("outside")
+      // A drawer already closed (its timer, Esc) has nothing left to close.
+      onCleared: if (drawer.opened) drawer.close("outside")
     }
-    ManagedDrawer { id: drawer; bar: root; hostWindow: barWindow }
+    ManagedDrawer {
+      id: drawer
+      bar: root
+      hostWindow: barWindow
+      onPinnedTimeout: if (barWindow.drawerKeys) { focusBack.address = barWindow.keysTakenFrom; focusBack.restart() }
+      onOpenedChanged: if (!opened) barWindow.keysTakenFrom = ""
+    }
     // A group's submenu beside its row in a zone's menu (On demand "menu").
     ManagedDrawer { id: submenu; bar: root; hostWindow: barWindow; parentMenu: drawer }
     // On the notch the camera alone reveals the bar.
@@ -4664,7 +4699,8 @@ Item {
             })
             anchors.centerIn: parent
             width: root.barSize; height: root.barSize
-            onPressed: drawer.openZone(zoneTarget.modelData, true)
+            // A click pins the drawer (DEMAND-104).
+            onPressed: drawer.openZone(zoneTarget.modelData, true, "", null, null, true)
             HoverHandler {
               id: zoneHover
               enabled: parent.visible && !root.barHidden && !preferencesPane.opened
@@ -5990,8 +6026,8 @@ Item {
       onClicked: {
         if (!foldHandle.enabled) return
         if (root.onDemandInline && foldHandle.homeWindow) foldHandle.homeWindow.inlineEnter(foldHandle.inlineToken, true)
-        // Menu mode: a click pins the menu, as on a group's icon.
-        else if (foldHandle.drawerRef) foldHandle.drawerRef.openZone(foldHandle.drawerToken, root.onDemandMenu, "", null, foldHandle)
+        // Menu mode: a click pins the menu, as on a group's icon (DEMAND-104).
+        else if (foldHandle.drawerRef) foldHandle.drawerRef.openZone(foldHandle.drawerToken, root.onDemandMenu, "", null, foldHandle, true)
       }
     }
   }
@@ -6570,6 +6606,9 @@ Item {
         // the highlight and tooltip that follow never share the bar with it.
         if (hovered) window.managedDrawer.pointerOnStop(slot)
         if (hovered && slot.groupHeader) window.managedDrawer.sourceEnterGroup(slot.entry.powerbarGroupId, slot)
+        // Leaving a group's icon starts its drawer's grace in every mode, the
+        // menu mode's included (GROUP-37).
+        else if (slot.groupHeader) window.managedDrawer.sourceLeave(slot.region)
         // Inline mode: only the dots expand a zone; moving on to another zone
         // collapses the expanded one at once, as a drawer would switch.
         else if (root.onDemandInline && !slot.groupHeader) {

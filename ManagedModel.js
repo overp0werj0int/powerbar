@@ -69,8 +69,13 @@ function placeholder(entry, mode) {
 }
 function deadline(now, duration) { return now + duration * 1000 }
 function remaining(until, now) { return Math.max(0, until - now) }
-function dismissDelay(sourceHovered, drawerHovered, interactionHeld, entered, entrySeconds, exitSeconds) {
+// How long until a drawer closes on its own, in ms; 0 runs no timer. A drawer
+// pinned by a click (clickPinned) also stays while the pointer is anywhere on
+// the bar, and once it has left both goes after the exit grace, entered or not
+// (on-demand-drawers.md DEMAND-104).
+function dismissDelay(sourceHovered, drawerHovered, interactionHeld, entered, entrySeconds, exitSeconds, clickPinned, barHovered) {
   if (sourceHovered || drawerHovered || interactionHeld) return 0
+  if (clickPinned) return barHovered ? 0 : exitSeconds * 1000
   return (entered ? exitSeconds : entrySeconds) * 1000
 }
 // The pointer landed on another stop on the bar (stop: { groupId, region }).
