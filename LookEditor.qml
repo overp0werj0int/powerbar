@@ -93,31 +93,33 @@ DeskPage {
     title: "Style"
     caption: style === "islands" ? "A surface for each zone" : style === "floating" ? "One bar, off the edges" : style === "notch" ? "Notch applies on the top edge of the notched screen; elsewhere it draws as islands" : "Edge to edge, like Omarchy"
     footnote: "No scope: the bar sits in one place in every theme."
-    PickRow {
-      label: "Flat"
-      option: "flat"
-      current: styleStrip.style
-      onActivated: look.preferences.setBarStyle(option)
-    }
-    PickRow {
-      label: "Floating"
-      option: "floating"
-      current: styleStrip.style
-      onActivated: look.preferences.setBarStyle(option)
-    }
-    PickRow {
-      label: "Islands"
-      option: "islands"
-      current: styleStrip.style
-      onActivated: look.preferences.setBarStyle(option)
-    }
-    // Notch is offered where a screen has one, or while it is in use.
-    PickRow {
-      visible: !!look.bar && (look.bar.screenNotch || look.bar.notchStyle)
-      label: "Notch"
-      option: "notch"
-      current: styleStrip.style
-      onActivated: look.preferences.setBarStyle(option)
+    DeskPickGroup {
+      PickRow {
+        label: "Flat"
+        option: "flat"
+        current: styleStrip.style
+        onActivated: look.preferences.setBarStyle(option)
+      }
+      PickRow {
+        label: "Floating"
+        option: "floating"
+        current: styleStrip.style
+        onActivated: look.preferences.setBarStyle(option)
+      }
+      PickRow {
+        label: "Islands"
+        option: "islands"
+        current: styleStrip.style
+        onActivated: look.preferences.setBarStyle(option)
+      }
+      // Notch is offered where a screen has one, or while it is in use.
+      PickRow {
+        visible: !!look.bar && (look.bar.screenNotch || look.bar.notchStyle)
+        label: "Notch"
+        option: "notch"
+        current: styleStrip.style
+        onActivated: look.preferences.setBarStyle(option)
+      }
     }
     Caption {
       text: "Screen edge"
@@ -161,17 +163,19 @@ DeskPage {
       checked: look.bar ? look.bar.largeBar : false
       onActivated: look.preferences.setOption("powerbarLargeBar", !checked)
     }
-    PickRow {
-      label: "Equal slots"
-      option: "slots"
-      current: look.bar ? look.bar.spacingMode : "slots"
-      onActivated: look.preferences.setOption("powerbarSpacingMode", option)
-    }
-    PickRow {
-      label: "Equal gaps"
-      option: "gaps"
-      current: look.bar ? look.bar.spacingMode : "slots"
-      onActivated: look.preferences.setOption("powerbarSpacingMode", option)
+    DeskPickGroup {
+      PickRow {
+        label: "Equal slots"
+        option: "slots"
+        current: look.bar ? look.bar.spacingMode : "slots"
+        onActivated: look.preferences.setOption("powerbarSpacingMode", option)
+      }
+      PickRow {
+        label: "Equal gaps"
+        option: "gaps"
+        current: look.bar ? look.bar.spacingMode : "slots"
+        onActivated: look.preferences.setOption("powerbarSpacingMode", option)
+      }
     }
     faders: [
       Fader {

@@ -13,7 +13,7 @@ import qs.Ui
 // Enter or a click toggles the switch, chooses the row or does the action.
 // With the cursor it looks and lifts as the Layout page's chip does
 // (PREFS-104): the focus fill over the strip's own colour, the focus ring,
-// risen 8 px with its shadow band.
+// risen 8 px with its shadow band; in a pick group the whole group lifts.
 BorderSurface {
   id: row
   property string label: ""
@@ -43,9 +43,11 @@ BorderSurface {
     return null
   }
   readonly property color base: strip ? strip.surfaceColor : "transparent"
+  // In a pick group (DeskPickGroup) the group lifts, not the row.
+  readonly property bool grouped: !!parent && parent.deskGroupBody === true
   CursorLift {
     id: lift
-    up: row.activeFocus
+    up: row.activeFocus && !row.grouped
     animate: row.strip && row.strip.desk ? row.strip.desk.animate : true
     lightTheme: row.strip ? row.strip.lightTheme : false
     radius: row.radius

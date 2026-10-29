@@ -37,12 +37,20 @@ Item {
     height: lift.reach
     animate: lift.animate
   }
+  // Only the band under the item is drawn, from its bottom edge down as far
+  // as it has risen plus the 3 px it keeps from its shadow, half a pixel in
+  // from each side so none of it shows past the item's ring along its
+  // sides, square at the top and rounded at the bottom, as a tile's edge is
+  // (ZoneTile).
   Rectangle {
     visible: lift.raised
-    y: lift.raise + Style.space(3)
-    width: parent.width
-    height: parent.height
+    x: 0.5
+    y: parent.height
+    width: parent.width - 1
+    height: lift.raise + Style.space(3)
     radius: lift.radius
+    topLeftRadius: 0
+    topRightRadius: 0
     antialiasing: true
     color: Qt.rgba(0, 0, 0, lift.lightTheme ? 0.2 : 0.3)
   }

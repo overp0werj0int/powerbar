@@ -34,9 +34,15 @@ ZoneTile {
   readonly property var controls: {
     var list = [];
     var kids = body.children;
-    for (var i = 0; i < kids.length; i++)
-      if (kids[i].deskStops !== undefined && kids[i].visible && kids[i].enabled)
+    for (var i = 0; i < kids.length; i++) {
+      if (kids[i].deskGroup === true && kids[i].visible) {
+        var rows = kids[i].controls;
+        for (var r = 0; r < rows.length; r++)
+          if (rows[r].deskStops !== undefined && rows[r].visible && rows[r].enabled)
+            list.push(rows[r]);
+      } else if (kids[i].deskStops !== undefined && kids[i].visible && kids[i].enabled)
         list.push(kids[i]);
+    }
     kids = faderColumn.children;
     for (var j = 0; j < kids.length; j++)
       if (kids[j].deskStops !== undefined && kids[j].visible && kids[j].enabled)

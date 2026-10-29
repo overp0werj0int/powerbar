@@ -1633,12 +1633,19 @@ Item {
         // below it as it has risen: one flat band in the chip's shape, as a
         // slab's edge and the inspector's shadow are (PREFS-104). Lighter
         // on a light theme.
+        // Only the band under the chip is drawn, from its bottom edge
+        // down, half a pixel in from each side so none of it shows past
+        // the chip's ring along its sides, square at the top and rounded
+        // at the bottom, as a tile's edge is (ZoneTile).
         Rectangle {
             visible: tile.pulled || tile.raise > 0
-            y: tile.pulled ? Style.space(6) : tile.raise + Style.space(3)
-            width: parent.width
-            height: parent.height
+            x: 0.5
+            y: parent.height
+            width: parent.width - 1
+            height: tile.pulled ? Style.space(6) : tile.raise + Style.space(3)
             radius: surface.radius
+            topLeftRadius: 0
+            topRightRadius: 0
             antialiasing: true
             color: Qt.rgba(0, 0, 0, editor.lightTheme ? 0.2 : 0.3)
         }

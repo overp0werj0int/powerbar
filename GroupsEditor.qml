@@ -2356,12 +2356,17 @@ Item {
         height: editor.chipHeight
         // The shadow it casts on its tile: one flat band in its shape, as
         // the Layout page's chips cast (PREFS-104).
+        // Only the band under the chip is drawn, half a pixel in from each
+        // side, square at the top and rounded at the bottom (ZoneTile).
         Rectangle {
             visible: tile.ghost || tile.raise > 0
-            y: tile.ghost ? Style.space(6) : tile.raise + Style.space(3)
-            width: parent.width
-            height: parent.height
+            x: 0.5
+            y: parent.height
+            width: parent.width - 1
+            height: tile.ghost ? Style.space(6) : tile.raise + Style.space(3)
             radius: editor.chipRadius
+            topLeftRadius: 0
+            topRightRadius: 0
             antialiasing: true
             color: Qt.rgba(0, 0, 0, editor.lightTheme ? 0.2 : 0.3)
         }

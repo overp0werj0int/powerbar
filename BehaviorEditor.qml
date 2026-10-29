@@ -113,27 +113,29 @@ DeskPage {
     readonly property string shown: behavior.preferences.notchMode && behavior.preferences.options.onDemand === "drawer" ? "inline" : behavior.preferences.options.onDemand
     title: "On demand"
     caption: "Widgets behind a zone's dots. Where they show when asked."
-    DeskRow {
-      visible: !behavior.preferences.notchMode
-      pick: true
-      label: "In a drawer"
-      caption: "Hovering a zone's dots opens a drawer under the bar."
-      checked: onDemand.shown === "drawer"
-      onActivated: behavior.preferences.setOption("powerbarOnDemand", "drawer")
-    }
-    DeskRow {
-      pick: true
-      label: "In the bar"
-      caption: "The dots expand into the bar, in place."
-      checked: onDemand.shown === "inline"
-      onActivated: behavior.preferences.setOption("powerbarOnDemand", "inline")
-    }
-    DeskRow {
-      pick: true
-      label: "In a menu"
-      caption: "The dots open a menu of them, groups as submenus."
-      checked: onDemand.shown === "menu"
-      onActivated: behavior.preferences.setOption("powerbarOnDemand", "menu")
+    DeskPickGroup {
+      DeskRow {
+        visible: !behavior.preferences.notchMode
+        pick: true
+        label: "In a drawer"
+        caption: "Hovering a zone's dots opens a drawer under the bar."
+        checked: onDemand.shown === "drawer"
+        onActivated: behavior.preferences.setOption("powerbarOnDemand", "drawer")
+      }
+      DeskRow {
+        pick: true
+        label: "In the bar"
+        caption: "The dots expand into the bar, in place."
+        checked: onDemand.shown === "inline"
+        onActivated: behavior.preferences.setOption("powerbarOnDemand", "inline")
+      }
+      DeskRow {
+        pick: true
+        label: "In a menu"
+        caption: "The dots open a menu of them, groups as submenus."
+        checked: onDemand.shown === "menu"
+        onActivated: behavior.preferences.setOption("powerbarOnDemand", "menu")
+      }
     }
     Hairline {}
     DeskRow {
