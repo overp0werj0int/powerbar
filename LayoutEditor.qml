@@ -1608,14 +1608,9 @@ Item {
         readonly property int memberCount: group ? group.items.length : 0
         // Press feedback: the chip dips while the pointer holds it, before a drag.
         readonly property bool pressedDown: inLayer && !placeholder && !!editor.pressed && !editor.pointerLift && editor.pressed.record.instanceKey === record.instanceKey
-        scale: pressedDown ? 0.97 : raised ? 1.03 : 1
-        Behavior on scale {
-            enabled: editor.bar.animationsEnabled
-            NumberAnimation {
-                duration: 120
-                easing.type: Easing.OutCubic
-            }
-        }
+        // It grows with its lift, to 103 % at the top, and shrinks with it:
+        // nothing of the cursor's state lingers once the cursor has gone.
+        scale: pressedDown ? 0.97 : 1 + 0.03 * (lift.height > 0 ? tile.raise / lift.height : 0)
         // The cursor's chip rises off its tile, casting a shadow on it
         // (PREFS-104).
         readonly property bool raised: isCursor && !outline
@@ -1658,12 +1653,6 @@ Item {
             radius: Math.max(0, Math.min(Style.space(5), Style.cornerRadius - Style.space(3)))
             color: tile.raised ? Qt.tint(tile.base, tile.fill) : tile.fill
             borderSpec: tile.outline || tile.ghost || tile.pulled ? Border.flat(Commons.Color.accent, Math.max(1, Math.round(Style.space(1.5)))) : tile.isCursor && editor.gridFocused ? Border.controlSpec("focus", Commons.Color.popups.text, Commons.Color.accent) : tile.isCursor ? Border.flat(Qt.alpha(Commons.Color.popups.text, 0.35), 1) : Border.none()
-            Behavior on color {
-                enabled: editor.bar.animationsEnabled
-                ColorAnimation {
-                    duration: 90
-                }
-            }
         }
         Row {
             id: chip
