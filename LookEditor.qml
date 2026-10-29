@@ -394,13 +394,23 @@ DeskPage {
   // The Notch style's ears blend into the camera, which takes the place of
   // Surface (black, no blur there). In every style the camera's size places
   // the center and the large bar. Its default (Backspace) is the measured
-  // or detected size, written as no setting at all.
+  // or detected size, written as no setting at all; the action row puts
+  // both faders back to it at once, and dims while they are there.
   DeskStrip {
     id: notchStrip
     readonly property var notch: look.bar ? look.bar.screenNotch : null
+    readonly property bool sized: !!look.preferences.options.notchWidth || !!look.preferences.options.notchHeight
     visible: !!notch
     title: "Notch"
     caption: look.preferences.notchMode ? "Black, like the camera" : "The camera's size"
+    DeskRow {
+      action: true
+      label: "Back to the camera's size"
+      caption: notchStrip.notch ? "Measured " + notchStrip.notch.housing + " \u00d7 " + notchStrip.notch.detectedHeight + " px" : ""
+      spaceHint: "Put both back"
+      enabled: notchStrip.sized
+      onActivated: look.preferences.clearOptions(["powerbarNotchWidth", "powerbarNotchHeight"])
+    }
     faders: [
       Fader {
         label: "Width"

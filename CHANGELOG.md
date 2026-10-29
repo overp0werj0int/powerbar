@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- The Look page's Notch strip has a "Back to the camera's size" row above its faders: Space, Enter or a click puts both the width and the height back to the measured size in one write, and the row dims while they are there (PREFS-95).
 - On the Look, Behavior and Tuning desks h/l now walk as one grid: at the ends of a row of chips (Scope, Text and icons, Screen edge) they go on to the same row of the next or previous strip, as they do from a switch or a pick row, entering a chip row at the chip nearest the way in; before, the row's ends swallowed them. Faders alone keep h/l for their value (PREFS-126, PREFS-128).
 
 - Preferences' text, and the keycaps of the bar's key legend, no longer show blue and orange colour fringes: they are antialiased in grey, as the bar's own text is (PREFS-102).

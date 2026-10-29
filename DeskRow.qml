@@ -8,15 +8,17 @@ import qs.Ui
 // with an optional one-line caption under it (without one the row is its
 // label's line), and a switch at its right, or, for a pick-one row (`pick`),
 // a 14 px ring before the label, filled in the accent when chosen, a 6 px dot
-// in it (the same parity, so it sits on the ring's centre pixel). Space,
-// Enter or a click toggles the switch or chooses the row. With the cursor it
-// takes the chosen fill and the accent ring.
+// in it (the same parity, so it sits on the ring's centre pixel); an action
+// row (`action`) has neither, its label in the accent, like a link. Space,
+// Enter or a click toggles the switch, chooses the row or does the action.
+// With the cursor it takes the chosen fill and the accent ring.
 BorderSurface {
   id: row
   property string label: ""
   property string caption: ""
   property bool checked: false
   property bool pick: false
+  property bool action: false
   // The legend's line for Space while the cursor is here, if the page's
   // does not say it (a Look pick row's "Choose it").
   property string spaceHint: ""
@@ -42,7 +44,7 @@ BorderSurface {
   color: activeFocus ? Style.selectedFillFor(Commons.Color.popups.text, Commons.Color.accent)
     : hot ? Style.hoverFillFor(Commons.Color.popups.text, Commons.Color.accent) : "transparent"
   borderSpec: activeFocus ? Border.flat(Commons.Color.accent, 1) : Border.none()
-  Accessible.role: pick ? Accessible.RadioButton : Accessible.CheckBox
+  Accessible.role: action ? Accessible.Button : pick ? Accessible.RadioButton : Accessible.CheckBox
   Accessible.name: label
   Accessible.description: caption
   Accessible.checked: checked
@@ -91,7 +93,7 @@ BorderSurface {
         Layout.fillWidth: true
         text: row.label
         textFormat: Text.PlainText
-        color: Commons.Color.popups.text
+        color: row.action ? Commons.Color.accent : Commons.Color.popups.text
         font.family: Style.font.family
         font.pixelSize: Style.font.body
         font.bold: true
@@ -109,7 +111,7 @@ BorderSurface {
       }
     }
     ToggleSwitch {
-      visible: !row.pick
+      visible: !row.pick && !row.action
       Layout.alignment: Qt.AlignTop
       checked: row.checked
       interactive: false
