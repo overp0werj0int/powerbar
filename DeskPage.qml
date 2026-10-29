@@ -18,9 +18,10 @@ import "PreferencesModel.js" as Model
 //
 // The cursor walks the strips' controls (DeskModel.js; PREFS-126): j/k move
 // the cursor, h/l move a value. j/k go down and up a strip and on, h/l to
-// the next or previous chip on a row of chips, else to the same row of the
-// next or previous strip; Tab and Shift+Tab to the next or previous strip's
-// first control. A fader takes h/l for its value first. A control on a desk
+// the next or previous chip on a row of chips and past its ends, as on any
+// other control, to the same row of the next or previous strip; Tab and
+// Shift+Tab to the next or previous strip's first control. A fader takes
+// h/l for its value first. A control on a desk
 // says how many stops it has (deskStops), which one a jump to it lands on
 // (deskHome), which one it is on (deskStop, if more than one) and how to
 // take the cursor (deskFocus(stop, reason)).

@@ -58,15 +58,18 @@ test('h and l on a row keep the row, clamped to the next strip\'s last', () => {
   assert.deepEqual(plain(model.sideways(behavior, at(1, 3, 0), 1)), at(2, 2, 0), 'the same on the Behavior page');
 });
 
-test('h and l on the Look page: chip to chip on a chip row, else the same row of the next strip', () => {
+test('h and l on the Look page: chip to chip on a chip row, then on to the same row of the next strip', () => {
   assert.deepEqual(plain(model.sideways(look, at(0, 0, 0), 1)), at(1, 0, 0), 'a pick row to the next strip\'s row');
   assert.deepEqual(plain(model.sideways(look, at(1, 1, 0), 1)), at(2, 1, 0), 'a switch to the next strip\'s row');
-  assert.deepEqual(plain(model.sideways(look, at(2, 3, 0), 1)), at(0, 2, 1), 'clamped, wrapping round the desk, onto a chip row at its chosen chip');
+  assert.deepEqual(plain(model.sideways(look, at(2, 3, 0), 1)), at(0, 2, 0), 'clamped, wrapping round the desk, onto a chip row at its first chip');
   assert.deepEqual(plain(model.sideways(look, at(0, 1, 0), -1)), at(2, 1, 0), 'wrapping back');
   assert.deepEqual(plain(model.sideways(look, at(0, 2, 1), 1)), at(0, 2, 2), 'chip to chip');
   assert.deepEqual(plain(model.sideways(look, at(0, 2, 1), -1)), at(0, 2, 0));
-  assert.deepEqual(plain(model.sideways(look, at(0, 2, 3), 1)), at(0, 2, 3), 'the row\'s end: nothing happens');
-  assert.deepEqual(plain(model.sideways(look, at(2, 0, 0), -1)), at(2, 0, 0), 'nor at its start');
+  assert.deepEqual(plain(model.sideways(look, at(0, 2, 3), 1)), at(1, 2, 0), 'past the row\'s end: the same row of the next strip');
+  assert.deepEqual(plain(model.sideways(look, at(2, 0, 0), -1)), at(1, 0, 0), 'past its start: the previous strip\'s row');
+  assert.deepEqual(plain(model.sideways(look, at(1, 0, 0), 1)), at(2, 0, 0), 'into a chip row from the left: its first chip');
+  assert.deepEqual(plain(model.sideways(look, at(1, 2, 0), -1)), at(0, 2, 3), 'into a chip row from the right: its last chip');
+  assert.deepEqual(plain(model.vertical(look, at(0, 1, 0), 1)), at(0, 2, 1), 'from above it is still the chosen chip');
 });
 
 test('a place whose control has gone lands on the nearest one left', () => {

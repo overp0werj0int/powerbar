@@ -7,8 +7,8 @@ import qs.Ui
 // A row of chips on a desk strip (docs/behavior/preferences.md PREFS-128):
 // the chips share the strip by their labels, the chosen one in the selected
 // look, the cursor's chip with an accent ring. Every chip is a stop of its
-// own: the desk's h/l walk them and stop at the row's ends, Space or Enter
-// chooses, a click chooses.
+// own: the desk's h/l walk them and go on past the row's ends to the same
+// row of the next strip, Space or Enter chooses, a click chooses.
 RowLayout {
   id: choice
   // [{ value, label }]
@@ -31,7 +31,7 @@ RowLayout {
   readonly property var keyHints: [
     {
       keys: "h l",
-      label: "Chip to chip"
+      label: "Chip to chip, then the next strip"
     },
     {
       keys: "space",

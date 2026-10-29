@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- On the Look, Behavior and Tuning desks h/l now walk as one grid: at the ends of a row of chips (Scope, Text and icons, Screen edge) they go on to the same row of the next or previous strip, as they do from a switch or a pick row, entering a chip row at the chip nearest the way in; before, the row's ends swallowed them. Faders alone keep h/l for their value (PREFS-126, PREFS-128).
+
 - Preferences' text, and the keycaps of the bar's key legend, no longer show blue and orange colour fringes: they are antialiased in grey, as the bar's own text is (PREFS-102).
 - Esc cancels a drag on the bar while the keyboard mode is on there: with the button still down, the widget glides back, its gap closes and nothing is saved; letting go afterwards does nothing. Outside the keyboard mode the bar has no keyboard to hear it, and asking for one mid-drag would end the drag (DRAG-42).
 - Behavior page: a shortcut whose keys are taken says so in two lines at most ("Super B already opens …"), instead of a caption that wrapped to four lines and stretched the Keyboard strip (PREFS-72).

@@ -18,7 +18,7 @@ DeskPage {
     },
     {
       keys: "h l",
-      label: "Less, more on a fader; chip to chip"
+      label: "Less, more on a fader; chip to chip, then the next strip"
     },
     {
       keys: "space",

@@ -1,7 +1,8 @@
 // The desk of the Look and Behavior pages (docs/behavior/preferences.md
 // PREFS-124 to PREFS-131): strips side by side on one tilted plate, each a
 // column of controls, and the cursor's walk through them. j/k move the
-// cursor, h/l move a value (PREFS-126).
+// cursor, h/l move a value (PREFS-126); between them the desk reads as one
+// grid: h/l walk a row of chips and go on to the next strip's row.
 //
 // A desk is strips left to right, each a list of its controls top to bottom
 // as { stops, home }: a row of chips has a stop per chip, everything else one;
@@ -89,8 +90,10 @@ function tab(strips, at, dir) {
   return place(s, 0, homeOf(controlsOf(strips, s)[0]))
 }
 
-// h/l on a row (a switch, a pick row, a shortcut): the same row of the next
-// or previous strip, clamped to that strip's last row, wrapping.
+// h/l on a row (a switch, a pick row, a shortcut) or at a chip row's end:
+// the same row of the next or previous strip, clamped to that strip's last
+// row, wrapping. A row of chips is entered at the chip nearest the way in
+// (l lands on its first chip, h on its last), so the walk reads as one grid.
 function across(strips, at, dir) {
   var from = valid(strips, at)
   if (!from) return null
@@ -98,20 +101,18 @@ function across(strips, at, dir) {
   if (s < 0) return from
   var next = controlsOf(strips, s)
   var c = Math.min(next.length - 1, from.control)
-  return place(s, c, homeOf(next[c]))
+  return place(s, c, dir < 0 ? stopsOf(next[c]) - 1 : 0)
 }
 
 // h/l as the desk takes them (a fader keeps them for its value): on a row of
-// chips the next or previous chip, staying put at the row's ends; on any
-// other control the same row of the next or previous strip (across).
+// chips the next or previous chip, and past the row's ends the same row of
+// the next or previous strip, as on any other control (across).
 function sideways(strips, at, dir) {
   var from = valid(strips, at)
   if (!from) return null
   var control = controlsOf(strips, from.strip)[from.control]
-  if (stopsOf(control) > 1) {
-    var k = Math.max(0, Math.min(stopsOf(control) - 1, from.stop + (dir < 0 ? -1 : 1)))
-    return place(from.strip, from.control, k)
-  }
+  var k = from.stop + (dir < 0 ? -1 : 1)
+  if (k >= 0 && k < stopsOf(control)) return place(from.strip, from.control, k)
   return across(strips, from, dir)
 }
 
