@@ -698,11 +698,14 @@ Motion follows Omarchy's one switch, as Omarchy's own widgets, panels and
   is the kit's common short ease. Do not copy the curve's numbers; use the
   token.
 
-There is no switch of the plugin's own. Powerbar's Animations row
-(`powerbarAnimations`, `bar.animationsEnabled`, PREFS-70, INTEG-21) is
-retired under this rule: every place that reads `animationsEnabled` reads
-`Style.reduceMotion` instead (or nothing, once its durations go through
-`Style.duration`). "Pages in perspective" is not motion and stays.
+A plugin's own animation switch, if it has one, is only a second "off":
+Omarchy's switch off stops the plugin's motion whatever its own says.
+Powerbar keeps its Animations row (`powerbarAnimations`, PREFS-70) for
+people who want a still bar on an animated desktop; `bar.animationsEnabled`
+is that option and `!Style.reduceMotion` (Bar.qml `systemMotion`,
+INTEG-21), and while Omarchy's switch is off the row keeps showing its own
+value with a caption saying why nothing moves. "Pages in perspective" is not
+motion and stays.
 
 | What | Duration | Curve | With motion off | Code |
 |---|---|---|---|---|
@@ -819,7 +822,7 @@ layer tile 9 %):
 | A blurred shadow on a page | A flat band as tall as the rise |
 | A shadow or edge with one alpha for every theme | Dark and light values |
 | A tilted edge without antialiasing | `antialiasing: true`, or the desk's multisampled layer |
-| A raw `duration:` number, or motion gated on a plugin's own switch | `Style.duration(ms)`; loops on `!Style.reduceMotion` |
+| A raw `duration:` number, or motion gated only on a plugin's own switch | `Style.duration(ms)`, or the plugin's switch and `!Style.reduceMotion`; loops on both |
 | A curve's numbers copied in | `Style.easeOut` |
 | A ring rounded on a square theme | `r > 0 ? r + d : 0` |
 | A rise that fades out | Drops in the same frame |

@@ -46,7 +46,7 @@ name (INTEG-121).
 - **INTEG-18** `bar.powerbarManagedExitGraceSeconds`: default 1 s, clamped 1 to 15 (also the inline collapse delay).
 - **INTEG-19** `bar.powerbarKeyLegend` (bool, default `true`; only `false` hides it) shows the key legend in the keyboard mode.
 - **INTEG-20** `bar.powerbarDotsBadge` (bool, default `true`; only `false` hides) shows badges on the zone dots.
-- **INTEG-21** `bar.powerbarAnimations` (bool, default `true`; only `false` turns animations off). `bar.powerbarPreferencesTilt` (bool, default `true`; only `false` lays Preferences' pages flat, PREFS-99).
+- **INTEG-21** `bar.powerbarAnimations` (bool, default `true`; only `false` turns animations off). Omarchy's own switch turns them off too: with Hyprland's animations off (`omarchy toggle animations`, Omarchy's `Style.reduceMotion`) Powerbar does not animate whatever this says, and the Behavior page's Animations row keeps showing this option with a caption that says why nothing moves (PREFS-70). Code: Bar.qml systemMotion, animationsEnabled. `bar.powerbarPreferencesTilt` (bool, default `true`; only `false` lays Preferences' pages flat, PREFS-99).
 - **INTEG-22** `bar.powerbarLargeBar` (bool, default `false`) makes the bar thicker by `2 x Style.space(6)` over the theme's size. Code: `barSizeFor`.
 - **INTEG-23** `bar.powerbarSpacingMode` is `slots` or `gaps` (only the exact string `gaps` selects gaps; default `slots`).
 - **INTEG-24** `bar.powerbarSpacing`: number 0 to 16 in steps of 1, default 4, clamped. Code: `AppearanceModel.ranges.spacing`.

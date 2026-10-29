@@ -91,8 +91,12 @@ DeskPage {
     }
     DeskRow {
       label: "Animations"
-      caption: "Drawers, drops and peeks move. Off, they snap, and nothing runs each frame."
-      checked: behavior.bar ? behavior.bar.animationsEnabled : true
+      // Powerbar's own option; Hyprland's animations off stops motion too
+      // (INTEG-21), and the caption says so rather than flipping the switch.
+      caption: behavior.bar && !behavior.bar.systemMotion
+        ? "Off while Hyprland's animations are off (omarchy toggle animations)."
+        : "Drawers, drops and peeks move. Off, they snap, and nothing runs each frame."
+      checked: behavior.bar ? behavior.bar.barOptions.animations : true
       onActivated: behavior.preferences.setOption("powerbarAnimations", !checked)
     }
     // Preferences' own look, apart from the bar's motion: the exploded

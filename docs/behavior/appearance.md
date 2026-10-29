@@ -291,9 +291,9 @@ Storage: the look lives in `bar.powerbarAppearance` of shell.json: `all` (values
 
 ## Animations
 
-- **LOOK-99** With `powerbarAnimations` unset or true (Behavior > Animations, default on), changes animate: islands and cells resize, drawers grow and shrink, the center slides (layout-zones.md ZONE-70), the bar slides in auto-hide, colours cross-fade. Code: Bar.qml animationsEnabled.
+- **LOOK-99** With `powerbarAnimations` unset or true (Behavior > Animations, default on) and Hyprland's animations on (INTEG-21), changes animate: islands and cells resize, drawers grow and shrink, the center slides (layout-zones.md ZONE-70), the bar slides in auto-hide, colours cross-fade. Code: Bar.qml animationsEnabled.
 
-- **LOOK-100** With `powerbarAnimations: false` every change lands in one frame and nothing animates, except the text and icon colour crossfade (LOOK-106). Code: Bar.qml `enabled: root.animationsEnabled` on Behaviors.
+- **LOOK-100** With `powerbarAnimations: false`, or Hyprland's animations off (INTEG-21), every change lands in one frame and nothing animates, except the text and icon colour crossfade (LOOK-106). Code: Bar.qml `enabled: root.animationsEnabled` on Behaviors.
 
 - **LOOK-101** A drawer opens over 160 ms and grows from scale 0.96 to 1 (strong ease-out, cubic-bezier 0.23, 1, 0.32, 1). Code: ManagedDrawer.qml reveal, xScale.
 

@@ -49,7 +49,12 @@ Item {
   }
   // The bar's options with their clean-config defaults (BarModel.options).
   readonly property var barOptions: BarModel.options(barConfig)
-  readonly property bool animationsEnabled: barOptions.animations
+  // Omarchy's one motion switch (Hyprland's animations, `omarchy toggle
+  // animations`, read into Style.reduceMotion) stops Powerbar's motion too;
+  // its own Animations option is a second "off" (INTEG-21). An Omarchy
+  // without reduceMotion reads as motion on.
+  readonly property bool systemMotion: Style.reduceMotion !== true
+  readonly property bool animationsEnabled: barOptions.animations && systemMotion
   // `powerbarFrameLog` (shell.json only): the bar's event timeline and the
   // frame timing of its motions in the shell log, for live debugging
   // (FrameLog.qml, INTEG-146). ev() names what happened; ms > 0 also times
