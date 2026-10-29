@@ -95,16 +95,19 @@ Item {
     // Behavior's "Pages in perspective" off they lie flat (PREFS-99).
     readonly property real tilt: preferences.options.preferencesTilt ? 34 : 0
     readonly property real planeDistance: Style.space(1600)
-    readonly property real layerGap: Style.space(30)
-    readonly property real platePad: Style.space(12)
-    readonly property real columnGap: Style.space(8)
-    readonly property real tilePad: Style.space(8)
-    readonly property real chipHeight: Style.space(24)
-    readonly property real chipGap: Style.space(3)
-    readonly property real nameRow: Style.space(20)
-    readonly property real minPlate: Style.space(52)
+    // The golden spacing (PREFS-133): layers xl apart, a plate's padding and
+    // its zones l, a tile's padding m, rows a control tall and xs apart, the
+    // zone's name a caption line s above them.
+    readonly property real layerGap: Gap.xl
+    readonly property real platePad: Gap.l
+    readonly property real columnGap: Gap.l
+    readonly property real tilePad: Gap.m
+    readonly property real chipHeight: Gap.control
+    readonly property real chipGap: Gap.xs
+    readonly property real nameRow: Ink.line(Ink.caption) + Gap.s
+    readonly property real minPlate: Gap.xxxl
     // A clear band between the header and the first layer.
-    readonly property real stackTop: Style.space(36)
+    readonly property real stackTop: Gap.xxl
     // Shadows and slab edges go lighter on a light theme.
     readonly property bool lightTheme: AppearanceModel.luminance(Commons.Color.popups.background) > 0.5
     // The screen's middle (the camera's axis) in the editor, measured: the
@@ -159,7 +162,7 @@ Item {
     // zone with more rows than its layer has then scrolls inside its tile.
     readonly property var plateDemands: rows.map(function (mode) {
         var r = rowsOf(mode);
-        return Math.max(minPlate, 2 * tilePad + (slabbed(mode) ? 0 : nameRow) + r * chipHeight + (r - 1) * (slabbed(mode) ? columnGap : chipGap));
+        return Math.max(minPlate, 2 * tilePad + (slabbed(mode) ? 0 : nameRow) + r * chipHeight + (r - 1) * chipGap);
     })
     readonly property var plateFloors: rows.map(function (mode) {
         return Math.max(minPlate, 2 * tilePad + (slabbed(mode) ? 0 : nameRow) + chipHeight);
@@ -167,7 +170,7 @@ Item {
     // The legend's band: its tallest list (eight rows) and the margins
     // around it, whatever it shows now, so the layers never resize as focus
     // moves.
-    readonly property real legendBand: Style.space(8) + Style.space(24) + 8 * capProbe.implicitHeight + 7 * Style.space(10)
+    readonly property real legendBand: Gap.xl + 8 * capProbe.implicitHeight + 7 * Gap.s
     readonly property real stackRoom: Math.max(0, height - stackTop - legendBand)
     readonly property var plateHeights: Model.shareLayers(plateDemands, plateFloors, stackRoom, tilt, planeDistance, layerGap)
     readonly property var stack: Model.stackLayers(plateHeights, tilt, planeDistance, layerGap)
@@ -1147,35 +1150,30 @@ Item {
                 easing.type: Easing.OutCubic
             }
         }
-        width: tipRow.implicitWidth + Style.space(24)
-        height: tipRow.implicitHeight + Style.space(16)
-        radius: Math.max(0, Style.cornerRadius - Math.round(Style.spacing.rowPaddingX / 2))
+        // A surface over the page, not a chip (PREFS-133): m above and
+        // below, l at the sides, one step past its own m gaps.
+        width: tipRow.implicitWidth + 2 * Gap.l
+        height: tipRow.implicitHeight + 2 * Gap.m
+        radius: Round.container
         color: Qt.tint(Qt.rgba(Commons.Color.popups.background.r, Commons.Color.popups.background.g, Commons.Color.popups.background.b, 1), Qt.alpha(Commons.Color.popups.text, 0.1))
         borderSpec: Border.flat(Qt.alpha(Commons.Color.popups.text, 0.16), 1)
         Row {
             id: tipRow
             anchors.centerIn: parent
-            spacing: Style.space(10)
+            spacing: Gap.m
             InkIcon {
                 layout: editor
                 record: nameTip.record
                 anchors.verticalCenter: parent.verticalCenter
             }
-            GrayText {
+            InkText {
                 anchors.verticalCenter: parent.verticalCenter
                 text: nameTip.record && nameTip.record.instanceKey ? editor.preferences.title(nameTip.record) : ""
-                textFormat: Text.PlainText
-                color: Commons.Color.popups.text
-                font.family: Style.font.family
-                font.pixelSize: Style.font.body
             }
-            GrayText {
+            InkText {
                 anchors.verticalCenter: parent.verticalCenter
                 text: nameTip.record ? nameTip.record.groupId ? "Group" : nameTip.record.id || "" : ""
-                textFormat: Text.PlainText
-                color: Qt.alpha(Commons.Color.popups.text, 0.55)
-                font.family: Style.font.family
-                font.pixelSize: Style.font.caption
+                role: "caption"
             }
         }
     }
@@ -1272,8 +1270,7 @@ Item {
         id: legend
         anchors.left: parent.left
         anchors.bottom: parent.bottom
-        anchors.bottomMargin: Style.space(8)
-        width: Math.max(Style.space(200), Math.min(Style.space(640), inspector.x - Style.space(32)))
+        width: Math.max(Style.space(200), Math.min(Style.space(640), inspector.x - Gap.xl))
         z: 118
         lines: editor.legend
     }
@@ -1513,11 +1510,11 @@ Item {
         nameRow: editor.nameRow
         emptyShown: cell.list.length === 0
         emptyText: cell.trayCell ? "Nothing in the tray. Apps put their icons here while they run; drag one onto a layer above to place it like a widget." : cell.flows ? "Nothing hidden. x on a widget, or a drag here, keeps it off the bar." : "Empty"
-        emptyY: cell.pad + (cell.flows ? Style.space(5) : editor.nameRow)
+        emptyY: cell.pad + (cell.flows ? Gap.s : editor.nameRow)
         focusOutline: cell.flows && cell.list.length === 0 && cell.cursorHere && editor.gridFocused
         viewTop: cell.pad + (cell.flows ? 0 : editor.nameRow)
         chipHeight: editor.chipHeight
-        spacing: cell.flows ? editor.columnGap : editor.chipGap
+        spacing: editor.chipGap
         flowWidth: cell.flows ? Math.max(1, cell.width - cell.pad * 2) : editor.chipWidth
         perRow: cell.flows ? 5 : 1
         current: cell.cursorHere
@@ -1620,52 +1617,46 @@ Item {
             id: surface
             anchors.fill: parent
             antialiasing: true
-            radius: Math.max(0, Math.min(Style.space(5), Style.cornerRadius - Style.space(3)))
+            radius: Round.control
             color: tile.raised ? Qt.tint(tile.base, tile.fill) : tile.fill
             borderSpec: tile.outline || tile.ghost || tile.pulled ? Border.flat(Commons.Color.accent, Math.max(1, Math.round(Style.space(1.5)))) : tile.isCursor && editor.gridFocused ? Border.controlSpec("focus", Commons.Color.popups.text, Commons.Color.accent) : tile.isCursor ? Border.flat(Qt.alpha(Commons.Color.popups.text, 0.35), 1) : Border.none()
         }
         Row {
             id: chip
-            x: Style.space(8)
+            x: Gap.s
             anchors.verticalCenter: parent.verticalCenter
-            spacing: Style.space(8)
+            spacing: Gap.m
             // A keyboard lift shows what it carries in its outline; a pointer lift
             // carries it under the pointer, the inspector pulls it out in front.
-            // Hidden widgets read dimmer.
-            opacity: tile.outline ? (tile.placeholder && !editor.pointerLift ? 0.5 : 0) : tile.mode === "hidden" && tile.inLayer ? 0.5 : 1
+            // Hidden widgets read secondary.
+            opacity: tile.outline ? (tile.placeholder && !editor.pointerLift ? 0.5 : 0) : tile.mode === "hidden" && tile.inLayer ? Ink.secondary : 1
             InkIcon {
                 id: rowIcon
                 layout: editor
                 record: tile.record
                 anchors.verticalCenter: parent.verticalCenter
             }
-            GrayText {
+            InkText {
                 id: nameLabel
                 text: tile.record.instanceKey ? editor.preferences.title(tile.record) : ""
-                textFormat: Text.PlainText
-                color: Commons.Color.popups.text
-                font.family: Style.font.family
-                font.pixelSize: Style.font.body
                 elide: Text.ElideRight
-                width: Math.max(Style.space(16), tile.width - Style.space(16) - rowIcon.width - chip.spacing - (tile.memberCount > 0 ? memberPill.width + chip.spacing : 0))
+                width: Math.max(Style.space(16), tile.width - 2 * Gap.s - rowIcon.width - chip.spacing - (tile.memberCount > 0 ? memberPill.width + chip.spacing : 0))
                 anchors.verticalCenter: parent.verticalCenter
             }
             Rectangle {
                 id: memberPill
                 visible: tile.memberCount > 0
-                width: memberLabel.implicitWidth + Style.space(10)
-                height: Style.space(16)
+                width: memberLabel.implicitWidth + 2 * Gap.s
+                height: Ink.line(Ink.caption)
                 radius: height / 2
                 color: Qt.alpha(Commons.Color.popups.text, 0.12)
                 anchors.verticalCenter: parent.verticalCenter
-                GrayText {
+                InkText {
                     id: memberLabel
                     anchors.centerIn: parent
                     text: tile.memberCount
-                    textFormat: Text.PlainText
-                    color: Commons.Color.popups.text
-                    font.family: Style.font.family
-                    font.pixelSize: Style.font.caption
+                    role: "caption"
+                    tier: 1
                 }
             }
         }
@@ -1714,9 +1705,10 @@ Item {
         anchors.right: parent.right
         anchors.bottom: parent.bottom
         width: Math.min(editor.width, Style.space(670))
-        height: body.implicitHeight + Style.space(22) + Style.space(16)
+        // xl all round, its columns xl apart (PREFS-133).
+        height: body.implicitHeight + 2 * Gap.xl
         z: 120
-        radius: Math.min(Style.space(10), Style.cornerRadius)
+        radius: Round.container
         color: Qt.tint(Qt.rgba(Commons.Color.popups.background.r, Commons.Color.popups.background.g, Commons.Color.popups.background.b, 1), Qt.alpha(Commons.Color.popups.text, 0.065))
         borderSpec: Border.flat(Qt.alpha(Commons.Color.popups.text, 0.16), 1)
         visible: opacity > 0
@@ -1764,20 +1756,17 @@ Item {
             anchors.leftMargin: Style.space(8)
             anchors.rightMargin: Style.space(8)
             radius: panel.radius
-            color: Qt.rgba(0, 0, 0, 0.3)
+            color: Qt.rgba(0, 0, 0, editor.lightTheme ? 0.2 : 0.3)
         }
 
-        GrayText {
+        InkText {
             visible: !panel.record
             anchors.left: parent.left
             anchors.right: parent.right
             anchors.top: parent.top
-            anchors.margins: Style.space(22)
+            anchors.margins: Gap.xl
             text: editor.cursorCell.mode === "tray" ? "Nothing in the tray. Apps put their icons here while they run." : editor.cursorCell.mode === "hidden" ? "Nothing hidden yet. Hidden widgets keep their zone, off the bar. Send one here with x, or drag one here." : "Nothing " + (editor.cursorCell.mode === "shown" ? "on the bar in " : editor.cursorCell.mode === "managed" ? "on demand in " : "hidden in ") + editor.zoneNames[editor.cursorCell.section] + " yet. Pick up a widget with Space, or drag one here."
-            textFormat: Text.PlainText
-            color: Qt.alpha(Commons.Color.popups.text, 0.65)
-            font.family: Style.font.family
-            font.pixelSize: Style.font.bodySmall
+            role: "caption"
             wrapMode: Text.WordWrap
         }
 
@@ -1787,22 +1776,20 @@ Item {
             anchors.left: parent.left
             anchors.right: parent.right
             anchors.top: parent.top
-            anchors.leftMargin: Style.space(22)
-            anchors.rightMargin: Style.space(22)
-            anchors.topMargin: Style.space(22)
-            spacing: Style.space(24)
+            anchors.margins: Gap.xl
+            spacing: Gap.xl
 
             // The widget as the bar draws it, its name and id.
             ColumnLayout {
                 Layout.preferredWidth: Style.space(148)
                 Layout.maximumWidth: Style.space(148)
                 Layout.alignment: Qt.AlignTop
-                spacing: Style.space(3)
+                spacing: Gap.xxs
                 Rectangle {
                     Layout.fillWidth: true
-                    Layout.preferredHeight: Style.space(110)
-                    Layout.bottomMargin: Style.space(9)
-                    radius: Math.min(Style.space(6), Style.cornerRadius)
+                    Layout.preferredHeight: 2 * Gap.xxxl
+                    Layout.bottomMargin: Gap.m - Gap.xxs
+                    radius: Round.control
                     color: Qt.tint(Qt.rgba(Commons.Color.popups.background.r, Commons.Color.popups.background.g, Commons.Color.popups.background.b, 1), Qt.rgba(0, 0, 0, 0.2))
                     clip: true
                     WidgetIcon {
@@ -1813,23 +1800,16 @@ Item {
                         maxAspect: 1.5
                     }
                 }
-                GrayText {
+                InkText {
                     Layout.fillWidth: true
                     text: panel.record ? editor.preferences.title(panel.record) : ""
-                    textFormat: Text.PlainText
-                    color: Commons.Color.popups.text
-                    font.family: Style.font.family
-                    font.pixelSize: Style.font.title
-                    font.weight: Font.DemiBold
+                    role: "section"
                     elide: Text.ElideRight
                 }
-                GrayText {
+                InkText {
                     Layout.fillWidth: true
                     text: panel.isGroup ? (panel.group ? panel.group.items.length + (panel.group.items.length === 1 ? " widget" : " widgets") + " in this group" : "") : panel.trayIcon ? (panel.inTray ? "In Omarchy's tray" : "Moved out of Omarchy's tray") : panel.record ? panel.record.id : ""
-                    textFormat: Text.PlainText
-                    color: Qt.alpha(Commons.Color.popups.text, 0.55)
-                    font.family: Style.font.family
-                    font.pixelSize: Style.font.caption
+                    role: "caption"
                     elide: Text.ElideMiddle
                 }
             }
@@ -1854,12 +1834,11 @@ Item {
                 Layout.preferredWidth: Style.space(240)
                 Layout.maximumWidth: Style.space(240)
                 Layout.alignment: Qt.AlignTop
-                spacing: Style.space(8)
+                spacing: Gap.m
                 PrefsZoneMap {
                     id: zoneMap
                     compact: true
                     stacked: true
-                    Layout.leftMargin: 0
                     zones: editor.zoneChoices
                     cameraOver: editor.previewCamera ? "center" : ""
                     noteFor: function (zone) {
@@ -1887,7 +1866,6 @@ Item {
                 ShortcutRow {
                     visible: !panel.inTray
                     Layout.fillWidth: true
-                    padding: 0
                     store: editor.preferences.shortcuts
                     target: !panel.record ? "" : panel.isGroup ? "group:" + panel.record.groupId : "widget:" + panel.record.id
                     unavailable: !panel.record ? "" : panel.record.mode === "hidden" ? (panel.isGroup ? "Hidden groups can't open" : "Hidden widgets can't open") : panel.isGroup || editor.bar.findPanelWidget(panel.record.id) || store.ready && store.info(target).keys ? "" : "Nothing to open"
@@ -1905,7 +1883,7 @@ Item {
                     compact: true
                     label: "Peeks on activity"
                     enabled: editor.bar.autoHide && editor.bar.autoHideActivity && !clockDriven
-                    opacity: enabled ? 1 : 0.45
+                    opacity: enabled ? 1 : Ink.disabled
                     checked: !!panel.record && !clockDriven && editor.bar.activityPeeksFor(panel.record.instanceKey, panel.record.id)
                     onToggled: function (checked) {
                         editor.bar.setActivityPeek(panel.record.instanceKey, checked);
@@ -1920,7 +1898,7 @@ Item {
                 Flow {
                     visible: panel.isGroup
                     Layout.fillWidth: true
-                    spacing: Style.space(6)
+                    spacing: Gap.xs
                     Repeater {
                         model: panel.group ? panel.group.items : []
                         WidgetIcon {
@@ -1972,6 +1950,9 @@ Item {
                     focusable: true
                     bordered: true
                     foreground: Commons.Color.popups.text
+                    fontSize: Ink.label
+                    verticalPadding: Gap.xs
+                    horizontalPadding: Gap.s
                     onClicked: editor.preferences.openGroup(panel.record.groupId)
                 }
             }
@@ -1986,13 +1967,14 @@ Item {
         }
     }
 
-    component Hint: GrayText {
+    // A caption under the control it explains, a text pair's xxs below it
+    // in a column m apart (PREFS-133); dim when it says why it is off.
+    component Hint: InkText {
         property bool dim: false
         Layout.fillWidth: true
-        textFormat: Text.PlainText
-        color: Qt.alpha(Commons.Color.popups.text, dim ? 0.35 : 0.6)
-        font.family: Style.font.family
-        font.pixelSize: Style.font.caption
+        Layout.topMargin: Gap.xxs - Gap.m
+        role: "caption"
+        disabled: dim
         wrapMode: Text.WordWrap
     }
 }

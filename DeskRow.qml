@@ -64,13 +64,13 @@ BorderSurface {
   z: lift.raised ? 1 : 0
   Layout.fillWidth: true
   // The surface reaches into the strip's padding; the text stays in line.
-  Layout.leftMargin: -Style.space(4)
-  Layout.rightMargin: -Style.space(4)
-  // A Layout page chip's height at least (PREFS-125).
-  implicitHeight: Math.max(Style.space(24), content.implicitHeight + 2 * Style.space(4))
-  radius: Math.max(0, Math.min(Style.space(5), Style.cornerRadius - Style.space(3)))
+  Layout.leftMargin: -Gap.s
+  Layout.rightMargin: -Gap.s
+  // A control's height at least, xs above and below its text (PREFS-133).
+  implicitHeight: Math.max(Gap.control, content.implicitHeight + 2 * Gap.xs)
+  radius: Round.control
   activeFocusOnTab: false
-  opacity: enabled ? 1 : 0.45
+  opacity: enabled ? 1 : Ink.disabled
   // Risen, the strip's own colour under the fill, so the row it rises over
   // does not show through.
   // In a group marked whole, the cursor's row is the selected fill over the
@@ -93,10 +93,10 @@ BorderSurface {
 
   RowLayout {
     id: content
-    x: Style.space(4)
+    x: Gap.s
     y: (row.height - height) / 2
-    width: row.width - 2 * Style.space(4)
-    spacing: Style.space(10)
+    width: row.width - 2 * Gap.s
+    spacing: Gap.m
     // The pick mark.
     Rectangle {
       visible: row.pick
@@ -134,25 +134,19 @@ BorderSurface {
     }
     ColumnLayout {
       Layout.fillWidth: true
-      spacing: Style.space(2)
-      GrayText {
+      spacing: Gap.xxs
+      InkText {
         id: labelText
         Layout.fillWidth: true
         text: row.label
-        textFormat: Text.PlainText
-        color: row.action ? Commons.Color.accent : Commons.Color.popups.text
-        font.family: Style.font.family
-        font.pixelSize: Style.font.body
+        color: row.action ? Commons.Color.accent : Ink.tint(1)
         elide: Text.ElideRight
       }
-      GrayText {
+      InkText {
         visible: row.caption !== ""
         Layout.fillWidth: true
         text: row.caption
-        textFormat: Text.PlainText
-        color: Qt.alpha(Commons.Color.popups.text, 0.55)
-        font.family: Style.font.family
-        font.pixelSize: Style.font.caption
+        role: "caption"
         wrapMode: Text.WordWrap
       }
     }

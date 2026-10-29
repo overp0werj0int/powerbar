@@ -13,13 +13,13 @@ GridLayout {
   // [{ keys: "h l", label }]: keys split on spaces into caps.
   property var lines: []
   columns: 2
-  columnSpacing: Style.space(14)
-  rowSpacing: Style.space(10)
+  columnSpacing: Gap.l
+  rowSpacing: Gap.s
   // The widest keys a page shows, measured, not laid out.
   Row {
     id: widest
     visible: false
-    spacing: Style.space(4)
+    spacing: Gap.xs
     Repeater {
       model: ["shift", "h", "j", "k", "l"]
       KeyCap {
@@ -37,7 +37,7 @@ GridLayout {
       Layout.row: index
       Layout.column: 0
       Layout.minimumWidth: widest.implicitWidth
-      spacing: Style.space(4)
+      spacing: Gap.xs
       Repeater {
         model: String(keysRow.modelData.keys).split(" ")
         KeyCap {
@@ -50,17 +50,14 @@ GridLayout {
   }
   Repeater {
     model: legend.lines
-    GrayText {
+    InkText {
       required property var modelData
       required property int index
       Layout.row: index
       Layout.column: 1
       Layout.fillWidth: true
       text: modelData.label
-      textFormat: Text.PlainText
-      color: Qt.alpha(Commons.Color.popups.text, 0.7)
-      font.family: Style.font.family
-      font.pixelSize: Style.font.caption
+      role: "caption"
       elide: Text.ElideRight
     }
   }

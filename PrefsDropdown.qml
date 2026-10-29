@@ -26,8 +26,8 @@ Item {
     property color accent: Commons.Color.accent
     readonly property var popupBorderSpec: Border.localOrSurfaceSpec("popups", "border", popupBorder, Commons.Color.popups.border, Style.normalBorderWidth)
     property string fontFamily: Style.font.family
-    property int rowHeight: Style.spacing.controlHeight
-    property int popupRowHeight: Style.spacing.popupRowHeight
+    property int rowHeight: Gap.control
+    property int popupRowHeight: Gap.control
     property bool showLabel: true
 
     readonly property bool popupOpen: popup.opened
@@ -73,27 +73,24 @@ Item {
     }
 
     implicitWidth: Style.spacing.dropdownWidth
-    implicitHeight: showLabel && label !== "" ? rowHeight + Style.spacing.huge : rowHeight
+    // A field (PREFS-133): its label, xxs, a control-tall trigger.
+    implicitHeight: showLabel && label !== "" ? fieldLabel.height + Gap.xxs + rowHeight : rowHeight
 
     Column {
         anchors.fill: parent
-        spacing: Style.spacing.labelGap
+        spacing: Gap.xxs
 
-        GrayText {
-            textFormat: Text.PlainText
+        InkText {
+            id: fieldLabel
             visible: root.showLabel && root.label !== ""
             text: root.label
-            color: Qt.darker(root.foreground, 1.4)
-            font.family: root.fontFamily
-            font.pixelSize: Style.font.caption
-            font.bold: true
         }
 
         BorderSurface {
             id: trigger
             width: parent.width
             height: root.rowHeight
-            radius: Style.cornerRadius
+            radius: Round.control
 
             readonly property bool focusedNow: trigger.activeFocus
             readonly property bool hot: triggerHover.hovered
@@ -125,17 +122,14 @@ Item {
                 }
             }
 
-            GrayText {
-                textFormat: Text.PlainText
+            InkText {
                 anchors.left: parent.left
                 anchors.right: chevron.left
                 anchors.verticalCenter: parent.verticalCenter
-                anchors.leftMargin: trigger.borderLeft + Style.spacing.controlPaddingX
-                anchors.rightMargin: trigger.borderRight + Style.spacing.md
+                anchors.leftMargin: trigger.borderLeft + Gap.s
+                anchors.rightMargin: Gap.m
                 text: root.currentLabel()
                 color: root.foreground
-                font.family: root.fontFamily
-                font.pixelSize: Style.font.body
                 elide: Text.ElideRight
             }
 
@@ -143,11 +137,11 @@ Item {
                 id: chevron
                 anchors.right: parent.right
                 anchors.verticalCenter: parent.verticalCenter
-                anchors.rightMargin: trigger.borderRight + Style.spacing.controlGap
+                anchors.rightMargin: trigger.borderRight + Gap.s
                 text: root.opensUp ? "󰅃" : "󰅀"
-                color: Qt.darker(root.foreground, 1.2)
+                color: Qt.alpha(root.foreground, Ink.secondary)
                 font.family: root.fontFamily
-                font.pixelSize: Style.font.body
+                font.pixelSize: Ink.label
             }
 
             MouseArea {
@@ -175,7 +169,7 @@ Item {
                 background: BorderSurface {
                     color: root.background
                     borderSpec: root.popupBorderSpec
-                    radius: Style.cornerRadius
+                    radius: Round.container
                 }
 
                 onOpened: {
@@ -236,12 +230,12 @@ Item {
                             anchors.left: parent.left
                             anchors.right: parent.right
                             anchors.verticalCenter: parent.verticalCenter
-                            anchors.leftMargin: Style.spacing.controlPaddingX
-                            anchors.rightMargin: Style.spacing.controlPaddingX
+                            anchors.leftMargin: Gap.s
+                            anchors.rightMargin: Gap.s
                             text: root.optionLabel(parent.modelData)
                             color: parent.index === optionList.currentIndex ? Style.hoverStateColor(root.foreground, root.accent) : root.foreground
                             font.family: root.fontFamily
-                            font.pixelSize: Style.font.body
+                            font.pixelSize: Ink.label
                             elide: Text.ElideRight
                         }
 

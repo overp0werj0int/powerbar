@@ -10,7 +10,7 @@ Row {
   id: combo
   property var keys: []
   property color foreground: Commons.Color.popups.text
-  spacing: Style.space(3)
+  spacing: Gap.xs
   Repeater {
     model: combo.keys || []
     Row {
@@ -22,7 +22,7 @@ Row {
         visible: parent.index < (combo.keys || []).length - 1
         text: "+"
         textFormat: Text.PlainText
-        color: Qt.alpha(combo.foreground, 0.6)
+        color: Qt.alpha(combo.foreground, Ink.secondary)
         font.family: Style.font.family
         font.pixelSize: Style.font.caption
         anchors.verticalCenter: parent.verticalCenter

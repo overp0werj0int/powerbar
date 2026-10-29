@@ -43,9 +43,9 @@ Item {
     radius: group.radius
     plate: group.strip ? group.strip.surfaceColor : "transparent"
     // As far as a row's surface reaches into the strip's padding.
-    padX: Style.space(4)
+    padX: Gap.s
   }
-  readonly property real radius: Math.max(0, Math.min(Style.space(5), Style.cornerRadius - Style.space(3)))
+  readonly property real radius: Round.control
   // Tuning's Mark the whole control (PREFS-132), on by default: the group's
   // area takes the focus fill and ring as a switch row does; off, only the
   // cursor's pick mark takes the ring (DeskRow).
@@ -54,8 +54,8 @@ Item {
   Rectangle {
     visible: group.marked
     anchors.fill: parent
-    anchors.leftMargin: -Style.space(4)
-    anchors.rightMargin: -Style.space(4)
+    anchors.leftMargin: -Gap.s
+    anchors.rightMargin: -Gap.s
     radius: group.radius
     antialiasing: true
     color: Qt.tint(group.strip ? group.strip.surfaceColor : "transparent", Style.focusFillFor(Commons.Color.popups.text, Commons.Color.accent))
@@ -67,13 +67,13 @@ Item {
     id: column
     readonly property bool deskGroupBody: true
     anchors.fill: parent
-    spacing: Style.space(3)
+    spacing: Gap.xs
   }
   // The ring, over the rows' fills, as far out as the plate.
   BorderSurface {
     anchors.fill: parent
-    anchors.leftMargin: -Style.space(4)
-    anchors.rightMargin: -Style.space(4)
+    anchors.leftMargin: -Gap.s
+    anchors.rightMargin: -Gap.s
     radius: group.radius
     color: "transparent"
     borderSpec: group.marked ? Border.controlSpec("focus", Commons.Color.popups.text, Commons.Color.accent) : Border.none()

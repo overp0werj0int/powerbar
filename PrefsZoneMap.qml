@@ -27,14 +27,13 @@ GridLayout {
   // What fills the chosen cell (the widget's icon), or nothing.
   property Component marker: null
   signal chosen(string value)
+  // A field (PREFS-133): its label, the cells xxs under it, a control tall
+  // and xs apart, and xxs under them the caption; the column it stands in
+  // spaces it from its neighbours.
   Layout.fillWidth: true
-  Layout.leftMargin: compact ? Style.spacing.rowPaddingX : 0
-  Layout.rightMargin: compact ? Style.spacing.rowPaddingX - Style.space(4) : 0
-  Layout.topMargin: compact ? Style.space(4) : 0
-  Layout.bottomMargin: compact ? Style.space(4) : 0
   columns: stacked ? 1 : 2
-  columnSpacing: Style.space(16)
-  rowSpacing: Style.space(6)
+  columnSpacing: Gap.l
+  rowSpacing: Gap.xxs
 
   function indexOf(zone) {
     for (var i = 0; i < zones.length; i++) if (zones[i].value === zone) return i
@@ -43,24 +42,19 @@ GridLayout {
   readonly property int shown: map.activeFocus && map.cursor >= 0 ? map.cursor : indexOf(value)
   readonly property var shownZone: shown >= 0 ? zones[shown] : null
 
-  GrayText {
+  InkText {
     text: row.label
-    textFormat: Text.PlainText
-    color: Commons.Color.popups.text
-    font.family: Style.font.family
-    font.pixelSize: Style.font.body
-    font.bold: true
     Layout.fillWidth: true
     Layout.alignment: Qt.AlignTop
     elide: Text.ElideRight
   }
   ColumnLayout {
-    spacing: Style.space(3)
+    spacing: Gap.xxs
     Item {
       id: map
       property int cursor: -1
-      readonly property real cellHeight: Style.space(24)
-      readonly property real gap: Style.space(3)
+      readonly property real cellHeight: Gap.control
+      readonly property real gap: Gap.xs
       readonly property real cameraWidth: cellHeight
       readonly property bool camera: row.cameraAfter !== "" && row.indexOf(row.cameraAfter) >= 0
       readonly property real total: row.zones.reduce(function(sum, z) { return sum + z.share }, 0)
@@ -107,7 +101,7 @@ GridLayout {
           x: map.span(index).x
           width: map.span(index).width
           height: map.cellHeight
-          radius: Math.min(Style.space(4), Style.cornerRadius)
+          radius: Round.small
           color: chosen ? Style.selectedFillFor(Commons.Color.popups.text, Commons.Color.accent)
             : cellMouse.containsMouse ? Style.hoverFillFor(Commons.Color.popups.text, Commons.Color.accent)
             : Qt.alpha(Commons.Color.popups.text, 0.07)
@@ -150,7 +144,7 @@ GridLayout {
         x: before.x + before.width + map.gap
         width: map.cameraWidth
         height: map.cellHeight
-        radius: Math.min(Style.space(4), Style.cornerRadius)
+        radius: Round.small
         color: "black"
         Rectangle {
           anchors.centerIn: parent
@@ -163,13 +157,10 @@ GridLayout {
         }
       }
     }
-    GrayText {
+    InkText {
       Layout.preferredWidth: map.implicitWidth
       text: row.shownZone ? row.shownZone.label + (row.noteFor(row.shownZone.value) ? ", " + row.noteFor(row.shownZone.value) : "") : ""
-      textFormat: Text.PlainText
-      color: Qt.alpha(Commons.Color.popups.text, 0.6)
-      font.family: Style.font.family
-      font.pixelSize: Style.font.caption
+      role: "caption"
       elide: Text.ElideRight
     }
   }

@@ -22,8 +22,10 @@ BorderSurface {
   // "Suggested"; Enter takes them (checked for clashes), Space records others.
   property string suggested: ""
   readonly property bool suggesting: phase === "idle" && usable && !!suggested && !info.keys && !info.positional && info.source !== "removed"
-  // Where the label starts: compact rows indent; beside unindented choices, 0.
-  property real padding: Style.spacing.rowPaddingX
+  // Where the label starts: s in, the row's surface reaching s out past
+  // its column so the label stays in line with the fields around it
+  // (PREFS-133).
+  property real padding: Gap.s
   // A line under the label (a desk's rows, PREFS-129), and the desk's cursor
   // look: the Layout chip's focus fill and ring, risen with its shadow band
   // (PREFS-104).
@@ -136,13 +138,16 @@ BorderSurface {
   Component.onDestruction: if (phase === "recording") store.stopRecording()
 
   Layout.fillWidth: true
-  implicitHeight: Math.max(Style.spacing.controlHeight + Style.space(8), labelColumn.implicitHeight + 2 * Style.space(6))
-  radius: Math.max(0, Math.min(Style.space(5), Style.cornerRadius - Style.space(3)))
+  Layout.leftMargin: -padding
+  Layout.rightMargin: -padding
+  // A control's height at least, xs above and below its text.
+  implicitHeight: Math.max(Gap.control, labelColumn.implicitHeight + 2 * Gap.xs)
+  radius: Round.control
   color: phase !== "idle" ? Qt.tint(base, Qt.alpha(Commons.Color.accent, 0.1))
     : cursor ? Qt.tint(base, Style.focusFillFor(Commons.Color.popups.text, Commons.Color.accent))
     : rowMouse.containsMouse && usable ? Qt.alpha(Commons.Color.popups.text, 0.14) : "transparent"
   borderSpec: phase !== "idle" || cursor ? Border.controlSpec("focus", Commons.Color.popups.text, Commons.Color.accent) : Border.none()
-  opacity: usable ? 1 : 0.45
+  opacity: usable ? 1 : Ink.disabled
   activeFocusOnTab: true
   Accessible.role: Accessible.Button
   Accessible.name: label + ": " + (shownKeys ? Shortcuts.label(shownKeys) : "none") + (tag ? ", " + tag : "")
@@ -189,48 +194,38 @@ BorderSurface {
     anchors.fill: parent
     anchors.leftMargin: row.padding
     anchors.rightMargin: row.padding
-    spacing: Style.space(8)
+    spacing: Gap.m
     ColumnLayout {
       id: labelColumn
       Layout.fillWidth: row.caption !== ""
-      spacing: Style.space(2)
-      GrayText {
+      spacing: Gap.xxs
+      InkText {
         text: row.label
-        textFormat: Text.PlainText
-        color: Commons.Color.popups.text
-        font.family: Style.font.family
-        font.pixelSize: Style.font.body
-        // On a desk (a caption under it), regular as the desk's other rows.
-        font.bold: row.caption === ""
       }
-      GrayText {
+      InkText {
         visible: row.caption !== ""
         Layout.fillWidth: true
         text: row.captionClash ? row.clashText : row.caption
-        textFormat: Text.PlainText
-        color: row.captionClash ? Commons.Color.urgent : Qt.alpha(Commons.Color.popups.text, 0.55)
-        font.family: Style.font.family
-        font.pixelSize: Style.font.caption
+        role: "caption"
+        color: row.captionClash ? Commons.Color.urgent : Ink.tint(tier)
         wrapMode: Text.WordWrap
         maximumLineCount: row.captionClash ? 2 : 100
         elide: row.captionClash ? Text.ElideRight : Text.ElideNone
       }
     }
-    GrayText {
+    InkText {
       Layout.fillWidth: row.caption === ""
       horizontalAlignment: Text.AlignRight
       text: row.tag
-      textFormat: Text.PlainText
+      role: "caption"
       elide: Text.ElideRight
       color: row.phase === "confirm" || (row.phase === "recording" && row.notice) ? Commons.Color.urgent
-        : row.phase === "recording" ? Commons.Color.accent : Qt.alpha(Commons.Color.popups.text, 0.6)
-      font.family: Style.font.family
-      font.pixelSize: Style.font.bodySmall
+        : row.phase === "recording" ? Commons.Color.accent : Ink.tint(tier)
     }
     KeyCombo {
       keys: row.shownCaps
       foreground: row.phase === "confirm" ? Commons.Color.urgent : Commons.Color.popups.text
-      opacity: row.info.keys || row.phase !== "idle" ? 1 : 0.6
+      opacity: row.info.keys || row.phase !== "idle" ? 1 : Ink.secondary
     }
     Button {
       visible: row.phase === "confirm"

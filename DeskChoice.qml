@@ -56,15 +56,15 @@ Item {
     up: choice.activeFocus
     animate: choice.strip && choice.strip.desk ? choice.strip.desk.animate : true
     lightTheme: choice.strip ? choice.strip.lightTheme : false
-    radius: Math.max(0, Math.min(Style.space(5), Style.cornerRadius - Style.space(3)))
+    radius: Round.control
     plate: choice.strip ? choice.strip.surfaceColor : "transparent"
     padX: choice.padX
     padY: choice.padY
   }
   // As far as a row's surface reaches: into the strip's padding along, and
   // a row's padding above and below.
-  readonly property real padX: Style.space(4)
-  readonly property real padY: Style.space(4)
+  readonly property real padX: Gap.s
+  readonly property real padY: Gap.xs
   // Tuning's Mark the whole control (PREFS-132), on by default: the row of
   // chips' area takes the focus fill and ring as a switch row does, the
   // cursor's chip keeping its own; off, only the cursor's chip is marked.
@@ -75,7 +75,7 @@ Item {
     anchors.rightMargin: -choice.padX
     anchors.topMargin: -choice.padY
     anchors.bottomMargin: -choice.padY
-    radius: Math.max(0, Math.min(Style.space(5), Style.cornerRadius - Style.space(3)))
+    radius: Round.control
     color: Qt.tint(choice.strip ? choice.strip.surfaceColor : "transparent", Style.focusFillFor(Commons.Color.popups.text, Commons.Color.accent))
     borderSpec: Border.controlSpec("focus", Commons.Color.popups.text, Commons.Color.accent)
   }
@@ -87,7 +87,7 @@ Item {
   Layout.fillWidth: true
   implicitWidth: chips.implicitWidth
   implicitHeight: chips.implicitHeight
-  opacity: enabled ? 1 : 0.45
+  opacity: enabled ? 1 : Ink.disabled
   activeFocusOnTab: false
   Accessible.role: Accessible.RadioButton
 
@@ -104,10 +104,43 @@ Item {
     event.accepted = true;
   }
 
+  // The chips' labels measured at the label and caption sizes: while they
+  // fit whole at the label size the chips take it; else (a large base size
+  // on a narrow strip) the caption size, and then xs of side padding, so no
+  // label is cut while one can be kept whole (PREFS-133).
+  Row {
+    id: labelProbe
+    visible: false
+    Repeater {
+      model: choice.options
+      InkText {
+        required property var modelData
+        text: modelData.label
+      }
+    }
+  }
+  Row {
+    id: captionProbe
+    visible: false
+    Repeater {
+      model: choice.options
+      InkText {
+        required property var modelData
+        role: "caption"
+        text: modelData.label
+      }
+    }
+  }
+  function need(textWidth, pad) {
+    return textWidth + options.length * 2 * (pad + 1) + Math.max(0, options.length - 1) * Gap.xs;
+  }
+  readonly property bool labelFits: need(labelProbe.implicitWidth, Gap.s) <= width
+  readonly property int chipFont: labelFits ? Ink.label : Ink.caption
+  readonly property real chipPad: labelFits || need(captionProbe.implicitWidth, Gap.s) <= width ? Gap.s : Gap.xs
   RowLayout {
     id: chips
     anchors.fill: parent
-    spacing: Style.space(2)
+    spacing: Gap.xs
     Repeater {
       model: choice.options
       Button {
@@ -118,14 +151,16 @@ Item {
         Layout.fillWidth: true
         // The chips share the strip by their labels, so "Everywhere" fits.
         Layout.preferredWidth: implicitWidth
+        Layout.preferredHeight: Gap.control
         text: modelData.label
         selected: index === choice.chosenIndex
         bordered: true
         foreground: Commons.Color.popups.text
         background: "transparent"
-        fontSize: Style.font.caption
-        verticalPadding: Style.space(4)
-        horizontalPadding: Style.space(3)
+        // Desk chips (PREFS-133): the label size, xs × s of padding, xs apart.
+        fontSize: choice.chipFont
+        verticalPadding: Gap.xs
+        horizontalPadding: choice.chipPad
         onClicked: {
           choice.cursor = index;
           choice.forceActiveFocus(Qt.MouseFocusReason);

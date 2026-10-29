@@ -61,18 +61,21 @@ DeskPage {
       look.preferences.setScope(tile, value);
     }
   }
-  component Caption: GrayText {
+  component Caption: InkText {
     Layout.fillWidth: true
-    textFormat: Text.PlainText
-    color: Qt.alpha(Commons.Color.popups.text, 0.55)
-    font.family: Style.font.family
-    font.pixelSize: Style.font.caption
+    role: "caption"
     wrapMode: Text.WordWrap
+  }
+  // A field's name over its chips (PREFS-133): the label size, regular,
+  // its chips a text pair's xxs under it in a body m apart.
+  component FieldLabel: InkText {
+    Layout.fillWidth: true
+    elide: Text.ElideRight
   }
   component ScopeHint: Caption {
     property string tile: ""
-    // Close under its chips.
-    Layout.topMargin: -Style.space(5)
+    // A text pair under its chips.
+    Layout.topMargin: Gap.xxs - Gap.m
     text: look.preferences.scopeHint(tile)
     Accessible.name: text
   }
@@ -121,12 +124,11 @@ DeskPage {
         onActivated: look.preferences.setBarStyle(option)
       }
     }
-    Caption {
+    FieldLabel {
       text: "Screen edge"
-      color: Qt.alpha(Commons.Color.popups.text, 0.7)
     }
     DeskChoice {
-      Layout.topMargin: -Style.space(5)
+      Layout.topMargin: Gap.xxs - Gap.m
       options: [
         {
           value: "top",
@@ -277,12 +279,11 @@ DeskPage {
     }
     // Kept per theme in every scope: a light or dark choice can't be shared
     // between light and dark themes.
-    Caption {
+    FieldLabel {
       text: "Text and icons"
-      color: Qt.alpha(Commons.Color.popups.text, 0.7)
     }
     DeskChoice {
-      Layout.topMargin: -Style.space(5)
+      Layout.topMargin: Gap.xxs - Gap.m
       options: [
         {
           value: "theme",

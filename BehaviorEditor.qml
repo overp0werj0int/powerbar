@@ -40,8 +40,11 @@ DeskPage {
     }
   ]
 
+  // l each side of it (PREFS-133), in a body m apart.
   component Hairline: Rectangle {
     Layout.fillWidth: true
+    Layout.topMargin: Gap.l - Gap.m
+    Layout.bottomMargin: Gap.l - Gap.m
     implicitHeight: 1
     color: Qt.alpha(Commons.Color.popups.text, 0.12)
   }
@@ -55,10 +58,7 @@ DeskPage {
     store: behavior.preferences.shortcuts
     suggested: behavior.preferences.shortcuts.suggested(target)
     cursor: activeFocus
-    padding: Style.space(4)
     activeFocusOnTab: false
-    Layout.leftMargin: -Style.space(4)
-    Layout.rightMargin: -Style.space(4)
   }
 
   // ---------------------------------------------------- 1 Comes and goes

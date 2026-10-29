@@ -115,26 +115,23 @@ Item {
         readonly property bool current: prefs.page === index
         Component.onCompleted: prefs.registerTab(this)
         Component.onDestruction: prefs.unregisterTab(this)
-        implicitWidth: tabRow.implicitWidth + Style.space(20)
-        implicitHeight: tabRow.implicitHeight + Style.space(18)
+        implicitWidth: tabRow.implicitWidth + 2 * Gap.m
+        implicitHeight: tabRow.implicitHeight + 2 * Gap.s
         Accessible.role: Accessible.PageTab
         Accessible.name: modelData.title
         Accessible.selected: current
         Row {
             id: tabRow
             anchors.centerIn: parent
-            spacing: Style.space(8)
+            spacing: Gap.s
             KeyCap {
                 text: tab.index + 1
                 foreground: tab.current ? Commons.Color.accent : Commons.Color.popups.text
                 anchors.verticalCenter: parent.verticalCenter
             }
-            GrayText {
+            InkText {
                 text: tab.modelData.title
-                textFormat: Text.PlainText
-                color: tab.current ? Commons.Color.popups.text : Qt.alpha(Commons.Color.popups.text, tabMouse.containsMouse ? 0.85 : 0.55)
-                font.family: Style.font.family
-                font.pixelSize: Style.font.body
+                tier: tab.current || tabMouse.containsMouse ? 1 : Ink.secondary
                 font.bold: tab.current
                 anchors.verticalCenter: parent.verticalCenter
             }
@@ -757,10 +754,11 @@ Item {
             id: card
             anchors.fill: parent
             anchors.margins: window.gap
-            radius: Style.cornerRadius
+            radius: Round.card
             border.width: 1
             border.color: Commons.Color.popups.border
-            readonly property real inset: Math.round(Math.min(Style.space(66), width / 23))
+            // The golden card (PREFS-133): xxxl at the sides, xl above and below.
+            readonly property real inset: Gap.xxxl
             color: Qt.rgba(Commons.Color.popups.background.r, Commons.Color.popups.background.g, Commons.Color.popups.background.b, 1)
             // Pages sliding off keep to the card.
             clip: pages.sliding
@@ -852,8 +850,9 @@ Item {
                     // reads false while its parent is hidden, so it cannot drive it.
                     readonly property bool shown: !!target && target.visible
                     color: "transparent"
-                    // A hairline in the theme's own shape: square on a square theme.
-                    radius: Style.cornerRadius > 0 ? Style.cornerRadius + pad : 0
+                    // A hairline in the focused control's shape, pad out
+                    // (PREFS-134): square on a square theme.
+                    radius: Style.cornerRadius > 0 ? (target && typeof target.radius === "number" ? target.radius : Round.control) + pad : 0
                     borderSpec: Border.flat(Commons.Color.accent, 1)
                     onTargetChanged: {
                         gliding = true;
@@ -936,8 +935,8 @@ Item {
                 anchors.fill: parent
                 anchors.leftMargin: card.inset
                 anchors.rightMargin: card.inset
-                anchors.topMargin: Style.space(14)
-                anchors.bottomMargin: Style.space(14)
+                anchors.topMargin: Gap.xl
+                anchors.bottomMargin: Gap.xl
                 spacing: 0
 
                 // ---------------------------------------------------------- header
@@ -958,9 +957,9 @@ Item {
                         // Read where the tab is whenever the row lays it out again.
                         readonly property point at: tab ? (headerRow.width, tab.x, tab.width, tab.parent.x, tab.mapToItem(header, 0, tab.height)) : Qt.point(0, 0)
                         visible: !!tab
-                        x: at.x + Style.space(6)
+                        x: at.x + Gap.m
                         y: at.y - height
-                        width: tab ? tab.width - Style.space(12) : 0
+                        width: tab ? tab.width - 2 * Gap.m : 0
                         height: Math.max(2, Style.space(2))
                         radius: height / 2
                         color: Commons.Color.accent
@@ -984,17 +983,13 @@ Item {
                     RowLayout {
                         id: headerRow
                         anchors.fill: parent
-                        spacing: Style.space(28)
-                        GrayText {
+                        spacing: Gap.xxl
+                        InkText {
                             text: "Powerbar"
-                            textFormat: Text.PlainText
-                            color: Commons.Color.popups.text
-                            font.family: Style.font.family
-                            font.pixelSize: Style.font.heading
-                            font.bold: true
+                            role: "page"
                         }
                         Row {
-                            spacing: Style.space(4)
+                            spacing: Gap.xs
                             Repeater {
                                 model: prefs.pages.filter(function (p) {
                                     return !p.aside;
@@ -1016,22 +1011,18 @@ Item {
                         Item {
                             implicitWidth: closeRow.implicitWidth
                             implicitHeight: closeRow.implicitHeight
-                            opacity: closeMouse.containsMouse ? 1 : 0.65
                             Accessible.role: Accessible.Button
                             Accessible.name: "Close"
                             Row {
                                 id: closeRow
-                                spacing: Style.space(8)
+                                spacing: Gap.s
                                 KeyCap {
                                     text: "esc"
                                     anchors.verticalCenter: parent.verticalCenter
                                 }
-                                GrayText {
+                                InkText {
                                     text: "Close"
-                                    textFormat: Text.PlainText
-                                    color: Commons.Color.popups.text
-                                    font.family: Style.font.family
-                                    font.pixelSize: Style.font.bodySmall
+                                    tier: closeMouse.containsMouse ? 1 : Ink.secondary
                                     anchors.verticalCenter: parent.verticalCenter
                                 }
                             }
@@ -1057,8 +1048,6 @@ Item {
                     id: pages
                     Layout.fillWidth: true
                     Layout.fillHeight: true
-                    Layout.topMargin: Style.space(4)
-                    Layout.bottomMargin: Style.space(10)
 
                     property int current: 0
                     property int leaving: -1
@@ -1203,13 +1192,13 @@ Item {
                 RowLayout {
                     visible: prefs.hints.length > 0 || prefs.status !== ""
                     Layout.fillWidth: true
-                    Layout.topMargin: Style.space(8)
-                    spacing: Style.space(18)
+                    Layout.topMargin: Gap.m
+                    spacing: Gap.l
                     Repeater {
                         model: prefs.hints
                         Row {
                             required property var modelData
-                            spacing: Style.space(6)
+                            spacing: Gap.xs
                             Repeater {
                                 model: String(parent.modelData.keys).split(" ")
                                 KeyCap {
@@ -1218,12 +1207,9 @@ Item {
                                     anchors.verticalCenter: parent ? parent.verticalCenter : undefined
                                 }
                             }
-                            GrayText {
+                            InkText {
                                 text: parent.modelData.label
-                                textFormat: Text.PlainText
-                                color: Qt.alpha(Commons.Color.popups.text, 0.6)
-                                font.family: Style.font.family
-                                font.pixelSize: Style.font.caption
+                                role: "caption"
                                 anchors.verticalCenter: parent.verticalCenter
                             }
                         }

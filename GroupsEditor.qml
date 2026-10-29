@@ -637,18 +637,20 @@ Item {
     }
     // The pool's slab: across the five zones' columns, like the Hidden layer's.
     readonly property var slabBox: layout.column("hidden")
-    readonly property real tileRadius: Math.min(Style.space(10), Style.cornerRadius)
-    readonly property real chipRadius: Math.max(0, Math.min(Style.space(5), Style.cornerRadius - Style.space(3)))
+    readonly property real tileRadius: Round.container
+    readonly property real chipRadius: Round.control
     readonly property color pageColor: Qt.rgba(Commons.Color.popups.background.r, Commons.Color.popups.background.g, Commons.Color.popups.background.b, 1)
     function tileColor(lead) {
         return Qt.tint(pageColor, Qt.alpha(Commons.Color.popups.text, lead ? 0.09 : 0.065));
     }
     function pillWidth(n) {
-        return layout.textInk(String(n), Style.font.family, Style.font.caption).advance + Style.space(10);
+        return layout.textInk(String(n), Style.font.family, Ink.caption).advance + 2 * Gap.s;
     }
     // A widget row's indent under its face, and the branch tying them.
-    readonly property real indent: Style.space(12)
-    readonly property real poolSpacing: layout.columnGap
+    readonly property real indent: Gap.l
+    // A face's icon box, as a widget row's icon.
+    readonly property real faceIcon: Style.space(20)
+    readonly property real poolSpacing: layout.chipGap
     readonly property int poolPerRow: Editor.perRow(slabBox.width - 2 * tilePad, chipWidth, poolSpacing)
     readonly property int poolRows: Math.ceil(poolList.length / poolPerRow)
     // The bottom band: the legend's longest list (nine rows) with its
@@ -658,8 +660,8 @@ Item {
         visible: false
         text: "x"
     }
-    readonly property real legendBand: Style.space(8) + Style.space(24) + 9 * capProbe.implicitHeight + 8 * Style.space(10)
-    readonly property real bottomBand: Math.max(legendBand, selectedGroup ? inspector.height + Style.space(24) : 0)
+    readonly property real legendBand: Gap.xl + 9 * capProbe.implicitHeight + 8 * Gap.s
+    readonly property real bottomBand: Math.max(legendBand, selectedGroup ? inspector.height + Gap.xl : 0)
     // The plates share the room as the Layout page's layers do (PREFS-106,
     // PREFS-115): the list's plate as tall as its tallest zone (eight rows at
     // most) and the "+", met first, the pool its rows with what is left.
@@ -673,7 +675,7 @@ Item {
         }),
         poolRows: poolRows,
         poolGap: poolSpacing,
-        poolLabel: poolFace.labelBottom + Style.space(8) + filterBox.height + Style.space(8),
+        poolLabel: poolFace.labelBottom + Gap.m + filterBox.height + Gap.m,
         // The pool's label column may hang into the bottom band over the
         // legend's spare room (on a tilted plate a length is seen shorter).
         labelRoom: bottomBand - legendBand
@@ -829,24 +831,25 @@ Item {
                 id: filterBox
                 readonly property bool live: editor.filtering && stage.activeFocus
                 x: poolFace.labelX
-                y: poolFace.labelBottom + Style.space(8)
+                // A field m under the label's caption, a control tall
+                // (PREFS-133).
+                y: poolFace.labelBottom + Gap.m
                 width: poolFace.labelWidth
-                height: Style.space(26)
+                height: Gap.control
                 antialiasing: true
                 radius: editor.chipRadius
                 color: live ? Style.focusFillFor(Commons.Color.popups.text, Commons.Color.accent) : "transparent"
                 borderSpec: live ? Border.controlSpec("focus", Commons.Color.popups.text, Commons.Color.accent) : Border.flat(editor.filterText ? Commons.Color.accent : Qt.alpha(Commons.Color.popups.text, 0.14), 1)
-                GrayText {
+                InkText {
                     id: filterLabel
-                    x: Style.space(8)
-                    width: parent.width - 2 * x - (slashCap.visible ? slashCap.width + Style.space(6) : 0)
+                    x: Gap.s
+                    width: parent.width - 2 * x - (slashCap.visible ? slashCap.width + Gap.s : 0)
                     anchors.verticalCenter: parent.verticalCenter
                     text: editor.filterText || "Filter " + editor.poolAll.length + (editor.poolAll.length === 1 ? " widget" : " widgets")
-                    textFormat: Text.PlainText
-                    color: Qt.alpha(Commons.Color.popups.text, editor.filterText ? 0.9 : 0.45)
-                    font.family: Style.font.family
-                    font.pixelSize: Style.font.caption
-                    elide: Text.ElideLeft
+                    role: "caption"
+                    tier: editor.filterText ? 1 : Ink.secondary
+                    // Typed text keeps its end in view; the placeholder its start.
+                    elide: editor.filterText ? Text.ElideLeft : Text.ElideRight
                 }
                 // The caret: after the text, or before the placeholder.
                 Rectangle {
@@ -861,7 +864,7 @@ Item {
                     id: slashCap
                     visible: !filterBox.live
                     anchors.right: parent.right
-                    anchors.rightMargin: Style.space(4)
+                    anchors.rightMargin: Gap.xs
                     anchors.verticalCenter: parent.verticalCenter
                     text: "/"
                 }
@@ -886,16 +889,13 @@ Item {
                 perRow: editor.poolPerRow
                 current: cursorHere
                 model: poolTiles.model
-                GrayText {
-                    x: poolCell.pad + Style.space(2)
-                    y: poolCell.pad + Style.space(5)
+                InkText {
+                    x: poolCell.pad + Gap.s
+                    y: poolCell.pad + Gap.s
                     width: parent.width - 2 * x
                     visible: editor.poolList.length === 0
                     text: editor.filterText ? "No widget matches “" + editor.filterText + "”. " + (editor.filtering ? "Esc clears the filter." : "/ changes the filter.") : "Every widget is in a group. x on one under its group, or a drag here, takes it out."
-                    textFormat: Text.PlainText
-                    color: Qt.alpha(Commons.Color.popups.text, 0.3)
-                    font.family: Style.font.family
-                    font.pixelSize: Style.font.caption
+                    role: "caption"
                     wrapMode: Text.WordWrap
                 }
                 RetainedList {
@@ -1400,37 +1400,32 @@ Item {
                 easing.type: Easing.OutCubic
             }
         }
-        width: tipRow.implicitWidth + Style.space(24)
-        height: tipRow.implicitHeight + Style.space(16)
-        radius: Math.max(0, Style.cornerRadius - Math.round(Style.spacing.rowPaddingX / 2))
+        // A surface over the page, not a chip (PREFS-133): m above and
+        // below, l at the sides, one step past its own m gaps.
+        width: tipRow.implicitWidth + 2 * Gap.l
+        height: tipRow.implicitHeight + 2 * Gap.m
+        radius: Round.container
         color: Qt.tint(editor.pageColor, Qt.alpha(Commons.Color.popups.text, 0.1))
         borderSpec: Border.flat(Qt.alpha(Commons.Color.popups.text, 0.16), 1)
         Row {
             id: tipRow
             anchors.centerIn: parent
-            spacing: Style.space(10)
+            spacing: Gap.m
             InkIcon {
                 visible: !!nameTip.record.instanceKey
                 layout: editor.layout
                 record: nameTip.record
                 anchors.verticalCenter: parent.verticalCenter
             }
-            GrayText {
+            InkText {
                 anchors.verticalCenter: parent.verticalCenter
                 text: nameTip.title
-                textFormat: Text.PlainText
-                color: Commons.Color.popups.text
-                font.family: Style.font.family
-                font.pixelSize: Style.font.body
             }
-            GrayText {
+            InkText {
                 visible: text !== ""
                 anchors.verticalCenter: parent.verticalCenter
                 text: nameTip.detail
-                textFormat: Text.PlainText
-                color: Qt.alpha(Commons.Color.popups.text, 0.55)
-                font.family: Style.font.family
-                font.pixelSize: Style.font.caption
+                role: "caption"
             }
         }
     }
@@ -1455,7 +1450,8 @@ Item {
         anchors.right: parent.right
         anchors.bottom: parent.bottom
         width: Math.min(editor.width, Style.space(670))
-        height: inspectorBody.implicitHeight + Style.space(22) + Style.space(16)
+        // xl all round, its columns xl apart, its blocks l (PREFS-133).
+        height: inspectorBody.implicitHeight + 2 * Gap.xl
         z: 120
         radius: editor.tileRadius
         color: editor.tileColor(false)
@@ -1511,30 +1507,28 @@ Item {
             anchors.leftMargin: Style.space(8)
             anchors.rightMargin: Style.space(8)
             radius: inspector.radius
-            color: Qt.rgba(0, 0, 0, 0.3)
+            color: Qt.rgba(0, 0, 0, editor.lightTheme ? 0.2 : 0.3)
         }
         ColumnLayout {
             id: inspectorBody
             anchors.left: parent.left
             anchors.right: parent.right
             anchors.top: parent.top
-            anchors.leftMargin: Style.space(22)
-            anchors.rightMargin: Style.space(22)
-            anchors.topMargin: Style.space(22)
-            spacing: Style.space(12)
+            anchors.margins: Gap.xl
+            spacing: Gap.l
             RowLayout {
                 Layout.fillWidth: true
-                spacing: Style.space(24)
+                spacing: Gap.xl
                 // The face as the bar draws it, its name, where it is, Dissolve.
                 ColumnLayout {
                     Layout.preferredWidth: Style.space(148)
                     Layout.maximumWidth: Style.space(148)
                     Layout.alignment: Qt.AlignTop
-                    spacing: Style.space(6)
+                    spacing: Gap.m
                     Rectangle {
                         Layout.fillWidth: true
-                        Layout.preferredHeight: Style.space(54)
-                        radius: Math.min(Style.space(6), Style.cornerRadius)
+                        Layout.preferredHeight: Gap.xxxl
+                        radius: Round.control
                         color: editor.layout.barSurface
                         clip: true
                         BarFace {
@@ -1548,7 +1542,10 @@ Item {
                     TextField {
                         id: nameField
                         Layout.fillWidth: true
-                        Layout.topMargin: Style.space(4)
+                        Layout.preferredHeight: Gap.control
+                        verticalPadding: Gap.xs
+                        horizontalPadding: Gap.s
+                        font.pixelSize: Ink.label
                         // Typing breaks a plain binding: this one comes back whenever the
                         // field is not being edited, so another group or widget shows its own.
                         Binding on text {
@@ -1558,7 +1555,6 @@ Item {
                         }
                         placeholderText: "Group name"
                         foreground: Commons.Color.popups.text
-                        font.bold: true
                         Accessible.name: "Group name"
                         readonly property var keyHints: [
                             {
@@ -1576,14 +1572,12 @@ Item {
                             event.accepted = true;
                         }
                     }
-                    GrayText {
+                    InkText {
                         Layout.fillWidth: true
+                        Layout.topMargin: Gap.xxs - Gap.m
                         readonly property int n: inspector.group ? (editor.memberLists[inspector.group.id] || []).length : 0
                         text: !inspector.group ? "" : n + (n === 1 ? " widget, " : " widgets, ") + (inspector.group.visibility === "hidden" ? "hidden, zone " + editor.layout.zoneNames[inspector.group.section] : (inspector.group.visibility === "managed" ? "on demand at " : "on the bar at ") + String(editor.layout.zoneNames[inspector.group.section]).toLowerCase())
-                        textFormat: Text.PlainText
-                        color: Qt.alpha(Commons.Color.popups.text, 0.55)
-                        font.family: Style.font.family
-                        font.pixelSize: Style.font.caption
+                        role: "caption"
                         wrapMode: Text.WordWrap
                     }
                     // Dissolve, asked twice (PREFS-39).
@@ -1597,8 +1591,7 @@ Item {
                             }
                         ]
                         Layout.fillWidth: true
-                        Layout.topMargin: Style.space(4)
-                        Layout.preferredHeight: Style.space(26)
+                        Layout.preferredHeight: Gap.control
                         activeFocusOnTab: true
                         Accessible.role: Accessible.Button
                         Accessible.name: dissolveLabel.text
@@ -1613,17 +1606,15 @@ Item {
                             radius: editor.chipRadius
                             stroke: dissolveButton.confirming ? Commons.Color.error : Qt.alpha(Commons.Color.popups.text, dissolveMouse.containsMouse ? 0.45 : 0.25)
                         }
-                        GrayText {
+                        InkText {
                             id: dissolveLabel
-                            anchors.fill: parent
-                            anchors.leftMargin: Style.space(8)
-                            anchors.rightMargin: Style.space(8)
-                            verticalAlignment: Text.AlignVCenter
+                            anchors.left: parent.left
+                            anchors.right: parent.right
+                            anchors.leftMargin: Gap.s
+                            anchors.rightMargin: Gap.s
+                            anchors.verticalCenter: parent.verticalCenter
                             text: dissolveButton.confirming ? "Again to dissolve" : "Dissolve " + (inspector.group ? inspector.group.label : "")
-                            textFormat: Text.PlainText
-                            color: dissolveButton.confirming ? Commons.Color.error : Qt.alpha(Commons.Color.popups.text, 0.7)
-                            font.family: Style.font.family
-                            font.pixelSize: Style.font.caption
+                            color: dissolveButton.confirming ? Commons.Color.error : Ink.tint(1)
                             elide: Text.ElideRight
                         }
                         MouseArea {
@@ -1640,7 +1631,7 @@ Item {
                     Layout.fillWidth: true
                     Layout.preferredWidth: 1
                     Layout.alignment: Qt.AlignTop
-                    spacing: Style.space(2)
+                    spacing: Gap.m
                     PrefsChoice {
                         stacked: true
                         label: "Show"
@@ -1666,7 +1657,6 @@ Item {
                         }
                     }
                     PrefsChoice {
-                        Layout.topMargin: Style.space(6)
                         stacked: true
                         label: "Widgets show"
                         options: [
@@ -1691,7 +1681,6 @@ Item {
                         }
                     }
                     PrefsToggle {
-                        Layout.topMargin: Style.space(4)
                         compact: true
                         label: "Name on hover"
                         readonly property var keyHints: [
@@ -1707,7 +1696,9 @@ Item {
                             });
                         }
                     }
+                    // A sibling of the switch above: xs apart.
                     PrefsToggle {
+                        Layout.topMargin: Gap.xs - Gap.m
                         compact: true
                         label: "Badge"
                         readonly property var keyHints: [
@@ -1726,7 +1717,7 @@ Item {
                     PrefsChoice {
                         stacked: true
                         enabled: !!inspector.group && inspector.group.badge
-                        opacity: enabled ? 1 : 0.45
+                        opacity: enabled ? 1 : Ink.disabled
                         label: "Counts"
                         options: [
                             {
@@ -1751,7 +1742,7 @@ Item {
                     Layout.preferredWidth: Style.space(240)
                     Layout.maximumWidth: Style.space(240)
                     Layout.alignment: Qt.AlignTop
-                    spacing: Style.space(6)
+                    spacing: Gap.m
                     LayerPicker {
                         Layout.fillWidth: true
                         value: inspector.group ? inspector.group.visibility : ""
@@ -1766,7 +1757,6 @@ Item {
                         id: zoneMap
                         compact: true
                         stacked: true
-                        Layout.leftMargin: 0
                         zones: editor.layout.zoneChoices
                         cameraOver: editor.layout.previewCamera ? "center" : ""
                         noteFor: function (zone) {
@@ -1788,13 +1778,12 @@ Item {
                                 editor.moveToZone(group, value);
                         }
                     }
-                    GrayText {
+                    // A hint: a text pair under the field it is about.
+                    InkText {
                         Layout.fillWidth: true
+                        Layout.topMargin: Gap.xxs - Gap.m
                         text: "Shift h l on its face moves it too"
-                        textFormat: Text.PlainText
-                        color: Qt.alpha(Commons.Color.popups.text, 0.45)
-                        font.family: Style.font.family
-                        font.pixelSize: Style.font.caption
+                        role: "caption"
                         wrapMode: Text.WordWrap
                     }
                     Button {
@@ -1810,13 +1799,15 @@ Item {
                         focusable: true
                         bordered: true
                         foreground: Commons.Color.popups.text
+                        fontSize: Ink.label
+                        verticalPadding: Gap.xs
+                        horizontalPadding: Gap.s
                         Keys.onReturnPressed: picker.open(inspector.group, iconButton)
                         Keys.onEnterPressed: picker.open(inspector.group, iconButton)
                         onClicked: picker.open(inspector.group, iconButton)
                     }
                     ShortcutRow {
                         Layout.fillWidth: true
-                        padding: 0
                         store: editor.preferences.shortcuts
                         target: inspector.group ? "group:" + inspector.group.id : ""
                         unavailable: inspector.group && inspector.group.visibility === "hidden" ? "Hidden groups can't open" : ""
@@ -1827,20 +1818,18 @@ Item {
             Rectangle {
                 Layout.fillWidth: true
                 Layout.preferredHeight: 1
-                color: Qt.alpha(Commons.Color.popups.text, 0.1)
+                color: Qt.alpha(Commons.Color.popups.text, 0.12)
             }
             RowLayout {
                 Layout.fillWidth: true
-                Layout.preferredHeight: Style.spacing.controlHeight
-                spacing: Style.space(10)
-                GrayText {
+                Layout.preferredHeight: Gap.control
+                spacing: Gap.m
+                InkText {
                     Layout.fillWidth: true
                     Layout.preferredWidth: 3
                     text: editor.member ? editor.preferences.title(editor.member) + ", in " + (inspector.group ? inspector.group.label : "") : "Put the cursor on one of its widgets to set where its badge count comes from"
-                    textFormat: Text.PlainText
-                    color: Qt.alpha(Commons.Color.popups.text, editor.member ? 0.8 : 0.45)
-                    font.family: Style.font.family
-                    font.pixelSize: Style.font.caption
+                    role: "caption"
+                    tier: editor.member ? 1 : Ink.secondary
                     elide: Text.ElideRight
                 }
                 TextField {
@@ -1855,8 +1844,8 @@ Item {
                     }
                     placeholderText: "Count from: detected"
                     foreground: Commons.Color.popups.text
-                    font.pixelSize: Style.font.caption
-                    verticalPadding: Style.space(3)
+                    font.pixelSize: Ink.caption
+                    verticalPadding: Gap.xs
                     Accessible.name: "Badge count property"
                     onEditingFinished: if (editor.member)
                         editor.bar.editMemberBadge(editor.member.instanceKey, "badgeProperty", text.trim())
@@ -1873,19 +1862,16 @@ Item {
                     }
                     placeholderText: "Urgent from: detected"
                     foreground: Commons.Color.popups.text
-                    font.pixelSize: Style.font.caption
-                    verticalPadding: Style.space(3)
+                    font.pixelSize: Ink.caption
+                    verticalPadding: Gap.xs
                     Accessible.name: "Urgent property"
                     onEditingFinished: if (editor.member)
                         editor.bar.editMemberBadge(editor.member.instanceKey, "urgentProperty", text.trim())
                 }
-                GrayText {
+                InkText {
                     visible: !!editor.member
                     text: "x takes it out"
-                    textFormat: Text.PlainText
-                    color: Qt.alpha(Commons.Color.popups.text, 0.45)
-                    font.family: Style.font.family
-                    font.pixelSize: Style.font.caption
+                    role: "caption"
                 }
             }
         }
@@ -2110,8 +2096,7 @@ Item {
         id: legendGrid
         anchors.left: parent.left
         anchors.bottom: parent.bottom
-        anchors.bottomMargin: Style.space(8)
-        width: Math.max(Style.space(200), Math.min(Style.space(640), (inspector.shown ? inspector.x : editor.width) - Style.space(32)))
+        width: Math.max(Style.space(200), Math.min(Style.space(640), (inspector.shown ? inspector.x : editor.width) - Gap.xl))
         z: 118
         lines: editor.legend
     }
@@ -2206,7 +2191,7 @@ Item {
         readonly property bool placeholder: kind === "gap"
         readonly property bool widget: kind === "member" || kind === "gap"
         readonly property var group: editor.groupOf(groupId)
-        readonly property real fade: group && group.visibility === "hidden" ? 0.6 : 1
+        readonly property real fade: group && group.visibility === "hidden" ? Ink.secondary : 1
         // Where a keyboard lift's copy sits over a landing place.
         readonly property var landing: widgetLoader.item
         width: editor.chipWidth
@@ -2225,8 +2210,8 @@ Item {
         // and on past it to the next widget row, with a tick to the row.
         Rectangle {
             visible: listRow.widget
-            x: Style.space(5)
-            y: listRow.row.first ? -(editor.chipGap + (editor.chipHeight - Style.space(16)) / 2) : -editor.chipGap
+            x: Gap.s
+            y: listRow.row.first ? -(editor.chipGap + (editor.chipHeight - editor.faceIcon) / 2) : -editor.chipGap
             width: 1
             height: (listRow.row.last ? Math.round(listRow.height / 2) : listRow.height) - y
             color: Qt.alpha(Commons.Color.popups.text, 0.25)
@@ -2234,9 +2219,9 @@ Item {
         }
         Rectangle {
             visible: listRow.widget
-            x: Style.space(5)
+            x: Gap.s
             y: Math.round(listRow.height / 2)
-            width: Style.space(6)
+            width: editor.indent - Gap.s - Gap.xxs
             height: 1
             color: Qt.alpha(Commons.Color.popups.text, 0.25)
             opacity: listRow.fade
@@ -2257,16 +2242,13 @@ Item {
                 }
             }
         }
-        GrayText {
+        InkText {
             visible: listRow.kind === "note"
-            x: editor.indent + Style.space(2)
+            x: editor.indent + Gap.s
             width: listRow.width - x
             anchors.verticalCenter: parent.verticalCenter
             text: "Empty: space on a pool widget adds here"
-            textFormat: Text.PlainText
-            color: Qt.alpha(Commons.Color.popups.text, 0.55)
-            font.family: Style.font.family
-            font.pixelSize: Style.font.caption
+            role: "caption"
             elide: Text.ElideRight
             opacity: listRow.fade
         }
@@ -2297,13 +2279,16 @@ Item {
             radius: editor.chipRadius
             stroke: Qt.alpha(Commons.Color.popups.text, 0.35)
         }
+        // A row as the Layout page's (PREFS-133): s in, its icon m from its
+        // name at the label size.
         Row {
             id: faceRow
-            x: Style.space(6)
+            x: Gap.s
             anchors.verticalCenter: parent.verticalCenter
-            spacing: Style.space(5)
-            opacity: look.visibility === "hidden" ? 0.55 : 1
+            spacing: Gap.m
+            opacity: look.visibility === "hidden" ? Ink.secondary : 1
             Rectangle {
+                id: demandDot
                 visible: look.visibility === "managed"
                 anchors.verticalCenter: parent.verticalCenter
                 width: Style.space(5)
@@ -2315,8 +2300,8 @@ Item {
             }
             Item {
                 anchors.verticalCenter: parent.verticalCenter
-                width: Style.space(16)
-                height: Style.space(16)
+                width: editor.faceIcon
+                height: editor.faceIcon
                 GroupFace {
                     anchors.centerIn: parent
                     group: look.group
@@ -2326,30 +2311,24 @@ Item {
                     fontSize: Style.font.body
                 }
             }
-            GrayText {
+            InkText {
                 anchors.verticalCenter: parent.verticalCenter
-                width: Math.max(0, look.width - Style.space(12) - Style.space(16) - (look.visibility === "managed" ? Style.space(10) : 0) - 2 * faceRow.spacing - facePill.width)
+                width: Math.max(0, look.width - 2 * Gap.s - editor.faceIcon - (demandDot.visible ? demandDot.width + faceRow.spacing : 0) - 2 * faceRow.spacing - facePill.width)
                 text: look.group ? look.group.label : ""
-                textFormat: Text.PlainText
-                color: Commons.Color.popups.text
-                font.family: Style.font.family
-                font.pixelSize: Style.font.caption
                 elide: Text.ElideRight
             }
             Rectangle {
                 id: facePill
                 anchors.verticalCenter: parent.verticalCenter
                 width: editor.pillWidth(look.count)
-                height: Style.space(16)
+                height: Ink.line(Ink.caption)
                 radius: height / 2
                 color: Qt.alpha(Commons.Color.popups.text, 0.12)
-                GrayText {
+                InkText {
                     anchors.centerIn: parent
                     text: look.count
-                    textFormat: Text.PlainText
-                    color: Commons.Color.popups.text
-                    font.family: Style.font.family
-                    font.pixelSize: Style.font.caption
+                    role: "caption"
+                    tier: 1
                 }
             }
         }
@@ -2386,13 +2365,10 @@ Item {
             radius: editor.chipRadius
             stroke: plus.lit ? Commons.Color.accent : Qt.alpha(Commons.Color.popups.text, 0.3)
         }
-        GrayText {
+        InkText {
             anchors.centerIn: parent
             text: "+"
-            textFormat: Text.PlainText
-            color: plus.lit ? Commons.Color.accent : Qt.alpha(Commons.Color.popups.text, 0.5)
-            font.family: Style.font.family
-            font.pixelSize: Style.font.body
+            color: plus.lit ? Commons.Color.accent : Ink.tint(Ink.secondary)
         }
     }
     // A widget's chip, the Layout page's (PREFS-22, PREFS-104): its icon and
@@ -2452,24 +2428,20 @@ Item {
         }
         Row {
             id: chipRow
-            x: Style.space(8)
+            x: Gap.s
             anchors.verticalCenter: parent.verticalCenter
-            spacing: Style.space(8)
-            opacity: tile.placeholder ? (editor.pointerLift ? 0 : 0.5) : tile.area === "pool" ? 0.5 : 1
+            spacing: Gap.m
+            opacity: tile.placeholder ? (editor.pointerLift ? 0 : 0.5) : tile.area === "pool" ? Ink.secondary : 1
             InkIcon {
                 id: chipIcon
                 layout: editor.layout
                 record: tile.record
                 anchors.verticalCenter: parent.verticalCenter
             }
-            GrayText {
+            InkText {
                 text: tile.record && tile.record.instanceKey ? editor.preferences.title(tile.record) : ""
-                textFormat: Text.PlainText
-                color: Commons.Color.popups.text
-                font.family: Style.font.family
-                font.pixelSize: Style.font.body
                 elide: Text.ElideRight
-                width: Math.max(Style.space(16), tile.width - Style.space(16) - chipIcon.width - chipRow.spacing)
+                width: Math.max(Style.space(16), tile.width - 2 * Gap.s - chipIcon.width - chipRow.spacing)
                 anchors.verticalCenter: parent.verticalCenter
             }
         }
