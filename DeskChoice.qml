@@ -58,8 +58,26 @@ Item {
     lightTheme: choice.strip ? choice.strip.lightTheme : false
     radius: Math.max(0, Math.min(Style.space(5), Style.cornerRadius - Style.space(3)))
     plate: choice.strip ? choice.strip.surfaceColor : "transparent"
-    padX: Style.space(4)
-    padY: Style.space(4)
+    padX: choice.padX
+    padY: choice.padY
+  }
+  // As far as a row's surface reaches: into the strip's padding along, and
+  // a row's padding above and below.
+  readonly property real padX: Style.space(8)
+  readonly property real padY: Style.space(6)
+  // Tuning's Mark the whole control (PREFS-132), on by default: the row of
+  // chips' area takes the focus fill and ring as a switch row does, the
+  // cursor's chip keeping its own; off, only the cursor's chip is marked.
+  BorderSurface {
+    visible: choice.activeFocus && Tuning.values.areaRing !== 0
+    anchors.fill: parent
+    anchors.leftMargin: -choice.padX
+    anchors.rightMargin: -choice.padX
+    anchors.topMargin: -choice.padY
+    anchors.bottomMargin: -choice.padY
+    radius: Math.max(0, Math.min(Style.space(5), Style.cornerRadius - Style.space(3)))
+    color: Qt.tint(choice.strip ? choice.strip.surfaceColor : "transparent", Style.focusFillFor(Commons.Color.popups.text, Commons.Color.accent))
+    borderSpec: Border.controlSpec("focus", Commons.Color.popups.text, Commons.Color.accent)
   }
   transform: Translate {
     y: -lift.raise

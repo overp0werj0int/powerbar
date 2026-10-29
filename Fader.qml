@@ -91,7 +91,21 @@ Item {
     radius: Math.max(0, Math.min(Style.space(5), Style.cornerRadius - Style.space(3)))
     plate: fader.strip ? fader.strip.surfaceColor : "transparent"
     padX: Style.space(8)
-    padY: Style.space(4)
+    padY: Style.space(6)
+  }
+  // Tuning's Mark the whole control (PREFS-132), on by default: the fader's
+  // area takes the focus fill and ring as a switch row does, the knob
+  // keeping its ring; off, only the knob is ringed.
+  BorderSurface {
+    visible: fader.activeFocus && Tuning.values.areaRing !== 0
+    anchors.fill: parent
+    anchors.leftMargin: -Style.space(8)
+    anchors.rightMargin: -Style.space(8)
+    anchors.topMargin: -Style.space(6)
+    anchors.bottomMargin: -Style.space(6)
+    radius: Math.max(0, Math.min(Style.space(5), Style.cornerRadius - Style.space(3)))
+    color: Qt.tint(fader.strip ? fader.strip.surfaceColor : "transparent", Style.focusFillFor(Commons.Color.popups.text, Commons.Color.accent))
+    borderSpec: Border.controlSpec("focus", Commons.Color.popups.text, Commons.Color.accent)
   }
   transform: Translate { y: -lift.raise }
   scale: lift.grown

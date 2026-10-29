@@ -7,8 +7,10 @@ import qs.Ui
 // A group of pick rows on a desk strip (docs/behavior/preferences.md
 // PREFS-129): the rows one under the other, 10 px apart as the strip lays
 // its controls, lifting together as one plate when the cursor is on any of
-// them, with the focus ring round the whole group as a switch row has it;
-// the cursor's row keeps its fill, its own ring giving way to the group's.
+// them. With the cursor in it the group's area takes the focus fill and the
+// ring as a switch row's does, the cursor's row the selected fill over it;
+// with Tuning's Mark the whole control off, only the cursor's pick mark is
+// ringed.
 // The desk walks the rows as it walks any control (DeskStrip.controls looks
 // inside).
 Item {
@@ -44,6 +46,20 @@ Item {
     padX: Style.space(8)
   }
   readonly property real radius: Math.max(0, Math.min(Style.space(5), Style.cornerRadius - Style.space(3)))
+  // Tuning's Mark the whole control (PREFS-132), on by default: the group's
+  // area takes the focus fill and ring as a switch row does; off, only the
+  // cursor's pick mark takes the ring (DeskRow).
+  readonly property bool marked: holdsCursor && Tuning.values.areaRing !== 0
+  // The fill, under the rows.
+  Rectangle {
+    visible: group.marked
+    anchors.fill: parent
+    anchors.leftMargin: -Style.space(8)
+    anchors.rightMargin: -Style.space(8)
+    radius: group.radius
+    antialiasing: true
+    color: Qt.tint(group.strip ? group.strip.surfaceColor : "transparent", Style.focusFillFor(Commons.Color.popups.text, Commons.Color.accent))
+  }
   transform: Translate { y: -lift.raise }
   scale: lift.grown
   z: lift.raised ? 1 : 0
@@ -60,6 +76,6 @@ Item {
     anchors.rightMargin: -Style.space(8)
     radius: group.radius
     color: "transparent"
-    borderSpec: group.holdsCursor ? Border.controlSpec("focus", Commons.Color.popups.text, Commons.Color.accent) : Border.none()
+    borderSpec: group.marked ? Border.controlSpec("focus", Commons.Color.popups.text, Commons.Color.accent) : Border.none()
   }
 }

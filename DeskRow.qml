@@ -46,12 +46,18 @@ BorderSurface {
   readonly property color base: strip ? strip.surfaceColor : "transparent"
   // In a pick group (DeskPickGroup) the group lifts, not the row.
   readonly property bool grouped: !!parent && parent.deskGroupBody === true
+  // Tuning's Mark the whole control (PREFS-132), on by default: the row's
+  // area takes the focus fill and ring; off, only its switch or pick mark
+  // takes the ring (an action row, with no mark, keeps the row's).
+  readonly property bool marksRow: Tuning.values.areaRing !== 0 || action
+  readonly property color ringColor: Border.controlSpec("focus", Commons.Color.popups.text, Commons.Color.accent).color
   CursorLift {
     id: lift
     up: row.activeFocus && !row.grouped
     animate: row.strip && row.strip.desk ? row.strip.desk.animate : true
     lightTheme: row.strip ? row.strip.lightTheme : false
     radius: row.radius
+    plate: row.base
   }
   transform: Translate { y: -lift.raise }
   scale: lift.grown
@@ -66,9 +72,11 @@ BorderSurface {
   opacity: enabled ? 1 : 0.45
   // Risen, the strip's own colour under the fill, so the row it rises over
   // does not show through.
-  color: activeFocus ? Qt.tint(base, Style.focusFillFor(Commons.Color.popups.text, Commons.Color.accent))
+  // In a group marked whole, the cursor's row is the selected fill over the
+  // group's focus fill, so it still shows which row it is.
+  color: activeFocus && marksRow ? Qt.tint(base, grouped ? Style.selectedFillFor(Commons.Color.popups.text, Commons.Color.accent) : Style.focusFillFor(Commons.Color.popups.text, Commons.Color.accent))
     : hot ? Qt.alpha(Commons.Color.popups.text, 0.14) : "transparent"
-  borderSpec: activeFocus && !grouped ? Border.controlSpec("focus", Commons.Color.popups.text, Commons.Color.accent) : Border.none()
+  borderSpec: activeFocus && !grouped && marksRow ? Border.controlSpec("focus", Commons.Color.popups.text, Commons.Color.accent) : Border.none()
   Accessible.role: action ? Accessible.Button : pick ? Accessible.RadioButton : Accessible.CheckBox
   Accessible.name: label
   Accessible.description: caption
@@ -100,6 +108,19 @@ BorderSurface {
       border.width: row.checked ? 0 : 1
       border.color: Qt.alpha(Commons.Color.popups.text, 0.45)
       antialiasing: true
+      // The cursor's ring round the mark alone, 4 px out as the fader's
+      // knob has it, when the row's area is not marked.
+      Rectangle {
+        visible: row.activeFocus && !row.marksRow
+        anchors.centerIn: parent
+        width: parent.width + Style.space(8)
+        height: width
+        radius: width / 2
+        color: "transparent"
+        border.width: 1
+        border.color: row.ringColor
+        antialiasing: true
+      }
       Rectangle {
         visible: row.checked
         anchors.centerIn: parent
@@ -135,11 +156,25 @@ BorderSurface {
       }
     }
     ToggleSwitch {
+      id: toggle
       visible: !row.pick && !row.action
       Layout.alignment: Qt.AlignTop
       checked: row.checked
       interactive: false
       foreground: Commons.Color.popups.text
+      // The cursor's ring round the switch alone, 4 px out as the fader's
+      // knob has it, when the row's area is not marked.
+      Rectangle {
+        visible: row.activeFocus && !row.marksRow
+        anchors.centerIn: parent
+        width: parent.width + Style.space(8)
+        height: parent.height + Style.space(8)
+        radius: toggle.rounded ? height / 2 : Style.space(4)
+        color: "transparent"
+        border.width: 1
+        border.color: row.ringColor
+        antialiasing: true
+      }
     }
   }
   MouseArea {

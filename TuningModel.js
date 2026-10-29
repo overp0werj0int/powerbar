@@ -12,10 +12,11 @@
 
 var SECTIONS = [
   {
-    id: "lift",
-    title: "Lift",
-    caption: "What rises with the cursor on the desks (PREFS-104). Widgets on Layout and Groups and the cards rise either way.",
+    id: "cursor",
+    title: "Cursor",
+    caption: "How the desks mark the control the cursor is on (PREFS-129). Widgets on Layout and Groups and the cards are not affected.",
     params: [
+      { key: "areaRing", label: "Mark the whole control", caption: "On, the default: a row, group of pick rows, row of chips or fader takes the focus fill and ring round its area. Off: only its switch, pick mark, chip or knob takes the ring.", unit: "", min: 0, max: 1, value: 1, toggle: true },
       { key: "controlLift", label: "Controls rise", caption: "Rows, groups of pick rows, faders and rows of chips. Off, the default, they keep their fill and ring and stay down.", unit: "", min: 0, max: 1, value: 0, toggle: true }
     ]
   },
