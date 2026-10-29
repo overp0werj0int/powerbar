@@ -221,6 +221,7 @@ Setting names are those of Preferences. `set` of `style` also drops `powerbarIsl
 - **INTEG-56** `drawerStatus` answers `{"opened": false}` with no drawer, else JSON with `opened`, `aside`, `opacity`, `zone`, `groupId`, `memberDisplay`, `stripVertical`, `surfaceRole`, `surfaceRadius`, `themeRadius`, `crossLength`, `desiredCross`, `reveal`, `width`, `height`, `entered`, `sourceHovered`, `hovered`, `keyboard`, `cursor`, `selectionVisible`, `focused`, `ids`, `count`.
 - **INTEG-57** `managedStatus` answers an array of On demand widgets: `{id, key, zone, revealed, mainVisible, inDrawer, panelOpen, observing}`.
 - **INTEG-58** `popupStatus` answers an array of open widget panels: `{position, x, y, width, height, screenWidth, screenHeight, gap, barExtent}`; `[]` when none.
+- **INTEG-157** A widget's panel (Omarchy's KeyboardPanel) opens Omarchy's gap off the bar's visible edge (`Bar.extentOf`, the floating bar's edge gaps included), never over the bar, on the bar and from a drawer or menu row (on-demand-drawers.md DEMAND-51). Powerbar binds the panel's `gap` to what its own measure leaves: Omarchy since r7412 places the card `barThickness + gap` from the screen edge (`barThickness` is `bar.barSizeFor(screen name)`, the bar's size without edge gaps); an older Omarchy places it `barH + gap`, from the bar window's whole height, drawer and shadow space included. Before, Powerbar only knew the older measure, and on the newer Omarchy every panel opened over the bar. Code: Bar.qml placeWidgetPopups.
 
 ## Multi-monitor
 

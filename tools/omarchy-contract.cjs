@@ -92,6 +92,7 @@ const CONTRACT = [
   ["shell/Ui/Panel.qml", "function closeForPopoutSwitch() {", "panel switches animate as full closes"],
   ["shell/Ui/KeyboardPanel.qml", "readonly property point cardOrigin: {", "popup gap compensation; panels at the wrong distance"],
   ["shell/Ui/KeyboardPanel.qml", "readonly property real barH: anchorWindow ? anchorWindow.height : 0", "popup gap compensation"],
+  ["shell/Ui/KeyboardPanel.qml", ["y = barH + gap", "y = barThickness + gap"], "popup gap compensation; panels open over the bar or off it"],
   ["shell/Ui/KeyboardPanel.qml", "readonly property var anchorWindow: anchorItem ? anchorItem.QsWindow.window : null", "popup gap compensation"],
   ["shell/Ui/KeyboardPanel.qml", "property int gap: Style.gapsOut", "panel offset (Powerbar binds gap)"],
   ["shell/Ui/KeyboardPanel.qml", "readonly property string barPos: bar ? bar.position : \"top\"", "popupStatus"],
