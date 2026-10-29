@@ -135,7 +135,7 @@ Item {
   Item {
     id: smoothing
     readonly property real reach: desk.slide !== 0 ? Math.ceil(desk.width * 0.15) : 0
-    readonly property real headroom: Style.space(8)
+    readonly property real headroom: Style.space(12)
     x: -reach
     y: desk.layout.stackTop - headroom
     width: desk.width + 2 * reach

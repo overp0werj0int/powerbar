@@ -26,16 +26,17 @@ Item {
     property real pad: Style.space(8)
     property real radius: Math.min(Style.space(10), Style.cornerRadius)
     property real topRadius: radius
-    // The cursor's tile rises 5 px off its layer (PREFS-104), every tile
+    // The cursor's tile rises 10 px off its layer (PREFS-104), every tile
     // alike: a zone on the Layout and Groups pages, a desk's strip. A dashed
     // slab (the tray's, the Hidden layer's) and a tile that flows do not.
     // It glides up and drops at once (Rise).
     property bool rises: !dashed
     readonly property real raise: lift.value
+    readonly property real liftHeight: Style.space(10)
     Rise {
         id: lift
         up: cell.current && cell.rises
-        height: Style.space(5)
+        height: cell.liftHeight
         animate: cell.animate
     }
     transform: Translate {
@@ -87,6 +88,21 @@ Item {
     readonly property alias tiles: chipTiles
     readonly property color surfaceColor: well.color
 
+    // The shadow a raised tile casts on its layer, where it stood: a flat
+    // band in the tile's shape (the chips' shadow, PREFS-104) whose bottom
+    // stays on the resting edge's line, with a sliver of the layer showing
+    // between the edge the tile took with it and the shadow, so the tile
+    // reads as lifted and not as a tile drawn a little higher.
+    Rectangle {
+        readonly property real gap: Style.space(3)
+        visible: !cell.dashed && cell.raise > gap
+        y: cell.height + Style.space(6) + gap
+        width: parent.width
+        height: Math.max(0, cell.raise - gap)
+        radius: cell.radius
+        antialiasing: true
+        color: Qt.rgba(0, 0, 0, cell.lightTheme ? 0.2 : 0.3)
+    }
     // The slab's thickness, below it, the same on every tile: a raised
     // tile takes its edge with it. Edges under the tilt are drawn
     // antialiased, or they step.
