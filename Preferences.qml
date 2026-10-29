@@ -782,6 +782,11 @@ Item {
                     prefs.close();
                     event.accepted = true;
                 } else
+                // / on the Groups page opens its filter wherever focus is (PREFS-42).
+                if (event.text === "/" && prefs.page === 1 && groupsPage.item && !(event.modifiers & (Qt.ControlModifier | Qt.AltModifier | Qt.MetaModifier))) {
+                    groupsPage.item.openFilter();
+                    event.accepted = true;
+                } else
                 // , (the keyboard mode's key for Preferences) closes it, back to the
                 // mode when it came from there (KEYS-81).
                 if (event.text === "," && !(event.modifiers & (Qt.ControlModifier | Qt.AltModifier | Qt.MetaModifier))) {

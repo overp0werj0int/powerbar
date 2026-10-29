@@ -75,6 +75,68 @@ Item {
         return n;
     }
     property string filterText: ""
+    // The filter takes the keys (PREFS-42): / opens it from anywhere on
+    // the page, Esc clears it and goes back to where / was pressed, Enter
+    // or Down goes to the matches keeping it.
+    property bool filtering: false
+    property var filterFrom: null
+    function openFilter() {
+        if (lifted)
+            return;
+        if (!filtering)
+            filterFrom = {
+                at: at,
+                item: focused && focused !== stage ? focused : null
+            };
+        filtering = true;
+        stage.forceActiveFocus(Qt.OtherFocusReason);
+    }
+    function cancelFilter() {
+        var from = filterFrom;
+        filtering = false;
+        filterText = "";
+        filterFrom = null;
+        if (from && from.item && from.item.visible) {
+            from.item.forceActiveFocus(Qt.OtherFocusReason);
+            return;
+        }
+        place(Editor.normalize(stepState, from ? from.at : null));
+        stage.forceActiveFocus(Qt.OtherFocusReason);
+    }
+    function filterKey(event) {
+        var key = event.key, t = event.text;
+        if (key === Qt.Key_Escape)
+            cancelFilter();
+        else if (key === Qt.Key_Return || key === Qt.Key_Enter || key === Qt.Key_Down) {
+            if (poolShown.length) {
+                filtering = false;
+                filterFrom = null;
+                place({
+                    area: "pool",
+                    pos: 0
+                });
+            }
+        } else if (key === Qt.Key_Backspace)
+            filterText = filterText.slice(0, -1);
+        else if (t.length === 1 && (/\S/.test(t) || t === " " && filterText !== ""))
+            filterText += t;
+        else if (key !== Qt.Key_Up && key !== Qt.Key_Left && key !== Qt.Key_Right)
+            return;
+        // The first match under the cursor as the filter changes.
+        if (filtering && poolShown.length && (key === Qt.Key_Backspace || t.length === 1))
+            place({
+                area: "pool",
+                pos: 0
+            });
+        event.accepted = true;
+    }
+    // / from anywhere on the page that does not type it.
+    Keys.onPressed: function (event) {
+        if (event.text === "/" && !(event.modifiers & (Qt.ControlModifier | Qt.AltModifier | Qt.MetaModifier))) {
+            openFilter();
+            event.accepted = true;
+        }
+    }
     function poolOf(query) {
         return Editor.poolItems(preferences.entries, zones, function (key) {
             return !!editor.bar.groupFor(key);
@@ -499,12 +561,14 @@ Item {
     function keyPressed(event) {
         if (event.modifiers & (Qt.ControlModifier | Qt.AltModifier))
             return;
+        if (filtering) {
+            filterKey(event);
+            return;
+        }
         var key = event.key, t = event.text, c = t.toLowerCase();
         var carry = !!(event.modifiers & Qt.ShiftModifier);
-        // While the pool's filter has text, letters type and the arrows walk.
-        var typing = !lifted && at.area === "pool" && filterText !== "";
-        var dx = key === Qt.Key_Left || !typing && c === "h" ? -1 : key === Qt.Key_Right || !typing && c === "l" ? 1 : 0;
-        var dy = key === Qt.Key_Up || !typing && c === "k" ? -1 : key === Qt.Key_Down || !typing && c === "j" ? 1 : 0;
+        var dx = key === Qt.Key_Left || c === "h" ? -1 : key === Qt.Key_Right || c === "l" ? 1 : 0;
+        var dy = key === Qt.Key_Up || c === "k" ? -1 : key === Qt.Key_Down || c === "j" ? 1 : 0;
         if (dx || dy) {
             step(dx, dy, carry);
             event.accepted = true;
@@ -524,17 +588,7 @@ Item {
         // A face: the group itself.
         var faceId = at.area === "face" ? Editor.groupAt(stepState, at) : "";
         var zone = Editor.zoneAt(stepState, at);
-        if (at.area === "pool" && key === Qt.Key_Backspace && filterText)
-            filterText = filterText.slice(0, -1);
-        else if (at.area === "pool" && key === Qt.Key_Escape && filterText)
-            filterText = "";
-        else if (at.area === "pool" && key !== Qt.Key_Space && t.length === 1 && /\S/.test(t) && (typing || !/[0-9,]/.test(t))) {
-            filterText += t;
-            place({
-                area: "pool",
-                pos: 0
-            });
-        } else if (key === Qt.Key_Space && cursorRecord)
+        if (key === Qt.Key_Space && cursorRecord)
             lift();
         else if (key === Qt.Key_Space && faceId)
             liftFace(faceId);
@@ -551,8 +605,6 @@ Item {
             dissolve(faceId);
         else if ((c === "x" || key === Qt.Key_Delete) && at.area === "member" && cursorRecord)
             takeOut(cursorRecord);
-        else if (key === Qt.Key_Escape && at.area === "pool")
-            toChosenFace();
         else
             return;
         event.accepted = true;
@@ -769,21 +821,24 @@ Item {
             title: "Not in a group"
             caption: "In bar order, zone by zone"
             count: editor.poolAll.length + (editor.poolAll.length === 1 ? " widget" : " widgets")
-            // The filter (PREFS-42): typing while the pool has the cursor fills it.
+            // The filter (PREFS-42): / opens it from anywhere on the page.
+            // Open, it has the focus fill and ring and a caret after its
+            // text; closed with text, an accent edge says it still applies.
             BorderSurface {
                 id: filterBox
-                readonly property bool live: editor.at.area === "pool" && stage.activeFocus
+                readonly property bool live: editor.filtering && stage.activeFocus
                 x: poolFace.labelX
                 y: poolFace.labelBottom + Style.space(8)
                 width: poolFace.labelWidth
                 height: Style.space(26)
                 antialiasing: true
                 radius: editor.chipRadius
-                color: "transparent"
-                borderSpec: Border.flat(live && editor.filterText ? Commons.Color.accent : Qt.alpha(Commons.Color.popups.text, 0.14), 1)
+                color: live ? Style.focusFillFor(Commons.Color.popups.text, Commons.Color.accent) : "transparent"
+                borderSpec: live ? Border.controlSpec("focus", Commons.Color.popups.text, Commons.Color.accent) : Border.flat(editor.filterText ? Commons.Color.accent : Qt.alpha(Commons.Color.popups.text, 0.14), 1)
                 GrayText {
+                    id: filterLabel
                     x: Style.space(8)
-                    width: parent.width - 2 * x
+                    width: parent.width - 2 * x - (slashCap.visible ? slashCap.width + Style.space(6) : 0)
                     anchors.verticalCenter: parent.verticalCenter
                     text: editor.filterText || "Filter " + editor.poolAll.length + (editor.poolAll.length === 1 ? " widget" : " widgets")
                     textFormat: Text.PlainText
@@ -791,6 +846,23 @@ Item {
                     font.family: Style.font.family
                     font.pixelSize: Style.font.caption
                     elide: Text.ElideLeft
+                }
+                // The caret: after the text, or before the placeholder.
+                Rectangle {
+                    visible: filterBox.live
+                    x: filterLabel.x + (editor.filterText ? Math.min(filterLabel.contentWidth, filterLabel.width) + 1 : -2)
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: 1
+                    height: Style.font.caption + Style.space(2)
+                    color: Commons.Color.popups.text
+                }
+                KeyCap {
+                    id: slashCap
+                    visible: !filterBox.live
+                    anchors.right: parent.right
+                    anchors.rightMargin: Style.space(4)
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: "/"
                 }
             }
             ZoneTile {
@@ -818,7 +890,7 @@ Item {
                     y: poolCell.pad + Style.space(5)
                     width: parent.width - 2 * x
                     visible: editor.poolList.length === 0
-                    text: editor.filterText ? "No widget matches “" + editor.filterText + "”. Esc clears the filter." : "Every widget is in a group. x on one under its group, or a drag here, takes it out."
+                    text: editor.filterText ? "No widget matches “" + editor.filterText + "”. " + (editor.filtering ? "Esc clears the filter." : "/ changes the filter.") : "Every widget is in a group. x on one under its group, or a drag here, takes it out."
                     textFormat: Text.PlainText
                     color: Qt.alpha(Commons.Color.popups.text, 0.3)
                     font.family: Style.font.family
@@ -866,11 +938,16 @@ Item {
         Keys.onPressed: function (event) {
             editor.keyPressed(event);
         }
-        onActiveFocusChanged: if (!activeFocus)
+        // Leaving the plates ends the filter's hold on the keys, keeping
+        // its text, and puts a keyboard lift back.
+        onActiveFocusChanged: if (!activeFocus) {
+            editor.filtering = false;
+            editor.filterFrom = null;
             Qt.callLater(function () {
                 if (!stage.activeFocus && editor.lifted && !editor.pointerLift)
                     editor.cancel();
-            })
+            });
+        }
         MouseArea {
             anchors.fill: parent
             hoverEnabled: true
@@ -1824,8 +1901,11 @@ Item {
     Connections {
         target: editor.preferences
         function onOpenedChanged() {
-            if (!editor.preferences.opened)
+            if (!editor.preferences.opened) {
                 picker.close();
+                editor.filtering = false;
+                editor.filterText = "";
+            }
         }
         function onPageChanged() {
             if (editor.preferences.page !== 1) {
@@ -1847,7 +1927,28 @@ Item {
     readonly property int activePlate: activeAt.area === "pool" ? 1 : 0
     readonly property string cursorGroup: Editor.groupAt(stepState, at)
     readonly property string cursorZone: Editor.zoneAt(stepState, at)
-    readonly property var legend: picker.opened ? picker.hints : focused === sideDot ? sideDot.keyHints.concat([
+    readonly property var filterLine: ({
+            keys: "/",
+            label: "Filter the widgets not in a group"
+        })
+    readonly property var legend: picker.opened ? picker.hints : filtering && stageFocused ? [
+        {
+            keys: "type",
+            label: "Filter by name"
+        },
+        {
+            keys: "backspace",
+            label: "Take a letter off"
+        },
+        {
+            keys: "enter ↓",
+            label: poolShown.length ? "To the matches" : "No match yet"
+        },
+        {
+            keys: "esc",
+            label: "Clear it and go back"
+        }
+    ] : focused === sideDot ? sideDot.keyHints.concat([
         {
             keys: "tab",
             label: "The groups"
@@ -1898,12 +1999,8 @@ Item {
         }
     ] : []).concat(at.area === "face" ? [
         {
-            keys: "shift h l",
-            label: "Move the face to the next zone"
-        },
-        {
-            keys: "shift j k",
-            label: "Move the face past the next group"
+            keys: "shift h j k l",
+            label: "Move the face a zone, or past a group"
         }
     ] : at.area === "member" ? [
         {
@@ -1938,18 +2035,18 @@ Item {
             keys: "enter",
             label: "New group here"
         }
-    ]).concat([
+    ]).concat([filterLine,
         {
             keys: "tab",
             label: "The inspector"
         }
     ]) : stageFocused && at.area === "pool" ? [
         {
-            keys: filterText ? "← →" : "h l",
+            keys: "h l",
             label: "Walk the widgets"
         },
         {
-            keys: filterText ? "↑ ↓" : "j k",
+            keys: "j k",
             label: "By rows, up to the chosen group"
         },
         {
@@ -1960,14 +2057,7 @@ Item {
             keys: "enter",
             label: selectedGroup ? "Add to " + selectedGroup.label : "Add to the chosen group"
         },
-        {
-            keys: "type",
-            label: "Filter"
-        },
-        {
-            keys: "esc",
-            label: filterText ? "Clear the filter" : "Back to the faces"
-        },
+        filterLine,
         {
             keys: "tab",
             label: "The inspector"
@@ -1986,7 +2076,7 @@ Item {
             keys: "space",
             label: "Move it to that zone"
         }
-    ] : []).concat([
+    ] : []).concat(focused && focused.cursorPosition !== undefined ? [] : [filterLine]).concat([
         {
             keys: "esc",
             label: "Back to the faces"
@@ -1995,7 +2085,8 @@ Item {
         {
             keys: "tab",
             label: "The groups"
-        }
+        },
+        filterLine
     ]
     GridLayout {
         id: legendGrid
