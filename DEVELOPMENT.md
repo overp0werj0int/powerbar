@@ -60,7 +60,7 @@ omabox for desktop tests in a private Hyprland session
    in the script. Then `tools/smoke.sh` for Quickshell and Hyprland behaviour,
    which the contract does not cover.
 4. **The live desktop only when the user asks.** Restart the user's shell with
-   `.claude/skills/omarchy-widget-debug/scripts/live.sh restart powerbar`
+   `~/.claude/skills/omarchy-widget-debug/scripts/live.sh restart powerbar`
    (it refuses while the session is locked; never restart a locked session).
    Then `tools/build-check.sh` (through `omabox host --` under the guard)
    says whether the shell now runs this checkout: `current`, or `stale` when
@@ -138,8 +138,14 @@ Park the pointer where it hovers nothing. JPEG at quality 88.
 Development skills are not part of the plugin: `omarchy plugin add` clones
 this tree as it is, and Omarchy's plugin review rejects agent instructions in
 it, so `AGENTS.md`, `CLAUDE.md` and `.claude/` are git-ignored. Keep them
-locally (a `CLAUDE.md` of `@DEVELOPMENT.md` is enough). The maintainer's
-`.claude/skills/` holds:
+locally (a `CLAUDE.md` of `@DEVELOPMENT.md` is enough). The maintainer keeps
+one skill in the checkout's git-ignored `.claude/skills/`:
+
+- **verify**: drives Powerbar in an omabox box (`scripts/pbv.sh`) and
+  captures proof that a bar, keyboard-mode, drawer, group, settings or
+  Preferences behaviour works.
+
+The other three live in `~/.claude/skills/`, outside the checkout:
 
 - **omarchy-widget-ux**: theme tokens, keyboard model, motion budget, words.
   Read it before UI work.
@@ -150,7 +156,7 @@ locally (a `CLAUDE.md` of `@DEVELOPMENT.md` is enough). The maintainer's
   decisions go into `docs/behavior/` and the lab is deleted.
 
 Without them, the loop above still holds: `tools/validate.sh`, `tests/run`,
-`tools/smoke.sh`. (`.claude/skills/omarchy-widget-debug/scripts/live.sh`
+`tools/smoke.sh`. (`~/.claude/skills/omarchy-widget-debug/scripts/live.sh`
 restarts the live shell; without it use `omarchy restart shell`, never while
 the session is locked.)
 

@@ -9,7 +9,8 @@
 // bar layer's plane from its top edge (plane units, as PreferencesModel's
 // tiltedDepth gives them), turned back into seen page px for the tear. Each
 // item drawing with this shader says which v its top and bottom are at, so
-// the same function continues across items. The numbers are CameraLook's.
+// the same function continues across items. The numbers are Tuning's
+// (TuningModel.SECTIONS, PREFS-132), passed in by BeamShade.qml.
 layout(location = 0) in vec2 qt_TexCoord0;
 layout(location = 0) out vec4 fragColor;
 layout(std140, binding = 0) uniform buf {

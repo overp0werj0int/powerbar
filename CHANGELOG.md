@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- The digest `omarchy-shell powerbar build` answers now also covers `notch-panels.json` and the compiled shader, so `tools/build-check.sh` calls a shell stale when either changed since it loaded.
 - The room the bar keeps for a long menu goes back 3 s after the last menu closes; before, the bar's surface stayed nearly screen-tall for the rest of the session, and the bar's motion redrew all of it.
 - On a side bar the card's surface no longer shrinks and grows with each card's words while it is shown, so cards change words without a resize.
 - Preferences' open fade and the page slide now start once their first frame is painted, so both are seen from the start; before, building that frame took most of the motion's time and the card popped in or the page jumped halfway.

@@ -40,13 +40,13 @@ Numbers below use Omarchy's default theme tokens: bar 26 px (horizontal) or 28 p
 
 - **ZONE-15** The dots take one glyph cell (a 12 px glyph's slot: 27 px at spacing 4) and the lasting fit reserves it, so a zone does not change length when its on-demand widgets hide or return. The cell eases in and out over 120 ms with Animations on. Code: ZoneFitModel.slotsOf; FoldHandle width Behavior.
 
-- **ZONE-16** The count badge on the dots is the number of folded widgets plus, in inline and menu modes only, the on-demand widgets hidden on that side (the center's two handles each count their own side). It reads "99+" above 99. `powerbarDotsBadge: false` (Preferences > Bar > On demand > Count on the dots) hides the badge on the dots and on yield markers; the dots' tooltip, "1 more widget" or "N more widgets", shows either way. Code: FoldHandle count, label.
+- **ZONE-16** The count badge on the dots is the number of folded widgets plus, in inline and menu modes only, the on-demand widgets hidden on that side (the center's two handles each count their own side). It reads "99+" above 99. `powerbarDotsBadge: false` (Preferences > Behavior > On demand > Count on the dots) hides the badge on the dots and on yield markers; the dots' tooltip, "1 more widget" or "N more widgets", shows either way. Code: FoldHandle count, label.
 
 - **ZONE-18** Hovering the dots in inline mode, or clicking them, expands the zone in the bar and brings back that zone's folded widgets for the moment; see on-demand-drawers.md, "Inline expansion", for timing (90 ms intent, 170 ms settle, 1 s exit grace by default) and the drawer fallback. In drawer mode hovering or clicking the dots opens the zone's drawer, which lists the folded widgets. Code: Bar.qml inlineEnter; FoldHandle MouseArea.
 
 ## Spacing and cell sizes
 
-- **ZONE-19** `powerbarSpacingMode` (Preferences > Bar > Size > Spacing: "Equal slots", "Equal gaps") is `"slots"` by default (any value but `"gaps"` reads as slots). **Equal slots**: every item gets a cell (a square for glyphs) plus a gutter, so cells sit one gutter apart. **Equal gaps**: every glyph gets the same gap before and after it, and a cell may spill past its ink into the gaps. Code: BarModel.options; CellModel.place.
+- **ZONE-19** `powerbarSpacingMode` (Preferences > Look > Size, the pick rows "Equal slots" and "Equal gaps") is `"slots"` by default (any value but `"gaps"` reads as slots). **Equal slots**: every item gets a cell (a square for glyphs) plus a gutter, so cells sit one gutter apart. **Equal gaps**: every glyph gets the same gap before and after it, and a cell may spill past its ink into the gaps. Code: BarModel.options; CellModel.place.
 
 - **ZONE-20** A cell is the bar thickness minus two insets: `inset = min(3, (bar - 16) / 2)`, `cell = bar - 2 * inset`. 26 px bar: inset 3, cell 20. Large bar (38 px): cell 32. Vertical 28 px: cell 22. Large vertical (40 px): cell 34. The cell is also the hover highlight. Code: CellModel.tokens.
 
@@ -54,7 +54,7 @@ Numbers below use Omarchy's default theme tokens: bar 26 px (horizontal) or 28 p
 
 - **ZONE-22** Space between widgets (`powerbarSpacing`; Preferences > Look > Size > "Widget spacing") takes whole units from 0 ("None") to 16, default 4, scaled by the theme's spacing scale; a stored value outside that range reads as the nearest limit, a non-number as 4. It widens gutters and gaps, never cells: `gutter = inset + spacing`, `gap = cell / 2 + 2 + spacing`. Standard bar: spacing 0 gives gutter 3 and gap 12; the default 4 gives gutter 7 and gap 16, so in Equal slots icons sit 27 px apart (20 + 7), Omarchy's own icon slot. Changing spacing, spacing mode, bar size or orientation resets every widget's width hold (ZONE-64). Code: AppearanceModel.ranges.spacing, CellModel.tokens; tests/clean-defaults.test.cjs.
 
-- **ZONE-23** `powerbarLargeBar: true` (Preferences > Bar > Size > Large bar; default off) makes the bar 12 px thicker, a 6 px lip above and below: 26 to 38 px horizontal, 28 to 40 px vertical. Widgets keep their own size and gain room around them; cells, highlights and island ends grow with the bar. Code: Bar.qml barSizeFor, largeBarLip.
+- **ZONE-23** `powerbarLargeBar: true` (Preferences > Look > Size > Large bar; default off) makes the bar 12 px thicker, a 6 px lip above and below: 26 to 38 px horizontal, 28 to 40 px vertical. Widgets keep their own size and gain room around them; cells, highlights and island ends grow with the bar. Code: Bar.qml barSizeFor, largeBarLip.
 
 - **ZONE-24** The bar reserves `barSize` px of the screen edge on a flat bar, and `barSize + 8` px (2 x `edgeGap` 4) on floating and islands bars. An autohidden bar reserves nothing (see appearance.md, "Bar auto-hide"). Code: Bar.qml barExtent, exclusiveZone.
 
@@ -92,7 +92,7 @@ Numbers below use Omarchy's default theme tokens: bar 26 px (horizontal) or 28 p
 
 ## Position, style and configuration
 
-- **ZONE-38** The bar edge is `bar.position` (top, bottom, left, right; anything else reads as top), also set by Preferences > Bar > Screen edge. Pressing empty bar space and holding 200 ms, or moving 4 px with the button down, starts a bar move: overlays show the candidate edge (the screen is split along its diagonals, so the pointer's nearest edge wins); releasing over a different edge writes `bar.position`. A plain click on empty space does not move the bar. Code: Bar.qml CenterGestureArea, nearestScreenEdge, setBarPosition.
+- **ZONE-38** The bar edge is `bar.position` (top, bottom, left, right; anything else reads as top), also set by Preferences > Look > Style > Screen edge. Pressing empty bar space and holding 200 ms, or moving 4 px with the button down, starts a bar move: overlays show the candidate edge (the screen is split along its diagonals, so the pointer's nearest edge wins); releasing over a different edge writes `bar.position`. A plain click on empty space does not move the bar. Code: Bar.qml CenterGestureArea, nearestScreenEdge, setBarPosition.
 
 - **ZONE-39** A layout entry has `id` (widget id), `powerbarInstance` (a unique key Powerbar assigns once) and optionally `powerbarVisibility` (`shown`, `managed`, `hidden`). A widget with no `powerbarVisibility` is shown, third-party widgets included; see on-demand-drawers.md, "Managed widget modes", for the modes, and integration.md, "Config healing", for the one-time heal (`bar.powerbarVisibilityDefault: "shown"`) that keeps older configs' third-party widgets on demand. Code: ManagedModel.mode, healVisibility.
 
