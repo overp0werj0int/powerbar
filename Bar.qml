@@ -206,7 +206,6 @@ Item {
   }
   function canWriteConfig() { return configStore.canWrite() }
   function writeConfig(mutator) { return configStore.write(mutator) }
-  function flushConfigWrites() { configStore.flush() }
   function assignGroup(key, id, before, keepDrawer) {
     return editGroups(function(config) { GroupsModel.assign(config, key, id, before || "") }, keepDrawer)
   }
@@ -304,7 +303,7 @@ Item {
     }
   }
   // How a captured image sits on the bar, so Preferences can lay it out the
-  // way the bar does (ShelfModel): its size, where its ink starts and how long
+  // way the bar does: its size, where its ink starts and how long
   // it is, whether it reads as a glyph, and the text colour it was drawn in
   // (an image from another theme no longer matches the bar). Ink is only
   // known for a widget captured on the bar itself.
@@ -2183,9 +2182,7 @@ Item {
   function drawerTokensFor(vertical) {
     return CellModel.tokens({ bar: (vertical ? Style.bar.sizeVertical : Style.bar.sizeHorizontal) + largeBarLip * 2, spacing: widgetSpacing, mode: spacingMode })
   }
-  function menuTokensFor(vertical) { return drawerTokensFor(vertical) }
   readonly property var drawerTokens: drawerTokensFor(vertical)
-  readonly property var menuTokens: drawerTokens
   readonly property real highlightRadius: CellModel.radius(cellTokens, islandRounding)
   // Compounds (several click targets in one widget) show a faint track over
   // the whole cell and a thumb over the hovered target.
@@ -2266,7 +2263,6 @@ Item {
   readonly property color onBarHoverColor: deepened(highlightHoverColor)
   readonly property color onBarSelectedColor: deepened(highlightSelectedColor)
   readonly property color onBarTrackColor: deepened(highlightTrackColor, 0.12)
-  readonly property real highlightRounding: Math.max(Style.space(4), islandRounding - Style.space(3))
   // The highlight for a slot: its cell, centred on the slot along the bar, at
   // the cell thickness across it, in `host` coordinates.
   // The cell centres on the item's own stretch: past `lead` and at most `span`
@@ -2653,7 +2649,6 @@ Item {
     return slot.displayName
   }
   // A widget's or group's shortcut as keycaps text ("Super Ctrl A"), or "".
-  function shortcutLabel(target) { return shortcutCaps(target).join(" ") }
   // The same as a list of keycaps (["Super", "Ctrl", "A"]), or [].
   function shortcutCaps(target) {
     var store = preferencesPane.shortcuts
@@ -6061,7 +6056,6 @@ Item {
   // and not interactive, with the count of widgets out of view (docs/behavior/layout-zones.md).
   component YieldMarker: Item {
     id: yieldMarker
-    readonly property bool isYieldMarker: true
     property var homeWindow: null
     property string zone: ""
     property int count: 0
