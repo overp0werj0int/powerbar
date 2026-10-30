@@ -128,6 +128,10 @@ Item {
   // Hyprland refuses the block or the file can't be written, so the saved
   // shortcuts always match the bound ones.
   property var previous: undefined
+  // A change made while one is still being applied (a Remove or a Backspace
+  // on another row): saved at once, written when that run ends, since a
+  // running Process ignores a new command.
+  property bool queued: false
   function write(next) {
     // The block follows the saved shortcuts: no config write, no block.
     if (retired || !bar.canWriteConfig()) {
@@ -135,9 +139,17 @@ Item {
       return
     }
     error = ""
-    previous = Object.keys(config).length ? JSON.parse(JSON.stringify(config)) : undefined
+    if (!busy) previous = copy(config)
     preferences.setOption("powerbarShortcuts", Object.keys(next).length ? next : undefined)
+    if (busy) queued = true
+    else apply(next)
+  }
+  function copy(c) { return Object.keys(c).length ? JSON.parse(JSON.stringify(c)) : undefined }
+  // The shortcuts the run in flight writes.
+  property var applying: ({})
+  function apply(next) {
     busy = true
+    applying = next
     applyProc.command = ["bash", applyScript, Shortcuts.render(next, defaults, names(next)),
       Shortcuts.BEGIN, Shortcuts.END, Shortcuts.OLD_START, Shortcuts.OLD_END]
     applyProc.running = true
@@ -220,8 +232,17 @@ Item {
       if (code !== 0) {
         if (!store.error) store.error = "Could not update Hyprland's shortcuts, so nothing changed."
         console.warn("powerbar: shortcuts not written (exit " + code + "): " + store.error)
+        // A waiting change goes too: it was made on top of the refused one.
+        store.queued = false
         store.preferences.setOption("powerbarShortcuts", store.previous)
+      } else if (store.queued && !store.retired) {
+        // The run just written is what bindings.lua holds now.
+        store.queued = false
+        store.previous = store.copy(store.applying)
+        store.apply(store.config)
+        return
       }
+      store.queued = false
       store.busy = false
       store.refresh()
     }

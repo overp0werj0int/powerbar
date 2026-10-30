@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Keyboard page: a shortcut removed, restored or taken while the previous change was still being written to Hyprland is now bound too; before, it was saved in the settings but never reached `bindings.lua`, and a refused earlier change could put back the wrong shortcuts.
 - Groups page: a group name, badge count or urgent property typed without Enter is saved to the group or widget it was typed for when you click another one; before, the click selected the next one first and the text was saved there.
 - Widget panels open at the bar's edge again instead of over the bar. Omarchy now measures a panel's place from the bar's size, not from the bar window, and Powerbar still corrected for the window's drawer space, which pulled every panel up onto the bar; it now corrects for whichever measure the installed Omarchy uses (INTEG-157).
 - Preferences follows one golden type, spacing and corner scale on every page, the inspectors included: four text sizes from the theme's base size on golden line heights, three text strengths, gaps of 2, 3, 5, 8, 13, 21, 34 and 55 px by how closely things belong together, every control 25 px tall, and corners stepped down from the theme's rounding (square on a square theme). Inspector switch rows and choice chips now match the desks, desk chips drop to the caption size before cutting a word, and the name tip is a small floating surface (PREFS-133, PREFS-134).
