@@ -26,6 +26,8 @@ import "RenderModel.js" as RenderModel
 import "SectionsModel.js" as SectionsModel
 import "ZoneOrderModel.js" as ZoneOrderModel
 import "GlyphModel.js" as GlyphModel
+import "MotionModel.js" as MotionModel
+import "FrameLogModel.js" as FrameLogModel
 import "ShortcutModel.js" as ShortcutModel
 import "BarKeysModel.js" as KeysModel
 import "TooltipModel.js" as TooltipModel
@@ -79,13 +81,13 @@ Item {
     function onBarHiddenChanged() { root.ev("hidden", root.barHidden) }
     function onBarHoverCountChanged() { if (root.barHoverCount <= 1) root.ev("hover", root.barHoverCount ? "in" : "out") }
     function onCenterSectionHoveredChanged() { root.ev("center-hover", root.centerSectionHovered ? "in" : "out") }
-    function onTooltipShownChanged() { root.ev("card", root.tooltipShown ? "show " + root.evCard() : "hide", root.tooltipShown ? 160 : 0) }
+    function onTooltipShownChanged() { root.ev("card", root.tooltipShown ? "show " + root.evCard() : "hide", root.tooltipShown ? FrameLogModel.WATCH_MS.card : 0) }
     // Its text is set after the target: logged once both have landed.
     function onTooltipTargetChanged() { if (root.tooltipShown && root.tooltipTarget) Qt.callLater(root.evCardMove) }
     function onActivePopoutChanged() { root.ev("popout", root.activePopout ? "open" : "closed") }
-    function onBarDragSourceChanged() { root.ev("drag", root.barDragSource ? "start " + root.evName(root.barDragSource) : "end", root.barDragSource ? 200 : 0) }
+    function onBarDragSourceChanged() { root.ev("drag", root.barDragSource ? "start " + root.evName(root.barDragSource) : "end", root.barDragSource ? root.dragMotionDuration : 0) }
     function onBarDragSettlingChanged() { root.ev("settle", root.barDragSettling ? "start" : "done", root.barDragSettling ? root.barDragSettleDuration : 0) }
-    function onBarMoveActiveChanged() { root.ev("barmove", root.barMoveActive ? "start" : "end " + root.position, root.barMoveActive ? 200 : 0) }
+    function onBarMoveActiveChanged() { root.ev("barmove", root.barMoveActive ? "start" : "end " + root.position, root.barMoveActive ? FrameLogModel.WATCH_MS.barmove : 0) }
     function onZoneFitReportsChanged() { root.ev("folded", JSON.stringify(root.zoneFitReports)) }
   }
   Connections {
@@ -1515,7 +1517,7 @@ Item {
   function updateBarMove(screenPoint) {
     if (!barMoveActive || !barMoveScreen) return
     barMoveCandidate = nearestScreenEdge(screenPoint, barMoveScreen)
-    motion("barmove", 200)
+    motion("barmove", FrameLogModel.WATCH_MS.barmove)
   }
 
   function clearBarMove() {
@@ -1703,7 +1705,7 @@ Item {
   function updateIconDrag(scenePoint, slot) {
     if (root.barDragSource !== slot) return
     root.barDragScene = { x: scenePoint.x, y: scenePoint.y }
-    root.motion("drag", 200)
+    root.motion("drag", root.dragMotionDuration)
     var screenPoint = root.barDragScreenPoint(scenePoint)
     root.barDragScreenX = screenPoint.x
     root.barDragScreenY = screenPoint.y
@@ -3495,10 +3497,10 @@ Item {
       function onInlineRequestChanged() { root.ev("ask", (barWindow.inlineRequest || "-") + " on " + barWindow.evScreen) }
       function onInlineZoneChanged() {
         root.ev("inline", (barWindow.inlineZone ? "open " + barWindow.inlineZone : "close") + " on " + barWindow.evScreen
-          + (barWindow.inlineZone && barWindow.inlineGiveWay ? " giveway" : ""), 260)
+          + (barWindow.inlineZone && barWindow.inlineGiveWay ? " giveway" : ""), MotionModel.inlineMs(barWindow.inlineZone !== "", barWindow.inlineGiveWay))
       }
       function onInlineHandleZoneChanged() { root.ev("dots", (barWindow.inlineHandleZone || "-") + " on " + barWindow.evScreen) }
-      function onAutoHideShownChanged() { root.ev("strip", (barWindow.autoHideShown ? "out" : "away") + " on " + barWindow.evScreen, root.animationsEnabled ? (barWindow.autoHideShown ? 180 : 130) : 0) }
+      function onAutoHideShownChanged() { root.ev("strip", (barWindow.autoHideShown ? "out" : "away") + " on " + barWindow.evScreen, root.animationsEnabled ? MotionModel.stripMs(barWindow.autoHideShown, barWindow.notchLook) : 0) }
       function onPeekingChanged() { root.ev("peek", (barWindow.peeking ? Object.keys(barWindow.peekItems).join(",") : "end") + " on " + barWindow.evScreen) }
     }
     // The zone dots in this window, for drops (FoldHandle registers itself).
@@ -4171,10 +4173,10 @@ Item {
     property real leftShift: 0
     property real centerShift: 0
     property real rightShift: 0
-    // The strip slides out over 180 ms, answering the pointer, and away over
-    // 130 (LOOK-104, 105). Durations read through bindings raced the slide's
-    // own binding and could start a slide with the other's duration, so the
-    // motions start together here, once the state has settled.
+    // The strip slides out answering the pointer and away a little faster
+    // (MotionModel.stripMs, LOOK-104, 105). Durations read through bindings
+    // raced the slide's own binding and could start a slide with the other's
+    // duration, so the motions start together here, once the state has settled.
     readonly property string stripState: [autoHideShown, autoHideDistance,
       notchLook, zoneOut("left"), zoneOut("right"), leftReach, rightReach].join("|")
     onStripStateChanged: Qt.callLater(barWindow.syncStrip)
@@ -4186,8 +4188,7 @@ Item {
         slideNotch(rightMotion, zoneOut("right") ? 0 : rightReach, now)
         return
       }
-      var ms = autoHideShown ? 180 : 130
-      slideStrip(offsetMotion, autoHideShown ? 0 : autoHideDistance, ms, now)
+      slideStrip(offsetMotion, autoHideShown ? 0 : autoHideDistance, MotionModel.stripMs(autoHideShown, false), now)
       slideStrip(leftMotion, 0, 0, true)
       slideStrip(centerMotion, 0, 0, true)
       slideStrip(rightMotion, 0, 0, true)
@@ -4201,8 +4202,8 @@ Item {
       motion.to = to
       motion.start()
     }
-    // A zone springs out of the camera over 220 ms, a few pixels past its
-    // place and back (the tuck hides the overshoot), and slips in over 140.
+    // A zone springs out of the camera, a few pixels past its place and back
+    // (the tuck hides the overshoot), and slips in faster (MotionModel.stripMs).
     // Already hidden, it follows a change in its length at once.
     function slideNotch(motion, to, now) {
       if (motion.running && motion.to === to) return
@@ -4217,7 +4218,7 @@ Item {
       var out = to < from
       motion.easing.type = out ? Easing.OutBack : Easing.OutCubic
       motion.easing.overshoot = out ? NotchModel.backOvershoot(from - to, notchOvershoot) : 1.70158
-      motion.duration = out ? 220 : 140
+      motion.duration = MotionModel.stripMs(out, true)
       motion.to = to
       motion.start()
     }
@@ -5251,13 +5252,13 @@ Item {
   // Shared theme chrome; dimensions follow the rendered zone, including drawers.
   // The yield fade (layout-zones.md): a widget, island or button making room
   // fades out at once and fast, and comes back after a pause, once the
-  // moment's zone has shrunk. leaving: fading out now; outMs: how fast it
-  // goes (80 for a yield, 110 for a fold).
+  // moment's zone has shrunk (MotionModel). leaving: fading out now; outMs:
+  // how fast it goes (a yield, or a fold's FOLD_OUT_MS).
   component YieldFade: SequentialAnimation {
     property bool leaving: false
-    property int outMs: 80
-    PauseAnimation { duration: leaving ? 0 : 120 }
-    NumberAnimation { duration: leaving ? outMs : 160; easing.type: Easing.OutCubic }
+    property int outMs: MotionModel.GIVE_WAY_MS
+    PauseAnimation { duration: leaving ? 0 : MotionModel.YIELD_PAUSE_MS }
+    NumberAnimation { duration: leaving ? outMs : MotionModel.YIELD_BACK_MS; easing.type: Easing.OutCubic }
   }
 
   // A widget brought out alone by activity on an autohidden bar
@@ -5311,11 +5312,10 @@ Item {
       if (onNotch) {
         motion.easing.type = out ? Easing.OutBack : Easing.OutCubic
         motion.easing.overshoot = out ? NotchModel.backOvershoot(offset - to, window.notchOvershoot) : 1.70158
-        motion.duration = out ? 220 : 140
       } else {
         motion.easing.type = Easing.OutCubic
-        motion.duration = out ? 180 : 130
       }
+      motion.duration = MotionModel.stripMs(out, onNotch)
       motion.to = to
       motion.start()
     }
@@ -5874,12 +5874,12 @@ Item {
     readonly property bool shown: count > 0
     // An inline expansion replaces the dots under the pointer.
     onShownChanged: if (!shown) root.hideTooltip(foldHandle, true)
-    // Its widgets grow after an 80 ms pause (the slots' motionDelay) when
+    // Its widgets grow after a pause (the slots' motionDelay) when
     // neighbours yield, so the dots keep their cell as long, on the same
     // animation clock: shrinking at once pulled the island's end in before the
     // widgets pushed it out (on-demand-drawers.md DEMAND-90).
     readonly property int giveWayMs: !!homeWindow && homeWindow.inlineZone !== "" && homeWindow.inlineZone === inlineToken
-      && homeWindow.inlineGiveWay ? 80 : 0
+      && homeWindow.inlineGiveWay ? MotionModel.GIVE_WAY_MS : 0
     readonly property var cellPlace: CellModel.place(root.tokensIn(homeWindow), CellModel.TYPICAL_GLYPH, true)
     readonly property real cellSpill: cellPlace.spill
     readonly property bool fitYielded: !!(homeWindow && homeWindow.zoneFitYielded["handle:" + (zone === "center" ? "center:" + side : zone)])
@@ -5898,14 +5898,14 @@ Item {
       enabled: root.animationsEnabled && !root.vertical
       SequentialAnimation {
         PauseAnimation { duration: foldHandle.giveWayMs }
-        NumberAnimation { duration: 120; easing.type: Easing.OutCubic }
+        NumberAnimation { duration: MotionModel.SLOT_MS; easing.type: Easing.OutCubic }
       }
     }
     Behavior on height {
       enabled: root.animationsEnabled && root.vertical
       SequentialAnimation {
         PauseAnimation { duration: foldHandle.giveWayMs }
-        NumberAnimation { duration: 120; easing.type: Easing.OutCubic }
+        NumberAnimation { duration: MotionModel.SLOT_MS; easing.type: Easing.OutCubic }
       }
     }
     visible: shown || opacity > 0
@@ -6550,10 +6550,10 @@ Item {
     targetInsetX: !root.vertical && preview.before ? root.dragGapWidth : 0
     targetInsetY: root.vertical && preview.before ? root.dragGapHeight : 0
     motionEnabled: root.animationsEnabled && !drawerHost && !root.dragHandover
-    motionDuration: root.dragMotionActive ? root.dragMotionDuration : 120
-    // An activity reveal opens after its neighbours have yielded (80 ms), an
+    motionDuration: root.dragMotionActive ? root.dragMotionDuration : MotionModel.SLOT_MS
+    // An activity reveal opens after its neighbours have yielded, an
     // inline expansion only when it makes some yield.
-    motionDelay: root.animationsEnabled && managed && (activityVisible || inlineShown && homeWindow.inlineGiveWay) && !hovered && !root.dragMotionActive ? 80 : 0
+    motionDelay: root.animationsEnabled && managed && (activityVisible || inlineShown && homeWindow.inlineGiveWay) && !hovered && !root.dragMotionActive ? MotionModel.GIVE_WAY_MS : 0
     motionEasing: root.dragMotionActive ? root.dragMotionEasing : Easing.OutCubic
     motionOvershoot: 0
     z: modulePointer.dragging ? 100 : shiftLead ? 1 : 0
@@ -6625,7 +6625,7 @@ Item {
       opacity: slot.drawerHost ? (slot.drawerHost.showNative === false ? 0 : 1) : slot.mainVisible && !slot.preview.hidden && !slot.settleHidden ? 1 : 0
       Behavior on opacity {
         enabled: root.animationsEnabled && !slot.drawerHost && (slot.fitMotion || slot.fitYielded || slot.fitFolded)
-        YieldFade { leaving: slot.fitYielded || slot.fitFolded; outMs: slot.fitYielded ? 80 : 110 }
+        YieldFade { leaving: slot.fitYielded || slot.fitFolded; outMs: slot.fitYielded ? MotionModel.GIVE_WAY_MS : MotionModel.FOLD_OUT_MS }
       }
       enabled: !!slot.drawerHost || slot.mainVisible
     DragHandler {

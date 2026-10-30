@@ -78,9 +78,10 @@ omabox for desktop tests in a private Hyprland session
    Preferences; INTEG-146). The shell log then carries a timeline of what the
    bar did (`PB-EV t=<ms> <kind> <detail>`: keys, cursor, cards, hover, dots,
    inline asks and opens, drawers with their close reason, strip slides,
-   drags, folds, config deliveries) and one `PB-FT anim=… frames= wall= p95=
-   max= long=` line per motion, with `longframe dt=` on the timeline where a
-   frame stalled. In a box: `omabox log -b NAME shell --grep PB-`. On the
+   drags, folds, config deliveries) and one `PB-FT anim=… startup= frames=
+   wall= p95= max= long=` line per motion, with `longframe dt=` on the
+   timeline where a frame stalled during a motion and `startup dt=` where the
+   first frame came late (start-up latency, kept out of the frame stats). In a box: `omabox log -b NAME shell --grep PB-`. On the
    desktop the user sets the key, then
    `~/.claude/skills/omarchy-widget-debug/scripts/live.sh follow PB- 300`
    while they reproduce. Turn it off afterwards. `"powerbarTuning": true`

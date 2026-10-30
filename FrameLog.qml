@@ -1,16 +1,17 @@
 import QtQuick
+import "FrameLogModel.js" as FrameLogModel
 
 // `powerbarFrameLog` (shell.json, no Preferences): the bar's event timeline
 // and the frame timing of its motions in the shell log, for debugging live
 // (docs/behavior/integration.md INTEG-146):
 //   PB-EV t=<ms> <kind> <detail>
-//   PB-FT anim=<labels> frames=N nominal=MS wall=MS mean=MS p95=MS max=MS long=N
+//   PB-FT anim=<labels> startup=MS frames=N nominal=MS wall=MS mean=MS p95=MS max=MS long=N
 // A motion arms a run for its nominal time; motions starting while one runs
 // join it (their labels joined with +), so a run is everything that moved
-// together. `wall` counts from the first motion to the run's last frame,
-// 100 ms past the latest one's end. Long frames are intervals over 25 ms,
-// each also logged on the timeline as it happens. Nothing runs while
-// `enabled` is false.
+// together. `startup` is the time from the first motion to the first frame;
+// the frame stats count the frames after it (FrameLogModel). `wall` counts
+// from the first motion to the run's last frame, 100 ms past the latest
+// one's end. Nothing runs while `enabled` is false.
 QtObject {
   id: log
   property bool enabled: false
@@ -41,16 +42,8 @@ QtObject {
   }
   function finish() {
     frames.running = false
-    var st = stamps, iv = []
-    for (var i = 1; i < st.length; i++) iv.push(st[i] - st[i - 1])
-    if (!iv.length) return
-    var sorted = iv.slice().sort(function(a, b) { return a - b })
-    var sum = 0, long = 0
-    for (var j = 0; j < iv.length; j++) { sum += iv[j]; if (iv[j] > 25) long++ }
-    console.log("PB-FT anim=" + labels.join("+")
-      + " frames=" + iv.length + " nominal=" + Math.round(nominal) + " wall=" + (st[st.length - 1] - st[0])
-      + " mean=" + (sum / iv.length).toFixed(1) + " p95=" + sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * 0.95))]
-      + " max=" + sorted[sorted.length - 1] + " long=" + long)
+    var summary = FrameLogModel.summary(stamps)
+    if (summary) console.log(FrameLogModel.line(labels, nominal, summary))
   }
   onEnabledChanged: {
     if (enabled) ev("framelog", "on")
@@ -61,9 +54,10 @@ QtObject {
   property FrameAnimation frames: FrameAnimation {
     running: false
     onTriggered: {
-      var now = Date.now(), last = log.stamps[log.stamps.length - 1]
+      var now = Date.now(), count = log.stamps.length, dt = now - log.stamps[count - 1]
       log.stamps.push(now)
-      if (now - last > 25) console.log("PB-EV t=" + now + " longframe dt=" + (now - last) + " in=" + log.labels.join("+"))
+      var note = FrameLogModel.frameNote(count, dt)
+      if (note) console.log("PB-EV t=" + now + " " + note + " dt=" + dt + " in=" + log.labels.join("+"))
       if (now >= log.until) log.finish()
     }
   }
