@@ -556,8 +556,7 @@ Item {
     if (!canWriteConfig() || !barConfig.layout || lostKeysPending()) return
     var seen = {}, missing = barConfig.powerbarVisibilityDefault !== "shown"
     // The tray section's widgets too: Powerbar draws them beside the tray.
-    var holders = SectionsModel.lists.concat(["tray"])
-    for (var zone of holders) {
+    for (var zone of SectionsModel.sections) {
       for (var entry of (barConfig.layout[zone] || [])) {
         var key = entry && entry.powerbarInstance
         if (!key || seen[key]) missing = true
@@ -571,7 +570,7 @@ Item {
       if (!ManagedModel.powerbarHasRun(config.bar)) config.bar.powerbarShortcutOffer = true
       ManagedModel.healVisibility(config.bar, root.thirdPartyEntry)
       var used = {}
-      for (var zone of holders) {
+      for (var zone of SectionsModel.sections) {
         var entries = config.bar.layout[zone] || []
         for (var i = 0; i < entries.length; i++) {
           var entry = typeof entries[i] === "string" ? { id: entries[i] } : entries[i]

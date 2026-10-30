@@ -1,3 +1,5 @@
+.import "SectionsModel.js" as SectionsModel
+
 // Shared reconciliation keeps visual lifetimes independent of JS-array replacement.
 // Same keys in the same order holding the same values serialise identically,
 // so the JSON comparison is only needed when something differs.
@@ -36,12 +38,11 @@ function reconcileLists(models, lists, parking) {
     }
   }
 }
-// The bar's zone lists in order (SectionsModel.lists), and the zone each one
-// belongs to: the three center lists share the center zone. Under the Notch
-// style's camera (ears) there are two zones, one each side of the camera:
-// Left with Left of center, and Right of center with Right; the box goes
-// with the side `centerSide` names ("right" unless "left"; ZONE-96).
-var lists = ["left", "centerBegin", "center", "centerEnd", "right"]
+// The zone a list (SectionsModel.lists) belongs to: the three center lists
+// share the center zone. Under the Notch style's camera (ears) there are two
+// zones, one each side of the camera: Left with Left of center, and Right of
+// center with Right; the box goes with the side `centerSide` names ("right"
+// unless "left"; ZONE-96).
 function zoneOf(list, ears, centerSide) {
   if (ears) return list === "left" || list === "centerBegin" || (list === "center" && centerSide === "left") ? "left" : "right"
   return list === "centerBegin" || list === "centerEnd" ? "center" : list
@@ -51,7 +52,7 @@ function zoneOf(list, ears, centerSide) {
 // tray, powerbarList "tray").
 function records(layout, ears, centerSide) {
   var result = []
-  for (var list of lists) {
+  for (var list of SectionsModel.lists) {
     var entries = layout && Array.isArray(layout[list]) ? layout[list] : []
     for (var i = 0; i < entries.length; i++) {
       var entry = entries[i]
@@ -67,7 +68,7 @@ function records(layout, ears, centerSide) {
 // The record keys of each list, as drawn.
 function split(records) {
   var out = {}
-  lists.forEach(function(list) { out[list] = [] })
+  SectionsModel.lists.forEach(function(list) { out[list] = [] })
   records.forEach(function(r) { out[r.drawn].push(r.key) })
   return out
 }

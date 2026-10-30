@@ -1,3 +1,5 @@
+.import "SectionsModel.js" as SectionsModel
+
 function isPlainObject(value) {
   return !!value && typeof value === "object" && !Array.isArray(value)
 }
@@ -143,9 +145,6 @@ function entryId(entry) {
   return ""
 }
 
-// The bar's zone lists in order (SectionsModel.lists).
-var zoneLists = ["left", "centerBegin", "center", "centerEnd", "right"]
-
 function pinTrayToInner(entries, section) {
   var trayEntry = null
   var result = []
@@ -172,8 +171,8 @@ function entryIndex(entries, name) {
 function moveInstanceInConfig(config, fromRegion, instanceKey, toRegion, beforeKey, visibility) {
   var layout = config && config.bar && config.bar.layout
   // A widget of Omarchy's tray section can leave it; nothing lands there.
-  if (!isPlainObject(layout) || zoneLists.concat(["tray"]).indexOf(fromRegion) < 0 ||
-      zoneLists.indexOf(toRegion) < 0 || !instanceKey) return false
+  if (!isPlainObject(layout) || SectionsModel.sections.indexOf(fromRegion) < 0 ||
+      SectionsModel.lists.indexOf(toRegion) < 0 || !instanceKey) return false
   var from = layout[fromRegion], to = layout[toRegion]
   if (!Array.isArray(from) || !Array.isArray(to)) return false
   var fromIndex = from.findIndex(function(entry) { return entry && entry.powerbarInstance === instanceKey })
@@ -200,7 +199,7 @@ function moveInstanceInConfig(config, fromRegion, instanceKey, toRegion, beforeK
 // a duplicated id makes the push ambiguous.
 function inlineSettingsDelta(current, next) {
   if (!isPlainObject(current) || !isPlainObject(next)) return null
-  var regions = zoneLists
+  var regions = SectionsModel.lists
   var counts = {}
   for (var r = 0; r < regions.length; r++) {
     var entries = Array.isArray(next[regions[r]]) ? next[regions[r]] : []
@@ -320,7 +319,7 @@ function pickPanelSlot(candidates, focusedScreen, prefer) {
 // Returns [{zone, index, id, keys}] (zone: the list), plain values for applyLostKeys.
 function lostKeys(previous, next) {
   if (!isPlainObject(previous) || !isPlainObject(next)) return []
-  var zones = zoneLists.concat(["tray"])
+  var zones = SectionsModel.sections
   var used = {}, candidates = []
   for (var z = 0; z < zones.length; z++) {
     var now = Array.isArray(next[zones[z]]) ? next[zones[z]] : []

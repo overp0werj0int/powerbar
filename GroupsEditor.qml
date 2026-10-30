@@ -8,6 +8,7 @@ import qs.Ui
 import "PreferencesModel.js" as Model
 import "GroupsModel.js" as Groups
 import "GroupsEditorModel.js" as Editor
+import "SectionsModel.js" as SectionsModel
 
 // The Groups page (docs/behavior/preferences.md PREFS-109 on), two of the
 // Layout page's plates under the same camera (LayerPlate, ZoneTile,
@@ -38,7 +39,7 @@ Item {
     readonly property var hints: []
 
     // ---------------------------------------------------------------- data
-    readonly property var zones: Model.sections
+    readonly property var zones: SectionsModel.lists
     readonly property var groups: bar ? bar.groups : []
     function groupOf(id) {
         return groups.find(function (g) {

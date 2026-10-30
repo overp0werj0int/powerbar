@@ -1,3 +1,5 @@
+.import "SectionsModel.js" as SectionsModel
+
 // Runtime policy, independent of QML and wall-clock timers.
 function seconds(value, fallback, maximum) {
   var number = Number(value)
@@ -19,8 +21,7 @@ function mode(entry, metadata, legacy) {
 }
 function layoutEntries(bar) {
   var layout = bar && bar.layout || {}
-  return [].concat(layout.left || [], layout.centerBegin || [], layout.center || [],
-    layout.centerEnd || [], layout.right || [], layout.tray || [])
+  return [].concat.apply([], SectionsModel.sections.map(function(name) { return layout[name] || [] }))
 }
 // Whether Powerbar has run on this config: it gives every entry an instance
 // id on its first run and keeps its own settings in powerbar* keys. A config
@@ -42,7 +43,7 @@ function legacyDefaults(bar) {
 function healVisibility(bar, thirdParty) {
   if (!bar || typeof bar !== "object" || bar.powerbarVisibilityDefault === "shown") return false
   if (legacyDefaults(bar)) {
-    ["left", "centerBegin", "center", "centerEnd", "right", "tray"].forEach(function(section) {
+    SectionsModel.sections.forEach(function(section) {
       var entries = bar.layout && bar.layout[section]
       if (!Array.isArray(entries)) return
       for (var i = 0; i < entries.length; i++) {

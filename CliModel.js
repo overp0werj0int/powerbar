@@ -1,3 +1,5 @@
+.import "SectionsModel.js" as SectionsModel
+
 // Powerbar from the command line (README, "Command line"): what each setting
 // is called, which shell.json key it lives in, what values it takes and which
 // of Preferences' writers changes it. Pure rules; BarCli.qml reads the live
@@ -156,8 +158,6 @@ function widgetRecord(records, selector) {
     + byId.map(function(r) { return r.instanceKey }).join(", ") }
   return { error: "no widget " + sel + " in the layout" }
 }
-// The five zones (SectionsModel.lists).
-var sections = ["left", "centerBegin", "center", "centerEnd", "right"]
 var visibilities = ["shown", "managed", "hidden"]
 var widgetFields = ["zone", "visibility", "before", "group", "activityPeek", "badgeProperty", "urgentProperty"]
 // A widget change from the command line, checked whole before anything is
@@ -166,7 +166,7 @@ function widgetPatch(patch, ctx) {
   if (!patch || typeof patch !== "object" || Array.isArray(patch)) return { error: "a widget change is a JSON object such as {\"visibility\":\"managed\"}" }
   var unknown = Object.keys(patch).filter(function(k) { return widgetFields.indexOf(k) < 0 })
   if (unknown.length) return { error: "unknown field " + unknown[0] + "; fields are " + widgetFields.join(", ") }
-  if (patch.zone !== undefined && sections.indexOf(patch.zone) < 0) return { error: "zone is one of " + sections.join(", ") }
+  if (patch.zone !== undefined && SectionsModel.lists.indexOf(patch.zone) < 0) return { error: "zone is one of " + SectionsModel.lists.join(", ") }
   if (patch.visibility !== undefined && visibilities.indexOf(patch.visibility) < 0) return { error: "visibility is one of " + visibilities.join(", ") }
   if (patch.before !== undefined && typeof patch.before !== "string") return { error: "before names a widget, or \"\" for the zone's end" }
   if (patch.group !== undefined && (typeof patch.group !== "string" || (patch.group && (ctx && ctx.groups || []).indexOf(patch.group) < 0)))
@@ -250,7 +250,7 @@ function groupPatch(patch) {
       return { error: "iconImage is an absolute path to an SVG or PNG" }
     if (k === "before" && typeof v !== "string") return { error: "before names a widget, or \"\" for the zone's end" }
     if (k === "zone") {
-      if (sections.indexOf(v) < 0) return { error: "zone is one of " + sections.join(", ") }
+      if (SectionsModel.lists.indexOf(v) < 0) return { error: "zone is one of " + SectionsModel.lists.join(", ") }
       out.section = v
       continue
     }

@@ -12,6 +12,7 @@ import "GroupsModel.js" as Groups
 import "ZoneFitNotice.js" as ZoneFitNotice
 import "AppearanceModel.js" as AppearanceModel
 import "CellModel.js" as CellModel
+import "SectionsModel.js" as SectionsModel
 
 // The bar's layout as an exploded view (docs/behavior/preferences.md
 // PREFS-99): one layer per visibility (On the bar, On demand, Hidden) and
@@ -33,10 +34,10 @@ Item {
     readonly property var bar: preferences.bar
     // The layout's widgets, then the icons still in Omarchy's tray (its row).
     readonly property var entries: preferences.layoutEntries.concat(preferences.trayEntries)
-    // The bar's layers have the five zones (Model.sections); the hidden
+    // The bar's layers have the five zones (SectionsModel.lists); the hidden
     // layer and the tray's are one slab each, one column (PREFS-107).
     function columnsFor(mode) {
-        return mode === "tray" ? ["tray"] : mode === "hidden" ? ["hidden"] : Model.sections;
+        return mode === "tray" ? ["tray"] : mode === "hidden" ? ["hidden"] : SectionsModel.lists;
     }
     function slabbed(mode) {
         return mode === "tray" || mode === "hidden";
@@ -63,7 +64,7 @@ Item {
         }) : items;
     }
     readonly property var snapshots: preferences.snapshots
-    readonly property var sections: Model.sections
+    readonly property var sections: SectionsModel.lists
     readonly property var modes: Model.modes
     readonly property bool sideBar: !!bar && bar.vertical
     readonly property var zoneNames: ({

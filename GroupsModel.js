@@ -1,9 +1,7 @@
+.import "SectionsModel.js" as SectionsModel
+
 // Groups reference existing widget instances; settings and enablement stay in
 // bar.layout. Removing a group therefore cannot delete a widget or its service.
-// The bar's zone lists (SectionsModel.lists); a group sits in one of them.
-var sections = ["left", "centerBegin", "center", "centerEnd", "right"]
-// Where widgets can be: the zone lists and Omarchy's tray section.
-var holders = sections.concat(["tray"])
 // A group's icon takes a place in the layout under this instance key; no
 // widget's key starts with it.
 function groupKey(id) { return "group:" + id }
@@ -69,7 +67,7 @@ function needsRuns(group, face) {
 function layoutKeys(bar) {
   var layout = bar && bar.layout, keys = {}, any = false
   if (!layout || typeof layout !== "object") return null
-  holders.forEach(function(section) {
+  SectionsModel.sections.forEach(function(section) {
     (Array.isArray(layout[section]) ? layout[section] : []).forEach(function(entry) {
       if (entry && typeof entry.powerbarInstance === "string" && entry.powerbarInstance) { keys[entry.powerbarInstance] = true; any = true }
     })
@@ -95,7 +93,7 @@ function groups(bar) {
     ids.push(g.id); return true
   }).map(function(g) {
     return { id: g.id, label: String(g.label || "Group"), icon: String(g.icon || icons[0].glyph),
-      section: sections.indexOf(g.section) >= 0 ? g.section : "right", before: String(g.before || ""),
+      section: SectionsModel.lists.indexOf(g.section) >= 0 ? g.section : "right", before: String(g.before || ""),
       visibility: ["shown", "managed", "hidden"].indexOf(g.visibility) >= 0 ? g.visibility : "shown",
       face: ["glyph", "text", "both"].indexOf(g.face) >= 0 ? g.face : "glyph",
       tooltip: typeof g.tooltip === "boolean" ? g.tooltip : undefined,
@@ -148,7 +146,7 @@ function edit(config, id, patch) {
   }
   if (imagePath(patch.iconImage)) group.iconImage = patch.iconImage
   if (patch.iconTint === "text" || patch.iconTint === "own") group.iconTint = patch.iconTint === "own" ? "own" : undefined
-  if (sections.indexOf(patch.section) >= 0) { group.section = patch.section; group.before = "" }
+  if (SectionsModel.lists.indexOf(patch.section) >= 0) { group.section = patch.section; group.before = "" }
   if (typeof patch.before === "string") group.before = patch.before
   if (["shown", "managed", "hidden"].indexOf(patch.visibility) >= 0) group.visibility = patch.visibility
   if (["glyph", "text", "both"].indexOf(patch.face) >= 0) group.face = patch.face
@@ -159,7 +157,7 @@ function edit(config, id, patch) {
   config.bar.powerbarGroups = list; return true
 }
 function moveHeader(config, id, section, beforeKey, relativeGroupId, after, visibility) {
-  if (!config || !config.bar || sections.indexOf(section) < 0) return false
+  if (!config || !config.bar || SectionsModel.lists.indexOf(section) < 0) return false
   if (visibility !== "shown" && visibility !== "managed") return false
   var list = groups(config.bar), source = list.find(function(g) { return g.id === id })
   if (!source || relativeGroupId === id) return false
@@ -244,7 +242,7 @@ function remove(config, id) {
 function assign(config, key, id, before) {
   var list = groups(config.bar), destination = list.find(function(g) { return g.id === id })
   if (id && !destination) return false
-  var exists = holders.some(function(section) {
+  var exists = SectionsModel.sections.some(function(section) {
     return (config.bar.layout[section] || []).some(function(e) { return e && e.powerbarInstance === key })
   })
   if (!exists || isGroupKey(key)) return false
@@ -258,7 +256,7 @@ function assign(config, key, id, before) {
 }
 function render(layout, list) {
   var result = {}
-  sections.forEach(function(section) {
+  SectionsModel.lists.forEach(function(section) {
     result[section] = (layout[section] || []).slice()
     list.filter(function(g) { return g.section === section && g.visibility !== "hidden" }).forEach(function(g) {
       var at = result[section].findIndex(function(e) { return e.powerbarInstance === g.before })

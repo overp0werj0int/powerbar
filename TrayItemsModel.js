@@ -1,3 +1,5 @@
+.import "SectionsModel.js" as SectionsModel
+
 // Omarchy's tray icons as bar entries (docs/behavior/layout.md, TRAY-*). An
 // icon moved out of the tray becomes an entry of its own,
 //   { id: "powerbar.tray.<app>", type: "trayItem", item: "<tray id>", title: "<name>" }
@@ -10,7 +12,6 @@
 
 var type = "trayItem"
 var trayId = "omarchy.tray"
-var zones = ["left", "centerBegin", "center", "centerEnd", "right"]
 
 function isObject(value) { return !!value && typeof value === "object" && !Array.isArray(value) }
 function idOf(entry) { return typeof entry === "string" ? entry : (entry && entry.id) || "" }
@@ -47,7 +48,7 @@ function named(item, name) {
 function ownedByOmarchy(item, layout) {
   if (named(item, "localsend")) return true
   return ownedByWidget.some(function(owner) {
-    return named(item, owner.item) && zones.some(function(zone) {
+    return named(item, owner.item) && SectionsModel.lists.some(function(zone) {
       return list(layout && layout[zone]).some(function(entry) { return idOf(entry) === owner.widget })
     })
   })
@@ -68,7 +69,7 @@ function find(items, settings) {
 // The entries of a layout that stand for tray icons.
 function entries(layout) {
   var result = []
-  zones.forEach(function(zone) { list(layout && layout[zone]).forEach(function(e) { if (isTrayEntry(e)) result.push(e) }) })
+  SectionsModel.lists.forEach(function(zone) { list(layout && layout[zone]).forEach(function(e) { if (isTrayEntry(e)) result.push(e) }) })
   return result
 }
 
@@ -90,7 +91,7 @@ function trayRows(items, layout, passive) {
 // Every tray entry in the layout, so one hidden list can be edited for all.
 function trayEntries(layout) {
   var result = []
-  zones.forEach(function(zone) {
+  SectionsModel.lists.forEach(function(zone) {
     var values = list(layout && layout[zone])
     for (var i = 0; i < values.length; i++) {
       if (idOf(values[i]) !== trayId) continue
@@ -108,7 +109,7 @@ function hiddenIn(tray) { return list(tray && tray.hidden).map(String) }
 function moveOut(config, item, section, visibility, beforeKey, key) {
   var layout = config && config.bar && config.bar.layout
   var id = String(item && item.id || "")
-  if (!isObject(layout) || !id || zones.indexOf(section) < 0
+  if (!isObject(layout) || !id || SectionsModel.lists.indexOf(section) < 0
       || ["shown", "managed", "hidden"].indexOf(visibility) < 0) return null
   if (entries(layout).some(function(e) { return String(e.item) === id })) return null
   var trays = trayEntries(layout)
@@ -135,7 +136,7 @@ function moveBack(config, key) {
   var layout = config && config.bar && config.bar.layout
   if (!isObject(layout) || !key) return false
   var entry = null
-  zones.forEach(function(zone) {
+  SectionsModel.lists.forEach(function(zone) {
     var values = list(layout[zone])
     var at = values.findIndex(function(e) { return isTrayEntry(e) && e.powerbarInstance === key })
     if (at >= 0) entry = values.splice(at, 1)[0]

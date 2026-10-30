@@ -14,6 +14,8 @@
 
 var lists = ["left", "centerBegin", "center", "centerEnd", "right"]
 var centerLists = ["centerBegin", "center", "centerEnd"]
+// Omarchy's sections (Util.barSections): the five lists and the tray.
+var sections = lists.concat(["tray"])
 // Keys only older configs have: their presence means the config must be read.
 // The retired modes' arrangements (powerbarZoneLayouts) are not among them:
 // every write reads the config, and they stay until Powerbar has copied them

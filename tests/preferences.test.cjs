@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 const load = require('./load.cjs');
 const model = load('PreferencesModel.js');
 const barModel = load('BarModel.js');
+const sections = load('SectionsModel.js');
 const noHome = ({ home, ...at }) => at;
 const fixture = () => ({ bar: { layout: {
   left: [{ id: 'a', format: 'HH:mm', nested: { keep: true } }, { id: 'a', size: 20 }],
@@ -54,7 +55,7 @@ test('dropping on an extended island changes only that instance to Managed', () 
 });
 test('supports every zone and visibility as a destination and preserves settings through repeated moves', () => {
   const config = fixture();
-  for (const section of model.sections) for (const mode of model.modes) {
+  for (const section of sections.lists) for (const mode of model.modes) {
     const source = model.records(config.bar.layout).find(e => e.fingerprint.includes('HH:mm'));
     assert.equal(model.move(config, source, section, mode, -1), true);
     const moved = model.records(config.bar.layout).find(e => e.fingerprint.includes('HH:mm'));
@@ -331,7 +332,7 @@ test('a lifted widget gets every gap of a zone before it moves to the next layer
   assert.deepEqual(step({ section: 'left', mode: 'shown', pos: 2 }, 0, 1), { section: 'left', mode: 'managed', pos: 0 });
   assert.deepEqual(step({ section: 'left', mode: 'managed', pos: 0 }, 0, -1), { section: 'left', mode: 'shown', pos: 2 });
   // The tray's layer has one column; leaving it meets the last zone.
-  const cols = m => (m === 'tray' ? ['tray'] : model.sections);
+  const cols = m => (m === 'tray' ? ['tray'] : sections.lists);
   const rows = ['shown', 'managed', 'hidden', 'tray'];
   assert.deepEqual(noHome(model.stepLayerLift(count, { section: 'centerBegin', mode: 'hidden', pos: 0 }, 0, 1, cols, rows)), { section: 'tray', mode: 'tray', pos: 0 });
   assert.deepEqual(noHome(model.stepLayerLift(count, { section: 'tray', mode: 'tray', pos: 0 }, 0, -1, cols, rows)), { section: 'right', mode: 'hidden', pos: 0 });
@@ -382,7 +383,7 @@ test('the hidden layer is one slab in bar order; a hidden widget keeps its zone'
 });
 test('a slab flows five to a row: h and l walk it, j and k go a row and on to the next layer', () => {
   const rows = ['shown', 'managed', 'hidden', 'tray'];
-  const cols = m => (m === 'tray' ? ['tray'] : m === 'hidden' ? ['hidden'] : model.sections);
+  const cols = m => (m === 'tray' ? ['tray'] : m === 'hidden' ? ['hidden'] : sections.lists);
   const items = { 'right:managed': 2, 'left:managed': 1, 'hidden:hidden': 7, 'tray:tray': 3 };
   const count = (c, m) => items[c + ':' + m] || 0;
   const step = (at, dx, dy) => model.stepLayer(count, at, dx, dy, cols, rows);
