@@ -1238,7 +1238,7 @@ Item {
                         textFormat: Text.PlainText
                         color: Commons.Color.urgent
                         font.family: Style.font.family
-                        font.pixelSize: Style.font.caption
+                        font.pixelSize: Ink.caption
                         elide: Text.ElideLeft
                         Layout.maximumWidth: Style.space(320)
                     }

@@ -122,6 +122,6 @@ Item {
         textFormat: Text.PlainText
         color: Qt.rgba(1, 1, 1, Ink.secondary)
         font.family: Style.font.family
-        font.pixelSize: Style.font.caption
+        font.pixelSize: Ink.caption
     }
 }

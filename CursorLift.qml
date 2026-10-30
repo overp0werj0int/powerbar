@@ -54,7 +54,7 @@ Item {
     topLeftRadius: 0
     topRightRadius: 0
     antialiasing: true
-    color: Qt.rgba(0, 0, 0, lift.lightTheme ? 0.2 : 0.3)
+    color: Ink.band(lift.lightTheme)
   }
   Rectangle {
     visible: lift.raised && lift.plate.a > 0

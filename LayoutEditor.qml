@@ -1599,7 +1599,7 @@ Item {
             topLeftRadius: 0
             topRightRadius: 0
             antialiasing: true
-            color: Qt.rgba(0, 0, 0, editor.lightTheme ? 0.2 : 0.3)
+            color: Ink.band(editor.lightTheme)
         }
         // The fill, and under a raised chip its tile's own colour, so what
         // it rises over does not show through.
@@ -1747,7 +1747,7 @@ Item {
             anchors.leftMargin: Style.space(8)
             anchors.rightMargin: Style.space(8)
             radius: panel.radius
-            color: Qt.rgba(0, 0, 0, editor.lightTheme ? 0.2 : 0.3)
+            color: Ink.band(editor.lightTheme)
         }
 
         InkText {

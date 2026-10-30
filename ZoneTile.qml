@@ -107,7 +107,7 @@ Item {
         topLeftRadius: 0
         topRightRadius: 0
         antialiasing: true
-        color: Qt.rgba(0, 0, 0, cell.lightTheme ? 0.3 : 0.45)
+        color: Ink.slabEdge(cell.lightTheme)
     }
     BorderSurface {
         id: well

@@ -315,7 +315,7 @@ Item {
           textFormat: Text.PlainText
           color: Qt.alpha(Commons.Color.popups.text, 0.55)
           font.family: Style.font.family
-          font.pixelSize: Style.font.caption
+          font.pixelSize: Ink.caption
         }
       }
 
@@ -355,7 +355,7 @@ Item {
             textFormat: Text.PlainText
             color: Qt.darker(Commons.Color.popups.text, 1.4)
             font.family: Style.font.family
-            font.pixelSize: Style.font.caption
+            font.pixelSize: Ink.caption
             font.bold: true
             font.letterSpacing: 0.6
           }
@@ -451,7 +451,7 @@ Item {
               textFormat: Text.PlainText
               color: Commons.Color.popups.text
               font.family: Style.font.family
-              font.pixelSize: Style.font.body
+              font.pixelSize: Ink.label
               font.bold: true
               horizontalAlignment: Text.AlignHCenter
             }
@@ -493,7 +493,7 @@ Item {
               textFormat: Text.PlainText
               color: Commons.Color.popups.text
               font.family: Style.font.family
-              font.pixelSize: Style.font.body
+              font.pixelSize: Ink.label
               font.bold: true
               elide: Text.ElideMiddle
               Layout.fillWidth: true
@@ -514,7 +514,7 @@ Item {
               textFormat: Text.PlainText
               color: Qt.alpha(Commons.Color.popups.text, 0.6)
               font.family: Style.font.family
-              font.pixelSize: Style.font.caption
+              font.pixelSize: Ink.caption
               wrapMode: Text.WordWrap
               Layout.fillWidth: true
             }
@@ -542,7 +542,7 @@ Item {
             textFormat: Text.PlainText
             color: Commons.Color.popups.text
             font.family: Style.font.family
-            font.pixelSize: Style.font.body
+            font.pixelSize: Ink.label
             font.bold: true
             elide: Text.ElideRight
             Layout.fillWidth: true
@@ -555,7 +555,7 @@ Item {
             textFormat: Text.PlainText
             color: Qt.alpha(Commons.Color.popups.text, 0.55)
             font.family: Style.font.family
-            font.pixelSize: Style.font.caption
+            font.pixelSize: Ink.caption
             elide: Text.ElideRight
             Layout.fillWidth: true
           }
@@ -566,7 +566,7 @@ Item {
           text: "Choose"
           color: Qt.alpha(Commons.Color.popups.text, 0.6)
           font.family: Style.font.family
-          font.pixelSize: Style.font.caption
+          font.pixelSize: Ink.caption
         }
       }
     }

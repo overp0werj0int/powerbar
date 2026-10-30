@@ -851,7 +851,7 @@ Item {
                     x: filterLabel.x + (editor.filterText ? Math.min(filterLabel.contentWidth, filterLabel.width) + 1 : -2)
                     anchors.verticalCenter: parent.verticalCenter
                     width: 1
-                    height: Style.font.caption + Style.space(2)
+                    height: Ink.caption + Style.space(2)
                     color: Commons.Color.popups.text
                 }
                 KeyCap {
@@ -1501,7 +1501,7 @@ Item {
             anchors.leftMargin: Style.space(8)
             anchors.rightMargin: Style.space(8)
             radius: inspector.radius
-            color: Qt.rgba(0, 0, 0, editor.lightTheme ? 0.2 : 0.3)
+            color: Ink.band(editor.lightTheme)
         }
         ColumnLayout {
             id: inspectorBody
@@ -2394,7 +2394,7 @@ Item {
             topLeftRadius: 0
             topRightRadius: 0
             antialiasing: true
-            color: Qt.rgba(0, 0, 0, editor.lightTheme ? 0.2 : 0.3)
+            color: Ink.band(editor.lightTheme)
         }
         readonly property color fill: tile.placeholder ? "transparent" : tile.ghost ? Qt.tint(editor.pageColor, Qt.alpha(Commons.Color.popups.text, 0.15)) : tile.isCursor && editor.stageFocused ? Style.focusFillFor(Commons.Color.popups.text, Commons.Color.accent) : tile.isCursor ? Style.selectedFillFor(Commons.Color.popups.text, Commons.Color.accent) : tile.hovered ? Qt.alpha(Commons.Color.popups.text, 0.14) : Qt.alpha(Commons.Color.popups.text, 0.06)
         BorderSurface {

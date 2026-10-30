@@ -121,7 +121,7 @@ Item {
             textFormat: Text.PlainText
             color: Ink.tint(Ink.secondary)
             font.family: Style.font.family
-            font.pixelSize: Style.font.caption
+            font.pixelSize: Ink.caption
         }
         // The dot and its caption are one target: 8 px round the dot, and
         // on to 4 px past the caption's far end.

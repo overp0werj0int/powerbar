@@ -753,6 +753,8 @@ over 0.5 (`LayoutEditor.qml:109`, `AppearanceModel.luminance`) and passes
 | Fringe | rgb(0.54, 0.57, 0.71) | background lightened 70 % to white |
 | Cap, eye, "camera" | black, white 50 % | the same: a camera is black on every theme |
 
+The slab edge and the band are `Ink.slabEdge(light)` and `Ink.band(light)`.
+
 Everything else is theme colour at fixed alphas, so it follows any theme.
 Do not hard-code a hex colour.
 
