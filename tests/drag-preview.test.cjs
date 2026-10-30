@@ -1,6 +1,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const drag = require('../DragModel.js');
+const load = require('./load.cjs');
+const drag = load('DragModel.js');
 
 const state = (targetKey, targetSurface, after = false) => ({
   ready: true, sourceKey: 'clock:two', sourceSurface: 'bar:left',

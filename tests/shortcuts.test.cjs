@@ -1,9 +1,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const vm = require('node:vm');
-const fs = require('node:fs');
-const m = vm.createContext({});
-vm.runInContext(fs.readFileSync(`${__dirname}/../ShortcutModel.js`, 'utf8'), m);
+const load = require('./load.cjs');
+const m = load('ShortcutModel.js');
 const plain = value => JSON.parse(JSON.stringify(value));
 
 // As Omarchy writes them (default/hypr/bindings/utilities.lua).
@@ -219,7 +217,7 @@ test("the user's own files add shortcuts and win over Omarchy's for the same wid
 });
 
 test('the bar keyboard target binds the keys IPC', () => {
-  const sm = require('../ShortcutModel.js');
+  const sm = load('ShortcutModel.js');
   assert.equal(sm.command('bar:keys'), 'omarchy-shell powerbar keys');
   assert.equal(sm.command('bar:search'), 'omarchy-shell powerbar keysSearch');
   const lua = sm.render({ 'bar:keys': 'SUPER + B' }, { widgets: [], positions: [] }, { 'bar:keys': 'Powerbar keyboard' });

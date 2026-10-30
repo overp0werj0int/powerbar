@@ -128,5 +128,3 @@ function legend(pageLines, controlLines) {
   })
   return extra.concat(out)
 }
-
-if (typeof module !== "undefined") module.exports = { stripBoxes, valid, first, nextStrip, vertical, tab, across, sideways, legend }

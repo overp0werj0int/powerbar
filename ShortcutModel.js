@@ -372,6 +372,3 @@ function recordLua(start) {
     + ", function() hl.bind(\"SUPER + CTRL + SHIFT + ALT + ESCAPE\", hl.dsp.submap(\"reset\")) end) enter() end "
     + "hl.timer(function() " + leave + " end, { timeout = 15000, type = \"oneshot\" })"
 }
-
-if (typeof module !== "undefined") module.exports = { MODS, MASK, SUBMAP, BEGIN, END, OLD_START, OLD_END, paired, safeId, strip, blockKeys, parse, format, normalize, same, caps, label, clashText,
-  parseBinds, parseDefaults, readDefaults, live, effective, positional, conflicts, assign, restore, SUGGESTED, suggested, offer, offerMessage, fromKeyEvent, command, render, recordLua }

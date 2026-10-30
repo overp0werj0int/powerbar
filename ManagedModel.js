@@ -1,8 +1,15 @@
+.import "SectionsModel.js" as SectionsModel
+
 // Runtime policy, independent of QML and wall-clock timers.
-function seconds(value, fallback, maximum) {
+// How long an activity reveal lasts (powerbarManagedRevealSeconds), and the
+// grace before a drawer closes (powerbarManagedEntryGraceSeconds and
+// powerbarManagedExitGraceSeconds), in seconds.
+var revealSeconds = { min: 1, max: 60, fallback: 2.5 }
+var graceSeconds = { min: 1, max: 15, fallback: 1 }
+function seconds(value, range) {
   var number = Number(value)
   return value === undefined || value === null || !isFinite(number)
-    ? fallback : Math.max(1, Math.min(maximum, number))
+    ? range.fallback : Math.max(range.min, Math.min(range.max, number))
 }
 // A widget with no saved visibility is On the bar, as on Omarchy's bar,
 // wherever it comes from. Configs Powerbar ran on before this rule put widgets
@@ -19,8 +26,7 @@ function mode(entry, metadata, legacy) {
 }
 function layoutEntries(bar) {
   var layout = bar && bar.layout || {}
-  return [].concat(layout.left || [], layout.centerBegin || [], layout.center || [],
-    layout.centerEnd || [], layout.right || [], layout.tray || [])
+  return [].concat.apply([], SectionsModel.sections.map(function(name) { return layout[name] || [] }))
 }
 // Whether Powerbar has run on this config: it gives every entry an instance
 // id on its first run and keeps its own settings in powerbar* keys. A config
@@ -42,7 +48,7 @@ function legacyDefaults(bar) {
 function healVisibility(bar, thirdParty) {
   if (!bar || typeof bar !== "object" || bar.powerbarVisibilityDefault === "shown") return false
   if (legacyDefaults(bar)) {
-    ["left", "centerBegin", "center", "centerEnd", "right", "tray"].forEach(function(section) {
+    SectionsModel.sections.forEach(function(section) {
       var entries = bar.layout && bar.layout[section]
       if (!Array.isArray(entries)) return
       for (var i = 0; i < entries.length; i++) {

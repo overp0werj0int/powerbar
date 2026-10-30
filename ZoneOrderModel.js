@@ -78,5 +78,3 @@ function successor(layout, key, source) {
   var at = keys.indexOf(key)
   return at >= 0 && at + 1 < keys.length ? keys[at + 1] : ""
 }
-
-if (typeof module !== "undefined") module.exports = { arrange, dropBefore, dotsAtStart, landsOnDemand, neighbours }

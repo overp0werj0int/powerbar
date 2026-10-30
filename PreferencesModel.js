@@ -1,23 +1,20 @@
+.import "ManagedModel.js" as ManagedModel
+.import "SectionsModel.js" as SectionsModel
+
 // Pure layout operations. Address entries by section + index so duplicates remain distinct.
-// The five zone lists (SectionsModel.lists), in order along the bar.
-var sections = ["left", "centerBegin", "center", "centerEnd", "right"]
-var modes = ["shown", "managed", "hidden"]
 // The rows of the Layout page: the visibilities, then Omarchy's tray, whose
 // icons can be moved out onto the bar (TrayItemsModel.js).
-var rows = modes.concat(["tray"])
+var rows = ManagedModel.visibilityModes.concat(["tray"])
 
 function id(entry) { return typeof entry === "string" ? entry : String(entry.id || "") }
-// As ManagedModel.mode, without its pending state: a widget with no saved
-// visibility is On the bar, or, on a config still following the old default
-// (legacy), On demand unless it comes from Omarchy.
+// As ManagedModel.mode, without its pending state: a widget whose metadata has
+// not come yet counts as not from Omarchy.
 function mode(entry, metadata, legacy) {
-  var value = entry && entry.powerbarVisibility
-  if (modes.indexOf(value) >= 0) return value
-  return legacy && !(metadata && metadata.firstParty === true) ? "managed" : "shown"
+  return ManagedModel.mode(entry, metadata || {}, legacy)
 }
 function records(layout, metadataFor, legacy) {
   var result = []
-  sections.forEach(function(section) {
+  SectionsModel.lists.forEach(function(section) {
     var entries = layout && Array.isArray(layout[section]) ? layout[section] : []
     entries.forEach(function(entry, index) {
       result.push({ section: section, index: index, id: id(entry), instanceKey: entry && entry.powerbarInstance || "", badgeProperty: entry && entry.powerbarBadgeProperty || "", urgentProperty: entry && entry.powerbarUrgentProperty || "", mode: mode(entry, metadataFor ? metadataFor(id(entry)) : null, legacy), fingerprint: JSON.stringify(entry),
@@ -27,7 +24,7 @@ function records(layout, metadataFor, legacy) {
   return result
 }
 function move(config, source, section, visibility, beforeIndex) {
-  if (!source || sections.indexOf(section) < 0 || modes.indexOf(visibility) < 0) return false
+  if (!source || SectionsModel.lists.indexOf(section) < 0 || ManagedModel.visibilityModes.indexOf(visibility) < 0) return false
   var layout = config.bar && config.bar.layout
   if (!layout || !Array.isArray(layout[source.section])) return false
   var from = layout[source.section]
@@ -68,7 +65,7 @@ function cell(entries, column, visibility, excludeKey) {
   }).sort(function(a, b) { return a.index - b.index })
 }
 function clamp(value, low, high) { return Math.max(low, Math.min(high, value)) }
-function zonesOnly() { return sections }
+function zonesOnly() { return SectionsModel.lists }
 // The same column in another row; a slab's one column (the tray's, the
 // hidden layer's) meets `home`, the zone the cursor last had or its widget's
 // own, else the last zone.
@@ -81,16 +78,16 @@ function across(list, column, home) {
 // order, zone by zone.
 function slab(entries, visibility, excludeKey) {
   return (entries || []).filter(function(e) {
-    return e.mode === visibility && sections.indexOf(e.section) >= 0 && (!excludeKey || e.instanceKey !== excludeKey)
+    return e.mode === visibility && SectionsModel.lists.indexOf(e.section) >= 0 && (!excludeKey || e.instanceKey !== excludeKey)
   }).sort(function(a, b) {
-    return sections.indexOf(a.section) - sections.indexOf(b.section) || a.index - b.index
+    return SectionsModel.lists.indexOf(a.section) - SectionsModel.lists.indexOf(b.section) || a.index - b.index
   })
 }
 // Where a widget of `section` at layout `index` comes in a slab's `items`.
 function slabPos(items, section, index) {
-  var s = sections.indexOf(section)
+  var s = SectionsModel.lists.indexOf(section)
   return (items || []).filter(function(r) {
-    var t = sections.indexOf(r.section)
+    var t = SectionsModel.lists.indexOf(r.section)
     return t < s || (t === s && r.index < index)
   }).length
 }
@@ -138,7 +135,7 @@ function pageIndex(page, count) {
 // camera's width, so Center sits under it) and the others sharing the rest.
 // Returns each column's x and width; `width` is the shared one.
 function layerColumns(width, gap, axis, count, centerWidth) {
-  count = count || sections.length
+  count = count || SectionsModel.lists.length
   var half = Math.max(0, Math.min(axis, width - axis))
   var inner = Math.max(1, 2 * half - gap * (count - 1))
   var mid = (count - 1) / 2
@@ -246,7 +243,7 @@ function stepLayerLift(count, target, dx, dy, columnsFor, rowList, perRow) {
 }
 function layerStep(count, at, dx, dy, columnsFor, rowList, extra, perRow) {
   columnsFor = columnsFor || zonesOnly
-  var list = rowList || modes, per = perRow || 5
+  var list = rowList || ManagedModel.visibilityModes, per = perRow || 5
   var m = Math.max(0, list.indexOf(at.mode)), home = at.home || ""
   var column = across(columnsFor(list[m]), at.section, home), pos = at.pos
   function last(c, row) { return Math.max(0, count(c, row) - 1 + extra) }
@@ -295,12 +292,12 @@ function layerStep(count, at, dx, dy, columnsFor, rowList, extra, perRow) {
 // Hidden layer's or the tray's), whatever zone its widget keeps: a slab
 // chip under the cursor changes nothing on the layers of zones.
 function activeZone(cell) {
-  return cell && sections.indexOf(cell.section) >= 0 ? cell.section : ""
+  return cell && SectionsModel.lists.indexOf(cell.section) >= 0 ? cell.section : ""
 }
 // Shift with j or k moves a widget to the next layer at once (PREFS-27):
 // the layer `dy` from `mode` in `rowList`, or "" past the first or last.
 function nextLayer(rowList, mode, dy) {
-  var list = rowList || modes, i = list.indexOf(mode)
+  var list = rowList || ManagedModel.visibilityModes, i = list.indexOf(mode)
   if (i < 0 || !dy) return ""
   var next = i + (dy > 0 ? 1 : -1)
   return next >= 0 && next < list.length ? list[next] : ""

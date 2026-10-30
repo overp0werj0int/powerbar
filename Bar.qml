@@ -479,9 +479,9 @@ Item {
   // keys still override it for anyone who sets them by hand. Activity keeps a
   // drawer widget on the bar exactly as long as an autohidden bar peeks for it,
   // so the widget and its island leave together.
-  readonly property real managedRevealSeconds: ManagedModel.seconds(barConfig.powerbarManagedRevealSeconds, 2.5, 60)
-  readonly property real managedEntrySeconds: ManagedModel.seconds(barConfig.powerbarManagedEntryGraceSeconds, 1, 15)
-  readonly property real managedExitSeconds: ManagedModel.seconds(barConfig.powerbarManagedExitGraceSeconds, 1, 15)
+  readonly property real managedRevealSeconds: ManagedModel.seconds(barConfig.powerbarManagedRevealSeconds, ManagedModel.revealSeconds)
+  readonly property real managedEntrySeconds: ManagedModel.seconds(barConfig.powerbarManagedEntryGraceSeconds, ManagedModel.graceSeconds)
+  readonly property real managedExitSeconds: ManagedModel.seconds(barConfig.powerbarManagedExitGraceSeconds, ManagedModel.graceSeconds)
 
   // On-demand widgets either open in a drawer island when their zone is
   // hovered ("drawer"), or wait behind the zone's dots and expand in the bar
@@ -556,8 +556,7 @@ Item {
     if (!canWriteConfig() || !barConfig.layout || lostKeysPending()) return
     var seen = {}, missing = barConfig.powerbarVisibilityDefault !== "shown"
     // The tray section's widgets too: Powerbar draws them beside the tray.
-    var holders = SectionsModel.lists.concat(["tray"])
-    for (var zone of holders) {
+    for (var zone of SectionsModel.sections) {
       for (var entry of (barConfig.layout[zone] || [])) {
         var key = entry && entry.powerbarInstance
         if (!key || seen[key]) missing = true
@@ -571,7 +570,7 @@ Item {
       if (!ManagedModel.powerbarHasRun(config.bar)) config.bar.powerbarShortcutOffer = true
       ManagedModel.healVisibility(config.bar, root.thirdPartyEntry)
       var used = {}
-      for (var zone of holders) {
+      for (var zone of SectionsModel.sections) {
         var entries = config.bar.layout[zone] || []
         for (var i = 0; i < entries.length; i++) {
           var entry = typeof entries[i] === "string" ? { id: entries[i] } : entries[i]
@@ -688,7 +687,7 @@ Item {
   // three lists share the center's drawer.
   function openManagedZone(zone) {
     zone = SectionsModel.zoneOf(zone)
-    if (["left", "center", "right"].indexOf(zone) < 0) return
+    if (SectionsModel.zones.indexOf(zone) < 0) return
     var window = focusedBarWindow()
     if (window && window.managedDrawer) window.managedDrawer.openZone(zone, true)
   }
@@ -2898,7 +2897,7 @@ Item {
   function barZoneAt(point, window) {
     var coordinate = root.vertical ? point.y : point.x
     var length = root.vertical ? window.height : window.width
-    return ["left", "center", "right"][Math.min(2, Math.max(0, Math.floor(coordinate * 3 / length)))]
+    return SectionsModel.zones[Math.min(2, Math.max(0, Math.floor(coordinate * 3 / length)))]
   }
 
   // What a drag at scenePoint drops on. The measuring happens here (the
@@ -4694,7 +4693,7 @@ Item {
       x: mainStrip.x; y: mainStrip.y
       width: mainStrip.width; height: mainStrip.height
       Repeater {
-        model: ["left", "center", "right"]
+        model: SectionsModel.zones
         Item {
           id: zoneTarget
           required property string modelData

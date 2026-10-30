@@ -1,3 +1,5 @@
+.import "SectionsModel.js" as SectionsModel
+
 // Zones never overlap: the solver that fits the left, centre and right zones
 // along one bar line. A lasting length slides the centre by the least distance
 // that keeps one zone gap, then folds widgets into drawers (longest zone first);
@@ -226,7 +228,7 @@ function stateOf(input, previous) {
   var st = { folded: {}, order: [] }
   if (!previous) return st
   var zoneOf = {}
-  var names = ["left", "center", "right"]
+  var names = SectionsModel.zones
   names.forEach(function (n) {
     zoneItems(input, n).forEach(function (it) { zoneOf[it.key] = n })
   })

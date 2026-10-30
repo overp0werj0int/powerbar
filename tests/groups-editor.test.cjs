@@ -1,13 +1,9 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const vm = require('node:vm');
-const fs = require('node:fs');
-const m = vm.createContext({});
-vm.runInContext(fs.readFileSync(`${__dirname}/../GroupsEditorModel.js`, 'utf8'), m);
-const prefs = vm.createContext({});
-vm.runInContext(fs.readFileSync(`${__dirname}/../PreferencesModel.js`, 'utf8'), prefs);
-const groups = vm.createContext({});
-vm.runInContext(fs.readFileSync(`${__dirname}/../GroupsModel.js`, 'utf8'), groups);
+const load = require('./load.cjs');
+const m = load('GroupsEditorModel.js');
+const prefs = load('PreferencesModel.js');
+const groups = load('GroupsModel.js');
 const plain = v => JSON.parse(JSON.stringify(v));
 const zones = ['left', 'centerLeft', 'center', 'centerRight', 'right'];
 const state = (extra = {}) => ({

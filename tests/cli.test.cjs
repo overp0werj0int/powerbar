@@ -1,12 +1,10 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const vm = require('node:vm');
 const fs = require('node:fs');
+const load = require('./load.cjs');
 const J = v => JSON.parse(JSON.stringify(v));
-const m = vm.createContext({});
-vm.runInContext(fs.readFileSync(`${__dirname}/../CliModel.js`, 'utf8'), m);
-const a = vm.createContext({});
-vm.runInContext(fs.readFileSync(`${__dirname}/../AppearanceModel.js`, 'utf8'), a);
+const m = load('CliModel.js');
+const a = load('AppearanceModel.js');
 
 test('settings are found by name or by their shell.json key; shortcuts by target', () => {
   assert.equal(m.find('autoHide').key, 'powerbarAutoHide');

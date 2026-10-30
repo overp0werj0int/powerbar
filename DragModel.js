@@ -126,5 +126,3 @@ function resolveDrop(d) {
   var nearby = d.inDrawer ? d.candidates : d.candidates.filter(function(c) { return c.region === d.zone })
   return nearestDropTarget(nearby, d.probe, d.alongColumn) || (d.inDrawer ? { drawer: true } : { zone: d.zone })
 }
-if (typeof module !== "undefined") module.exports = { slot: slot, endGap: endGap, afterPointer: afterPointer, afterCentre: afterCentre,
-  settleTarget: settleTarget, settleFrame: settleFrame, nearestDropTarget: nearestDropTarget, dropSurface: dropSurface, resolveDrop: resolveDrop }

@@ -1,6 +1,8 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const model = require('../RenderModel.js');
+const load = require('./load.cjs');
+const model = load('RenderModel.js');
+const sections = load('SectionsModel.js');
 const entry = (key, extra = {}) => ({ id: 'duplicate', powerbarInstance: key, ...extra });
 const config = () => ({ transparent: false, layout: { left: [entry('a'), entry('b')], center: [], right: [] } });
 test('records keep duplicate ids apart and carry their zone and list', () => {
@@ -59,9 +61,9 @@ test('shallowSame: the same keys in the same order with the same values', () => 
 });
 
 test('under the camera the box joins the side it sits on', () => {
-  assert.deepEqual(model.lists.map(l => model.zoneOf(l, true)), ['left', 'left', 'right', 'right', 'right']);
-  assert.deepEqual(model.lists.map(l => model.zoneOf(l, true, 'left')), ['left', 'left', 'left', 'right', 'right']);
-  assert.deepEqual(model.lists.map(l => model.zoneOf(l, false, 'left')), ['left', 'center', 'center', 'center', 'right'], 'no camera: the three center lists share the center');
+  assert.deepEqual(sections.lists.map(l => model.zoneOf(l, true)), ['left', 'left', 'right', 'right', 'right']);
+  assert.deepEqual(sections.lists.map(l => model.zoneOf(l, true, 'left')), ['left', 'left', 'left', 'right', 'right']);
+  assert.deepEqual(sections.lists.map(l => model.zoneOf(l, false, 'left')), ['left', 'center', 'center', 'center', 'right'], 'no camera: the three center lists share the center');
   const layout = { left: [], centerBegin: [], center: [entry('c')], centerEnd: [], right: [] };
   assert.equal(model.records(layout, true, 'left')[0].region, 'left');
   assert.equal(model.records(layout, true)[0].region, 'right');

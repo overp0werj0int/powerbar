@@ -1,6 +1,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const keys = require('../BarKeysModel.js');
+const load = require('./load.cjs');
+const keys = load('BarKeysModel.js');
 
 test('the along keys follow the edge, the into key points into the screen', () => {
   assert.deepEqual(keys.barIntent('right', 'Down'), { move: 1 });

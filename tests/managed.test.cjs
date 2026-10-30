@@ -1,9 +1,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const vm = require('node:vm');
-const fs = require('node:fs');
-const m = vm.createContext({});
-vm.runInContext(fs.readFileSync(`${__dirname}/../ManagedModel.js`, 'utf8'), m);
+const load = require('./load.cjs');
+const m = load('ManagedModel.js');
 const J = v => JSON.parse(JSON.stringify(v));
 test('explicit modes win; every discovered widget defaults to shown, old configs keep provenance; discovery defers', () => {
   assert.equal(m.mode({}, null), 'pending');
@@ -16,12 +14,14 @@ test('explicit modes win; every discovered widget defaults to shown, old configs
   assert.equal(m.mode({ powerbarVisibility: 'shown' }, { firstParty: false }), 'shown');
 });
 test('timing defaults, invalid values, and bounds', () => {
-  assert.equal(m.seconds(undefined, 10, 60), 10);
-  assert.equal(m.seconds(null, 5, 15), 5);
-  assert.equal(m.seconds('invalid', 5, 15), 5);
-  assert.equal(m.seconds(Infinity, 10, 60), 10);
-  assert.equal(m.seconds(-10, 10, 60), 1);
-  assert.equal(m.seconds(1000, 10, 60), 60);
+  assert.equal(m.seconds(undefined, m.revealSeconds), 2.5);
+  assert.equal(m.seconds(null, m.graceSeconds), 1);
+  assert.equal(m.seconds('invalid', m.graceSeconds), 1);
+  assert.equal(m.seconds(Infinity, m.revealSeconds), 2.5);
+  assert.equal(m.seconds(-10, m.revealSeconds), 1);
+  assert.equal(m.seconds('5', m.graceSeconds), 5);
+  assert.equal(m.seconds(1000, m.revealSeconds), 60);
+  assert.equal(m.seconds(1000, m.graceSeconds), 15);
 });
 test('activity extends from the most recent event, never queues intervals', () => {
   let until = m.deadline(0, 10);

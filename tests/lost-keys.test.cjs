@@ -3,7 +3,8 @@
 // the bar showed before, applyLostKeys puts them back.
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const bar = require('../BarModel.js');
+const load = require('./load.cjs');
+const bar = load('BarModel.js');
 const J = (v) => JSON.parse(JSON.stringify(v));
 
 const before = () => ({

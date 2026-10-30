@@ -1,6 +1,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const drag = require('../DragModel.js');
+const load = require('./load.cjs');
+const drag = load('DragModel.js');
 
 const size = { width: 1512, height: 448 }, win = { width: 1512, height: 448 };
 const surface = (p, extra = {}) => drag.dropSurface(p, size, win, extra.position || 'top', 38, 38, extra.drawer || null, !!extra.nested);

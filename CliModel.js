@@ -1,3 +1,9 @@
+.import "AppearanceModel.js" as AppearanceModel
+.import "BarModel.js" as BarModel
+.import "GroupsModel.js" as GroupsModel
+.import "ManagedModel.js" as ManagedModel
+.import "SectionsModel.js" as SectionsModel
+
 // Powerbar from the command line (README, "Command line"): what each setting
 // is called, which shell.json key it lives in, what values it takes and which
 // of Preferences' writers changes it. Pure rules; BarCli.qml reads the live
@@ -8,17 +14,18 @@
 //          "scope"   Preferences.setScope(tile, value)
 //          "look"    Preferences.setLook(tile, look, value)
 //          "text"    Preferences.setText(value)
-// Ranges are the sliders' (AppearanceModel.ranges); "roundingMax" is the
-// bar's own (it depends on the bar's thickness) and comes in as ctx.
+// A number takes its range from the rule's owner (AppearanceModel.ranges,
+// ManagedModel's timings); one without a top (rounding's) has the bar's own,
+// which depends on the bar's thickness and comes in as ctx.roundingMax.
 var settings = [
   { name: "position", key: "position", type: "choice", choices: ["top", "bottom", "left", "right"], writer: "option" },
-  { name: "background", key: "background", type: "choice", choices: ["opaque", "glassy", "none"], writer: "option" },
+  { name: "background", key: "background", type: "choice", choices: AppearanceModel.backgrounds, writer: "option" },
   // The older on/off form of background: none or opaque.
   { name: "transparent", key: "transparent", type: "bool", writer: "option" },
-  { name: "style", key: "powerbarStyle", type: "choice", choices: ["flat", "floating", "islands", "notch"], writer: "style" },
+  { name: "style", key: "powerbarStyle", type: "choice", choices: BarModel.barStyles, writer: "style" },
   { name: "largeBar", key: "powerbarLargeBar", type: "bool", writer: "option" },
   { name: "spacingMode", key: "powerbarSpacingMode", type: "choice", choices: ["slots", "gaps"], writer: "option" },
-  { name: "spacing", key: "powerbarSpacing", type: "number", min: 0, max: 16, step: 1, writer: "option" },
+  { name: "spacing", key: "powerbarSpacing", type: "number", range: AppearanceModel.ranges.spacing, writer: "option" },
   { name: "autoHide", key: "powerbarAutoHide", type: "bool", writer: "option" },
   { name: "autoHideActivity", key: "powerbarAutoHideActivity", type: "bool", writer: "option" },
   { name: "readableOverlay", key: "powerbarReadableOverlay", type: "bool", writer: "option" },
@@ -28,32 +35,32 @@ var settings = [
   { name: "keyLegend", key: "powerbarKeyLegend", type: "bool", writer: "option" },
   { name: "preferencesTilt", key: "powerbarPreferencesTilt", type: "bool", writer: "option" },
   // Not in Preferences; shell.json keys kept for anyone who sets them by hand.
-  { name: "revealSeconds", key: "powerbarManagedRevealSeconds", type: "number", min: 1, max: 60, writer: "option" },
-  { name: "entryGraceSeconds", key: "powerbarManagedEntryGraceSeconds", type: "number", min: 1, max: 15, writer: "option" },
-  { name: "exitGraceSeconds", key: "powerbarManagedExitGraceSeconds", type: "number", min: 1, max: 15, writer: "option" },
+  { name: "revealSeconds", key: "powerbarManagedRevealSeconds", type: "number", range: ManagedModel.revealSeconds, writer: "option" },
+  { name: "entryGraceSeconds", key: "powerbarManagedEntryGraceSeconds", type: "number", range: ManagedModel.graceSeconds, writer: "option" },
+  { name: "exitGraceSeconds", key: "powerbarManagedExitGraceSeconds", type: "number", range: ManagedModel.graceSeconds, writer: "option" },
   { name: "frameLog", key: "powerbarFrameLog", type: "bool", writer: "option" },
   { name: "tuning", key: "powerbarTuning", type: "bool", writer: "option" },
   // A camera notch's width in logical px.
-  { name: "notchWidth", key: "powerbarNotchWidth", type: "number", min: 40, max: 600, step: 1, writer: "option" },
+  { name: "notchWidth", key: "powerbarNotchWidth", type: "number", range: AppearanceModel.ranges.notchWidth, writer: "option" },
   // Its height in logical px, on a notched screen.
-  { name: "notchHeight", key: "powerbarNotchHeight", type: "number", min: 16, max: 96, step: 1, writer: "option" },
+  { name: "notchHeight", key: "powerbarNotchHeight", type: "number", range: AppearanceModel.ranges.notchHeight, writer: "option" },
   // Which side of the camera the Center zone sits on, on a notched screen.
   { name: "centerSide", key: "powerbarCenterSide", type: "choice", choices: ["right", "left"], writer: "option" },
   // Appearance (bar.powerbarAppearance), in the scope each tile follows now.
-  { name: "shape.scope", tile: "shape", type: "choice", choices: ["theme", "all", "this"], writer: "scope" },
-  { name: "shape.rounding", tile: "shape", look: "rounding", type: "number", min: 0, max: "roundingMax", step: 1, writer: "look" },
+  { name: "shape.scope", tile: "shape", type: "choice", choices: AppearanceModel.scopes, writer: "scope" },
+  { name: "shape.rounding", tile: "shape", look: "rounding", type: "number", range: AppearanceModel.ranges.rounding, writer: "look" },
   { name: "shape.borders", tile: "shape", look: "borders", type: "bool", writer: "look" },
-  { name: "shape.borderWidth", tile: "shape", look: "borderWidth", type: "number", min: 0.5, max: 3, step: 0.5, writer: "look" },
-  { name: "surface.scope", tile: "surface", type: "choice", choices: ["theme", "all", "this"], writer: "scope" },
-  { name: "surface.opacity", tile: "surface", look: "opacity", type: "number", min: 0, max: 100, step: 5, writer: "look" },
+  { name: "shape.borderWidth", tile: "shape", look: "borderWidth", type: "number", range: AppearanceModel.ranges.borderWidth, writer: "look" },
+  { name: "surface.scope", tile: "surface", type: "choice", choices: AppearanceModel.scopes, writer: "scope" },
+  { name: "surface.opacity", tile: "surface", look: "opacity", type: "number", range: AppearanceModel.ranges.backgroundOpacity, writer: "look" },
   { name: "surface.blur", tile: "surface", look: "blur", type: "bool", writer: "look" },
   // The floor of the surfaces drawn over windows (drawers, menus), in %.
-  { name: "surface.overWindows", tile: "surface", look: "overWindows", type: "number", min: 0, max: 100, step: 5, writer: "look" },
-  { name: "surface.text", tile: "surface", type: "choice", choices: ["theme", "light", "dark"], writer: "text" },
-  { name: "shadow.scope", tile: "shadow", type: "choice", choices: ["theme", "all", "this"], writer: "scope" },
+  { name: "surface.overWindows", tile: "surface", look: "overWindows", type: "number", range: AppearanceModel.ranges.overWindows, writer: "look" },
+  { name: "surface.text", tile: "surface", type: "choice", choices: AppearanceModel.foregrounds, writer: "text" },
+  { name: "shadow.scope", tile: "shadow", type: "choice", choices: AppearanceModel.scopes, writer: "scope" },
   { name: "shadow.enabled", tile: "shadow", look: "enabled", type: "bool", writer: "look" },
-  { name: "shadow.softness", tile: "shadow", look: "softness", type: "number", min: 2, max: 24, step: 1, writer: "look" },
-  { name: "shadow.strength", tile: "shadow", look: "strength", type: "number", min: 5, max: 60, step: 5, writer: "look" }
+  { name: "shadow.softness", tile: "shadow", look: "softness", type: "number", range: AppearanceModel.ranges.shadowSize, writer: "look" },
+  { name: "shadow.strength", tile: "shadow", look: "strength", type: "number", range: AppearanceModel.ranges.shadowOpacity, writer: "look" }
 ]
 // Shortcuts: "shortcut.bar:keys", "shortcut.bar:search", "shortcut.group:<id>", "shortcut.widget:<id>".
 var shortcutPrefix = "shortcut."
@@ -87,6 +94,7 @@ function onStep(value, min, step) {
   var scale = Math.pow(10, Math.max(decimals(step), decimals(min), decimals(value)))
   return Math.round((value - min) * scale) % Math.round(step * scale) === 0
 }
+function topOf(range, ctx) { return range.max !== undefined ? range.max : ctx && ctx.roundingMax }
 // { value } a setting may take, or { error }. ctx: { roundingMax }.
 function check(setting, value, ctx) {
   if (!setting) return { error: "unknown setting" }
@@ -103,11 +111,11 @@ function check(setting, value, ctx) {
     return typeof value === "string" ? { value: value } : { error: s.name + " is a text value" }
   }
   if (s.type === "number") {
-    var max = s.max === "roundingMax" ? (ctx && ctx.roundingMax) : s.max
+    var r = s.range, max = topOf(r, ctx)
     if (typeof value !== "number" || !isFinite(value)) return { error: s.name + " is a number" }
-    if (value < s.min || (max !== undefined && value > max))
-      return { error: s.name + " is from " + s.min + " to " + max }
-    if (s.step && !onStep(value, s.min, s.step)) return { error: s.name + " moves in steps of " + s.step }
+    if (value < r.min || (max !== undefined && value > max))
+      return { error: s.name + " is from " + r.min + " to " + max }
+    if (r.step && !onStep(value, r.min, r.step)) return { error: s.name + " moves in steps of " + r.step }
     return { value: value }
   }
   if (s.type === "shortcut") return shortcutValue(value)
@@ -156,9 +164,6 @@ function widgetRecord(records, selector) {
     + byId.map(function(r) { return r.instanceKey }).join(", ") }
   return { error: "no widget " + sel + " in the layout" }
 }
-// The five zones (SectionsModel.lists).
-var sections = ["left", "centerBegin", "center", "centerEnd", "right"]
-var visibilities = ["shown", "managed", "hidden"]
 var widgetFields = ["zone", "visibility", "before", "group", "activityPeek", "badgeProperty", "urgentProperty"]
 // A widget change from the command line, checked whole before anything is
 // written. → { patch } or { error }. ctx: { groups: [ids] }.
@@ -166,8 +171,8 @@ function widgetPatch(patch, ctx) {
   if (!patch || typeof patch !== "object" || Array.isArray(patch)) return { error: "a widget change is a JSON object such as {\"visibility\":\"managed\"}" }
   var unknown = Object.keys(patch).filter(function(k) { return widgetFields.indexOf(k) < 0 })
   if (unknown.length) return { error: "unknown field " + unknown[0] + "; fields are " + widgetFields.join(", ") }
-  if (patch.zone !== undefined && sections.indexOf(patch.zone) < 0) return { error: "zone is one of " + sections.join(", ") }
-  if (patch.visibility !== undefined && visibilities.indexOf(patch.visibility) < 0) return { error: "visibility is one of " + visibilities.join(", ") }
+  if (patch.zone !== undefined && SectionsModel.lists.indexOf(patch.zone) < 0) return { error: "zone is one of " + SectionsModel.lists.join(", ") }
+  if (patch.visibility !== undefined && ManagedModel.visibilityModes.indexOf(patch.visibility) < 0) return { error: "visibility is one of " + ManagedModel.visibilityModes.join(", ") }
   if (patch.before !== undefined && typeof patch.before !== "string") return { error: "before names a widget, or \"\" for the zone's end" }
   if (patch.group !== undefined && (typeof patch.group !== "string" || (patch.group && (ctx && ctx.groups || []).indexOf(patch.group) < 0)))
     return { error: "group is a group's id, or \"\" for none" }
@@ -216,8 +221,8 @@ function groupRecord(groups, selector) {
   return { error: "no group " + sel }
 }
 var groupChoices = {
-  visibility: visibilities, face: ["glyph", "text", "both"], badgeMode: ["sum", "members"],
-  memberDisplay: ["native", "name", "both"],
+  visibility: ManagedModel.visibilityModes, face: GroupsModel.faces, badgeMode: GroupsModel.badgeModes,
+  memberDisplay: GroupsModel.memberDisplays,
   iconTint: ["text", "own"], iconFont: ["", "omarchy"]
 }
 var groupFields = ["label", "icon", "iconFont", "iconImage", "iconTint", "zone", "before", "visibility",
@@ -227,10 +232,10 @@ var groupFields = ["label", "icon", "iconFont", "iconImage", "iconTint", "zone",
 // selector, resolved by the caller), or { error }.
 // A group's name as newGroup and setGroup take it: trimmed, "New group" when
 // empty. Refused rather than cut, so the answer never says ok for a name that
-// was not kept whole (Groups keeps labels to 80 characters).
+// was not kept whole (GroupsModel.labelLength).
 function groupName(label) {
   var name = String(label === undefined || label === null ? "" : label).trim()
-  if (name.length > 80) return { error: "label is at most 80 characters" }
+  if (name.length > GroupsModel.labelLength) return { error: "label is at most " + GroupsModel.labelLength + " characters" }
   return { name: name || "New group" }
 }
 function groupPatch(patch) {
@@ -245,12 +250,11 @@ function groupPatch(patch) {
     if (k === "label" && groupName(v).error) return groupName(v)
     if ((k === "icon" || k === "iconImage") && (typeof v !== "string" || !v)) return { error: k + " is a glyph or an image path" }
     if (k === "icon" && Array.from(v).length > 8) return { error: "icon is one glyph or emoji" }
-    // GroupsModel.imagePath()'s rule: a local file, never a URL.
-    if (k === "iconImage" && (v.length > 1024 || !/^\/[^\x00-\x1f\x7f]*\.(svg|png)$/i.test(v) || /(^|\/)\.\.(\/|$)/.test(v)))
+    if (k === "iconImage" && !GroupsModel.imagePath(v))
       return { error: "iconImage is an absolute path to an SVG or PNG" }
     if (k === "before" && typeof v !== "string") return { error: "before names a widget, or \"\" for the zone's end" }
     if (k === "zone") {
-      if (sections.indexOf(v) < 0) return { error: "zone is one of " + sections.join(", ") }
+      if (SectionsModel.lists.indexOf(v) < 0) return { error: "zone is one of " + SectionsModel.lists.join(", ") }
       out.section = v
       continue
     }
@@ -320,7 +324,7 @@ function describe(ctx) {
     if (s.key) d.key = "bar." + s.key
     else d.key = "bar.powerbarAppearance"
     if (s.choices) d.values = s.choices
-    if (s.type === "number") { d.min = s.min; d.max = s.max === "roundingMax" ? (ctx && ctx.roundingMax) : s.max; if (s.step) d.step = s.step }
+    if (s.type === "number") { d.min = s.range.min; d.max = topOf(s.range, ctx); if (s.range.step) d.step = s.range.step }
     return d
   }).concat([{ name: "shortcut.<target>", type: "shortcut", key: "bar.powerbarShortcuts",
     targets: ["bar:keys", "bar:search", "group:<id>", "widget:<plugin id>"] }])

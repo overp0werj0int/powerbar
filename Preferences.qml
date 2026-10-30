@@ -13,6 +13,7 @@ import "AppearanceModel.js" as AppearanceModel
 import "GroupsModel.js" as Groups
 import "RenderModel.js" as RenderModel
 import "TrayItemsModel.js" as TrayItemsModel
+import "SectionsModel.js" as SectionsModel
 
 // Powerbar preferences. Everything is reachable from the keyboard: 1-4 switch
 // pages, each page walks its own controls, Esc closes. Every page shows the
@@ -506,7 +507,7 @@ Item {
                 changed = Model.move(config, record, section, mode, Math.ceil(before));
                 return;
             }
-            var from = Model.sections.find(function (zone) {
+            var from = SectionsModel.lists.find(function (zone) {
                 return (layout[zone] || []).some(function (entry) {
                     return entry && entry.powerbarInstance === record.instanceKey;
                 });
