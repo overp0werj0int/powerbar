@@ -37,11 +37,13 @@ function zoneOf(name) {
 }
 
 // Which side of the center a center list's widgets fold and show their dots
-// on: before the box, or after it. The box's own widgets count with the side
-// of the camera they sit on (`centerSide`, "right" unless "left"; ZONE-96).
-function sideOf(name, centerSide) {
+// on: before the box, or after it. On a screen with a camera (`notched`) the
+// box's own widgets count with the side of the camera they sit on
+// (`centerSide`, "right" unless "left"; ZONE-96); elsewhere with the end.
+// The bar's count, fit and drawing all ask here.
+function sideOf(name, centerSide, notched) {
   if (name === "centerBegin") return "start"
-  if (name === "center") return centerSide === "left" ? "start" : "end"
+  if (name === "center") return notched && centerSide === "left" ? "start" : "end"
   return name === "centerEnd" ? "end" : ""
 }
 

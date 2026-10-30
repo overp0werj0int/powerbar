@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- With Center set left of the camera (`centerSide left`), a screen without a camera keeps the Center box's on-demand widgets behind Right of center's dots, as it should (ZONE-96); before, it counted them on the other side's dots. Beside a camera, the box's on-demand widgets now also draw at the dots they are counted on (ZONE-26).
 - `omarchy-shell powerbar get centerSide` answers the side the Center zone takes by a camera notch instead of `null`.
 - Keyboard page: a shortcut removed, restored or taken while the previous change was still being written to Hyprland is now bound too; before, it was saved in the settings but never reached `bindings.lua`, and a refused earlier change could put back the wrong shortcuts.
 - Groups page: a group name, badge count or urgent property typed without Enter is saved to the group or widget it was typed for when you click another one; before, the click selected the next one first and the text was saved there.

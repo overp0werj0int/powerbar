@@ -111,6 +111,11 @@ test('on the notch the dots and their run sit at the far ends: the left zone sta
   assert.deepEqual(keysOf(order.arrange(items, managed, 'right', true)), ['a', 'b', 'm']);
   assert.deepEqual(keysOf(order.arrange(items, managed, 'left')), ['a', 'b', 'm'], 'elsewhere: the end');
   assert.equal(order.dotsAtStart('left', true), true);
+  // The box draws its run at the dots it counts on (ZONE-26): Left of
+  // center's start when it sits left of the camera, else its end.
+  assert.deepEqual(keysOf(order.arrange(items, managed, 'center', false, 'start')), ['m', 'a', 'b']);
+  assert.deepEqual(keysOf(order.arrange(items, managed, 'center', false, 'end')), ['a', 'b', 'm']);
+  assert.deepEqual(keysOf(order.arrange(items, managed, 'centerBegin')), ['m', 'a', 'b']);
   assert.equal(order.dotsAtStart('right', true), false);
   // A gap at the left zone's start, before an expanded widget: on demand.
   const seq = [{ key: 'm', list: 'left', managed: true, expanded: true }, { key: 'a', list: 'left' }];

@@ -3680,7 +3680,7 @@ Item {
         length: i.length, inset: i.inset, gap: i.gap, gutter: i.gutter, momentGap: i.momentGap,
         notch: notchSlotOf(i.notch),
         notchPads: notchSplit,
-        boxBefore: notchSplit && root.barOptions.centerSide === "left",
+        boxBefore: SectionsModel.sideOf("center", root.barOptions.centerSide, notchSplit) === "start",
         wrap: i.wrap,
         pad: function(spill) { return barWindow.endPad(spill) },
         handle: { extent: handle.extent, spill: handle.spill },
@@ -3954,7 +3954,8 @@ Item {
       var managed = function(item) { return item.managed }
       for (var name of SectionsModel.lists) {
         models.push(widgetModels[name])
-        lists.push(ZoneOrderModel.arrange((keys[name] || []).map(function(key) { return widgetStore.get(key) }).filter(function(item) { return !!item }), managed, name, notchLook))
+        lists.push(ZoneOrderModel.arrange((keys[name] || []).map(function(key) { return widgetStore.get(key) }).filter(function(item) { return !!item }), managed, name, notchLook,
+          SectionsModel.sideOf(name, root.barOptions.centerSide, notchSplit)))
       }
       var items = records.map(function(record) { return widgetStore.get(record.key) }).filter(function(item) { return !!item })
       RenderModel.reconcileLists(models, lists, widgetStore)
@@ -3967,9 +3968,11 @@ Item {
     }
     // The notch draws on-demand runs at the zones' far ends.
     onNotchLookChanged: reconcileWidgets()
-    // Center's widgets change ears with it (ZONE-96).
+    // Center's widgets change ears with it (ZONE-96), and beside the camera
+    // the box's on-demand run changes ends.
     readonly property string centerSide: root.barOptions.centerSide
-    onCenterSideChanged: if (notchLook) reconcileWidgets()
+    onCenterSideChanged: if (notchLook || notchSplit) reconcileWidgets()
+    onNotchSplitChanged: if (centerSide === "left") reconcileWidgets()
     Component.onCompleted: { reconcileWidgets(); syncStrip(true); if (!notchPending) notchWaitOver = true; mappedBlur = blurEnabled; root.noteExtent(screen ? screen.name : "", extent) }
     onExtentChanged: root.noteExtent(screen ? screen.name : "", extent)
 
@@ -5709,7 +5712,7 @@ Item {
     readonly property real split: homeWindow && homeWindow.notchSplit ? homeWindow.notchKeepOut : 0
     // The box left of the camera (ZONE-96): it ends at the slot with Left of
     // center, and Right of center alone starts past it.
-    readonly property bool boxBefore: split > 0 && root.barOptions.centerSide === "left"
+    readonly property bool boxBefore: split > 0 && SectionsModel.sideOf("center", root.barOptions.centerSide, true) === "start"
     readonly property real middle: (root.vertical ? height : width) / 2
     function along(list) { return root.vertical ? list.y : list.x }
     // Where a run of lists shows along the bar, past the yielded slots at its
@@ -6271,7 +6274,7 @@ Item {
     readonly property string drawnList: record.drawn
     readonly property string savedList: record.list
     // The side of the centre's box it waits on, and so the dots it waits behind.
-    readonly property string centerSide: SectionsModel.sideOf(drawnList, root.barOptions.centerSide) || "end"
+    readonly property string centerSide: SectionsModel.sideOf(drawnList, root.barOptions.centerSide, !!homeWindow && homeWindow.notchSplit) || "end"
     // The expansion that shows it in inline mode: its zone, the centre by side.
     readonly property string inlineToken: region === "center" ? "center:" + centerSide : region
     readonly property string moduleName: root.entryId(entry)
