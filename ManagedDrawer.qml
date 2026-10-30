@@ -9,6 +9,7 @@ import "DragModel.js" as DragModel
 import "CellModel.js" as CellModel
 import "RenderModel.js" as RenderModel
 import "NotchModel.js" as NotchModel
+import "SectionsModel.js" as SectionsModel
 
 // Lives in the bar's window: widgets keep the same QsWindow and popup anchors.
 Item {
@@ -584,7 +585,7 @@ Item {
   function open(payloadJson) {
     var payload = {}
     try { payload = JSON.parse(payloadJson || "{}") || {} } catch (error) {}
-    openZone(["left", "center", "right"].indexOf(payload.zone) >= 0 ? payload.zone : "center", true)
+    openZone(SectionsModel.zones.indexOf(payload.zone) >= 0 ? payload.zone : "center", true)
   }
   function close(reason) {
     if (opened) bar.ev("drawer", "close " + (isSubmenu ? "submenu " : "") + (groupId ? "group:" + groupId : token) + " " + (reason || "-"),

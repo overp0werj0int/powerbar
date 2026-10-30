@@ -687,7 +687,7 @@ Item {
   // three lists share the center's drawer.
   function openManagedZone(zone) {
     zone = SectionsModel.zoneOf(zone)
-    if (["left", "center", "right"].indexOf(zone) < 0) return
+    if (SectionsModel.zones.indexOf(zone) < 0) return
     var window = focusedBarWindow()
     if (window && window.managedDrawer) window.managedDrawer.openZone(zone, true)
   }
@@ -2897,7 +2897,7 @@ Item {
   function barZoneAt(point, window) {
     var coordinate = root.vertical ? point.y : point.x
     var length = root.vertical ? window.height : window.width
-    return ["left", "center", "right"][Math.min(2, Math.max(0, Math.floor(coordinate * 3 / length)))]
+    return SectionsModel.zones[Math.min(2, Math.max(0, Math.floor(coordinate * 3 / length)))]
   }
 
   // What a drag at scenePoint drops on. The measuring happens here (the
@@ -4693,7 +4693,7 @@ Item {
       x: mainStrip.x; y: mainStrip.y
       width: mainStrip.width; height: mainStrip.height
       Repeater {
-        model: ["left", "center", "right"]
+        model: SectionsModel.zones
         Item {
           id: zoneTarget
           required property string modelData

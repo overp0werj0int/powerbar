@@ -1,5 +1,6 @@
 import QtQuick
 import QtTest
+import "../../BarKeysModel.js" as BarKeysModel
 import "../../BarModel.js" as BarModel
 import "../../CliModel.js" as CliModel
 import "../../GroupsModel.js" as GroupsModel
@@ -7,6 +8,7 @@ import "../../ManagedModel.js" as ManagedModel
 import "../../PreferencesModel.js" as PreferencesModel
 import "../../RenderModel.js" as RenderModel
 import "../../TrayItemsModel.js" as TrayItemsModel
+import "../../ZoneFitModel.js" as ZoneFitModel
 
 // Every model that imports another, loaded by Qt's engine: each answer here
 // comes through the import. tests/model-imports.test.cjs keeps the list whole.
@@ -45,5 +47,10 @@ TestCase {
     compare(CliModel.find("style").choices.join(), "flat,floating,islands,notch")
     compare(CliModel.find("surface.text").choices.join(), "theme,light,dark")
     compare(CliModel.groupPatch({ face: "x" }).error, "face is one of glyph, text, both")
+  }
+  function test_fitZones() {
+    compare(BarKeysModel.zoneStep(["left", "left", "right"], 0, 1), 2)
+    var input = { notch: 0, zones: { left: [{ key: "a" }, { key: "b" }], before: [], anchor: null, after: [], right: [] } }
+    compare(ZoneFitModel.stateOf(input, { folded: { left: ["b"], center: [], right: [] }, order: ["b"] }).order.join(), "b")
   }
 }

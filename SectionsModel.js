@@ -36,6 +36,9 @@ function list(value) {
 
 function isList(name) { return lists.indexOf(name) >= 0 }
 
+// The fit zones, in order along the bar.
+var zones = ["left", "center", "right"]
+
 // The fit zone a list belongs to: the three center lists share one.
 function zoneOf(name) {
   return centerLists.indexOf(name) >= 0 ? "center" : name

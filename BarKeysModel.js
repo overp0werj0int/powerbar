@@ -1,3 +1,5 @@
+.import "SectionsModel.js" as SectionsModel
+
 // Keyboard navigation of the bar (docs/behavior/keyboard.md): which key means what on
 // each edge, how the cursor steps through the bar's stops, and how a search
 // ranks names. Pure decisions; Bar.qml carries them out.
@@ -12,7 +14,6 @@
 // character typed. As in vim, ^ and $ go to the ends, like Home and End; Page
 // Up and Page Down jump zone to zone, like Shift+Tab and Tab.
 
-var ZONES = ["left", "center", "right"]
 // Opens Preferences from the mode, and in Preferences comes back to it
 // (the comma, as for an app's settings).
 var PREFS_KEY = ","
@@ -151,10 +152,11 @@ function gridStep(stops, index, dir, rows) {
 //   zones: each stop's zone, in bar order
 function zoneStep(zones, index, dir) {
   if (!zones.length) return -1
-  var from = ZONES.indexOf(zones[index])
+  var order = SectionsModel.zones
+  var from = order.indexOf(zones[index])
   if (from < 0) from = 1
-  for (var n = 1; n <= ZONES.length; n++) {
-    var zone = ZONES[(from + dir * n + ZONES.length * 3) % ZONES.length]
+  for (var n = 1; n <= order.length; n++) {
+    var zone = order[(from + dir * n + order.length * 3) % order.length]
     if (dir > 0) { var first = zones.indexOf(zone); if (first >= 0) return first }
     else { var last = zones.lastIndexOf(zone); if (last >= 0) return last }
   }
