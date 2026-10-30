@@ -13,6 +13,8 @@
 //   shadowSize     Shadow blur. Under 2 the shadow hides under its surface;
 //                  past 24 it smears into a haze wider than the bar.
 //   shadowOpacity  Shadow strength. Under 5% it cannot be seen with Shadow on.
+//   notchWidth, notchHeight  A camera notch's size in logical px (NotchModel.js);
+//                  no fallback: unset, the panel's own housing sets it.
 var ranges = {
   spacing: { min: 0, max: 16, step: 1, fallback: 4 },
   borderWidth: { min: 0.5, max: 3, step: 0.5, fallback: 1 },
@@ -21,7 +23,9 @@ var ranges = {
   // The floor of the surfaces Powerbar draws over windows (overlayOpacity).
   overWindows: { min: 0, max: 100, step: 5, fallback: 65 },
   shadowSize: { min: 2, max: 24, step: 1, fallback: 16 },
-  shadowOpacity: { min: 5, max: 60, step: 5, fallback: 30 }
+  shadowOpacity: { min: 5, max: 60, step: 5, fallback: 30 },
+  notchWidth: { min: 40, max: 600, step: 1 },
+  notchHeight: { min: 16, max: 96, step: 1 }
 }
 function clampTo(range, value, fallback) {
   var n = typeof value === "number" && isFinite(value) ? value

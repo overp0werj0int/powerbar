@@ -1,10 +1,15 @@
 .import "SectionsModel.js" as SectionsModel
 
 // Runtime policy, independent of QML and wall-clock timers.
-function seconds(value, fallback, maximum) {
+// How long an activity reveal lasts (powerbarManagedRevealSeconds), and the
+// grace before a drawer closes (powerbarManagedEntryGraceSeconds and
+// powerbarManagedExitGraceSeconds), in seconds.
+var revealSeconds = { min: 1, max: 60, fallback: 2.5 }
+var graceSeconds = { min: 1, max: 15, fallback: 1 }
+function seconds(value, range) {
   var number = Number(value)
   return value === undefined || value === null || !isFinite(number)
-    ? fallback : Math.max(1, Math.min(maximum, number))
+    ? range.fallback : Math.max(range.min, Math.min(range.max, number))
 }
 // A widget with no saved visibility is On the bar, as on Omarchy's bar,
 // wherever it comes from. Configs Powerbar ran on before this rule put widgets

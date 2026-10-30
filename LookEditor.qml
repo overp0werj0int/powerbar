@@ -420,9 +420,9 @@ DeskPage {
       Fader {
         label: "Width"
         unit: "px"
-        minimum: 40
-        maximum: 600
-        stepSize: 1
+        minimum: look.preferences.ranges.notchWidth.min
+        maximum: look.preferences.ranges.notchWidth.max
+        stepSize: look.preferences.ranges.notchWidth.step
         defaultValue: notchStrip.notch ? notchStrip.notch.housing : 191
         defaultLabel: "Back to the camera's size"
         value: notchStrip.notch ? notchStrip.notch.width : (look.preferences.options.notchWidth || 191)
@@ -434,9 +434,9 @@ DeskPage {
       Fader {
         label: "Height"
         unit: "px"
-        minimum: 16
-        maximum: 96
-        stepSize: 1
+        minimum: look.preferences.ranges.notchHeight.min
+        maximum: look.preferences.ranges.notchHeight.max
+        stepSize: look.preferences.ranges.notchHeight.step
         defaultValue: notchStrip.notch ? notchStrip.notch.detectedHeight : 32
         defaultLabel: "Back to the camera's size"
         value: notchStrip.notch ? notchStrip.notch.height : 32

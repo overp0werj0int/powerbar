@@ -479,9 +479,9 @@ Item {
   // keys still override it for anyone who sets them by hand. Activity keeps a
   // drawer widget on the bar exactly as long as an autohidden bar peeks for it,
   // so the widget and its island leave together.
-  readonly property real managedRevealSeconds: ManagedModel.seconds(barConfig.powerbarManagedRevealSeconds, 2.5, 60)
-  readonly property real managedEntrySeconds: ManagedModel.seconds(barConfig.powerbarManagedEntryGraceSeconds, 1, 15)
-  readonly property real managedExitSeconds: ManagedModel.seconds(barConfig.powerbarManagedExitGraceSeconds, 1, 15)
+  readonly property real managedRevealSeconds: ManagedModel.seconds(barConfig.powerbarManagedRevealSeconds, ManagedModel.revealSeconds)
+  readonly property real managedEntrySeconds: ManagedModel.seconds(barConfig.powerbarManagedEntryGraceSeconds, ManagedModel.graceSeconds)
+  readonly property real managedExitSeconds: ManagedModel.seconds(barConfig.powerbarManagedExitGraceSeconds, ManagedModel.graceSeconds)
 
   // On-demand widgets either open in a drawer island when their zone is
   // hovered ("drawer"), or wait behind the zone's dots and expand in the bar

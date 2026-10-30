@@ -35,4 +35,10 @@ TestCase {
     verify(!BarModel.moveInstanceInConfig({ bar: { layout: layout() } }, "tray", "pt", "left", "", "x"))
     compare(TrayItemsModel.moveOut({ bar: { layout: layout() } }, { id: "app" }, "left", "x", "", "k"), null)
   }
+  function test_ranges() {
+    compare(CliModel.check(CliModel.find("spacing"), 17, {}).error, "spacing is from 0 to 16")
+    compare(CliModel.check(CliModel.find("notchWidth"), 601, {}).error, "notchWidth is from 40 to 600")
+    compare(CliModel.check(CliModel.find("revealSeconds"), 61, {}).error, "revealSeconds is from 1 to 60")
+    compare(CliModel.check(CliModel.find("shape.rounding"), 14, { roundingMax: 13 }).error, "shape.rounding is from 0 to 13")
+  }
 }
