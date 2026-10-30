@@ -2078,79 +2078,22 @@ Item {
             color: plus.lit ? Commons.Color.accent : Ink.tint(Ink.secondary)
         }
     }
-    // A widget's chip, the Layout page's (PREFS-22, PREFS-104): its icon and
-    // name; a landing place is an accent outline, the dragged copy flat in
-    // front. Pool chips are at half strength.
-    component Chip: Item {
-        id: tile
-        property var record: ({})
-        property bool placeholder: false
-        property bool ghost: false
+    // A widget's chip in a group's rows, the pool or the dragged copy
+    // (BoardChip), with this page's kind-prefixed cursor keys. Pool chips are
+    // at half strength.
+    component Chip: BoardChip {
         property string area: ""
         property int pos: 0
-        readonly property bool inPage: !ghost
-        readonly property bool isCursor: inPage && !placeholder && !editor.lifted && !!record.instanceKey && editor.cursorKey === (area === "pool" ? "pool:" : "member:") + record.instanceKey
-        readonly property bool hovered: inPage && !editor.lifted && !!record.instanceKey && editor.hoverKey === (area === "pool" ? "pool:" : "member:") + record.instanceKey
-        readonly property bool pressedDown: inPage && !placeholder && !!editor.pressed && !editor.pointerLift && !!editor.pressed.record && editor.pressed.record.instanceKey === record.instanceKey
-        readonly property bool raised: isCursor
-        // It grows with its lift, to 103 % at the top, and shrinks with it:
-        // nothing of the cursor's state lingers once the cursor has gone.
-        scale: pressedDown ? 0.97 : 1 + 0.03 * (lift.height > 0 ? tile.raise / lift.height : 0)
-        readonly property real raise: lift.value
-        Rise {
-            id: lift
-            up: tile.raised
-            height: Style.space(tile.area === "pool" ? 8 : 4)
-            animate: editor.bar.animationsEnabled
-        }
-        transform: Translate {
-            y: -tile.raise
-        }
-        // Over its neighbours while it is up.
-        z: raised || raise > 0 ? 1 : 0
+        readonly property string boardKey: record && record.instanceKey ? (area === "pool" ? "pool:" : "member:") + record.instanceKey : ""
+        layout: editor.layout
         height: editor.chipHeight
-        // The shadow it casts on its tile: one flat band in its shape, as
-        // the Layout page's chips cast (PREFS-104).
-        // Only the band under the chip is drawn, half a pixel in from each
-        // side, square at the top and rounded at the bottom (ZoneTile).
-        Rectangle {
-            visible: tile.ghost || tile.raise > 0
-            x: 0.5
-            y: parent.height
-            width: parent.width - 1
-            height: tile.ghost ? Style.space(6) : tile.raise + Style.space(3)
-            radius: editor.chipRadius
-            topLeftRadius: 0
-            topRightRadius: 0
-            antialiasing: true
-            color: Ink.band(editor.lightTheme)
-        }
-        readonly property color fill: tile.placeholder ? "transparent" : tile.ghost ? Qt.tint(editor.pageColor, Qt.alpha(Commons.Color.popups.text, 0.15)) : tile.isCursor && editor.stageFocused ? Style.focusFillFor(Commons.Color.popups.text, Commons.Color.accent) : tile.isCursor ? Style.selectedFillFor(Commons.Color.popups.text, Commons.Color.accent) : tile.hovered ? Qt.alpha(Commons.Color.popups.text, 0.14) : Qt.alpha(Commons.Color.popups.text, 0.06)
-        BorderSurface {
-            anchors.fill: parent
-            antialiasing: true
-            radius: editor.chipRadius
-            color: tile.raised ? Qt.tint(editor.tileColor(tile.area !== "pool"), tile.fill) : tile.fill
-            borderSpec: tile.placeholder || tile.ghost ? Border.flat(Commons.Color.accent, Math.max(1, Math.round(Style.space(1.5)))) : tile.isCursor && editor.stageFocused ? Border.controlSpec("focus", Commons.Color.popups.text, Commons.Color.accent) : tile.isCursor ? Border.flat(Qt.alpha(Commons.Color.popups.text, 0.35), 1) : Border.none()
-        }
-        Row {
-            id: chipRow
-            x: Gap.s
-            anchors.verticalCenter: parent.verticalCenter
-            spacing: Gap.m
-            opacity: tile.placeholder ? (editor.pointerLift ? 0 : 0.5) : tile.area === "pool" ? Ink.secondary : 1
-            InkIcon {
-                id: chipIcon
-                layout: editor.layout
-                record: tile.record
-                anchors.verticalCenter: parent.verticalCenter
-            }
-            InkText {
-                text: tile.record && tile.record.instanceKey ? editor.preferences.title(tile.record) : ""
-                elide: Text.ElideRight
-                width: Math.max(Style.space(16), tile.width - 2 * Gap.s - chipIcon.width - chipRow.spacing)
-                anchors.verticalCenter: parent.verticalCenter
-            }
-        }
+        isCursor: !ghost && !placeholder && !editor.lifted && boardKey !== "" && editor.cursorKey === boardKey
+        hovered: !ghost && !editor.lifted && boardKey !== "" && editor.hoverKey === boardKey
+        pressedDown: !ghost && !placeholder && !!editor.pressed && !editor.pointerLift && !!editor.pressed.record && editor.pressed.record.instanceKey === record.instanceKey
+        boardFocused: editor.stageFocused
+        pointerCarry: editor.pointerLift
+        dimmed: area === "pool"
+        leadTile: area !== "pool"
+        riseHeight: Style.space(area === "pool" ? 8 : 4)
     }
 }

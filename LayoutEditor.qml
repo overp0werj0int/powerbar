@@ -1380,121 +1380,31 @@ Item {
         }
     }
 
-    // A chip: the widget's icon, its name (elided) and a group's count, one
-    // width everywhere. A landing place or the inspected chip's own place is
-    // an outline; the dragged copy and the pulled-out chip sit flat in front.
-    component Tile: Item {
-        id: tile
-        property var record: ({})
-        property bool placeholder: false
-        property bool ghost: false
-        property bool pulled: false
+    // A chip in a layer, the dragged copy or the pulled-out one (BoardChip),
+    // with this page's cursor, hover and press. One width everywhere.
+    component Tile: BoardChip {
         property string section: ""
         property string mode: ""
         property int pos: 0
         readonly property bool inLayer: !ghost && !pulled
-        readonly property bool pulledOut: inLayer && !placeholder && editor.leaderShown && !editor.lifted && record.instanceKey === editor.inspectedKey
-        readonly property bool outline: placeholder || pulledOut
-        readonly property bool isCursor: inLayer && !editor.lifted && editor.cursorKey !== "" && record.instanceKey === editor.cursorKey
-        readonly property bool hovered: inLayer && !editor.lifted && editor.hoverKey === record.instanceKey
         readonly property var group: record.groupId ? editor.bar.groups.find(function (g) {
             return g.id === record.groupId;
         }) || null : null
-        readonly property int memberCount: group ? group.items.length : 0
-        // Press feedback: the chip dips while the pointer holds it, before a drag.
-        readonly property bool pressedDown: inLayer && !placeholder && !!editor.pressed && !editor.pointerLift && editor.pressed.record.instanceKey === record.instanceKey
-        // It grows with its lift, to 103 % at the top, and shrinks with it:
-        // nothing of the cursor's state lingers once the cursor has gone.
-        scale: pressedDown ? 0.97 : 1 + 0.03 * (lift.height > 0 ? tile.raise / lift.height : 0)
-        // The cursor's chip rises off its tile, casting a shadow on it
-        // (PREFS-104).
-        readonly property bool raised: isCursor && !outline
-        readonly property real raise: lift.value
-        Rise {
-            id: lift
-            up: tile.raised
-            height: Style.space(8)
-            animate: editor.bar.animationsEnabled
-        }
-        transform: Translate {
-            y: -tile.raise
-        }
-        // Over its neighbours while it is up.
-        z: raised || raise > 0 ? 1 : 0
+        layout: editor
         width: editor.chipWidth
         height: editor.chipHeight
-
-        // The shadow a pulled-out or raised chip casts on its tile, as far
-        // below it as it has risen: one flat band in the chip's shape, as a
-        // slab's edge and the inspector's shadow are (PREFS-104). Lighter
-        // on a light theme.
-        // Only the band under the chip is drawn, from its bottom edge
-        // down, half a pixel in from each side so none of it shows past
-        // the chip's ring along its sides, square at the top and rounded
-        // at the bottom, as a tile's edge is (ZoneTile).
-        Rectangle {
-            visible: tile.pulled || tile.raise > 0
-            x: 0.5
-            y: parent.height
-            width: parent.width - 1
-            height: tile.pulled ? Style.space(6) : tile.raise + Style.space(3)
-            radius: surface.radius
-            topLeftRadius: 0
-            topRightRadius: 0
-            antialiasing: true
-            color: Ink.band(editor.lightTheme)
-        }
-        // The fill, and under a raised chip its tile's own colour, so what
-        // it rises over does not show through.
-        readonly property color fill: tile.outline ? "transparent" : tile.ghost || tile.pulled ? Qt.tint(Qt.rgba(Commons.Color.popups.background.r, Commons.Color.popups.background.g, Commons.Color.popups.background.b, 1), Qt.alpha(Commons.Color.popups.text, 0.15)) : tile.isCursor && editor.gridFocused ? Style.focusFillFor(Commons.Color.popups.text, Commons.Color.accent) : tile.isCursor ? Style.selectedFillFor(Commons.Color.popups.text, Commons.Color.accent) : tile.hovered ? Qt.alpha(Commons.Color.popups.text, 0.14) : Qt.alpha(Commons.Color.popups.text, 0.06)
-        readonly property color base: Qt.tint(Qt.rgba(Commons.Color.popups.background.r, Commons.Color.popups.background.g, Commons.Color.popups.background.b, 1), Qt.alpha(Commons.Color.popups.text, tile.mode === "shown" ? 0.09 : 0.065))
-        BorderSurface {
-            id: surface
-            anchors.fill: parent
-            antialiasing: true
-            radius: Round.control
-            color: tile.raised ? Qt.tint(tile.base, tile.fill) : tile.fill
-            borderSpec: tile.outline || tile.ghost || tile.pulled ? Border.flat(Commons.Color.accent, Math.max(1, Math.round(Style.space(1.5)))) : tile.isCursor && editor.gridFocused ? Border.controlSpec("focus", Commons.Color.popups.text, Commons.Color.accent) : tile.isCursor ? Border.flat(Qt.alpha(Commons.Color.popups.text, 0.35), 1) : Border.none()
-        }
-        Row {
-            id: chip
-            x: Gap.s
-            anchors.verticalCenter: parent.verticalCenter
-            spacing: Gap.m
-            // A keyboard lift shows what it carries in its outline; a pointer lift
-            // carries it under the pointer, the inspector pulls it out in front.
-            // Hidden widgets read secondary.
-            opacity: tile.outline ? (tile.placeholder && !editor.pointerLift ? 0.5 : 0) : tile.mode === "hidden" && tile.inLayer ? Ink.secondary : 1
-            InkIcon {
-                id: rowIcon
-                layout: editor
-                record: tile.record
-                anchors.verticalCenter: parent.verticalCenter
-            }
-            InkText {
-                id: nameLabel
-                text: tile.record.instanceKey ? editor.preferences.title(tile.record) : ""
-                elide: Text.ElideRight
-                width: Math.max(Style.space(16), tile.width - 2 * Gap.s - rowIcon.width - chip.spacing - (tile.memberCount > 0 ? memberPill.width + chip.spacing : 0))
-                anchors.verticalCenter: parent.verticalCenter
-            }
-            Rectangle {
-                id: memberPill
-                visible: tile.memberCount > 0
-                width: memberLabel.implicitWidth + 2 * Gap.s
-                height: Ink.line(Ink.caption)
-                radius: height / 2
-                color: Qt.alpha(Commons.Color.popups.text, 0.12)
-                anchors.verticalCenter: parent.verticalCenter
-                InkText {
-                    id: memberLabel
-                    anchors.centerIn: parent
-                    text: tile.memberCount
-                    role: "caption"
-                    tier: 1
-                }
-            }
-        }
+        count: group ? group.items.length : 0
+        pulledOut: inLayer && !placeholder && editor.leaderShown && !editor.lifted && record.instanceKey === editor.inspectedKey
+        isCursor: inLayer && !editor.lifted && editor.cursorKey !== "" && record.instanceKey === editor.cursorKey
+        hovered: inLayer && !editor.lifted && editor.hoverKey === record.instanceKey
+        // The chip dips while the pointer holds it, before a drag.
+        pressedDown: inLayer && !placeholder && !!editor.pressed && !editor.pointerLift && editor.pressed.record.instanceKey === record.instanceKey
+        boardFocused: editor.gridFocused
+        pointerCarry: editor.pointerLift
+        dimmed: mode === "hidden" && inLayer
+        leadTile: mode === "shown"
+        // The dragged copy casts no band (Groups' does).
+        shadowed: pulled
     }
 
     // The inspector: the selected widget at the front of the stack, bottom

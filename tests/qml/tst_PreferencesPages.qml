@@ -628,4 +628,34 @@ TestCase {
     verify(page.stageFocused, "esc goes back to the chosen face");
     verify(!page.inspectorFocused);
   }
+
+  // A landing place shows what it carries at half strength for a keyboard
+  // lift, and nothing inside for a pointer lift (the copy is under the pointer).
+  function landingContent(page) {
+    var place = itemWith(page, function (k) { return k.placeholder === true && k.ghost === false && k.width > 0 });
+    verify(place, "the landing place is drawn");
+    return place.children.filter(function (c) { return c.spacing !== undefined })[0];
+  }
+  function test_layoutLandingPlaceContent() {
+    var page = layoutKeys();
+    keyClick(Qt.Key_Space);
+    compare(landingContent(page).opacity, 0.5, "a keyboard lift shows its content");
+    keyClick(Qt.Key_Escape);
+    drag(centre(chipOf(page, "w1")), centre(chipOf(page, "c2")));
+    verify(page.pointerLift);
+    compare(landingContent(page).opacity, 0, "a pointer lift shows nothing inside");
+    mouseRelease(test, 0, 0);
+    mouseMove(test, 1300, 800);
+  }
+  function test_groupsLandingPlaceContent() {
+    var page = groupsKeys();
+    keyClick(Qt.Key_Space);
+    compare(landingContent(page).opacity, 0.5, "a keyboard lift shows its content");
+    keyClick(Qt.Key_Escape);
+    drag(centre(chipOf(page, "w1")), centre(chipOf(page, "b1")));
+    verify(page.pointerLift);
+    compare(landingContent(page).opacity, 0, "a pointer lift shows nothing inside");
+    mouseRelease(test, 0, 0);
+    mouseMove(test, 1300, 800);
+  }
 }
