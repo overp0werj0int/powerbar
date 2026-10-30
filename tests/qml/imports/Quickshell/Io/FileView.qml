@@ -5,9 +5,11 @@ QtObject {
   property bool watchChanges: false
   property bool blockLoading: false
   property bool printErrors: false
+  property bool atomicWrites: false
   signal fileChanged()
   signal loaded()
   signal loadFailed(var error)
   function text() { return "" }
   function reload() {}
+  function setText(text) {}
 }

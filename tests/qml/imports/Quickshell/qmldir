@@ -1,3 +1,4 @@
 module Quickshell
 IpcHandler 1.0 IpcHandler.qml
 singleton Quickshell 1.0 Quickshell.qml
+Singleton 1.0 Singleton.qml
