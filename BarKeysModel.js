@@ -267,6 +267,17 @@ function arrowCap(names) {
   return ARROWS.filter(function(a) { return names.indexOf(a[0]) >= 0 }).map(function(a) { return a[1] }).join(THIN)
 }
 
+// The key strip's layer surface (Bar.qml keysStrip). Mapping a layer
+// surface when the keys came on cost a long frame, so it is mapped once and
+// stays, drawing nothing while the strip is not shown. Its namespace is fixed
+// when it maps: after a change (blur or the strip's style) it remaps, but
+// only while it shows nothing, as before the change took effect at the next
+// show. wanted: the mode holds this bar's keys and has something to list;
+// layer: the namespace it should have; mappedLayer: the one it mapped with.
+function keyStrip(wanted, sliding, layer, mappedLayer) {
+  return { mapped: wanted || layer === mappedLayer, shown: wanted && !sliding }
+}
+
 // The key strip's entries for an edge: [{ keys, label }]. At bar level the
 // arrows that move the cursor (along and into) share one "Move", and Tab and
 // Shift+Tab one "Zones".
