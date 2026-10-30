@@ -519,25 +519,16 @@ Item {
         }
     ]
 
-    QtObject {
+    ItemRegistry {
         id: plates
-        property var list: []
-        function register(p) {
-            list = list.concat([p]);
-        }
-        function unregister(p) {
-            list = list.filter(function (x) {
-                return x !== p;
-            });
-        }
-        function forMode(mode) {
-            return list.find(function (p) {
-                return p.mode === mode;
-            }) || null;
-        }
+    }
+    function plateOf(mode) {
+        return plates.find(function (p) {
+            return p.mode === mode;
+        });
     }
     function focusShelf(mode, reason) {
-        var plate = plates.forMode(mode);
+        var plate = plateOf(mode);
         if (!plate)
             return;
         focusMoving = true;
@@ -551,7 +542,7 @@ Item {
     // Focus follows the cursor from layer to layer.
     function followCursor() {
         var mode = activeCell.mode;
-        var plate = plates.forMode(mode);
+        var plate = plateOf(mode);
         if (gridFocused && plate && !plate.focusItem.activeFocus)
             focusShelf(mode);
         else
@@ -560,9 +551,9 @@ Item {
     // The cursor's chip, or a lifted chip's landing place, scrolls into view
     // in its tile (PREFS-106).
     function cellFor(section, mode) {
-        return cellRepeater.cells.find(function (c) {
+        return cellTiles.find(function (c) {
             return c.section === section && c.mode === mode;
-        }) || null;
+        });
     }
     function revealCursor() {
         var at = activeCell;
@@ -840,14 +831,9 @@ Item {
 
     // Pointer hit testing in editor coordinates, through the layers' tilt.
     function cellAt(point) {
-        for (var i = 0; i < cellRepeater.count; i++) {
-            var cell = cellRepeater.itemAt(i);
-            if (!cell || !cell.visible)
-                continue;
-            if (Board.covers(cell, editor, point))
-                return cell;
-        }
-        return null;
+        return cellTiles.find(function (c) {
+            return c.visible && Board.covers(c, editor, point);
+        });
     }
     function tileAt(point) {
         var cell = cellAt(point);
@@ -926,9 +912,9 @@ Item {
     function inspectedTile() {
         if (!inspected)
             return null;
-        for (var i = 0; i < cellRepeater.count; i++) {
-            var cell = cellRepeater.itemAt(i);
-            if (!cell || !cell.tiles)
+        for (var i = 0; i < cellTiles.items.length; i++) {
+            var cell = cellTiles.items[i];
+            if (!cell.tiles)
                 continue;
             for (var j = 0; j < cell.tiles.count; j++) {
                 var tile = cell.tiles.itemAt(j);
@@ -939,21 +925,8 @@ Item {
         return null;
     }
 
-    QtObject {
-        id: cellRepeater
-        property var cells: []
-        readonly property int count: cells.length
-        function itemAt(i) {
-            return cells[i];
-        }
-        function register(cell) {
-            cells = cells.concat([cell]);
-        }
-        function unregister(cell) {
-            cells = cells.filter(function (c) {
-                return c !== cell;
-            });
-        }
+    ItemRegistry {
+        id: cellTiles
     }
 
     // The camera: the notch's cap, solid black from the page's top down to
@@ -991,7 +964,7 @@ Item {
         preferences.setOption("powerbarCenterSide", side === "left" ? "left" : undefined);
     }
     readonly property real centerTileRaise: {
-        var c = cellRepeater.cells.find(function (c) {
+        var c = cellTiles.find(function (c) {
             return c.section === "center" && c.mode === "shown";
         });
         return c ? c.raise : 0;
@@ -1279,8 +1252,8 @@ Item {
                 easing.type: Easing.OutCubic
             }
         }
-        Component.onCompleted: plates.register(this)
-        Component.onDestruction: plates.unregister(this)
+        Component.onCompleted: plates.add(this)
+        Component.onDestruction: plates.remove(this)
 
         // It turns about its top edge (LayerPlate), so a layer only ever
         // grows or shrinks downward. The layer's name and what it is, on
@@ -1463,8 +1436,8 @@ Item {
         // flowing slab not; the leader follows the rise.
         rises: !flows
         onRaiseChanged: Qt.callLater(editor.trackLeader)
-        Component.onCompleted: cellRepeater.register(this)
-        Component.onDestruction: cellRepeater.unregister(this)
+        Component.onCompleted: cellTiles.add(this)
+        Component.onDestruction: cellTiles.remove(this)
         onListChanged: Qt.callLater(editor.refreshInspected)
         // The cap's shade falls on a Center tile, and on Center's part of
         // the hidden slab, which is solid across Center's column too.

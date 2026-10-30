@@ -707,7 +707,7 @@ Item {
     // (PREFS-105, PREFS-123): the same dot and leader, from this page's
     // Center tile.
     readonly property real centerTileRaise: {
-        var t = listTiles.of("center");
+        var t = tileOf("center");
         return t ? t.raise : 0;
     }
     CenterSideDot {
@@ -731,24 +731,13 @@ Item {
     readonly property Item sideDot: centerDot.dot
 
     // Tiles by zone, for the pointer and the windows.
-    component TileList: QtObject {
-        property var list: []
-        function add(t) {
-            list = list.concat([t]);
-        }
-        function drop(t) {
-            list = list.filter(function (x) {
-                return x !== t;
-            });
-        }
-        function of(zone) {
-            return list.find(function (t) {
-                return t.zone === zone;
-            }) || null;
-        }
-    }
-    TileList {
+    ItemRegistry {
         id: listTiles
+    }
+    function tileOf(zone) {
+        return listTiles.find(function (t) {
+            return t.zone === zone;
+        });
     }
 
     // ------------------------------------------------------- the list's plate
@@ -1037,7 +1026,7 @@ Item {
     }
     function hitAt(point) {
         for (var z = 0; z < zones.length; z++) {
-            var t = listTiles.of(zones[z]);
+            var t = tileOf(zones[z]);
             if (!inside(t, point))
                 continue;
             if (inside(t.plus, point))
@@ -1164,7 +1153,7 @@ Item {
     // The scrolling window under the pointer: a zone's list or the pool.
     function windowAt(point) {
         for (var z = 0; z < zones.length; z++) {
-            var t = listTiles.of(zones[z]);
+            var t = tileOf(zones[z]);
             if (inside(t, point))
                 return t;
         }
@@ -1233,7 +1222,7 @@ Item {
     function revealCursor() {
         var p = lifted && liftTarget ? liftTarget : at;
         if (p.area === "face" || p.area === "member" || p.area === "gap") {
-            var zone = Editor.zoneAt(stepState, p), t = listTiles.of(zone), i = rowOf(zone, p);
+            var zone = Editor.zoneAt(stepState, p), t = tileOf(zone), i = rowOf(zone, p);
             if (t && i >= 0)
                 t.reveal(i);
         } else if (p.area === "pool")
@@ -1259,10 +1248,10 @@ Item {
             return null;
         var home = liftingFace && t.zone === lifted.zone;
         if (liftingFace && !home || t.area === "plus") {
-            var tile = listTiles.of(t.zone);
+            var tile = tileOf(t.zone);
             return tile ? tile.plus : null;
         }
-        var win = home ? listTiles.of(t.zone) : t.area === "gap" ? listTiles.of(Editor.zoneAt(stepState, t)) : t.area === "pool" ? poolCell : null;
+        var win = home ? tileOf(t.zone) : t.area === "gap" ? tileOf(Editor.zoneAt(stepState, t)) : t.area === "pool" ? poolCell : null;
         if (!win || !win.tiles)
             return null;
         for (var i = 0; i < win.tiles.count; i++) {
@@ -2117,7 +2106,7 @@ Item {
         current: cursorHere
         model: listRows.model
         Component.onCompleted: listTiles.add(this)
-        Component.onDestruction: listTiles.drop(this)
+        Component.onDestruction: listTiles.remove(this)
         RetainedList {
             id: listRows
             recordProperty: "retainedRecord"
