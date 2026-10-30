@@ -11,7 +11,7 @@ not reused.
 `healEdit`, `heal`, `checkRegistry`), HealModel.js, ConfigStore.qml,
 BarCli.qml, CliModel.js, BarModel.js `options()`, ManagedModel.js
 `healVisibility()`, AppearanceModel.js, GroupsModel.js, manifest.json,
-tests/cli.test.cjs; stock `/usr/share/omarchy/bin/omarchy-bar`,
+tests/cli.test.cjs, tests/qml/tst_BarCli.qml (the CLI's answers, INTEG-119 to INTEG-140); stock `/usr/share/omarchy/bin/omarchy-bar`,
 `omarchy-toggle-bar`, `omarchy-shell-config`.
 
 ## Plugin manifest
@@ -116,7 +116,7 @@ to add an `omarchy` subcommand, so this is the surface. Function names are
 case-sensitive. Arguments are plain strings; a JSON value is the one argument
 after the setting or widget (quote it for the shell). `help` lists every
 function; a test keeps `help` and the IpcHandler in step (the same 31 names).
-Code: Bar.qml IpcHandler; BarCli.qml; CliModel.js.
+Code: Bar.qml IpcHandler; BarCli.qml; CliModel.js. Tests: tests/cli.test.cjs, tests/qml/tst_BarCli.qml.
 
 ### Answers
 
@@ -199,12 +199,12 @@ Setting names are those of Preferences. `set` of `style` also drops `powerbarIsl
   - `error: before names a widget in the <zone> zone` (neighbour outside the group's zone); a member selector fails as in `setWidget`.
 - **INTEG-135** `removeGroup <group>` dissolves the group (its widgets stay); selector errors as `setGroup`.
 - **INTEG-125** `shortcuts` answers `{ready, shortcuts: [{target, name, keys, source, fallback, positional, ready, live}]}` (`live` only for a shortcut set in Powerbar: whether Hyprland has it bound, KEYS-72) for `bar:keys` and `bar:search` (always listed), every group, every widget id and any other target in `powerbarShortcuts`, keeping only those that hold keys, have a positional bind or have a source; it then re-reads Hyprland, so the next answer is current. `get shortcut.<target>` answers that one object. `set shortcut.<target> <keys>` takes keys like `SUPER + B`, `""` for none (Omarchy's own bind goes too), or `{"keys":"...","replace":true}` to take keys another bind holds; `reset shortcut.<target>` restores the default. Errors:
-- **INTEG-140** `clearShortcuts` removes every shortcut Powerbar set and its block in `bindings.lua` (Omarchy's own binds come back); `ok`, or the errors of INTEG-125 while shortcuts are being written or read. The README's removal steps run it before `omarchy plugin remove`. Code: BarCli.qml clearShortcuts()
   - `error: a shortcut is keys such as "SUPER + B", "" for none, or {"keys": "…", "replace": true}`
   - `error: no group <id>`, `error: a shortcut target is bar:keys, bar:search, group:<id> or widget:<plugin id>`
   - `error: a shortcut change is still being applied; try again in a moment`, `error: reading Hyprland's shortcuts; try again in a moment` (first use; retry)
   - keys Hyprland cannot bind: the text from `ShortcutModel.bindable`.
   - taken: `error: <keys> is taken by <description>[, ...]; to take it anyway: omarchy-shell powerbar set shortcut.<target> '{"keys":"<keys>","replace":true}'`.
+- **INTEG-140** `clearShortcuts` removes every shortcut Powerbar set and its block in `bindings.lua` (Omarchy's own binds come back); `ok`, or the errors of INTEG-125 while shortcuts are being written or read. The README's removal steps run it before `omarchy plugin remove`. Code: BarCli.qml clearShortcuts()
 - **INTEG-136** `show`: if the bar is switched off (`bar-off`), runs `omarchy-toggle-bar off` (it comes back); if `autoHide` is on, holds the bar out until `hide` (as the pointer at its edge). `hide`: if `autoHide` is on, lets the bar slide away; otherwise, if the bar is not off, runs `omarchy-toggle-bar on`. Both answer `ok` at once. Turning `autoHide` off releases the hold.
 - **INTEG-137** `keysOn` starts the keyboard mode on the focused monitor's bar (`ok` if already on); `error: not while Preferences are open` or `error: no bar to put the cursor on` when it cannot. `keysOff` ends it (`ok` always). `keys` toggles it (no answer). `keysSearch` starts it with the search open, or ends it while a search is open (keyboard.md KEYS-83). `keysStatus` answers its state as JSON (keyboard.md).
 - **INTEG-147** `build` answers `{version, digest, commit, dirty, loadedAt, dir}`: the code this shell loaded. As the bar loads it runs `BuildStamp.sh` on its own folder (`dir`) once: `digest` is 12 hex digits of a SHA-256 over the names and contents of the top-level `*.qml`, `*.js`, `*.sh`, `manifest.json` and `notch-panels.json` and the compiled shaders `shaders/*.qsb`, so a copy without `.git` (a box, `omarchy plugin add`) has its checkout's digest; `commit` is the short git commit when the folder is a git work tree, else `""`; `dirty` is whether any of those files differ from it. `digest` is `""` until the stamp has run (the first moments after load). `tools/build-check.sh [-b BOX]` runs the same stamp on the checkout and compares: `current: …` (exit 0), `stale: …` with both sides (exit 1: restart the shell), `no answer: …` (exit 2). `tools/smoke.sh` asserts the box is current. Code: BuildStamp.sh, Bar.qml `buildStamp`, BarCli.build()
