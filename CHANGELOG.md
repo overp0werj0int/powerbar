@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- `omarchy-shell powerbar newGroup` refuses a name over 80 characters, as `setGroup` does, instead of cutting it; group and widget edits from the command line answer an error when the change was not saved instead of `ok`.
+- A shortcut change is no longer taken back because a config error `bindings.lua` already had moved to another line when Powerbar's block was written.
 - The arrangements the retired zone modes kept stay in shell.json until their copy in the cache folder is made, as the warning says; before, a failed copy was followed by the next settings write deleting them.
 - With Center set left of the camera (`centerSide left`), a screen without a camera keeps the Center box's on-demand widgets behind Right of center's dots, as it should (ZONE-96); before, it counted them on the other side's dots. Beside a camera, the box's on-demand widgets now also draw at the dots they are counted on (ZONE-26).
 - `omarchy-shell powerbar get centerSide` answers the side the Center zone takes by a camera notch instead of `null`.

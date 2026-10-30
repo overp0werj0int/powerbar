@@ -70,11 +70,21 @@ before=$(hyprctl configerrors 2>/dev/null)
 hyprctl reload config-only >/dev/null 2>&1
 sleep 0.3
 after=$(hyprctl configerrors 2>/dev/null)
-if [ "$after" != "$before" ] && [ -n "$(printf '%s' "$after" | tr -d '[:space:]')" ]; then
+# The first error that is new. Compared without line numbers: the block
+# moves the lines after it, and an error the file already had would read as
+# new on its new line.
+norm() { sed -E 's/:[0-9]+(:[0-9]+)?(:|$)/:#\2/g; s/(line )[0-9]+/\1#/g'; }
+known=$(printf '%s\n' "$before" | norm)
+fresh=""
+while IFS= read -r line; do
+  [ -n "$(printf '%s' "$line" | tr -d '[:space:]')" ] || continue
+  printf '%s\n' "$known" | grep -qxF -- "$(printf '%s\n' "$line" | norm)" || { fresh=$line; break; }
+done <<<"$after"
+if [ -n "$fresh" ]; then
   mv -f -T -- "$prev" "$f"
   prev=""
   hyprctl reload config-only >/dev/null 2>&1
-  echo "error $(printf '%s' "$after" | head -1)"
+  echo "error $fresh"
   exit 1
 fi
 rm -f -- "$prev"
