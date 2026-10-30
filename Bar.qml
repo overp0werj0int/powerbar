@@ -1238,6 +1238,8 @@ Item {
       _requestPopout: function(owner) { root.requestPluginPopout(key, owner) },
       _releasePopout: function(owner) { root.releasePluginPopout(key, owner) },
       _switchPanelFrom: function(owner, direction) { return root.switchPanelFrom(owner, direction) },
+      _notePopoutCard: function(card) { root.notePopoutCard(card) },
+      _popoutCardFor: function(owner) { return root.popoutCardFor(owner) },
       _targetBelongsToWindow: function(target, window) { return root.targetBelongsToWindow(target, window) },
       _moduleWidgets: function(requestedId) {
         return String(requestedId || "") === String(moduleName || "")
@@ -1993,6 +1995,28 @@ Item {
 
   function releasePopout(owner) {
     if (activePopout === owner) activePopout = null
+  }
+
+  // Where the open panel's card stands and in which zone, so a panel taking
+  // over in the same zone starts its card there and morphs it into its own
+  // place (Omarchy's KeyboardPanel asks popoutCardFor as it opens, and
+  // reports its card through notePopoutCard while open). Only a screen name
+  // and four numbers are kept, whoever reports them; the zone comes from the
+  // bar's own slots. A panel taking over in another zone opens fresh.
+  property var popoutCard: null
+  function popoutZoneOf(owner) {
+    var slot = owner ? moduleSlots.find(function(s) { return s && s.activeItem === owner }) : null
+    return slot ? String(slot.region || "") : ""
+  }
+  function notePopoutCard(card) {
+    popoutCard = card ? { screen: String(card.screen || ""), zone: popoutZoneOf(activePopout),
+                          x: Number(card.x) || 0, y: Number(card.y) || 0,
+                          width: Number(card.width) || 0, height: Number(card.height) || 0 } : null
+  }
+  function popoutCardFor(owner) {
+    var card = popoutCard
+    if (!card || !card.zone || card.zone !== popoutZoneOf(owner)) return null
+    return { screen: card.screen, x: card.x, y: card.y, width: card.width, height: card.height }
   }
 
   readonly property var surfaceEffects: {
