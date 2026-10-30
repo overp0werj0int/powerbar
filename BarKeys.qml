@@ -177,7 +177,7 @@ Item {
     var back = at ? list.find(function(s) { return s.item === at }) : null
     var start = back || open || anchor || list[Math.floor(list.length / 2)]
     cursor = start ? start.item : null
-    showCard()
+    showCardLater()
     focusLater()
   }
   function leave() {
@@ -188,6 +188,7 @@ Item {
     handOffEnd.stop()
     foreignCheck.stop()
     previewTimer.stop()
+    cardLater.stop()
     closeDrawer(false)
     if (window && window.inlineZone) window.inlineAsk("")
     bar.hideCard()
@@ -935,7 +936,21 @@ Item {
   // ---- the name card --------------------------------------------------------
   // What the name card is on: the cursor, or the drawer's current member.
   property var cardTarget: null
+  // On entering, the card comes up on the second frame: the frame the mode
+  // comes on opens the centre's reveal under a cursor there (inCenter), and
+  // the card is measured and placed (Bar.qml tooltipWindow) once the bar
+  // has been laid out for it, not in that same long frame.
+  FrameAnimation {
+    id: cardLater
+    property int ticks: 0
+    onTriggered: if (++ticks >= 2) keys.showCard()
+  }
+  function showCardLater() {
+    cardLater.ticks = 0
+    cardLater.restart()
+  }
   function showCard() {
+    cardLater.stop()
     var d = drawer, target = null, slot = null
     // In a drawer the card names its current member, where hovering it would.
     // A preview leaves the card on the cursor, past the drawer (LOOK-84); a

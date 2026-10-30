@@ -99,7 +99,9 @@ Item {
   Connections {
     target: barKeysItem
     enabled: root.frameLog
-    function onActiveChanged() { root.ev("keys", barKeysItem.active ? "on" : "off") }
+    // Coming on is watched as a motion (the strip fading in), so its run
+    // starts with the mode and not with the card, which follows it.
+    function onActiveChanged() { root.ev("keys", barKeysItem.active ? "on" : "off", barKeysItem.active ? MotionModel.keyStripMs(true) : 0) }
     function onCursorChanged() { if (barKeysItem.active) root.ev("cursor", root.evName(barKeysItem.cursor)) }
   }
   // Neighbours make way over a time that grows with the gap (150 ms for an
