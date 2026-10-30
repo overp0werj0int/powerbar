@@ -3,6 +3,10 @@
 
 // Groups reference existing widget instances; settings and enablement stay in
 // bar.layout. Removing a group therefore cannot delete a widget or its service.
+// What a group's face, badge count and member rows can be.
+var faces = ["glyph", "text", "both"]
+var badgeModes = ["sum", "members"]
+var memberDisplays = ["native", "name", "both"]
 // A group's icon takes a place in the layout under this instance key; no
 // widget's key starts with it.
 function groupKey(id) { return "group:" + id }
@@ -96,11 +100,11 @@ function groups(bar) {
     return { id: g.id, label: String(g.label || "Group"), icon: String(g.icon || icons[0].glyph),
       section: SectionsModel.lists.indexOf(g.section) >= 0 ? g.section : "right", before: String(g.before || ""),
       visibility: ManagedModel.visibilityModes.indexOf(g.visibility) >= 0 ? g.visibility : "shown",
-      face: ["glyph", "text", "both"].indexOf(g.face) >= 0 ? g.face : "glyph",
+      face: faces.indexOf(g.face) >= 0 ? g.face : "glyph",
       tooltip: typeof g.tooltip === "boolean" ? g.tooltip : undefined,
       badge: g.badge !== false,
       badgeMode: g.badgeMode === "members" ? "members" : "sum",
-      memberDisplay: ["native", "name", "both"].indexOf(g.memberDisplay) >= 0 ? g.memberDisplay : "native",
+      memberDisplay: memberDisplays.indexOf(g.memberDisplay) >= 0 ? g.memberDisplay : "native",
       // Absent unless set, so groups that don't use them save as before.
       iconFont: g.iconFont === "omarchy" ? "omarchy" : undefined,
       iconImage: imagePath(g.iconImage),
@@ -150,11 +154,11 @@ function edit(config, id, patch) {
   if (SectionsModel.lists.indexOf(patch.section) >= 0) { group.section = patch.section; group.before = "" }
   if (typeof patch.before === "string") group.before = patch.before
   if (ManagedModel.visibilityModes.indexOf(patch.visibility) >= 0) group.visibility = patch.visibility
-  if (["glyph", "text", "both"].indexOf(patch.face) >= 0) group.face = patch.face
+  if (faces.indexOf(patch.face) >= 0) group.face = patch.face
   if (typeof patch.tooltip === "boolean") group.tooltip = patch.tooltip
   if (typeof patch.badge === "boolean") group.badge = patch.badge
-  if (["sum", "members"].indexOf(patch.badgeMode) >= 0) group.badgeMode = patch.badgeMode
-  if (["native", "name", "both"].indexOf(patch.memberDisplay) >= 0) group.memberDisplay = patch.memberDisplay
+  if (badgeModes.indexOf(patch.badgeMode) >= 0) group.badgeMode = patch.badgeMode
+  if (memberDisplays.indexOf(patch.memberDisplay) >= 0) group.memberDisplay = patch.memberDisplay
   config.bar.powerbarGroups = list; return true
 }
 function moveHeader(config, id, section, beforeKey, relativeGroupId, after, visibility) {

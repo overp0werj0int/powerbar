@@ -1,4 +1,6 @@
 .import "AppearanceModel.js" as AppearanceModel
+.import "BarModel.js" as BarModel
+.import "GroupsModel.js" as GroupsModel
 .import "ManagedModel.js" as ManagedModel
 .import "SectionsModel.js" as SectionsModel
 
@@ -17,10 +19,10 @@
 // which depends on the bar's thickness and comes in as ctx.roundingMax.
 var settings = [
   { name: "position", key: "position", type: "choice", choices: ["top", "bottom", "left", "right"], writer: "option" },
-  { name: "background", key: "background", type: "choice", choices: ["opaque", "glassy", "none"], writer: "option" },
+  { name: "background", key: "background", type: "choice", choices: AppearanceModel.backgrounds, writer: "option" },
   // The older on/off form of background: none or opaque.
   { name: "transparent", key: "transparent", type: "bool", writer: "option" },
-  { name: "style", key: "powerbarStyle", type: "choice", choices: ["flat", "floating", "islands", "notch"], writer: "style" },
+  { name: "style", key: "powerbarStyle", type: "choice", choices: BarModel.barStyles, writer: "style" },
   { name: "largeBar", key: "powerbarLargeBar", type: "bool", writer: "option" },
   { name: "spacingMode", key: "powerbarSpacingMode", type: "choice", choices: ["slots", "gaps"], writer: "option" },
   { name: "spacing", key: "powerbarSpacing", type: "number", range: AppearanceModel.ranges.spacing, writer: "option" },
@@ -45,17 +47,17 @@ var settings = [
   // Which side of the camera the Center zone sits on, on a notched screen.
   { name: "centerSide", key: "powerbarCenterSide", type: "choice", choices: ["right", "left"], writer: "option" },
   // Appearance (bar.powerbarAppearance), in the scope each tile follows now.
-  { name: "shape.scope", tile: "shape", type: "choice", choices: ["theme", "all", "this"], writer: "scope" },
+  { name: "shape.scope", tile: "shape", type: "choice", choices: AppearanceModel.scopes, writer: "scope" },
   { name: "shape.rounding", tile: "shape", look: "rounding", type: "number", range: AppearanceModel.ranges.rounding, writer: "look" },
   { name: "shape.borders", tile: "shape", look: "borders", type: "bool", writer: "look" },
   { name: "shape.borderWidth", tile: "shape", look: "borderWidth", type: "number", range: AppearanceModel.ranges.borderWidth, writer: "look" },
-  { name: "surface.scope", tile: "surface", type: "choice", choices: ["theme", "all", "this"], writer: "scope" },
+  { name: "surface.scope", tile: "surface", type: "choice", choices: AppearanceModel.scopes, writer: "scope" },
   { name: "surface.opacity", tile: "surface", look: "opacity", type: "number", range: AppearanceModel.ranges.backgroundOpacity, writer: "look" },
   { name: "surface.blur", tile: "surface", look: "blur", type: "bool", writer: "look" },
   // The floor of the surfaces drawn over windows (drawers, menus), in %.
   { name: "surface.overWindows", tile: "surface", look: "overWindows", type: "number", range: AppearanceModel.ranges.overWindows, writer: "look" },
-  { name: "surface.text", tile: "surface", type: "choice", choices: ["theme", "light", "dark"], writer: "text" },
-  { name: "shadow.scope", tile: "shadow", type: "choice", choices: ["theme", "all", "this"], writer: "scope" },
+  { name: "surface.text", tile: "surface", type: "choice", choices: AppearanceModel.foregrounds, writer: "text" },
+  { name: "shadow.scope", tile: "shadow", type: "choice", choices: AppearanceModel.scopes, writer: "scope" },
   { name: "shadow.enabled", tile: "shadow", look: "enabled", type: "bool", writer: "look" },
   { name: "shadow.softness", tile: "shadow", look: "softness", type: "number", range: AppearanceModel.ranges.shadowSize, writer: "look" },
   { name: "shadow.strength", tile: "shadow", look: "strength", type: "number", range: AppearanceModel.ranges.shadowOpacity, writer: "look" }
@@ -219,8 +221,8 @@ function groupRecord(groups, selector) {
   return { error: "no group " + sel }
 }
 var groupChoices = {
-  visibility: ManagedModel.visibilityModes, face: ["glyph", "text", "both"], badgeMode: ["sum", "members"],
-  memberDisplay: ["native", "name", "both"],
+  visibility: ManagedModel.visibilityModes, face: GroupsModel.faces, badgeMode: GroupsModel.badgeModes,
+  memberDisplay: GroupsModel.memberDisplays,
   iconTint: ["text", "own"], iconFont: ["", "omarchy"]
 }
 var groupFields = ["label", "icon", "iconFont", "iconImage", "iconTint", "zone", "before", "visibility",

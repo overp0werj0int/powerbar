@@ -41,4 +41,9 @@ TestCase {
     compare(CliModel.check(CliModel.find("revealSeconds"), 61, {}).error, "revealSeconds is from 1 to 60")
     compare(CliModel.check(CliModel.find("shape.rounding"), 14, { roundingMax: 13 }).error, "shape.rounding is from 0 to 13")
   }
+  function test_choices() {
+    compare(CliModel.find("style").choices.join(), "flat,floating,islands,notch")
+    compare(CliModel.find("surface.text").choices.join(), "theme,light,dark")
+    compare(CliModel.groupPatch({ face: "x" }).error, "face is one of glyph, text, both")
+  }
 }
