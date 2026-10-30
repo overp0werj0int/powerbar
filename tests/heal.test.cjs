@@ -7,56 +7,18 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const load = require('./load.cjs');
-const barModel = load('BarModel.js');
-const managed = load('ManagedModel.js');
-const groupsModel = load('GroupsModel.js');
-const appearance = load('AppearanceModel.js');
-const sections = load('SectionsModel.js');
+const model = load('HealModel.js');
 const J = (v) => JSON.parse(JSON.stringify(v));
 
-// Bar.qml's self-writes for a delivered config, in the order they land:
-// restoreLostKeys, ensureInstanceIds, pruneGroupMembers, healAppearance, then
-// pruneAppearanceThemes after a theme listing and the zone modes' retirement
-// after their copy. → { bar: what shell.json holds, written }
+// The heal decided on the delivered config and applied to it, as the store
+// queues it. → { bar: what shell.json holds, written }
 function heal(delivered, ctx) {
+  const before = J(delivered);
+  const plan = model.heal(delivered, ctx);
+  assert.deepEqual(delivered, before, 'deciding changes nothing');
   const bar = J(delivered);
-  let written = false;
-  const plan = barModel.lostKeys(ctx.previous, bar.layout);
-  if (plan.length) { barModel.applyLostKeys(bar, plan); written = true; }
-  if (bar.layout) {
-    let missing = bar.powerbarVisibilityDefault !== 'shown';
-    const seen = {};
-    for (const zone of sections.sections) {
-      for (const entry of bar.layout[zone] || []) {
-        const key = entry && entry.powerbarInstance;
-        if (!key || seen[key]) missing = true;
-        seen[key] = true;
-      }
-    }
-    if (missing) {
-      if (!managed.powerbarHasRun(bar)) bar.powerbarShortcutOffer = true;
-      managed.healVisibility(bar, ctx.thirdParty);
-      const used = {};
-      for (const zone of sections.sections) {
-        const entries = bar.layout[zone] || [];
-        for (let i = 0; i < entries.length; i++) {
-          const entry = typeof entries[i] === 'string' ? { id: entries[i] } : entries[i];
-          if (!entry.powerbarInstance || used[entry.powerbarInstance]) entry.powerbarInstance = ctx.newInstance();
-          used[entry.powerbarInstance] = true;
-          entries[i] = entry;
-        }
-      }
-      written = true;
-    }
-  }
-  if (groupsModel.danglingMembers(bar)) { bar.powerbarGroups = groupsModel.groups(bar); written = true; }
-  if (ctx.theme && appearance.legacyPresent(bar)) { appearance.migrate(bar, ctx.theme); written = true; }
-  const keep = (ctx.installedThemes || []).concat(ctx.theme ? [ctx.theme] : []);
-  if (ctx.installedThemes && ctx.installedThemes.length && appearance.hasStaleThemes(bar, keep)) {
-    appearance.pruneThemes(bar, keep); written = true;
-  }
-  if (ctx.zoneModesSaved) { delete bar.powerbarZoneLayouts; written = true; }
-  return { bar: J(bar), written };
+  if (plan) model.apply(bar, J(plan));
+  return { bar: J(bar), written: !!plan };
 }
 
 // Bar.qml's thirdPartyEntry while the registry is loading: by id.
@@ -196,4 +158,65 @@ test("the zone modes' arrangements leave shell.json once their copy is saved", (
 test('a healthy config writes nothing', () => {
   assert.equal(heal(healthy(), context(healthy().layout)).written, false);
   assert.equal(heal(healthy(), context(null)).written, false);
+});
+
+// The store runs a queued heal again on every config the host delivers before
+// it is written, and at the write.
+test('run again, on the same config or a newer one, the heal writes the ids it decided', () => {
+  const plan = model.heal(stock(), context(null));
+  const once = J(stock());
+  model.apply(once, plan);
+  const twice = J(once);
+  model.apply(twice, plan);
+  assert.deepEqual(twice, once, 'a second run changes nothing');
+  const newer = stock();
+  newer.layout.center[0].format = 'h:mm AP';
+  model.apply(newer, plan);
+  assert.equal(newer.layout.center[0].powerbarInstance, once.layout.center[0].powerbarInstance);
+  assert.equal(newer.layout.center[0].format, 'h:mm AP', "the host's change stays");
+  assert.deepEqual(J(newer.layout.right), once.layout.right);
+});
+
+test('an entry that is no longer where the heal found it is left for the next heal', () => {
+  const bar = healthy();
+  bar.layout.centerEnd = [{ id: 'acme.new' }];
+  const plan = model.heal(bar, context(healthy().layout));
+  const newer = J(bar);
+  newer.layout.centerEnd.unshift({ id: 'acme.other' });
+  model.apply(newer, plan);
+  assert.deepEqual(newer.layout.centerEnd, [{ id: 'acme.other' }, { id: 'acme.new' }], 'no id lands on the wrong widget');
+});
+
+test('a key another writer set after the heal was decided stays', () => {
+  const bar = healthy();
+  bar.layout.right[0] = { id: 'omarchy.tray', pinned: ['steam'], hidden: [] };
+  const plan = model.heal(bar, context(healthy().layout));
+  const newer = J(bar);
+  newer.layout.right[0].powerbarVisibility = 'hidden';
+  model.apply(newer, plan);
+  assert.deepEqual(newer.layout.right[0], { id: 'omarchy.tray', pinned: ['steam'], hidden: [], powerbarVisibility: 'hidden', powerbarInstance: 'pw-tray' });
+});
+
+test("an earlier queued heal does not take a member out of its group before a later one restores its key", () => {
+  const delivered = healthy();
+  delivered.powerbarGroups[0].items.push('pw-gone');
+  const first = model.heal(delivered, context(healthy().layout));
+  assert.deepEqual(J(first.members), ['pw-gone']);
+  // Shown: the delivered config with the first heal. The clock's format cycle
+  // then delivers it without its instance; the store shows the queued heal on
+  // top, and the bar heals what it would show.
+  const shown = J(delivered);
+  model.apply(shown, first);
+  const host = J(delivered);
+  host.layout.center[0] = { id: 'omarchy.clock', format: 'h:mm AP' };
+  const preview = J(host);
+  model.apply(preview, first);
+  const second = model.heal(preview, context(J(shown.layout)));
+  // The write: both heals, in queue order, on the host's config.
+  const written = J(host);
+  model.apply(written, first);
+  model.apply(written, second);
+  const expected = healthy();
+  expected.layout.center[0] = { id: 'omarchy.clock', format: 'h:mm AP', powerbarInstance: 'pw-clock' };
+  assert.deepEqual(J(written), expected);
 });

@@ -2501,9 +2501,9 @@ Item {
   // write, so nobody has to remove them by hand.
   function pruneGroupMembers() {
     if (!canWriteConfig() || configStore.pending || !Util.isPlainObject(barConfig) || lostKeysPending()) return
-    if (!GroupsModel.danglingMembers(barConfig)) return
+    if (!GroupsModel.danglingMembers(barConfig).length) return
     writeConfig(function(config) {
-      if (config.bar && GroupsModel.danglingMembers(config.bar)) config.bar.powerbarGroups = GroupsModel.groups(config.bar)
+      if (config.bar && GroupsModel.danglingMembers(config.bar).length) config.bar.powerbarGroups = GroupsModel.groups(config.bar)
     })
   }
 
