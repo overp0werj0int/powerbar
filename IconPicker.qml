@@ -8,6 +8,7 @@ import qs.Ui
 import "IconSearch.js" as IconSearch
 import "OmarchyIcons.js" as OmarchyIcons
 import "GroupsModel.js" as GroupsModel
+import "MotionModel.js" as MotionModel
 
 // The group icon picker (docs/behavior/preferences.md): a popover over the Groups
 // page, under the icon well. Its icons are the glyphs your widgets draw,
@@ -258,8 +259,8 @@ Item {
     opacity: picker.opened ? 1 : 0
     scale: picker.opened ? 1 : 0.97
     transformOrigin: Item.TopLeft
-    Behavior on opacity { enabled: picker.bar.animationsEnabled; NumberAnimation { duration: 150; easing.type: Easing.OutCubic } }
-    Behavior on scale { enabled: picker.bar.animationsEnabled; NumberAnimation { duration: 150; easing.type: Easing.OutCubic } }
+    Behavior on opacity { enabled: picker.bar.animationsEnabled; NumberAnimation { duration: MotionModel.APPEAR_MS; easing.type: Easing.OutCubic } }
+    Behavior on scale { enabled: picker.bar.animationsEnabled; NumberAnimation { duration: MotionModel.APPEAR_SCALE_MS; easing.type: Easing.OutCubic } }
     MouseArea { anchors.fill: parent }
 
     ColumnLayout {

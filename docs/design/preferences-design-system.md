@@ -707,19 +707,25 @@ INTEG-21), and while Omarchy's switch is off the row keeps showing its own
 value with a caption saying why nothing moves. "Pages in perspective" is not
 motion and stays.
 
-| What | Duration | Curve | With motion off | Code |
+Every duration below is a `MotionModel.js` constant (its Preferences
+section); a page names the constant, never the number.
+
+| What | Duration | Curve | With motion off | Constant |
 |---|---|---|---|---|
-| Page slide: the page out, the next in beside it, a card's width, plates moving in their own plane under a still camera | 240 ms | `Style.easeOut` | the new page at once | `Preferences.qml:163`, `:1077` |
-| The tab underline | 240 ms | the same, on the same clock | at once | `Preferences.qml:966` |
-| A rise (tile, chip, desk control) | 120 ms up | OutCubic | up and down at once | `Rise.qml` |
+| Page slide: the page out, the next in beside it, a card's width, plates moving in their own plane under a still camera | 240 ms | `Style.easeOut` | the new page at once | `PAGE_TURN_MS`, `EASE_OUT` |
+| The tab underline | 240 ms | the same, on the same clock | at once | `PAGE_TURN_MS`, `EASE_OUT` |
+| A rise (tile, chip, desk control) | 120 ms up | OutCubic | up and down at once | `GLIDE_MS` (`Rise.qml`) |
 | A rise ending | 0 (the same frame) | | | `Rise.qml` |
-| Focus ring glide | 120 ms | OutCubic | jumps; also off while pages slide | `Preferences.qml:899` |
-| Plate height, plate y when a lift adds a row | 140 ms | OutCubic | at once | `LayerPlate.qml:47`, `LayoutEditor.qml:1302` |
-| Card opening | 140 ms opacity | OutCubic | at once | `Preferences.qml:768` |
-| Inspector in and out | 140 ms opacity, 160 ms scale from 97 % at its bottom edge | OutCubic | at once | `LayoutEditor.qml:1723`, PREFS-101 |
-| Pulled chip following | 120 ms | OutCubic | at once | `LayoutEditor.qml:1257` |
-| Tile scroll | 120 ms | OutCubic | at once | `ZoneTile.qml:259` |
-| Name tip | 110 ms fade, after 450 ms rest | OutCubic | at once | `LayoutEditor.qml:1142` |
+| Focus ring glide | 120 ms, off again 170 ms after a move | OutCubic | jumps; also off while pages slide | `GLIDE_MS`, `GLIDE_END_MS` |
+| Plate height, plate y when a lift adds a row | 140 ms | OutCubic | at once | `PLATE_MS` |
+| Card opening | 140 ms opacity | OutCubic | at once | `APPEAR_MS` |
+| Inspector and icon picker in and out | 140 ms opacity, 160 ms scale from 97 % | OutCubic | at once | `APPEAR_MS`, `APPEAR_SCALE_MS`, PREFS-101 |
+| Pulled chip following, a fader's knob | 120 ms | OutCubic | at once | `GLIDE_MS` |
+| Tile scroll | 120 ms | OutCubic | at once | `GLIDE_MS` |
+| The centre dot going back to its side | 160 ms | OutCubic | at once | `SNAP_BACK_MS` |
+| A row's fill under the cursor | 100 ms | linear | at once | `FILL_MS` |
+| Name tip | 110 ms fade, after 450 ms rest (at once within 600 ms of the last) | OutCubic | at once | `TIP_FADE_MS`, `TIP_REST_MS`, `TIP_WARM_MS` |
+| A keyboard lift's flying copy waits for rows to make room | 160 ms | | | `LANDING_SETTLE_MS` |
 
 Rules:
 
@@ -728,7 +734,7 @@ Rules:
   with it in one frame (PREFS-104).
 - A switch during a slide carries on from where the strip is.
 - One clock for things that move together: the slide and the underline share
-  `turnDuration` and `turnCurve`.
+  `PAGE_TURN_MS` and `EASE_OUT`.
 - Stay under 300 ms. Ease-out for things entering, never ease-in.
 - With motion off, things are where they end, at once, fades and colour
   changes included. The tilt stays.

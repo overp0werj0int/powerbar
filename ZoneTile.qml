@@ -4,6 +4,7 @@ import qs.Commons
 import qs.Commons as Commons
 import qs.Ui
 import "PreferencesModel.js" as Model
+import "MotionModel.js" as MotionModel
 
 // A zone's tile on a layer plate (LayerPlate), as the Layout and Groups pages
 // draw it (docs/behavior/preferences.md PREFS-99, PREFS-106): its slab edge,
@@ -256,7 +257,7 @@ Item {
     Behavior on scroll {
         enabled: cell.animate
         NumberAnimation {
-            duration: 120
+            duration: MotionModel.GLIDE_MS
             easing.type: Easing.OutCubic
         }
     }

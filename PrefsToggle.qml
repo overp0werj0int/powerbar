@@ -3,6 +3,7 @@ import QtQuick.Layouts
 import qs.Commons
 import qs.Commons as Commons
 import qs.Ui
+import "MotionModel.js" as MotionModel
 
 // A switch row in an inspector (docs/behavior/preferences.md PREFS-133): its
 // label at the label size, regular, as every control's name is, and its
@@ -36,7 +37,7 @@ BorderSurface {
   borderSpec: resting ? Border.none() : Border.controlSpec(activeFocus ? "focus" : "hover-cursor", Commons.Color.popups.text, Commons.Color.accent)
   Behavior on color {
     ColorAnimation {
-      duration: Style.duration(100)
+      duration: Style.duration(MotionModel.FILL_MS)
     }
   }
 

@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Shapes
 import qs.Commons
 import qs.Commons as Commons
+import "MotionModel.js" as MotionModel
 
 // Which side of the camera Center sits on (powerbarCenterSide, ZONE-96), on
 // the Layout and Groups pages (docs/behavior/preferences.md PREFS-105): a
@@ -82,7 +83,7 @@ Item {
         Behavior on x {
             enabled: root.animate && !sideDot.dragging
             NumberAnimation {
-                duration: 160
+                duration: MotionModel.SNAP_BACK_MS
                 easing.type: Easing.OutCubic
             }
         }

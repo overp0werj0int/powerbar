@@ -14,6 +14,7 @@ import "AppearanceModel.js" as AppearanceModel
 import "CellModel.js" as CellModel
 import "SectionsModel.js" as SectionsModel
 import "ManagedModel.js" as ManagedModel
+import "MotionModel.js" as MotionModel
 
 // The bar's layout as an exploded view (docs/behavior/preferences.md
 // PREFS-99): one layer per visibility (On the bar, On demand, Hidden) and
@@ -1117,12 +1118,12 @@ Item {
     }
     Timer {
         id: tipDelay
-        interval: 450
+        interval: MotionModel.TIP_REST_MS
         onTriggered: editor.showTip()
     }
     Timer {
         id: tipCool
-        interval: 600
+        interval: MotionModel.TIP_WARM_MS
         onTriggered: editor.tipWarm = false
     }
     onLiftedChanged: if (lifted)
@@ -1137,7 +1138,7 @@ Item {
         Behavior on opacity {
             enabled: editor.bar.animationsEnabled
             NumberAnimation {
-                duration: 110
+                duration: MotionModel.TIP_FADE_MS
                 easing.type: Easing.OutCubic
             }
         }
@@ -1246,7 +1247,7 @@ Item {
         Behavior on x {
             enabled: editor.bar.animationsEnabled
             NumberAnimation {
-                duration: 120
+                duration: MotionModel.GLIDE_MS
                 easing.type: Easing.OutCubic
             }
         }
@@ -1290,7 +1291,7 @@ Item {
         Behavior on y {
             enabled: editor.bar.animationsEnabled
             NumberAnimation {
-                duration: 140
+                duration: MotionModel.PLATE_MS
                 easing.type: Easing.OutCubic
             }
         }
@@ -1708,14 +1709,14 @@ Item {
         Behavior on opacity {
             enabled: editor.bar.animationsEnabled
             NumberAnimation {
-                duration: 140
+                duration: MotionModel.APPEAR_MS
                 easing.type: Easing.OutCubic
             }
         }
         Behavior on scale {
             enabled: editor.bar.animationsEnabled
             NumberAnimation {
-                duration: 160
+                duration: MotionModel.APPEAR_SCALE_MS
                 easing.type: Easing.OutCubic
             }
         }

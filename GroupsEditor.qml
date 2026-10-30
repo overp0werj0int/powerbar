@@ -9,6 +9,7 @@ import "PreferencesModel.js" as Model
 import "GroupsModel.js" as Groups
 import "GroupsEditorModel.js" as Editor
 import "SectionsModel.js" as SectionsModel
+import "MotionModel.js" as MotionModel
 
 // The Groups page (docs/behavior/preferences.md PREFS-109 on), two of the
 // Layout page's plates under the same camera (LayerPlate, ZoneTile,
@@ -800,7 +801,7 @@ Item {
         Behavior on y {
             enabled: editor.bar.animationsEnabled
             NumberAnimation {
-                duration: 140
+                duration: MotionModel.PLATE_MS
                 easing.type: Easing.OutCubic
             }
         }
@@ -1295,7 +1296,7 @@ Item {
     // Again once the rows have moved aside for the landing place.
     Timer {
         id: keyLandingSettle
-        interval: 160
+        interval: MotionModel.LANDING_SETTLE_MS
         onTriggered: editor.updateKeyLanding()
     }
     readonly property bool copyShown: !!lifted && (pointerLift || keyLandingShown)
@@ -1363,12 +1364,12 @@ Item {
     }
     Timer {
         id: tipDelay
-        interval: 450
+        interval: MotionModel.TIP_REST_MS
         onTriggered: editor.showTip()
     }
     Timer {
         id: tipCool
-        interval: 600
+        interval: MotionModel.TIP_WARM_MS
         onTriggered: editor.tipWarm = false
     }
     BorderSurface {
@@ -1389,7 +1390,7 @@ Item {
         Behavior on opacity {
             enabled: editor.bar.animationsEnabled
             NumberAnimation {
-                duration: 110
+                duration: MotionModel.TIP_FADE_MS
                 easing.type: Easing.OutCubic
             }
         }
@@ -1456,14 +1457,14 @@ Item {
         Behavior on opacity {
             enabled: editor.bar.animationsEnabled
             NumberAnimation {
-                duration: 140
+                duration: MotionModel.APPEAR_MS
                 easing.type: Easing.OutCubic
             }
         }
         Behavior on scale {
             enabled: editor.bar.animationsEnabled
             NumberAnimation {
-                duration: 160
+                duration: MotionModel.APPEAR_SCALE_MS
                 easing.type: Easing.OutCubic
             }
         }

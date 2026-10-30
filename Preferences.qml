@@ -14,6 +14,7 @@ import "GroupsModel.js" as Groups
 import "RenderModel.js" as RenderModel
 import "TrayItemsModel.js" as TrayItemsModel
 import "SectionsModel.js" as SectionsModel
+import "MotionModel.js" as MotionModel
 
 // Powerbar preferences. Everything is reachable from the keyboard: 1-4 switch
 // pages, each page walks its own controls, Esc closes. Every page shows the
@@ -156,10 +157,6 @@ Item {
             return t !== tab;
         });
     }
-    // A page switch's motion: the page under the camera slides and the
-    // tab's underline glides, on one clock; nothing else moves.
-    readonly property int turnDuration: 240
-    readonly property var turnCurve: [0.23, 1, 0.32, 1, 1, 1]
     readonly property var pagesAlways: [
         {
             title: "Layout",
@@ -771,7 +768,7 @@ Item {
             Behavior on opacity {
                 enabled: prefs.opened && prefs.bar && prefs.bar.animationsEnabled
                 NumberAnimation {
-                    duration: 140
+                    duration: MotionModel.APPEAR_MS
                     easing.type: Easing.OutCubic
                 }
             }
@@ -910,7 +907,7 @@ Item {
                     }
                     Timer {
                         id: glideEnd
-                        interval: 170
+                        interval: MotionModel.GLIDE_END_MS
                         onTriggered: focusRing.gliding = false
                     }
                     GeometryObserver {
@@ -921,28 +918,28 @@ Item {
                     Behavior on x {
                         enabled: focusRing.gliding && !pages.sliding && prefs.bar.animationsEnabled
                         NumberAnimation {
-                            duration: 120
+                            duration: MotionModel.GLIDE_MS
                             easing.type: Easing.OutCubic
                         }
                     }
                     Behavior on y {
                         enabled: focusRing.gliding && !pages.sliding && prefs.bar.animationsEnabled
                         NumberAnimation {
-                            duration: 120
+                            duration: MotionModel.GLIDE_MS
                             easing.type: Easing.OutCubic
                         }
                     }
                     Behavior on width {
                         enabled: focusRing.gliding && !pages.sliding && prefs.bar.animationsEnabled
                         NumberAnimation {
-                            duration: 120
+                            duration: MotionModel.GLIDE_MS
                             easing.type: Easing.OutCubic
                         }
                     }
                     Behavior on height {
                         enabled: focusRing.gliding && !pages.sliding && prefs.bar.animationsEnabled
                         NumberAnimation {
-                            duration: 120
+                            duration: MotionModel.GLIDE_MS
                             easing.type: Easing.OutCubic
                         }
                     }
@@ -984,17 +981,17 @@ Item {
                         Behavior on x {
                             enabled: prefs.opened && prefs.bar && prefs.bar.animationsEnabled
                             NumberAnimation {
-                                duration: prefs.turnDuration
+                                duration: MotionModel.PAGE_TURN_MS
                                 easing.type: Easing.BezierSpline
-                                easing.bezierCurve: prefs.turnCurve
+                                easing.bezierCurve: MotionModel.EASE_OUT
                             }
                         }
                         Behavior on width {
                             enabled: prefs.opened && prefs.bar && prefs.bar.animationsEnabled
                             NumberAnimation {
-                                duration: prefs.turnDuration
+                                duration: MotionModel.PAGE_TURN_MS
                                 easing.type: Easing.BezierSpline
-                                easing.bezierCurve: prefs.turnCurve
+                                easing.bezierCurve: MotionModel.EASE_OUT
                             }
                         }
                     }
@@ -1132,9 +1129,9 @@ Item {
                         target: pages
                         property: "shift"
                         to: 0
-                        duration: prefs.turnDuration
+                        duration: MotionModel.PAGE_TURN_MS
                         easing.type: Easing.BezierSpline
-                        easing.bezierCurve: prefs.turnCurve
+                        easing.bezierCurve: MotionModel.EASE_OUT
                         onStopped: pages.leaving = -1
                     }
                     // The camera while pages slide: the Layout page's, with its

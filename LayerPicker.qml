@@ -1,6 +1,7 @@
 import QtQuick
 import qs.Commons
 import qs.Commons as Commons
+import "MotionModel.js" as MotionModel
 
 // The layers as a list of sheets, seen in the Layout page's perspective: the
 // chosen one filled (docs/behavior/preferences.md PREFS-26). One Tab stop; j
@@ -82,7 +83,7 @@ Item {
                 Behavior on color {
                     enabled: picker.animate
                     ColorAnimation {
-                        duration: 90
+                        duration: MotionModel.FILL_MS
                     }
                 }
                 // The sheet, seen in the layers' perspective.
