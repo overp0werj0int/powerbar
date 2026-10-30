@@ -1,7 +1,8 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const order = require('../ZoneOrderModel.js');
-const bar = require('../BarModel.js');
+const load = require('./load.cjs');
+const order = load('ZoneOrderModel.js');
+const bar = load('BarModel.js');
 
 // A zone as drawn, from its lists' saved entries ({ key, managed }).
 const zoneLists = { left: ['left'], center: ['centerBegin', 'center', 'centerEnd'], right: ['right'] };

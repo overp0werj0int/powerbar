@@ -1,9 +1,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const vm = require('node:vm');
-const fs = require('node:fs');
-const m = vm.createContext({});
-vm.runInContext(fs.readFileSync(`${__dirname}/../GroupsModel.js`, 'utf8'), m);
+const load = require('./load.cjs');
+const m = load('GroupsModel.js');
 const fixture = () => ({ bar: { layout: { left: [
   { id: 'clock', powerbarInstance: 'one', format: 'HH:mm', powerbarVisibility: 'managed' },
   { id: 'clock', powerbarInstance: 'two', format: 'ddd' },
@@ -151,8 +149,7 @@ test('a visibility change in place leaves the group anchored', () => {
 });
 
 test('icons keep their font, your own image and its colour; old groups save unchanged', () => {
-  const groupsModel = vm.createContext({});
-  vm.runInContext(fs.readFileSync(`${__dirname}/../GroupsModel.js`, 'utf8'), groupsModel);
+  const groupsModel = load('GroupsModel.js');
   const config = { bar: { layout: { left: [], center: [], right: [] },
     powerbarGroups: [{ id: 'g', label: 'AI', icon: '\u{f024b}', section: 'left', items: [] }] } };
   groupsModel.edit(config, 'g', { label: 'AI' });
@@ -182,8 +179,7 @@ test('icons keep their font, your own image and its colour; old groups save unch
 });
 
 test('members whose widget was uninstalled leave the group; nothing is pruned without a layout', () => {
-  const groupsModel = vm.createContext({});
-  vm.runInContext(fs.readFileSync(`${__dirname}/../GroupsModel.js`, 'utf8'), groupsModel);
+  const groupsModel = load('GroupsModel.js');
   const bar = { layout: { left: [{ id: 'a', powerbarInstance: 'pw-a' }], center: [], right: [{ id: 'b', powerbarInstance: 'pw-b' }] },
     powerbarGroups: [{ id: 'g', label: 'AI', items: ['pw-a', 'pw-gone', 'pw-b', 'pw-also-gone'] }, { id: 'h', label: 'H', items: ['pw-gone2'] }] };
   assert.equal(groupsModel.danglingMembers(bar), 3);

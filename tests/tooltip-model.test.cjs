@@ -1,6 +1,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const tips = require('../TooltipModel.js');
+const load = require('./load.cjs');
+const tips = load('TooltipModel.js');
 
 const popup = { width: 100, height: 30 };
 const gap = 6;

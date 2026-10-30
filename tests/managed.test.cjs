@@ -1,9 +1,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const vm = require('node:vm');
-const fs = require('node:fs');
-const m = vm.createContext({});
-vm.runInContext(fs.readFileSync(`${__dirname}/../ManagedModel.js`, 'utf8'), m);
+const load = require('./load.cjs');
+const m = load('ManagedModel.js');
 const J = v => JSON.parse(JSON.stringify(v));
 test('explicit modes win; every discovered widget defaults to shown, old configs keep provenance; discovery defers', () => {
   assert.equal(m.mode({}, null), 'pending');

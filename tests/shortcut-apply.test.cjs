@@ -6,7 +6,8 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
-const S = require('../ShortcutModel.js');
+const load = require('./load.cjs');
+const S = load('ShortcutModel.js');
 
 const script = path.join(__dirname, '..', 'ShortcutApply.sh');
 const BLOCK = [S.BEGIN, 'o.bind("SUPER + B", "Powerbar keyboard", "omarchy-shell powerbar keys")', S.END].join('\n');

@@ -1,10 +1,8 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const vm = require('node:vm');
-const fs = require('node:fs');
-const model = vm.createContext({});
-vm.runInContext(fs.readFileSync(`${__dirname}/../IconSearch.js`, 'utf8'), model);
-const omarchy = require('../OmarchyIcons.js');
+const load = require('./load.cjs');
+const model = load('IconSearch.js');
+const omarchy = load('OmarchyIcons.js');
 
 const sources = {
   bar: [{ glyph: '\u{f036c}', font: '', name: 'Microphone' }, { glyph: 'EN', font: '', name: 'Keyboard Layout' },

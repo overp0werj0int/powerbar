@@ -1,11 +1,8 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const vm = require('node:vm');
-const fs = require('node:fs');
-const model = vm.createContext({});
-vm.runInContext(fs.readFileSync(`${__dirname}/../PreferencesModel.js`, 'utf8'), model);
-const barModel = vm.createContext({});
-vm.runInContext(fs.readFileSync(`${__dirname}/../BarModel.js`, 'utf8'), barModel);
+const load = require('./load.cjs');
+const model = load('PreferencesModel.js');
+const barModel = load('BarModel.js');
 const noHome = ({ home, ...at }) => at;
 const fixture = () => ({ bar: { layout: {
   left: [{ id: 'a', format: 'HH:mm', nested: { keep: true } }, { id: 'a', size: 20 }],

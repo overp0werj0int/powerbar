@@ -1,10 +1,8 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const vm = require('node:vm');
-const fs = require('node:fs');
+const load = require('./load.cjs');
 const J = v => JSON.parse(JSON.stringify(v));
-const model = vm.createContext({});
-vm.runInContext(fs.readFileSync(`${__dirname}/../AppearanceModel.js`, 'utf8'), model);
+const model = load('AppearanceModel.js');
 
 test('legacy settings preserve the visible main surface, then apply to every surface', () => {
   const legacy = { powerbarMainBlur: false, powerbarMainBackgroundOpacity: 13,

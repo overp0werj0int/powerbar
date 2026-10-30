@@ -1,9 +1,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const vm = require('node:vm');
-const fs = require('node:fs');
-const model = vm.createContext({});
-vm.runInContext(fs.readFileSync(`${__dirname}/../DeskModel.js`, 'utf8'), model);
+const load = require('./load.cjs');
+const model = load('DeskModel.js');
 const plain = (v) => JSON.parse(JSON.stringify(v));
 const at = (strip, control, stop) => ({ strip, control, stop });
 

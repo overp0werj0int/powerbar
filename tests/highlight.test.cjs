@@ -1,9 +1,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const vm = require('node:vm');
-const fs = require('node:fs');
-const model = vm.createContext({});
-vm.runInContext(fs.readFileSync(`${__dirname}/../HighlightModel.js`, 'utf8'), model);
+const load = require('./load.cjs');
+const model = load('HighlightModel.js');
 const base = { thickness: 20, pad: 4, rounding: 17, laneStart: -Infinity, laneEnd: Infinity };
 
 test('lone icons all get the same square highlight, never thinner than thick', () => {

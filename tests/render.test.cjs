@@ -1,6 +1,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const model = require('../RenderModel.js');
+const load = require('./load.cjs');
+const model = load('RenderModel.js');
 const entry = (key, extra = {}) => ({ id: 'duplicate', powerbarInstance: key, ...extra });
 const config = () => ({ transparent: false, layout: { left: [entry('a'), entry('b')], center: [], right: [] } });
 test('records keep duplicate ids apart and carry their zone and list', () => {

@@ -21,7 +21,8 @@ omabox for desktop tests in a private Hyprland session
 
 1. **Pure logic lives in `*Model.js`** with node tests in `tests/*.test.cjs`
    (decisions, layouts, ranking, placement). QML carries them out. New rules
-   get a model function and a test first.
+   get a model function and a test first. Every test loads its models through
+   `tests/load.cjs`, which runs a file the way QML does.
    A change in what the user sees or can do updates its `docs/behavior/`
    entry in the same commit (new behaviors get the next free ID; never reuse
    one).
