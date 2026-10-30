@@ -514,16 +514,7 @@ Item {
             keys: "tab shift+tab",
             label: "Next, previous control"
         }
-    ].concat(focused && focused.keyHints ? focused.keyHints : within(focused, inspector.zoneMapItem) ? [
-        {
-            keys: "h l",
-            label: "Walk the zones"
-        },
-        {
-            keys: "space",
-            label: "Move it to that zone"
-        }
-    ] : []).concat([
+    ].concat(focused && focused.keyHints ? focused.keyHints : []).concat([
         {
             keys: "esc",
             label: "Back to the layers"
@@ -1064,7 +1055,6 @@ Item {
         z: 5
         width: Math.max(Style.space(120), editor.columns.widths[6])
         label: "Preview"
-        showLabel: false
         options: editor.screens.map(function (s) {
             return {
                 value: s.name,
@@ -1680,7 +1670,6 @@ Item {
         function focusFirst() {
             layerPicker.forceActiveFocus(Qt.TabFocusReason);
         }
-        readonly property Item zoneMapItem: zoneMap
         readonly property bool popupOpen: groupPicker.popupOpen
         readonly property var popupHints: groupPicker.listHints
         // Tab and Shift+Tab walk the inspector's controls and wrap round
@@ -1837,9 +1826,6 @@ Item {
                 Layout.alignment: Qt.AlignTop
                 spacing: Gap.m
                 PrefsZoneMap {
-                    id: zoneMap
-                    compact: true
-                    stacked: true
                     zones: editor.zoneChoices
                     cameraOver: editor.previewCamera ? "center" : ""
                     noteFor: function (zone) {
@@ -1873,15 +1859,8 @@ Item {
                 }
                 PrefsToggle {
                     id: activityToggle
-                    readonly property var keyHints: [
-                        {
-                            keys: "space",
-                            label: "Toggle"
-                        }
-                    ]
                     readonly property bool clockDriven: !!panel.record && !!editor.bar.quietActivityId(panel.record.id)
                     visible: !panel.isGroup && !panel.inTray
-                    compact: true
                     label: "Peeks on activity"
                     enabled: editor.bar.autoHide && editor.bar.autoHideActivity && !clockDriven
                     opacity: enabled ? 1 : Ink.disabled
@@ -1918,7 +1897,6 @@ Item {
                     visible: !panel.isGroup && !panel.inTray
                     Layout.fillWidth: true
                     label: "Group"
-                    showLabel: false
                     openLabel: "Choose a group"
                     options: [
                         {

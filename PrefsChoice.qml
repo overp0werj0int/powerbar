@@ -5,25 +5,18 @@ import qs.Commons as Commons
 import qs.Ui
 
 // A labelled pick-one row: a field (docs/behavior/preferences.md PREFS-133),
-// its label at the label size, regular, an optional caption, and xxs under
-// them its chips, a desk's chips (PREFS-128): at the label size, xs × s of
-// padding, xs apart, sharing the row by their labels. The chips are a single
-// focus stop: h/l or Left/Right walk them, Space or Enter chooses. Narrow
-// places stack the label above the chips.
-GridLayout {
+// its label at the label size, regular, and xxs under it its chips, a desk's
+// chips (PREFS-128): at the label size, xs × s of padding, xs apart, sharing
+// the row by their labels. The chips are a single focus stop: h/l or
+// Left/Right walk them, Space or Enter chooses.
+ColumnLayout {
   id: row
-  property bool stacked: false
-  // Kept for its callers: the column it stands in spaces it.
-  property bool compact: false
   property string label: ""
-  property string description: ""
   property var options: []
   property string value: ""
   signal chosen(string value)
   Layout.fillWidth: true
-  columns: stacked ? 1 : 2
-  columnSpacing: Gap.l
-  rowSpacing: Gap.xxs
+  spacing: Gap.xxs
 
   function indexOf(v) {
     for (var i = 0; i < options.length; i++)
@@ -32,21 +25,10 @@ GridLayout {
     return -1;
   }
 
-  ColumnLayout {
+  InkText {
+    text: row.label
     Layout.fillWidth: true
-    spacing: Gap.xxs
-    InkText {
-      text: row.label
-      Layout.fillWidth: true
-      elide: Text.ElideRight
-    }
-    InkText {
-      visible: row.description !== ""
-      text: row.description
-      role: "caption"
-      wrapMode: Text.WordWrap
-      Layout.fillWidth: true
-    }
+    elide: Text.ElideRight
   }
   RowLayout {
     id: chips

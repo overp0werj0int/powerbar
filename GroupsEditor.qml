@@ -1631,7 +1631,6 @@ Item {
                     Layout.alignment: Qt.AlignTop
                     spacing: Gap.m
                     PrefsChoice {
-                        stacked: true
                         label: "Show"
                         options: [
                             {
@@ -1655,7 +1654,6 @@ Item {
                         }
                     }
                     PrefsChoice {
-                        stacked: true
                         label: "Widgets show"
                         options: [
                             {
@@ -1679,14 +1677,7 @@ Item {
                         }
                     }
                     PrefsToggle {
-                        compact: true
                         label: "Name on hover"
-                        readonly property var keyHints: [
-                            {
-                                keys: "space",
-                                label: "Toggle"
-                            }
-                        ]
                         checked: inspector.group ? (inspector.group.tooltip === undefined ? inspector.group.face === "glyph" : inspector.group.tooltip) : false
                         onToggled: function (checked) {
                             editor.edit(editor.selectedId, {
@@ -1697,14 +1688,7 @@ Item {
                     // A sibling of the switch above: xs apart.
                     PrefsToggle {
                         Layout.topMargin: Gap.xs - Gap.m
-                        compact: true
                         label: "Badge"
-                        readonly property var keyHints: [
-                            {
-                                keys: "space",
-                                label: "Toggle"
-                            }
-                        ]
                         checked: inspector.group ? inspector.group.badge : false
                         onToggled: function (checked) {
                             editor.edit(editor.selectedId, {
@@ -1713,7 +1697,6 @@ Item {
                         }
                     }
                     PrefsChoice {
-                        stacked: true
                         enabled: !!inspector.group && inspector.group.badge
                         opacity: enabled ? 1 : Ink.disabled
                         label: "Counts"
@@ -1752,9 +1735,6 @@ Item {
                         }
                     }
                     PrefsZoneMap {
-                        id: zoneMap
-                        compact: true
-                        stacked: true
                         zones: editor.layout.zoneChoices
                         cameraOver: editor.layout.previewCamera ? "center" : ""
                         noteFor: function (zone) {
@@ -2077,16 +2057,7 @@ Item {
             keys: "tab shift+tab",
             label: "Next, previous control"
         }
-    ].concat(focused && focused.keyHints ? focused.keyHints : within(focused, zoneMap) ? [
-        {
-            keys: "h l",
-            label: "Walk the zones"
-        },
-        {
-            keys: "space",
-            label: "Move it to that zone"
-        }
-    ] : []).concat([
+    ].concat(focused && focused.keyHints ? focused.keyHints : []).concat([
         {
             keys: "esc",
             label: "Back to the faces"
