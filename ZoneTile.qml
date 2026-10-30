@@ -4,6 +4,7 @@ import qs.Commons
 import qs.Commons as Commons
 import qs.Ui
 import "PreferencesModel.js" as Model
+import "BoardModel.js" as Board
 import "MotionModel.js" as MotionModel
 
 // A zone's tile on a layer plate (LayerPlate), as the Layout and Groups pages
@@ -279,6 +280,21 @@ Item {
     }
     function viewContains(p) {
         return p.y >= viewTop - room && p.y < viewTop + viewHeight;
+    }
+    // Which way a carry held at a point in `from`'s coordinates scrolls this
+    // window (EdgeScroll): -1 up, 1 down, 0 neither.
+    function edgeDirection(from, point) {
+        if (!overflows)
+            return 0;
+        return Board.edgeDirection(mapFromItem(from, point.x, point.y).y, viewTop, viewHeight, scroll, maxScroll, Style.space(24));
+    }
+    // The wheel over this window: scrolls it, a row a notch, and says so, or
+    // leaves the event to others when nothing scrolls.
+    function scrollByWheel(wheel) {
+        if (!overflows)
+            return false;
+        scrollBy(Board.wheelDelta(wheel.pixelDelta.y, wheel.angleDelta.y, rowStep));
+        return true;
     }
     // The window's rows under a point in `from`'s coordinates, through the
     // tilt: each row with the point in its own coordinates, landing places

@@ -1,6 +1,7 @@
 // What the Layout and Groups boards decide the same way (docs/behavior/
 // preferences.md PREFS-27, PREFS-117): what a key asks for, when a press
-// becomes a drag, which gap a pointer is at, and the plain hit and focus
+// becomes a drag, which way a held carry scrolls a window, how far a wheel
+// notch goes, which gap a pointer is at, and the plain hit and focus
 // questions both pages ask. No Qt objects beyond what a caller hands in:
 // `covers` and `within` read only `mapFromItem`, `width`, `height` and
 // `parent`, so node tests pass plain objects.
@@ -43,6 +44,20 @@ function keyCommand(key, text, modifiers) {
 // Manhattan distance past `limit`.
 function pastThreshold(from, to, limit) {
   return Math.abs(to.x - from.x) + Math.abs(to.y - from.y) > limit
+}
+
+// Which way a window scrolls while a carry is held at `y` (in the window's
+// coordinates): -1 in the top band while it can go up, 1 in the bottom band
+// while it can go down, else 0 (PREFS-106).
+function edgeDirection(y, viewTop, viewHeight, scroll, maxScroll, band) {
+  if (y < viewTop + band && scroll > 0) return -1
+  if (y > viewTop + viewHeight - band && scroll < maxScroll) return 1
+  return 0
+}
+
+// How far a wheel event scrolls: a touchpad's pixels, else a row a notch.
+function wheelDelta(pixelY, angleY, rowStep) {
+  return pixelY ? -pixelY : -angleY / 120 * rowStep
 }
 
 // The gap the pointer is at among a window's rows, as ZoneTile.mapRows gives

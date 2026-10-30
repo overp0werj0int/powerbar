@@ -96,3 +96,24 @@ test('in a flow the pointer passes a row below it, or right of its middle on it'
   assert.equal(Board.gapIndex([row(20, 25), row(-80, 25)], true), 2, 'below both rows');
   assert.equal(Board.gapIndex([row(-10, 5), row(-110, 5)], true), 0, 'left of a row, on its height');
 });
+
+test('a carry held in a window band scrolls it, while it can', () => {
+  const dir = (y, scroll, max = 100) => Board.edgeDirection(y, 20, 200, scroll, max, 24);
+  assert.equal(dir(30, 50), -1, 'top band, room above');
+  assert.equal(dir(30, 0), 0, 'top band, at the top');
+  assert.equal(dir(200, 50), 1, 'bottom band, room below');
+  assert.equal(dir(200, 100), 0, 'bottom band, at the bottom');
+  assert.equal(dir(120, 50), 0, 'between the bands');
+  assert.equal(dir(43.9, 50), -1, 'inside the top band');
+  assert.equal(dir(44, 50), 0, 'the band is 24 deep');
+  assert.equal(dir(196, 50), 0, 'the bottom band is 24 deep');
+  assert.equal(dir(196.1, 50), 1);
+});
+
+test('a touchpad scrolls its pixels, a wheel a row a notch', () => {
+  assert.equal(Board.wheelDelta(-30, 0, 24), 30);
+  assert.equal(Board.wheelDelta(12, 0, 24), -12);
+  assert.equal(Board.wheelDelta(0, -120, 24), 24);
+  assert.equal(Board.wheelDelta(0, 240, 24), -48);
+  assert.equal(Board.wheelDelta(-30, -120, 24), 30, 'pixels win over notches');
+});

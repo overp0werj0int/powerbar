@@ -959,11 +959,10 @@ Item {
             onWheel: function (wheel) {
                 var point = Qt.point(wheel.x, wheel.y);
                 var win = editor.windowAt(point);
-                if (!win || !win.overflows) {
+                if (!win || !win.scrollByWheel(wheel)) {
                     wheel.accepted = false;
                     return;
                 }
-                win.scrollBy(wheel.pixelDelta.y ? -wheel.pixelDelta.y : -wheel.angleDelta.y / 120 * win.rowStep);
                 editor.pointerMoved(point);
             }
             onPressed: function (mouse) {
@@ -1132,28 +1131,12 @@ Item {
         if (JSON.stringify(next) !== JSON.stringify(liftTarget))
             liftTarget = next;
         // Held near a scrolling window's top or bottom edge, the drag scrolls it.
-        var win = windowAt(point), dir = 0;
-        if (win && win.overflows) {
-            var w = win.mapFromItem(editor, point.x, point.y), band = Style.space(24);
-            if (w.y < win.viewTop + band && win.scroll > 0)
-                dir = -1;
-            else if (w.y > win.viewTop + win.viewHeight - band && win.scroll < win.maxScroll)
-                dir = 1;
-        }
-        autoScroll.target = dir ? win : null;
-        autoScroll.dir = dir;
+        edgeScroll.aim(windowAt(point), editor, point);
     }
-    Timer {
-        id: autoScroll
-        property Item target: null
-        property int dir: 0
-        interval: 16
-        repeat: true
-        running: !!target && dir !== 0 && editor.pointerLift
-        onTriggered: {
-            target.scrollBy(dir * Style.space(3));
-            editor.pointerMoved(editor.pointer);
-        }
+    EdgeScroll {
+        id: edgeScroll
+        active: editor.pointerLift
+        onStepped: editor.pointerMoved(editor.pointer)
     }
     // A place's row in its zone's list as drawn, -1 for none.
     function rowOf(zone, p) {
@@ -1218,7 +1201,7 @@ Item {
     onLiftedChanged: Qt.callLater(updateKeyLanding)
     onPointerLiftChanged: {
         if (!pointerLift)
-            autoScroll.target = null;
+            edgeScroll.aim(null);
         Qt.callLater(updateKeyLanding);
     }
     // Again once the rows have moved aside for the landing place.

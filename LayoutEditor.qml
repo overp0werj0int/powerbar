@@ -860,27 +860,12 @@ Item {
                 liftTarget = next;
         }
         // Held near a scrolling tile's top or bottom edge, the drag scrolls it.
-        var dir = 0;
-        if (cell && cell.overflows) {
-            var p = cell.mapFromItem(editor, point.x, point.y), band = Style.space(24);
-            if (p.y < cell.viewTop + band && cell.scroll > 0)
-                dir = -1;
-            else if (p.y > cell.viewTop + cell.viewHeight - band && cell.scroll < cell.maxScroll)
-                dir = 1;
-        }
-        autoScrollCell = dir ? cell : null;
-        autoScrollDir = dir;
+        edgeScroll.aim(cell, editor, point);
     }
-    property Item autoScrollCell: null
-    property int autoScrollDir: 0
-    Timer {
-        interval: 16
-        repeat: true
-        running: !!editor.autoScrollCell && editor.autoScrollDir !== 0 && editor.pointerLift
-        onTriggered: {
-            editor.autoScrollCell.scrollBy(editor.autoScrollDir * Style.space(3));
-            editor.pointerMoved(editor.pointer);
-        }
+    EdgeScroll {
+        id: edgeScroll
+        active: editor.pointerLift
+        onStepped: editor.pointerMoved(editor.pointer)
     }
     // The chip the inspector pulls forward: the lifted one's place while
     // moving, else the cursor's chip.
@@ -1321,11 +1306,10 @@ Item {
             onWheel: function (wheel) {
                 var point = mapToItem(editor, wheel.x, wheel.y);
                 var cell = editor.cellAt(point);
-                if (!cell || !cell.overflows) {
+                if (!cell || !cell.scrollByWheel(wheel)) {
                     wheel.accepted = false;
                     return;
                 }
-                cell.scrollBy(wheel.pixelDelta.y ? -wheel.pixelDelta.y : -wheel.angleDelta.y / 120 * cell.rowStep);
                 editor.pointerMoved(point);
             }
             onPressed: function (mouse) {
