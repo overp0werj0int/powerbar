@@ -36,7 +36,7 @@ Wayland surfaces, which only happens on a real compositor (or in omabox).
    the steps of the action with `console.info("PBPERF step", Date.now() - t0)`.
 3. Trigger the action by IPC, not keys, where you can (`omarchy-shell powerbar
    keys` enters and leaves the keyboard mode). Restart with
-   `.claude/skills/omarchy-widget-debug/scripts/live.sh restart powerbar` or
+   `~/.claude/skills/omarchy-widget-debug/scripts/live.sh restart powerbar` or
    `omarchy-restart-shell` (never while the session is locked).
 4. Read the shell's log: `grep PBPERF "$(live.sh log)"`.
 5. Remove every PBPERF line before committing.

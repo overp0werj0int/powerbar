@@ -252,6 +252,7 @@ the new `FrameAnimation` (see step 9).
 
 ## Tooling
 
-The `omarchy-widget-lab` skill that produced the design is in
-`.claude/skills/omarchy-widget-lab/`. Use it for a new design question; it
+The `omarchy-widget-lab` skill that produced the design is the
+maintainer's, in `~/.claude/skills/omarchy-widget-lab/`, outside the
+repository (DEVELOPMENT.md, Skills). Use it for a new design question; it
 builds a fresh lab page.
