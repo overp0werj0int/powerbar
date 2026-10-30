@@ -125,9 +125,11 @@ TestCase {
   }
 
   // The Layout page outlives the others, as in Preferences: they read its
-  // geometry and camera. Built in the first test, under failOnWarning.
+  // geometry and camera. Built in the first test, under failOnWarning. Behind
+  // them, so its plates do not take their pointer.
   Loader {
     id: layoutLoader
+    z: -1
     anchors.fill: prefs
     active: false
     sourceComponent: Component {
@@ -359,5 +361,207 @@ TestCase {
     mouseClick(test, other.x, other.y);
     compare(page.selectedId, "g2", "the click selects the other group");
     compare(JSON.stringify(calls), JSON.stringify([["editGroups", "g1:Net@right g2:Time@left"]]), "the name goes to the group it was typed for");
+  }
+
+  // What both boards share, pinned on each page (PREFS-100, PREFS-104,
+  // PREFS-26): the name tip, the raised cursor chip, the dragged copy, the
+  // inspector's Tab fences.
+  // The Groups page once its first-group choice has run, so a place set now stays.
+  function settledGroups() {
+    var page = createTemporaryObject(groupsPage, prefs);
+    wait(50);
+    return page;
+  }
+  function chipNamed(page, key) {
+    return itemWith(page, function (k) { return k.ghost === true && k.record && k.record.instanceKey === key });
+  }
+  // The band a dragged copy casts under itself.
+  function bandUnder(chip) {
+    return itemWith(chip, function (k) { return k.x === 0.5 && k.y === chip.height });
+  }
+  // Whether the tip at depth `z` shows `title`.
+  function tipShows(page, z, title) {
+    return !!itemWith(page, function (k) { return k.z === z && !!itemWith(k, function (t) { return t.text === title }) });
+  }
+  function tabWalk(page) {
+    var first = page.focused, seen = [first];
+    for (var i = 0; i < 30; i++) {
+      keyClick(Qt.Key_Tab);
+      verify(page.inspectorFocused, "Tab stays inside the inspector");
+      if (page.focused === first)
+        return seen;
+      seen.push(page.focused);
+    }
+    fail("Tab never wrapped to the first control");
+    return seen;
+  }
+
+  function test_layoutOffBoardReleaseDropsAtLastTarget() {
+    var page = layoutEditor;
+    var from = centre(chipOf(page, "w1")), to = centre(chipOf(page, "c2"));
+    drag(from, to);
+    compare(page.liftTarget.section, "center");
+    mouseMove(test, 3, 3);
+    compare(page.liftTarget.section, "center", "off the layers the last target stays");
+    mouseRelease(test, 3, 3);
+    compare(page.lifted, null);
+    compare(calls.length, 1, "the release drops it there");
+    compare(calls[0][2], "center");
+  }
+  function test_groupsOffBoardReleasePutsItBack() {
+    var page = createTemporaryObject(groupsPage, prefs);
+    wait(50);
+    var from = centre(chipOf(page, "w1")), to = centre(chipOf(page, "b1"));
+    drag(from, to);
+    compare(page.liftTarget.area, "gap");
+    mouseMove(test, 3, 3);
+    compare(page.liftTarget, null, "off the plates the target is cleared");
+    mouseRelease(test, 3, 3);
+    compare(page.lifted, null);
+    compare(calls.length, 0, "nothing is written");
+    compare(page.cursorKey, "pool:w1", "the widget is back");
+  }
+  function test_groupsDragSpentByEsc() {
+    var page = createTemporaryObject(groupsPage, prefs);
+    wait(50);
+    var from = centre(chipOf(page, "w1")), to = centre(chipOf(page, "b1"));
+    drag(from, to);
+    verify(page.pointerLift);
+    keyClick(Qt.Key_Escape);
+    compare(page.lifted, null, "esc cancels the drag");
+    mouseMove(test, to.x + 20, to.y);
+    verify(!page.lifted, "the spent press lifts nothing");
+    mouseRelease(test, to.x + 20, to.y);
+    compare(calls.length, 0, "nothing is written");
+  }
+  function test_groupsPlusMakesAGroup() {
+    var page = createTemporaryObject(groupsPage, prefs);
+    wait(50);
+    var tile = itemWith(page, function (k) { return k.zone === "right" && !!k.plus });
+    verify(tile, "the right zone has a tile");
+    var plus = tile.plus;
+    var at = centre(plus);
+    mouseClick(test, at.x, at.y);
+    wait(50);
+    compare(calls.length, 1);
+    compare(calls[0][0], "editGroups");
+    verify(/:New group@right/.test(calls[0][1]), "a new group in the plus's zone");
+  }
+  function test_groupsCarryRefusedOntoPlus() {
+    var page = settledGroups();
+    page.place({ area: "member", id: "g2", pos: 0 });
+    page.focusFirst();
+    tryVerify(function () { return page.stageFocused }, 1000);
+    var before = JSON.stringify(page.at);
+    keyClick(Qt.Key_J, Qt.ShiftModifier);
+    compare(page.lifted, null, "nothing stays lifted");
+    compare(calls.length, 0, "nothing is written");
+    compare(JSON.stringify(page.at), before, "the cursor stays");
+  }
+  function test_groupsCarryRefusedOntoPool() {
+    var page = settledGroups();
+    page.place({ area: "pool", pos: 0 });
+    page.focusFirst();
+    tryVerify(function () { return page.stageFocused }, 1000);
+    keyClick(Qt.Key_J, Qt.ShiftModifier);
+    compare(page.lifted, null, "nothing stays lifted");
+    compare(calls.length, 0, "nothing is written");
+    compare(JSON.stringify(page.at), JSON.stringify({ area: "pool", pos: 0 }), "the cursor stays");
+  }
+  function test_groupsKeyLiftShowsTheCopy() {
+    var page = groupsKeys();
+    keyClick(Qt.Key_Space);
+    tryVerify(function () { return page.copyShown }, 1000, "the lifted widget's copy shows over its landing place");
+    verify(chipNamed(page, "w1"), "a flying copy of the widget");
+    keyClick(Qt.Key_Escape);
+  }
+
+  function test_layoutCursorChipIsRaised() {
+    var page = layoutKeys();
+    verify(chipOf(page, "w1").raised, "the cursor's chip rises");
+    verify(!chipOf(page, "c2").raised, "the others stay down");
+  }
+  function test_groupsCursorChipIsRaised() {
+    var page = groupsKeys();
+    verify(chipOf(page, "w1").raised, "the cursor's chip rises");
+    verify(!chipOf(page, "c2").raised, "the others stay down");
+  }
+  function test_ghostBand() {
+    var page = layoutEditor;
+    drag(centre(chipOf(page, "w1")), centre(chipOf(page, "c2")));
+    var ghost = chipNamed(page, "w1");
+    verify(ghost, "Layout draws the dragged copy");
+    verify(!bandUnder(ghost), "Layout's copy casts no band");
+    mouseRelease(test, 0, 0);
+    var groups = createTemporaryObject(groupsPage, prefs);
+    wait(50);
+    drag(centre(chipOf(groups, "w1")), centre(chipOf(groups, "b1")));
+    ghost = chipNamed(groups, "w1");
+    verify(ghost, "Groups draws the dragged copy");
+    verify(bandUnder(ghost), "Groups' copy casts its band");
+    mouseRelease(test, 0, 0);
+  }
+
+  function test_layoutNameTip() {
+    var page = layoutKeys();
+    wait(700);
+    var a = centre(chipOf(page, "w1")), b = centre(chipOf(page, "c2"));
+    mouseMove(test, a.x, a.y);
+    verify(!tipShows(page, 110, "omarchy.workspaces"), "not at once");
+    tryVerify(function () { return tipShows(page, 110, "omarchy.workspaces") }, 2000, "after a rest on the chip");
+    mouseMove(test, b.x, b.y);
+    verify(tipShows(page, 110, "omarchy.clock"), "the next chip shows it at once");
+    mouseMove(test, a.x, a.y);
+    verify(tipShows(page, 110, "omarchy.workspaces"));
+    keyClick(Qt.Key_Space);
+    verify(page.lifted, "a lift");
+    verify(!tipShows(page, 110, "omarchy.workspaces"), "hides the tip");
+    keyClick(Qt.Key_Escape);
+  }
+  function test_groupsNameTip() {
+    var page = groupsKeys();
+    var a = centre(chipOf(page, "w1")), b = centre(chipOf(page, "c2"));
+    mouseMove(test, a.x, a.y);
+    verify(!tipShows(page, 130, "omarchy.workspaces"), "not at once");
+    tryVerify(function () { return tipShows(page, 130, "omarchy.workspaces") }, 2000, "after a rest on the chip");
+    mouseMove(test, b.x, b.y);
+    verify(tipShows(page, 130, "omarchy.clock"), "the next chip shows it at once");
+    mouseMove(test, a.x, a.y);
+    verify(tipShows(page, 130, "omarchy.workspaces"));
+    keyClick(Qt.Key_Space);
+    verify(page.lifted, "a lift");
+    verify(!tipShows(page, 130, "omarchy.workspaces"), "hides the tip");
+    keyClick(Qt.Key_Escape);
+  }
+
+  function test_layoutInspectorTabWraps() {
+    var page = layoutKeys();
+    keyClick(Qt.Key_Return);
+    tryVerify(function () { return page.inspectorFocused }, 1000, "the inspector takes the keys");
+    var seen = tabWalk(page);
+    verify(seen.length > 1, "the inspector has controls");
+    keyClick(Qt.Key_Tab, Qt.ShiftModifier);
+    verify(page.inspectorFocused);
+    compare(page.focused, seen[seen.length - 1], "Shift+Tab from the first goes to the last");
+    page.pushBack();
+  }
+  function test_groupsInspectorTabWrapsAndEscReturns() {
+    var page = createTemporaryObject(groupsPage, prefs);
+    page.selectedId = "g1";
+    wait(50);
+    page.place({ area: "face", id: "g1" });
+    page.focusFirst();
+    tryVerify(function () { return page.stageFocused }, 1000);
+    keyClick(Qt.Key_Return);
+    tryVerify(function () { return page.inspectorFocused }, 1000, "enter on a face takes the name field");
+    var seen = tabWalk(page);
+    verify(seen.length > 1, "the inspector has controls");
+    keyClick(Qt.Key_Tab, Qt.ShiftModifier);
+    verify(page.inspectorFocused);
+    compare(page.focused, seen[seen.length - 1], "Shift+Tab from the first goes to the last");
+    keyClick(Qt.Key_Tab);
+    keyClick(Qt.Key_Escape);
+    verify(page.stageFocused, "esc goes back to the chosen face");
+    verify(!page.inspectorFocused);
   }
 }
