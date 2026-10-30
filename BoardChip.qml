@@ -42,7 +42,6 @@ Item {
     // A flat copy casts the 6 px band.
     property bool shadowed: ghost || pulled
     readonly property bool outline: placeholder || pulledOut
-    // The cursor's chip rises off its tile, casting a shadow on it (PREFS-104).
     readonly property bool raised: isCursor && !outline
     readonly property real raise: lift.value
     readonly property color pageColor: Qt.rgba(Commons.Color.popups.background.r, Commons.Color.popups.background.g, Commons.Color.popups.background.b, 1)
