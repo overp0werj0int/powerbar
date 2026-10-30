@@ -699,27 +699,18 @@ Item {
     function drop() {
         if (!lifted)
             return;
-        var record = lifted, target = liftTarget, origin = liftOrigin;
-        var unchanged = target.section === origin.section && target.mode === origin.mode && target.pos === origin.pos;
-        var into = members(target.section, target.mode, record.instanceKey);
-        // Into the hidden slab a widget keeps its zone (a tray icon takes the
-        // tray's), so the drop only orders it among that zone's (PREFS-107).
-        var section = target.mode === "hidden" ? (origin.mode === "tray" ? trayZone : record.section) : target.section;
-        var before = target.mode === "hidden" ? Model.slabBefore(into, target.pos, section) : Model.dropBefore(into, target.pos);
+        var record = lifted, target = liftTarget;
+        var plan = Model.dropPlan(record, liftOrigin, target, members(target.section, target.mode, record.instanceKey), trayZone);
         lifted = null;
         pointerLift = false;
         cursorKey = record.instanceKey;
         cursorCell = target;
-        if (unchanged)
-            return;
-        // Out of the tray, back into it, or within it (the tray keeps its order).
-        if (origin.mode === "tray") {
-            if (target.mode !== "tray")
-                cursorKey = preferences.takeFromTray(record, section, target.mode, before);
-        } else if (target.mode === "tray")
+        if (plan.op === "takeFromTray")
+            cursorKey = preferences.takeFromTray(record, plan.section, target.mode, plan.before);
+        else if (plan.op === "returnToTray")
             preferences.returnToTray(record);
-        else
-            preferences.move(record, section, target.mode, before, target.mode === "hidden" || record.groupId ? [] : Model.endGroupsPassed(into, target.pos));
+        else if (plan.op === "move")
+            preferences.move(record, plan.section, target.mode, plan.before, plan.passed);
     }
     // Keep an item's place in its zone when only its visibility changes.
     // Rows widgets were hidden from this session, so showing one again restores it.
