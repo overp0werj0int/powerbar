@@ -763,12 +763,30 @@ Item {
             // Pages sliding off keep to the card.
             clip: pages.sliding
             focus: true
-            opacity: prefs.opened ? 1 : 0
+            // The fade starts on the second frame after the open (AfterPaint):
+            // the first takes up to 200 ms to build, longer than the fade, so
+            // started with the open it was over before anything showed.
+            property bool shown: false
+            opacity: shown ? 1 : 0
             Behavior on opacity {
-                enabled: prefs.bar && prefs.bar.animationsEnabled
+                enabled: prefs.opened && prefs.bar && prefs.bar.animationsEnabled
                 NumberAnimation {
                     duration: 140
                     easing.type: Easing.OutCubic
+                }
+            }
+            AfterPaint {
+                id: cardReveal
+                onReady: card.shown = prefs.opened
+            }
+            Connections {
+                target: prefs
+                function onOpenedChanged() {
+                    cardReveal.cancel();
+                    if (prefs.opened && prefs.bar && prefs.bar.animationsEnabled)
+                        cardReveal.begin();
+                    else
+                        card.shown = prefs.opened;
                 }
             }
 
@@ -1063,22 +1081,43 @@ Item {
                         function onPageChanged() {
                             pages.turnTo(prefs.page);
                         }
+                        // Closed before the slide began: the pages rest.
+                        function onOpenedChanged() {
+                            if (prefs.opened || !turnStart.running)
+                                return;
+                            turnStart.cancel();
+                            pages.shift = 0;
+                            pages.leaving = -1;
+                        }
                     }
                     // A switch during a slide carries on from where the strip is.
+                    // The next page holds off its place until the second frame
+                    // after the switch (AfterPaint): the frame that first shows
+                    // it takes up to 100 ms, and the slide started with the
+                    // switch was half done by then.
                     function turnTo(index) {
                         if (index === current)
                             return;
                         slide.stop();
+                        turnStart.cancel();
                         if (!prefs.opened || !prefs.bar || !prefs.bar.animationsEnabled || width <= 0) {
                             shift = 0;
+                            leaving = -1;
                             current = index;
                             return;
                         }
                         direction = index > current ? 1 : -1;
                         leaving = current;
                         current = index;
-                        slide.from = shift + direction * travel;
-                        slide.restart();
+                        shift = shift + direction * travel;
+                        turnStart.begin();
+                    }
+                    AfterPaint {
+                        id: turnStart
+                        onReady: {
+                            slide.from = pages.shift;
+                            slide.restart();
+                        }
                     }
                     function shows(index) {
                         return index === current || index === leaving;
