@@ -35,8 +35,6 @@ Item {
     // How far Preferences has slid the page off its place, as on the
     // Layout page.
     property real slide: 0
-    // The keys are a legend on the page (PREFS-103), so the footer hides.
-    readonly property var hints: []
 
     // ---------------------------------------------------------------- data
     readonly property var zones: SectionsModel.lists
@@ -683,12 +681,6 @@ Item {
     })
     readonly property var plateHeights: Model.shareLayers(needs.demands, needs.floors, Math.max(0, height - stackTop - bottomBand), tilt, planeDistance, layout.layerGap, needs.first)
     readonly property var stack: Model.stackLayers(plateHeights, tilt, planeDistance, layout.layerGap)
-    // Where a point on a plate (its own coordinates, before the tilt) is
-    // seen in the page: plates turn about their top edge, seen about the axis.
-    function seen(plate, px, py) {
-        var h = Model.tiltedHeight(py, tilt, planeDistance);
-        return Qt.point(axis + Model.tiltedSpread(plateX + px - axis, h, tilt, planeDistance), plate.y + h);
-    }
 
     // ---------------------------------------------------------- the camera
     // The Layout page's camera with the Layout page's own arguments, so the

@@ -452,9 +452,8 @@ Item {
     readonly property bool gridFocused: within(focused, sheet)
     readonly property bool inspectorFocused: within(focused, inspector)
     // The keys for what has focus, drawn as a legend at the page's bottom
-    // left (PREFS-103) rather than in the footer: the header already shows
-    // the pages' digits and esc Close.
-    readonly property var hints: []
+    // left (PREFS-103): the header already shows the pages' digits and esc
+    // Close.
     readonly property var legend: focused === sideDot ? sideDot.keyHints.concat([
         {
             keys: "tab",
@@ -1894,7 +1893,7 @@ Item {
                 Hint {
                     visible: !panel.isGroup && !panel.inTray && (activityToggle.clockDriven || editor.bar.autoHide && !editor.bar.autoHideActivity)
                     dim: true
-                    text: activityToggle.clockDriven ? "It changes on a clock, so it never brings the bar out" : !editor.bar.autoHide ? "Applies while the bar autohides" : "Turned off for every widget on the Behavior page"
+                    text: activityToggle.clockDriven ? "It changes on a clock, so it never brings the bar out" : "Turned off for every widget on the Behavior page"
                 }
                 // A group's members, by their faces.
                 Flow {

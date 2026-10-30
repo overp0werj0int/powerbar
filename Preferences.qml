@@ -200,7 +200,6 @@ Item {
         else
             pendingGroupId = id;
     }
-    readonly property var hints: pageItems[page] ? pageItems[page].hints : []
 
     function open(payloadJson) {
         // Preferences takes the keyboard: a keyboard mode left on would hold it too.
@@ -1227,33 +1226,13 @@ Item {
                 }
 
                 // ---------------------------------------------------------- footer
-                // A page that draws its own key legend (Layout) has no footer
-                // unless a save failed.
+                // Every page draws its keys as a legend (PREFS-103): the
+                // footer shows only a save that failed (PREFS-5).
                 RowLayout {
-                    visible: prefs.hints.length > 0 || prefs.status !== ""
+                    visible: prefs.status !== ""
                     Layout.fillWidth: true
                     Layout.topMargin: Gap.m
                     spacing: Gap.l
-                    Repeater {
-                        model: prefs.hints
-                        Row {
-                            required property var modelData
-                            spacing: Gap.xs
-                            Repeater {
-                                model: String(parent.modelData.keys).split(" ")
-                                KeyCap {
-                                    required property string modelData
-                                    text: modelData
-                                    anchors.verticalCenter: parent ? parent.verticalCenter : undefined
-                                }
-                            }
-                            InkText {
-                                text: parent.modelData.label
-                                role: "caption"
-                                anchors.verticalCenter: parent.verticalCenter
-                            }
-                        }
-                    }
                     Item {
                         Layout.fillWidth: true
                     }
