@@ -2437,8 +2437,8 @@ Item {
   onBarConfigChanged: {
     // Older shapes are read into the five zone lists (SectionsModel): the read
     // copy comes back through here.
+    retireZoneModes(barConfig)
     if (SectionsModel.needsRead(barConfig)) {
-      retireZoneModes(barConfig)
       barConfig = SectionsModel.read(JSON.parse(JSON.stringify(barConfig)))
       return
     }
@@ -2465,10 +2465,11 @@ Item {
   Timer { id: lostKeysLater; interval: 0; onTriggered: root.restoreLostKeys() }
   // A config from the retired zone modes is saved in the five lists once, after
   // the arrangements each mode kept are copied to the cache folder (never read
-  // back): zone-layouts-<date>.json.
+  // back): zone-layouts-<date>.json. They leave shell.json with that copy; a
+  // copy that fails is tried again on the next start.
   property bool zoneModesRetired: false
   function retireZoneModes(bar) {
-    if (zoneModesRetired || !("powerbarZones" in bar || "powerbarZoneLayouts" in bar)) return
+    if (zoneModesRetired || !Util.isPlainObject(bar) || !("powerbarZones" in bar || "powerbarZoneLayouts" in bar)) return
     zoneModesRetired = true
     var kept = SectionsModel.zoneLayouts(bar)
     zoneLayoutsBackup.command = ["sh", "-c", 'umask 077; mkdir -p -- "${1%/*}" || exit 1; [ -z "$2" ] || [ -e "$1" ] || printf "%s\\n" "$2" > "$1"',
@@ -2479,7 +2480,7 @@ Item {
   Process {
     id: zoneLayoutsBackup
     onExited: function(code) {
-      if (code === 0) configStore.writeNow(function(config) {})
+      if (code === 0) configStore.writeNow(function(config) { if (config.bar) delete config.bar.powerbarZoneLayouts })
       else console.warn("powerbar: could not copy the zone modes' arrangements to the cache folder; shell.json keeps them")
     }
   }

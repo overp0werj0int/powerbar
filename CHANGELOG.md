@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- The arrangements the retired zone modes kept stay in shell.json until their copy in the cache folder is made, as the warning says; before, a failed copy was followed by the next settings write deleting them.
 - With Center set left of the camera (`centerSide left`), a screen without a camera keeps the Center box's on-demand widgets behind Right of center's dots, as it should (ZONE-96); before, it counted them on the other side's dots. Beside a camera, the box's on-demand widgets now also draw at the dots they are counted on (ZONE-26).
 - `omarchy-shell powerbar get centerSide` answers the side the Center zone takes by a camera notch instead of `null`.
 - Keyboard page: a shortcut removed, restored or taken while the previous change was still being written to Hyprland is now bound too; before, it was saved in the settings but never reached `bindings.lua`, and a refused earlier change could put back the wrong shortcuts.

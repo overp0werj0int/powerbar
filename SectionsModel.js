@@ -15,7 +15,10 @@
 var lists = ["left", "centerBegin", "center", "centerEnd", "right"]
 var centerLists = ["centerBegin", "center", "centerEnd"]
 // Keys only older configs have: their presence means the config must be read.
-var legacyKeys = ["centerAnchor", "powerbarFiveZones", "powerbarZones", "powerbarZoneLayouts"]
+// The retired modes' arrangements (powerbarZoneLayouts) are not among them:
+// every write reads the config, and they stay until Powerbar has copied them
+// to the cache folder (Bar.qml retireZoneModes).
+var legacyKeys = ["centerAnchor", "powerbarFiveZones", "powerbarZones"]
 
 function isObject(value) {
   return !!value && typeof value === "object" && !Array.isArray(value)
