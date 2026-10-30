@@ -3985,14 +3985,24 @@ Item {
       // Beside a side bar a submenu opens past the menu.
       + (root.onDemandMenu && root.vertical ? Style.space(320) : 0)
     // A zone's menu can be longer than a group's: the room grows to the
-    // longest one opened yet, within the screen, and stays, so opening and
-    // closing menus doesn't resize the bar's surface each time.
+    // longest one opened yet, within the screen, and stays while menus are
+    // in use, so opening and closing them doesn't resize the bar's surface
+    // each time. It goes back once none has been open for a while: kept for
+    // the session, a long menu left a near full-screen surface that every
+    // frame the bar animates redraws.
     property real menuReach: 0
     readonly property real menuNeed: drawer.opened && drawer.namedMenu && !root.vertical ? drawer.desiredCross + drawer.gap + root.edgeGap : 0
     onMenuNeedChanged: {
       var room = screen ? screen.height - extent - effectPadding : menuNeed
       var next = Math.min(Math.ceil(menuNeed), room)
       if (next > menuReach) menuReach = next
+      if (menuNeed > 0) menuShrink.stop()
+      else if (menuReach > 0) menuShrink.restart()
+    }
+    Timer {
+      id: menuShrink
+      interval: 3000
+      onTriggered: if (drawer.opened) restart(); else barWindow.menuReach = 0
     }
 
     // Hiding slides the strip past its screen edge instead of unmapping the
