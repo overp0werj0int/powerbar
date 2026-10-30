@@ -1,3 +1,4 @@
+.import "ManagedModel.js" as ManagedModel
 .import "SectionsModel.js" as SectionsModel
 
 // Powerbar from the command line (README, "Command line"): what each setting
@@ -158,7 +159,6 @@ function widgetRecord(records, selector) {
     + byId.map(function(r) { return r.instanceKey }).join(", ") }
   return { error: "no widget " + sel + " in the layout" }
 }
-var visibilities = ["shown", "managed", "hidden"]
 var widgetFields = ["zone", "visibility", "before", "group", "activityPeek", "badgeProperty", "urgentProperty"]
 // A widget change from the command line, checked whole before anything is
 // written. → { patch } or { error }. ctx: { groups: [ids] }.
@@ -167,7 +167,7 @@ function widgetPatch(patch, ctx) {
   var unknown = Object.keys(patch).filter(function(k) { return widgetFields.indexOf(k) < 0 })
   if (unknown.length) return { error: "unknown field " + unknown[0] + "; fields are " + widgetFields.join(", ") }
   if (patch.zone !== undefined && SectionsModel.lists.indexOf(patch.zone) < 0) return { error: "zone is one of " + SectionsModel.lists.join(", ") }
-  if (patch.visibility !== undefined && visibilities.indexOf(patch.visibility) < 0) return { error: "visibility is one of " + visibilities.join(", ") }
+  if (patch.visibility !== undefined && ManagedModel.visibilityModes.indexOf(patch.visibility) < 0) return { error: "visibility is one of " + ManagedModel.visibilityModes.join(", ") }
   if (patch.before !== undefined && typeof patch.before !== "string") return { error: "before names a widget, or \"\" for the zone's end" }
   if (patch.group !== undefined && (typeof patch.group !== "string" || (patch.group && (ctx && ctx.groups || []).indexOf(patch.group) < 0)))
     return { error: "group is a group's id, or \"\" for none" }
@@ -216,7 +216,7 @@ function groupRecord(groups, selector) {
   return { error: "no group " + sel }
 }
 var groupChoices = {
-  visibility: visibilities, face: ["glyph", "text", "both"], badgeMode: ["sum", "members"],
+  visibility: ManagedModel.visibilityModes, face: ["glyph", "text", "both"], badgeMode: ["sum", "members"],
   memberDisplay: ["native", "name", "both"],
   iconTint: ["text", "own"], iconFont: ["", "omarchy"]
 }

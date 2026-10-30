@@ -4,6 +4,7 @@ const load = require('./load.cjs');
 const model = load('PreferencesModel.js');
 const barModel = load('BarModel.js');
 const sections = load('SectionsModel.js');
+const managed = load('ManagedModel.js');
 const noHome = ({ home, ...at }) => at;
 const fixture = () => ({ bar: { layout: {
   left: [{ id: 'a', format: 'HH:mm', nested: { keep: true } }, { id: 'a', size: 20 }],
@@ -55,7 +56,7 @@ test('dropping on an extended island changes only that instance to Managed', () 
 });
 test('supports every zone and visibility as a destination and preserves settings through repeated moves', () => {
   const config = fixture();
-  for (const section of sections.lists) for (const mode of model.modes) {
+  for (const section of sections.lists) for (const mode of managed.visibilityModes) {
     const source = model.records(config.bar.layout).find(e => e.fingerprint.includes('HH:mm'));
     assert.equal(model.move(config, source, section, mode, -1), true);
     const moved = model.records(config.bar.layout).find(e => e.fingerprint.includes('HH:mm'));
@@ -339,17 +340,17 @@ test('a lifted widget gets every gap of a zone before it moves to the next layer
 });
 test('shift with j or k moves a widget to the next layer at once', () => {
   const rows = ['shown', 'managed', 'hidden', 'tray'];
-  assert.equal(model.nextLayer(model.modes, 'shown', 1), 'managed');
-  assert.equal(model.nextLayer(model.modes, 'managed', 1), 'hidden');
-  assert.equal(model.nextLayer(model.modes, 'managed', -1), 'shown');
+  assert.equal(model.nextLayer(managed.visibilityModes, 'shown', 1), 'managed');
+  assert.equal(model.nextLayer(managed.visibilityModes, 'managed', 1), 'hidden');
+  assert.equal(model.nextLayer(managed.visibilityModes, 'managed', -1), 'shown');
   // At the first or last layer nothing happens.
-  assert.equal(model.nextLayer(model.modes, 'shown', -1), '');
-  assert.equal(model.nextLayer(model.modes, 'hidden', 1), '');
+  assert.equal(model.nextLayer(managed.visibilityModes, 'shown', -1), '');
+  assert.equal(model.nextLayer(managed.visibilityModes, 'hidden', 1), '');
   // A tray icon can go on to the tray and back.
   assert.equal(model.nextLayer(rows, 'hidden', 1), 'tray');
   assert.equal(model.nextLayer(rows, 'tray', -1), 'hidden');
   assert.equal(model.nextLayer(rows, 'tray', 1), '');
-  assert.equal(model.nextLayer(model.modes, 'tray', -1), '');
+  assert.equal(model.nextLayer(managed.visibilityModes, 'tray', -1), '');
   // It keeps its place in its zone.
   const items = [{ index: 0 }, { index: 2 }, { index: 5 }];
   assert.equal(model.layerPos(items, 3), 2);

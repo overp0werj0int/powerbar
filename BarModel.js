@@ -1,3 +1,4 @@
+.import "ManagedModel.js" as ManagedModel
 .import "SectionsModel.js" as SectionsModel
 
 function isPlainObject(value) {
@@ -177,7 +178,7 @@ function moveInstanceInConfig(config, fromRegion, instanceKey, toRegion, beforeK
   if (!Array.isArray(from) || !Array.isArray(to)) return false
   var fromIndex = from.findIndex(function(entry) { return entry && entry.powerbarInstance === instanceKey })
   if (fromIndex < 0 || instanceKey === beforeKey) return false
-  if (visibility !== undefined && ["shown", "managed", "hidden"].indexOf(visibility) < 0) return false
+  if (visibility !== undefined && ManagedModel.visibilityModes.indexOf(visibility) < 0) return false
   var toIndex = beforeKey ? to.findIndex(function(entry) { return entry && entry.powerbarInstance === beforeKey }) : to.length
   if (toIndex < 0) return false
   if (from === to && fromIndex < toIndex) toIndex--

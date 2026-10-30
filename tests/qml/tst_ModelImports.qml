@@ -27,4 +27,12 @@ TestCase {
     compare(ManagedModel.layoutEntries({ layout: layout() }).length, 2)
     compare(TrayItemsModel.entries({ centerEnd: [{ type: "trayItem", item: "x" }] }).length, 1)
   }
+  function test_visibilityModes() {
+    compare(CliModel.widgetPatch({ visibility: "x" }, {}).error, "visibility is one of shown, managed, hidden")
+    compare(PreferencesModel.rows.join(), "shown,managed,hidden,tray")
+    compare(PreferencesModel.mode({ id: "a" }, null, true), "managed")
+    compare(GroupsModel.groups({ layout: layout(), powerbarGroups: [{ id: "g", visibility: "managed", items: [] }] })[0].visibility, "managed")
+    verify(!BarModel.moveInstanceInConfig({ bar: { layout: layout() } }, "tray", "pt", "left", "", "x"))
+    compare(TrayItemsModel.moveOut({ bar: { layout: layout() } }, { id: "app" }, "left", "x", "", "k"), null)
+  }
 }

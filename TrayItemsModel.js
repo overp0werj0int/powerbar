@@ -1,3 +1,4 @@
+.import "ManagedModel.js" as ManagedModel
 .import "SectionsModel.js" as SectionsModel
 
 // Omarchy's tray icons as bar entries (docs/behavior/layout.md, TRAY-*). An
@@ -110,7 +111,7 @@ function moveOut(config, item, section, visibility, beforeKey, key) {
   var layout = config && config.bar && config.bar.layout
   var id = String(item && item.id || "")
   if (!isObject(layout) || !id || SectionsModel.lists.indexOf(section) < 0
-      || ["shown", "managed", "hidden"].indexOf(visibility) < 0) return null
+      || ManagedModel.visibilityModes.indexOf(visibility) < 0) return null
   if (entries(layout).some(function(e) { return String(e.item) === id })) return null
   var trays = trayEntries(layout)
   var entry = { id: entryIdFor(id), type: type, item: id, title: titleOf(item), powerbarVisibility: visibility }

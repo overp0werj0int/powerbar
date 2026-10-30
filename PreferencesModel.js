@@ -1,19 +1,16 @@
+.import "ManagedModel.js" as ManagedModel
 .import "SectionsModel.js" as SectionsModel
 
 // Pure layout operations. Address entries by section + index so duplicates remain distinct.
-var modes = ["shown", "managed", "hidden"]
 // The rows of the Layout page: the visibilities, then Omarchy's tray, whose
 // icons can be moved out onto the bar (TrayItemsModel.js).
-var rows = modes.concat(["tray"])
+var rows = ManagedModel.visibilityModes.concat(["tray"])
 
 function id(entry) { return typeof entry === "string" ? entry : String(entry.id || "") }
-// As ManagedModel.mode, without its pending state: a widget with no saved
-// visibility is On the bar, or, on a config still following the old default
-// (legacy), On demand unless it comes from Omarchy.
+// As ManagedModel.mode, without its pending state: a widget whose metadata has
+// not come yet counts as not from Omarchy.
 function mode(entry, metadata, legacy) {
-  var value = entry && entry.powerbarVisibility
-  if (modes.indexOf(value) >= 0) return value
-  return legacy && !(metadata && metadata.firstParty === true) ? "managed" : "shown"
+  return ManagedModel.mode(entry, metadata || {}, legacy)
 }
 function records(layout, metadataFor, legacy) {
   var result = []
@@ -27,7 +24,7 @@ function records(layout, metadataFor, legacy) {
   return result
 }
 function move(config, source, section, visibility, beforeIndex) {
-  if (!source || SectionsModel.lists.indexOf(section) < 0 || modes.indexOf(visibility) < 0) return false
+  if (!source || SectionsModel.lists.indexOf(section) < 0 || ManagedModel.visibilityModes.indexOf(visibility) < 0) return false
   var layout = config.bar && config.bar.layout
   if (!layout || !Array.isArray(layout[source.section])) return false
   var from = layout[source.section]
@@ -246,7 +243,7 @@ function stepLayerLift(count, target, dx, dy, columnsFor, rowList, perRow) {
 }
 function layerStep(count, at, dx, dy, columnsFor, rowList, extra, perRow) {
   columnsFor = columnsFor || zonesOnly
-  var list = rowList || modes, per = perRow || 5
+  var list = rowList || ManagedModel.visibilityModes, per = perRow || 5
   var m = Math.max(0, list.indexOf(at.mode)), home = at.home || ""
   var column = across(columnsFor(list[m]), at.section, home), pos = at.pos
   function last(c, row) { return Math.max(0, count(c, row) - 1 + extra) }
@@ -300,7 +297,7 @@ function activeZone(cell) {
 // Shift with j or k moves a widget to the next layer at once (PREFS-27):
 // the layer `dy` from `mode` in `rowList`, or "" past the first or last.
 function nextLayer(rowList, mode, dy) {
-  var list = rowList || modes, i = list.indexOf(mode)
+  var list = rowList || ManagedModel.visibilityModes, i = list.indexOf(mode)
   if (i < 0 || !dy) return ""
   var next = i + (dy > 0 ? 1 : -1)
   return next >= 0 && next < list.length ? list[next] : ""

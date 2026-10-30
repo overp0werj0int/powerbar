@@ -13,6 +13,7 @@ import "ZoneFitNotice.js" as ZoneFitNotice
 import "AppearanceModel.js" as AppearanceModel
 import "CellModel.js" as CellModel
 import "SectionsModel.js" as SectionsModel
+import "ManagedModel.js" as ManagedModel
 
 // The bar's layout as an exploded view (docs/behavior/preferences.md
 // PREFS-99): one layer per visibility (On the bar, On demand, Hidden) and
@@ -49,7 +50,7 @@ Item {
     // The rows: the three visibilities, then the tray. Only a tray icon can be
     // lifted into the tray's row.
     readonly property var rows: Model.rows
-    readonly property var liftRows: lifted && lifted.trayItem ? Model.rows : Model.modes
+    readonly property var liftRows: lifted && lifted.trayItem ? Model.rows : ManagedModel.visibilityModes
     readonly property var cellEntries: {
         var cells = ({});
         for (var mode of Model.rows)
@@ -65,7 +66,7 @@ Item {
     }
     readonly property var snapshots: preferences.snapshots
     readonly property var sections: SectionsModel.lists
-    readonly property var modes: Model.modes
+    readonly property var modes: ManagedModel.visibilityModes
     readonly property bool sideBar: !!bar && bar.vertical
     readonly property var zoneNames: ({
             left: sideBar ? "Top" : "Left",
@@ -786,7 +787,7 @@ Item {
     // the same zone on the next layer at once, keeping its place in the
     // zone (PREFS-27). The chip stays the cursor.
     function carryLayer(record, dy) {
-        var mode = Model.nextLayer(record.trayItem ? Model.rows : Model.modes, record.mode, dy);
+        var mode = Model.nextLayer(record.trayItem ? Model.rows : ManagedModel.visibilityModes, record.mode, dy);
         if (!mode)
             return;
         var section = mode === "tray" ? "tray" : record.mode === "tray" ? trayZone : record.section;
