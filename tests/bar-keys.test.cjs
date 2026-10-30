@@ -190,6 +190,14 @@ test('the key strip names the keys of the edge', () => {
   assert.deepEqual(keys.legend('top', 'search')[3], { keys: 'Esc Esc', label: 'Leave' });
 });
 
+test('the key strip keeps its surface: mapped before the keys come on, drawn only while wanted', () => {
+  assert.deepEqual(keys.keyStrip(false, false, 'powerbar-keys', 'powerbar-keys'), { mapped: true, shown: false }, 'mapped and empty before the keys come on');
+  assert.deepEqual(keys.keyStrip(true, false, 'powerbar-keys', 'powerbar-keys'), { mapped: true, shown: true }, 'keys on: only the card shows');
+  assert.deepEqual(keys.keyStrip(true, true, 'powerbar-keys', 'powerbar-keys'), { mapped: true, shown: false }, 'hidden while the bar slides');
+  assert.deepEqual(keys.keyStrip(false, false, 'powerbar', 'powerbar-keys'), { mapped: false, shown: false }, 'a new namespace remaps while nothing shows');
+  assert.deepEqual(keys.keyStrip(true, false, 'powerbar', 'powerbar-keys'), { mapped: true, shown: true }, 'never while the strip shows');
+});
+
 test('the ? sheet lists every key of the mode for the edge', () => {
   const top = keys.sheetKeys('top');
   // One keycap for the arrows, one for their vim letters, on every edge.

@@ -6,6 +6,7 @@ Item {
   id: store
   property Component factory: null
   property string recordProperty: "record"
+  property var keyOf: function(record) { return record.key }
   property var equivalent: Model.equal
   property var objects: Object.create(null)
   property var retired: []
@@ -15,7 +16,8 @@ Item {
   function reconcile(records) {
     var next = Object.create(null), membershipChanged = false
     for (var record of records) {
-      var object = objects[record.key]
+      var key = keyOf(record)
+      var object = objects[key]
       if (!object) {
         var properties = {}
         properties[recordProperty] = record
@@ -24,10 +26,10 @@ Item {
       } else if (!equivalent(object[recordProperty], record)) {
         object[recordProperty] = record
       }
-      if (object) next[record.key] = object
+      if (object) next[key] = object
     }
     var removed = []
-    for (var key in objects) if (!next[key]) { removed.push(objects[key]); membershipChanged = true }
+    for (var old in objects) if (!next[old]) { removed.push(objects[old]); membershipChanged = true }
     if (membershipChanged) {
       objects = next
       retired = retired.concat(removed)

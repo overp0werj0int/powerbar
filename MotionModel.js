@@ -15,6 +15,14 @@ function drawerMs(opening, notch) {
   return notch ? stripMs(opening, true) : opening ? 160 : 110
 }
 
+// The keyboard's key strip fades in over 180 ms and out over 120 (ease out),
+// as Omarchy's compositor faded its layer in and out each time it mapped
+// (looknfeel.lua fadeLayersIn 1.8, fadeLayersOut 1.2) before the strip's
+// surface stayed mapped (keyboard.md KEYS-32).
+function keyStripMs(showing) {
+  return showing ? 180 : 120
+}
+
 // A widget growing into or out of its zone (an inline expansion, an activity
 // reveal, the zone dots).
 var SLOT_MS = 120

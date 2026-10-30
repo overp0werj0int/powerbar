@@ -99,7 +99,9 @@ Item {
   Connections {
     target: barKeysItem
     enabled: root.frameLog
-    function onActiveChanged() { root.ev("keys", barKeysItem.active ? "on" : "off") }
+    // Coming on is watched as a motion (the strip fading in), so its run
+    // starts with the mode and not with the card, which follows it.
+    function onActiveChanged() { root.ev("keys", barKeysItem.active ? "on" : "off", barKeysItem.active ? MotionModel.keyStripMs(true) : 0) }
     function onCursorChanged() { if (barKeysItem.active) root.ev("cursor", root.evName(barKeysItem.cursor)) }
   }
   // Neighbours make way over a time that grows with the gap (150 ms for an
@@ -4716,16 +4718,25 @@ Item {
     // the bar (along the bottom for a side bar), so panels and drawers that
     // open beside the bar are never under it. It shows this edge's keys, the
     // search while finding, and every shortcut on ?.
+    // Its surface is mapped once and stays, transparent and taking no input
+    // while the strip is not shown (BarKeysModel.keyStrip): mapping it made
+    // the frame the keys came on a long one. At rest it holds the bar's keys,
+    // so the keys coming on neither maps nor resizes it.
     PanelWindow {
       id: keysStrip
       readonly property var keys: root.barKeys
       readonly property bool wanted: keys.heldBy(barWindow) && !keys.suspended && (root.keyLegend || keys.searching || keys.sheet)
+      // The bar's own surface names, so its blur rule covers the legend too.
+      readonly property string layer: root.overlayStyled.surface && root.surfaceEffects.blur ? "powerbar" : "powerbar-keys"
+      property string mappedLayer: ""
+      readonly property var surface: KeysModel.keyStrip(wanted, barWindow.sliding, layer, mappedLayer)
+      Component.onCompleted: mappedLayer = layer
+      onVisibleChanged: if (visible) mappedLayer = layer; else keysStripRemap.restart()
       screen: barWindow.screen
-      visible: wanted && !barWindow.sliding
+      visible: surface.mapped
       color: "transparent"
       exclusionMode: ExclusionMode.Ignore
-      // The bar's own surface names, so its blur rule covers the legend too.
-      WlrLayershell.namespace: root.overlayStyled.surface && root.surfaceEffects.blur ? "powerbar" : "powerbar-keys"
+      WlrLayershell.namespace: layer
       WlrLayershell.layer: WlrLayer.Overlay
       WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
       mask: Region {}
@@ -4737,12 +4748,22 @@ Item {
       implicitHeight: Math.ceil(stripCard.implicitHeight) + 2 * root.overlayShadowPad
       // Its text: the bar's once the legend is drawn like the bar.
       readonly property color ink: root.overlayStyled.surface ? root.barForeground : Commons.Color.popups.text
-      readonly property var entries: wanted ? KeysModel.legend(root.position, keys.mode, !!keys.drawer && !keys.drawer.namedMenu) : []
+      readonly property var entries: KeysModel.legend(root.position, keys.mode, !!keys.drawer && !keys.drawer.namedMenu)
       readonly property var sheetEntries: wanted && keys.sheet ? keys.sheetEntries() : []
       readonly property var sheetKeys: wanted && keys.sheet ? KeysModel.sheetKeys(root.position) : []
       EffectSurface {
         id: stripCard
         anchors.centerIn: parent
+        // Hidden by its opacity, not visibility: a hidden column lays out
+        // nothing, and the surface would shrink to its padding and grow again.
+        // It fades as the compositor faded the layer each time it mapped;
+        // the README's no_anim rule for `powerbar` gave that one no fade.
+        opacity: keysStrip.surface.shown ? 1 : 0
+        Behavior on opacity {
+          id: stripFade
+          enabled: root.systemMotion && keysStrip.layer !== "powerbar"
+          NumberAnimation { duration: MotionModel.keyStripMs(stripFade.targetValue > 0.5); easing.type: Easing.BezierSpline; easing.bezierCurve: [0.23, 1, 0.32, 1, 1, 1] }
+        }
         width: implicitWidth
         height: implicitHeight
         implicitWidth: stripColumn.implicitWidth + Style.space(24)
@@ -4933,6 +4954,9 @@ Item {
         }
       }
     }
+
+    // A strip that let go of its surface to take a new namespace maps again.
+    Timer { id: keysStripRemap; interval: 60; onTriggered: keysStrip.mappedLayer = keysStrip.layer }
 
     Timer { id: tooltipHold; interval: 800 }
     PopupWindow {
