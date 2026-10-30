@@ -8,6 +8,7 @@ import qs.Commons
 import qs.Commons as Commons
 import qs.Ui
 import "PreferencesModel.js" as Model
+import "BoardModel.js" as Board
 import "GroupsModel.js" as Groups
 import "ZoneFitNotice.js" as ZoneFitNotice
 import "AppearanceModel.js" as AppearanceModel
@@ -441,14 +442,8 @@ Item {
     // Its zone; none on a slab, so a slab chip lights no column (PREFS-99).
     readonly property string activeZone: Model.activeZone(activeCell)
     readonly property Item focused: editor.Window.activeFocusItem
-    function within(item, root) {
-        for (var p = item; p; p = p.parent)
-            if (p === root)
-                return true;
-        return false;
-    }
-    readonly property bool gridFocused: within(focused, sheet)
-    readonly property bool inspectorFocused: within(focused, inspector)
+    readonly property bool gridFocused: Board.within(focused, sheet)
+    readonly property bool inspectorFocused: Board.within(focused, inspector)
     // The keys for what has focus, drawn as a legend at the page's bottom
     // left (PREFS-103): the header already shows the pages' digits and esc
     // Close.
@@ -810,40 +805,33 @@ Item {
             moveCursor(dx, dy);
     }
     function keyPressed(event) {
-        if (event.modifiers & (Qt.ControlModifier | Qt.AltModifier))
+        var k = Board.keyCommand(event.key, event.text, event.modifiers);
+        if (!k)
             return;
-        var key = event.key, t = event.text, c = t.toLowerCase();
-        var carry = !!(event.modifiers & Qt.ShiftModifier);
         // h and l change zone; j and k walk a zone's chips and go on to the
         // same zone on the next layer at its ends.
-        if (key === Qt.Key_Left || c === "h")
-            step(-1, 0, carry);
-        else if (key === Qt.Key_Right || c === "l")
-            step(1, 0, carry);
-        else if (key === Qt.Key_Up || c === "k")
-            step(0, -1, carry);
-        else if (key === Qt.Key_Down || c === "j")
-            step(0, 1, carry);
-        else if (key === Qt.Key_Space) {
+        if (k.dx || k.dy)
+            step(k.dx, k.dy, k.carry);
+        else if (k.act === "space") {
             if (lifted)
                 drop();
             else
                 lift(cursorRecord, cursorCell);
-        } else if (key === Qt.Key_Return || key === Qt.Key_Enter) {
+        } else if (k.act === "enter") {
             if (lifted)
                 drop();
             else if (inspecting)
                 pushBack();
             else if (cursorRecord)
                 inspect(true);
-        } else if (key === Qt.Key_Escape && lifted)
+        } else if (k.act === "escape" && lifted)
             cancel();
-        else if (key === Qt.Key_Escape && inspecting)
+        else if (k.act === "escape" && inspecting)
             pushBack();
-        else if ((t === "x" || key === Qt.Key_Delete) && !lifted && cursorRecord) {
+        else if ((k.t === "x" || k.act === "delete") && !lifted && cursorRecord) {
             var r = cursorRecord;
             setPlacement(r, r.section, Model.toggledHidden(r.mode, hiddenFrom[r.instanceKey]));
-        } else if (t === "g" && !lifted && cursorRecord && cursorRecord.groupId)
+        } else if (k.t === "g" && !lifted && cursorRecord && cursorRecord.groupId)
             preferences.openGroup(cursorRecord.groupId);
         else
             return;
@@ -856,8 +844,7 @@ Item {
             var cell = cellRepeater.itemAt(i);
             if (!cell || !cell.visible)
                 continue;
-            var p = cell.mapFromItem(editor, point.x, point.y);
-            if (p.x >= 0 && p.y >= 0 && p.x < cell.width && p.y < cell.height)
+            if (Board.covers(cell, editor, point))
                 return cell;
         }
         return null;
@@ -1371,7 +1358,7 @@ Item {
                     editor.hoverKey = tile ? tile.record.instanceKey : "";
                     editor.hoverOn(pressed ? null : tile);
                 }
-                if (pressed && editor.pressed && !editor.pointerLift && Math.abs(point.x - editor.pressPoint.x) + Math.abs(point.y - editor.pressPoint.y) > Style.space(6)) {
+                if (pressed && editor.pressed && !editor.pointerLift && Board.pastThreshold(editor.pressPoint, point, Style.space(6))) {
                     editor.lift(editor.pressed.record, editor.pressed.cell);
                     editor.pointerLift = true;
                 }
@@ -1678,7 +1665,7 @@ Item {
         property Item lastInside: null
         function lastControl() {
             var last = layerPicker;
-            for (var item = layerPicker.nextItemInFocusChain(true); item && item !== endFence && item !== layerPicker && editor.within(item, panel); item = item.nextItemInFocusChain(true))
+            for (var item = layerPicker.nextItemInFocusChain(true); item && item !== endFence && item !== layerPicker && Board.within(item, panel); item = item.nextItemInFocusChain(true))
                 last = item;
             return last;
         }
@@ -1686,7 +1673,7 @@ Item {
             target: editor
             function onFocusedChanged() {
                 var f = editor.focused;
-                if (f && f !== startFence && f !== endFence && editor.within(f, panel))
+                if (f && f !== startFence && f !== endFence && Board.within(f, panel))
                     panel.lastInside = f;
             }
         }

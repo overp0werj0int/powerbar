@@ -8,6 +8,7 @@ import qs.Ui
 import "PreferencesModel.js" as Model
 import "GroupsModel.js" as Groups
 import "GroupsEditorModel.js" as Editor
+import "BoardModel.js" as Board
 import "SectionsModel.js" as SectionsModel
 import "MotionModel.js" as MotionModel
 
@@ -82,7 +83,7 @@ Item {
     property bool filtering: false
     property var filterFrom: null
     function openFilter() {
-        if (lifted || picker.opened || within(focused, inspector))
+        if (lifted || picker.opened || Board.within(focused, inspector))
             return;
         if (!filtering)
             filterFrom = {
@@ -560,26 +561,23 @@ Item {
         stage.forceActiveFocus(Qt.TabFocusReason);
     }
     function keyPressed(event) {
-        if (event.modifiers & (Qt.ControlModifier | Qt.AltModifier))
+        var k = Board.keyCommand(event.key, event.text, event.modifiers);
+        if (!k)
             return;
         if (filtering) {
             filterKey(event);
             return;
         }
-        var key = event.key, t = event.text, c = t.toLowerCase();
-        var carry = !!(event.modifiers & Qt.ShiftModifier);
-        var dx = key === Qt.Key_Left || c === "h" ? -1 : key === Qt.Key_Right || c === "l" ? 1 : 0;
-        var dy = key === Qt.Key_Up || c === "k" ? -1 : key === Qt.Key_Down || c === "j" ? 1 : 0;
-        if (dx || dy) {
-            step(dx, dy, carry);
+        if (k.dx || k.dy) {
+            step(k.dx, k.dy, k.carry);
             event.accepted = true;
             return;
         }
-        var enter = key === Qt.Key_Return || key === Qt.Key_Enter;
+        var enter = k.act === "enter";
         if (lifted) {
-            if (key === Qt.Key_Space || enter)
+            if (k.act === "space" || enter)
                 drop();
-            else if (key === Qt.Key_Escape)
+            else if (k.act === "escape")
                 cancel();
             else
                 return;
@@ -589,22 +587,22 @@ Item {
         // A face: the group itself.
         var faceId = at.area === "face" ? Editor.groupAt(stepState, at) : "";
         var zone = Editor.zoneAt(stepState, at);
-        if (key === Qt.Key_Space && cursorRecord)
+        if (k.act === "space" && cursorRecord)
             lift();
-        else if (key === Qt.Key_Space && faceId)
+        else if (k.act === "space" && faceId)
             liftFace(faceId);
         else if (enter && faceId) {
             nameField.forceActiveFocus(Qt.TabFocusReason);
             nameField.selectAll();
-        } else if (enter && at.area === "plus" || c === "n" && zone)
+        } else if (enter && at.area === "plus" || k.c === "n" && zone)
             createIn(zone, "");
         else if (enter && at.area === "member" && cursorRecord)
             countField.forceActiveFocus(Qt.TabFocusReason);
         else if (enter && at.area === "pool")
             addToChosen(cursorRecord);
-        else if ((c === "x" || key === Qt.Key_Delete) && faceId)
+        else if ((k.c === "x" || k.act === "delete") && faceId)
             dissolve(faceId);
-        else if ((c === "x" || key === Qt.Key_Delete) && at.area === "member" && cursorRecord)
+        else if ((k.c === "x" || k.act === "delete") && at.area === "member" && cursorRecord)
             takeOut(cursorRecord);
         else
             return;
@@ -955,7 +953,7 @@ Item {
                     editor.hoverKey = hit ? hit.key : editor.overFilter(point) ? "filter:" : "";
                     editor.hoverOn(pressed ? null : hit);
                 }
-                if (pressed && editor.pressed && !editor.pointerLift && Math.abs(point.x - editor.pressPoint.x) + Math.abs(point.y - editor.pressPoint.y) > Style.space(6)) {
+                if (pressed && editor.pressed && !editor.pointerLift && Board.pastThreshold(editor.pressPoint, point, Style.space(6))) {
                     if (editor.pressed.kind === "face")
                         editor.liftFace(editor.pressed.id);
                     else
@@ -1027,10 +1025,7 @@ Item {
     // "+", a face, a widget row, an empty group's note or else a zone's tile
     // on the list's plate; a pool chip or the pool.
     function inside(item, point) {
-        if (!item || !item.visible)
-            return false;
-        var p = item.mapFromItem(editor, point.x, point.y);
-        return p.x >= 0 && p.y >= 0 && p.x < item.width && p.y < item.height;
+        return !!item && item.visible && Board.covers(item, editor, point);
     }
     function inView(win, point) {
         return win.viewContains(win.mapFromItem(editor, point.x, point.y));
@@ -1437,7 +1432,7 @@ Item {
         property Item lastInside: null
         function lastControl() {
             var last = nameField;
-            for (var item = nameField.nextItemInFocusChain(true); item && item !== endFence && item !== nameField && editor.within(item, inspector); item = item.nextItemInFocusChain(true))
+            for (var item = nameField.nextItemInFocusChain(true); item && item !== endFence && item !== nameField && Board.within(item, inspector); item = item.nextItemInFocusChain(true))
                 last = item;
             return last;
         }
@@ -1479,7 +1474,7 @@ Item {
             target: editor
             function onFocusedChanged() {
                 var f = editor.focused;
-                if (f && f !== startFence && f !== endFence && editor.within(f, inspector))
+                if (f && f !== startFence && f !== endFence && Board.within(f, inspector))
                     inspector.lastInside = f;
             }
         }
@@ -1870,12 +1865,6 @@ Item {
         }
     }
     readonly property Item focused: editor.Window.activeFocusItem
-    function within(item, root) {
-        for (var p = item; p; p = p.parent)
-            if (p === root)
-                return true;
-        return false;
-    }
 
     IconPicker {
         id: picker
@@ -1909,7 +1898,7 @@ Item {
 
     // ------------------------------------------------------------ the legend
     readonly property bool stageFocused: stage.activeFocus
-    readonly property bool inspectorFocused: within(focused, inspector)
+    readonly property bool inspectorFocused: Board.within(focused, inspector)
     // The row being worked on: where the lifted widget or face would land,
     // else the cursor's. Its zone's name reads brighter, bold while it is on
     // the list's plate (PREFS-110).
