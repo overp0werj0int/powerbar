@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- `omarchy-shell powerbar get centerSide` answers the side the Center zone takes by a camera notch instead of `null`.
 - Keyboard page: a shortcut removed, restored or taken while the previous change was still being written to Hyprland is now bound too; before, it was saved in the settings but never reached `bindings.lua`, and a refused earlier change could put back the wrong shortcuts.
 - Groups page: a group name, badge count or urgent property typed without Enter is saved to the group or widget it was typed for when you click another one; before, the click selected the next one first and the text was saved there.
 - Widget panels open at the bar's edge again instead of over the bar. Omarchy now measures a panel's place from the bar's size, not from the bar window, and Powerbar still corrected for the window's drawer space, which pulled every panel up onto the bar; it now corrects for whichever measure the installed Omarchy uses (INTEG-157).

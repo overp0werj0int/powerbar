@@ -54,6 +54,7 @@ Item {
     case "tuning": return b.barOptions.tuning
     case "notchWidth": return b.screenNotch ? b.screenNotch.width : b.barOptions.notchWidth || null
     case "notchHeight": return b.screenNotch ? b.screenNotch.height : b.barOptions.notchHeight || null
+    case "centerSide": return b.barOptions.centerSide
     case "revealSeconds": return b.managedRevealSeconds
     case "entryGraceSeconds": return b.managedEntrySeconds
     case "exitGraceSeconds": return b.managedExitSeconds

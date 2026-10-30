@@ -206,3 +206,12 @@ test('a group change refuses values it would not keep whole', () => {
   for (const bad of ['http://example.com/a.svg', '/home/u/a.txt', '/home/u/../../etc/a.png', '/a\nb.svg', 'file:///a.svg'])
     assert.match(m.groupPatch({ iconImage: bad }).error, /absolute path/, bad);
 });
+
+// `get NAME` answers from BarCli.valueOf, which names each setting in a
+// switch: one left out reads back null though `set` takes it.
+test('every setting has a reading in BarCli.valueOf', () => {
+  const src = fs.readFileSync(`${__dirname}/../BarCli.qml`, 'utf8');
+  const body = src.slice(src.indexOf('function valueOf('), src.indexOf('function values('));
+  const read = new Set([...body.matchAll(/case "([^"]+)":/g)].map(x => x[1]));
+  assert.deepEqual(J(m.settings.map(s => s.name).filter(n => !read.has(n))), []);
+});
