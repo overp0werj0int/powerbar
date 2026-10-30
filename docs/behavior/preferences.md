@@ -247,7 +247,7 @@ Sources: Preferences.qml, PreferencesModel.js, TuningModel.js, Tuning.qml, DeskM
 
 - **PREFS-86** `closePreferences` closes them; nothing happens when they are closed.
 
-- **PREFS-87** `preferencesPage <n>` opens Preferences if closed and shows page n (1 Layout, 2 Groups, 3 Look, 4 Behavior, 5 Tuning while `powerbarTuning` is on); a number above the last page shows the last page (Behavior, or Tuning when it is there; the old General, Appearance and Bar pages are Look and Behavior now) and below 1 leaves the page as it is.
+- **PREFS-87** `preferencesPage <n>` opens Preferences if closed and shows page n (1 Layout, 2 Groups, 3 Look, 4 Behavior, 5 Tuning while `powerbarTuning` is on); a number above the last page shows the last page (Behavior, or Tuning when it is there; the old General, Appearance and Bar pages are Look and Behavior now) and a number below 1 shows Layout. Code: PreferencesModel.pageIndex(), Preferences.qml setPage.
 
 - **PREFS-88** `groupsPreferences` opens Preferences (if closed) and shows the Groups page, also when already open.
 

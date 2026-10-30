@@ -212,7 +212,7 @@ Setting names are those of Preferences. `set` of `style` also drops `powerbarIsl
 ### Panels and drawers
 
 - **INTEG-46** `preferences` opens Preferences on the focused monitor, or on the first screen when none is focused. `closePreferences` closes it.
-- **INTEG-48** `preferencesPage <n>` opens Preferences (if closed) at page `n`: 1 Layout, 2 Groups, 3 Look, 4 Behavior, 5 Tuning while `powerbarTuning` is on (INTEG-155); `n` above the last page opens the last; 0 or negative changes nothing (the window still opens). Code: PreferencesModel.pageIndex().
+- **INTEG-48** `preferencesPage <n>` opens Preferences (if closed) at page `n`: 1 Layout, 2 Groups, 3 Look, 4 Behavior, 5 Tuning while `powerbarTuning` is on (INTEG-155); `n` above the last page opens the last; 0 or negative opens Layout. Code: PreferencesModel.pageIndex().
 - **INTEG-150** `preferencesKeyboard` opens Preferences (if closed) on the focused monitor at the Behavior page, the cursor on the "Bar keyboard" shortcut row; when Preferences are open it switches to that page. The first start's notification runs it (KEYS-84).
 - **INTEG-155** `bar.powerbarTuning` (bool, default `false`; only `true` turns it on; not in Preferences) adds the Tuning page to Preferences (PREFS-132), the development numbers behind the look, and has Tuning keep them in `~/.cache/powerbar/tuning.json`; applied live: turning it on loads the file (or the defaults when there is none) and adds the page and its tab, turning it off puts the defaults back and removes them (Preferences on that page go to Behavior). While off the file is neither read nor written, so what everyone sees is the defaults. For development, like `powerbarFrameLog` (INTEG-146), which the page also switches. Code: BarModel.options, Bar.qml, Tuning.qml, Preferences.qml, TuningEditor.qml.
 - **INTEG-54** `groupsPreferences` opens Preferences at Groups (page 2).
@@ -262,4 +262,4 @@ Setting names are those of Preferences. `set` of `style` also drops `powerbarIsl
 
 - INTEG-Q1: when does the host bump `barWidgetRegistry.revision`? The shell, not Powerbar, decides; Powerbar only re-checks 2.5 s after any change.
 - INTEG-Q2 (answered): the heals' edits are `AppearanceModel.migrate` (INTEG-35), `pruneThemes` (INTEG-36) and `GroupsModel.groups` (INTEG-40).
-- INTEG-Q3: `preferencesPage 0` / negative opens the window but keeps the last page; probably should clamp to page 1 (bug candidate, Preferences.qml:102 `setPage` returns for index below 0).
+- INTEG-Q3 (answered): `preferencesPage 0` and negative numbers open Layout, since `PreferencesModel.pageIndex` clamps them to page 1 before `setPage` sees them (tests/preferences.test.cjs).
