@@ -27,7 +27,8 @@ test("Omarchy's six sections are read as they are", () => {
 test('zones: the three center lists share the center zone, each on its side', () => {
   assert.deepEqual(J(m.lists.map(k => m.zoneOf(k))), ['left', 'center', 'center', 'center', 'right']);
   assert.deepEqual(J(m.lists.map(k => m.sideOf(k))), ['', 'start', 'end', 'end', '']);
-  assert.deepEqual(J(m.lists.map(k => m.sideOf(k, 'left'))), ['', 'start', 'start', 'end', ''], 'the box counts with the side of the camera it sits on');
+  assert.deepEqual(J(m.lists.map(k => m.sideOf(k, 'left', true))), ['', 'start', 'start', 'end', ''], 'the box counts with the side of the camera it sits on');
+  assert.deepEqual(J(m.lists.map(k => m.sideOf(k, 'left'))), ['', 'start', 'end', 'end', ''], 'a screen without a camera is not affected (ZONE-96)');
   assert.equal(m.sixSections(['left', 'centerBegin', 'center', 'centerEnd', 'right', 'tray']), true);
   assert.equal(m.sixSections(['left', 'center', 'right']), false);
   assert.equal(m.sixSections(undefined), false);
@@ -91,14 +92,17 @@ test('groups of the anchored center take the list their entry is in', () => {
   assert.deepEqual(J(unanchored.powerbarGroups).map(g => g.section), ['center', 'center', 'center', 'center', 'left'], 'no anchor: the box keeps them');
 });
 
-test('the two-zone mode keeps its lists; the mode and its arrangements go', () => {
+test('the two-zone mode keeps its lists; the mode goes, its arrangements wait for their copy', () => {
   const bar = { powerbarZones: 'two', powerbarZoneLayouts: { three: { layout: {} } },
     layout: { left: [{ id: 'a' }], center: [], right: [{ id: 'b' }] } };
   assert.ok(m.zoneLayouts(bar));
   m.read(bar);
   assert.deepEqual(five(bar), [['a'], [], [], [], ['b']]);
-  assert.ok(!('powerbarZones' in bar) && !('powerbarZoneLayouts' in bar));
-  assert.equal(m.zoneLayouts(bar), null);
+  assert.ok(!('powerbarZones' in bar));
+  // Every write reads the config first: the arrangements leave only once
+  // they are copied to the cache folder (Bar.qml retireZoneModes).
+  assert.ok(m.zoneLayouts(bar), 'kept until the copy is made');
+  assert.equal(m.needsRead(bar), false, 'and they alone ask for no read');
 });
 
 test("the notch mode's zones become the two sides of the center, in the Notch style", () => {

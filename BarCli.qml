@@ -27,7 +27,12 @@ Item {
     preferences.status = ""
     return bar.canWriteConfig() ? "" : fail("the shell gives Powerbar no way to save its settings")
   }
-  function written() { return preferences.status ? fail(preferences.status) : "ok" }
+  // `kept`: what the bar's edit functions answered, false when the change was
+  // not queued.
+  function written(kept) {
+    if (preferences.status) return fail(preferences.status)
+    return kept === false ? fail("the change could not be saved") : "ok"
+  }
 
   // ---- settings --------------------------------------------------------------
   // What the bar uses now: the stored value, else its default, read from the
@@ -54,6 +59,7 @@ Item {
     case "tuning": return b.barOptions.tuning
     case "notchWidth": return b.screenNotch ? b.screenNotch.width : b.barOptions.notchWidth || null
     case "notchHeight": return b.screenNotch ? b.screenNotch.height : b.barOptions.notchHeight || null
+    case "centerSide": return b.barOptions.centerSide
     case "revealSeconds": return b.managedRevealSeconds
     case "entryGraceSeconds": return b.managedEntrySeconds
     case "exitGraceSeconds": return b.managedExitSeconds
@@ -202,11 +208,12 @@ Item {
       preferences.move(r, place.section, place.mode, place.before)
       if (preferences.status) return fail(preferences.status)
     }
-    if (p.group !== undefined) bar.assignGroup(r.instanceKey, p.group, "")
-    if (p.activityPeek !== undefined) bar.setActivityPeek(r.instanceKey, p.activityPeek)
-    if (p.badgeProperty !== undefined) bar.editMemberBadge(r.instanceKey, "badgeProperty", p.badgeProperty)
-    if (p.urgentProperty !== undefined) bar.editMemberBadge(r.instanceKey, "urgentProperty", p.urgentProperty)
-    return written()
+    var kept = true
+    if (p.group !== undefined) kept = bar.assignGroup(r.instanceKey, p.group, "") && kept
+    if (p.activityPeek !== undefined) kept = bar.setActivityPeek(r.instanceKey, p.activityPeek) && kept
+    if (p.badgeProperty !== undefined) kept = bar.editMemberBadge(r.instanceKey, "badgeProperty", p.badgeProperty) && kept
+    if (p.urgentProperty !== undefined) kept = bar.editMemberBadge(r.instanceKey, "urgentProperty", p.urgentProperty) && kept
+    return written(kept)
   }
 
   // ---- groups ----------------------------------------------------------------
@@ -225,11 +232,14 @@ Item {
   function newGroup(label) {
     var cannot = begin()
     if (cannot) return cannot
-    var name = String(label || "").trim().slice(0, 80) || "New group"
+    var named = Cli.groupName(label)
+    if (named.error) return fail(named.error)
+    var name = named.name
     // As the Groups page makes them.
     var id = "g-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 7)
-    bar.editGroups(function(config) { GroupsModel.create(config, id, name) })
-    return preferences.status ? fail(preferences.status) : json({ id: id })
+    var kept = bar.editGroups(function(config) { GroupsModel.create(config, id, name) })
+    var answer = written(kept)
+    return answer === "ok" ? json({ id: id }) : answer
   }
   function setGroup(selector, text) {
     var cannot = begin()
@@ -255,10 +265,10 @@ Item {
         if (keys.indexOf(m.record.instanceKey) < 0) keys.push(m.record.instanceKey)
       }
     }
-    var id = g.id
-    if (Object.keys(edit).length) bar.editGroups(function(config) { GroupsModel.edit(config, id, edit) })
-    if (keys) for (var step of Cli.memberSteps(g.items, keys)) bar.assignGroup(step.key, step.group ? id : "", "")
-    return written()
+    var id = g.id, kept = true
+    if (Object.keys(edit).length) kept = bar.editGroups(function(config) { GroupsModel.edit(config, id, edit) })
+    if (keys) for (var step of Cli.memberSteps(g.items, keys)) kept = bar.assignGroup(step.key, step.group ? id : "", "") && kept
+    return written(kept)
   }
   function removeGroup(selector) {
     var cannot = begin()
@@ -266,8 +276,7 @@ Item {
     var found = Cli.groupRecord(bar.groups, selector)
     if (found.error) return fail(found.error)
     var id = found.group.id
-    bar.editGroups(function(config) { GroupsModel.remove(config, id) })
-    return written()
+    return written(bar.editGroups(function(config) { GroupsModel.remove(config, id) }))
   }
 
   // ---- shortcuts -------------------------------------------------------------

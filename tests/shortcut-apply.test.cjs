@@ -88,6 +88,22 @@ test('a block Hyprland refuses is taken back and the file is as it was', () => {
   assert.deepEqual(fs.readdirSync(b.hypr).sort(), ['bindings.lua']);
 });
 
+// The block moves the lines after it: an error the file already had comes
+// back on another line, and is not the block's.
+test('an error the file already had is not taken for the block\'s, wherever it moves', () => {
+  const b = box();
+  fs.writeFileSync(b.file, USER + '\n');
+  fs.writeFileSync(path.join(b.root, 'errors'), 'bindings.lua:4: bad key\n');
+  fs.writeFileSync(path.join(b.root, 'refuse'), 'bindings.lua:9: bad key\n');
+  let r = b.run(BLOCK);
+  assert.equal(answer(r), 'ok'); assert.equal(r.status, 0);
+  assert.equal(b.read(), USER + '\n\n' + BLOCK + '\n');
+  fs.writeFileSync(path.join(b.root, 'refuse'), 'bindings.lua:9: bad key\nbindings.lua:12: no such key\n');
+  r = b.run(BLOCK.replace('SUPER + B', 'SUPER + K'));
+  assert.equal(r.status, 1); assert.equal(answer(r), 'error bindings.lua:12: no such key');
+  assert.equal(b.read(), USER + '\n\n' + BLOCK + '\n');
+});
+
 test('a linked bindings.lua stays a link, its target gets the block', () => {
   const b = box();
   const target = path.join(b.root, 'dotfiles-bindings.lua');

@@ -8,15 +8,18 @@
 // On the notch (outward) the zones grow away from the camera and the dots sit
 // at their far ends: the left zone's start, the right zone's end.
 
-function dotsAtStart(list, outward) {
+// `side`, for a center list: the side of the center it counts on
+// (SectionsModel.sideOf), which for the box depends on the camera (ZONE-96).
+function dotsAtStart(list, outward, side) {
   if (outward && (list === "left" || list === "right")) return list === "left"
+  if (side) return side === "start"
   return list === "right" || list === "centerBegin"
 }
 
-function arrange(items, isManaged, list, outward) {
+function arrange(items, isManaged, list, outward, side) {
   var shown = [], managed = []
   items.forEach(function (item) { (isManaged(item) ? managed : shown).push(item) })
-  return dotsAtStart(list, outward) ? managed.concat(shown) : shown.concat(managed)
+  return dotsAtStart(list, outward, side) ? managed.concat(shown) : shown.concat(managed)
 }
 
 // Where a drop lands in the saved layout, given the gap it opened in the

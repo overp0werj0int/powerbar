@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+- The room the bar keeps for a long menu goes back 3 s after the last menu closes; before, the bar's surface stayed nearly screen-tall for the rest of the session, and the bar's motion redrew all of it.
+- On a side bar the card's surface no longer shrinks and grows with each card's words while it is shown, so cards change words without a resize.
+- Preferences' open fade and the page slide now start once their first frame is painted, so both are seen from the start; before, building that frame took most of the motion's time and the card popped in or the page jumped halfway.
+- `omarchy-shell powerbar newGroup` refuses a name over 80 characters, as `setGroup` does, instead of cutting it; group and widget edits from the command line answer an error when the change was not saved instead of `ok`.
+- A shortcut change is no longer taken back because a config error `bindings.lua` already had moved to another line when Powerbar's block was written.
+- The arrangements the retired zone modes kept stay in shell.json until their copy in the cache folder is made, as the warning says; before, a failed copy was followed by the next settings write deleting them.
+- With Center set left of the camera (`centerSide left`), a screen without a camera keeps the Center box's on-demand widgets behind Right of center's dots, as it should (ZONE-96); before, it counted them on the other side's dots. Beside a camera, the box's on-demand widgets now also draw at the dots they are counted on (ZONE-26).
+- `omarchy-shell powerbar get centerSide` answers the side the Center zone takes by a camera notch instead of `null`.
+- Keyboard page: a shortcut removed, restored or taken while the previous change was still being written to Hyprland is now bound too; before, it was saved in the settings but never reached `bindings.lua`, and a refused earlier change could put back the wrong shortcuts.
+- Groups page: a group name, badge count or urgent property typed without Enter is saved to the group or widget it was typed for when you click another one; before, the click selected the next one first and the text was saved there.
 - Widget panels open at the bar's edge again instead of over the bar. Omarchy now measures a panel's place from the bar's size, not from the bar window, and Powerbar still corrected for the window's drawer space, which pulled every panel up onto the bar; it now corrects for whichever measure the installed Omarchy uses (INTEG-157).
 - Preferences follows one golden type, spacing and corner scale on every page, the inspectors included: four text sizes from the theme's base size on golden line heights, three text strengths, gaps of 2, 3, 5, 8, 13, 21, 34 and 55 px by how closely things belong together, every control 25 px tall, and corners stepped down from the theme's rounding (square on a square theme). Inspector switch rows and choice chips now match the desks, desk chips drop to the caption size before cutting a word, and the name tip is a small floating surface (PREFS-133, PREFS-134).
 - With Hyprland's animations off (`omarchy toggle animations`) Powerbar no longer animates either, as Omarchy's own widgets do; its own Animations switch still turns motion off on an animated desktop, and its caption says why nothing moves while Hyprland's are off (INTEG-21).

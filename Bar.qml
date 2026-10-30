@@ -2437,8 +2437,8 @@ Item {
   onBarConfigChanged: {
     // Older shapes are read into the five zone lists (SectionsModel): the read
     // copy comes back through here.
+    retireZoneModes(barConfig)
     if (SectionsModel.needsRead(barConfig)) {
-      retireZoneModes(barConfig)
       barConfig = SectionsModel.read(JSON.parse(JSON.stringify(barConfig)))
       return
     }
@@ -2465,10 +2465,11 @@ Item {
   Timer { id: lostKeysLater; interval: 0; onTriggered: root.restoreLostKeys() }
   // A config from the retired zone modes is saved in the five lists once, after
   // the arrangements each mode kept are copied to the cache folder (never read
-  // back): zone-layouts-<date>.json.
+  // back): zone-layouts-<date>.json. They leave shell.json with that copy; a
+  // copy that fails is tried again on the next start.
   property bool zoneModesRetired: false
   function retireZoneModes(bar) {
-    if (zoneModesRetired || !("powerbarZones" in bar || "powerbarZoneLayouts" in bar)) return
+    if (zoneModesRetired || !Util.isPlainObject(bar) || !("powerbarZones" in bar || "powerbarZoneLayouts" in bar)) return
     zoneModesRetired = true
     var kept = SectionsModel.zoneLayouts(bar)
     zoneLayoutsBackup.command = ["sh", "-c", 'umask 077; mkdir -p -- "${1%/*}" || exit 1; [ -z "$2" ] || [ -e "$1" ] || printf "%s\\n" "$2" > "$1"',
@@ -2479,7 +2480,7 @@ Item {
   Process {
     id: zoneLayoutsBackup
     onExited: function(code) {
-      if (code === 0) configStore.writeNow(function(config) {})
+      if (code === 0) configStore.writeNow(function(config) { if (config.bar) delete config.bar.powerbarZoneLayouts })
       else console.warn("powerbar: could not copy the zone modes' arrangements to the cache folder; shell.json keeps them")
     }
   }
@@ -3680,7 +3681,7 @@ Item {
         length: i.length, inset: i.inset, gap: i.gap, gutter: i.gutter, momentGap: i.momentGap,
         notch: notchSlotOf(i.notch),
         notchPads: notchSplit,
-        boxBefore: notchSplit && root.barOptions.centerSide === "left",
+        boxBefore: SectionsModel.sideOf("center", root.barOptions.centerSide, notchSplit) === "start",
         wrap: i.wrap,
         pad: function(spill) { return barWindow.endPad(spill) },
         handle: { extent: handle.extent, spill: handle.spill },
@@ -3954,7 +3955,8 @@ Item {
       var managed = function(item) { return item.managed }
       for (var name of SectionsModel.lists) {
         models.push(widgetModels[name])
-        lists.push(ZoneOrderModel.arrange((keys[name] || []).map(function(key) { return widgetStore.get(key) }).filter(function(item) { return !!item }), managed, name, notchLook))
+        lists.push(ZoneOrderModel.arrange((keys[name] || []).map(function(key) { return widgetStore.get(key) }).filter(function(item) { return !!item }), managed, name, notchLook,
+          SectionsModel.sideOf(name, root.barOptions.centerSide, notchSplit)))
       }
       var items = records.map(function(record) { return widgetStore.get(record.key) }).filter(function(item) { return !!item })
       RenderModel.reconcileLists(models, lists, widgetStore)
@@ -3967,9 +3969,11 @@ Item {
     }
     // The notch draws on-demand runs at the zones' far ends.
     onNotchLookChanged: reconcileWidgets()
-    // Center's widgets change ears with it (ZONE-96).
+    // Center's widgets change ears with it (ZONE-96), and beside the camera
+    // the box's on-demand run changes ends.
     readonly property string centerSide: root.barOptions.centerSide
-    onCenterSideChanged: if (notchLook) reconcileWidgets()
+    onCenterSideChanged: if (notchLook || notchSplit) reconcileWidgets()
+    onNotchSplitChanged: if (centerSide === "left") reconcileWidgets()
     Component.onCompleted: { reconcileWidgets(); syncStrip(true); if (!notchPending) notchWaitOver = true; mappedBlur = blurEnabled; root.noteExtent(screen ? screen.name : "", extent) }
     onExtentChanged: root.noteExtent(screen ? screen.name : "", extent)
 
@@ -3981,14 +3985,24 @@ Item {
       // Beside a side bar a submenu opens past the menu.
       + (root.onDemandMenu && root.vertical ? Style.space(320) : 0)
     // A zone's menu can be longer than a group's: the room grows to the
-    // longest one opened yet, within the screen, and stays, so opening and
-    // closing menus doesn't resize the bar's surface each time.
+    // longest one opened yet, within the screen, and stays while menus are
+    // in use, so opening and closing them doesn't resize the bar's surface
+    // each time. It goes back once none has been open for a while: kept for
+    // the session, a long menu left a near full-screen surface that every
+    // frame the bar animates redraws.
     property real menuReach: 0
     readonly property real menuNeed: drawer.opened && drawer.namedMenu && !root.vertical ? drawer.desiredCross + drawer.gap + root.edgeGap : 0
     onMenuNeedChanged: {
       var room = screen ? screen.height - extent - effectPadding : menuNeed
       var next = Math.min(Math.ceil(menuNeed), room)
       if (next > menuReach) menuReach = next
+      if (menuNeed > 0) menuShrink.stop()
+      else if (menuReach > 0) menuShrink.restart()
+    }
+    Timer {
+      id: menuShrink
+      interval: 3000
+      onTriggered: if (drawer.opened) restart(); else barWindow.menuReach = 0
     }
 
     // Hiding slides the strip past its screen edge instead of unmapping the
@@ -4983,11 +4997,13 @@ Item {
       // a frame, doubled or cut, before Quickshell placed it again.
       readonly property bool far: root.position === "bottom" || root.position === "right"
       readonly property real span: root.vertical ? barWindow.height : barWindow.width
-      // How far out from the bar's window edge the surface reaches; it only
-      // grows while shown, so a bubble moving never resizes it.
-      readonly property real base: (root.vertical ? barWindow.width : barWindow.height) + Math.ceil(root.vertical ? tooltipBubble.implicitWidth : tooltipBubble.implicitHeight) + 2 * root.overlayShadowPad + 6
+      // How far out from the bar's window edge the surface reaches: the room
+      // the card's words need until it is first placed, then only more while
+      // shown (onAnchoring), so neither a bubble moving nor shorter words (a
+      // vertical bar's card is as wide as its words) resize it.
+      readonly property real room: (root.vertical ? barWindow.width : barWindow.height) + Math.ceil(root.vertical ? tooltipBubble.implicitWidth : tooltipBubble.implicitHeight) + 2 * root.overlayShadowPad + 6
       property real grown: 0
-      readonly property real reach: Math.ceil(Math.max(base, grown))
+      readonly property real reach: Math.ceil(grown > 0 ? grown : room)
       // The words shown, taken with the place: a card whose new target has
       // no place yet keeps its old words where it stands, never the new
       // name beside the old widget.
@@ -5043,6 +5059,7 @@ Item {
             : root.position === "bottom" ? barWindow.height - at.y + pad
             : root.position === "left" ? at.x + size.width + pad
             : barWindow.width - at.x + pad
+          need = Math.max(need, tooltipWindow.room)
           if (need > tooltipWindow.grown) tooltipWindow.grown = need
           tooltipWindow.at = Qt.point(Math.round(at.x), Math.round(at.y))
         }
@@ -5709,7 +5726,7 @@ Item {
     readonly property real split: homeWindow && homeWindow.notchSplit ? homeWindow.notchKeepOut : 0
     // The box left of the camera (ZONE-96): it ends at the slot with Left of
     // center, and Right of center alone starts past it.
-    readonly property bool boxBefore: split > 0 && root.barOptions.centerSide === "left"
+    readonly property bool boxBefore: split > 0 && SectionsModel.sideOf("center", root.barOptions.centerSide, true) === "start"
     readonly property real middle: (root.vertical ? height : width) / 2
     function along(list) { return root.vertical ? list.y : list.x }
     // Where a run of lists shows along the bar, past the yielded slots at its
@@ -6271,7 +6288,7 @@ Item {
     readonly property string drawnList: record.drawn
     readonly property string savedList: record.list
     // The side of the centre's box it waits on, and so the dots it waits behind.
-    readonly property string centerSide: SectionsModel.sideOf(drawnList, root.barOptions.centerSide) || "end"
+    readonly property string centerSide: SectionsModel.sideOf(drawnList, root.barOptions.centerSide, !!homeWindow && homeWindow.notchSplit) || "end"
     // The expansion that shows it in inline mode: its zone, the centre by side.
     readonly property string inlineToken: region === "center" ? "center:" + centerSide : region
     readonly property string moduleName: root.entryId(entry)
