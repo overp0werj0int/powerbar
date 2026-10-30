@@ -157,6 +157,42 @@ TestCase {
     compare(drawer.cellAt(0), b.drawerHost)
   }
 
+  // A row is built once per member, not on every open: opening only hosts
+  // the members in the rows they had.
+  function test_reopeningKeepsTheRows() {
+    drawer.openZone("left", false)
+    var rowA = a.drawerHost, rowB = b.drawerHost
+    drawer.close("immediate")
+    drawer.openZone("left", false)
+    compare(a.drawerHost, rowA, "the same row after a close")
+    compare(b.drawerHost, rowB)
+    drawer.openZone("right", false)
+    var rowC = c.drawerHost
+    drawer.openZone("left", false)
+    compare(a.drawerHost, rowA, "the same row after another zone's drawer")
+    compare(drawer.cellAt(0), rowA)
+    drawer.openZone("right", false)
+    compare(c.drawerHost, rowC)
+  }
+
+  function test_aNewMemberGetsItsOwnRow() {
+    drawer.openZone("left", false)
+    var rowA = a.drawerHost
+    var d = memberFactory.createObject(host, { displayName: "d" })
+    bar.members = { left: [d, a, b], right: [c] }
+    verify(d.drawerHost !== null && d.drawerHost !== rowA)
+    compare(drawer.cellAt(0), d.drawerHost, "in its place among the rows")
+    compare(drawer.cellAt(1), rowA)
+    bar.members = { left: [a, b], right: [c] }
+    d.destroy()
+    wait(0)
+    drawer.close("immediate")
+    drawer.openZone("left", false)
+    compare(drawer.cellAt(0), rowA)
+    compare(drawer.cellAt(2), null, "a gone member leaves no row")
+  }
+  Component { id: memberFactory; Member {} }
+
   function test_aDragKeepsTheRowsUntilItEnds() {
     drawer.openZone("left", false)
     var row = a.drawerHost

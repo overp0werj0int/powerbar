@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Controls as Controls
 import QtQuick.Layouts
+import QtQml.Models
 import qs.Commons
 import qs.Commons as Commons
 import qs.Ui
@@ -270,19 +271,47 @@ Item {
   // A zone's menu counts its submenu as part of it.
   readonly property bool containsMouse: hover.hovered || (!!submenu && submenu.opened && submenu.containsMouse)
   readonly property var slots: presenting ? (groupId ? bar.groupSlots(groupId, hostWindow) : bar.managedSlots(token || zone, hostWindow)) : []
-  // The mounts' model is one identity token per member, not the members: a
-  // Repeater over QObjects exposes every property of every member as a role,
-  // which cost milliseconds per member on each open. The Repeater still
-  // rebuilds exactly when the members change; each mount reads its member
-  // from this plain table, which never notifies.
-  readonly property var mounted: ({ list: [] })
-  property var mountTokens: []
+  // One row (mount) per member, kept across opens, closes and zones while
+  // its member's slot lives: building a row took milliseconds per member on
+  // every open. An open moves the rows its members need into the drawer and
+  // hosts the members there; a close parks them, their members back on the
+  // bar. A parked row reads no member (modelData is null), so it does no
+  // work while the member changes on the bar.
+  RetainedStore {
+    id: mountStore
+    factory: mountRow
+    recordProperty: "member"
+    keyOf: function(slot) { return String(slot) }
+    equivalent: function(a, b) { return a === b }
+  }
+  ObjectModel { id: mountModel }
   function refreshMounts() {
     if (dragMount) return
     var list = slots
-    mounted.list = list
-    var tokens = list.map(function(slot) { return String(slot) })
-    if (!RenderModel.equal(tokens, mountTokens)) mountTokens = tokens
+    var kept = []
+    for (var key in mountStore.objects) {
+      var member = mountStore.objects[key].member
+      if (member && list.indexOf(member) < 0) kept.push(member)
+    }
+    mountStore.reconcile(kept.concat(list))
+    var rows = list.map(function(slot) { return mountStore.get(String(slot)) })
+    for (var k in mountStore.objects) if (rows.indexOf(mountStore.objects[k]) < 0) unhost(mountStore.objects[k])
+    RenderModel.reconcileLists([mountModel], [rows], mountStore)
+    rows.forEach(host)
+    mountStore.sweep()
+  }
+  // A row hosting its member starts where it stands, as a new row would
+  // (AnimatedSlot.ready), rather than growing from its parked size.
+  function host(row) {
+    if (row.hosted) return
+    row.ready = false
+    row.member.drawerHost = row
+    Qt.callLater(function() { if (row) row.ready = true })
+  }
+  function unhost(row) {
+    var member = row.member
+    if (member && member.drawerHost === row) member.drawerHost = null
+    if (submenu && submenu.parentRow === row) submenu.close("immediate")
   }
   onDragMountChanged: refreshMounts()
   function releaseDrag(mount) { if (dragMount === mount) dragMount = null }
@@ -870,266 +899,7 @@ Item {
             spacing: drawer.namedMenu ? drawer.padding : 0
             Repeater {
               id: widgets
-              model: drawer.mountTokens
-              AnimatedSlot {
-                id: mount
-                required property int index
-                // Read once: a mount keeps its member for its whole life.
-                readonly property var modelData: drawer.mounted.list[index]
-                readonly property string title: drawer.memberTitle(modelData)
-                readonly property bool labelled: drawer.namedMenu
-                // A group's row in a zone's menu draws the group's icon and opens
-                // its members in the submenu.
-                readonly property bool opensSubmenu: drawer.rowGroup(modelData)
-                readonly property bool rowHovered: memberHover.hovered
-                // A split row draws its widget's icon and value itself (menuSplit).
-                readonly property var split: drawer.namedMenu && modelData ? drawer.menuSplit(modelData) : null
-                readonly property bool showNative: drawer.memberDisplay !== "name" && !opensSubmenu && (!split || split.native)
-                // A counted icon's own face, cut to the icon cell (menuSplit).
-                readonly property Item nativeParent: split && split.native ? iconClip : mount
-                readonly property real nativeX: contentOffsetX - (nativeParent === iconClip ? iconClip.x : 0)
-                readonly property real nativeY: contentOffsetY - (nativeParent === iconClip ? iconClip.y : 0)
-                Item {
-                  id: iconClip
-                  x: mount.animatedInsetX
-                  y: mount.animatedInsetY
-                  // To the cell's end, or where the count starts if sooner.
-                  width: !mount.split || !mount.split.native ? drawer.tokens.cell
-                    : Math.max(0, Math.min(drawer.tokens.cell, mount.contentOffsetX + mount.split.countLeft - x))
-                  height: mount.baseHeight
-                  clip: true
-                }
-                readonly property var place: modelData ? modelData.cellPlace : null
-                // Strip slots report their spill so the strip's ends follow the island rule.
-                readonly property real cellSpill: drawer.namedMenu || !place ? 0 : place.spill
-                readonly property var rowInk: modelData ? drawer.menuInk(modelData) : null
-                readonly property var rowIconInk: modelData ? drawer.menuIconInk(modelData) : null
-                readonly property bool rowIcon: drawer.menuIcons && !!modelData && drawer.menuGlyph(modelData)
-                readonly property real valueWidth: modelData ? drawer.menuValueWidth(modelData) : 0
-                readonly property real labelStart: modelData ? drawer.menuLabelStart(modelData) : 0
-                readonly property real dragGap: drawer.namedMenu ? drawer.rowPitch : drawer.stripVertical ? bar.dragGapHeight : bar.dragGapWidth
-                readonly property var preview: modelData
-                  ? DragModel.slot(bar.dragPreview, modelData.instanceKey, bar.dragSurfaceForDrawer(drawer))
-                  : ({ hidden: false, before: false, after: false })
-                readonly property real baseWidth: !modelData ? 0 : drawer.namedMenu ? drawer.menuRowWidth
-                  : bar.vertical ? drawer.thickness : place.extent
-                readonly property real baseHeight: !modelData ? 0 : drawer.namedMenu ? drawer.tokens.thickness
-                  : bar.vertical ? place.extent : Math.max(modelData.naturalHeight, drawer.thickness)
-                // Where the widget's own box sits: its ink centred in its cell (strips),
-                // its glyph centred in the icon cell or its value right-aligned (menus).
-                readonly property real contentOffsetX: animatedInsetX + (!modelData ? 0
-                  : drawer.namedMenu ? (rowIcon ? drawer.tokens.cell / 2 - (rowIconInk.start + rowIconInk.length / 2) - (split ? split.iconShift : 0)
-                    : valueWidth > 0 ? drawer.menuRowWidth - drawer.tokens.air - (rowInk.start + rowInk.length) : 0)
-                  : bar.vertical ? modelData.crossShift : modelData.inkShift)
-                readonly property real contentOffsetY: animatedInsetY + (!modelData ? 0
-                  : drawer.namedMenu ? (drawer.tokens.thickness - modelData.naturalHeight) / 2
-                  : bar.vertical ? modelData.inkShift : (baseHeight - modelData.naturalHeight) / 2)
-                targetWidth: preview.hidden && !preview.holdSpace && !drawer.stripVertical ? 0
-                  : baseWidth + (!drawer.stripVertical && (preview.before || preview.after) ? dragGap : 0)
-                targetHeight: preview.hidden && !preview.holdSpace && drawer.stripVertical ? 0
-                  : baseHeight + (drawer.stripVertical && (preview.before || preview.after) ? dragGap : 0)
-                targetInsetX: !drawer.stripVertical && preview.before ? dragGap : 0
-                targetInsetY: drawer.stripVertical && preview.before ? dragGap : 0
-                // The commit swaps a gap for the row that takes it in one frame, as on the bar.
-                motionEnabled: bar.animationsEnabled && drawer.opened && !drawer.replaying && !bar.dragHandover
-                motionDuration: bar.dragMotionActive ? bar.dragMotionDuration : 120
-                motionEasing: bar.dragMotionActive ? bar.dragMotionEasing : Easing.OutCubic
-                motionOvershoot: 0
-                opacity: preview.hidden || (modelData && modelData.settleHidden) ? 0 : 1
-                readonly property var hostDrawer: drawer
-                // The landing spot in this member's gap, outlined as on the bar: a
-                // cell in a strip, a row in a menu.
-                DrawerOutline {
-                  readonly property real lengthAlong: drawer.stripVertical ? mount.height : mount.width
-                  readonly property real insetAlong: drawer.stripVertical ? mount.animatedInsetY : mount.animatedInsetX
-                  readonly property real base: drawer.stripVertical ? mount.baseHeight : mount.baseWidth
-                  open: drawer.opened && !mount.preview.hidden && (mount.preview.before || mount.preview.after)
-                  gapStart: mount.preview.before ? 0 : base
-                  gapLength: !open ? 0 : mount.preview.before ? insetAlong : Math.max(0, lengthAlong - base)
-                  fullGap: mount.dragGap
-                  landingOffset: drawer.namedMenu ? (mount.preview.before ? 0 : drawer.padding) : -1
-                  z: 3
-                }
-                Component.onCompleted: if (modelData) modelData.drawerHost = mount
-                Component.onDestruction: {
-                  if (modelData && modelData.drawerHost === mount) modelData.drawerHost = null
-                  if (drawer.submenu && drawer.submenu.parentRow === mount) drawer.submenu.close("immediate")
-                  // The row driving a drag can't report its release any more: end
-                  // the drag rather than leave the bar stuck in it.
-                  if (drawer.dragMount === mount) {
-                    drawer.dragMount = null
-                    if (modelData && bar.barDragSource === modelData) bar.clearBarDrag()
-                  }
-                }
-                HoverHandler {
-                  id: memberHover
-                  enabled: drawer.opened && !bar.barDragSource
-                  // In the keyboard mode the pointer moves the cursor onto the row.
-                  onPointChanged: if (hovered) bar.barKeys.pointerOnRow(drawer, mount.index, point.scenePosition)
-                  // A menu row shows its name already; it shows the widget's own
-                  // tooltip (a volume, a status), which the row's pointer would
-                  // otherwise keep from the widget. The keyboard's card shows that
-                  // text while the keys hold the drawer.
-                  onHoveredChanged: {
-                    if (hovered) drawer.rowHovered(mount)
-                    if (!hovered) bar.barKeys.pointerLeft()
-                    if (!drawer.namedMenu || bar.barKeys.here && bar.barKeys.drawer === drawer) return
-                    if (!hovered) { bar.hideTooltip(mount); return }
-                    var text = mount.ownTooltip()
-                    // Once the row's hover has reached tooltipHovered.
-                    if (text && text !== mount.title) Qt.callLater(function() { if (memberHover.hovered) bar.showTooltip(mount, text) })
-                  }
-                }
-                readonly property bool tooltipHovered: memberHover.hovered && drawer.opened
-                function ownTooltip() {
-                  if (opensSubmenu) return ""
-                  var targets = modelData ? modelData.slotTargets || [] : []
-                  for (var i = 0; i < targets.length; i++) if (targets[i] && targets[i].tooltipText) return String(targets[i].tooltipText)
-                  return ""
-                }
-                // The member's highlight: the whole row in a menu; its cell in a strip,
-                // centred on the slot, like on the bar.
-                HoverHighlight {
-                  id: memberHighlight
-                  readonly property real cell: drawer.namedMenu ? mount.baseWidth : mount.place ? mount.place.cell : 0
-                  readonly property real thick: drawer.tokens.thickness
-                  parent: drawer.namedMenu ? mount : stripHighlights
-                  x: drawer.namedMenu ? mount.animatedInsetX
-                    : bar.vertical ? mount.x + (mount.width - thick) / 2 : mount.x + mount.animatedInsetX + (mount.baseWidth - cell) / 2
-                  y: drawer.namedMenu ? mount.animatedInsetY
-                    : bar.vertical ? mount.y + mount.animatedInsetY + (mount.baseHeight - cell) / 2 : mount.y + (mount.height - thick) / 2
-                  width: drawer.namedMenu || !bar.vertical ? cell : thick
-                  height: drawer.namedMenu || !bar.vertical ? thick : cell
-                  z: -1
-                  // The keyboard cursor lights the same mark, outlined (KEYS-69).
-                  readonly property bool keysCursor: drawer.selectionVisible && drawer.cursor === mount.index
-                  hovered: ((memberHover.hovered && !bar.barDragSource) || keysCursor) && drawer.opened && !preview.hidden
-                  outlined: keysCursor && hovered
-                  // A group's row stays lit while its submenu is open.
-                  selected: modelData ? modelData.panelOpen
-                    || (mount.opensSubmenu && !!drawer.submenu && drawer.submenu.opened && drawer.submenu.parentRow === mount) : false
-                  motionEnabled: bar.animationsEnabled
-                  glide: rowGlide
-                  glideKey: "rows"
-                  hoverColor: bar.highlightHoverColor
-                  selectedColor: bar.highlightSelectedColor
-                  rounding: CellModel.radius(drawer.tokens, bar.islandRounding)
-                }
-                Text {
-                  id: label
-                  visible: mount.labelled
-                  textFormat: Text.PlainText
-                  text: mount.title
-                  // On the notch's black, the bar's own light text.
-              color: drawer.notchColours ? drawer.bar.barForeground : drawer.bar.textOn(drawer.namedMenu ? Commons.Color.menu.text : Commons.Color.popups.text)
-                  font.family: drawer.namedMenu ? Style.font.menuFamily : Style.font.family
-                  font.pixelSize: Style.font.bodySmall
-                  // Names end one air before the row's end, or before a trailing value.
-                  x: mount.labelStart + mount.animatedInsetX
-                  y: (mount.baseHeight - height) / 2 + mount.animatedInsetY
-                  width: Math.max(0, drawer.menuRowWidth - mount.labelStart - drawer.tokens.air
-                    - (mount.valueWidth > 0 ? mount.valueWidth + drawer.tokens.air : 0))
-                  elide: Text.ElideRight
-                }
-                GroupFace {
-                  visible: mount.opensSubmenu
-                  group: mount.opensSubmenu ? mount.modelData.groupConfig : null
-                  faceMode: "glyph"
-                  color: label.color
-                  fontFamily: Style.font.family
-                  fontSize: Style.font.body
-                  x: mount.animatedInsetX + (drawer.tokens.cell - width) / 2
-                  y: mount.animatedInsetY + (mount.baseHeight - height) / 2
-                }
-                // A split row's icon, in the icon cell, and its value at the end,
-                // in the button's own font and colour.
-                Repeater {
-                  model: !mount.split ? [] : mount.split.native ? [mount.split.rest] : [mount.split.icon, mount.split.rest]
-                  Text {
-                    required property string modelData
-                    required property int index
-                    // 0 the icon, 1 the value.
-                    readonly property int part: mount.split && mount.split.native ? 1 : index
-                    readonly property var button: mount.split ? mount.split.button : null
-                    textFormat: Text.PlainText
-                    text: modelData
-                    color: !button ? label.color : button.active && button.useActiveColor ? button.activeColor : button.foreground
-                    // The button's own fade: dimmed, or a widget's own (omabox with no boxes).
-                    opacity: button ? button.opacity : 1
-                    font.family: button ? button.fontFamily : drawer.bar.fontFamily
-                    font.pixelSize: button ? button.fontSize : Style.font.body
-                    renderType: Text.NativeRendering
-                    width: part === 1 ? Math.min(implicitWidth, CellModel.MAX_INK) : implicitWidth
-                    elide: Text.ElideRight
-                    x: mount.animatedInsetX + (part === 0 ? (drawer.tokens.cell - width) / 2
-                      : drawer.menuRowWidth - drawer.tokens.air - width)
-                    y: (mount.baseHeight - height) / 2 + mount.animatedInsetY
-                  }
-                }
-                Text {
-                  visible: mount.opensSubmenu
-                  textFormat: Text.PlainText
-                  // Towards the side its submenu opens.
-                  text: drawer.subBefore ? "󰅁" : "󰅂"
-                  color: label.color
-                  opacity: 0.7
-                  font.family: Style.font.menuFamily
-                  font.pixelSize: Style.font.bodySmall
-                  x: mount.animatedInsetX + drawer.menuRowWidth - drawer.tokens.air - drawer.chevronWidth
-                  y: (mount.baseHeight - height) / 2 + mount.animatedInsetY
-                }
-                // A menu row takes the pointer whole: a drag anywhere on it moves
-                // the member and a click activates it. Above the widget, whose own
-                // area took presses for itself, so a value widget (the battery)
-                // could only be dragged by its name.
-                Item {
-                  id: rowPointer
-                  anchors.fill: parent
-                  visible: mount.labelled
-                  z: 10
-                  // A submenu takes no drags yet: a drop into it would not resolve.
-                  DragHandler {
-                    target: null
-                    enabled: mount.labelled && !drawer.isSubmenu
-                    acceptedButtons: Qt.LeftButton
-                    property point lastScene
-                    onCentroidChanged: if (active) { lastScene = centroid.scenePosition; bar.updateIconDrag(lastScene, modelData) }
-                    onActiveChanged: {
-                      if (active) {
-                        lastScene = centroid.scenePosition
-                        // Hold first: starting a drag can commit the previous
-                        // drop, which may close this drawer.
-                        drawer.dragMount = mount
-                        if (!bar.beginIconDrag(modelData, hostWindow, lastScene,
-                            centroid.position.x,
-                            centroid.position.y)) drawer.releaseDrag(mount)
-                      } else {
-                        if (bar.barDragSource === modelData) bar.finishIconDrag(lastScene, modelData)
-                        drawer.releaseDrag(mount)
-                      }
-                    }
-                  }
-                  MouseArea {
-                    anchors.fill: parent
-                    acceptedButtons: Qt.LeftButton | Qt.RightButton
-                    onClicked: function(mouse) {
-                      if (mouse.button === Qt.LeftButton) drawer.activateRow(mount.index, false)
-                      else {
-                        var targets = bar.targetsForSlot(modelData)
-                        for (var target of targets) if (target && typeof target.triggerPress === "function") {
-                          target.triggerPress(Qt.RightButton); break
-                        }
-                      }
-                    }
-                    onWheel: function(wheel) {
-                      var targets = bar.targetsForSlot(modelData)
-                      for (var target of targets) if (target && typeof target.wheelMoved === "function") {
-                        target.wheelMoved(wheel.angleDelta.y); break
-                      }
-                    }
-                  }
-                }
-              }
+              model: mountModel
             }
           }
           AnimatedSlot {
@@ -1149,6 +919,271 @@ Item {
             motionDuration: bar.dragMotionDuration
             motionEasing: bar.dragMotionEasing
             motionOvershoot: 0
+          }
+        }
+      }
+    }
+  }
+  // A member's row: its widget drawn in it (a strip's cell), or its icon,
+  // name and value (a menu's row). Kept by mountStore.
+  Component {
+    id: mountRow
+    AnimatedSlot {
+      id: mount
+      // The member's slot, for the row's whole life (mountStore).
+      property Item member: null
+      readonly property bool hosted: !!member && member.drawerHost === mount
+      // What the row draws: its member while it hosts it, nothing while parked.
+      readonly property var modelData: hosted ? member : null
+      readonly property int index: ObjectModel.index
+      readonly property string title: drawer.memberTitle(modelData)
+      readonly property bool labelled: drawer.namedMenu
+      // A group's row in a zone's menu draws the group's icon and opens
+      // its members in the submenu.
+      readonly property bool opensSubmenu: drawer.rowGroup(modelData)
+      readonly property bool rowHovered: memberHover.hovered
+      // A split row draws its widget's icon and value itself (menuSplit).
+      readonly property var split: drawer.namedMenu && modelData ? drawer.menuSplit(modelData) : null
+      readonly property bool showNative: drawer.memberDisplay !== "name" && !opensSubmenu && (!split || split.native)
+      // A counted icon's own face, cut to the icon cell (menuSplit).
+      readonly property Item nativeParent: split && split.native ? iconClip : mount
+      readonly property real nativeX: contentOffsetX - (nativeParent === iconClip ? iconClip.x : 0)
+      readonly property real nativeY: contentOffsetY - (nativeParent === iconClip ? iconClip.y : 0)
+      Item {
+        id: iconClip
+        x: mount.animatedInsetX
+        y: mount.animatedInsetY
+        // To the cell's end, or where the count starts if sooner.
+        width: !mount.split || !mount.split.native ? drawer.tokens.cell
+          : Math.max(0, Math.min(drawer.tokens.cell, mount.contentOffsetX + mount.split.countLeft - x))
+        height: mount.baseHeight
+        clip: true
+      }
+      readonly property var place: modelData ? modelData.cellPlace : null
+      // Strip slots report their spill so the strip's ends follow the island rule.
+      readonly property real cellSpill: drawer.namedMenu || !place ? 0 : place.spill
+      readonly property var rowInk: modelData ? drawer.menuInk(modelData) : null
+      readonly property var rowIconInk: modelData ? drawer.menuIconInk(modelData) : null
+      readonly property bool rowIcon: drawer.menuIcons && !!modelData && drawer.menuGlyph(modelData)
+      readonly property real valueWidth: modelData ? drawer.menuValueWidth(modelData) : 0
+      readonly property real labelStart: modelData ? drawer.menuLabelStart(modelData) : 0
+      readonly property real dragGap: drawer.namedMenu ? drawer.rowPitch : drawer.stripVertical ? bar.dragGapHeight : bar.dragGapWidth
+      readonly property var preview: modelData
+        ? DragModel.slot(bar.dragPreview, modelData.instanceKey, bar.dragSurfaceForDrawer(drawer))
+        : ({ hidden: false, before: false, after: false })
+      readonly property real baseWidth: !modelData ? 0 : drawer.namedMenu ? drawer.menuRowWidth
+        : bar.vertical ? drawer.thickness : place.extent
+      readonly property real baseHeight: !modelData ? 0 : drawer.namedMenu ? drawer.tokens.thickness
+        : bar.vertical ? place.extent : Math.max(modelData.naturalHeight, drawer.thickness)
+      // Where the widget's own box sits: its ink centred in its cell (strips),
+      // its glyph centred in the icon cell or its value right-aligned (menus).
+      readonly property real contentOffsetX: animatedInsetX + (!modelData ? 0
+        : drawer.namedMenu ? (rowIcon ? drawer.tokens.cell / 2 - (rowIconInk.start + rowIconInk.length / 2) - (split ? split.iconShift : 0)
+          : valueWidth > 0 ? drawer.menuRowWidth - drawer.tokens.air - (rowInk.start + rowInk.length) : 0)
+        : bar.vertical ? modelData.crossShift : modelData.inkShift)
+      readonly property real contentOffsetY: animatedInsetY + (!modelData ? 0
+        : drawer.namedMenu ? (drawer.tokens.thickness - modelData.naturalHeight) / 2
+        : bar.vertical ? modelData.inkShift : (baseHeight - modelData.naturalHeight) / 2)
+      targetWidth: preview.hidden && !preview.holdSpace && !drawer.stripVertical ? 0
+        : baseWidth + (!drawer.stripVertical && (preview.before || preview.after) ? dragGap : 0)
+      targetHeight: preview.hidden && !preview.holdSpace && drawer.stripVertical ? 0
+        : baseHeight + (drawer.stripVertical && (preview.before || preview.after) ? dragGap : 0)
+      targetInsetX: !drawer.stripVertical && preview.before ? dragGap : 0
+      targetInsetY: drawer.stripVertical && preview.before ? dragGap : 0
+      // The commit swaps a gap for the row that takes it in one frame, as on the bar.
+      motionEnabled: hosted && bar.animationsEnabled && drawer.opened && !drawer.replaying && !bar.dragHandover
+      motionDuration: bar.dragMotionActive ? bar.dragMotionDuration : 120
+      motionEasing: bar.dragMotionActive ? bar.dragMotionEasing : Easing.OutCubic
+      motionOvershoot: 0
+      opacity: preview.hidden || (modelData && modelData.settleHidden) ? 0 : 1
+      readonly property var hostDrawer: drawer
+      // The landing spot in this member's gap, outlined as on the bar: a
+      // cell in a strip, a row in a menu.
+      DrawerOutline {
+        readonly property real lengthAlong: drawer.stripVertical ? mount.height : mount.width
+        readonly property real insetAlong: drawer.stripVertical ? mount.animatedInsetY : mount.animatedInsetX
+        readonly property real base: drawer.stripVertical ? mount.baseHeight : mount.baseWidth
+        open: drawer.opened && !mount.preview.hidden && (mount.preview.before || mount.preview.after)
+        gapStart: mount.preview.before ? 0 : base
+        gapLength: !open ? 0 : mount.preview.before ? insetAlong : Math.max(0, lengthAlong - base)
+        fullGap: mount.dragGap
+        landingOffset: drawer.namedMenu ? (mount.preview.before ? 0 : drawer.padding) : -1
+        z: 3
+      }
+      Component.onDestruction: {
+        drawer.unhost(mount)
+        // The row driving a drag can't report its release any more: end
+        // the drag rather than leave the bar stuck in it.
+        if (drawer.dragMount === mount) {
+          drawer.dragMount = null
+          if (member && bar.barDragSource === member) bar.clearBarDrag()
+        }
+      }
+      HoverHandler {
+        id: memberHover
+        enabled: drawer.opened && !bar.barDragSource
+        // In the keyboard mode the pointer moves the cursor onto the row.
+        onPointChanged: if (hovered) bar.barKeys.pointerOnRow(drawer, mount.index, point.scenePosition)
+        // A menu row shows its name already; it shows the widget's own
+        // tooltip (a volume, a status), which the row's pointer would
+        // otherwise keep from the widget. The keyboard's card shows that
+        // text while the keys hold the drawer.
+        onHoveredChanged: {
+          if (hovered) drawer.rowHovered(mount)
+          if (!hovered) bar.barKeys.pointerLeft()
+          if (!drawer.namedMenu || bar.barKeys.here && bar.barKeys.drawer === drawer) return
+          if (!hovered) { bar.hideTooltip(mount); return }
+          var text = mount.ownTooltip()
+          // Once the row's hover has reached tooltipHovered.
+          if (text && text !== mount.title) Qt.callLater(function() { if (memberHover.hovered) bar.showTooltip(mount, text) })
+        }
+      }
+      readonly property bool tooltipHovered: memberHover.hovered && drawer.opened
+      function ownTooltip() {
+        if (opensSubmenu) return ""
+        var targets = modelData ? modelData.slotTargets || [] : []
+        for (var i = 0; i < targets.length; i++) if (targets[i] && targets[i].tooltipText) return String(targets[i].tooltipText)
+        return ""
+      }
+      // The member's highlight: the whole row in a menu; its cell in a strip,
+      // centred on the slot, like on the bar.
+      HoverHighlight {
+        id: memberHighlight
+        readonly property real cell: drawer.namedMenu ? mount.baseWidth : mount.place ? mount.place.cell : 0
+        readonly property real thick: drawer.tokens.thickness
+        parent: drawer.namedMenu || !mount.hosted ? mount : stripHighlights
+        x: drawer.namedMenu ? mount.animatedInsetX
+          : bar.vertical ? mount.x + (mount.width - thick) / 2 : mount.x + mount.animatedInsetX + (mount.baseWidth - cell) / 2
+        y: drawer.namedMenu ? mount.animatedInsetY
+          : bar.vertical ? mount.y + mount.animatedInsetY + (mount.baseHeight - cell) / 2 : mount.y + (mount.height - thick) / 2
+        width: drawer.namedMenu || !bar.vertical ? cell : thick
+        height: drawer.namedMenu || !bar.vertical ? thick : cell
+        z: -1
+        // The keyboard cursor lights the same mark, outlined (KEYS-69).
+        readonly property bool keysCursor: drawer.selectionVisible && drawer.cursor === mount.index
+        hovered: ((memberHover.hovered && !bar.barDragSource) || keysCursor) && drawer.opened && !preview.hidden
+        outlined: keysCursor && hovered
+        // A group's row stays lit while its submenu is open.
+        selected: modelData ? modelData.panelOpen
+          || (mount.opensSubmenu && !!drawer.submenu && drawer.submenu.opened && drawer.submenu.parentRow === mount) : false
+        motionEnabled: bar.animationsEnabled
+        glide: rowGlide
+        glideKey: "rows"
+        hoverColor: bar.highlightHoverColor
+        selectedColor: bar.highlightSelectedColor
+        rounding: CellModel.radius(drawer.tokens, bar.islandRounding)
+      }
+      Text {
+        id: label
+        visible: mount.labelled
+        textFormat: Text.PlainText
+        text: mount.title
+        // On the notch's black, the bar's own light text.
+        color: drawer.notchColours ? drawer.bar.barForeground : drawer.bar.textOn(drawer.namedMenu ? Commons.Color.menu.text : Commons.Color.popups.text)
+        font.family: drawer.namedMenu ? Style.font.menuFamily : Style.font.family
+        font.pixelSize: Style.font.bodySmall
+        // Names end one air before the row's end, or before a trailing value.
+        x: mount.labelStart + mount.animatedInsetX
+        y: (mount.baseHeight - height) / 2 + mount.animatedInsetY
+        width: Math.max(0, drawer.menuRowWidth - mount.labelStart - drawer.tokens.air
+          - (mount.valueWidth > 0 ? mount.valueWidth + drawer.tokens.air : 0))
+        elide: Text.ElideRight
+      }
+      GroupFace {
+        visible: mount.opensSubmenu
+        group: mount.opensSubmenu ? mount.modelData.groupConfig : null
+        faceMode: "glyph"
+        color: label.color
+        fontFamily: Style.font.family
+        fontSize: Style.font.body
+        x: mount.animatedInsetX + (drawer.tokens.cell - width) / 2
+        y: mount.animatedInsetY + (mount.baseHeight - height) / 2
+      }
+      // A split row's icon, in the icon cell, and its value at the end,
+      // in the button's own font and colour.
+      Repeater {
+        model: !mount.split ? [] : mount.split.native ? [mount.split.rest] : [mount.split.icon, mount.split.rest]
+        Text {
+          required property string modelData
+          required property int index
+          // 0 the icon, 1 the value.
+          readonly property int part: mount.split && mount.split.native ? 1 : index
+          readonly property var button: mount.split ? mount.split.button : null
+          textFormat: Text.PlainText
+          text: modelData
+          color: !button ? label.color : button.active && button.useActiveColor ? button.activeColor : button.foreground
+          // The button's own fade: dimmed, or a widget's own (omabox with no boxes).
+          opacity: button ? button.opacity : 1
+          font.family: button ? button.fontFamily : drawer.bar.fontFamily
+          font.pixelSize: button ? button.fontSize : Style.font.body
+          renderType: Text.NativeRendering
+          width: part === 1 ? Math.min(implicitWidth, CellModel.MAX_INK) : implicitWidth
+          elide: Text.ElideRight
+          x: mount.animatedInsetX + (part === 0 ? (drawer.tokens.cell - width) / 2
+            : drawer.menuRowWidth - drawer.tokens.air - width)
+          y: (mount.baseHeight - height) / 2 + mount.animatedInsetY
+        }
+      }
+      Text {
+        visible: mount.opensSubmenu
+        textFormat: Text.PlainText
+        // Towards the side its submenu opens.
+        text: drawer.subBefore ? "󰅁" : "󰅂"
+        color: label.color
+        opacity: 0.7
+        font.family: Style.font.menuFamily
+        font.pixelSize: Style.font.bodySmall
+        x: mount.animatedInsetX + drawer.menuRowWidth - drawer.tokens.air - drawer.chevronWidth
+        y: (mount.baseHeight - height) / 2 + mount.animatedInsetY
+      }
+      // A menu row takes the pointer whole: a drag anywhere on it moves
+      // the member and a click activates it. Above the widget, whose own
+      // area took presses for itself, so a value widget (the battery)
+      // could only be dragged by its name.
+      Item {
+        id: rowPointer
+        anchors.fill: parent
+        visible: mount.labelled
+        z: 10
+        // A submenu takes no drags yet: a drop into it would not resolve.
+        DragHandler {
+          target: null
+          enabled: mount.labelled && !drawer.isSubmenu
+          acceptedButtons: Qt.LeftButton
+          property point lastScene
+          onCentroidChanged: if (active) { lastScene = centroid.scenePosition; bar.updateIconDrag(lastScene, mount.member) }
+          onActiveChanged: {
+            if (active) {
+              lastScene = centroid.scenePosition
+              // Hold first: starting a drag can commit the previous
+              // drop, which may close this drawer.
+              drawer.dragMount = mount
+              if (!bar.beginIconDrag(mount.member, hostWindow, lastScene,
+                  centroid.position.x,
+                  centroid.position.y)) drawer.releaseDrag(mount)
+            } else {
+              if (bar.barDragSource === mount.member) bar.finishIconDrag(lastScene, mount.member)
+              drawer.releaseDrag(mount)
+            }
+          }
+        }
+        MouseArea {
+          anchors.fill: parent
+          acceptedButtons: Qt.LeftButton | Qt.RightButton
+          onClicked: function(mouse) {
+            if (mouse.button === Qt.LeftButton) drawer.activateRow(mount.index, false)
+            else {
+              var targets = bar.targetsForSlot(modelData)
+              for (var target of targets) if (target && typeof target.triggerPress === "function") {
+                target.triggerPress(Qt.RightButton); break
+              }
+            }
+          }
+          onWheel: function(wheel) {
+            var targets = bar.targetsForSlot(modelData)
+            for (var target of targets) if (target && typeof target.wheelMoved === "function") {
+              target.wheelMoved(wheel.angleDelta.y); break
+            }
           }
         }
       }
