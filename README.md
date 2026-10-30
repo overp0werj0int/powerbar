@@ -498,16 +498,17 @@ keyboard focus in the keyboard mode, through Quickshell's Hyprland module.
 | --- | --- |
 | `omarchy-toggle-bar`, `omarchy-toggle bar-off off` | `omarchy-shell powerbar show` / `hide`; Omarchy's bar toggle on an autohidden bar |
 | `omarchy-bar-text-color` | A transparent bar picks its text colour over the wallpaper, as Omarchy's does |
-| `omarchy-bar background`, `omarchy-bar sync-glass` | The bar's background changes, on an Omarchy with the glassy background |
+| `omarchy-bar background` (asked every 0.1 s with `seq` and `sleep`, for 3 s at most), `omarchy-bar sync-glass` | The bar's background changes, on an Omarchy with the glassy background |
 | `notify-send` | First start: offers the bar shortcuts (free, or what holds them) in a notification that stays until dismissed; a click opens Preferences at them |
-| `hyprctl binds`, `cat` | Reading shortcuts (Preferences, the keyboard mode, `shortcuts`) |
-| `hyprctl reload config-only`, `hyprctl configerrors` | After writing the shortcut block (`ShortcutApply.sh`, with `grep`, `awk`, `cp`, `mv`, `readlink`) |
+| `hyprctl binds` (under `timeout 3s`), `head -c` | Reading shortcuts (Preferences, the keyboard mode, `shortcuts`): Hyprland's binds and each binding file, 1 MB at most |
+| `hyprctl reload config-only`, `hyprctl configerrors` | After writing the shortcut block (`ShortcutApply.sh`, with `mkdir`, `readlink`, `dirname`, `mktemp`, `cp`, `awk`, `grep`, `head`, `cut`, `sed`, `tr`, `chmod`, `mv`, `rm`, `sleep`, `date`) |
 | `hyprctl eval` | Recording a shortcut: a temporary submap so the keys reach Preferences, for 15 s at most |
-| `hyprctl binds -j` with `jq`, `hyprctl repl` | Omarchy's bar toggle on an autohidden bar: finds the toggle's key and checks every 50 ms whether it is still held, for 60 s at most |
-| `wl-paste` | Ctrl+V in the icon picker (the image read under `timeout 2s`) |
-| `ls`, `mkdir`, `cp`, `stat`, `rm` | The icon and image folders above, and the list of installed themes |
+| `hyprctl binds -j` with `jq`, `hyprctl repl`, `seq`, `sleep` | Omarchy's bar toggle on an autohidden bar: finds the toggle's key and checks every 50 ms whether it is still held, for 60 s at most |
+| `wl-paste` | Ctrl+V in the icon picker: the clipboard's types, then the image or a copied file's path, read under `timeout 2s` through `head -c` |
+| `ls`, `mkdir`, `head -c` (under `timeout 2s`), `stat`, `rm` | The icon and image folders above, and the list of installed themes: an icon you pick is copied with `head -c` and checked against 512 KB with `stat`; icons no group uses are deleted |
+| `chmod -R go=` | As the bar loads: closes `$XDG_CACHE_HOME/powerbar` and `$XDG_DATA_HOME/powerbar` to other users, leaving alone a folder that is a link or not yours (INTEG-151) |
 | `[[ -f … ]]` (in `bash -c`) | Whether `toggles/bar-off` is set, at load and when it changes |
-| `BuildStamp.sh` (`find`, `sha256sum`, `git rev-parse`, `git status`) | Once as the bar loads, on Powerbar's own folder only, for `omarchy-shell powerbar build` |
+| `BuildStamp.sh` (`find`, `sort`, `sha256sum`, `cut`, `xargs`, `git rev-parse`, `git status`) | Once as the bar loads, on Powerbar's own folder only, for `omarchy-shell powerbar build` |
 | Your custom modules' `exec`, `onClick`…, and commands widgets ask the bar to run | Through `bash -lc`, as on Omarchy's bar |
 
 ## Troubleshooting
