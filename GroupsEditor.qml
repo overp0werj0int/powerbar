@@ -438,7 +438,6 @@ Item {
             };
             liftHome = selectedId;
         }
-        hoverOn(null);
     }
     function liftFace(id) {
         var face = Editor.facePlace(stepState, id);
@@ -453,7 +452,6 @@ Item {
             area: "zone",
             zone: face.zone
         };
-        hoverOn(null);
     }
     function cancel() {
         if (pointerLift) {
@@ -939,7 +937,7 @@ Item {
                 if (!editor.pointerLift) {
                     var hit = editor.overFilter(point) ? null : editor.hitAt(point);
                     editor.hoverKey = hit ? hit.key : editor.overFilter(point) ? "filter:" : "";
-                    editor.hoverOn(pressed ? null : hit);
+                    nameTip.hover(pressed || !hit ? "" : hit.key, hit);
                 }
                 if (pressed && editor.pressed && !editor.pointerLift && Board.pastThreshold(editor.pressPoint, point, Style.space(6))) {
                     if (editor.pressed.kind === "face")
@@ -953,7 +951,7 @@ Item {
             onExited: {
                 if (!editor.pointerLift)
                     editor.hoverKey = "";
-                editor.hoverOn(null);
+                nameTip.hover(null);
             }
             onWheel: function (wheel) {
                 var point = Qt.point(wheel.x, wheel.y);
@@ -965,7 +963,7 @@ Item {
                 editor.pointerMoved(point);
             }
             onPressed: function (mouse) {
-                editor.hoverOn(null);
+                nameTip.hover(null);
                 if (editor.lifted)
                     editor.cancel();
                 editor.pressSpent = false;
@@ -1236,101 +1234,24 @@ Item {
 
     // -------------------------------------------------------------- the tip
     // A face's or a widget's full name after a short rest on it, a "+"'s
-    // "New group in Left" (PREFS-100).
-    property var hoverHit: null
-    property bool tipWarm: false
-    function hoverOn(hit) {
-        var key = hit ? hit.key : "";
-        if (key === (hoverHit ? hoverHit.key : ""))
-            return;
-        hoverHit = key ? hit : null;
-        if (!key || lifted) {
-            nameTip.shown = false;
-            tipDelay.stop();
-            if (tipWarm)
-                tipCool.restart();
-            return;
-        }
-        tipCool.stop();
-        if (tipWarm)
-            showTip();
-        else {
-            nameTip.shown = false;
-            tipDelay.restart();
-        }
-    }
-    function showTip() {
-        var hit = hoverHit;
-        if (!hit || lifted)
-            return;
-        var g = hit.kind === "face" ? groupOf(hit.id) : null;
-        nameTip.record = hit.record || ({});
-        nameTip.title = hit.kind === "plus" ? "New group in " + layout.zoneNames[hit.zone] : g ? g.label : hit.record ? preferences.title(hit.record) : "";
-        var n = g ? (memberLists[g.id] || []).length : 0;
-        nameTip.detail = hit.kind === "plus" ? "" : g ? "Group, " + n + (n === 1 ? " widget" : " widgets") : hit.record ? hit.record.id : "";
-        nameTip.at = pointer;
-        nameTip.shown = true;
-        tipWarm = true;
-    }
-    Timer {
-        id: tipDelay
-        interval: MotionModel.TIP_REST_MS
-        onTriggered: editor.showTip()
-    }
-    Timer {
-        id: tipCool
-        interval: MotionModel.TIP_WARM_MS
-        onTriggered: editor.tipWarm = false
-    }
-    BorderSurface {
+    // "New group in Left" (PREFS-100): under the pointer, in front of
+    // everything (the inspector too).
+    BoardNameTip {
         id: nameTip
-        property bool shown: false
-        property var record: ({})
-        property string title: ""
-        property string detail: ""
-        // Where the pointer rested; the tip is placed from its laid-out
-        // size, kept inside the page, in front of everything (the inspector too).
-        property point at: Qt.point(0, 0)
-        readonly property real gap: Style.space(10)
-        x: Math.max(0, Math.min(editor.width - width, at.x - width / 2))
-        y: at.y + gap + Style.space(16) + height <= editor.height ? at.y + gap + Style.space(16) : at.y - gap - height
+        layout: editor.layout
         z: 130
-        visible: opacity > 0
-        opacity: shown ? 1 : 0
-        Behavior on opacity {
-            enabled: editor.bar.animationsEnabled
-            NumberAnimation {
-                duration: MotionModel.TIP_FADE_MS
-                easing.type: Easing.OutCubic
-            }
-        }
-        // A surface over the page, not a chip (PREFS-133): m above and
-        // below, l at the sides, one step past its own m gaps.
-        width: tipRow.implicitWidth + 2 * Gap.l
-        height: tipRow.implicitHeight + 2 * Gap.m
-        radius: Round.container
-        color: Qt.tint(editor.pageColor, Qt.alpha(Commons.Color.popups.text, 0.1))
-        borderSpec: Border.flat(Qt.alpha(Commons.Color.popups.text, 0.16), 1)
-        Row {
-            id: tipRow
-            anchors.centerIn: parent
-            spacing: Gap.m
-            InkIcon {
-                visible: !!nameTip.record.instanceKey
-                layout: editor.layout
-                record: nameTip.record
-                anchors.verticalCenter: parent.verticalCenter
-            }
-            InkText {
-                anchors.verticalCenter: parent.verticalCenter
-                text: nameTip.title
-            }
-            InkText {
-                visible: text !== ""
-                anchors.verticalCenter: parent.verticalCenter
-                text: nameTip.detail
-                role: "caption"
-            }
+        suppressed: !!editor.lifted
+        describe: function (hit) {
+            var g = hit.kind === "face" ? editor.groupOf(hit.id) : null;
+            var n = g ? (editor.memberLists[g.id] || []).length : 0;
+            var gap = Style.space(10), p = editor.pointer;
+            return {
+                record: hit.record || ({}),
+                title: hit.kind === "plus" ? "New group in " + editor.layout.zoneNames[hit.zone] : g ? g.label : hit.record ? editor.preferences.title(hit.record) : "",
+                detail: hit.kind === "plus" ? "" : g ? "Group, " + n + (n === 1 ? " widget" : " widgets") : hit.record ? hit.record.id : "",
+                below: Qt.point(p.x, p.y + gap + Style.space(16)),
+                above: Qt.point(p.x, p.y - gap)
+            };
         }
     }
 

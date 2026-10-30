@@ -1,6 +1,7 @@
 import QtQuick
 import QtTest
 import Powerbar
+import qs.Commons
 import "../../BarModel.js" as BarModel
 import "../../PreferencesModel.js" as Model
 import "../../GroupsModel.js" as GroupsModel
@@ -555,6 +556,45 @@ TestCase {
     keyClick(Qt.Key_Space);
     verify(page.lifted, "a lift");
     verify(!tipShows(page, 130, "omarchy.workspaces"), "hides the tip");
+    keyClick(Qt.Key_Escape);
+  }
+
+  // The tip at depth `z`, once shown.
+  function tipAt(page, z) {
+    return itemWith(page, function (k) { return k.z === z && k.shown === true });
+  }
+  // Layout places the tip once, as it shows, under the chip. A longer name
+  // afterwards does not move it.
+  function test_layoutNameTipIsPlacedOnce() {
+    var page = layoutKeys();
+    wait(700);
+    var chip = chipOf(page, "c2"), a = centre(chip);
+    mouseMove(test, a.x, a.y);
+    tryVerify(function () { return !!tipAt(page, 110) }, 2000, "after a rest on the chip");
+    var tip = tipAt(page, 110), below = chip.mapToItem(page, chip.width / 2, chip.height);
+    fuzzyCompare(tip.y, below.y + Style.space(6), 0.01, "under the chip");
+    var x = tip.x, width = tip.width, record = tip.record;
+    tip.record = { instanceKey: "x", id: "a.very.long.widget.identifier.for.the.tip" };
+    tryVerify(function () { return tip.width > width }, 1000, "the longer name widens it");
+    compare(tip.x, x, "it stays where it showed");
+    tip.record = record;
+    keyClick(Qt.Key_Space);
+    keyClick(Qt.Key_Escape);
+  }
+  // Groups keeps its tip placed from its size, under the pointer.
+  function test_groupsNameTipFollowsItsSize() {
+    var page = groupsKeys();
+    var a = centre(chipOf(page, "c2"));
+    mouseMove(test, a.x, a.y);
+    tryVerify(function () { return !!tipAt(page, 130) }, 2000, "after a rest on the chip");
+    var tip = tipAt(page, 130), p = page.pointer;
+    fuzzyCompare(tip.y, p.y + Style.space(26), 0.01, "under the pointer");
+    fuzzyCompare(tip.x, Math.max(0, Math.min(page.width - tip.width, p.x - tip.width / 2)), 0.01, "centred on it");
+    var x = tip.x;
+    tip.title = "a much longer name than the widget's own";
+    tryVerify(function () { return tip.x !== x }, 1000, "a longer name moves it");
+    fuzzyCompare(tip.x, Math.max(0, Math.min(page.width - tip.width, p.x - tip.width / 2)), 0.01, "still centred");
+    keyClick(Qt.Key_Space);
     keyClick(Qt.Key_Escape);
   }
 

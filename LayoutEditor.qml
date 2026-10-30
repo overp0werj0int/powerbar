@@ -998,92 +998,28 @@ Item {
     }
 
     // A chip's full name, icon and id, flat over the layers, after a short
-    // rest on it; once one has shown, the next shows at once (PREFS-100).
-    property Item hoverTile: null
-    property bool tipWarm: false
-    function hoverOn(tile) {
-        if (tile === hoverTile)
-            return;
-        hoverTile = tile;
-        if (!tile || lifted) {
-            nameTip.shown = false;
-            tipDelay.stop();
-            if (tipWarm)
-                tipCool.restart();
-            return;
-        }
-        tipCool.stop();
-        if (tipWarm)
-            showTip();
-        else {
-            nameTip.shown = false;
-            tipDelay.restart();
-        }
-    }
-    function showTip() {
-        var tile = hoverTile;
-        if (!tile || lifted || !tile.record || !tile.record.instanceKey)
-            return;
-        nameTip.record = tile.record;
-        var below = tile.mapToItem(editor, tile.width / 2, tile.height);
-        var above = tile.mapToItem(editor, tile.width / 2, 0);
-        var gap = Style.space(6);
-        nameTip.x = Math.max(0, Math.min(editor.width - nameTip.width, below.x - nameTip.width / 2));
-        nameTip.y = below.y + gap + nameTip.height <= editor.height ? below.y + gap : above.y - gap - nameTip.height;
-        nameTip.shown = true;
-        tipWarm = true;
-    }
-    Timer {
-        id: tipDelay
-        interval: MotionModel.TIP_REST_MS
-        onTriggered: editor.showTip()
-    }
-    Timer {
-        id: tipCool
-        interval: MotionModel.TIP_WARM_MS
-        onTriggered: editor.tipWarm = false
-    }
-    onLiftedChanged: if (lifted)
-        hoverOn(null)
-    BorderSurface {
+    // rest on it; once one has shown, the next shows at once (PREFS-100):
+    // under the chip, over it when there is no room below. Placed once as it
+    // shows; its text follows the chip's record.
+    BoardNameTip {
         id: nameTip
-        property bool shown: false
-        property var record: ({})
+        layout: editor
         z: 110
-        visible: opacity > 0
-        opacity: shown ? 1 : 0
-        Behavior on opacity {
-            enabled: editor.bar.animationsEnabled
-            NumberAnimation {
-                duration: MotionModel.TIP_FADE_MS
-                easing.type: Easing.OutCubic
-            }
-        }
-        // A surface over the page, not a chip (PREFS-133): m above and
-        // below, l at the sides, one step past its own m gaps.
-        width: tipRow.implicitWidth + 2 * Gap.l
-        height: tipRow.implicitHeight + 2 * Gap.m
-        radius: Round.container
-        color: Qt.tint(Qt.rgba(Commons.Color.popups.background.r, Commons.Color.popups.background.g, Commons.Color.popups.background.b, 1), Qt.alpha(Commons.Color.popups.text, 0.1))
-        borderSpec: Border.flat(Qt.alpha(Commons.Color.popups.text, 0.16), 1)
-        Row {
-            id: tipRow
-            anchors.centerIn: parent
-            spacing: Gap.m
-            InkIcon {
-                layout: editor
-                record: nameTip.record
-                anchors.verticalCenter: parent.verticalCenter
-            }
-            InkText {
-                anchors.verticalCenter: parent.verticalCenter
-                text: nameTip.record && nameTip.record.instanceKey ? editor.preferences.title(nameTip.record) : ""
-            }
-            InkText {
-                anchors.verticalCenter: parent.verticalCenter
-                text: nameTip.record ? nameTip.record.groupId ? "Group" : nameTip.record.id || "" : ""
-                role: "caption"
-            }
+        placeOnce: true
+        suppressed: !!editor.lifted
+        title: record && record.instanceKey ? editor.preferences.title(record) : ""
+        detail: record ? record.groupId ? "Group" : record.id || "" : ""
+        describe: function (tile) {
+            if (!tile.record || !tile.record.instanceKey)
+                return null;
+            var gap = Style.space(6);
+            var below = tile.mapToItem(editor, tile.width / 2, tile.height);
+            var above = tile.mapToItem(editor, tile.width / 2, 0);
+            return {
+                record: tile.record,
+                below: Qt.point(below.x, below.y + gap),
+                above: Qt.point(above.x, above.y - gap)
+            };
         }
     }
 
@@ -1289,7 +1225,7 @@ Item {
                 if (!editor.pointerLift) {
                     var tile = editor.tileAt(point);
                     editor.hoverKey = tile ? tile.record.instanceKey : "";
-                    editor.hoverOn(pressed ? null : tile);
+                    nameTip.hover(pressed ? null : tile, tile);
                 }
                 if (pressed && editor.pressed && !editor.pointerLift && Board.pastThreshold(editor.pressPoint, point, Style.space(6))) {
                     editor.lift(editor.pressed.record, editor.pressed.cell);
@@ -1300,7 +1236,7 @@ Item {
             onExited: {
                 if (!editor.pointerLift)
                     editor.hoverKey = "";
-                editor.hoverOn(null);
+                nameTip.hover(null);
             }
             // The wheel over a scrolling tile scrolls it, a row a notch.
             onWheel: function (wheel) {
@@ -1313,7 +1249,7 @@ Item {
                 editor.pointerMoved(point);
             }
             onPressed: function (mouse) {
-                editor.hoverOn(null);
+                nameTip.hover(null);
                 if (editor.lifted)
                     editor.cancel();
                 editor.pressSpent = false;
