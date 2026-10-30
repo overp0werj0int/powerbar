@@ -1562,8 +1562,13 @@ Item {
                                 label: "Rename"
                             }
                         ]
-                        onEditingFinished: if (inspector.group && text.trim() && text.trim() !== inspector.group.label)
-                            editor.edit(inspector.group.id, {
+                        // The group the typing is for: a click elsewhere selects the
+                        // next one before this field loses focus and finishes.
+                        property var editing: null
+                        onActiveFocusChanged: if (activeFocus)
+                            editing = inspector.group
+                        onEditingFinished: if (editing && text.trim() && text.trim() !== editing.label)
+                            editor.edit(editing.id, {
                                 label: text
                             })
                         Keys.onEscapePressed: function (event) {
@@ -1847,8 +1852,12 @@ Item {
                     font.pixelSize: Ink.caption
                     verticalPadding: Gap.xs
                     Accessible.name: "Badge count property"
-                    onEditingFinished: if (editor.member)
-                        editor.bar.editMemberBadge(editor.member.instanceKey, "badgeProperty", text.trim())
+                    // The widget the typing is for (see nameField).
+                    property var editing: null
+                    onActiveFocusChanged: if (activeFocus)
+                        editing = editor.member
+                    onEditingFinished: if (editing)
+                        editor.bar.editMemberBadge(editing.instanceKey, "badgeProperty", text.trim())
                 }
                 TextField {
                     id: urgentField
@@ -1865,8 +1874,12 @@ Item {
                     font.pixelSize: Ink.caption
                     verticalPadding: Gap.xs
                     Accessible.name: "Urgent property"
-                    onEditingFinished: if (editor.member)
-                        editor.bar.editMemberBadge(editor.member.instanceKey, "urgentProperty", text.trim())
+                    // The widget the typing is for (see nameField).
+                    property var editing: null
+                    onActiveFocusChanged: if (activeFocus)
+                        editing = editor.member
+                    onEditingFinished: if (editing)
+                        editor.bar.editMemberBadge(editing.instanceKey, "urgentProperty", text.trim())
                 }
                 InkText {
                     visible: !!editor.member
