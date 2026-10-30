@@ -31,8 +31,10 @@ rsync -a --delete --exclude .git --exclude .claude --exclude docs --exclude test
 # omabox seeds the box from the user's config; start from Omarchy's defaults.
 omabox run -b "$NAME" -- omarchy bar defaults >/dev/null 2>&1
 omabox run -b "$NAME" -- omarchy bar use "$ID" >/dev/null 2>&1
-omabox restart-shell -b "$NAME" >/dev/null 2>&1   # "crashed while starting" is harmless here
-if omabox wait -b "$NAME" --timeout 60s cmd -- omarchy-shell powerbar help >/dev/null 2>&1; then
+# restart-shell waits for Omarchy's own bar, which Powerbar replaces: wait for
+# Powerbar below instead. "crashed while starting" is harmless here.
+OMABOX_READY_TIMEOUT=2s omabox restart-shell -b "$NAME" >/dev/null 2>&1
+if omabox wait -b "$NAME" --timeout 60s until -- omarchy-shell powerbar help >/dev/null 2>&1; then
   pass "powerbar IPC answers"
 else
   fail "powerbar IPC answers" "timed out"
