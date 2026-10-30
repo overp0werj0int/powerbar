@@ -4987,11 +4987,13 @@ Item {
       // a frame, doubled or cut, before Quickshell placed it again.
       readonly property bool far: root.position === "bottom" || root.position === "right"
       readonly property real span: root.vertical ? barWindow.height : barWindow.width
-      // How far out from the bar's window edge the surface reaches; it only
-      // grows while shown, so a bubble moving never resizes it.
-      readonly property real base: (root.vertical ? barWindow.width : barWindow.height) + Math.ceil(root.vertical ? tooltipBubble.implicitWidth : tooltipBubble.implicitHeight) + 2 * root.overlayShadowPad + 6
+      // How far out from the bar's window edge the surface reaches: the room
+      // the card's words need until it is first placed, then only more while
+      // shown (onAnchoring), so neither a bubble moving nor shorter words (a
+      // vertical bar's card is as wide as its words) resize it.
+      readonly property real room: (root.vertical ? barWindow.width : barWindow.height) + Math.ceil(root.vertical ? tooltipBubble.implicitWidth : tooltipBubble.implicitHeight) + 2 * root.overlayShadowPad + 6
       property real grown: 0
-      readonly property real reach: Math.ceil(Math.max(base, grown))
+      readonly property real reach: Math.ceil(grown > 0 ? grown : room)
       // The words shown, taken with the place: a card whose new target has
       // no place yet keeps its old words where it stands, never the new
       // name beside the old widget.
@@ -5047,6 +5049,7 @@ Item {
             : root.position === "bottom" ? barWindow.height - at.y + pad
             : root.position === "left" ? at.x + size.width + pad
             : barWindow.width - at.x + pad
+          need = Math.max(need, tooltipWindow.room)
           if (need > tooltipWindow.grown) tooltipWindow.grown = need
           tooltipWindow.at = Qt.point(Math.round(at.x), Math.round(at.y))
         }

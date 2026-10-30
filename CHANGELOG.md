@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- On a side bar the card's surface no longer shrinks and grows with each card's words while it is shown, so cards change words without a resize.
 - Preferences' open fade and the page slide now start once their first frame is painted, so both are seen from the start; before, building that frame took most of the motion's time and the card popped in or the page jumped halfway.
 - `omarchy-shell powerbar newGroup` refuses a name over 80 characters, as `setGroup` does, instead of cutting it; group and widget edits from the command line answer an error when the change was not saved instead of `ok`.
 - A shortcut change is no longer taken back because a config error `bindings.lua` already had moved to another line when Powerbar's block was written.
