@@ -232,10 +232,10 @@ var groupFields = ["label", "icon", "iconFont", "iconImage", "iconTint", "zone",
 // selector, resolved by the caller), or { error }.
 // A group's name as newGroup and setGroup take it: trimmed, "New group" when
 // empty. Refused rather than cut, so the answer never says ok for a name that
-// was not kept whole (Groups keeps labels to 80 characters).
+// was not kept whole (GroupsModel.labelLength).
 function groupName(label) {
   var name = String(label === undefined || label === null ? "" : label).trim()
-  if (name.length > 80) return { error: "label is at most 80 characters" }
+  if (name.length > GroupsModel.labelLength) return { error: "label is at most " + GroupsModel.labelLength + " characters" }
   return { name: name || "New group" }
 }
 function groupPatch(patch) {
@@ -250,8 +250,7 @@ function groupPatch(patch) {
     if (k === "label" && groupName(v).error) return groupName(v)
     if ((k === "icon" || k === "iconImage") && (typeof v !== "string" || !v)) return { error: k + " is a glyph or an image path" }
     if (k === "icon" && Array.from(v).length > 8) return { error: "icon is one glyph or emoji" }
-    // GroupsModel.imagePath()'s rule: a local file, never a URL.
-    if (k === "iconImage" && (v.length > 1024 || !/^\/[^\x00-\x1f\x7f]*\.(svg|png)$/i.test(v) || /(^|\/)\.\.(\/|$)/.test(v)))
+    if (k === "iconImage" && !GroupsModel.imagePath(v))
       return { error: "iconImage is an absolute path to an SVG or PNG" }
     if (k === "before" && typeof v !== "string") return { error: "before names a widget, or \"\" for the zone's end" }
     if (k === "zone") {

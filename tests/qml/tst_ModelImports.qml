@@ -47,6 +47,8 @@ TestCase {
     compare(CliModel.find("style").choices.join(), "flat,floating,islands,notch")
     compare(CliModel.find("surface.text").choices.join(), "theme,light,dark")
     compare(CliModel.groupPatch({ face: "x" }).error, "face is one of glyph, text, both")
+    compare(CliModel.groupPatch({ iconImage: "/a/../b.svg" }).error, "iconImage is an absolute path to an SVG or PNG")
+    compare(CliModel.groupName(Array(82).join("x")).error, "label is at most 80 characters")
   }
   function test_fitZones() {
     compare(BarKeysModel.zoneStep(["left", "left", "right"], 0, 1), 2)
