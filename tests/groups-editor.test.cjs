@@ -261,3 +261,20 @@ test('zoneMove: a face carried away and back finds its place while the anchor is
   assert.equal(gone.patch.before, '', 'the anchor left: the zone end');
   assert.equal(m.zoneMove(out.memory, { id: 'h', section: 'right', before: 'c' }, 'left', layout).patch.before, '', 'memory is per group');
 });
+
+test('the gap under the pointer in a zone list', () => {
+  const face = (groupId, y) => ({ item: { kind: 'face', groupId }, y, height: 20 });
+  const member = y => ({ item: { kind: 'member' }, y, height: 20 });
+  const note = y => ({ item: { kind: 'note' }, y, height: 20 });
+  const list = ys => [face('a', ys[0]), member(ys[1]), member(ys[2]), face('b', ys[3]), note(ys[4])];
+  assert.equal(m.listGap([]), null, 'a zone without groups');
+  assert.deepEqual(plain(m.listGap(list([5, -15, -35, -55, -75]))), { id: 'a', pos: 0 }, 'on a face row');
+  assert.deepEqual(plain(m.listGap(list([25, 5, -15, -35, -55]))), { id: 'a', pos: 0 }, 'in the top half of a first widget');
+  assert.deepEqual(plain(m.listGap(list([45, 25, 5, -15, -35]))), { id: 'a', pos: 1 }, 'in the top half of the second');
+  assert.deepEqual(plain(m.listGap(list([65, 45, 25, 5, -15]))), { id: 'b', pos: 0 }, 'on the next face');
+  assert.deepEqual(plain(m.listGap(list([65, 45, 25, -5, -25]))), { id: 'a', pos: 2 }, 'above a face: the end of the group over it');
+  assert.deepEqual(plain(m.listGap(list([85, 65, 45, 25, 5]))), { id: 'b', pos: 0 }, 'on an empty group\'s note');
+  assert.deepEqual(plain(m.listGap(list([105, 85, 65, 45, 25]))), { id: 'b', pos: 0 }, 'past the last row: the last group\'s end');
+  assert.deepEqual(plain(m.listGap([face('a', 45), member(25), member(5)])), { id: 'a', pos: 1 }, 'before the last widget\'s middle');
+  assert.deepEqual(plain(m.listGap([face('a', 45), member(25), member(15)])), { id: 'a', pos: 2 }, 'past the last widget');
+});

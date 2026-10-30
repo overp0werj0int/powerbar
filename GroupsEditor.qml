@@ -1037,7 +1037,7 @@ Item {
                     key: "plus:" + t.zone,
                     place: Editor.plusPlace(stepState, t.zone)
                 };
-            var row = inView(t, point) ? tileIn(t, point) : null;
+            var row = t.chipAt(editor, point);
             if (row && row.kind === "face")
                 return {
                     kind: "face",
@@ -1072,7 +1072,7 @@ Item {
             };
         }
         if (inside(poolCell, point)) {
-            var chip = inView(poolCell, point) ? tileIn(poolCell, point) : null;
+            var chip = poolCell.chipAt(editor, point);
             if (chip)
                 return {
                     kind: "poolchip",
@@ -1093,62 +1093,6 @@ Item {
             };
         }
         return null;
-    }
-    function tileIn(win, point) {
-        for (var i = 0; i < win.tiles.count; i++) {
-            var tile = win.tiles.itemAt(i);
-            if (!tile || tile.placeholder)
-                continue;
-            var p = tile.mapFromItem(editor, point.x, point.y);
-            if (p.x >= 0 && p.y >= 0 && p.x < tile.width && p.y < tile.height)
-                return tile;
-        }
-        return null;
-    }
-    // The gap under the pointer in a zone's list, as { id, pos }: on a face
-    // row or an empty group's note, that group's first gap; on its widgets,
-    // before the first whose middle the pointer has not passed; above a face,
-    // the end of the group over it; past the last row, the last group's end.
-    // null for a zone without groups.
-    function gapIn(win, point) {
-        var id = "", pos = 0;
-        for (var i = 0; i < win.tiles.count; i++) {
-            var row = win.tiles.itemAt(i);
-            if (!row || row.placeholder)
-                continue;
-            var y = row.mapFromItem(editor, point.x, point.y).y;
-            if (row.kind === "face") {
-                if (y < 0 && id)
-                    return {
-                        id: id,
-                        pos: pos
-                    };
-                id = row.groupId;
-                pos = 0;
-                if (y < row.height)
-                    return {
-                        id: id,
-                        pos: 0
-                    };
-            } else if (row.kind === "note") {
-                if (y < row.height)
-                    return {
-                        id: id,
-                        pos: 0
-                    };
-            } else {
-                if (y < row.height / 2)
-                    return {
-                        id: id,
-                        pos: pos
-                    };
-                pos++;
-            }
-        }
-        return id ? {
-            id: id,
-            pos: pos
-        } : null;
     }
     // The scrolling window under the pointer: a zone's list or the pool.
     function windowAt(point) {
@@ -1175,7 +1119,7 @@ Item {
                 zone: hit.zone
             };
         else if (hit && hit.tile) {
-            var gap = inView(hit.tile, point) ? gapIn(hit.tile, point) : null;
+            var gap = inView(hit.tile, point) ? Editor.listGap(hit.tile.mapRows(editor, point)) : null;
             next = gap ? {
                 area: "gap",
                 id: gap.id,

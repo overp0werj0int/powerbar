@@ -837,38 +837,13 @@ Item {
     }
     function tileAt(point) {
         var cell = cellAt(point);
-        if (!cell || !cell.tiles)
-            return null;
-        // A chip scrolled out of the tile's window is not under the pointer.
-        var at = cell.mapFromItem(editor, point.x, point.y);
-        if (!cell.viewContains(at))
-            return null;
-        for (var i = 0; i < cell.tiles.count; i++) {
-            var tile = cell.tiles.itemAt(i);
-            if (!tile || tile.placeholder)
-                continue;
-            var p = tile.mapFromItem(editor, point.x, point.y);
-            if (p.x >= 0 && p.y >= 0 && p.x < tile.width && p.y < tile.height)
-                return tile;
-        }
-        return null;
+        return cell ? cell.chipAt(editor, point) : null;
     }
     // The gap under the pointer: before the first real chip the pointer has
     // not passed, reading a tile top to bottom and the tray's row left to
     // right.
     function gapAt(cell, point) {
-        var pos = 0;
-        for (var i = 0; cell.tiles && i < cell.tiles.count; i++) {
-            var tile = cell.tiles.itemAt(i);
-            if (!tile || tile.placeholder)
-                continue;
-            var p = tile.mapFromItem(editor, point.x, point.y);
-            var passed = cell.flows ? p.y >= tile.height || (p.y >= 0 && p.x >= tile.width / 2) : p.y >= tile.height / 2;
-            if (!passed)
-                return pos;
-            pos++;
-        }
-        return pos;
+        return Board.gapIndex(cell.mapRows(editor, point), cell.flows);
     }
     function pointerMoved(point) {
         pointer = point;

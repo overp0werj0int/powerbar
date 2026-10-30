@@ -280,6 +280,37 @@ Item {
     function viewContains(p) {
         return p.y >= viewTop - room && p.y < viewTop + viewHeight;
     }
+    // The window's rows under a point in `from`'s coordinates, through the
+    // tilt: each row with the point in its own coordinates, landing places
+    // left out, in drawn order. What the pages' gap rules read
+    // (Board.gapIndex, GroupsEditorModel.listGap).
+    function mapRows(from, point) {
+        var rows = [];
+        for (var i = 0; i < chipTiles.count; i++) {
+            var row = chipTiles.itemAt(i);
+            if (!row || row.placeholder)
+                continue;
+            var p = row.mapFromItem(from, point.x, point.y);
+            rows.push({
+                item: row,
+                x: p.x,
+                y: p.y,
+                width: row.width,
+                height: row.height
+            });
+        }
+        return rows;
+    }
+    // The row under a point in `from`'s coordinates, or null: a row scrolled
+    // out of the window is not under the pointer.
+    function chipAt(from, point) {
+        if (!viewContains(mapFromItem(from, point.x, point.y)))
+            return null;
+        var hit = mapRows(from, point).find(function (r) {
+            return r.x >= 0 && r.y >= 0 && r.x < r.width && r.y < r.height;
+        });
+        return hit ? hit.item : null;
+    }
     Item {
         id: viewport
         x: cell.pad - Style.space(4)

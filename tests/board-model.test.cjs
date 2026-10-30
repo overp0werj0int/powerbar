@@ -77,3 +77,22 @@ test('covers maps the point into the item and keeps the box half open', () => {
   assert.equal(Board.covers(item, from, { x: 10, y: 25 }), false);
   assert.equal(Board.covers(item, from, { x: 4.9, y: 10 }), false);
 });
+
+const row = (x, y, width = 100, height = 20) => ({ x, y, width, height });
+
+test('in a column the pointer passes a row below its middle', () => {
+  assert.equal(Board.gapIndex([], false), 0);
+  assert.equal(Board.gapIndex([row(50, -5), row(50, -30)], false), 0, 'above the first row');
+  assert.equal(Board.gapIndex([row(50, 9.9), row(50, -10)], false), 0, 'in its top half');
+  assert.equal(Board.gapIndex([row(50, 10), row(50, -10)], false), 1, 'on its middle');
+  assert.equal(Board.gapIndex([row(50, 30), row(50, 10)], false), 2, 'on the second row');
+  assert.equal(Board.gapIndex([row(50, 50), row(50, 30)], false), 2, 'past the last row');
+});
+
+test('in a flow the pointer passes a row below it, or right of its middle on it', () => {
+  assert.equal(Board.gapIndex([row(20, 5), row(-80, 5)], true), 0, 'left half of the first');
+  assert.equal(Board.gapIndex([row(50, 5), row(-50, 5)], true), 1, 'right half of the first');
+  assert.equal(Board.gapIndex([row(150, -30), row(50, -30)], true), 0, 'above a row: not passed');
+  assert.equal(Board.gapIndex([row(20, 25), row(-80, 25)], true), 2, 'below both rows');
+  assert.equal(Board.gapIndex([row(-10, 5), row(-110, 5)], true), 0, 'left of a row, on its height');
+});

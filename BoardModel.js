@@ -1,15 +1,14 @@
 // What the Layout and Groups boards decide the same way (docs/behavior/
 // preferences.md PREFS-27, PREFS-117): what a key asks for, when a press
-// becomes a drag, and the plain hit and focus questions both pages ask. No
-// Qt objects beyond what a caller hands in: `covers` and `within` read only
-// `mapFromItem`, `width`, `height` and `parent`, so node tests pass plain
-// objects.
+// becomes a drag, which gap a pointer is at, and the plain hit and focus
+// questions both pages ask. No Qt objects beyond what a caller hands in:
+// `covers` and `within` read only `mapFromItem`, `width`, `height` and
+// `parent`, so node tests pass plain objects.
 //
 // Two orders both pages keep, and a new board page must too. A press moves
 // the cursor to what it landed on before it takes focus, so a field that
 // finishes on the focus change saves for the right subject. A drop is decided
-// while the chip is still lifted and written after it is put down, so what
-// the write reads is the layout as it was when the drop was decided.
+// while the chip is still lifted and written once it is put down.
 
 // Qt's key and modifier codes (Qt::Key, Qt::KeyboardModifier). They are Qt's
 // ABI; tests/qml/tst_BoardModel.qml compares each with Qt.Key_* and
@@ -44,6 +43,20 @@ function keyCommand(key, text, modifiers) {
 // Manhattan distance past `limit`.
 function pastThreshold(from, to, limit) {
   return Math.abs(to.x - from.x) + Math.abs(to.y - from.y) > limit
+}
+
+// The gap the pointer is at among a window's rows, as ZoneTile.mapRows gives
+// them ({ x, y, width, height }: the pointer in each row's own coordinates,
+// landing places left out). Before the first row the pointer has not passed.
+// A column is passed below a row's middle; a flow (the hidden and tray slabs)
+// below a row, or on it right of its middle.
+function gapIndex(rows, flows) {
+  for (var i = 0; i < rows.length; i++) {
+    var r = rows[i]
+    var passed = flows ? r.y >= r.height || (r.y >= 0 && r.x >= r.width / 2) : r.y >= r.height / 2
+    if (!passed) return i
+  }
+  return rows.length
 }
 
 // Whether `item` is `root` or inside it.
