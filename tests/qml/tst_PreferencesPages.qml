@@ -76,7 +76,7 @@ TestCase {
       fn(config);
       test.calls.push(["editGroups", GroupsModel.groups(config.bar).map(function (g) { return g.id + ":" + g.label + "@" + g.section }).join(" ")]);
     }
-    function editMemberBadge(key, on) {}
+    function editMemberBadge(key, prop, text) { test.calls.push(["editMemberBadge", key, prop, text]) }
   }
 
   Item {
@@ -361,6 +361,30 @@ TestCase {
     mouseClick(test, other.x, other.y);
     compare(page.selectedId, "g2", "the click selects the other group");
     compare(JSON.stringify(calls), JSON.stringify([["editGroups", "g1:Net@right g2:Time@left"]]), "the name goes to the group it was typed for");
+  }
+
+  function test_groupsBadgeFieldTypedThenClick_data() {
+    return [{ tag: "count", hint: "Count from: detected", prop: "badgeProperty" }, { tag: "urgent", hint: "Urgent from: detected", prop: "urgentProperty" }];
+  }
+  // The same rule for the badge fields: typed for the widget the cursor was
+  // on, kept when a click moves the cursor to another before they finish.
+  function test_groupsBadgeFieldTypedThenClick(data) {
+    var page = createTemporaryObject(groupsPage, prefs);
+    page.selectedId = "g2";
+    wait(50);
+    page.place({ area: "member", id: "g2", pos: 0 });
+    compare(page.member.instanceKey, "c1");
+    wait(50);
+    var field = itemWith(page, function (k) { return k.placeholderText === data.hint });
+    verify(field, "the inspector has the field for the cursor's widget");
+    var at = centre(field);
+    mouseClick(test, at.x, at.y);
+    tryVerify(function () { return field.activeFocus }, 1000);
+    keyClick("n");
+    var other = centre(chipOf(page, "b1"));
+    mouseClick(test, other.x, other.y);
+    compare(page.selectedId, "g1", "the click selects the other group");
+    compare(JSON.stringify(calls), JSON.stringify([["editMemberBadge", "c1", data.prop, "n"]]), "the text goes to the widget it was typed for");
   }
 
   // What both boards share, pinned on each page (PREFS-100, PREFS-104,

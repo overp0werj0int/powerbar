@@ -1573,9 +1573,8 @@ Item {
     // The inspector: the selected widget at the front of the stack, bottom
     // right, with where it is (its layer and zone) and how it behaves. Enter
     // or a click brings it out; Esc pushes it back (PREFS-101).
-    component Inspector: BorderSurface {
+    component Inspector: BoardInspector {
         id: panel
-        property bool shown: false
         readonly property var record: editor.inspected
         readonly property bool isGroup: !!record && !!record.groupId
         readonly property var group: isGroup ? editor.bar.groups.find(function (g) {
@@ -1584,87 +1583,16 @@ Item {
         // A tray icon, and whether it is still in Omarchy's tray.
         readonly property bool trayIcon: !!record && !!record.trayItem
         readonly property bool inTray: !!record && record.mode === "tray"
-        function focusFirst() {
-            layerPicker.forceActiveFocus(Qt.TabFocusReason);
-        }
         readonly property bool popupOpen: groupPicker.popupOpen
         readonly property var popupHints: groupPicker.listHints
-        // Tab and Shift+Tab walk the inspector's controls and wrap round
-        // inside it (Layer, Zone, Shortcut, Peeks on activity, Group or Edit
-        // group) rather than leaving it for the rest of the page: a stop
-        // before the first control and one after the last send focus on
-        // round. Qt walks Tab itself, so the stops are where it can be met.
-        property Item lastInside: null
-        function lastControl() {
-            var last = layerPicker;
-            for (var item = layerPicker.nextItemInFocusChain(true); item && item !== endFence && item !== layerPicker && Board.within(item, panel); item = item.nextItemInFocusChain(true))
-                last = item;
-            return last;
-        }
-        Connections {
-            target: editor
-            function onFocusedChanged() {
-                var f = editor.focused;
-                if (f && f !== startFence && f !== endFence && Board.within(f, panel))
-                    panel.lastInside = f;
-            }
-        }
-        anchors.right: parent.right
-        anchors.bottom: parent.bottom
-        width: Math.min(editor.width, Style.space(670))
+        layout: editor
+        // Tab and Shift+Tab wrap round Layer, Zone, Shortcut, Peeks on
+        // activity, Group or Edit group.
+        first: layerPicker
         // xl all round, its columns xl apart (PREFS-133).
-        height: body.implicitHeight + 2 * Gap.xl
-        z: 120
-        radius: Round.container
-        color: Qt.tint(Qt.rgba(Commons.Color.popups.background.r, Commons.Color.popups.background.g, Commons.Color.popups.background.b, 1), Qt.alpha(Commons.Color.popups.text, 0.065))
-        borderSpec: Border.flat(Qt.alpha(Commons.Color.popups.text, 0.16), 1)
-        visible: opacity > 0
-        opacity: shown ? 1 : 0
-        scale: shown ? 1 : 0.97
-        transformOrigin: Item.Bottom
-        Behavior on opacity {
-            enabled: editor.bar.animationsEnabled
-            NumberAnimation {
-                duration: MotionModel.APPEAR_MS
-                easing.type: Easing.OutCubic
-            }
-        }
-        Behavior on scale {
-            enabled: editor.bar.animationsEnabled
-            NumberAnimation {
-                duration: MotionModel.APPEAR_SCALE_MS
-                easing.type: Easing.OutCubic
-            }
-        }
+        bodyHeight: body.implicitHeight
         // Esc pushes the chip back; an open dropdown takes it first.
-        Keys.onPressed: function (event) {
-            if (event.key !== Qt.Key_Escape)
-                return;
-            editor.pushBack();
-            event.accepted = true;
-        }
-        // Shift+Tab from Layer meets this stop: on to the last control.
-        // Tab from outside meets it first: on to Layer.
-        Item {
-            id: startFence
-            activeFocusOnTab: panel.shown
-            onActiveFocusChanged: if (activeFocus)
-                (panel.lastInside === layerPicker ? panel.lastControl() : layerPicker).forceActiveFocus(Qt.TabFocusReason)
-        }
-        MouseArea {
-            anchors.fill: parent
-        }
-        // The shadow it casts on the layers.
-        Rectangle {
-            z: -1
-            anchors.fill: parent
-            anchors.topMargin: Style.space(10)
-            anchors.bottomMargin: -Style.space(10)
-            anchors.leftMargin: Style.space(8)
-            anchors.rightMargin: Style.space(8)
-            radius: panel.radius
-            color: Ink.band(editor.lightTheme)
-        }
+        onEscaped: editor.pushBack()
 
         InkText {
             visible: !panel.record
@@ -1762,7 +1690,7 @@ Item {
                         editor.setPlacement(panel.record, value, panel.inTray ? "managed" : panel.record.mode);
                     }
                 }
-                Hint {
+                InspectorHint {
                     visible: panel.inTray
                     text: "Placed on the bar, it leaves the tray and works as it does there: click, right-click menu, scroll"
                 }
@@ -1786,7 +1714,7 @@ Item {
                         editor.bar.setActivityPeek(panel.record.instanceKey, checked);
                     }
                 }
-                Hint {
+                InspectorHint {
                     visible: !panel.isGroup && !panel.inTray && (activityToggle.clockDriven || editor.bar.autoHide && !editor.bar.autoHideActivity)
                     dim: true
                     text: activityToggle.clockDriven ? "It changes on a clock, so it never brings the bar out" : "Turned off for every widget on the Behavior page"
@@ -1853,24 +1781,5 @@ Item {
                 }
             }
         }
-        // Tab from the last control meets this stop: round to Layer.
-        // Shift+Tab from outside meets it first: on to the last control.
-        Item {
-            id: endFence
-            activeFocusOnTab: panel.shown
-            onActiveFocusChanged: if (activeFocus)
-                (panel.lastInside === panel.lastControl() ? layerPicker : panel.lastControl()).forceActiveFocus(Qt.TabFocusReason)
-        }
-    }
-
-    // A caption under the control it explains, a text pair's xxs below it
-    // in a column m apart (PREFS-133); dim when it says why it is off.
-    component Hint: InkText {
-        property bool dim: false
-        Layout.fillWidth: true
-        Layout.topMargin: Gap.xxs - Gap.m
-        role: "caption"
-        disabled: dim
-        wrapMode: Text.WordWrap
     }
 }

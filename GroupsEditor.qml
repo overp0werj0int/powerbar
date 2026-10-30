@@ -1337,82 +1337,17 @@ Item {
     // -------------------------------------------------------- the inspector
     // The member the cursor is on, for its badge sources.
     readonly property var member: !lifted && at.area === "member" && at.id === selectedId ? cursorRecord : null
-    BorderSurface {
+    BoardInspector {
         id: inspector
-        readonly property bool shown: !!editor.selectedGroup
         readonly property var group: editor.selectedGroup
-        // Tab and Shift+Tab walk the inspector's controls and wrap round
-        // inside it (PREFS-26): a stop before the first control and one
-        // after the last send focus on round.
-        property Item lastInside: null
-        function lastControl() {
-            var last = nameField;
-            for (var item = nameField.nextItemInFocusChain(true); item && item !== endFence && item !== nameField && Board.within(item, inspector); item = item.nextItemInFocusChain(true))
-                last = item;
-            return last;
-        }
-        anchors.right: parent.right
-        anchors.bottom: parent.bottom
-        width: Math.min(editor.width, Style.space(670))
+        layout: editor.layout
+        shown: !!editor.selectedGroup
+        // Tab and Shift+Tab wrap round inside it (PREFS-26).
+        first: nameField
         // xl all round, its columns xl apart, its blocks l (PREFS-133).
-        height: inspectorBody.implicitHeight + 2 * Gap.xl
-        z: 120
-        radius: editor.tileRadius
-        color: editor.tileColor(false)
-        borderSpec: Border.flat(Qt.alpha(Commons.Color.popups.text, 0.16), 1)
-        visible: opacity > 0
-        opacity: shown ? 1 : 0
-        scale: shown ? 1 : 0.97
-        transformOrigin: Item.Bottom
-        Behavior on opacity {
-            enabled: editor.bar.animationsEnabled
-            NumberAnimation {
-                duration: MotionModel.APPEAR_MS
-                easing.type: Easing.OutCubic
-            }
-        }
-        Behavior on scale {
-            enabled: editor.bar.animationsEnabled
-            NumberAnimation {
-                duration: MotionModel.APPEAR_SCALE_MS
-                easing.type: Easing.OutCubic
-            }
-        }
+        bodyHeight: inspectorBody.implicitHeight
         // Esc returns to the chosen face; a control that takes it gets it first.
-        Keys.onPressed: function (event) {
-            if (event.key !== Qt.Key_Escape)
-                return;
-            editor.toChosenFace();
-            event.accepted = true;
-        }
-        Connections {
-            target: editor
-            function onFocusedChanged() {
-                var f = editor.focused;
-                if (f && f !== startFence && f !== endFence && Board.within(f, inspector))
-                    inspector.lastInside = f;
-            }
-        }
-        Item {
-            id: startFence
-            activeFocusOnTab: inspector.shown
-            onActiveFocusChanged: if (activeFocus)
-                (inspector.lastInside === nameField ? inspector.lastControl() : nameField).forceActiveFocus(Qt.TabFocusReason)
-        }
-        MouseArea {
-            anchors.fill: parent
-        }
-        // The shadow it casts on the page.
-        Rectangle {
-            z: -1
-            anchors.fill: parent
-            anchors.topMargin: Style.space(10)
-            anchors.bottomMargin: -Style.space(10)
-            anchors.leftMargin: Style.space(8)
-            anchors.rightMargin: Style.space(8)
-            radius: inspector.radius
-            color: Ink.band(editor.lightTheme)
-        }
+        onEscaped: editor.toChosenFace()
         ColumnLayout {
             id: inspectorBody
             anchors.left: parent.left
@@ -1443,20 +1378,13 @@ Item {
                             fontFamily: editor.layout.barFont
                         }
                     }
-                    TextField {
+                    InspectorField {
                         id: nameField
                         Layout.fillWidth: true
                         Layout.preferredHeight: Gap.control
                         verticalPadding: Gap.xs
                         horizontalPadding: Gap.s
                         font.pixelSize: Ink.label
-                        // Typing breaks a plain binding: this one comes back whenever the
-                        // field is not being edited, so another group or widget shows its own.
-                        Binding on text {
-                            value: inspector.group ? inspector.group.label : ""
-                            when: !nameField.activeFocus
-                            restoreMode: Binding.RestoreNone
-                        }
                         placeholderText: "Group name"
                         foreground: Commons.Color.popups.text
                         Accessible.name: "Group name"
@@ -1468,26 +1396,23 @@ Item {
                         ]
                         // The group the typing is for: a click elsewhere selects the
                         // next one before this field loses focus and finishes.
-                        property var editing: null
-                        onActiveFocusChanged: if (activeFocus)
-                            editing = inspector.group
-                        onEditingFinished: if (editing && text.trim() && text.trim() !== editing.label)
-                            editor.edit(editing.id, {
-                                label: text
-                            })
+                        subject: inspector.group
+                        saved: inspector.group ? inspector.group.label : ""
+                        onCommitted: function (group, text) {
+                            if (text.trim() && text.trim() !== group.label)
+                                editor.edit(group.id, {
+                                    label: text
+                                });
+                        }
                         Keys.onEscapePressed: function (event) {
                             text = inspector.group ? inspector.group.label : "";
                             editor.toChosenFace();
                             event.accepted = true;
                         }
                     }
-                    InkText {
-                        Layout.fillWidth: true
-                        Layout.topMargin: Gap.xxs - Gap.m
+                    InspectorHint {
                         readonly property int n: inspector.group ? (editor.memberLists[inspector.group.id] || []).length : 0
                         text: !inspector.group ? "" : n + (n === 1 ? " widget, " : " widgets, ") + (inspector.group.visibility === "hidden" ? "hidden, zone " + editor.layout.zoneNames[inspector.group.section] : (inspector.group.visibility === "managed" ? "on demand at " : "on the bar at ") + String(editor.layout.zoneNames[inspector.group.section]).toLowerCase())
-                        role: "caption"
-                        wrapMode: Text.WordWrap
                     }
                     // Dissolve, asked twice (PREFS-39).
                     Item {
@@ -1668,12 +1593,8 @@ Item {
                         }
                     }
                     // A hint: a text pair under the field it is about.
-                    InkText {
-                        Layout.fillWidth: true
-                        Layout.topMargin: Gap.xxs - Gap.m
+                    InspectorHint {
                         text: "Shift h l on its face moves it too"
-                        role: "caption"
-                        wrapMode: Text.WordWrap
                     }
                     Button {
                         id: iconButton
@@ -1721,49 +1642,38 @@ Item {
                     tier: editor.member ? 1 : Ink.secondary
                     elide: Text.ElideRight
                 }
-                TextField {
+                InspectorField {
                     id: countField
                     visible: !!editor.member
                     Layout.fillWidth: true
                     Layout.preferredWidth: 2
-                    Binding on text {
-                        value: editor.member ? editor.member.badgeProperty || "" : ""
-                        when: !countField.activeFocus
-                        restoreMode: Binding.RestoreNone
-                    }
                     placeholderText: "Count from: detected"
                     foreground: Commons.Color.popups.text
                     font.pixelSize: Ink.caption
                     verticalPadding: Gap.xs
                     Accessible.name: "Badge count property"
                     // The widget the typing is for (see nameField).
-                    property var editing: null
-                    onActiveFocusChanged: if (activeFocus)
-                        editing = editor.member
-                    onEditingFinished: if (editing)
-                        editor.bar.editMemberBadge(editing.instanceKey, "badgeProperty", text.trim())
+                    subject: editor.member
+                    saved: editor.member ? editor.member.badgeProperty || "" : ""
+                    onCommitted: function (member, text) {
+                        editor.bar.editMemberBadge(member.instanceKey, "badgeProperty", text.trim());
+                    }
                 }
-                TextField {
+                InspectorField {
                     id: urgentField
                     visible: !!editor.member
                     Layout.fillWidth: true
                     Layout.preferredWidth: 2
-                    Binding on text {
-                        value: editor.member ? editor.member.urgentProperty || "" : ""
-                        when: !urgentField.activeFocus
-                        restoreMode: Binding.RestoreNone
-                    }
                     placeholderText: "Urgent from: detected"
                     foreground: Commons.Color.popups.text
                     font.pixelSize: Ink.caption
                     verticalPadding: Gap.xs
                     Accessible.name: "Urgent property"
-                    // The widget the typing is for (see nameField).
-                    property var editing: null
-                    onActiveFocusChanged: if (activeFocus)
-                        editing = editor.member
-                    onEditingFinished: if (editing)
-                        editor.bar.editMemberBadge(editing.instanceKey, "urgentProperty", text.trim())
+                    subject: editor.member
+                    saved: editor.member ? editor.member.urgentProperty || "" : ""
+                    onCommitted: function (member, text) {
+                        editor.bar.editMemberBadge(member.instanceKey, "urgentProperty", text.trim());
+                    }
                 }
                 InkText {
                     visible: !!editor.member
@@ -1771,12 +1681,6 @@ Item {
                     role: "caption"
                 }
             }
-        }
-        Item {
-            id: endFence
-            activeFocusOnTab: inspector.shown
-            onActiveFocusChanged: if (activeFocus)
-                (inspector.lastInside === inspector.lastControl() ? nameField : inspector.lastControl()).forceActiveFocus(Qt.TabFocusReason)
         }
     }
     readonly property Item focused: editor.Window.activeFocusItem
