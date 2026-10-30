@@ -220,8 +220,9 @@ no drag, settle glide or bar move.
   with the queued edits on top.
 - **Failure:** a failed write restores the host's config, and Preferences
   reports it.
-- **Exception:** `ensureInstanceIds` still writes directly, because its edit
-  invents identifiers.
+- **Heal:** what Powerbar writes back into a delivered config, new instance
+  ids included, is one queued edit too (HealModel). The ids are decided once,
+  before it is queued, so every run of the edit writes the same ones.
 
 Preferences also reads widget metadata from a cache refreshed once per
 registry burst. It used to rebuild its pages for each of the 40 registrations.

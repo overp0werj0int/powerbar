@@ -16,11 +16,12 @@ import "SectionsModel.js" as SectionsModel
 // The bar's `barConfig` has two writers: the host, which assigns the config it
 // holds, and this store, which shows the host's config with the queued edits
 // on top (`show`). Every assignment the bar sees goes through `delivered()`:
-// one from the host while edits wait is kept as the new base and the edits are
-// shown on top of it again.
+// one from the host is healed (`heal`, HealModel) and, while edits wait, kept
+// as the new base with the edits shown on top of it again.
 //
 // Edits run again on the host's config, so they must capture plain values,
-// never live slot state, and must not invent values (writeNow is for those).
+// never live slot state, and must not invent values: what they need is
+// decided once, before the edit is queued (the heal's new instance ids).
 // An edit that throws is dropped with a warning, so it cannot block the rest.
 //
 // Writes go through the shell only while its config names Powerbar as the bar
@@ -50,6 +51,10 @@ QtObject {
   signal show(var config)
   // The queue was not saved; the bar shows the host's config again.
   signal failed()
+
+  // function(bar): the edit that heals a config from the host (the config the
+  // bar would show: the host's with the queued edits on top), or null.
+  property var heal: null
 
   property var edits: []
   // The host's config under the queued edits: a failed write restores it.
@@ -91,26 +96,27 @@ QtObject {
   function write(mutator) {
     if (typeof mutator !== "function" || !canWrite()) return false
     if (!pending) host = shown
-    edits = edits.concat([mutator])
-    lastEdit = Date.now()
+    queue(mutator)
     showEdits()
-    flushDelay.restart()
     return edits.indexOf(mutator) >= 0
   }
-
-  // A direct write for edits that must run on the host's config itself, such
-  // as new instance ids, which would differ if invented twice.
-  function writeNow(mutator) {
-    if (typeof mutator !== "function" || !canWrite()) return false
-    return mutate(mutator) !== false
+  function queue(mutator) {
+    edits = edits.concat([mutator])
+    lastEdit = Date.now()
+    flushDelay.restart()
   }
 
-  // Every assignment to the bar's config. True when it came from the host
-  // while edits wait: the store has shown the edits on top of it again and the
-  // bar should not treat it as a new config.
+  // Every assignment to the bar's config. True when it came from the host and
+  // the store shows it itself, healed or with queued edits on top: the bar
+  // should not treat it as a new config. A config the store shows (its edits,
+  // or the host's again after a failed write) is not healed, so a write the
+  // shell refuses is not tried again on the config it failed on.
   function delivered(config) {
-    if (applying || !pending) return false
+    if (applying) return false
+    var mend = !retired && shellCanWrite() && BarModel.ownsBarConfig(config, barId) ? healFor(config) : null
+    if (!pending && !mend) return false
     host = config
+    if (mend) queue(mend)
     showEdits()
     return true
   }
@@ -129,11 +135,29 @@ QtObject {
     return kept
   }
 
+  // The heal for a config from the host, decided on what the bar would show.
+  // One that throws heals nothing: the config still shows.
+  function healFor(config) {
+    if (typeof heal !== "function") return null
+    try {
+      return heal(withEdits(config).bar)
+    } catch (error) {
+      console.warn("powerbar: the config could not be healed: " + error)
+      return null
+    }
+  }
+
+  // A copy of a config with every queued edit applied: { bar, kept }.
+  function withEdits(config) {
+    var scoped = { bar: JSON.parse(JSON.stringify(Util.isPlainObject(config) ? config : {})) }
+    scoped.kept = runEdits(scoped)
+    return scoped
+  }
+
   // The host's config with every queued edit applied, shown as the bar's config.
   function showEdits() {
-    var scoped = { bar: JSON.parse(JSON.stringify(Util.isPlainObject(host) ? host : {})) }
-    var kept = runEdits(scoped)
-    if (kept.length !== edits.length) edits = kept
+    var scoped = withEdits(host)
+    if (scoped.kept.length !== edits.length) edits = scoped.kept
     if (!Util.isPlainObject(scoped.bar)) return
     showConfig(scoped.bar)
   }

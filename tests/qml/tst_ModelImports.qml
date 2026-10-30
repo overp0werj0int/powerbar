@@ -4,6 +4,7 @@ import "../../BarKeysModel.js" as BarKeysModel
 import "../../BarModel.js" as BarModel
 import "../../CliModel.js" as CliModel
 import "../../GroupsModel.js" as GroupsModel
+import "../../HealModel.js" as HealModel
 import "../../ManagedModel.js" as ManagedModel
 import "../../PreferencesModel.js" as PreferencesModel
 import "../../RenderModel.js" as RenderModel
@@ -28,6 +29,8 @@ TestCase {
     compare(PreferencesModel.zonesOnly().length, 5)
     compare(ManagedModel.layoutEntries({ layout: layout() }).length, 2)
     compare(TrayItemsModel.entries({ centerEnd: [{ type: "trayItem", item: "x" }] }).length, 1)
+    compare(HealModel.heal({ layout: layout(), powerbarVisibilityDefault: "shown" }, { previous: layout(), theme: "nord" }), null)
+    compare(HealModel.heal({ layout: layout() }, { previous: layout(), thirdParty: function(entry) { return entry.id === "a" } }).entries[0].keys.powerbarVisibility, "managed")
   }
   function test_visibilityModes() {
     compare(CliModel.widgetPatch({ visibility: "x" }, {}).error, "visibility is one of shown, managed, hidden")

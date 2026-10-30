@@ -132,7 +132,7 @@ Storage: the look lives in `bar.powerbarAppearance` of shell.json: `all` (values
 
 ## Legacy migration
 
-- **LOOK-48** When shell.json holds flat keys from earlier versions (`powerbarIslandRounding`, `powerbarIslandBorders`, `powerbarIslandBorderWidth`, `powerbarBlur`, `powerbarBackgroundOpacity`, `powerbarShadow`, `powerbarShadowSize`, `powerbarShadowOpacity`, their `powerbarMain*` forms, or a `powerbarForeground` map) and a theme name is known, one config write moves them into `powerbarAppearance`; it waits for the theme name, and runs once. Until it is written the bar draws the same from the old keys. Code: Bar.qml healAppearance; AppearanceModel.migrate.
+- **LOOK-48** When shell.json holds flat keys from earlier versions (`powerbarIslandRounding`, `powerbarIslandBorders`, `powerbarIslandBorderWidth`, `powerbarBlur`, `powerbarBackgroundOpacity`, `powerbarShadow`, `powerbarShadowSize`, `powerbarShadowOpacity`, their `powerbarMain*` forms, or a `powerbarForeground` map) and a theme name is known, one config write moves them into `powerbarAppearance`; it waits for the theme name, and runs once. Until it is written the bar draws the same from the old keys. Code: HealModel.heal (integration.md INTEG-158); AppearanceModel.migrate.
 
 - **LOOK-49** Old `powerbarMainBlur: true` with `powerbarMainBackgroundOpacity: 13` and no `powerbarBackgroundOpacity` draws opacity 0.13; `powerbarMainBlur: true` alone draws 0.80; `powerbarMainBlur: false` with an opacity of 13 draws 1 (the opacity was ignored without blur). Code: AppearanceModel.effects.
 
@@ -146,7 +146,7 @@ Storage: the look lives in `bar.powerbarAppearance` of shell.json: `all` (values
 
 - **LOOK-54** A bare-string `powerbarForeground` is deleted by migration and stores nothing (LOOK-19). A `powerbarForeground` map keeps only its `light` and `dark` entries. Code: AppearanceModel.fromLegacy.
 
-- **LOOK-55** At startup, once Powerbar has listed both theme folders (`/usr/share/omarchy/themes`, `~/.config/omarchy/themes`; if either listing fails nothing is pruned), values kept for themes no longer installed are deleted from `powerbarAppearance.themes`, always from a fresh listing (a theme installed while the shell runs keeps its values, INTEG-36); the current theme is always kept. Code: Bar.qml installedThemesProc, pruneAppearanceThemes; AppearanceModel.pruneThemes.
+- **LOOK-55** At startup, once Powerbar has listed both theme folders (`/usr/share/omarchy/themes`, `~/.config/omarchy/themes`; if either listing fails nothing is pruned), values kept for themes no longer installed are deleted from `powerbarAppearance.themes`, always from a fresh listing (a theme installed while the shell runs keeps its values, INTEG-36); the current theme is always kept. Code: Bar.qml installedThemesProc; HealModel.heal; AppearanceModel.pruneThemes.
 
 ## Bar auto-hide
 

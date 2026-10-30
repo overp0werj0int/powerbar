@@ -13,6 +13,7 @@ import "BarModel.js" as BarModel
 import "PreferencesModel.js" as PreferencesModel
 import "ManagedModel.js" as ManagedModel
 import "GroupsModel.js" as GroupsModel
+import "HealModel.js" as HealModel
 import "GroupBadgeModel.js" as GroupBadgeModel
 import "AppearanceModel.js" as AppearanceModel
 import "DragModel.js" as DragModel
@@ -197,14 +198,16 @@ Item {
     shown: root.barConfig
     settled: root.configWriteSettled
     idle: !root.barInUse
+    heal: root.healEdit
     // Qt 6.12 hands a `var` signal argument over as a reference wrapper whose
     // lists fail Array.isArray, so Omarchy's normalizeLayout would read an
     // empty layout and every widget would be rebuilt: take a plain copy.
     onShow: function(config) { root.barConfig = JSON.parse(JSON.stringify(config)) }
-    // A restore that could not be saved is not tried again on the config it failed on.
-    onFailed: { root.shownLayout = null; root.configWriteFailed() }
+    onFailed: root.configWriteFailed()
   }
   function canWriteConfig() { return configStore.canWrite() }
+  // Edits shown but not yet in shell.json.
+  readonly property bool configPending: configStore.pending
   function writeConfig(mutator) { return configStore.write(mutator) }
   function assignGroup(key, id, before, keepDrawer) {
     return editGroups(function(config) { GroupsModel.assign(config, key, id, before || "") }, keepDrawer)
@@ -549,40 +552,26 @@ Item {
     var metadata = barWidgetRegistry.metadataFor(id)
     return metadata ? metadata.firstParty !== true : id.indexOf("omarchy.") !== 0
   }
-  // Assign stable identities once, preserving duplicate plugin instances on
-  // moves. The visibility default is settled in the same write, before the
-  // ids exist: they would make a fresh config look like one Powerbar ran on.
-  function ensureInstanceIds() {
-    if (!canWriteConfig() || !barConfig.layout || lostKeysPending()) return
-    var seen = {}, missing = barConfig.powerbarVisibilityDefault !== "shown"
-    // The tray section's widgets too: Powerbar draws them beside the tray.
-    for (var zone of SectionsModel.sections) {
-      for (var entry of (barConfig.layout[zone] || [])) {
-        var key = entry && entry.powerbarInstance
-        if (!key || seen[key]) missing = true
-        seen[key] = true
-      }
-    }
-    if (!missing) return
-    configStore.writeNow(function(config) {
-      // A config Powerbar never ran on: its shortcut store offers the bar's
-      // suggested shortcuts in a notification, once (ShortcutStore offerSuggested).
-      if (!ManagedModel.powerbarHasRun(config.bar)) config.bar.powerbarShortcutOffer = true
-      ManagedModel.healVisibility(config.bar, root.thirdPartyEntry)
-      var used = {}
-      for (var zone of SectionsModel.sections) {
-        var entries = config.bar.layout[zone] || []
-        for (var i = 0; i < entries.length; i++) {
-          var entry = typeof entries[i] === "string" ? { id: entries[i] } : entries[i]
-          if (!entry.powerbarInstance || used[entry.powerbarInstance])
-            entry.powerbarInstance = "pw-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2)
-          used[entry.powerbarInstance] = true
-          entries[i] = entry
-        }
-      }
+  // What Powerbar writes back into a config it is handed (HealModel): the
+  // edit the store queues with a config from the host before showing it, so
+  // the bar never shows it unhealed while it can be written. Decided here,
+  // once, in plain values: the store runs the edit again on every config the
+  // host delivers until it is written. extra: installedThemes from a listing
+  // just read, zoneModesSaved once their copy is saved.
+  function healEdit(bar, extra) {
+    var plan = HealModel.heal(bar, {
+      previous: shownLayout, theme: themeName, thirdParty: thirdPartyEntry, newInstance: newInstanceKey,
+      installedThemes: extra && extra.installedThemes, zoneModesSaved: extra && extra.zoneModesSaved
     })
+    return plan ? function(config) { HealModel.apply(config.bar, plan) } : null
   }
-  onShellChanged: configAfter.restart()
+  // The shown config, healed, for what changes without a new config.
+  function heal(extra) {
+    var edit = healEdit(barConfig, extra)
+    if (edit) writeConfig(edit)
+  }
+  function newInstanceKey() { return "pw-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2) }
+  onShellChanged: heal()
   // zone: a region, or in menu mode one side's token ("center:start").
   function managedSlots(zone, window) {
     var token = String(zone || ""), region = token.split(":")[0], sided = token !== region
@@ -921,7 +910,7 @@ Item {
     onLoadFailed: root.themeLook = ({})
     onFileChanged: reload()
   }
-  onThemeNameChanged: { themeLookFile.reload(); healLater.restart() }
+  onThemeNameChanged: { themeLookFile.reload(); heal() }
   readonly property var appearance: AppearanceModel.resolve(AppearanceModel.appearanceOf(barConfig, themeName), themeName, themeLook)
   // The bar's config with the resolved values in the keys the drawing reads.
   readonly property var appearanceConfig: AppearanceModel.flatten(barConfig, themeName, themeLook)
@@ -937,15 +926,6 @@ Item {
   readonly property bool overlayShadow: overlayStyled.shadow && surfaceEffects.shadow
   // Room around an overlay for its shadow, inside its window.
   readonly property real overlayShadowPad: overlayShadow ? Math.ceil(surfaceEffects.shadowSize) : 0
-  // Earlier versions' flat keys move into powerbarAppearance once, and
-  // themes no longer installed lose what was kept for them.
-  // Earlier versions' values become the current theme's own, so migration
-  // waits until the theme is known.
-  function healAppearance() {
-    if (!canWriteConfig() || !themeName || !AppearanceModel.legacyPresent(barConfig)) return
-    var theme = themeName
-    writeConfig(function(config) { if (config.bar) AppearanceModel.migrate(config.bar, theme) })
-  }
   property var installedThemes: []
   // Themes come and go while the shell runs (omarchy-theme-set applies a new
   // one without a restart), so the list is read again before every prune;
@@ -966,15 +946,11 @@ Item {
         // Both folders listed (ls heads each with "path:"), or nothing is
         // pruned: a partial list would drop themes that are still there.
         if (lines.filter(function(l) { return l.slice(-1) === ":" }).length !== 2) return
-        root.installedThemes = lines.filter(function(l) { return l && l.slice(-1) !== ":" })
-        root.pruneAppearanceThemes()
+        var installed = lines.filter(function(l) { return l && l.slice(-1) !== ":" })
+        root.installedThemes = installed
+        root.heal({ installedThemes: installed })
       }
     }
-  }
-  function pruneAppearanceThemes() {
-    var keep = installedThemes.concat(themeName ? [themeName] : [])
-    if (!installedThemes.length || !canWriteConfig() || !AppearanceModel.hasStaleThemes(barConfig, keep)) return
-    writeConfig(function(config) { if (config.bar) AppearanceModel.pruneThemes(config.bar, keep) })
   }
   // The current Omarchy theme, which a Light or Dark choice belongs to. A theme
   // switch replaces the file, so it is also read again when the colours change.
@@ -1321,7 +1297,7 @@ Item {
   Component.onDestruction: {
     // Deferred work that writes stops here: the host invalidates this
     // context before the object goes, and nothing may write after it.
-    configAfter.stop(); healLater.stop(); themesLater.stop(); lostKeysLater.stop()
+    themesLater.stop()
     configStore.retire()
     for (var id in pluginBarApis) {
       root.releasePluginObjects(id)
@@ -2437,27 +2413,20 @@ Item {
       barConfig = SectionsModel.read(JSON.parse(JSON.stringify(barConfig)))
       return
     }
-    if (AppearanceModel.legacyPresent(barConfig)) healLater.restart()
-    // Only when the last list says a theme went: then read it again first.
+    // Only when the last list says a theme went: then read it again first,
+    // and the heal prunes from the new list.
     if (installedThemes.length && AppearanceModel.hasStaleThemes(barConfig, installedThemes.concat(themeName ? [themeName] : [])))
       themesLater.restart()
-    // A config from the host while edits wait to be written: the store shows
-    // the edits on top of it rather than the host's config without them.
+    // A config from the host is healed before it shows (healEdit), and while
+    // edits wait to be written they show on top of it: the store shows it.
     if (configStore.delivered(barConfig)) return
-    // An entry another writer saved without Powerbar's keys is not shown
-    // until they are back, so its widget keeps its instance and groups.
-    if (lostKeysPending()) { lostKeysLater.restart(); return }
     applyBarConfig()
     shownLayout = JSON.parse(JSON.stringify(barConfig && barConfig.layout || {}))
-    configAfter.restart()
   }
-  // The config work that follows a change, next turn of the event loop. Owned
-  // Timers rather than Qt.callLater closures: they stop with the bar
-  // (Component.onDestruction), so none runs on a bar the host is tearing down.
-  Timer { id: configAfter; interval: 0; onTriggered: { root.ensureInstanceIds(); root.pruneGroupMembers() } }
-  Timer { id: healLater; interval: 0; onTriggered: root.healAppearance() }
+  // An owned Timer rather than a Qt.callLater closure: it stops with the bar
+  // (Component.onDestruction), so no listing starts on a bar the host is
+  // tearing down.
   Timer { id: themesLater; interval: 0; onTriggered: root.refreshThemes() }
-  Timer { id: lostKeysLater; interval: 0; onTriggered: root.restoreLostKeys() }
   // A config from the retired zone modes is saved in the five lists once, after
   // the arrangements each mode kept are copied to the cache folder (never read
   // back): zone-layouts-<date>.json. They leave shell.json with that copy; a
@@ -2475,37 +2444,14 @@ Item {
   Process {
     id: zoneLayoutsBackup
     onExited: function(code) {
-      if (code === 0) configStore.writeNow(function(config) { if (config.bar) delete config.bar.powerbarZoneLayouts })
+      if (code === 0) root.heal({ zoneModesSaved: true })
       else console.warn("powerbar: could not copy the zone modes' arrangements to the cache folder; shell.json keeps them")
     }
   }
   // The layout last shown: where keys another writer dropped come back from
-  // (BarModel.lostKeys; Omarchy's updateEntryInline keeps only a widget's id
-  // and settings, INTEG-148).
+  // (HealModel; Omarchy's updateEntryInline keeps only a widget's id and
+  // settings, INTEG-148).
   property var shownLayout: null
-  function lostKeysPending() {
-    return BarModel.lostKeys(shownLayout, barConfig && barConfig.layout).length > 0
-  }
-  function restoreLostKeys() {
-    var plan = BarModel.lostKeys(shownLayout, barConfig && barConfig.layout)
-    // Queued, so the store shows the config with the keys back at once.
-    if (plan.length && writeConfig(function(config) { BarModel.applyLostKeys(config.bar, plan) })) return
-    // Not writable: show the config as it is; new instance ids follow.
-    shownLayout = null
-    applyBarConfig()
-    shownLayout = JSON.parse(JSON.stringify(barConfig && barConfig.layout || {}))
-    configAfter.restart()
-  }
-  // Widgets uninstalled since they were grouped have already left every group
-  // as read (GroupsModel.groups); their keys leave shell.json too, in one
-  // write, so nobody has to remove them by hand.
-  function pruneGroupMembers() {
-    if (!canWriteConfig() || configStore.pending || !Util.isPlainObject(barConfig) || lostKeysPending()) return
-    if (!GroupsModel.danglingMembers(barConfig)) return
-    writeConfig(function(config) {
-      if (config.bar && GroupsModel.danglingMembers(config.bar)) config.bar.powerbarGroups = GroupsModel.groups(config.bar)
-    })
-  }
 
   function layoutEntries(list) {
     var serial = barConfigSerial

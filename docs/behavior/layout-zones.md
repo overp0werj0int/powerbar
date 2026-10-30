@@ -172,7 +172,7 @@ Numbers below use Omarchy's default theme tokens: bar 26 px (horizontal) or 28 p
 
   Code: SectionsModel.read, needsRead; ConfigStore.mutate.
 
-- **ZONE-92** The arrangements the zone modes kept for the modes not in use (`bar.powerbarZoneLayouts`) are not used. The first time Powerbar starts on such a config, it copies them to `~/.cache/powerbar/zone-layouts-<date>.json` (private to the user, never overwritten, never read back), then saves the config in the five lists. If the copy fails, shell.json keeps them. Code: Bar.qml retireZoneModes.
+- **ZONE-92** The arrangements the zone modes kept for the modes not in use (`bar.powerbarZoneLayouts`) are not used. The first time Powerbar starts on such a config, it copies them to `~/.cache/powerbar/zone-layouts-<date>.json` (private to the user, never overwritten, never read back), then saves the config in the five lists. If the copy fails, shell.json keeps them. The removal is a heal (integration.md INTEG-158), written when the bar is not in use. Code: Bar.qml retireZoneModes; HealModel.heal.
 
 - **ZONE-93** An Omarchy without the new sections (`Util.barSections` lacks them) keeps `left`, `center` and `right`. Powerbar writes the three center lists there as one `center` list, with `bar.centerAnchor` naming the box's widget and `bar.powerbarFiveZones` (`{ begin, center }`, the lengths of Left of center and the box) beside it, so the next read finds the same five lists. Omarchy's own bar centres that anchor, so the box holds one widget there: when it holds more, the others lead Right of center, with their groups. A count that no longer fits (another writer changed the center) falls back to the anchor. Code: SectionsModel.write, oneInBox.
 

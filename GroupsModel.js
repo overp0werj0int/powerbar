@@ -82,18 +82,34 @@ function layoutKeys(bar) {
   return any ? keys : null
 }
 // Saved members whose widget is no longer in the layout (uninstalled since it
-// was grouped). groups() leaves them out; Bar writes the cleaned list once.
+// was grouped). groups() leaves them out; the heal writes the cleaned list
+// once (HealModel, pruneMembers).
 function danglingMembers(bar) {
-  var known = layoutKeys(bar), count = 0
-  if (!known) return 0
+  var known = layoutKeys(bar), keys = []
+  if (!known) return keys
   ;(bar && Array.isArray(bar.powerbarGroups) ? bar.powerbarGroups : []).forEach(function(g) {
     ;(g && Array.isArray(g.items) ? g.items : []).forEach(function(key) {
-      if (typeof key === "string" && key && !isGroupKey(key) && !known[key]) count++
+      if (typeof key === "string" && key && !isGroupKey(key) && !known[key] && keys.indexOf(key) < 0) keys.push(key)
     })
   })
-  return count
+  return keys
 }
-function groups(bar) {
+// Writes the groups back, each as groups() reads it, without the members in
+// `keys` that are still not in the layout. Only those: a member whose entry
+// lost its key to another writer since stays, for the heal that puts the key
+// back. Returns whether it changed bar.
+function pruneMembers(bar, keys) {
+  var known = layoutKeys(bar) || {}
+  var gone = (Array.isArray(keys) ? keys : []).filter(function(key) { return !known[key] })
+  var listed = (bar && Array.isArray(bar.powerbarGroups) ? bar.powerbarGroups : []).some(function(g) {
+    return g && Array.isArray(g.items) && g.items.some(function(key) { return gone.indexOf(key) >= 0 })
+  })
+  if (!listed) return false
+  bar.powerbarGroups = groups(bar, gone)
+  return true
+}
+// gone: the members to leave out; every member not in the layout when absent.
+function groups(bar, gone) {
   var ids = [], members = [], known = layoutKeys(bar)
   return (bar && Array.isArray(bar.powerbarGroups) ? bar.powerbarGroups : []).filter(function(g) {
     if (!g || typeof g.id !== "string" || !g.id || ids.indexOf(g.id) >= 0) return false
@@ -114,7 +130,7 @@ function groups(bar) {
       items: (Array.isArray(g.items) ? g.items : []).filter(function(key) {
         if (typeof key !== "string" || !key || isGroupKey(key) || members.indexOf(key) >= 0) return false
         // A widget uninstalled since it was grouped is no longer a member.
-        if (known && !known[key]) return false
+        if (gone ? gone.indexOf(key) >= 0 : known && !known[key]) return false
         members.push(key); return true
       }) }
   })

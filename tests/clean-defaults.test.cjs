@@ -7,6 +7,7 @@ const load = require('./load.cjs');
 const plain = value => JSON.parse(JSON.stringify(value)); // vm objects differ in realm
 const bar = load('BarModel.js');
 const managed = load('ManagedModel.js');
+const heal = load('HealModel.js');
 const prefs = load('PreferencesModel.js');
 const appearance = load('AppearanceModel.js');
 const cell = load('CellModel.js');
@@ -152,15 +153,10 @@ const thirdParty = entry => !String(typeof entry === 'string' ? entry : entry.id
 const metaFor = entry => thirdParty(entry) ? { firstParty: false } : firstParty;
 const all = b => [].concat(b.layout.left, b.layout.center, b.layout.right);
 const modes = b => all(b).map(e => managed.mode(e, metaFor(e), managed.legacyDefaults(b)));
-// Bar.qml's first-run write (ensureInstanceIds): the heal, then the ids.
+// The first-run heal (HealModel): the visibility rule, then the ids.
 const firstRun = b => {
-  managed.healVisibility(b, thirdParty);
-  for (const s of ['left', 'center', 'right'])
-    b.layout[s] = b.layout[s].map((e, i) => {
-      const entry = typeof e === 'string' ? { id: e } : e;
-      if (!entry.powerbarInstance) entry.powerbarInstance = `pw-${s}-${i}`;
-      return entry;
-    });
+  let n = 0;
+  heal.apply(b, heal.heal(b, { previous: null, thirdParty, newInstance: () => `pw-${++n}` }));
 };
 
 test('fresh switch from stock with a third-party widget: it shows on the bar, no visibility is written', () => {
