@@ -189,9 +189,6 @@ Item {
     }) && screens.some(function (s) {
         return !editor.cameraOn(s);
     })
-    readonly property string barCaption: sideBar ? (screens.some(function (s) {
-            return !!editor.bar && !!editor.bar.notchFor(s, "top");
-        }) ? "No camera on this edge: Center sits over the middle; Above center and Below center hang off it." : "Center sits over the screen's middle; Above center and Below center hang off it.") : previewCamera ? "Left of center sits left of the camera; Center and Right of center sit right of it." : "Center sits over the screen's middle; Left of center and Right of center hang off it."
     // Where a zone sits by the camera, for the Zone choice.
     function cameraNote(zone) {
         if (!previewCamera || zone === "left" || zone === "right")
