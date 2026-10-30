@@ -5,12 +5,12 @@ import qs.Commons as Commons
 import qs.Ui
 
 // A group of pick rows on a desk strip (docs/behavior/preferences.md
-// PREFS-129): the rows one under the other, 10 px apart as the strip lays
-// its controls, lifting together as one plate when the cursor is on any of
-// them. With the cursor in it the group's area takes the focus fill and the
-// ring as a switch row's does, the cursor's row the selected fill over it;
-// with Tuning's Mark the whole control off, only the cursor's pick mark is
-// ringed.
+// PREFS-129): the rows one under the other, Gap.xs (3 px) apart as a
+// zone's rows, lifting together as one plate when the cursor is on any of
+// them and Tuning's Controls rise is on (CursorLift). With the cursor in it
+// the group's area takes the focus fill and the ring as a switch row's does,
+// the cursor's row the selected fill over it; with Tuning's Mark the whole
+// control off, only the cursor's pick mark is ringed.
 // The desk walks the rows as it walks any control (DeskStrip.controls looks
 // inside).
 Item {

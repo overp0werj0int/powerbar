@@ -8,13 +8,13 @@ import "PreferencesModel.js" as Model
 
 // The desk of the Look and Behavior pages (docs/behavior/preferences.md
 // PREFS-124 on): one of the Layout page's plates (LayerPlate: its tilt,
-// turning about its top edge, flat with animations off) at the layers' top
-// line, as wide as theirs and centred the same way, with no label or count
-// column; its strips (DeskStrip, the page's children) share its width
-// equally, 12 px apart, all as tall as the tallest. The Layout page's camera
-// hangs over it with the Layout page's own arguments; each strip draws the
-// cap's shade over the part of its surface under the camera. The key legend is at
-// the bottom left (PREFS-103).
+// turning about its top edge, flat with Pages in perspective off) at the
+// layers' top line, as wide as theirs and centred the same way, with no
+// label or count column; its strips (DeskStrip, the page's children) share
+// its width equally, Gap.xl (21 px) apart, all as tall as the tallest. The
+// Layout page's camera hangs over it with the Layout page's own arguments;
+// each strip draws the cap's shade over the part of its surface under the
+// camera. The key legend is at the bottom left (PREFS-103).
 //
 // The cursor walks the strips' controls (DeskModel.js; PREFS-126): j/k move
 // the cursor, h/l move a value. j/k go down and up a strip and on, h/l to
