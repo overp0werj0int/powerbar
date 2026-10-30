@@ -61,8 +61,13 @@ omabox for desktop tests in a private Hyprland session
    (validate.sh runs it too): each `contract drift:` line names the Omarchy
    file, the exact text Powerbar relied on that is gone, and what that breaks.
    Read what replaced it in that file, adapt Powerbar, then update the entry
-   in the script. Then `tools/smoke.sh` for Quickshell and Hyprland behaviour,
-   which the contract does not cover.
+   in the script. It also fails on additions: a member Omarchy adds to the
+   plugin facade (`Ui/PluginBarApi.qml`) that Powerbar does not fill or its
+   own bar lacks, and a new required property on a qs.Ui type Powerbar
+   creates. It reads the display cutouts path from Omarchy's bar and the
+   `hyprctl binds` text format from the Hyprland binary, so it needs no
+   running Hyprland. Then `tools/smoke.sh` for Quickshell and Hyprland
+   behaviour, which the contract does not cover.
 4. **The live desktop only when the user asks.** Restart the user's shell with
    `~/.claude/skills/omarchy-widget-debug/scripts/live.sh restart powerbar`
    (it refuses while the session is locked; never restart a locked session).
@@ -78,9 +83,10 @@ omabox for desktop tests in a private Hyprland session
    Preferences; INTEG-146). The shell log then carries a timeline of what the
    bar did (`PB-EV t=<ms> <kind> <detail>`: keys, cursor, cards, hover, dots,
    inline asks and opens, drawers with their close reason, strip slides,
-   drags, folds, config deliveries) and one `PB-FT anim=… frames= wall= p95=
-   max= long=` line per motion, with `longframe dt=` on the timeline where a
-   frame stalled. In a box: `omabox log -b NAME shell --grep PB-`. On the
+   drags, folds, config deliveries) and one `PB-FT anim=… startup= frames=
+   wall= p95= max= long=` line per motion, with `longframe dt=` on the
+   timeline where a frame stalled during a motion and `startup dt=` where the
+   first frame came late (start-up latency, kept out of the frame stats). In a box: `omabox log -b NAME shell --grep PB-`. On the
    desktop the user sets the key, then
    `~/.claude/skills/omarchy-widget-debug/scripts/live.sh follow PB- 300`
    while they reproduce. Turn it off afterwards. `"powerbarTuning": true`

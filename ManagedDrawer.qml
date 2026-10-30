@@ -10,6 +10,7 @@ import "CellModel.js" as CellModel
 import "RenderModel.js" as RenderModel
 import "NotchModel.js" as NotchModel
 import "SectionsModel.js" as SectionsModel
+import "MotionModel.js" as MotionModel
 
 // Lives in the bar's window: widgets keep the same QsWindow and popup anchors.
 Item {
@@ -40,7 +41,7 @@ Item {
     // ways, and closing faster than opening. On the notch, the zones' slide
     // out of the camera: a spring held to a few px out, ease-out back in.
     NumberAnimation {
-      duration: drawer.fromNotch ? (drawer.opened ? 220 : 140) : drawer.opened ? 160 : 110
+      duration: MotionModel.drawerMs(drawer.opened, drawer.fromNotch)
       easing.type: drawer.fromNotch ? (drawer.opened ? Easing.OutBack : Easing.OutCubic) : Easing.BezierSpline
       easing.overshoot: NotchModel.backOvershoot(drawer.height, drawer.hostWindow.notchOvershoot)
       easing.bezierCurve: [0.23, 1, 0.32, 1, 1, 1]
@@ -127,7 +128,7 @@ Item {
     else grabDelay.stop()
     if (!opened) { asideEnd.stop(); steppedAside = false }
     if (opened) bar.ev("drawer", "open " + (isSubmenu ? "submenu " : "") + (groupId ? "group:" + groupId : token) + (keyboardMode ? " keys" : "")
-      + " on " + (hostWindow && hostWindow.screen ? hostWindow.screen.name : "?"), bar.animationsEnabled ? 200 : 0)
+      + " on " + (hostWindow && hostWindow.screen ? hostWindow.screen.name : "?"), bar.animationsEnabled ? MotionModel.drawerMs(true, fromNotch) : 0)
   }
   Timer { id: grabDelay; interval: 250; onTriggered: drawer.grabReady = drawer.opened }
   // A click pinning a hover drawer waits the same moment: a grab that starts
@@ -589,7 +590,7 @@ Item {
   }
   function close(reason) {
     if (opened) bar.ev("drawer", "close " + (isSubmenu ? "submenu " : "") + (groupId ? "group:" + groupId : token) + " " + (reason || "-"),
-      bar.animationsEnabled && reason !== "immediate" ? 110 : 0)
+      bar.animationsEnabled && reason !== "immediate" ? MotionModel.drawerMs(false, fromNotch) : 0)
     closeMemberPanel()
     if (submenu) submenu.close("immediate")
     subIntent.stop()

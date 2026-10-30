@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Switching from one widget's panel to another's in the same zone (a click on the other widget, or Left/Right in a panel) now morphs the card into the new panel's place, as under Omarchy's bar, for Omarchy's widgets and third-party ones alike; before, the old card closed and a fresh one grew in (INTEG-159).
+- Frame log (`powerbarFrameLog`): the wait from an event to its motion's first frame is now reported as `startup=` on the `PB-FT` line (and `startup dt=` on the timeline when over 25 ms) instead of as a long frame, so `long=` counts only stutters during the motion. Each motion's nominal time now comes from its animation's own duration: a drawer on a bar is timed at 160 ms open (was 200), the strip and drawers on the notch at 220/140 ms (were 180/130 and 200/110), an inline expansion at 120 to 200 ms open and 280 ms closing (was 260 both ways), and a drag at its make-way time (INTEG-146).
 - The ids Powerbar gives a widget another program adds (and a first start's marks) now wait until you leave the bar, like every other settings write, and go in one write with Powerbar's other repairs to that config; before, `omarchy bar put` or a widget install was followed at once by a second full write of shell.json and its stall, even with the pointer on the bar (INTEG-158).
 - The digest `omarchy-shell powerbar build` answers now also covers `notch-panels.json` and the compiled shader, so `tools/build-check.sh` calls a shell stale when either changed since it loaded.
 - The room the bar keeps for a long menu goes back 3 s after the last menu closes; before, the bar's surface stayed nearly screen-tall for the rest of the session, and the bar's motion redrew all of it.
