@@ -466,12 +466,12 @@ polling.
   tall a notch is, not how wide, so Powerbar keeps each MacBook panel's
   notch and screen corners in `notch-panels.json`, measured on Apple's
   product bezel images, which draw each screen pixel for pixel. If the zones
-  overlap the camera or leave a gap beside it, set Preferences > Bar >
-  Notch > Notch width (`omarchy-shell powerbar set notchWidth N`); Notch
-  height (`notchHeight N`) does the same for the height. Reset, in the
-  tile's header, goes back to the measured size. Center's widgets sit on the
-  right of the camera; drag the dot beside the camera on the Layout page
-  (or `set centerSide left`) to put them on the left.
+  overlap the camera or leave a gap beside it, set Preferences > Look >
+  Notch > Width (`omarchy-shell powerbar set notchWidth N`); Height
+  (`notchHeight N`) does the same for the height. The strip's "Back to the
+  camera's size" row puts both back to the measured size. Center's widgets
+  sit on the right of the camera; drag the dot beside the camera on the
+  Layout page (or `set centerSide left`) to put them on the left.
 - **One layout for every screen.** In the Notch style, a screen without a
   notch shows the zones as black islands.
 - Multi-monitor setups are less tested than single-monitor ones.
