@@ -94,26 +94,9 @@ const layoutEntries = [
   { instanceKey: 'c', section: 'left', mode: 'managed', index: 1 },
   { instanceKey: 'd', section: 'right', mode: 'shown', index: 0 }
 ];
-const counter = (exclude) => (section, mode) => model.cell(layoutEntries, section, mode, exclude).length;
 test('cells list one zone and visibility in bar order', () => {
   assert.deepEqual(model.cell(layoutEntries, 'left', 'shown').map(e => e.instanceKey), ['a', 'b']);
   assert.deepEqual(model.cell(layoutEntries, 'left', 'shown', 'a').map(e => e.instanceKey), ['b']);
-});
-test('cursor walks across zone edges and rests on empty cells', () => {
-  const count = counter('');
-  assert.deepEqual({ ...model.stepCursor(count, { section: 'left', mode: 'shown', pos: 1 }, 1, 0) }, { section: 'centerBegin', mode: 'shown', pos: 0 });
-  assert.deepEqual({ ...model.stepCursor(count, { section: 'center', mode: 'shown', pos: 0 }, 1, 0) }, { section: 'centerEnd', mode: 'shown', pos: 0 });
-  assert.deepEqual({ ...model.stepCursor(count, { section: 'centerBegin', mode: 'shown', pos: 0 }, -1, 0) }, { section: 'left', mode: 'shown', pos: 1 });
-  assert.deepEqual({ ...model.stepCursor(count, { section: 'left', mode: 'shown', pos: 1 }, 0, 1) }, { section: 'left', mode: 'managed', pos: 0 });
-  assert.deepEqual({ ...model.stepCursor(count, { section: 'left', mode: 'shown', pos: 0 }, -1, -1) }, { section: 'left', mode: 'shown', pos: 0 });
-});
-test('a lifted item offers every gap and hands over between zones', () => {
-  const count = counter('a');
-  assert.deepEqual({ ...model.stepLift(count, { section: 'left', mode: 'shown', pos: 0 }, 1, 0) }, { section: 'left', mode: 'shown', pos: 1 });
-  assert.deepEqual({ ...model.stepLift(count, { section: 'left', mode: 'shown', pos: 1 }, 1, 0) }, { section: 'centerBegin', mode: 'shown', pos: 0 });
-  assert.deepEqual({ ...model.stepLift(count, { section: 'right', mode: 'shown', pos: 0 }, -1, 0) }, { section: 'centerEnd', mode: 'shown', pos: 0 });
-  assert.deepEqual({ ...model.stepLift(count, { section: 'centerBegin', mode: 'shown', pos: 0 }, -1, 0) }, { section: 'left', mode: 'shown', pos: 1 });
-  assert.deepEqual({ ...model.stepLift(count, { section: 'left', mode: 'shown', pos: 1 }, 0, 2) }, { section: 'left', mode: 'hidden', pos: 0 });
 });
 test('drops insert before the item at the gap or at the end of the zone', () => {
   const items = model.cell(layoutEntries, 'left', 'shown');
@@ -139,15 +122,7 @@ test('showing a hidden widget again returns it to the row it left', () => {
   assert.equal(model.toggledHidden('hidden'), 'shown');
   assert.equal(model.toggledHidden('hidden', 'hidden'), 'shown');
 });
-test('the five zones are five columns on every row, the tray meets the last', () => {
-  const empty = () => 0;
-  let at = { section: 'left', mode: 'managed', pos: 0 };
-  const walked = [];
-  for (let i = 0; i < 5; i++) { walked.push(at.section); at = model.stepCursor(empty, at, 1, 0); }
-  assert.deepEqual(walked, ['left', 'centerBegin', 'center', 'centerEnd', 'right']);
-  const rows = model.rows, columnsFor = mode => mode === 'tray' ? ['tray'] : model.sections;
-  assert.deepEqual({ ...model.stepCursor(empty, { section: 'tray', mode: 'tray', pos: 0 }, 0, -1, columnsFor, rows) }, { section: 'right', mode: 'hidden', pos: 0 });
-  // A move lands in the list it names.
+test('a move lands in the list it names', () => {
   const config = { bar: { layout: { left: [], centerBegin: [], center: [{ id: 'clock' }], centerEnd: [{ id: 'a' }], right: [] } } };
   const recs = model.records(config.bar.layout);
   assert.deepEqual([...recs.map(r => r.section)], ['center', 'centerEnd']);
@@ -247,15 +222,8 @@ test('a move names its new neighbour by instance key, so a replay after an outsi
   assert.equal(barModel.moveInstanceInConfig(config, 'left', 'A', 'left', model.anchorKey(shown, 'left', 2, 'A'), 'shown'), true);
   assert.deepEqual(config.bar.layout.left.map((e) => e.powerbarInstance), ['N', 'B', 'A', 'C']);
 });
-test("the tray's row sits under Hidden, one column wide, and leads back to the last zone", () => {
-  const count = counter('');
-  const columnsFor = mode => mode === 'tray' ? ['tray'] : ['left', 'center', 'right'];
-  const rows = [...model.rows];
-  assert.deepEqual(rows, ['shown', 'managed', 'hidden', 'tray']);
-  assert.deepEqual({ ...model.stepCursor(count, { section: 'left', mode: 'hidden', pos: 0 }, 0, 1, columnsFor, rows) }, { section: 'tray', mode: 'tray', pos: 0 });
-  assert.deepEqual({ ...model.stepCursor(count, { section: 'tray', mode: 'tray', pos: 0 }, 0, -1, columnsFor, rows) }, { section: 'right', mode: 'hidden', pos: 0 });
-  assert.deepEqual({ ...model.stepCursor(count, { section: 'left', mode: 'hidden', pos: 0 }, 0, 1, columnsFor) }, { section: 'left', mode: 'hidden', pos: 0 }, 'without the tray row the cursor stops at Hidden');
-  assert.deepEqual({ ...model.stepLift(count, { section: 'tray', mode: 'tray', pos: 0 }, 0, -3, columnsFor, rows) }, { section: 'right', mode: 'shown', pos: 0 });
+test("the tray's row sits under Hidden", () => {
+  assert.deepEqual([...model.rows], ['shown', 'managed', 'hidden', 'tray']);
 });
 test('layerColumns mirrors equal columns about the axis, Center under the camera', () => {
   const cols = model.layerColumns(1000, 8, 500);

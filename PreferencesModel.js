@@ -103,52 +103,6 @@ function slabBefore(items, pos, section) {
     if (items[i].section === section) return items[i].index
   return -1
 }
-// Cursor over existing items. Walking past a cell's edge continues into the
-// neighbouring column on the same row; empty cells are valid resting places.
-// columnsFor(mode) lists a row's columns (zones by default); rowList the rows
-// (the visibilities by default).
-function stepCursor(count, cursor, dx, dy, columnsFor, rowList) {
-  columnsFor = columnsFor || zonesOnly
-  var list = rowList || modes
-  var m = list.indexOf(cursor.mode), column = cursor.section, pos = cursor.pos
-  if (dy) {
-    m = clamp(m + dy, 0, list.length - 1)
-    column = across(columnsFor(list[m]), column)
-    pos = clamp(pos, 0, Math.max(0, count(column, list[m]) - 1))
-  }
-  var cols = columnsFor(list[m]), s = Math.max(0, cols.indexOf(column))
-  if (dx) {
-    pos += dx
-    if (pos < 0) {
-      if (s > 0) { s--; pos = Math.max(0, count(cols[s], list[m]) - 1) } else pos = 0
-    } else if (pos > Math.max(0, count(cols[s], list[m]) - 1)) {
-      if (s < cols.length - 1) { s++; pos = 0 } else pos = Math.max(0, count(cols[s], list[m]) - 1)
-    }
-  }
-  return { section: cols[s], mode: list[m], pos: pos }
-}
-// Insertion point for a lifted item; count excludes the lifted item, so every
-// cell offers count + 1 slots and the far edge of a cell hands over to the next.
-function stepLift(count, target, dx, dy, columnsFor, rowList) {
-  columnsFor = columnsFor || zonesOnly
-  var list = rowList || modes
-  var m = list.indexOf(target.mode), column = target.section, pos = target.pos
-  if (dy) {
-    m = clamp(m + dy, 0, list.length - 1)
-    column = across(columnsFor(list[m]), column)
-    pos = clamp(pos, 0, count(column, list[m]))
-  }
-  var cols = columnsFor(list[m]), s = Math.max(0, cols.indexOf(column))
-  if (dx) {
-    pos += dx
-    if (pos < 0) {
-      if (s > 0) { s--; pos = count(cols[s], list[m]) } else pos = 0
-    } else if (pos > count(cols[s], list[m])) {
-      if (s < cols.length - 1) { s++; pos = 0 } else pos = count(cols[s], list[m])
-    }
-  }
-  return { section: cols[s], mode: list[m], pos: pos }
-}
 // The layout index to insert before, or -1 for the end of the zone.
 function dropBefore(items, pos) {
   return pos >= 0 && pos < items.length ? items[pos].index : -1
