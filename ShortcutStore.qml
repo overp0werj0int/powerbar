@@ -67,11 +67,11 @@ Item {
   function suggested(target) { return Shortcuts.suggested(target) }
 
   // A first start (keyboard.md KEYS-84): Powerbar's first write on a config
-  // it never ran on leaves bar.powerbarShortcutOffer. Once Hyprland's binds
-  // are read, a notification that stays until dismissed names the bar's
-  // suggested shortcuts, free or held by what; a click on it opens
-  // Preferences at them. Nothing is bound until the user takes them there.
-  readonly property bool offerPending: !!bar && !!bar.barConfig && bar.barConfig.powerbarShortcutOffer === true
+  // it never ran on leaves bar.powerbarShortcutOffer. Once it is written and
+  // Hyprland's binds are read, a notification that stays until dismissed
+  // names the bar's suggested shortcuts, free or held by what; a click on it
+  // opens Preferences at them. Nothing is bound until the user takes them there.
+  readonly property bool offerPending: !!bar && !!bar.barConfig && bar.barConfig.powerbarShortcutOffer === true && !bar.configPending
   // Finished reads of Hyprland's binds; the offer waits for one it asked for,
   // so it judges the binds as they are now, not as they were at start.
   property int reads: 0

@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- The ids Powerbar gives a widget another program adds (and a first start's marks) now wait until you leave the bar, like every other settings write, and go in one write with Powerbar's other repairs to that config; before, `omarchy bar put` or a widget install was followed at once by a second full write of shell.json and its stall, even with the pointer on the bar (INTEG-158).
 - The digest `omarchy-shell powerbar build` answers now also covers `notch-panels.json` and the compiled shader, so `tools/build-check.sh` calls a shell stale when either changed since it loaded.
 - The room the bar keeps for a long menu goes back 3 s after the last menu closes; before, the bar's surface stayed nearly screen-tall for the rest of the session, and the bar's motion redrew all of it.
 - On a side bar the card's surface no longer shrinks and grows with each card's words while it is shown, so cards change words without a resize.

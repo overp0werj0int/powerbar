@@ -220,3 +220,21 @@ test("an earlier queued heal does not take a member out of its group before a la
   expected.layout.center[0] = { id: 'omarchy.clock', format: 'h:mm AP', powerbarInstance: 'pw-clock' };
   assert.deepEqual(J(written), expected);
 });
+
+test('a widget another writer moves before the heal is written keeps the id the bar showed', () => {
+  const delivered = healthy();
+  delivered.layout.centerEnd = [{ id: 'acme.new' }];
+  const first = model.heal(delivered, context(healthy().layout));
+  const shown = J(delivered);
+  model.apply(shown, first);
+  // omarchy bar move: the new widget, still without an id in shell.json, goes right.
+  const host = J(delivered);
+  host.layout.right.push(host.layout.centerEnd.pop());
+  const preview = J(host);
+  model.apply(preview, first);
+  const second = model.heal(preview, context(J(shown.layout)));
+  const written = J(host);
+  model.apply(written, first);
+  model.apply(written, second);
+  assert.equal(written.layout.right[2].powerbarInstance, shown.layout.centerEnd[0].powerbarInstance);
+});

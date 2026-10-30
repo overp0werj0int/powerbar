@@ -40,7 +40,8 @@ function copy(value) { return value === undefined ? undefined : JSON.parse(JSON.
 function heal(bar, ctx) {
   if (!isPlainObject(bar)) return null
   var c = ctx || {}
-  var healed = copy(bar)
+  // Plain copies: Qt can hand a config over with lists Array.isArray fails.
+  var original = copy(bar), healed = copy(bar)
   var plan = { entries: [], marker: false, offer: false, appearance: "", themes: null, members: [], zoneLayouts: !!c.zoneModesSaved }
   if (isPlainObject(healed.layout)) {
     BarModel.applyLostKeys(healed, BarModel.lostKeys(c.previous, healed.layout))
@@ -49,7 +50,7 @@ function heal(bar, ctx) {
     plan.offer = !ManagedModel.powerbarHasRun(healed)
     plan.marker = ManagedModel.healVisibility(healed, c.thirdParty)
     assignInstances(healed.layout, c.newInstance)
-    plan.entries = entrySteps(bar.layout, healed.layout)
+    plan.entries = entrySteps(original.layout, healed.layout)
   }
   if (c.theme && AppearanceModel.migrate(healed, c.theme)) plan.appearance = c.theme
   if (Array.isArray(c.installedThemes) && c.installedThemes.length) {
