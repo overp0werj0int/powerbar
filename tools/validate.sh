@@ -10,8 +10,9 @@
 #   6. no bare palette reference: Qt 6.12's QtQuick has its own Color type,
 #      so Omarchy's palette is always Commons.Color (import qs.Commons as Commons)
 #   7. the Omarchy contract (tools/omarchy-contract.cjs): every Omarchy line,
-#      theme token and type Powerbar relies on is still there; a failure names
-#      the Omarchy file and the missing text
+#      theme token and type Powerbar relies on is still there, nothing was
+#      added to the facade Powerbar fills, and the cutouts path and the
+#      `hyprctl binds` format hold; a failure names the file and the text
 # Needs: node, Qt 6 (qmltestrunner, qmlformat), an Omarchy install.
 # Exit status is non-zero when any step fails.
 set -u
