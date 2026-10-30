@@ -96,5 +96,3 @@ function serialize(values) {
   PARAMS.forEach(function(p) { out[p.key] = clamp(p.key, values ? values[p.key] : undefined) })
   return JSON.stringify(out, null, 1) + "\n"
 }
-
-if (typeof module !== "undefined") module.exports = { SECTIONS, PARAMS, param, defaults, clamp, parse, serialize }

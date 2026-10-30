@@ -85,5 +85,3 @@ function spot(position, barVertical, target, popup, gap, drawer, inDrawer, bound
   }
   return at
 }
-
-if (typeof module !== "undefined") module.exports = { place, overlaps }

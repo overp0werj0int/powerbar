@@ -135,10 +135,3 @@ function badge(hl, island, size) {
   y = Math.max(1, Math.min(island.height - 1 - size.height, y))
   return { x: x, y: y }
 }
-
-if (typeof module !== "undefined") module.exports = {
-  tokens: tokens, radius: radius, isGlyph: isGlyph, cellLength: cellLength, place: place,
-  endPad: endPad, highlight: highlight, dragGap: dragGap, iconGap: iconGap,
-  dragDuration: dragDuration, hold: hold, thumb: thumb, badge: badge,
-  MAX_INK: MAX_INK, GLYPH_INK: GLYPH_INK
-}

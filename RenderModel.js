@@ -121,4 +121,3 @@ function grayText(root, from, to) {
   }
   return changed
 }
-if (typeof module !== "undefined") module.exports = { grayText, lists, zoneOf, equal, shallowSame, sameItems, reconcileLists, records, split, groupIndex, entryIndex, captureDelta }

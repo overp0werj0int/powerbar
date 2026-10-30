@@ -382,27 +382,3 @@ function applyLostKeys(config, plan) {
   }
   return changed
 }
-
-if (typeof module !== "undefined") {
-  module.exports = {
-    barStyle: barStyle,
-    setBarStyle: setBarStyle,
-    isDrawnSlot: isDrawnSlot,
-    pickDrawnSlot: pickDrawnSlot,
-    pickPanelSlot: pickPanelSlot,
-    normalizePosition: normalizePosition,
-    entrySettings: entrySettings,
-    entryId: entryId,
-    pinTrayToInner: pinTrayToInner,
-    widgetName: widgetName,
-    entryIndex: entryIndex,
-    moveInstanceInConfig: moveInstanceInConfig,
-    inlineSettingsDelta: inlineSettingsDelta,
-    lostKeys: lostKeys,
-    applyLostKeys: applyLostKeys,
-    expandPath: expandPath,
-    customModuleSafeName: customModuleSafeName,
-    customModuleType: customModuleType,
-    customModulePath: customModulePath
-  }
-}

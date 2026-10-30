@@ -253,5 +253,3 @@ function pill(o) {
   }
   return { start: start, length: length, radius: Math.max(0, Math.min(thickness / 2, o.rounding)) }
 }
-
-if (typeof module !== "undefined") module.exports = { inkWidth: inkWidth, inkRect: inkRect, unsizedIconLoaders: unsizedIconLoaders, picture: picture, pill: pill, withoutBadges: withoutBadges }

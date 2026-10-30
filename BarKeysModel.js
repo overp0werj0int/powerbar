@@ -333,5 +333,3 @@ function startScreen(screens, focused) {
 function cardText(name, own, namedMenu) {
   return namedMenu && own && own !== name ? own : name
 }
-
-if (typeof module !== "undefined") module.exports = { ZONES, PREFS_KEY, keymap, barIntent, drawerIntent, dragKey, dragDrop, besideNearest, step, gridStep, zoneStep, fuzzy, matches, searchText, route, legend, sheetKeys, startScreen, cardText }
