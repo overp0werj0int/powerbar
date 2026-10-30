@@ -428,3 +428,24 @@ test('endGroupsPassed: a drop past groups at the zone end names them, a drop bef
   assert.deepEqual([...model.endGroupsPassed(items, 1)], []);
   assert.deepEqual([...model.endGroupsPassed([{ index: 1, groupId: 'g', endAnchored: false }], 1)], [], 'an anchored group is passed by the index itself');
 });
+
+test('dropPlan: where a lifted chip lands and what writes it', () => {
+  const into = [{ index: 0 }, { index: 2, section: 'left' }, { index: 3, groupId: 'g1', endAnchored: true }];
+  const record = { instanceKey: 'w', section: 'center', mode: 'shown' };
+  const plan = (r, origin, target, members = into) => {
+    const p = model.dropPlan(r, origin, target, members, 'right');
+    return p.passed ? { ...p, passed: [...p.passed] } : p;
+  };
+  const cell = (section, mode, pos) => ({ section, mode, pos });
+  assert.deepEqual(plan(record, cell('left', 'shown', 1), cell('left', 'shown', 1)), { op: 'none' }, 'dropped where it was lifted');
+  assert.deepEqual(plan(record, cell('left', 'shown', 0), cell('left', 'managed', 0)), { op: 'move', section: 'left', before: 0, passed: [] }, 'another layer, its own place');
+  assert.deepEqual(plan(record, cell('left', 'shown', 0), cell('left', 'shown', 1)), { op: 'move', section: 'left', before: 2, passed: [] });
+  assert.deepEqual(plan(record, cell('left', 'shown', 0), cell('left', 'shown', 3)), { op: 'move', section: 'left', before: -1, passed: ['g1'] }, 'past a group at the zone end');
+  assert.deepEqual(plan({ ...record, groupId: 'g2' }, cell('left', 'shown', 0), cell('left', 'shown', 3)), { op: 'move', section: 'left', before: -1, passed: [] }, 'a group passes none');
+  assert.deepEqual(plan(record, cell('left', 'shown', 0), cell('hidden', 'hidden', 0)), { op: 'move', section: 'center', before: -1, passed: [] }, 'into the hidden slab it keeps its zone');
+  assert.deepEqual(plan(record, cell('left', 'shown', 0), cell('hidden', 'hidden', 0), [{ index: 5, section: 'center' }]), { op: 'move', section: 'center', before: 5, passed: [] }, 'and goes before its own zone\'s next chip');
+  assert.deepEqual(plan(record, cell('left', 'shown', 0), cell('tray', 'tray', 0)), { op: 'returnToTray' }, 'back into the tray');
+  assert.deepEqual(plan(record, cell('tray', 'tray', 0), cell('left', 'shown', 1)), { op: 'takeFromTray', section: 'left', before: 2, passed: [] }, 'out of the tray');
+  assert.deepEqual(plan(record, cell('tray', 'tray', 0), cell('hidden', 'hidden', 0)), { op: 'takeFromTray', section: 'right', before: -1, passed: [] }, 'a tray icon hidden takes the tray\'s zone');
+  assert.deepEqual(plan(record, cell('tray', 'tray', 0), cell('tray', 'tray', 2)), { op: 'none' }, 'the tray keeps its order');
+});

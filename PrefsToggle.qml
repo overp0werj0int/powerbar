@@ -3,6 +3,7 @@ import QtQuick.Layouts
 import qs.Commons
 import qs.Commons as Commons
 import qs.Ui
+import "MotionModel.js" as MotionModel
 
 // A switch row in an inspector (docs/behavior/preferences.md PREFS-133): its
 // label at the label size, regular, as every control's name is, and its
@@ -12,16 +13,10 @@ import qs.Ui
 // or focus is on it. Space, Enter or a click flips it.
 BorderSurface {
   id: toggle
-  // Kept for its callers: every inspector row is compact.
-  property bool compact: true
   property string label: ""
   property bool checked: false
-  property bool hasCursor: false
-  property color foreground: Commons.Color.popups.text
-  property color accent: Commons.Color.accent
   signal toggled(bool checked)
-  signal clicked()
-  onClicked: toggled(!checked)
+  readonly property var keyHints: [{ keys: "space", label: "Toggle" }]
 
   Layout.fillWidth: true
   Layout.leftMargin: -Gap.s
@@ -33,17 +28,16 @@ BorderSurface {
   Accessible.role: Accessible.CheckBox
   Accessible.name: label
   Accessible.checked: checked
-  Keys.onReturnPressed: clicked()
-  Keys.onEnterPressed: clicked()
-  Keys.onSpacePressed: clicked()
+  Keys.onReturnPressed: toggled(!checked)
+  Keys.onEnterPressed: toggled(!checked)
+  Keys.onSpacePressed: toggled(!checked)
 
-  readonly property bool _hot: hasCursor || mouse.containsMouse
-  readonly property bool resting: !activeFocus && !_hot
-  color: resting ? "transparent" : Style.controlFill(activeFocus, _hot, foreground, accent)
-  borderSpec: resting ? Border.none() : Border.controlSpec(activeFocus ? "focus" : "hover-cursor", foreground, accent)
+  readonly property bool resting: !activeFocus && !mouse.containsMouse
+  color: resting ? "transparent" : Style.controlFill(activeFocus, mouse.containsMouse, Commons.Color.popups.text, Commons.Color.accent)
+  borderSpec: resting ? Border.none() : Border.controlSpec(activeFocus ? "focus" : "hover-cursor", Commons.Color.popups.text, Commons.Color.accent)
   Behavior on color {
     ColorAnimation {
-      duration: Style.duration(100)
+      duration: Style.duration(MotionModel.FILL_MS)
     }
   }
 
@@ -61,8 +55,8 @@ BorderSurface {
     anchors.verticalCenter: parent.verticalCenter
     checked: toggle.checked
     rounded: Style.cornerRadius > 0
-    foreground: toggle.foreground
-    accent: toggle.accent
+    foreground: Commons.Color.popups.text
+    accent: Commons.Color.accent
     interactive: false
   }
   MouseArea {
@@ -70,6 +64,6 @@ BorderSurface {
     anchors.fill: parent
     hoverEnabled: true
     cursorShape: Qt.PointingHandCursor
-    onClicked: toggle.clicked()
+    onClicked: toggle.toggled(!toggle.checked)
   }
 }

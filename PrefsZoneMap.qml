@@ -6,21 +6,15 @@ import qs.Ui
 
 // A labelled pick-one row for the five zones, drawn as a small bar: one cell
 // per zone in the proportions and order of the Layout page's columns, the
-// camera between Left of center and Center when the preview has one, the
-// chosen zone filled. One focus stop: h/l or Left/Right walk the cells, Space
-// or Enter chooses; a click chooses at once. The caption names the zone under
-// the cursor.
-GridLayout {
+// camera over Center when the preview has one, the chosen zone filled. One
+// focus stop: h/l or Left/Right walk the cells, Space or Enter chooses; a
+// click chooses at once. The caption names the zone under the cursor.
+ColumnLayout {
   id: row
-  property bool stacked: false
-  property bool compact: false
-  property string label: "Zone"
   // [{ value, label, share }] in bar order.
   property var zones: []
   property string value: ""
-  // The camera sits after this zone ("" for none).
-  property string cameraAfter: ""
-  // Or over this zone, as the Layout page's layers draw it ("" for none).
+  // The camera over this zone, as the Layout page's layers draw it ("" for none).
   property string cameraOver: ""
   // A note for a zone after its name, such as where it sits by the camera.
   property var noteFor: function(zone) { return "" }
@@ -31,9 +25,7 @@ GridLayout {
   // and xs apart, and xxs under them the caption; the column it stands in
   // spaces it from its neighbours.
   Layout.fillWidth: true
-  columns: stacked ? 1 : 2
-  columnSpacing: Gap.l
-  rowSpacing: Gap.xxs
+  spacing: Gap.xxs
 
   function indexOf(zone) {
     for (var i = 0; i < zones.length; i++) if (zones[i].value === zone) return i
@@ -43,9 +35,8 @@ GridLayout {
   readonly property var shownZone: shown >= 0 ? zones[shown] : null
 
   InkText {
-    text: row.label
+    text: "Zone"
     Layout.fillWidth: true
-    Layout.alignment: Qt.AlignTop
     elide: Text.ElideRight
   }
   ColumnLayout {
@@ -55,14 +46,13 @@ GridLayout {
       property int cursor: -1
       readonly property real cellHeight: Gap.control
       readonly property real gap: Gap.xs
-      readonly property real cameraWidth: cellHeight
-      readonly property bool camera: row.cameraAfter !== "" && row.indexOf(row.cameraAfter) >= 0
       readonly property real total: row.zones.reduce(function(sum, z) { return sum + z.share }, 0)
+      readonly property var keyHints: [{ keys: "h l", label: "Walk the zones" }, { keys: "space", label: "Move it to that zone" }]
       implicitWidth: Style.space(232)
       implicitHeight: cellHeight
       activeFocusOnTab: true
       Accessible.role: Accessible.RadioButton
-      Accessible.name: row.label + ": " + (row.shownZone ? row.shownZone.label : "")
+      Accessible.name: "Zone: " + (row.shownZone ? row.shownZone.label : "")
       onActiveFocusChanged: cursor = activeFocus ? Math.max(0, row.indexOf(row.value)) : -1
       Keys.priority: Keys.BeforeItem
       Keys.onPressed: function(event) {
@@ -74,19 +64,13 @@ GridLayout {
         } else return
         event.accepted = true
       }
-      // Cell n's left edge and width: shares of what the gaps and camera
-      // leave. The cell mirroring the one before the camera grows by it, so
-      // the map stays symmetric about its middle, as the Layout page's
-      // shelves are.
-      readonly property int cameraAt: camera ? row.indexOf(row.cameraAfter) : -1
-      readonly property real slot: camera ? cameraWidth + gap : 0
+      // Cell n's left edge and width: shares of what the gaps leave.
       function widthOf(i) {
-        var free = width - gap * (row.zones.length - 1) - 2 * slot
-        return free * row.zones[i].share / total + (cameraAt >= 0 && i === row.zones.length - 1 - cameraAt ? slot : 0)
+        return (width - gap * (row.zones.length - 1)) * row.zones[i].share / total
       }
       function span(n) {
         var x = 0
-        for (var i = 0; i < n; i++) x += widthOf(i) + gap + (i === cameraAt ? slot : 0)
+        for (var i = 0; i < n; i++) x += widthOf(i) + gap
         return { x: x, width: widthOf(n) }
       }
 
@@ -135,25 +119,6 @@ GridLayout {
               if (zoneCell.modelData.value !== row.value) row.chosen(zoneCell.modelData.value)
             }
           }
-        }
-      }
-      // The camera, as the Layout page draws it: a black square with a lens.
-      Rectangle {
-        visible: map.camera
-        readonly property var before: map.camera ? map.span(row.indexOf(row.cameraAfter)) : ({ x: 0, width: 0 })
-        x: before.x + before.width + map.gap
-        width: map.cameraWidth
-        height: map.cellHeight
-        radius: Round.small
-        color: "black"
-        Rectangle {
-          anchors.centerIn: parent
-          width: Math.round(parent.width * 0.3)
-          height: width
-          radius: width / 2
-          color: "#1d2433"
-          border.width: 1
-          border.color: "#2a3348"
         }
       }
     }

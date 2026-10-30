@@ -4,6 +4,7 @@ import qs.Commons
 import qs.Commons as Commons
 import qs.Ui
 import "SliderModel.js" as SliderModel
+import "MotionModel.js" as MotionModel
 
 // A slider laid flat along a strip of the Look page
 // (docs/behavior/preferences.md PREFS-127): its name at the left and its
@@ -177,7 +178,7 @@ Item {
         antialiasing: true
         Behavior on width {
           enabled: !fader.dragging && fader.animate
-          NumberAnimation { duration: 120; easing.type: Easing.OutCubic }
+          NumberAnimation { duration: MotionModel.GLIDE_MS; easing.type: Easing.OutCubic }
         }
       }
       // One tick per step when there are few enough to read (PREFS-60),
@@ -228,11 +229,11 @@ Item {
         scale: fader.dragging ? 1.15 : pointer.containsMouse ? 1.1 : 1
         Behavior on x {
           enabled: !fader.dragging && fader.animate
-          NumberAnimation { duration: 120; easing.type: Easing.OutCubic }
+          NumberAnimation { duration: MotionModel.GLIDE_MS; easing.type: Easing.OutCubic }
         }
         Behavior on scale {
           enabled: fader.animate
-          NumberAnimation { duration: 110; easing.type: Easing.OutCubic }
+          NumberAnimation { duration: MotionModel.GLIDE_MS; easing.type: Easing.OutCubic }
         }
       }
     }

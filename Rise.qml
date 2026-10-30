@@ -1,4 +1,5 @@
 import QtQuick
+import "MotionModel.js" as MotionModel
 
 // A lift off a surface (docs/behavior/preferences.md PREFS-104): `value`
 // glides up to `height` in 120 ms when `up` turns on, and drops to 0 in the
@@ -14,7 +15,7 @@ QtObject {
   readonly property Animation glide: NumberAnimation {
     target: rise
     property: "value"
-    duration: 120
+    duration: MotionModel.GLIDE_MS
     easing.type: Easing.OutCubic
   }
   onUpChanged: {

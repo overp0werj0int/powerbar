@@ -26,6 +26,10 @@ omabox for desktop tests in a private Hyprland session
    (QML's import for JS files) rather than a copy. Every test loads its models
    through `tests/load.cjs`, which resolves those imports as QML does, and a
    model that imports goes in `tests/qml/tst_ModelImports.qml`.
+   A QML test that needs Powerbar's singletons (Ink, Gap, Round, Tuning),
+   such as one that builds a Preferences page, imports the checkout as
+   `import Powerbar`: `tests/qml/kit.sh` lays it out with a qmldir, as
+   Quickshell resolves them (`tests/qml/tst_PreferencesPages.qml`).
    A change in what the user sees or can do updates its `docs/behavior/`
    entry in the same commit (new behaviors get the next free ID; never reuse
    one).

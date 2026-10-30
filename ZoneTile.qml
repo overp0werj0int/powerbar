@@ -4,6 +4,8 @@ import qs.Commons
 import qs.Commons as Commons
 import qs.Ui
 import "PreferencesModel.js" as Model
+import "BoardModel.js" as Board
+import "MotionModel.js" as MotionModel
 
 // A zone's tile on a layer plate (LayerPlate), as the Layout and Groups pages
 // draw it (docs/behavior/preferences.md PREFS-99, PREFS-106): its slab edge,
@@ -106,7 +108,7 @@ Item {
         topLeftRadius: 0
         topRightRadius: 0
         antialiasing: true
-        color: Qt.rgba(0, 0, 0, cell.lightTheme ? 0.3 : 0.45)
+        color: Ink.slabEdge(cell.lightTheme)
     }
     BorderSurface {
         id: well
@@ -256,7 +258,7 @@ Item {
     Behavior on scroll {
         enabled: cell.animate
         NumberAnimation {
-            duration: 120
+            duration: MotionModel.GLIDE_MS
             easing.type: Easing.OutCubic
         }
     }
@@ -278,6 +280,52 @@ Item {
     }
     function viewContains(p) {
         return p.y >= viewTop - room && p.y < viewTop + viewHeight;
+    }
+    // Which way a carry held at a point in `from`'s coordinates scrolls this
+    // window (EdgeScroll): -1 up, 1 down, 0 neither.
+    function edgeDirection(from, point) {
+        if (!overflows)
+            return 0;
+        return Board.edgeDirection(mapFromItem(from, point.x, point.y).y, viewTop, viewHeight, scroll, maxScroll, Style.space(24));
+    }
+    // The wheel over this window: scrolls it, a row a notch, and says so, or
+    // leaves the event to others when nothing scrolls.
+    function scrollByWheel(wheel) {
+        if (!overflows)
+            return false;
+        scrollBy(Board.wheelDelta(wheel.pixelDelta.y, wheel.angleDelta.y, rowStep));
+        return true;
+    }
+    // The window's rows under a point in `from`'s coordinates, through the
+    // tilt: each row with the point in its own coordinates, landing places
+    // left out, in drawn order. What the pages' gap rules read
+    // (Board.gapIndex, GroupsEditorModel.listGap).
+    function mapRows(from, point) {
+        var rows = [];
+        for (var i = 0; i < chipTiles.count; i++) {
+            var row = chipTiles.itemAt(i);
+            if (!row || row.placeholder)
+                continue;
+            var p = row.mapFromItem(from, point.x, point.y);
+            rows.push({
+                item: row,
+                x: p.x,
+                y: p.y,
+                width: row.width,
+                height: row.height
+            });
+        }
+        return rows;
+    }
+    // The row under a point in `from`'s coordinates, or null: a row scrolled
+    // out of the window is not under the pointer.
+    function chipAt(from, point) {
+        if (!viewContains(mapFromItem(from, point.x, point.y)))
+            return null;
+        var hit = mapRows(from, point).find(function (r) {
+            return r.x >= 0 && r.y >= 0 && r.x < r.width && r.y < r.height;
+        });
+        return hit ? hit.item : null;
     }
     Item {
         id: viewport

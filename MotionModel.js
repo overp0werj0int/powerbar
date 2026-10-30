@@ -41,3 +41,36 @@ var YIELD_BACK_MS = 160
 function inlineMs(opening, giveWay) {
   return opening ? (giveWay ? GIVE_WAY_MS : 0) + SLOT_MS : YIELD_PAUSE_MS + YIELD_BACK_MS
 }
+
+// Preferences (docs/design/preferences-design-system.md, section 14). The
+// pages run these while the bar's animationsEnabled is on (Powerbar's
+// Animations switch and Omarchy's), and nothing moves otherwise.
+// Omarchy's ease out (its Style.easeOut), for the page turn.
+var EASE_OUT = [0.23, 1, 0.32, 1, 1, 1]
+// A page turn: the page slides under the camera and the tab's underline
+// glides, on one clock.
+var PAGE_TURN_MS = 240
+// Something following the cursor: a rise, the focus ring, the pulled chip,
+// a tile scrolling to the cursor, a fader's knob.
+var GLIDE_MS = 120
+// The focus ring stops gliding once its glide has had time to end.
+var GLIDE_END_MS = GLIDE_MS + 50
+// A plate taking its new height or place.
+var PLATE_MS = 140
+// The card, the inspector and the icon picker fading in or out; the
+// inspector and the icon picker grow from 97 % over APPEAR_SCALE_MS.
+var APPEAR_MS = 140
+var APPEAR_SCALE_MS = 160
+// The centre dot going back to its side.
+var SNAP_BACK_MS = 160
+// A row's fill under the cursor.
+var FILL_MS = 100
+// A widget's name tip: shown once the pointer rests TIP_REST_MS on a chip,
+// at once on the next chip within TIP_WARM_MS of leaving one, fading over
+// TIP_FADE_MS.
+var TIP_REST_MS = 450
+var TIP_WARM_MS = 600
+var TIP_FADE_MS = 110
+// A keyboard lift's flying copy waits this long for rows to make room
+// (outlasting PLATE_MS and GLIDE_MS) before it measures where it lands.
+var LANDING_SETTLE_MS = 160

@@ -2,7 +2,8 @@
 # validate.sh: everything that must pass before a commit. Offscreen; it never
 # touches the running shell.
 #   1. node unit tests (tests/*.test.cjs)
-#   2. QML tests (tests/qml) against Omarchy's own Commons and Ui
+#   2. QML tests (tests/qml) against Omarchy's own Commons and Ui, and this
+#      checkout as the module Powerbar (tests/qml/kit.sh)
 #   3. the startup probe (QtTest over startup bindings that tests/startup-probe.cjs
 #      slices out of Bar.qml and LayoutEditor.qml as text; Bar.qml itself is not loaded)
 #   4. `omarchy plugin validate` (Omarchy's manifest and plugin checks)
@@ -31,14 +32,7 @@ grep -E "^ℹ (pass|fail)" "$TMP/node.log"
 grep -E "^not ok" "$TMP/node.log"
 
 echo "== QML tests"
-# qs.Commons with only the singletons Powerbar uses: Qt 6.12 loads every type
-# a module lists, and Omarchy's others need Quickshell services (Pipewire,
-# Hyprland) the test runner has no stand-in for.
-mkdir -p "$TMP/kit/qs/Commons"
-ln -s "$OMARCHY/shell/Ui" "$TMP/kit/qs/"
-ln -s "$OMARCHY"/shell/Commons/* "$TMP/kit/qs/Commons/"
-rm "$TMP/kit/qs/Commons/qmldir"
-{ echo "module qs.Commons"; grep -E "^singleton (Border|Color|Style|Util) " "$OMARCHY/shell/Commons/qmldir"; } >"$TMP/kit/qs/Commons/qmldir"
+OMARCHY_PATH="$OMARCHY" tests/qml/kit.sh "$TMP/kit"
 timeout 300 "$QT_BIN/qmltestrunner" -import tests/qml/imports -import "$TMP/kit" -input tests/qml -o "$TMP/qml.log,txt" >/dev/null 2>&1 || failed=1
 grep -E "^Totals|^FAIL" "$TMP/qml.log" | head -20
 

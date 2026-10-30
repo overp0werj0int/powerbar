@@ -1,14 +1,15 @@
 import QtQuick
 import QtQuick.Window
 import QtQuick.Layouts
-import QtQuick.Shapes
 import qs.Commons
 import qs.Commons as Commons
 import qs.Ui
 import "PreferencesModel.js" as Model
 import "GroupsModel.js" as Groups
 import "GroupsEditorModel.js" as Editor
+import "BoardModel.js" as Board
 import "SectionsModel.js" as SectionsModel
+import "MotionModel.js" as MotionModel
 
 // The Groups page (docs/behavior/preferences.md PREFS-109 on), two of the
 // Layout page's plates under the same camera (LayerPlate, ZoneTile,
@@ -35,8 +36,6 @@ Item {
     // How far Preferences has slid the page off its place, as on the
     // Layout page.
     property real slide: 0
-    // The keys are a legend on the page (PREFS-103), so the footer hides.
-    readonly property var hints: []
 
     // ---------------------------------------------------------------- data
     readonly property var zones: SectionsModel.lists
@@ -83,7 +82,7 @@ Item {
     property bool filtering: false
     property var filterFrom: null
     function openFilter() {
-        if (lifted || picker.opened || within(focused, inspector))
+        if (lifted || picker.opened || Board.within(focused, inspector))
             return;
         if (!filtering)
             filterFrom = {
@@ -439,7 +438,6 @@ Item {
             };
             liftHome = selectedId;
         }
-        hoverOn(null);
     }
     function liftFace(id) {
         var face = Editor.facePlace(stepState, id);
@@ -454,7 +452,6 @@ Item {
             area: "zone",
             zone: face.zone
         };
-        hoverOn(null);
     }
     function cancel() {
         if (pointerLift) {
@@ -561,26 +558,23 @@ Item {
         stage.forceActiveFocus(Qt.TabFocusReason);
     }
     function keyPressed(event) {
-        if (event.modifiers & (Qt.ControlModifier | Qt.AltModifier))
+        var k = Board.keyCommand(event.key, event.text, event.modifiers);
+        if (!k)
             return;
         if (filtering) {
             filterKey(event);
             return;
         }
-        var key = event.key, t = event.text, c = t.toLowerCase();
-        var carry = !!(event.modifiers & Qt.ShiftModifier);
-        var dx = key === Qt.Key_Left || c === "h" ? -1 : key === Qt.Key_Right || c === "l" ? 1 : 0;
-        var dy = key === Qt.Key_Up || c === "k" ? -1 : key === Qt.Key_Down || c === "j" ? 1 : 0;
-        if (dx || dy) {
-            step(dx, dy, carry);
+        if (k.dx || k.dy) {
+            step(k.dx, k.dy, k.carry);
             event.accepted = true;
             return;
         }
-        var enter = key === Qt.Key_Return || key === Qt.Key_Enter;
+        var enter = k.act === "enter";
         if (lifted) {
-            if (key === Qt.Key_Space || enter)
+            if (k.act === "space" || enter)
                 drop();
-            else if (key === Qt.Key_Escape)
+            else if (k.act === "escape")
                 cancel();
             else
                 return;
@@ -590,22 +584,22 @@ Item {
         // A face: the group itself.
         var faceId = at.area === "face" ? Editor.groupAt(stepState, at) : "";
         var zone = Editor.zoneAt(stepState, at);
-        if (key === Qt.Key_Space && cursorRecord)
+        if (k.act === "space" && cursorRecord)
             lift();
-        else if (key === Qt.Key_Space && faceId)
+        else if (k.act === "space" && faceId)
             liftFace(faceId);
         else if (enter && faceId) {
             nameField.forceActiveFocus(Qt.TabFocusReason);
             nameField.selectAll();
-        } else if (enter && at.area === "plus" || c === "n" && zone)
+        } else if (enter && at.area === "plus" || k.c === "n" && zone)
             createIn(zone, "");
         else if (enter && at.area === "member" && cursorRecord)
             countField.forceActiveFocus(Qt.TabFocusReason);
         else if (enter && at.area === "pool")
             addToChosen(cursorRecord);
-        else if ((c === "x" || key === Qt.Key_Delete) && faceId)
+        else if ((k.c === "x" || k.act === "delete") && faceId)
             dissolve(faceId);
-        else if ((c === "x" || key === Qt.Key_Delete) && at.area === "member" && cursorRecord)
+        else if ((k.c === "x" || k.act === "delete") && at.area === "member" && cursorRecord)
             takeOut(cursorRecord);
         else
             return;
@@ -683,12 +677,6 @@ Item {
     })
     readonly property var plateHeights: Model.shareLayers(needs.demands, needs.floors, Math.max(0, height - stackTop - bottomBand), tilt, planeDistance, layout.layerGap, needs.first)
     readonly property var stack: Model.stackLayers(plateHeights, tilt, planeDistance, layout.layerGap)
-    // Where a point on a plate (its own coordinates, before the tilt) is
-    // seen in the page: plates turn about their top edge, seen about the axis.
-    function seen(plate, px, py) {
-        var h = Model.tiltedHeight(py, tilt, planeDistance);
-        return Qt.point(axis + Model.tiltedSpread(plateX + px - axis, h, tilt, planeDistance), plate.y + h);
-    }
 
     // ---------------------------------------------------------- the camera
     // The Layout page's camera with the Layout page's own arguments, so the
@@ -716,7 +704,7 @@ Item {
     // (PREFS-105, PREFS-123): the same dot and leader, from this page's
     // Center tile.
     readonly property real centerTileRaise: {
-        var t = listTiles.of("center");
+        var t = tileOf("center");
         return t ? t.raise : 0;
     }
     CenterSideDot {
@@ -740,24 +728,13 @@ Item {
     readonly property Item sideDot: centerDot.dot
 
     // Tiles by zone, for the pointer and the windows.
-    component TileList: QtObject {
-        property var list: []
-        function add(t) {
-            list = list.concat([t]);
-        }
-        function drop(t) {
-            list = list.filter(function (x) {
-                return x !== t;
-            });
-        }
-        function of(zone) {
-            return list.find(function (t) {
-                return t.zone === zone;
-            }) || null;
-        }
-    }
-    TileList {
+    ItemRegistry {
         id: listTiles
+    }
+    function tileOf(zone) {
+        return listTiles.find(function (t) {
+            return t.zone === zone;
+        });
     }
 
     // ------------------------------------------------------- the list's plate
@@ -808,7 +785,7 @@ Item {
         Behavior on y {
             enabled: editor.bar.animationsEnabled
             NumberAnimation {
-                duration: 140
+                duration: MotionModel.PLATE_MS
                 easing.type: Easing.OutCubic
             }
         }
@@ -858,7 +835,7 @@ Item {
                     x: filterLabel.x + (editor.filterText ? Math.min(filterLabel.contentWidth, filterLabel.width) + 1 : -2)
                     anchors.verticalCenter: parent.verticalCenter
                     width: 1
-                    height: Style.font.caption + Style.space(2)
+                    height: Ink.caption + Style.space(2)
                     color: Commons.Color.popups.text
                 }
                 KeyCap {
@@ -960,9 +937,9 @@ Item {
                 if (!editor.pointerLift) {
                     var hit = editor.overFilter(point) ? null : editor.hitAt(point);
                     editor.hoverKey = hit ? hit.key : editor.overFilter(point) ? "filter:" : "";
-                    editor.hoverOn(pressed ? null : hit);
+                    nameTip.hover(pressed || !hit ? "" : hit.key, hit);
                 }
-                if (pressed && editor.pressed && !editor.pointerLift && Math.abs(point.x - editor.pressPoint.x) + Math.abs(point.y - editor.pressPoint.y) > Style.space(6)) {
+                if (pressed && editor.pressed && !editor.pointerLift && Board.pastThreshold(editor.pressPoint, point, Style.space(6))) {
                     if (editor.pressed.kind === "face")
                         editor.liftFace(editor.pressed.id);
                     else
@@ -974,20 +951,19 @@ Item {
             onExited: {
                 if (!editor.pointerLift)
                     editor.hoverKey = "";
-                editor.hoverOn(null);
+                nameTip.hover(null);
             }
             onWheel: function (wheel) {
                 var point = Qt.point(wheel.x, wheel.y);
                 var win = editor.windowAt(point);
-                if (!win || !win.overflows) {
+                if (!win || !win.scrollByWheel(wheel)) {
                     wheel.accepted = false;
                     return;
                 }
-                win.scrollBy(wheel.pixelDelta.y ? -wheel.pixelDelta.y : -wheel.angleDelta.y / 120 * win.rowStep);
                 editor.pointerMoved(point);
             }
             onPressed: function (mouse) {
-                editor.hoverOn(null);
+                nameTip.hover(null);
                 if (editor.lifted)
                     editor.cancel();
                 editor.pressSpent = false;
@@ -1034,10 +1010,7 @@ Item {
     // "+", a face, a widget row, an empty group's note or else a zone's tile
     // on the list's plate; a pool chip or the pool.
     function inside(item, point) {
-        if (!item || !item.visible)
-            return false;
-        var p = item.mapFromItem(editor, point.x, point.y);
-        return p.x >= 0 && p.y >= 0 && p.x < item.width && p.y < item.height;
+        return !!item && item.visible && Board.covers(item, editor, point);
     }
     function inView(win, point) {
         return win.viewContains(win.mapFromItem(editor, point.x, point.y));
@@ -1049,7 +1022,7 @@ Item {
     }
     function hitAt(point) {
         for (var z = 0; z < zones.length; z++) {
-            var t = listTiles.of(zones[z]);
+            var t = tileOf(zones[z]);
             if (!inside(t, point))
                 continue;
             if (inside(t.plus, point))
@@ -1060,7 +1033,7 @@ Item {
                     key: "plus:" + t.zone,
                     place: Editor.plusPlace(stepState, t.zone)
                 };
-            var row = inView(t, point) ? tileIn(t, point) : null;
+            var row = t.chipAt(editor, point);
             if (row && row.kind === "face")
                 return {
                     kind: "face",
@@ -1095,7 +1068,7 @@ Item {
             };
         }
         if (inside(poolCell, point)) {
-            var chip = inView(poolCell, point) ? tileIn(poolCell, point) : null;
+            var chip = poolCell.chipAt(editor, point);
             if (chip)
                 return {
                     kind: "poolchip",
@@ -1117,66 +1090,10 @@ Item {
         }
         return null;
     }
-    function tileIn(win, point) {
-        for (var i = 0; i < win.tiles.count; i++) {
-            var tile = win.tiles.itemAt(i);
-            if (!tile || tile.placeholder)
-                continue;
-            var p = tile.mapFromItem(editor, point.x, point.y);
-            if (p.x >= 0 && p.y >= 0 && p.x < tile.width && p.y < tile.height)
-                return tile;
-        }
-        return null;
-    }
-    // The gap under the pointer in a zone's list, as { id, pos }: on a face
-    // row or an empty group's note, that group's first gap; on its widgets,
-    // before the first whose middle the pointer has not passed; above a face,
-    // the end of the group over it; past the last row, the last group's end.
-    // null for a zone without groups.
-    function gapIn(win, point) {
-        var id = "", pos = 0;
-        for (var i = 0; i < win.tiles.count; i++) {
-            var row = win.tiles.itemAt(i);
-            if (!row || row.placeholder)
-                continue;
-            var y = row.mapFromItem(editor, point.x, point.y).y;
-            if (row.kind === "face") {
-                if (y < 0 && id)
-                    return {
-                        id: id,
-                        pos: pos
-                    };
-                id = row.groupId;
-                pos = 0;
-                if (y < row.height)
-                    return {
-                        id: id,
-                        pos: 0
-                    };
-            } else if (row.kind === "note") {
-                if (y < row.height)
-                    return {
-                        id: id,
-                        pos: 0
-                    };
-            } else {
-                if (y < row.height / 2)
-                    return {
-                        id: id,
-                        pos: pos
-                    };
-                pos++;
-            }
-        }
-        return id ? {
-            id: id,
-            pos: pos
-        } : null;
-    }
     // The scrolling window under the pointer: a zone's list or the pool.
     function windowAt(point) {
         for (var z = 0; z < zones.length; z++) {
-            var t = listTiles.of(zones[z]);
+            var t = tileOf(zones[z]);
             if (inside(t, point))
                 return t;
         }
@@ -1198,7 +1115,7 @@ Item {
                 zone: hit.zone
             };
         else if (hit && hit.tile) {
-            var gap = inView(hit.tile, point) ? gapIn(hit.tile, point) : null;
+            var gap = inView(hit.tile, point) ? Editor.listGap(hit.tile.mapRows(editor, point)) : null;
             next = gap ? {
                 area: "gap",
                 id: gap.id,
@@ -1211,28 +1128,12 @@ Item {
         if (JSON.stringify(next) !== JSON.stringify(liftTarget))
             liftTarget = next;
         // Held near a scrolling window's top or bottom edge, the drag scrolls it.
-        var win = windowAt(point), dir = 0;
-        if (win && win.overflows) {
-            var w = win.mapFromItem(editor, point.x, point.y), band = Style.space(24);
-            if (w.y < win.viewTop + band && win.scroll > 0)
-                dir = -1;
-            else if (w.y > win.viewTop + win.viewHeight - band && win.scroll < win.maxScroll)
-                dir = 1;
-        }
-        autoScroll.target = dir ? win : null;
-        autoScroll.dir = dir;
+        edgeScroll.aim(windowAt(point), editor, point);
     }
-    Timer {
-        id: autoScroll
-        property Item target: null
-        property int dir: 0
-        interval: 16
-        repeat: true
-        running: !!target && dir !== 0 && editor.pointerLift
-        onTriggered: {
-            target.scrollBy(dir * Style.space(3));
-            editor.pointerMoved(editor.pointer);
-        }
+    EdgeScroll {
+        id: edgeScroll
+        active: editor.pointerLift
+        onStepped: editor.pointerMoved(editor.pointer)
     }
     // A place's row in its zone's list as drawn, -1 for none.
     function rowOf(zone, p) {
@@ -1245,7 +1146,7 @@ Item {
     function revealCursor() {
         var p = lifted && liftTarget ? liftTarget : at;
         if (p.area === "face" || p.area === "member" || p.area === "gap") {
-            var zone = Editor.zoneAt(stepState, p), t = listTiles.of(zone), i = rowOf(zone, p);
+            var zone = Editor.zoneAt(stepState, p), t = tileOf(zone), i = rowOf(zone, p);
             if (t && i >= 0)
                 t.reveal(i);
         } else if (p.area === "pool")
@@ -1271,10 +1172,10 @@ Item {
             return null;
         var home = liftingFace && t.zone === lifted.zone;
         if (liftingFace && !home || t.area === "plus") {
-            var tile = listTiles.of(t.zone);
+            var tile = tileOf(t.zone);
             return tile ? tile.plus : null;
         }
-        var win = home ? listTiles.of(t.zone) : t.area === "gap" ? listTiles.of(Editor.zoneAt(stepState, t)) : t.area === "pool" ? poolCell : null;
+        var win = home ? tileOf(t.zone) : t.area === "gap" ? tileOf(Editor.zoneAt(stepState, t)) : t.area === "pool" ? poolCell : null;
         if (!win || !win.tiles)
             return null;
         for (var i = 0; i < win.tiles.count; i++) {
@@ -1297,13 +1198,13 @@ Item {
     onLiftedChanged: Qt.callLater(updateKeyLanding)
     onPointerLiftChanged: {
         if (!pointerLift)
-            autoScroll.target = null;
+            edgeScroll.aim(null);
         Qt.callLater(updateKeyLanding);
     }
     // Again once the rows have moved aside for the landing place.
     Timer {
         id: keyLandingSettle
-        interval: 160
+        interval: MotionModel.LANDING_SETTLE_MS
         onTriggered: editor.updateKeyLanding()
     }
     readonly property bool copyShown: !!lifted && (pointerLift || keyLandingShown)
@@ -1333,183 +1234,41 @@ Item {
 
     // -------------------------------------------------------------- the tip
     // A face's or a widget's full name after a short rest on it, a "+"'s
-    // "New group in Left" (PREFS-100).
-    property var hoverHit: null
-    property bool tipWarm: false
-    function hoverOn(hit) {
-        var key = hit ? hit.key : "";
-        if (key === (hoverHit ? hoverHit.key : ""))
-            return;
-        hoverHit = key ? hit : null;
-        if (!key || lifted) {
-            nameTip.shown = false;
-            tipDelay.stop();
-            if (tipWarm)
-                tipCool.restart();
-            return;
-        }
-        tipCool.stop();
-        if (tipWarm)
-            showTip();
-        else {
-            nameTip.shown = false;
-            tipDelay.restart();
-        }
-    }
-    function showTip() {
-        var hit = hoverHit;
-        if (!hit || lifted)
-            return;
-        var g = hit.kind === "face" ? groupOf(hit.id) : null;
-        nameTip.record = hit.record || ({});
-        nameTip.title = hit.kind === "plus" ? "New group in " + layout.zoneNames[hit.zone] : g ? g.label : hit.record ? preferences.title(hit.record) : "";
-        var n = g ? (memberLists[g.id] || []).length : 0;
-        nameTip.detail = hit.kind === "plus" ? "" : g ? "Group, " + n + (n === 1 ? " widget" : " widgets") : hit.record ? hit.record.id : "";
-        nameTip.at = pointer;
-        nameTip.shown = true;
-        tipWarm = true;
-    }
-    Timer {
-        id: tipDelay
-        interval: 450
-        onTriggered: editor.showTip()
-    }
-    Timer {
-        id: tipCool
-        interval: 600
-        onTriggered: editor.tipWarm = false
-    }
-    BorderSurface {
+    // "New group in Left" (PREFS-100): under the pointer, in front of
+    // everything (the inspector too).
+    BoardNameTip {
         id: nameTip
-        property bool shown: false
-        property var record: ({})
-        property string title: ""
-        property string detail: ""
-        // Where the pointer rested; the tip is placed from its laid-out
-        // size, kept inside the page, in front of everything (the inspector too).
-        property point at: Qt.point(0, 0)
-        readonly property real gap: Style.space(10)
-        x: Math.max(0, Math.min(editor.width - width, at.x - width / 2))
-        y: at.y + gap + Style.space(16) + height <= editor.height ? at.y + gap + Style.space(16) : at.y - gap - height
+        layout: editor.layout
         z: 130
-        visible: opacity > 0
-        opacity: shown ? 1 : 0
-        Behavior on opacity {
-            enabled: editor.bar.animationsEnabled
-            NumberAnimation {
-                duration: 110
-                easing.type: Easing.OutCubic
-            }
-        }
-        // A surface over the page, not a chip (PREFS-133): m above and
-        // below, l at the sides, one step past its own m gaps.
-        width: tipRow.implicitWidth + 2 * Gap.l
-        height: tipRow.implicitHeight + 2 * Gap.m
-        radius: Round.container
-        color: Qt.tint(editor.pageColor, Qt.alpha(Commons.Color.popups.text, 0.1))
-        borderSpec: Border.flat(Qt.alpha(Commons.Color.popups.text, 0.16), 1)
-        Row {
-            id: tipRow
-            anchors.centerIn: parent
-            spacing: Gap.m
-            InkIcon {
-                visible: !!nameTip.record.instanceKey
-                layout: editor.layout
-                record: nameTip.record
-                anchors.verticalCenter: parent.verticalCenter
-            }
-            InkText {
-                anchors.verticalCenter: parent.verticalCenter
-                text: nameTip.title
-            }
-            InkText {
-                visible: text !== ""
-                anchors.verticalCenter: parent.verticalCenter
-                text: nameTip.detail
-                role: "caption"
-            }
+        suppressed: !!editor.lifted
+        describe: function (hit) {
+            var g = hit.kind === "face" ? editor.groupOf(hit.id) : null;
+            var n = g ? (editor.memberLists[g.id] || []).length : 0;
+            var gap = Style.space(10), p = editor.pointer;
+            return {
+                record: hit.record || ({}),
+                title: hit.kind === "plus" ? "New group in " + editor.layout.zoneNames[hit.zone] : g ? g.label : hit.record ? editor.preferences.title(hit.record) : "",
+                detail: hit.kind === "plus" ? "" : g ? "Group, " + n + (n === 1 ? " widget" : " widgets") : hit.record ? hit.record.id : "",
+                below: Qt.point(p.x, p.y + gap + Style.space(16)),
+                above: Qt.point(p.x, p.y - gap)
+            };
         }
     }
 
     // -------------------------------------------------------- the inspector
     // The member the cursor is on, for its badge sources.
     readonly property var member: !lifted && at.area === "member" && at.id === selectedId ? cursorRecord : null
-    BorderSurface {
+    BoardInspector {
         id: inspector
-        readonly property bool shown: !!editor.selectedGroup
         readonly property var group: editor.selectedGroup
-        // Tab and Shift+Tab walk the inspector's controls and wrap round
-        // inside it (PREFS-26): a stop before the first control and one
-        // after the last send focus on round.
-        property Item lastInside: null
-        function lastControl() {
-            var last = nameField;
-            for (var item = nameField.nextItemInFocusChain(true); item && item !== endFence && item !== nameField && editor.within(item, inspector); item = item.nextItemInFocusChain(true))
-                last = item;
-            return last;
-        }
-        anchors.right: parent.right
-        anchors.bottom: parent.bottom
-        width: Math.min(editor.width, Style.space(670))
+        layout: editor.layout
+        shown: !!editor.selectedGroup
+        // Tab and Shift+Tab wrap round inside it (PREFS-26).
+        first: nameField
         // xl all round, its columns xl apart, its blocks l (PREFS-133).
-        height: inspectorBody.implicitHeight + 2 * Gap.xl
-        z: 120
-        radius: editor.tileRadius
-        color: editor.tileColor(false)
-        borderSpec: Border.flat(Qt.alpha(Commons.Color.popups.text, 0.16), 1)
-        visible: opacity > 0
-        opacity: shown ? 1 : 0
-        scale: shown ? 1 : 0.97
-        transformOrigin: Item.Bottom
-        Behavior on opacity {
-            enabled: editor.bar.animationsEnabled
-            NumberAnimation {
-                duration: 140
-                easing.type: Easing.OutCubic
-            }
-        }
-        Behavior on scale {
-            enabled: editor.bar.animationsEnabled
-            NumberAnimation {
-                duration: 160
-                easing.type: Easing.OutCubic
-            }
-        }
+        bodyHeight: inspectorBody.implicitHeight
         // Esc returns to the chosen face; a control that takes it gets it first.
-        Keys.onPressed: function (event) {
-            if (event.key !== Qt.Key_Escape)
-                return;
-            editor.toChosenFace();
-            event.accepted = true;
-        }
-        Connections {
-            target: editor
-            function onFocusedChanged() {
-                var f = editor.focused;
-                if (f && f !== startFence && f !== endFence && editor.within(f, inspector))
-                    inspector.lastInside = f;
-            }
-        }
-        Item {
-            id: startFence
-            activeFocusOnTab: inspector.shown
-            onActiveFocusChanged: if (activeFocus)
-                (inspector.lastInside === nameField ? inspector.lastControl() : nameField).forceActiveFocus(Qt.TabFocusReason)
-        }
-        MouseArea {
-            anchors.fill: parent
-        }
-        // The shadow it casts on the page.
-        Rectangle {
-            z: -1
-            anchors.fill: parent
-            anchors.topMargin: Style.space(10)
-            anchors.bottomMargin: -Style.space(10)
-            anchors.leftMargin: Style.space(8)
-            anchors.rightMargin: Style.space(8)
-            radius: inspector.radius
-            color: Qt.rgba(0, 0, 0, editor.lightTheme ? 0.2 : 0.3)
-        }
+        onEscaped: editor.toChosenFace()
         ColumnLayout {
             id: inspectorBody
             anchors.left: parent.left
@@ -1540,20 +1299,13 @@ Item {
                             fontFamily: editor.layout.barFont
                         }
                     }
-                    TextField {
+                    InspectorField {
                         id: nameField
                         Layout.fillWidth: true
                         Layout.preferredHeight: Gap.control
                         verticalPadding: Gap.xs
                         horizontalPadding: Gap.s
                         font.pixelSize: Ink.label
-                        // Typing breaks a plain binding: this one comes back whenever the
-                        // field is not being edited, so another group or widget shows its own.
-                        Binding on text {
-                            value: inspector.group ? inspector.group.label : ""
-                            when: !nameField.activeFocus
-                            restoreMode: Binding.RestoreNone
-                        }
                         placeholderText: "Group name"
                         foreground: Commons.Color.popups.text
                         Accessible.name: "Group name"
@@ -1565,26 +1317,23 @@ Item {
                         ]
                         // The group the typing is for: a click elsewhere selects the
                         // next one before this field loses focus and finishes.
-                        property var editing: null
-                        onActiveFocusChanged: if (activeFocus)
-                            editing = inspector.group
-                        onEditingFinished: if (editing && text.trim() && text.trim() !== editing.label)
-                            editor.edit(editing.id, {
-                                label: text
-                            })
+                        subject: inspector.group
+                        saved: inspector.group ? inspector.group.label : ""
+                        onCommitted: function (group, text) {
+                            if (text.trim() && text.trim() !== group.label)
+                                editor.edit(group.id, {
+                                    label: text
+                                });
+                        }
                         Keys.onEscapePressed: function (event) {
                             text = inspector.group ? inspector.group.label : "";
                             editor.toChosenFace();
                             event.accepted = true;
                         }
                     }
-                    InkText {
-                        Layout.fillWidth: true
-                        Layout.topMargin: Gap.xxs - Gap.m
+                    InspectorHint {
                         readonly property int n: inspector.group ? (editor.memberLists[inspector.group.id] || []).length : 0
                         text: !inspector.group ? "" : n + (n === 1 ? " widget, " : " widgets, ") + (inspector.group.visibility === "hidden" ? "hidden, zone " + editor.layout.zoneNames[inspector.group.section] : (inspector.group.visibility === "managed" ? "on demand at " : "on the bar at ") + String(editor.layout.zoneNames[inspector.group.section]).toLowerCase())
-                        role: "caption"
-                        wrapMode: Text.WordWrap
                     }
                     // Dissolve, asked twice (PREFS-39).
                     Item {
@@ -1639,7 +1388,6 @@ Item {
                     Layout.alignment: Qt.AlignTop
                     spacing: Gap.m
                     PrefsChoice {
-                        stacked: true
                         label: "Show"
                         options: [
                             {
@@ -1663,7 +1411,6 @@ Item {
                         }
                     }
                     PrefsChoice {
-                        stacked: true
                         label: "Widgets show"
                         options: [
                             {
@@ -1687,14 +1434,7 @@ Item {
                         }
                     }
                     PrefsToggle {
-                        compact: true
                         label: "Name on hover"
-                        readonly property var keyHints: [
-                            {
-                                keys: "space",
-                                label: "Toggle"
-                            }
-                        ]
                         checked: inspector.group ? (inspector.group.tooltip === undefined ? inspector.group.face === "glyph" : inspector.group.tooltip) : false
                         onToggled: function (checked) {
                             editor.edit(editor.selectedId, {
@@ -1705,14 +1445,7 @@ Item {
                     // A sibling of the switch above: xs apart.
                     PrefsToggle {
                         Layout.topMargin: Gap.xs - Gap.m
-                        compact: true
                         label: "Badge"
-                        readonly property var keyHints: [
-                            {
-                                keys: "space",
-                                label: "Toggle"
-                            }
-                        ]
                         checked: inspector.group ? inspector.group.badge : false
                         onToggled: function (checked) {
                             editor.edit(editor.selectedId, {
@@ -1721,7 +1454,6 @@ Item {
                         }
                     }
                     PrefsChoice {
-                        stacked: true
                         enabled: !!inspector.group && inspector.group.badge
                         opacity: enabled ? 1 : Ink.disabled
                         label: "Counts"
@@ -1760,9 +1492,6 @@ Item {
                         }
                     }
                     PrefsZoneMap {
-                        id: zoneMap
-                        compact: true
-                        stacked: true
                         zones: editor.layout.zoneChoices
                         cameraOver: editor.layout.previewCamera ? "center" : ""
                         noteFor: function (zone) {
@@ -1785,12 +1514,8 @@ Item {
                         }
                     }
                     // A hint: a text pair under the field it is about.
-                    InkText {
-                        Layout.fillWidth: true
-                        Layout.topMargin: Gap.xxs - Gap.m
+                    InspectorHint {
                         text: "Shift h l on its face moves it too"
-                        role: "caption"
-                        wrapMode: Text.WordWrap
                     }
                     Button {
                         id: iconButton
@@ -1838,49 +1563,38 @@ Item {
                     tier: editor.member ? 1 : Ink.secondary
                     elide: Text.ElideRight
                 }
-                TextField {
+                InspectorField {
                     id: countField
                     visible: !!editor.member
                     Layout.fillWidth: true
                     Layout.preferredWidth: 2
-                    Binding on text {
-                        value: editor.member ? editor.member.badgeProperty || "" : ""
-                        when: !countField.activeFocus
-                        restoreMode: Binding.RestoreNone
-                    }
                     placeholderText: "Count from: detected"
                     foreground: Commons.Color.popups.text
                     font.pixelSize: Ink.caption
                     verticalPadding: Gap.xs
                     Accessible.name: "Badge count property"
                     // The widget the typing is for (see nameField).
-                    property var editing: null
-                    onActiveFocusChanged: if (activeFocus)
-                        editing = editor.member
-                    onEditingFinished: if (editing)
-                        editor.bar.editMemberBadge(editing.instanceKey, "badgeProperty", text.trim())
+                    subject: editor.member
+                    saved: editor.member ? editor.member.badgeProperty || "" : ""
+                    onCommitted: function (member, text) {
+                        editor.bar.editMemberBadge(member.instanceKey, "badgeProperty", text.trim());
+                    }
                 }
-                TextField {
+                InspectorField {
                     id: urgentField
                     visible: !!editor.member
                     Layout.fillWidth: true
                     Layout.preferredWidth: 2
-                    Binding on text {
-                        value: editor.member ? editor.member.urgentProperty || "" : ""
-                        when: !urgentField.activeFocus
-                        restoreMode: Binding.RestoreNone
-                    }
                     placeholderText: "Urgent from: detected"
                     foreground: Commons.Color.popups.text
                     font.pixelSize: Ink.caption
                     verticalPadding: Gap.xs
                     Accessible.name: "Urgent property"
-                    // The widget the typing is for (see nameField).
-                    property var editing: null
-                    onActiveFocusChanged: if (activeFocus)
-                        editing = editor.member
-                    onEditingFinished: if (editing)
-                        editor.bar.editMemberBadge(editing.instanceKey, "urgentProperty", text.trim())
+                    subject: editor.member
+                    saved: editor.member ? editor.member.urgentProperty || "" : ""
+                    onCommitted: function (member, text) {
+                        editor.bar.editMemberBadge(member.instanceKey, "urgentProperty", text.trim());
+                    }
                 }
                 InkText {
                     visible: !!editor.member
@@ -1889,20 +1603,8 @@ Item {
                 }
             }
         }
-        Item {
-            id: endFence
-            activeFocusOnTab: inspector.shown
-            onActiveFocusChanged: if (activeFocus)
-                (inspector.lastInside === inspector.lastControl() ? nameField : inspector.lastControl()).forceActiveFocus(Qt.TabFocusReason)
-        }
     }
     readonly property Item focused: editor.Window.activeFocusItem
-    function within(item, root) {
-        for (var p = item; p; p = p.parent)
-            if (p === root)
-                return true;
-        return false;
-    }
 
     IconPicker {
         id: picker
@@ -1936,7 +1638,7 @@ Item {
 
     // ------------------------------------------------------------ the legend
     readonly property bool stageFocused: stage.activeFocus
-    readonly property bool inspectorFocused: within(focused, inspector)
+    readonly property bool inspectorFocused: Board.within(focused, inspector)
     // The row being worked on: where the lifted widget or face would land,
     // else the cursor's. Its zone's name reads brighter, bold while it is on
     // the list's plate (PREFS-110).
@@ -2085,16 +1787,7 @@ Item {
             keys: "tab shift+tab",
             label: "Next, previous control"
         }
-    ].concat(focused && focused.keyHints ? focused.keyHints : within(focused, zoneMap) ? [
-        {
-            keys: "h l",
-            label: "Walk the zones"
-        },
-        {
-            keys: "space",
-            label: "Move it to that zone"
-        }
-    ] : []).concat([
+    ].concat(focused && focused.keyHints ? focused.keyHints : []).concat([
         {
             keys: "esc",
             label: "Back to the faces"
@@ -2164,7 +1857,7 @@ Item {
         current: cursorHere
         model: listRows.model
         Component.onCompleted: listTiles.add(this)
-        Component.onDestruction: listTiles.drop(this)
+        Component.onDestruction: listTiles.remove(this)
         RetainedList {
             id: listRows
             recordProperty: "retainedRecord"
@@ -2385,138 +2078,22 @@ Item {
             color: plus.lit ? Commons.Color.accent : Ink.tint(Ink.secondary)
         }
     }
-    // A widget's chip, the Layout page's (PREFS-22, PREFS-104): its icon and
-    // name; a landing place is an accent outline, the dragged copy flat in
-    // front. Pool chips are at half strength.
-    component Chip: Item {
-        id: tile
-        property var record: ({})
-        property bool placeholder: false
-        property bool ghost: false
+    // A widget's chip in a group's rows, the pool or the dragged copy
+    // (BoardChip), with this page's kind-prefixed cursor keys. Pool chips are
+    // at half strength.
+    component Chip: BoardChip {
         property string area: ""
         property int pos: 0
-        readonly property bool inPage: !ghost
-        readonly property bool isCursor: inPage && !placeholder && !editor.lifted && !!record.instanceKey && editor.cursorKey === (area === "pool" ? "pool:" : "member:") + record.instanceKey
-        readonly property bool hovered: inPage && !editor.lifted && !!record.instanceKey && editor.hoverKey === (area === "pool" ? "pool:" : "member:") + record.instanceKey
-        readonly property bool pressedDown: inPage && !placeholder && !!editor.pressed && !editor.pointerLift && !!editor.pressed.record && editor.pressed.record.instanceKey === record.instanceKey
-        readonly property bool raised: isCursor
-        // It grows with its lift, to 103 % at the top, and shrinks with it:
-        // nothing of the cursor's state lingers once the cursor has gone.
-        scale: pressedDown ? 0.97 : 1 + 0.03 * (lift.height > 0 ? tile.raise / lift.height : 0)
-        readonly property real raise: lift.value
-        Rise {
-            id: lift
-            up: tile.raised
-            height: Style.space(tile.area === "pool" ? 8 : 4)
-            animate: editor.bar.animationsEnabled
-        }
-        transform: Translate {
-            y: -tile.raise
-        }
-        // Over its neighbours while it is up.
-        z: raised || raise > 0 ? 1 : 0
+        readonly property string boardKey: record && record.instanceKey ? (area === "pool" ? "pool:" : "member:") + record.instanceKey : ""
+        layout: editor.layout
         height: editor.chipHeight
-        // The shadow it casts on its tile: one flat band in its shape, as
-        // the Layout page's chips cast (PREFS-104).
-        // Only the band under the chip is drawn, half a pixel in from each
-        // side, square at the top and rounded at the bottom (ZoneTile).
-        Rectangle {
-            visible: tile.ghost || tile.raise > 0
-            x: 0.5
-            y: parent.height
-            width: parent.width - 1
-            height: tile.ghost ? Style.space(6) : tile.raise + Style.space(3)
-            radius: editor.chipRadius
-            topLeftRadius: 0
-            topRightRadius: 0
-            antialiasing: true
-            color: Qt.rgba(0, 0, 0, editor.lightTheme ? 0.2 : 0.3)
-        }
-        readonly property color fill: tile.placeholder ? "transparent" : tile.ghost ? Qt.tint(editor.pageColor, Qt.alpha(Commons.Color.popups.text, 0.15)) : tile.isCursor && editor.stageFocused ? Style.focusFillFor(Commons.Color.popups.text, Commons.Color.accent) : tile.isCursor ? Style.selectedFillFor(Commons.Color.popups.text, Commons.Color.accent) : tile.hovered ? Qt.alpha(Commons.Color.popups.text, 0.14) : Qt.alpha(Commons.Color.popups.text, 0.06)
-        BorderSurface {
-            anchors.fill: parent
-            antialiasing: true
-            radius: editor.chipRadius
-            color: tile.raised ? Qt.tint(editor.tileColor(tile.area !== "pool"), tile.fill) : tile.fill
-            borderSpec: tile.placeholder || tile.ghost ? Border.flat(Commons.Color.accent, Math.max(1, Math.round(Style.space(1.5)))) : tile.isCursor && editor.stageFocused ? Border.controlSpec("focus", Commons.Color.popups.text, Commons.Color.accent) : tile.isCursor ? Border.flat(Qt.alpha(Commons.Color.popups.text, 0.35), 1) : Border.none()
-        }
-        Row {
-            id: chipRow
-            x: Gap.s
-            anchors.verticalCenter: parent.verticalCenter
-            spacing: Gap.m
-            opacity: tile.placeholder ? (editor.pointerLift ? 0 : 0.5) : tile.area === "pool" ? Ink.secondary : 1
-            InkIcon {
-                id: chipIcon
-                layout: editor.layout
-                record: tile.record
-                anchors.verticalCenter: parent.verticalCenter
-            }
-            InkText {
-                text: tile.record && tile.record.instanceKey ? editor.preferences.title(tile.record) : ""
-                elide: Text.ElideRight
-                width: Math.max(Style.space(16), tile.width - 2 * Gap.s - chipIcon.width - chipRow.spacing)
-                anchors.verticalCenter: parent.verticalCenter
-            }
-        }
-    }
-    // A dashed edge: the tray's (PREFS-97), a hidden face's, a "+".
-    component DashedFrame: Shape {
-        id: frame
-        property real radius: 0
-        property real topRadius: radius
-        property color stroke: Qt.alpha(Commons.Color.popups.text, 0.3)
-        readonly property real r: Math.max(0, Math.min(radius, width / 2, height / 2))
-        readonly property real tr: Math.max(0, Math.min(topRadius, width / 2, height / 2))
-        preferredRendererType: Shape.CurveRenderer
-        ShapePath {
-            strokeColor: frame.stroke
-            strokeWidth: 1
-            strokeStyle: ShapePath.DashLine
-            dashPattern: [3, 3]
-            fillColor: "transparent"
-            startX: frame.tr
-            startY: 0.5
-            PathLine {
-                x: frame.width - frame.tr
-                y: 0.5
-            }
-            PathArc {
-                x: frame.width - 0.5
-                y: frame.tr
-                radiusX: frame.tr
-                radiusY: frame.tr
-            }
-            PathLine {
-                x: frame.width - 0.5
-                y: frame.height - frame.r
-            }
-            PathArc {
-                x: frame.width - frame.r
-                y: frame.height - 0.5
-                radiusX: frame.r
-                radiusY: frame.r
-            }
-            PathLine {
-                x: frame.r
-                y: frame.height - 0.5
-            }
-            PathArc {
-                x: 0.5
-                y: frame.height - frame.r
-                radiusX: frame.r
-                radiusY: frame.r
-            }
-            PathLine {
-                x: 0.5
-                y: frame.tr
-            }
-            PathArc {
-                x: frame.tr
-                y: 0.5
-                radiusX: frame.tr
-                radiusY: frame.tr
-            }
-        }
+        isCursor: !ghost && !placeholder && !editor.lifted && boardKey !== "" && editor.cursorKey === boardKey
+        hovered: !ghost && !editor.lifted && boardKey !== "" && editor.hoverKey === boardKey
+        pressedDown: !ghost && !placeholder && !!editor.pressed && !editor.pointerLift && !!editor.pressed.record && editor.pressed.record.instanceKey === record.instanceKey
+        boardFocused: editor.stageFocused
+        pointerCarry: editor.pointerLift
+        dimmed: area === "pool"
+        leadTile: area !== "pool"
+        riseHeight: Style.space(area === "pool" ? 8 : 4)
     }
 }

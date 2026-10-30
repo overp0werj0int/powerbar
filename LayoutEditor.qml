@@ -8,12 +8,14 @@ import qs.Commons
 import qs.Commons as Commons
 import qs.Ui
 import "PreferencesModel.js" as Model
+import "BoardModel.js" as Board
 import "GroupsModel.js" as Groups
 import "ZoneFitNotice.js" as ZoneFitNotice
 import "AppearanceModel.js" as AppearanceModel
 import "CellModel.js" as CellModel
 import "SectionsModel.js" as SectionsModel
 import "ManagedModel.js" as ManagedModel
+import "MotionModel.js" as MotionModel
 
 // The bar's layout as an exploded view (docs/behavior/preferences.md
 // PREFS-99): one layer per visibility (On the bar, On demand, Hidden) and
@@ -188,9 +190,6 @@ Item {
     }) && screens.some(function (s) {
         return !editor.cameraOn(s);
     })
-    readonly property string barCaption: sideBar ? (screens.some(function (s) {
-            return !!editor.bar && !!editor.bar.notchFor(s, "top");
-        }) ? "No camera on this edge: Center sits over the middle; Above center and Below center hang off it." : "Center sits over the screen's middle; Above center and Below center hang off it.") : previewCamera ? "Left of center sits left of the camera; Center and Right of center sit right of it." : "Center sits over the screen's middle; Left of center and Right of center hang off it."
     // Where a zone sits by the camera, for the Zone choice.
     function cameraNote(zone) {
         if (!previewCamera || zone === "left" || zone === "right")
@@ -443,18 +442,11 @@ Item {
     // Its zone; none on a slab, so a slab chip lights no column (PREFS-99).
     readonly property string activeZone: Model.activeZone(activeCell)
     readonly property Item focused: editor.Window.activeFocusItem
-    function within(item, root) {
-        for (var p = item; p; p = p.parent)
-            if (p === root)
-                return true;
-        return false;
-    }
-    readonly property bool gridFocused: within(focused, sheet)
-    readonly property bool inspectorFocused: within(focused, inspector)
+    readonly property bool gridFocused: Board.within(focused, sheet)
+    readonly property bool inspectorFocused: Board.within(focused, inspector)
     // The keys for what has focus, drawn as a legend at the page's bottom
-    // left (PREFS-103) rather than in the footer: the header already shows
-    // the pages' digits and esc Close.
-    readonly property var hints: []
+    // left (PREFS-103): the header already shows the pages' digits and esc
+    // Close.
     readonly property var legend: focused === sideDot ? sideDot.keyHints.concat([
         {
             keys: "tab",
@@ -515,16 +507,7 @@ Item {
             keys: "tab shift+tab",
             label: "Next, previous control"
         }
-    ].concat(focused && focused.keyHints ? focused.keyHints : within(focused, inspector.zoneMapItem) ? [
-        {
-            keys: "h l",
-            label: "Walk the zones"
-        },
-        {
-            keys: "space",
-            label: "Move it to that zone"
-        }
-    ] : []).concat([
+    ].concat(focused && focused.keyHints ? focused.keyHints : []).concat([
         {
             keys: "esc",
             label: "Back to the layers"
@@ -536,25 +519,16 @@ Item {
         }
     ]
 
-    QtObject {
+    ItemRegistry {
         id: plates
-        property var list: []
-        function register(p) {
-            list = list.concat([p]);
-        }
-        function unregister(p) {
-            list = list.filter(function (x) {
-                return x !== p;
-            });
-        }
-        function forMode(mode) {
-            return list.find(function (p) {
-                return p.mode === mode;
-            }) || null;
-        }
+    }
+    function plateOf(mode) {
+        return plates.find(function (p) {
+            return p.mode === mode;
+        });
     }
     function focusShelf(mode, reason) {
-        var plate = plates.forMode(mode);
+        var plate = plateOf(mode);
         if (!plate)
             return;
         focusMoving = true;
@@ -568,7 +542,7 @@ Item {
     // Focus follows the cursor from layer to layer.
     function followCursor() {
         var mode = activeCell.mode;
-        var plate = plates.forMode(mode);
+        var plate = plateOf(mode);
         if (gridFocused && plate && !plate.focusItem.activeFocus)
             focusShelf(mode);
         else
@@ -577,9 +551,9 @@ Item {
     // The cursor's chip, or a lifted chip's landing place, scrolls into view
     // in its tile (PREFS-106).
     function cellFor(section, mode) {
-        return cellRepeater.cells.find(function (c) {
+        return cellTiles.find(function (c) {
             return c.section === section && c.mode === mode;
-        }) || null;
+        });
     }
     function revealCursor() {
         var at = activeCell;
@@ -725,27 +699,18 @@ Item {
     function drop() {
         if (!lifted)
             return;
-        var record = lifted, target = liftTarget, origin = liftOrigin;
-        var unchanged = target.section === origin.section && target.mode === origin.mode && target.pos === origin.pos;
-        var into = members(target.section, target.mode, record.instanceKey);
-        // Into the hidden slab a widget keeps its zone (a tray icon takes the
-        // tray's), so the drop only orders it among that zone's (PREFS-107).
-        var section = target.mode === "hidden" ? (origin.mode === "tray" ? trayZone : record.section) : target.section;
-        var before = target.mode === "hidden" ? Model.slabBefore(into, target.pos, section) : Model.dropBefore(into, target.pos);
+        var record = lifted, target = liftTarget;
+        var plan = Model.dropPlan(record, liftOrigin, target, members(target.section, target.mode, record.instanceKey), trayZone);
         lifted = null;
         pointerLift = false;
         cursorKey = record.instanceKey;
         cursorCell = target;
-        if (unchanged)
-            return;
-        // Out of the tray, back into it, or within it (the tray keeps its order).
-        if (origin.mode === "tray") {
-            if (target.mode !== "tray")
-                cursorKey = preferences.takeFromTray(record, section, target.mode, before);
-        } else if (target.mode === "tray")
+        if (plan.op === "takeFromTray")
+            cursorKey = preferences.takeFromTray(record, plan.section, target.mode, plan.before);
+        else if (plan.op === "returnToTray")
             preferences.returnToTray(record);
-        else
-            preferences.move(record, section, target.mode, before, target.mode === "hidden" || record.groupId ? [] : Model.endGroupsPassed(into, target.pos));
+        else if (plan.op === "move")
+            preferences.move(record, plan.section, target.mode, plan.before, plan.passed);
     }
     // Keep an item's place in its zone when only its visibility changes.
     // Rows widgets were hidden from this session, so showing one again restores it.
@@ -822,40 +787,33 @@ Item {
             moveCursor(dx, dy);
     }
     function keyPressed(event) {
-        if (event.modifiers & (Qt.ControlModifier | Qt.AltModifier))
+        var k = Board.keyCommand(event.key, event.text, event.modifiers);
+        if (!k)
             return;
-        var key = event.key, t = event.text, c = t.toLowerCase();
-        var carry = !!(event.modifiers & Qt.ShiftModifier);
         // h and l change zone; j and k walk a zone's chips and go on to the
         // same zone on the next layer at its ends.
-        if (key === Qt.Key_Left || c === "h")
-            step(-1, 0, carry);
-        else if (key === Qt.Key_Right || c === "l")
-            step(1, 0, carry);
-        else if (key === Qt.Key_Up || c === "k")
-            step(0, -1, carry);
-        else if (key === Qt.Key_Down || c === "j")
-            step(0, 1, carry);
-        else if (key === Qt.Key_Space) {
+        if (k.dx || k.dy)
+            step(k.dx, k.dy, k.carry);
+        else if (k.act === "space") {
             if (lifted)
                 drop();
             else
                 lift(cursorRecord, cursorCell);
-        } else if (key === Qt.Key_Return || key === Qt.Key_Enter) {
+        } else if (k.act === "enter") {
             if (lifted)
                 drop();
             else if (inspecting)
                 pushBack();
             else if (cursorRecord)
                 inspect(true);
-        } else if (key === Qt.Key_Escape && lifted)
+        } else if (k.act === "escape" && lifted)
             cancel();
-        else if (key === Qt.Key_Escape && inspecting)
+        else if (k.act === "escape" && inspecting)
             pushBack();
-        else if ((t === "x" || key === Qt.Key_Delete) && !lifted && cursorRecord) {
+        else if ((k.t === "x" || k.act === "delete") && !lifted && cursorRecord) {
             var r = cursorRecord;
             setPlacement(r, r.section, Model.toggledHidden(r.mode, hiddenFrom[r.instanceKey]));
-        } else if (t === "g" && !lifted && cursorRecord && cursorRecord.groupId)
+        } else if (k.t === "g" && !lifted && cursorRecord && cursorRecord.groupId)
             preferences.openGroup(cursorRecord.groupId);
         else
             return;
@@ -864,50 +822,19 @@ Item {
 
     // Pointer hit testing in editor coordinates, through the layers' tilt.
     function cellAt(point) {
-        for (var i = 0; i < cellRepeater.count; i++) {
-            var cell = cellRepeater.itemAt(i);
-            if (!cell || !cell.visible)
-                continue;
-            var p = cell.mapFromItem(editor, point.x, point.y);
-            if (p.x >= 0 && p.y >= 0 && p.x < cell.width && p.y < cell.height)
-                return cell;
-        }
-        return null;
+        return cellTiles.find(function (c) {
+            return c.visible && Board.covers(c, editor, point);
+        });
     }
     function tileAt(point) {
         var cell = cellAt(point);
-        if (!cell || !cell.tiles)
-            return null;
-        // A chip scrolled out of the tile's window is not under the pointer.
-        var at = cell.mapFromItem(editor, point.x, point.y);
-        if (!cell.viewContains(at))
-            return null;
-        for (var i = 0; i < cell.tiles.count; i++) {
-            var tile = cell.tiles.itemAt(i);
-            if (!tile || tile.placeholder)
-                continue;
-            var p = tile.mapFromItem(editor, point.x, point.y);
-            if (p.x >= 0 && p.y >= 0 && p.x < tile.width && p.y < tile.height)
-                return tile;
-        }
-        return null;
+        return cell ? cell.chipAt(editor, point) : null;
     }
     // The gap under the pointer: before the first real chip the pointer has
     // not passed, reading a tile top to bottom and the tray's row left to
     // right.
     function gapAt(cell, point) {
-        var pos = 0;
-        for (var i = 0; cell.tiles && i < cell.tiles.count; i++) {
-            var tile = cell.tiles.itemAt(i);
-            if (!tile || tile.placeholder)
-                continue;
-            var p = tile.mapFromItem(editor, point.x, point.y);
-            var passed = cell.flows ? p.y >= tile.height || (p.y >= 0 && p.x >= tile.width / 2) : p.y >= tile.height / 2;
-            if (!passed)
-                return pos;
-            pos++;
-        }
-        return pos;
+        return Board.gapIndex(cell.mapRows(editor, point), cell.flows);
     }
     function pointerMoved(point) {
         pointer = point;
@@ -924,36 +851,21 @@ Item {
                 liftTarget = next;
         }
         // Held near a scrolling tile's top or bottom edge, the drag scrolls it.
-        var dir = 0;
-        if (cell && cell.overflows) {
-            var p = cell.mapFromItem(editor, point.x, point.y), band = Style.space(24);
-            if (p.y < cell.viewTop + band && cell.scroll > 0)
-                dir = -1;
-            else if (p.y > cell.viewTop + cell.viewHeight - band && cell.scroll < cell.maxScroll)
-                dir = 1;
-        }
-        autoScrollCell = dir ? cell : null;
-        autoScrollDir = dir;
+        edgeScroll.aim(cell, editor, point);
     }
-    property Item autoScrollCell: null
-    property int autoScrollDir: 0
-    Timer {
-        interval: 16
-        repeat: true
-        running: !!editor.autoScrollCell && editor.autoScrollDir !== 0 && editor.pointerLift
-        onTriggered: {
-            editor.autoScrollCell.scrollBy(editor.autoScrollDir * Style.space(3));
-            editor.pointerMoved(editor.pointer);
-        }
+    EdgeScroll {
+        id: edgeScroll
+        active: editor.pointerLift
+        onStepped: editor.pointerMoved(editor.pointer)
     }
     // The chip the inspector pulls forward: the lifted one's place while
     // moving, else the cursor's chip.
     function inspectedTile() {
         if (!inspected)
             return null;
-        for (var i = 0; i < cellRepeater.count; i++) {
-            var cell = cellRepeater.itemAt(i);
-            if (!cell || !cell.tiles)
+        for (var i = 0; i < cellTiles.items.length; i++) {
+            var cell = cellTiles.items[i];
+            if (!cell.tiles)
                 continue;
             for (var j = 0; j < cell.tiles.count; j++) {
                 var tile = cell.tiles.itemAt(j);
@@ -964,21 +876,8 @@ Item {
         return null;
     }
 
-    QtObject {
-        id: cellRepeater
-        property var cells: []
-        readonly property int count: cells.length
-        function itemAt(i) {
-            return cells[i];
-        }
-        function register(cell) {
-            cells = cells.concat([cell]);
-        }
-        function unregister(cell) {
-            cells = cells.filter(function (c) {
-                return c !== cell;
-            });
-        }
+    ItemRegistry {
+        id: cellTiles
     }
 
     // The camera: the notch's cap, solid black from the page's top down to
@@ -1016,7 +915,7 @@ Item {
         preferences.setOption("powerbarCenterSide", side === "left" ? "left" : undefined);
     }
     readonly property real centerTileRaise: {
-        var c = cellRepeater.cells.find(function (c) {
+        var c = cellTiles.find(function (c) {
             return c.section === "center" && c.mode === "shown";
         });
         return c ? c.raise : 0;
@@ -1065,7 +964,6 @@ Item {
         z: 5
         width: Math.max(Style.space(120), editor.columns.widths[6])
         label: "Preview"
-        showLabel: false
         options: editor.screens.map(function (s) {
             return {
                 value: s.name,
@@ -1091,92 +989,28 @@ Item {
     }
 
     // A chip's full name, icon and id, flat over the layers, after a short
-    // rest on it; once one has shown, the next shows at once (PREFS-100).
-    property Item hoverTile: null
-    property bool tipWarm: false
-    function hoverOn(tile) {
-        if (tile === hoverTile)
-            return;
-        hoverTile = tile;
-        if (!tile || lifted) {
-            nameTip.shown = false;
-            tipDelay.stop();
-            if (tipWarm)
-                tipCool.restart();
-            return;
-        }
-        tipCool.stop();
-        if (tipWarm)
-            showTip();
-        else {
-            nameTip.shown = false;
-            tipDelay.restart();
-        }
-    }
-    function showTip() {
-        var tile = hoverTile;
-        if (!tile || lifted || !tile.record || !tile.record.instanceKey)
-            return;
-        nameTip.record = tile.record;
-        var below = tile.mapToItem(editor, tile.width / 2, tile.height);
-        var above = tile.mapToItem(editor, tile.width / 2, 0);
-        var gap = Style.space(6);
-        nameTip.x = Math.max(0, Math.min(editor.width - nameTip.width, below.x - nameTip.width / 2));
-        nameTip.y = below.y + gap + nameTip.height <= editor.height ? below.y + gap : above.y - gap - nameTip.height;
-        nameTip.shown = true;
-        tipWarm = true;
-    }
-    Timer {
-        id: tipDelay
-        interval: 450
-        onTriggered: editor.showTip()
-    }
-    Timer {
-        id: tipCool
-        interval: 600
-        onTriggered: editor.tipWarm = false
-    }
-    onLiftedChanged: if (lifted)
-        hoverOn(null)
-    BorderSurface {
+    // rest on it; once one has shown, the next shows at once (PREFS-100):
+    // under the chip, over it when there is no room below. Placed once as it
+    // shows; its text follows the chip's record.
+    BoardNameTip {
         id: nameTip
-        property bool shown: false
-        property var record: ({})
+        layout: editor
         z: 110
-        visible: opacity > 0
-        opacity: shown ? 1 : 0
-        Behavior on opacity {
-            enabled: editor.bar.animationsEnabled
-            NumberAnimation {
-                duration: 110
-                easing.type: Easing.OutCubic
-            }
-        }
-        // A surface over the page, not a chip (PREFS-133): m above and
-        // below, l at the sides, one step past its own m gaps.
-        width: tipRow.implicitWidth + 2 * Gap.l
-        height: tipRow.implicitHeight + 2 * Gap.m
-        radius: Round.container
-        color: Qt.tint(Qt.rgba(Commons.Color.popups.background.r, Commons.Color.popups.background.g, Commons.Color.popups.background.b, 1), Qt.alpha(Commons.Color.popups.text, 0.1))
-        borderSpec: Border.flat(Qt.alpha(Commons.Color.popups.text, 0.16), 1)
-        Row {
-            id: tipRow
-            anchors.centerIn: parent
-            spacing: Gap.m
-            InkIcon {
-                layout: editor
-                record: nameTip.record
-                anchors.verticalCenter: parent.verticalCenter
-            }
-            InkText {
-                anchors.verticalCenter: parent.verticalCenter
-                text: nameTip.record && nameTip.record.instanceKey ? editor.preferences.title(nameTip.record) : ""
-            }
-            InkText {
-                anchors.verticalCenter: parent.verticalCenter
-                text: nameTip.record ? nameTip.record.groupId ? "Group" : nameTip.record.id || "" : ""
-                role: "caption"
-            }
+        placeOnce: true
+        suppressed: !!editor.lifted
+        title: record && record.instanceKey ? editor.preferences.title(record) : ""
+        detail: record ? record.groupId ? "Group" : record.id || "" : ""
+        describe: function (tile) {
+            if (!tile.record || !tile.record.instanceKey)
+                return null;
+            var gap = Style.space(6);
+            var below = tile.mapToItem(editor, tile.width / 2, tile.height);
+            var above = tile.mapToItem(editor, tile.width / 2, 0);
+            return {
+                record: tile.record,
+                below: Qt.point(below.x, below.y + gap),
+                above: Qt.point(above.x, above.y - gap)
+            };
         }
     }
 
@@ -1257,7 +1091,7 @@ Item {
         Behavior on x {
             enabled: editor.bar.animationsEnabled
             NumberAnimation {
-                duration: 120
+                duration: MotionModel.GLIDE_MS
                 easing.type: Easing.OutCubic
             }
         }
@@ -1301,12 +1135,12 @@ Item {
         Behavior on y {
             enabled: editor.bar.animationsEnabled
             NumberAnimation {
-                duration: 140
+                duration: MotionModel.PLATE_MS
                 easing.type: Easing.OutCubic
             }
         }
-        Component.onCompleted: plates.register(this)
-        Component.onDestruction: plates.unregister(this)
+        Component.onCompleted: plates.add(this)
+        Component.onDestruction: plates.remove(this)
 
         // It turns about its top edge (LayerPlate), so a layer only ever
         // grows or shrinks downward. The layer's name and what it is, on
@@ -1382,9 +1216,9 @@ Item {
                 if (!editor.pointerLift) {
                     var tile = editor.tileAt(point);
                     editor.hoverKey = tile ? tile.record.instanceKey : "";
-                    editor.hoverOn(pressed ? null : tile);
+                    nameTip.hover(pressed ? null : tile, tile);
                 }
-                if (pressed && editor.pressed && !editor.pointerLift && Math.abs(point.x - editor.pressPoint.x) + Math.abs(point.y - editor.pressPoint.y) > Style.space(6)) {
+                if (pressed && editor.pressed && !editor.pointerLift && Board.pastThreshold(editor.pressPoint, point, Style.space(6))) {
                     editor.lift(editor.pressed.record, editor.pressed.cell);
                     editor.pointerLift = true;
                 }
@@ -1393,21 +1227,20 @@ Item {
             onExited: {
                 if (!editor.pointerLift)
                     editor.hoverKey = "";
-                editor.hoverOn(null);
+                nameTip.hover(null);
             }
             // The wheel over a scrolling tile scrolls it, a row a notch.
             onWheel: function (wheel) {
                 var point = mapToItem(editor, wheel.x, wheel.y);
                 var cell = editor.cellAt(point);
-                if (!cell || !cell.overflows) {
+                if (!cell || !cell.scrollByWheel(wheel)) {
                     wheel.accepted = false;
                     return;
                 }
-                cell.scrollBy(wheel.pixelDelta.y ? -wheel.pixelDelta.y : -wheel.angleDelta.y / 120 * cell.rowStep);
                 editor.pointerMoved(point);
             }
             onPressed: function (mouse) {
-                editor.hoverOn(null);
+                nameTip.hover(null);
                 if (editor.lifted)
                     editor.cancel();
                 editor.pressSpent = false;
@@ -1489,8 +1322,8 @@ Item {
         // flowing slab not; the leader follows the rise.
         rises: !flows
         onRaiseChanged: Qt.callLater(editor.trackLeader)
-        Component.onCompleted: cellRepeater.register(this)
-        Component.onDestruction: cellRepeater.unregister(this)
+        Component.onCompleted: cellTiles.add(this)
+        Component.onDestruction: cellTiles.remove(this)
         onListChanged: Qt.callLater(editor.refreshInspected)
         // The cap's shade falls on a Center tile, and on Center's part of
         // the hidden slab, which is solid across Center's column too.
@@ -1547,129 +1380,38 @@ Item {
         }
     }
 
-    // A chip: the widget's icon, its name (elided) and a group's count, one
-    // width everywhere. A landing place or the inspected chip's own place is
-    // an outline; the dragged copy and the pulled-out chip sit flat in front.
-    component Tile: Item {
-        id: tile
-        property var record: ({})
-        property bool placeholder: false
-        property bool ghost: false
-        property bool pulled: false
+    // A chip in a layer, the dragged copy or the pulled-out one (BoardChip),
+    // with this page's cursor, hover and press. One width everywhere.
+    component Tile: BoardChip {
         property string section: ""
         property string mode: ""
         property int pos: 0
         readonly property bool inLayer: !ghost && !pulled
-        readonly property bool pulledOut: inLayer && !placeholder && editor.leaderShown && !editor.lifted && record.instanceKey === editor.inspectedKey
-        readonly property bool outline: placeholder || pulledOut
-        readonly property bool isCursor: inLayer && !editor.lifted && editor.cursorKey !== "" && record.instanceKey === editor.cursorKey
-        readonly property bool hovered: inLayer && !editor.lifted && editor.hoverKey === record.instanceKey
         readonly property var group: record.groupId ? editor.bar.groups.find(function (g) {
             return g.id === record.groupId;
         }) || null : null
-        readonly property int memberCount: group ? group.items.length : 0
-        // Press feedback: the chip dips while the pointer holds it, before a drag.
-        readonly property bool pressedDown: inLayer && !placeholder && !!editor.pressed && !editor.pointerLift && editor.pressed.record.instanceKey === record.instanceKey
-        // It grows with its lift, to 103 % at the top, and shrinks with it:
-        // nothing of the cursor's state lingers once the cursor has gone.
-        scale: pressedDown ? 0.97 : 1 + 0.03 * (lift.height > 0 ? tile.raise / lift.height : 0)
-        // The cursor's chip rises off its tile, casting a shadow on it
-        // (PREFS-104).
-        readonly property bool raised: isCursor && !outline
-        readonly property real raise: lift.value
-        Rise {
-            id: lift
-            up: tile.raised
-            height: Style.space(8)
-            animate: editor.bar.animationsEnabled
-        }
-        transform: Translate {
-            y: -tile.raise
-        }
-        // Over its neighbours while it is up.
-        z: raised || raise > 0 ? 1 : 0
+        layout: editor
         width: editor.chipWidth
         height: editor.chipHeight
-
-        // The shadow a pulled-out or raised chip casts on its tile, as far
-        // below it as it has risen: one flat band in the chip's shape, as a
-        // slab's edge and the inspector's shadow are (PREFS-104). Lighter
-        // on a light theme.
-        // Only the band under the chip is drawn, from its bottom edge
-        // down, half a pixel in from each side so none of it shows past
-        // the chip's ring along its sides, square at the top and rounded
-        // at the bottom, as a tile's edge is (ZoneTile).
-        Rectangle {
-            visible: tile.pulled || tile.raise > 0
-            x: 0.5
-            y: parent.height
-            width: parent.width - 1
-            height: tile.pulled ? Style.space(6) : tile.raise + Style.space(3)
-            radius: surface.radius
-            topLeftRadius: 0
-            topRightRadius: 0
-            antialiasing: true
-            color: Qt.rgba(0, 0, 0, editor.lightTheme ? 0.2 : 0.3)
-        }
-        // The fill, and under a raised chip its tile's own colour, so what
-        // it rises over does not show through.
-        readonly property color fill: tile.outline ? "transparent" : tile.ghost || tile.pulled ? Qt.tint(Qt.rgba(Commons.Color.popups.background.r, Commons.Color.popups.background.g, Commons.Color.popups.background.b, 1), Qt.alpha(Commons.Color.popups.text, 0.15)) : tile.isCursor && editor.gridFocused ? Style.focusFillFor(Commons.Color.popups.text, Commons.Color.accent) : tile.isCursor ? Style.selectedFillFor(Commons.Color.popups.text, Commons.Color.accent) : tile.hovered ? Qt.alpha(Commons.Color.popups.text, 0.14) : Qt.alpha(Commons.Color.popups.text, 0.06)
-        readonly property color base: Qt.tint(Qt.rgba(Commons.Color.popups.background.r, Commons.Color.popups.background.g, Commons.Color.popups.background.b, 1), Qt.alpha(Commons.Color.popups.text, tile.mode === "shown" ? 0.09 : 0.065))
-        BorderSurface {
-            id: surface
-            anchors.fill: parent
-            antialiasing: true
-            radius: Round.control
-            color: tile.raised ? Qt.tint(tile.base, tile.fill) : tile.fill
-            borderSpec: tile.outline || tile.ghost || tile.pulled ? Border.flat(Commons.Color.accent, Math.max(1, Math.round(Style.space(1.5)))) : tile.isCursor && editor.gridFocused ? Border.controlSpec("focus", Commons.Color.popups.text, Commons.Color.accent) : tile.isCursor ? Border.flat(Qt.alpha(Commons.Color.popups.text, 0.35), 1) : Border.none()
-        }
-        Row {
-            id: chip
-            x: Gap.s
-            anchors.verticalCenter: parent.verticalCenter
-            spacing: Gap.m
-            // A keyboard lift shows what it carries in its outline; a pointer lift
-            // carries it under the pointer, the inspector pulls it out in front.
-            // Hidden widgets read secondary.
-            opacity: tile.outline ? (tile.placeholder && !editor.pointerLift ? 0.5 : 0) : tile.mode === "hidden" && tile.inLayer ? Ink.secondary : 1
-            InkIcon {
-                id: rowIcon
-                layout: editor
-                record: tile.record
-                anchors.verticalCenter: parent.verticalCenter
-            }
-            InkText {
-                id: nameLabel
-                text: tile.record.instanceKey ? editor.preferences.title(tile.record) : ""
-                elide: Text.ElideRight
-                width: Math.max(Style.space(16), tile.width - 2 * Gap.s - rowIcon.width - chip.spacing - (tile.memberCount > 0 ? memberPill.width + chip.spacing : 0))
-                anchors.verticalCenter: parent.verticalCenter
-            }
-            Rectangle {
-                id: memberPill
-                visible: tile.memberCount > 0
-                width: memberLabel.implicitWidth + 2 * Gap.s
-                height: Ink.line(Ink.caption)
-                radius: height / 2
-                color: Qt.alpha(Commons.Color.popups.text, 0.12)
-                anchors.verticalCenter: parent.verticalCenter
-                InkText {
-                    id: memberLabel
-                    anchors.centerIn: parent
-                    text: tile.memberCount
-                    role: "caption"
-                    tier: 1
-                }
-            }
-        }
+        count: group ? group.items.length : 0
+        pulledOut: inLayer && !placeholder && editor.leaderShown && !editor.lifted && record.instanceKey === editor.inspectedKey
+        isCursor: inLayer && !editor.lifted && editor.cursorKey !== "" && record.instanceKey === editor.cursorKey
+        hovered: inLayer && !editor.lifted && editor.hoverKey === record.instanceKey
+        // The chip dips while the pointer holds it, before a drag.
+        pressedDown: inLayer && !placeholder && !!editor.pressed && !editor.pointerLift && editor.pressed.record.instanceKey === record.instanceKey
+        boardFocused: editor.gridFocused
+        pointerCarry: editor.pointerLift
+        dimmed: mode === "hidden" && inLayer
+        leadTile: mode === "shown"
+        // The dragged copy casts no band (Groups' does).
+        shadowed: pulled
     }
 
     // The inspector: the selected widget at the front of the stack, bottom
     // right, with where it is (its layer and zone) and how it behaves. Enter
     // or a click brings it out; Esc pushes it back (PREFS-101).
-    component Inspector: BorderSurface {
+    component Inspector: BoardInspector {
         id: panel
-        property bool shown: false
         readonly property var record: editor.inspected
         readonly property bool isGroup: !!record && !!record.groupId
         readonly property var group: isGroup ? editor.bar.groups.find(function (g) {
@@ -1678,88 +1420,16 @@ Item {
         // A tray icon, and whether it is still in Omarchy's tray.
         readonly property bool trayIcon: !!record && !!record.trayItem
         readonly property bool inTray: !!record && record.mode === "tray"
-        function focusFirst() {
-            layerPicker.forceActiveFocus(Qt.TabFocusReason);
-        }
-        readonly property Item zoneMapItem: zoneMap
         readonly property bool popupOpen: groupPicker.popupOpen
         readonly property var popupHints: groupPicker.listHints
-        // Tab and Shift+Tab walk the inspector's controls and wrap round
-        // inside it (Layer, Zone, Shortcut, Peeks on activity, Group or Edit
-        // group) rather than leaving it for the rest of the page: a stop
-        // before the first control and one after the last send focus on
-        // round. Qt walks Tab itself, so the stops are where it can be met.
-        property Item lastInside: null
-        function lastControl() {
-            var last = layerPicker;
-            for (var item = layerPicker.nextItemInFocusChain(true); item && item !== endFence && item !== layerPicker && editor.within(item, panel); item = item.nextItemInFocusChain(true))
-                last = item;
-            return last;
-        }
-        Connections {
-            target: editor
-            function onFocusedChanged() {
-                var f = editor.focused;
-                if (f && f !== startFence && f !== endFence && editor.within(f, panel))
-                    panel.lastInside = f;
-            }
-        }
-        anchors.right: parent.right
-        anchors.bottom: parent.bottom
-        width: Math.min(editor.width, Style.space(670))
+        layout: editor
+        // Tab and Shift+Tab wrap round Layer, Zone, Shortcut, Peeks on
+        // activity, Group or Edit group.
+        first: layerPicker
         // xl all round, its columns xl apart (PREFS-133).
-        height: body.implicitHeight + 2 * Gap.xl
-        z: 120
-        radius: Round.container
-        color: Qt.tint(Qt.rgba(Commons.Color.popups.background.r, Commons.Color.popups.background.g, Commons.Color.popups.background.b, 1), Qt.alpha(Commons.Color.popups.text, 0.065))
-        borderSpec: Border.flat(Qt.alpha(Commons.Color.popups.text, 0.16), 1)
-        visible: opacity > 0
-        opacity: shown ? 1 : 0
-        scale: shown ? 1 : 0.97
-        transformOrigin: Item.Bottom
-        Behavior on opacity {
-            enabled: editor.bar.animationsEnabled
-            NumberAnimation {
-                duration: 140
-                easing.type: Easing.OutCubic
-            }
-        }
-        Behavior on scale {
-            enabled: editor.bar.animationsEnabled
-            NumberAnimation {
-                duration: 160
-                easing.type: Easing.OutCubic
-            }
-        }
+        bodyHeight: body.implicitHeight
         // Esc pushes the chip back; an open dropdown takes it first.
-        Keys.onPressed: function (event) {
-            if (event.key !== Qt.Key_Escape)
-                return;
-            editor.pushBack();
-            event.accepted = true;
-        }
-        // Shift+Tab from Layer meets this stop: on to the last control.
-        // Tab from outside meets it first: on to Layer.
-        Item {
-            id: startFence
-            activeFocusOnTab: panel.shown
-            onActiveFocusChanged: if (activeFocus)
-                (panel.lastInside === layerPicker ? panel.lastControl() : layerPicker).forceActiveFocus(Qt.TabFocusReason)
-        }
-        MouseArea {
-            anchors.fill: parent
-        }
-        // The shadow it casts on the layers.
-        Rectangle {
-            z: -1
-            anchors.fill: parent
-            anchors.topMargin: Style.space(10)
-            anchors.bottomMargin: -Style.space(10)
-            anchors.leftMargin: Style.space(8)
-            anchors.rightMargin: Style.space(8)
-            radius: panel.radius
-            color: Qt.rgba(0, 0, 0, editor.lightTheme ? 0.2 : 0.3)
-        }
+        onEscaped: editor.pushBack()
 
         InkText {
             visible: !panel.record
@@ -1838,9 +1508,6 @@ Item {
                 Layout.alignment: Qt.AlignTop
                 spacing: Gap.m
                 PrefsZoneMap {
-                    id: zoneMap
-                    compact: true
-                    stacked: true
                     zones: editor.zoneChoices
                     cameraOver: editor.previewCamera ? "center" : ""
                     noteFor: function (zone) {
@@ -1860,7 +1527,7 @@ Item {
                         editor.setPlacement(panel.record, value, panel.inTray ? "managed" : panel.record.mode);
                     }
                 }
-                Hint {
+                InspectorHint {
                     visible: panel.inTray
                     text: "Placed on the bar, it leaves the tray and works as it does there: click, right-click menu, scroll"
                 }
@@ -1874,15 +1541,8 @@ Item {
                 }
                 PrefsToggle {
                     id: activityToggle
-                    readonly property var keyHints: [
-                        {
-                            keys: "space",
-                            label: "Toggle"
-                        }
-                    ]
                     readonly property bool clockDriven: !!panel.record && !!editor.bar.quietActivityId(panel.record.id)
                     visible: !panel.isGroup && !panel.inTray
-                    compact: true
                     label: "Peeks on activity"
                     enabled: editor.bar.autoHide && editor.bar.autoHideActivity && !clockDriven
                     opacity: enabled ? 1 : Ink.disabled
@@ -1891,10 +1551,10 @@ Item {
                         editor.bar.setActivityPeek(panel.record.instanceKey, checked);
                     }
                 }
-                Hint {
+                InspectorHint {
                     visible: !panel.isGroup && !panel.inTray && (activityToggle.clockDriven || editor.bar.autoHide && !editor.bar.autoHideActivity)
                     dim: true
-                    text: activityToggle.clockDriven ? "It changes on a clock, so it never brings the bar out" : !editor.bar.autoHide ? "Applies while the bar autohides" : "Turned off for every widget on the Behavior page"
+                    text: activityToggle.clockDriven ? "It changes on a clock, so it never brings the bar out" : "Turned off for every widget on the Behavior page"
                 }
                 // A group's members, by their faces.
                 Flow {
@@ -1919,7 +1579,6 @@ Item {
                     visible: !panel.isGroup && !panel.inTray
                     Layout.fillWidth: true
                     label: "Group"
-                    showLabel: false
                     openLabel: "Choose a group"
                     options: [
                         {
@@ -1959,24 +1618,5 @@ Item {
                 }
             }
         }
-        // Tab from the last control meets this stop: round to Layer.
-        // Shift+Tab from outside meets it first: on to the last control.
-        Item {
-            id: endFence
-            activeFocusOnTab: panel.shown
-            onActiveFocusChanged: if (activeFocus)
-                (panel.lastInside === panel.lastControl() ? layerPicker : panel.lastControl()).forceActiveFocus(Qt.TabFocusReason)
-        }
-    }
-
-    // A caption under the control it explains, a text pair's xxs below it
-    // in a column m apart (PREFS-133); dim when it says why it is off.
-    component Hint: InkText {
-        property bool dim: false
-        Layout.fillWidth: true
-        Layout.topMargin: Gap.xxs - Gap.m
-        role: "caption"
-        disabled: dim
-        wrapMode: Text.WordWrap
     }
 }

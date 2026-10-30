@@ -112,6 +112,28 @@ function endGroupsPassed(items, pos) {
   return (items || []).slice(0, Math.max(0, pos)).filter(function(r) { return r && r.groupId && r.endAnchored })
     .map(function(r) { return r.groupId })
 }
+// What dropping `record`, lifted at `origin`, at `target` does on the Layout
+// page (PREFS-27, PREFS-107). `into` is the target cell's members without the
+// record. Returns { op: "none" | "move" | "takeFromTray" | "returnToTray" },
+// and for a move or a take also the zone `section`, the layout index `before`
+// and the end-anchored groups it `passed`. "none" is a drop where it was
+// lifted or within the tray (it keeps its order); the cursor lands on the
+// target either way. Into the hidden slab a widget keeps its zone (a tray
+// icon takes the tray's), so the drop only orders it there.
+function dropPlan(record, origin, target, into, trayZone) {
+  var inTray = origin.mode === "tray"
+  if (target.section === origin.section && target.mode === origin.mode && target.pos === origin.pos)
+    return { op: "none" }
+  if (target.mode === "tray") return { op: inTray ? "none" : "returnToTray" }
+  var hidden = target.mode === "hidden"
+  var section = hidden ? (inTray ? trayZone : record.section) : target.section
+  return {
+    op: inTray ? "takeFromTray" : "move",
+    section: section,
+    before: hidden ? slabBefore(into, target.pos, section) : dropBefore(into, target.pos),
+    passed: hidden || record.groupId ? [] : endGroupsPassed(into, target.pos)
+  }
+}
 // Hiding with x and showing again returns a widget to the row it left.
 function toggledHidden(currentMode, rememberedMode) {
   if (currentMode !== "hidden") return "hidden"

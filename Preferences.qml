@@ -14,6 +14,7 @@ import "GroupsModel.js" as Groups
 import "RenderModel.js" as RenderModel
 import "TrayItemsModel.js" as TrayItemsModel
 import "SectionsModel.js" as SectionsModel
+import "MotionModel.js" as MotionModel
 
 // Powerbar preferences. Everything is reachable from the keyboard: 1-4 switch
 // pages, each page walks its own controls, Esc closes. Every page shows the
@@ -156,10 +157,6 @@ Item {
             return t !== tab;
         });
     }
-    // A page switch's motion: the page under the camera slides and the
-    // tab's underline glides, on one clock; nothing else moves.
-    readonly property int turnDuration: 240
-    readonly property var turnCurve: [0.23, 1, 0.32, 1, 1, 1]
     readonly property var pagesAlways: [
         {
             title: "Layout",
@@ -200,7 +197,6 @@ Item {
         else
             pendingGroupId = id;
     }
-    readonly property var hints: pageItems[page] ? pageItems[page].hints : []
 
     function open(payloadJson) {
         // Preferences takes the keyboard: a keyboard mode left on would hold it too.
@@ -772,7 +768,7 @@ Item {
             Behavior on opacity {
                 enabled: prefs.opened && prefs.bar && prefs.bar.animationsEnabled
                 NumberAnimation {
-                    duration: 140
+                    duration: MotionModel.APPEAR_MS
                     easing.type: Easing.OutCubic
                 }
             }
@@ -911,7 +907,7 @@ Item {
                     }
                     Timer {
                         id: glideEnd
-                        interval: 170
+                        interval: MotionModel.GLIDE_END_MS
                         onTriggered: focusRing.gliding = false
                     }
                     GeometryObserver {
@@ -922,28 +918,28 @@ Item {
                     Behavior on x {
                         enabled: focusRing.gliding && !pages.sliding && prefs.bar.animationsEnabled
                         NumberAnimation {
-                            duration: 120
+                            duration: MotionModel.GLIDE_MS
                             easing.type: Easing.OutCubic
                         }
                     }
                     Behavior on y {
                         enabled: focusRing.gliding && !pages.sliding && prefs.bar.animationsEnabled
                         NumberAnimation {
-                            duration: 120
+                            duration: MotionModel.GLIDE_MS
                             easing.type: Easing.OutCubic
                         }
                     }
                     Behavior on width {
                         enabled: focusRing.gliding && !pages.sliding && prefs.bar.animationsEnabled
                         NumberAnimation {
-                            duration: 120
+                            duration: MotionModel.GLIDE_MS
                             easing.type: Easing.OutCubic
                         }
                     }
                     Behavior on height {
                         enabled: focusRing.gliding && !pages.sliding && prefs.bar.animationsEnabled
                         NumberAnimation {
-                            duration: 120
+                            duration: MotionModel.GLIDE_MS
                             easing.type: Easing.OutCubic
                         }
                     }
@@ -985,17 +981,17 @@ Item {
                         Behavior on x {
                             enabled: prefs.opened && prefs.bar && prefs.bar.animationsEnabled
                             NumberAnimation {
-                                duration: prefs.turnDuration
+                                duration: MotionModel.PAGE_TURN_MS
                                 easing.type: Easing.BezierSpline
-                                easing.bezierCurve: prefs.turnCurve
+                                easing.bezierCurve: MotionModel.EASE_OUT
                             }
                         }
                         Behavior on width {
                             enabled: prefs.opened && prefs.bar && prefs.bar.animationsEnabled
                             NumberAnimation {
-                                duration: prefs.turnDuration
+                                duration: MotionModel.PAGE_TURN_MS
                                 easing.type: Easing.BezierSpline
-                                easing.bezierCurve: prefs.turnCurve
+                                easing.bezierCurve: MotionModel.EASE_OUT
                             }
                         }
                     }
@@ -1133,9 +1129,9 @@ Item {
                         target: pages
                         property: "shift"
                         to: 0
-                        duration: prefs.turnDuration
+                        duration: MotionModel.PAGE_TURN_MS
                         easing.type: Easing.BezierSpline
-                        easing.bezierCurve: prefs.turnCurve
+                        easing.bezierCurve: MotionModel.EASE_OUT
                         onStopped: pages.leaving = -1
                     }
                     // The camera while pages slide: the Layout page's, with its
@@ -1227,33 +1223,13 @@ Item {
                 }
 
                 // ---------------------------------------------------------- footer
-                // A page that draws its own key legend (Layout) has no footer
-                // unless a save failed.
+                // Every page draws its keys as a legend (PREFS-103): the
+                // footer shows only a save that failed (PREFS-5).
                 RowLayout {
-                    visible: prefs.hints.length > 0 || prefs.status !== ""
+                    visible: prefs.status !== ""
                     Layout.fillWidth: true
                     Layout.topMargin: Gap.m
                     spacing: Gap.l
-                    Repeater {
-                        model: prefs.hints
-                        Row {
-                            required property var modelData
-                            spacing: Gap.xs
-                            Repeater {
-                                model: String(parent.modelData.keys).split(" ")
-                                KeyCap {
-                                    required property string modelData
-                                    text: modelData
-                                    anchors.verticalCenter: parent ? parent.verticalCenter : undefined
-                                }
-                            }
-                            InkText {
-                                text: parent.modelData.label
-                                role: "caption"
-                                anchors.verticalCenter: parent.verticalCenter
-                            }
-                        }
-                    }
                     Item {
                         Layout.fillWidth: true
                     }
@@ -1262,7 +1238,7 @@ Item {
                         textFormat: Text.PlainText
                         color: Commons.Color.urgent
                         font.family: Style.font.family
-                        font.pixelSize: Style.font.caption
+                        font.pixelSize: Ink.caption
                         elide: Text.ElideLeft
                         Layout.maximumWidth: Style.space(320)
                     }

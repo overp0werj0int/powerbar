@@ -37,9 +37,7 @@ Item {
   // The page's own legend lines (PREFS-131).
   property var pageLines: []
   default property alias strips: plateFace.data
-  // The keys are a legend on the page (PREFS-103), so the footer hides; the
-  // strips draw the cursor, so Preferences' focus ring stays away.
-  readonly property var hints: []
+  // The strips draw the cursor, so Preferences' focus ring stays away.
   readonly property bool ownsFocusRings: true
 
   // ------------------------------------------------------------ geometry

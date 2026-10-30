@@ -1,6 +1,7 @@
 import QtQuick
 import qs.Commons
 import qs.Commons as Commons
+import "MotionModel.js" as MotionModel
 
 // One layer's plate on the Layout and Groups pages (docs/behavior/
 // preferences.md PREFS-99): tilted back about its top edge, seen from
@@ -47,7 +48,7 @@ Item {
     Behavior on height {
         enabled: face.animate
         NumberAnimation {
-            duration: 140
+            duration: MotionModel.PLATE_MS
             easing.type: Easing.OutCubic
         }
     }

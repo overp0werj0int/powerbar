@@ -8,6 +8,7 @@ import qs.Ui
 import "IconSearch.js" as IconSearch
 import "OmarchyIcons.js" as OmarchyIcons
 import "GroupsModel.js" as GroupsModel
+import "MotionModel.js" as MotionModel
 
 // The group icon picker (docs/behavior/preferences.md): a popover over the Groups
 // page, under the icon well. Its icons are the glyphs your widgets draw,
@@ -258,8 +259,8 @@ Item {
     opacity: picker.opened ? 1 : 0
     scale: picker.opened ? 1 : 0.97
     transformOrigin: Item.TopLeft
-    Behavior on opacity { enabled: picker.bar.animationsEnabled; NumberAnimation { duration: 150; easing.type: Easing.OutCubic } }
-    Behavior on scale { enabled: picker.bar.animationsEnabled; NumberAnimation { duration: 150; easing.type: Easing.OutCubic } }
+    Behavior on opacity { enabled: picker.bar.animationsEnabled; NumberAnimation { duration: MotionModel.APPEAR_MS; easing.type: Easing.OutCubic } }
+    Behavior on scale { enabled: picker.bar.animationsEnabled; NumberAnimation { duration: MotionModel.APPEAR_SCALE_MS; easing.type: Easing.OutCubic } }
     MouseArea { anchors.fill: parent }
 
     ColumnLayout {
@@ -314,7 +315,7 @@ Item {
           textFormat: Text.PlainText
           color: Qt.alpha(Commons.Color.popups.text, 0.55)
           font.family: Style.font.family
-          font.pixelSize: Style.font.caption
+          font.pixelSize: Ink.caption
         }
       }
 
@@ -354,7 +355,7 @@ Item {
             textFormat: Text.PlainText
             color: Qt.darker(Commons.Color.popups.text, 1.4)
             font.family: Style.font.family
-            font.pixelSize: Style.font.caption
+            font.pixelSize: Ink.caption
             font.bold: true
             font.letterSpacing: 0.6
           }
@@ -450,7 +451,7 @@ Item {
               textFormat: Text.PlainText
               color: Commons.Color.popups.text
               font.family: Style.font.family
-              font.pixelSize: Style.font.body
+              font.pixelSize: Ink.label
               font.bold: true
               horizontalAlignment: Text.AlignHCenter
             }
@@ -492,7 +493,7 @@ Item {
               textFormat: Text.PlainText
               color: Commons.Color.popups.text
               font.family: Style.font.family
-              font.pixelSize: Style.font.body
+              font.pixelSize: Ink.label
               font.bold: true
               elide: Text.ElideMiddle
               Layout.fillWidth: true
@@ -513,7 +514,7 @@ Item {
               textFormat: Text.PlainText
               color: Qt.alpha(Commons.Color.popups.text, 0.6)
               font.family: Style.font.family
-              font.pixelSize: Style.font.caption
+              font.pixelSize: Ink.caption
               wrapMode: Text.WordWrap
               Layout.fillWidth: true
             }
@@ -541,7 +542,7 @@ Item {
             textFormat: Text.PlainText
             color: Commons.Color.popups.text
             font.family: Style.font.family
-            font.pixelSize: Style.font.body
+            font.pixelSize: Ink.label
             font.bold: true
             elide: Text.ElideRight
             Layout.fillWidth: true
@@ -554,7 +555,7 @@ Item {
             textFormat: Text.PlainText
             color: Qt.alpha(Commons.Color.popups.text, 0.55)
             font.family: Style.font.family
-            font.pixelSize: Style.font.caption
+            font.pixelSize: Ink.caption
             elide: Text.ElideRight
             Layout.fillWidth: true
           }
@@ -565,7 +566,7 @@ Item {
           text: "Choose"
           color: Qt.alpha(Commons.Color.popups.text, 0.6)
           font.family: Style.font.family
-          font.pixelSize: Style.font.caption
+          font.pixelSize: Ink.caption
         }
       }
     }

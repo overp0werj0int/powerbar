@@ -256,6 +256,31 @@ function stepLift(s, t, dx, dy, home) {
   if (dy < 0) return i > 0 ? list[i - 1] : t
   return t
 }
+// The gap under the pointer in a zone's list, as { id, pos }, from the rows
+// ZoneTile.mapRows gives ({ item: { kind, groupId }, y, height }: the
+// pointer's y in each row, landing places left out): on a face row or an
+// empty group's note, that group's first gap; on its widgets, before the
+// first whose middle the pointer has not passed; above a face, the end of the
+// group over it; past the last row, the last group's end. null for a zone
+// without groups.
+function listGap(rows) {
+  var id = "", pos = 0
+  for (var i = 0; i < rows.length; i++) {
+    var row = rows[i].item, y = rows[i].y, height = rows[i].height
+    if (row.kind === "face") {
+      if (y < 0 && id) return { id: id, pos: pos }
+      id = row.groupId
+      pos = 0
+      if (y < height) return { id: id, pos: 0 }
+    } else if (row.kind === "note") {
+      if (y < height) return { id: id, pos: 0 }
+    } else {
+      if (y < height / 2) return { id: id, pos: pos }
+      pos++
+    }
+  }
+  return id ? { id: id, pos: pos } : null
+}
 // Where a lift starts: a widget row at its own gap, a pool chip in the pool.
 function liftStart(at) {
   return at && at.area === "member" ? { area: "gap", id: at.id, pos: Math.max(0, at.pos) } : { area: "pool" }
