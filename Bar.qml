@@ -4070,9 +4070,11 @@ Item {
     function freezeLayout() { layoutFrozen = true; layoutThaw.stop(); layoutThawFallback.restart() }
     onRemappingChanged: {
       if (!remapping && layoutFrozen) layoutThaw.restart()
-      // The keys' grab, cleared by the unmap, starts again on the new surface.
+      // The new surface asks for the keyboard as the mode did on entering
+      // (Exclusive, then OnDemand), and the keys' grab the unmap cleared
+      // starts again once it has it (onKeysWindowActiveChanged).
       if (remapping) keysGrabReady = false
-      else if (keysHere && keysWindowActive) keysGrabReady = true
+      else if (wantsKeys) { keysFocusPrimed = false; keysPrimeTries = 0; keysPrime.restart() }
     }
     Timer { id: layoutThaw; interval: 250; onTriggered: if (!barWindow.remapping) barWindow.layoutFrozen = false }
     // A screen move that settles without a remap still thaws.
