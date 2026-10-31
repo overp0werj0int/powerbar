@@ -330,7 +330,7 @@ Item {
     var source = cursor, w = window, d = drawer
     if (!draggable(source) || !w) return
     var spot, moved
-    if (d && d.opened && !d.groupId && d.zone === zone) {
+    if (d && d.showsZone(zone)) {
       var key = source.instanceKey, group = groupOf(source)
       spot = besideNearest(source, d.slots.filter(function(m) { return m && m.drawerHost }))
       moved = dragEdit(source, spot ? { slot: spot.slot, after: spot.after } : { drawer: d }, "into drawer " + d.zone)

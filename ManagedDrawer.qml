@@ -145,6 +145,8 @@ Item {
   // it whose dots opened it ("center:start"); `zone` is the region either way.
   property string token: ""
   property string groupId: ""
+  // Whether it is open for zone `name`, not for a group.
+  function showsZone(name) { return opened && !groupId && zone === name }
   // On demand "menu" (on-demand-drawers.md DEMAND-94): a zone's drawer is a
   // menu of icons and names hanging from its dots, and a group's row in it
   // opens the group's members in a submenu beside it. A drawer with a

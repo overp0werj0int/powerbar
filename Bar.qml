@@ -3709,7 +3709,7 @@ Item {
     // and so do a centre side's dots under the pointer in menu or drawer mode,
     // and the menu or drawer open from them.
     readonly property bool centerInlineBusy: inlineZoneName === "center" || inlineRequest.split(":")[0] === "center"
-      || dotsHoverZone === "center" || (drawer.opened && drawer.zone === "center" && !drawer.groupId)
+      || dotsHoverZone === "center" || drawer.showsZone("center")
     // The zone whose dots are under the pointer outside inline mode.
     property string dotsHoverZone: ""
     onCenterInlineBusyChanged: root.centerRevealBlocks = Math.max(0, root.centerRevealBlocks + (centerInlineBusy ? 1 : -1))
@@ -3871,7 +3871,7 @@ Item {
       // Left before it opened: a swipe, not a request.
       if (inlineRequest === zone && inlineZone !== zone) inlineAsk("")
       var name = zone.split(":")[0]
-      if (drawer.opened && drawer.zone === name && !drawer.groupId) drawer.sourceLeave(name)
+      if (drawer.showsZone(name)) drawer.sourceLeave(name)
       inlineSchedule()
     }
     function inlineCollapseNow() {
@@ -5933,7 +5933,7 @@ Item {
     readonly property real cellSpill: cellPlace.spill
     readonly property bool fitYielded: !!(homeWindow && homeWindow.zoneFitYielded["handle:" + (zone === "center" ? "center:" + side : zone)])
     readonly property var drawerRef: homeWindow ? homeWindow.managedDrawer : null
-    readonly property bool drawerOpen: !!drawerRef && drawerRef.opened && drawerRef.zone === zone && !drawerRef.groupId
+    readonly property bool drawerOpen: !!drawerRef && drawerRef.showsZone(zone)
       && (!root.onDemandMenu || drawerRef.token === inlineToken)
     // The last count stays on the badge while the handle fades out.
     property int shownCount: 0
