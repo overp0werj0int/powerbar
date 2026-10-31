@@ -354,11 +354,11 @@ Item {
   readonly property real gap: bar.flat ? bar.edgeGap : 0
   readonly property real thickness: tokens.bar
   readonly property real extent: opened ? thickness + gap : 0
-  readonly property real axisExtent: bar.vertical ? hostWindow.height : hostWindow.width
+  readonly property real axisExtent: bar.alongSize(hostWindow)
   // Strip ends: the island rule, so the end cells sit one inset from the ends.
   readonly property real leadPad: namedMenu ? padding : CellModel.endPad(tokens, bar.edgeSpill(contents, false))
   readonly property real trailPad: namedMenu ? padding : CellModel.endPad(tokens, bar.edgeSpill(contents, true))
-  readonly property real desiredLength: (bar.vertical ? grid.height : grid.width)
+  readonly property real desiredLength: bar.alongSize(grid)
     + (namedMenu ? 2 * padding : leadPad + trailPad)
   readonly property real desiredCross: (bar.vertical ? grid.width : grid.height) + 2 * padding
   readonly property real crossLength: namedMenu
@@ -393,12 +393,12 @@ Item {
     if (!anchorSlot) return null
     var geometry = anchorRevision + anchorSlot.x + anchorSlot.y + anchorSlot.width + anchorSlot.height + anchorSlot.cellLength
     var p = anchorSlot.mapToItem(hostWindow.contentItem, 0, 0)
-    var along = bar.vertical ? anchorSlot.height : anchorSlot.width
+    var along = bar.alongSize(anchorSlot)
     // The icon's own stretch of its slot, as the highlight (DRAG-75): a drop
     // gap the slot holds is left out.
     var lead = anchorSlot.cellLead > 0 ? anchorSlot.cellLead : 0
     var own = anchorSlot.cellExtent > 0 ? Math.min(along - lead, anchorSlot.cellExtent) : along - lead
-    var start = (bar.vertical ? p.y : p.x) + lead + (own - anchorSlot.cellLength) / 2
+    var start = bar.along(p) + lead + (own - anchorSlot.cellLength) / 2
     return { start: start, end: start + anchorSlot.cellLength }
   }
   readonly property var zoneIsland: {
@@ -490,7 +490,7 @@ Item {
     var item = slot.presentationItem
     var point = fromDrawer ? item.mapToItem(hostWindow.contentItem, item.width / 2, item.height / 2) : null
     openZone(slot.region, keyboard, id, fromDrawer ? null : slot, null, byClick)
-    if (point && groupId === id) anchorCenter = bar.vertical ? point.y : point.x
+    if (point && groupId === id) anchorCenter = bar.along(point)
   }
   // A click on a group's icon (GROUP-36): the drawer is pinned by the click.
   function toggleGroup(id, slot) {

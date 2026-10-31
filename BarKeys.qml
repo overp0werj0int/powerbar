@@ -94,10 +94,9 @@ Item {
     var w = keys.window
     if (!w || !w.contentItem) return []
     var out = []
-    var vertical = bar.vertical
     function add(item, kind, zone) {
       var c = item.mapToItem(w.contentItem, item.width / 2, item.height / 2)
-      out.push({ item: item, kind: kind, zone: zone, at: vertical ? c.y : c.x, row: w.notchLook && c.y > bar.barSize ? 1 : 0 })
+      out.push({ item: item, kind: kind, zone: zone, at: bar.along(c), row: w.notchLook && c.y > bar.barSize ? 1 : 0 })
     }
     ;(w.moduleItems || []).forEach(function(slot) {
       if (seen(slot)) add(slot, slot.groupHeader ? "group" : "widget", slot.region)
@@ -306,7 +305,7 @@ Item {
   function alongOf(slot) {
     var item = slot.drawerHost || slot
     var c = item.mapToItem(window.contentItem, item.width / 2, item.height / 2)
-    return bar.vertical ? c.y : c.x
+    return bar.along(c)
   }
   function besideNearest(source, list) {
     var spot = KeysModel.besideNearest(list.map(alongOf), alongOf(source))
@@ -1020,7 +1019,7 @@ Item {
       for (var i = 0; i < list.length; i++) {
         var item = list[i].item, local = item.mapFromItem(p.parent, pos.x, pos.y)
         if (local.x >= 0 && local.y >= 0 && local.x < item.width && local.y < item.height) {
-          var p = typeof item.partAt === "function" && keys.partsOf(item).length ? item.partAt(bar.vertical ? local.y : local.x) : -1
+          var p = typeof item.partAt === "function" && keys.partsOf(item).length ? item.partAt(bar.along(local)) : -1
           if (item !== keys.cursor || p >= 0 && p !== keys.partIn(item)) {
             keys.cursor = item
             keys.part = Math.max(0, p)

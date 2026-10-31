@@ -2234,11 +2234,16 @@ Item {
     var kids = container ? container.children : []
     for (var n = 0; n < kids.length; n++) {
       var c = kids[last ? kids.length - 1 - n : n]
-      if (c && c.cellSpill !== undefined && c.visible && !c.fitYielded && (vertical ? c.height : c.width) > 0) return c.cellSpill
+      if (c && c.cellSpill !== undefined && c.visible && !c.fitYielded && alongSize(c) > 0) return c.cellSpill
     }
     return 0
   }
   readonly property bool vertical: position === "left" || position === "right"
+  // A point's or item's place and an item's length along the bar. Each reads
+  // only what it returns, so a binding calling one depends on what the
+  // ternary it replaces did.
+  function along(p) { return vertical ? p.y : p.x }
+  function alongSize(r) { return vertical ? r.height : r.width }
   readonly property int barSize: barSizeFor(vertical)
   // Widgets are drawn at this size whether or not the bar is large, so lists
   // of widget icons outside the bar keep to it.
@@ -2260,11 +2265,11 @@ Item {
     var window = targetWindow(strip)
     var m = metricsOf(window), thickness = m.thickness, radius = m.highlightRadius
     var origin = item.mapToItem(host, 0, 0)
-    var along = vertical ? item.height : item.width
+    var along = alongSize(item)
     var from = lead > 0 ? lead : 0
     var own = span > 0 ? Math.min(along - from, span) : along - from
     var s = strip.mapToItem(host, 0, 0)
-    var start = (vertical ? origin.y : origin.x) + from + (own - cell) / 2
+    var start = root.along(origin) + from + (own - cell) / 2
     var cross = vertical ? s.x + (strip.width - thickness) / 2 : s.y + (strip.height - thickness) / 2
     // A widget in the notch's second row lights there.
     if (!vertical && item.wrapY > 0) cross += item.wrapY
@@ -2855,8 +2860,8 @@ Item {
   }
 
   function barZoneAt(point, window) {
-    var coordinate = root.vertical ? point.y : point.x
-    var length = root.vertical ? window.height : window.width
+    var coordinate = root.along(point)
+    var length = root.alongSize(window)
     return SectionsModel.zones[Math.min(2, Math.max(0, Math.floor(coordinate * 3 / length)))]
   }
 
@@ -3615,7 +3620,7 @@ Item {
       var hidden = inlineHidden
       var aged = zoneFitAged
       return {
-        length: (root.vertical ? mainStrip.height : mainStrip.width),
+        length: root.alongSize(mainStrip),
         inset: barWindow.metrics.screenInset,
         gap: barWindow.metrics.zoneGap,
         momentGap: root.edgeGap,
@@ -4968,7 +4973,7 @@ Item {
       // anchor apart), so a card resized for new text flashed back there for
       // a frame, doubled or cut, before Quickshell placed it again.
       readonly property bool far: root.position === "bottom" || root.position === "right"
-      readonly property real span: root.vertical ? barWindow.height : barWindow.width
+      readonly property real span: root.alongSize(barWindow)
       // How far out from the bar's window edge the surface reaches: the room
       // the card's words need until it is first placed, then only more while
       // shown (onAnchoring), so neither a bubble moving nor shorter words (a
@@ -5187,8 +5192,8 @@ Item {
             topRightRadius: barWindow.outerCorners && !root.vertical ? barWindow.outerCorners.top : undefined
             readonly property real start: barWindow.notchLook ? barWindow.notchRight - barWindow.notchTuck
               : rightModules.shownLength > 0
-              ? (root.vertical ? rightModules.y : rightModules.x) + rightModules.shownLead - barWindow.metrics.endPad(rightModules.leadSpill)
-              : (root.vertical ? preferencesButton.y : preferencesButton.x) - barWindow.metrics.endPad(preferencesButton.cellSpill)
+              ? root.along(rightModules) + rightModules.shownLead - barWindow.metrics.endPad(rightModules.leadSpill)
+              : root.along(preferencesButton) - barWindow.metrics.endPad(preferencesButton.cellSpill)
             x: root.vertical ? (parent.width - width) / 2 : start
             y: root.vertical ? start : (parent.height - height) / 2
             // Measured from start, never from x or y: on a vertical bar x depends on
@@ -5315,8 +5320,8 @@ Item {
     function measure() {
       if (!target || !window || !window.contentItem) return
       var p = target.mapToItem(window.contentItem, 0, 0)
-      along = root.vertical ? p.y : p.x
-      length = root.vertical ? target.height : target.width
+      along = root.along(p)
+      length = root.alongSize(target)
     }
     onTargetChanged: measure()
     Component.onCompleted: slide()
@@ -5700,14 +5705,13 @@ Item {
     // center, and Right of center alone starts past it.
     readonly property bool boxBefore: split > 0 && SectionsModel.sideOf("center", root.barOptions.centerSide, true) === "start"
     readonly property real middle: (root.vertical ? height : width) / 2
-    function along(list) { return root.vertical ? list.y : list.x }
     // Where a run of lists shows along the bar, past the yielded slots at its
     // ends, or null when none of them shows anything.
     function span(lists) {
       var shown = lists.filter(function(list) { return list.shownLength > 0 })
       if (!shown.length) return null
       var first = shown[0], last = shown[shown.length - 1]
-      return { start: along(first) + first.shownLead, end: along(last) + last.listLength - last.shownTrail,
+      return { start: root.along(first) + first.shownLead, end: root.along(last) + last.listLength - last.shownTrail,
         leadSpill: first.leadSpill, trailSpill: last.trailSpill }
     }
     readonly property var beginSpan: split > 0 ? span(boxBefore ? [beginModules, boxModules] : [beginModules]) : null
@@ -5766,7 +5770,7 @@ Item {
       previewEnd: false
       readonly property real trailEdge: centerRoot.split > 0 && !centerRoot.boxBefore
         ? centerRoot.middle - centerRoot.split / 2 - centerRoot.metrics.endPad(trailSpill) + shownTrail
-        : centerRoot.along(boxModules)
+        : root.along(boxModules)
       x: root.vertical ? (parent.width - width) / 2 : trailEdge - width
       y: root.vertical ? trailEdge - height : (parent.height - height) / 2
     }
@@ -5793,7 +5797,7 @@ Item {
       // starts right of the camera.
       readonly property real lead: centerRoot.split > 0 && (centerRoot.boxBefore || !(boxModules.listLength > 0))
         ? centerRoot.middle + centerRoot.split / 2 + centerRoot.metrics.endPad(leadSpill) - shownLead
-        : centerRoot.along(boxModules) + boxModules.listLength
+        : root.along(boxModules) + boxModules.listLength
       x: root.vertical ? (parent.width - width) / 2 : lead
       y: root.vertical ? lead : (parent.height - height) / 2
     }
@@ -6123,7 +6127,7 @@ Item {
       var kids = [startHandle].concat(Array.prototype.slice.call(contents.children), [endHandle]), total = 0
       for (var n = 0; n < kids.length; n++) {
         var c = kids[last ? kids.length - 1 - n : n]
-        var size = c ? (root.vertical ? c.height : c.width) : 0
+        var size = c ? root.alongSize(c) : 0
         if (!c || c.cellSpill === undefined || !(size > 0)) continue
         if (!c.fitYielded) break
         total += size
@@ -6134,7 +6138,7 @@ Item {
       var kids = [startHandle].concat(Array.prototype.slice.call(contents.children), [endHandle]), count = 0
       for (var n = 0; n < kids.length; n++) {
         var c = kids[last ? kids.length - 1 - n : n]
-        var size = c ? (root.vertical ? c.height : c.width) : 0
+        var size = c ? root.alongSize(c) : 0
         if (!c || c.cellSpill === undefined || !(size > 0)) continue
         if (!c.fitYielded) break
         // A yielded drawer handle stands for the widgets folded behind it.
@@ -6144,7 +6148,7 @@ Item {
     }
     // When the whole list yields, the run faces the moment from one side only:
     // lists that end next to the moment (left, centerEnd) yield from their end.
-    readonly property real listLength: root.vertical ? height : width
+    readonly property real listLength: root.alongSize(moduleListRoot)
     readonly property bool yieldsFromEnd: listRole === "left" || listRole === "centerEnd"
     readonly property bool allYielded: yieldLead > 0 && yieldLead >= listLength - 0.5
     readonly property real leadRun: allYielded && yieldsFromEnd ? 0 : yieldLead
@@ -6214,7 +6218,7 @@ Item {
       targetWidth: root.vertical ? root.barSize : moduleListRoot.previewEndGap ? root.dragGapWidth : 0
       targetHeight: !root.vertical ? root.barSize : moduleListRoot.previewEndGap ? root.dragGapHeight : 0
       DropOutline {
-        bar: root; onDemand: root.barDragLandsOnDemand; gapLength: root.vertical ? parent.height : parent.width
+        bar: root; onDemand: root.barDragLandsOnDemand; gapLength: root.alongSize(parent)
         open: moduleListRoot.previewEndGap
         glide: moduleListRoot.homeWindow ? moduleListRoot.homeWindow.dropGlide || null : null
         glideKey: moduleListRoot.region
@@ -6626,7 +6630,7 @@ Item {
     DropOutline {
       bar: root
       onDemand: root.barDragLandsOnDemand
-      readonly property real slotLength: root.vertical ? slot.height : slot.width
+      readonly property real slotLength: root.alongSize(slot)
       readonly property real insetLength: root.vertical ? slot.animatedInsetY : slot.animatedInsetX
       readonly property var hostWindow: root.targetWindow(slot)
       open: slot.mainVisible && (slot.preview.before || slot.preview.after)
@@ -6812,10 +6816,10 @@ Item {
       readonly property var parts: {
         var revision = metricsRevision
         if (!barHighlight.hovered || barHighlight.selected || slot.activityFlash) return []
-        var along = root.vertical ? slot.height : slot.width
+        var along = root.alongSize(slot)
         return targets.map(function(t) {
           var p = t.mapToItem(slot, t.width / 2, t.height / 2)
-          return { target: t, centre: root.vertical ? p.y : p.x }
+          return { target: t, centre: root.along(p) }
         }).filter(function(part) { return part.centre >= 0 && part.centre <= along })
           .sort(function(a, b) { return a.centre - b.centre })
       }
@@ -6827,7 +6831,7 @@ Item {
         return d.length ? d[Math.floor(d.length / 2)] : slot.slotTokens.thickness
       }
       readonly property var geometry: CellModel.thumb(slot.slotTokens, pitch, root.islandRounding)
-      readonly property real pointer: root.vertical ? slotHover.point.position.y : slotHover.point.position.x
+      readonly property real pointer: root.along(slotHover.point.position)
       function nearest(at) {
         var best = -1, distance = Infinity
         for (var n = 0; n < centres.length; n++) {
@@ -6871,7 +6875,7 @@ Item {
         var o = slot.mapToItem(layer, 0, 0)
         var strip = barHighlight.hostLayer || layer
         var s = strip.mapToItem(layer, 0, 0)
-        var along = (root.vertical ? o.y : o.x) + centres[index] - width / 2
+        var along = root.along(o) + centres[index] - width / 2
         var cross = root.vertical ? s.x + (strip.width - width) / 2 : s.y + (strip.height - height) / 2
         x = root.vertical ? cross : along
         y = root.vertical ? along : cross

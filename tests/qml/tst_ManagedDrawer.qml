@@ -40,6 +40,8 @@ TestCase {
     property var members: ({})
     property var managedOwner: null
     property bool vertical: false
+    function along(p) { return vertical ? p.y : p.x }
+    function alongSize(r) { return vertical ? r.height : r.width }
     property string position: "top"
     property bool animationsEnabled: false
     property bool onDemandMenu: false
