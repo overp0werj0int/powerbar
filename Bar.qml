@@ -6665,7 +6665,7 @@ Item {
     DragHandler {
       id: drawerDrag
       target: null
-      enabled: !!slot.drawerHost && slot.drawerHost.showNative !== false
+      enabled: !!slot.drawerHost && !slot.drawerHost.rowDrags && slot.drawerHost.showNative !== false
       acceptedButtons: Qt.LeftButton
       property point lastScene
       // The drawer row hosting this widget, held for the drag (ManagedDrawer.dragMount).
@@ -6676,9 +6676,10 @@ Item {
           lastScene = centroid.scenePosition
           heldMount = slot.drawerHost
           if (heldMount && heldMount.hostDrawer) heldMount.hostDrawer.dragMount = heldMount
+          // Offset from where the button went down, as the bar's own drag.
           if (!root.beginIconDrag(slot, root.targetWindow(slot), lastScene,
-              (presentation.x + centroid.position.x),
-              (presentation.y + centroid.position.y))) releaseMount()
+              (presentation.x + centroid.pressPosition.x),
+              (presentation.y + centroid.pressPosition.y))) releaseMount()
         } else {
           if (root.barDragSource === slot) root.finishIconDrag(lastScene, slot)
           releaseMount()

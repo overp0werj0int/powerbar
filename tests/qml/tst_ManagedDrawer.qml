@@ -6,10 +6,9 @@ import "../../CellModel.js" as CellModel
 // A zone's drawer (docs/behavior/on-demand-drawers.md) against a bar that
 // hands it members: a member is hosted by one of the drawer's rows while the
 // drawer shows it (its drawerHost) and back on the bar once it has closed.
-TestCase {
+// The window's root is a plain Item: a TestCase root receives no mouse events.
+Item {
   id: test
-  name: "ManagedDrawer"
-  when: windowShown
   width: 800
   height: 200
 
@@ -96,8 +95,15 @@ TestCase {
     function targetWindow() { return null }
     function showTooltip() {}
     function hideTooltip() {}
-    function updateIconDrag() {}
-    function beginIconDrag() { return true }
+    // What the drawer's rows hand the bar's drag (Bar.beginIconDrag and on).
+    property var drags: []
+    property var dragPoint: null
+    function updateIconDrag(scenePoint) { dragPoint = scenePoint }
+    function beginIconDrag(slot, window, scenePoint, offsetX, offsetY) {
+      drags = drags.concat([{ slot: slot, x: scenePoint.x, y: scenePoint.y, offsetX: offsetX, offsetY: offsetY }])
+      dragPoint = scenePoint
+      return true
+    }
     function finishIconDrag() {}
     function clearBarDrag() {}
   }
@@ -120,10 +126,25 @@ TestCase {
     ManagedDrawer { id: drawer; bar: bar; hostWindow: host }
   }
 
+  TestCase {
+  name: "ManagedDrawer"
+  when: windowShown
+
   function init() {
+    bar.onDemandMenu = false
+    bar.vertical = false
+    bar.position = "top"
+    bar.drags = []
+    bar.dragPoint = null
     bar.members = { left: [a, b], right: [c] }
     drawer.close("immediate")
     drawer.reveal = 0
+  }
+  // A failed check leaves its test mid-drag: end the drag before the next.
+  function cleanup() {
+    if (!drawer.dragMount) return
+    mouseRelease(drawer.dragMount)
+    drawer.releaseDrag(drawer.dragMount)
   }
 
   function test_membersAreHostedOnlyWhileTheDrawerShows() {
@@ -202,4 +223,38 @@ TestCase {
     compare(a.drawerHost, null, "the drawer catches up once the drag ends")
     verify(b.drawerHost !== null)
   }
+
+  // A menu row's drag (DRAG-3): the bar draws the dragged icon at the
+  // pointer less the grab offset, so the offset is where the button went
+  // down on the row, not where the pointer had got to when the drag began;
+  // and the drop follows the pointer itself.
+  function test_aMenuRowDragHoldsThePressedSpotUnderThePointer_data() {
+    return [{ tag: "top bar", vertical: false, position: "top" }, { tag: "left bar", vertical: true, position: "left" }]
+  }
+  function test_aMenuRowDragHoldsThePressedSpotUnderThePointer(data) {
+    bar.vertical = data.vertical
+    bar.position = data.position
+    bar.onDemandMenu = true
+    drawer.openZone("left", false)
+    verify(drawer.namedMenu, "the zone opens as a menu")
+    var row = b.drawerHost
+    // Wait for the menu's rows to be laid out and the drawer to be shown.
+    tryVerify(function() { return drawer.reveal === 1 && row.parent.height >= 2 * row.height })
+    var px = Math.round(row.width / 3), py = Math.round(row.height / 2)
+    mousePress(row, px, py)
+    for (var i = 1; i <= 25; i++) mouseMove(row, px + i, py + 2 * i, 5, Qt.LeftButton)
+    compare(bar.drags.length, 1, "one drag")
+    var drag = bar.drags[0]
+    compare(drag.slot, b)
+    var pressed = row.mapToItem(null, px, py)
+    var began = row.mapToItem(null, 0, 0)
+    verify(drag.x - pressed.x + Math.abs(drag.y - pressed.y) > 0, "the drag begins past the press")
+    fuzzyCompare(drag.offsetX, px, 0.5, "the icon keeps the pressed spot under the pointer, across")
+    fuzzyCompare(drag.offsetY, py, 0.5, "and along the menu")
+    fuzzyCompare(drag.x - drag.offsetX, began.x + (drag.x - pressed.x), 0.5, "the icon moved as far as the pointer")
+    var pointer = row.mapToItem(null, px + 25, py + 50)
+    fuzzyCompare(bar.dragPoint.x, pointer.x, 0.5, "the drop follows the pointer")
+    fuzzyCompare(bar.dragPoint.y, pointer.y, 0.5)
+  }
+}
 }
