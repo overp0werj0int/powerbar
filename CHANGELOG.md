@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Turning the background blur on or off while a name card or tooltip was showing (or for a moment after it went, as after leaving the keyboard mode) no longer makes the shell exit and restart with a Wayland protocol error, losing the change; the card now comes back once the bar is mapped again (LOOK-152).
 - An icon dragged out of a menu or a drawer now keeps the spot you pressed under the pointer, and its drop place follows the pointer (DRAG-3); before, it was offset by the distance the pointer had moved before the drag began, and a menu row's drag started twice, the first one ending at once and queuing a settings write.
 - A widget inside a group whose own visibility is On demand no longer makes its zone's widgets give way when it has activity; it is drawn in its group, not on the bar, and another widget of that zone revealed at the same time now gets the room.
 - During a drag out of a drawer, an always-shown widget that gets room on the bar again while the drawer still draws it is treated as in the drawer everywhere until the drawer lets it go; before, its place on the bar already lit on hover, took clicks and showed its drop marks, while the keyboard mode and tooltips treated it as in the drawer.

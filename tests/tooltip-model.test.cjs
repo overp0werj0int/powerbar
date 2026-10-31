@@ -86,3 +86,17 @@ test('a slid tooltip beside an open drawer still clears the drawer', () => {
   const drawer = { x: 1380, y: 46, width: 132, height: 44, vertical: false };
   assert.deepEqual(m.place('top', { x: 1482, y: 7, width: 20, height: 32 }, popup, 6, drawer, false, screen, null, 4), { x: 1408, y: 96 });
 });
+
+test('the card waits for its bar window to have a size before it shows', () => {
+  // The card is held a moment after the keys go off; the blur turned off then
+  // remaps the bar, which is mapped again before the compositor sizes it.
+  assert.equal(tips.surfaceShown(true, false, 1512, 448), true);
+  assert.equal(tips.surfaceShown(true, false, 0, 0), false);
+  assert.equal(tips.surfaceShown(true, false, 1512, 448), true);
+  // A side bar sized on one side only is not sized yet either.
+  assert.equal(tips.surfaceShown(true, false, 46, 0), false);
+  assert.equal(tips.surfaceShown(true, false, 0, 945), false);
+  // Otherwise as before: not while the bar slides, nor when no card is wanted.
+  assert.equal(tips.surfaceShown(true, true, 1512, 448), false);
+  assert.equal(tips.surfaceShown(false, false, 1512, 448), false);
+});

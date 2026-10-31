@@ -4959,7 +4959,7 @@ Item {
       // compositor fades a surface that closes, and a card coming up
       // elsewhere meanwhile stood beside the old one fading, a second card
       // in the wrong zone. The next one reuses the surface instead.
-      visible: (cardUp || tooltipHold.running) && !barWindow.sliding
+      visible: TooltipModel.surfaceShown(cardUp || tooltipHold.running, barWindow.sliding, barWindow.width, barWindow.height)
       onCardUpChanged: {
         if (cardUp) Qt.callLater(barWindow.reanchorTooltip)
         else { text = ""; tooltipHold.restart() }
