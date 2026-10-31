@@ -1,18 +1,25 @@
 // Shared preview decisions for bar zones and extended islands.
+// A slot's part in the drag is one of a few shared objects, so a drag step
+// that leaves a slot's part as it was hands its bindings the same object
+// and they stay put; only the slots whose part changed re-run.
+var ROLES = {
+  none: Object.freeze({ hidden: false, holdSpace: false, before: false, after: false, into: false }),
+  source: Object.freeze({ hidden: true, holdSpace: false, before: false, after: false, into: false }),
+  sourceHolding: Object.freeze({ hidden: true, holdSpace: true, before: false, after: false, into: false }),
+  into: Object.freeze({ hidden: false, holdSpace: false, before: false, after: false, into: true }),
+  before: Object.freeze({ hidden: false, holdSpace: false, before: true, after: false, into: false }),
+  after: Object.freeze({ hidden: false, holdSpace: false, before: false, after: true, into: false })
+}
 function slot(state, key, surface) {
-  var result = { hidden: false, holdSpace: false, before: false, after: false, into: false }
-  if (!state || !state.ready) return result
-  result.hidden = state.sourceKey === key && state.sourceSurface === surface
-  result.holdSpace = result.hidden && state.self === true
-  if (state.targetKey !== key || state.targetSurface !== surface || result.hidden) return result
+  if (!state || !state.ready) return ROLES.none
+  if (state.sourceKey === key && state.sourceSurface === surface) return state.self === true ? ROLES.sourceHolding : ROLES.source
+  if (state.targetKey !== key || state.targetSurface !== surface) return ROLES.none
   // Group icons make way like any other icon; dropping into a group happens
   // in its drawer, which opens while a drag rests on the icon. A widget
   // dragged out of a drawer cannot open another one, so for it a group icon
   // is a container it drops into.
-  if (state.into) { result.into = true; return result }
-  result.before = !state.after
-  result.after = !!state.after
-  return result
+  if (state.into) return ROLES.into
+  return state.after ? ROLES.after : ROLES.before
 }
 function endGap(state, surface) {
   return !!state && state.ready === true && !state.targetKey && state.targetSurface === surface

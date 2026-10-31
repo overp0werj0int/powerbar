@@ -99,3 +99,11 @@ test('landing after a cell holds within a 3 px dead zone, so the gap cannot flic
   }
   assert.equal(changes, 2);
 });
+
+test('a drag step that leaves a slot as it was gives it the same preview object', () => {
+  const one = state('audio', 'bar:right'), two = state('network', 'bar:right');
+  assert.equal(drag.slot(one, 'clock', 'bar:left'), drag.slot(two, 'clock', 'bar:left'));
+  assert.equal(drag.slot(one, 'clock:two', 'bar:left'), drag.slot(two, 'clock:two', 'bar:left'));
+  assert.equal(drag.slot(one, 'audio', 'bar:right'), drag.slot(state('audio', 'bar:right'), 'audio', 'bar:right'));
+  assert.notEqual(drag.slot(one, 'audio', 'bar:right'), drag.slot(two, 'audio', 'bar:right'));
+});
