@@ -3578,7 +3578,7 @@ Item {
       var seen = {}
       for (var i = 0; i < items.length; i++) {
         var s = items[i]
-        if (s && s.managed && !s.drawerHost && !s.inlineShown && !seen[s.region] && (s.activityVisible || s.panelOpen || s.hovered)) {
+        if (s && s.managed && !s.memberGroup && !s.drawerHost && !s.inlineShown && !seen[s.region] && (s.activityVisible || s.panelOpen || s.hovered)) {
           seen[s.region] = true
           out.push({ zone: s.region, sourceKey: s.instanceKey })
         }
