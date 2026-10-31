@@ -82,11 +82,11 @@ Item {
     var w = keys.window
     if (item.isFoldHandle) return item.shown && !item.fitYielded && !w.zoneHidden(item.zone)
     if (item.isPrefsButton) return !w.zoneHidden("right")
-    return item.mainVisible && !item.drawerHost && !item.fitYielded && !w.zoneHidden(item.region)
+    return item.mainVisible && !w.zoneHidden(item.region)
   }
   // A widget of an expansion that will be a stop once it has grown.
   function landable(slot) {
-    return slot.mainVisible && !slot.drawerHost && !slot.fitYielded && !keys.window.zoneHidden(slot.region)
+    return slot.mainVisible && !keys.window.zoneHidden(slot.region)
   }
   // Every stop on the bar, in bar order, row by row: { item, kind, zone, at,
   // row } (row 1: a notch zone's second row, under the bar's own).
@@ -94,10 +94,9 @@ Item {
     var w = keys.window
     if (!w || !w.contentItem) return []
     var out = []
-    var vertical = bar.vertical
     function add(item, kind, zone) {
       var c = item.mapToItem(w.contentItem, item.width / 2, item.height / 2)
-      out.push({ item: item, kind: kind, zone: zone, at: vertical ? c.y : c.x, row: w.notchLook && c.y > bar.barSize ? 1 : 0 })
+      out.push({ item: item, kind: kind, zone: zone, at: bar.along(c), row: w.notchLook && c.y > bar.barSize ? 1 : 0 })
     }
     ;(w.moduleItems || []).forEach(function(slot) {
       if (seen(slot)) add(slot, slot.groupHeader ? "group" : "widget", slot.region)
@@ -306,7 +305,7 @@ Item {
   function alongOf(slot) {
     var item = slot.drawerHost || slot
     var c = item.mapToItem(window.contentItem, item.width / 2, item.height / 2)
-    return bar.vertical ? c.y : c.x
+    return bar.along(c)
   }
   function besideNearest(source, list) {
     var spot = KeysModel.besideNearest(list.map(alongOf), alongOf(source))
@@ -330,7 +329,7 @@ Item {
     var source = cursor, w = window, d = drawer
     if (!draggable(source) || !w) return
     var spot, moved
-    if (d && d.opened && !d.groupId && d.zone === zone) {
+    if (d && d.showsZone(zone)) {
       var key = source.instanceKey, group = groupOf(source)
       spot = besideNearest(source, d.slots.filter(function(m) { return m && m.drawerHost }))
       moved = dragEdit(source, spot ? { slot: spot.slot, after: spot.after } : { drawer: d }, "into drawer " + d.zone)
@@ -855,7 +854,7 @@ Item {
     if (!target) return
     pending = null
     var w = window
-    var how = KeysModel.route({ onBar: seen(target), inline: bar.onDemandInline, behindDots: !!target.inlineCandidate,
+    var how = KeysModel.route({ onBar: seen(target), inline: bar.onDemandInline, behindDots: target.presence === "waiting",
       folded: !!target.fitFolded, inDrawer: inZoneDrawer(target) })
     if (how === "put") { landOn(target, member); return }
     closeDrawer(false)
@@ -1020,7 +1019,7 @@ Item {
       for (var i = 0; i < list.length; i++) {
         var item = list[i].item, local = item.mapFromItem(p.parent, pos.x, pos.y)
         if (local.x >= 0 && local.y >= 0 && local.x < item.width && local.y < item.height) {
-          var p = typeof item.partAt === "function" && keys.partsOf(item).length ? item.partAt(bar.vertical ? local.y : local.x) : -1
+          var p = typeof item.partAt === "function" && keys.partsOf(item).length ? item.partAt(bar.along(local)) : -1
           if (item !== keys.cursor || p >= 0 && p !== keys.partIn(item)) {
             keys.cursor = item
             keys.part = Math.max(0, p)

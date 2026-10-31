@@ -167,3 +167,19 @@ test('inkRect: kit glyphs and labels are centred; children give the painted span
   assert.equal(hl.picture(box(0, 27, { children: [image(18, { source: '' })] })), false, 'no image loaded');
   assert.equal(hl.picture(box(0, 27, { children: [image(18, { visible: false })] })), false, 'hidden');
 });
+
+test('a window\'s metrics follow its own cells', () => {
+  for (const flat of [false, true]) for (const bar of [26, 38, 32]) for (const mode of ['slots', 'gaps']) {
+    const k = cell.tokens({ bar, spacing: 4, mode });
+    const look = { flat, edgeGap: 6, flatMargin: 8, iconSlot: 27, spacing: 4, rounding: 10 };
+    const m = cell.metrics(k, look, bar, bar + 12);
+    assert.equal(m.size, bar);
+    assert.equal(m.extent, bar + 12);
+    assert.equal(m.tokens, k);
+    assert.equal(m.thickness, k.thickness);
+    assert.equal(m.screenInset, flat ? cell.flatEdge(k, 8, 27) : 6);
+    assert.equal(m.zoneGap, k.cell + 4);
+    assert.equal(m.highlightRadius, cell.radius(k, 10));
+    for (const spill of [0, 3]) assert.equal(m.endPad(spill), cell.endPad(k, spill));
+  }
+});

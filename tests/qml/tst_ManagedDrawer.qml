@@ -40,6 +40,8 @@ TestCase {
     property var members: ({})
     property var managedOwner: null
     property bool vertical: false
+    function along(p) { return vertical ? p.y : p.x }
+    function alongSize(r) { return vertical ? r.height : r.width }
     property string position: "top"
     property bool animationsEnabled: false
     property bool onDemandMenu: false
@@ -87,14 +89,11 @@ TestCase {
     function slotName(slot) { return slot ? slot.displayName : "" }
     function ev() {}
     function textOn(c) { return c }
-    function extentOf() { return 38 }
+    function metricsOf() { return { extent: 38, tokens: drawerTokens, thickness: drawerTokens.thickness, highlightRadius: 6 } }
     function edgeSpill() { return 0 }
     function dragSurfaceForDrawer(d) { return "managed:" + d.zone }
     function targetsForSlot(slot) { return slot ? slot.slotTargets : [] }
     function targetWindow() { return null }
-    function tokensIn() { return drawerTokens }
-    function thicknessIn() { return drawerTokens.thickness }
-    function highlightRadiusIn() { return 6 }
     function showTooltip() {}
     function hideTooltip() {}
     function updateIconDrag() {}
