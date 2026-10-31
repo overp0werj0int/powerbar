@@ -1568,14 +1568,14 @@ Item {
     barDragImageReady = false
     barDragImageLabelled = !!host && item === host && host.labelled === true
     barDragImageFromCell = !!host && item === host
-    if (host && item === slot.presentationItem) {
-      barDragOffsetX -= item.x
-      barDragOffsetY -= item.y
-    }
     if (!item || typeof item.grabToImage !== "function") return
 
     var grabWidth = Math.max(1, Math.ceil(item.width || item.implicitWidth || slot.width || 1))
     var grabHeight = Math.max(1, Math.ceil(item.height || item.implicitHeight || slot.height || 1))
+    if (host && item === slot.presentationItem) {
+      barDragOffsetX = DragModel.grabOffset(barDragOffsetX - item.x, grabWidth)
+      barDragOffsetY = DragModel.grabOffset(barDragOffsetY - item.y, grabHeight)
+    }
     item.grabToImage(function(result) {
       if (root.barDragSource !== slot || !result || !result.url) return
       root.barDragImageWidth = grabWidth
@@ -4988,7 +4988,10 @@ Item {
       // compositor fades a surface that closes, and a card coming up
       // elsewhere meanwhile stood beside the old one fading, a second card
       // in the wrong zone. The next one reuses the surface instead.
-      visible: TooltipModel.surfaceShown(cardUp || tooltipHold.running, barWindow.sliding, barWindow.width, barWindow.height)
+      // Its own size, not the bar's: on a side bar the bar's height arrives
+      // with the configure, and a visible bound to it ran before span did,
+      // showing the popup at no height (LOOK-152).
+      visible: TooltipModel.surfaceShown(cardUp || tooltipHold.running, barWindow.sliding, implicitWidth, implicitHeight)
       onCardUpChanged: {
         if (cardUp) Qt.callLater(barWindow.reanchorTooltip)
         else { text = ""; tooltipHold.restart() }

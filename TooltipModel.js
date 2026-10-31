@@ -92,7 +92,7 @@ function spot(position, barVertical, target, popup, gap, drawer, inDrawer, bound
 // compositor's first configure, and a popup asked for at no width is a
 // protocol error that ends the shell. So the card waits for the bar's size.
 //   wanted:  a card is up or held; sliding: the bar slides out or in
-//   width, height: the bar window's size
+//   width, height: the card surface's own size, which follows the bar's
 function surfaceShown(wanted, sliding, width, height) {
   return wanted && !sliding && width > 0 && height > 0
 }

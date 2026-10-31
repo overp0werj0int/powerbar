@@ -24,6 +24,14 @@ function slot(state, key, surface) {
 function endGap(state, surface) {
   return !!state && state.ready === true && !state.targetKey && state.targetSurface === surface
 }
+// Where the image hangs from the pointer, along one axis: the pressed spot,
+// kept inside the image. A menu row is pressed anywhere on its icon or name
+// but carries only its icon, so a press on the name carries the icon under
+// the pointer, not a name's width beside it (DRAG-3).
+function grabOffset(offset, size) {
+  return Math.max(0, Math.min(offset, size))
+}
+
 function afterPointer(pointer, origin, contentOffset, contentExtent) {
   return pointer > origin + contentOffset + contentExtent / 2
 }
