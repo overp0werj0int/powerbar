@@ -38,7 +38,7 @@ Item {
 
   Preferences { id: preferencesPane; bar: root }
   // The keyboard mode (Super+B): a cursor on the bar (BarKeys.qml).
-  BarKeys { id: barKeysItem; bar: root }
+  BarKeys { id: barKeysItem; bar: root; onActiveChanged: if (!active) centerSectionRevealTimer.restart() }
   readonly property var barKeys: barKeysItem
   // The command line (omarchy-shell powerbar …), read by the IpcHandler below.
   BarCli { id: cliItem; bar: root; preferences: preferencesPane }
@@ -1568,14 +1568,14 @@ Item {
     barDragImageReady = false
     barDragImageLabelled = !!host && item === host && host.labelled === true
     barDragImageFromCell = !!host && item === host
-    if (host && item === slot.presentationItem) {
-      barDragOffsetX -= item.x
-      barDragOffsetY -= item.y
-    }
     if (!item || typeof item.grabToImage !== "function") return
 
     var grabWidth = Math.max(1, Math.ceil(item.width || item.implicitWidth || slot.width || 1))
     var grabHeight = Math.max(1, Math.ceil(item.height || item.implicitHeight || slot.height || 1))
+    if (host && item === slot.presentationItem) {
+      barDragOffsetX = DragModel.grabOffset(barDragOffsetX - item.x, grabWidth)
+      barDragOffsetY = DragModel.grabOffset(barDragOffsetY - item.y, grabHeight)
+    }
     item.grabToImage(function(result) {
       if (root.barDragSource !== slot || !result || !result.url) return
       root.barDragImageWidth = grabWidth
@@ -1734,6 +1734,19 @@ Item {
     barDragHandleHeld = { handle: handle, x1: Math.min(a.x, b.x), y1: Math.min(a.y, b.y), x2: Math.max(a.x, b.x), y2: Math.max(a.y, b.y) }
   }
 
+  // Every pointer drag ends here: its release lands or, when the window
+  // loses the pointer in the same turn, cancels (DRAG-77). after: the
+  // caller's own clean-up, run once the outcome is applied.
+  function releaseIconDrag(scenePoint, slot, after) {
+    if (root.barDragSource !== slot) { if (after) after(); return }
+    dragRelease.release(scenePoint, slot, after)
+  }
+  DragRelease {
+    id: dragRelease
+    onLanded: function(point, slot) { root.finishIconDrag(point, slot) }
+    onLeft: function(point, slot) { if (root.barDragSource === slot) root.cancelIconDrag("left") }
+  }
+
   function finishIconDrag(scenePoint, slot) {
     if (root.barDragSource !== slot) return false
     // The drop the preview shows: recomputing at release read a layout the open
@@ -1772,13 +1785,14 @@ Item {
     return changed
   }
 
-  // Esc during a pointer drag (DRAG-42): the drop is forgotten and the image
-  // glides back as for a release outside; the release that follows finds no
+  // Esc during a pointer drag (DRAG-42), or a release the window lost the
+  // pointer right after (DRAG-77): the drop is forgotten and the image
+  // glides back as for a release outside; a release that follows finds no
   // drag of its own and does nothing.
-  function cancelIconDrag() {
+  function cancelIconDrag(why) {
     var slot = root.barDragSource
     if (!slot || root.barDragSettling) return false
-    root.ev("drag", "cancel esc")
+    root.ev("drag", "cancel " + (why || "esc"))
     springOpen.stop()
     springHandle.stop()
     root.barDragDrop = null
@@ -2753,7 +2767,8 @@ Item {
     interval: 120
     // Collapse only; opening is the center island's own hover, so a timer left
     // pending by a pointer that dipped off the bar cannot reveal anything.
-    onTriggered: if (!root.centerSectionHovered && !root.barHovered) root.centerSectionRevealHeld = false
+    onTriggered: if (!KeysModel.revealHeld({ centerHovered: root.centerSectionHovered, barHovered: root.barHovered,
+      keysActive: root.barKeys.active })) root.centerSectionRevealHeld = false
   }
 
   function setBarHovered(hovered) {
@@ -4053,7 +4068,14 @@ Item {
     readonly property bool remapping: remapGuard.remapping || blurRemap.running
     property bool layoutFrozen: false
     function freezeLayout() { layoutFrozen = true; layoutThaw.stop(); layoutThawFallback.restart() }
-    onRemappingChanged: if (!remapping && layoutFrozen) layoutThaw.restart()
+    onRemappingChanged: {
+      if (!remapping && layoutFrozen) layoutThaw.restart()
+      // The new surface asks for the keyboard as the mode did on entering
+      // (Exclusive, then OnDemand), and the keys' grab the unmap cleared
+      // starts again once it has it (onKeysWindowActiveChanged).
+      if (remapping) keysGrabReady = false
+      else if (wantsKeys) { keysFocusPrimed = false; keysPrimeTries = 0; keysPrime.restart() }
+    }
     Timer { id: layoutThaw; interval: 250; onTriggered: if (!barWindow.remapping) barWindow.layoutFrozen = false }
     // A screen move that settles without a remap still thaws.
     Timer { id: layoutThawFallback; interval: 2000; onTriggered: if (!barWindow.remapping) barWindow.layoutFrozen = false }
@@ -4460,6 +4482,17 @@ Item {
         height: root.barSize
         intersection: Intersection.Combine
       }
+      // During a drag the strip and its slack take the pointer, so a release
+      // there is the bar's (DRAG-23) and nothing else takes the pointer
+      // from the drag before it leaves them (DRAG-77).
+      Region {
+        readonly property bool on: root.barDragWindow === barWindow && !!root.barDragSource
+        readonly property var band: DragModel.stripBand(barWindow, root.position, barWindow.metrics.extent, root.barSize * 0.6)
+        x: band.x; y: band.y
+        width: on ? band.width : 0
+        height: on ? band.height : 0
+        intersection: Intersection.Combine
+      }
       // A drawer stepped aside for a member's panel takes no clicks.
       Region {
         x: drawer.x; y: drawer.y
@@ -4491,7 +4524,9 @@ Item {
       windows: [barWindow]
       // Only the compositor's clear ends the mode: the grab also clears when
       // the mode lets go of the keys.
-      onCleared: if (barWindow.keysHere) root.barKeys.leave()
+      // Not while the bar remaps (a blur change, a screen move): the unmap
+      // clears the grab, and the mode goes on once the bar maps again.
+      onCleared: if (barWindow.keysHere && !barWindow.remapping) root.barKeys.leave()
     }
     HyprlandFocusGrab {
       // Hover drawers must stay passive so wheel input reaches other windows.
@@ -4606,6 +4641,9 @@ Item {
       }
       HoverHandler { id: windowHover }
     }
+    // The pointer anywhere on this window, the drawer included: it ends only
+    // when the window loses the pointer (DRAG-77).
+    HoverHandler { onHoveredChanged: if (!hovered && root.barDragWindow === barWindow) dragRelease.pointerLeft() }
     // Activity badges (PeekBadge): over the strip, so one stays in sight
     // while the strip slides out under it. On the notch, one each side of
     // the camera.
@@ -4959,7 +4997,11 @@ Item {
       // compositor fades a surface that closes, and a card coming up
       // elsewhere meanwhile stood beside the old one fading, a second card
       // in the wrong zone. The next one reuses the surface instead.
-      visible: (cardUp || tooltipHold.running) && !barWindow.sliding
+      // Its own length, not the bar's: on a side bar the bar's height
+      // arrives with the configure, and a visible bound to it ran before
+      // span did, showing the popup at no height (LOOK-152). Only the length:
+      // the reach depends on grown, which a visibility change resets.
+      visible: TooltipModel.surfaceShown(cardUp || tooltipHold.running, barWindow.sliding, root.vertical ? implicitHeight : implicitWidth)
       onCardUpChanged: {
         if (cardUp) Qt.callLater(barWindow.reanchorTooltip)
         else { text = ""; tooltipHold.restart() }
@@ -6665,7 +6707,7 @@ Item {
     DragHandler {
       id: drawerDrag
       target: null
-      enabled: !!slot.drawerHost && slot.drawerHost.showNative !== false
+      enabled: !!slot.drawerHost && !slot.drawerHost.rowDrags && slot.drawerHost.showNative !== false
       acceptedButtons: Qt.LeftButton
       property point lastScene
       // The drawer row hosting this widget, held for the drag (ManagedDrawer.dragMount).
@@ -6676,12 +6718,12 @@ Item {
           lastScene = centroid.scenePosition
           heldMount = slot.drawerHost
           if (heldMount && heldMount.hostDrawer) heldMount.hostDrawer.dragMount = heldMount
+          // Offset from where the button went down, as the bar's own drag.
           if (!root.beginIconDrag(slot, root.targetWindow(slot), lastScene,
-              (presentation.x + centroid.position.x),
-              (presentation.y + centroid.position.y))) releaseMount()
+              (presentation.x + centroid.pressPosition.x),
+              (presentation.y + centroid.pressPosition.y))) releaseMount()
         } else {
-          if (root.barDragSource === slot) root.finishIconDrag(lastScene, slot)
-          releaseMount()
+          root.releaseIconDrag(lastScene, slot, releaseMount)
         }
       }
       function releaseMount() {
@@ -7014,7 +7056,7 @@ Item {
         dragging = false
 
         if (wasDragging) {
-          root.finishIconDrag(slot.mapToItem(null, mouse.x, mouse.y), slot)
+          root.releaseIconDrag(slot.mapToItem(null, mouse.x, mouse.y), slot)
           mouse.accepted = true
         } else if (!wasDragging) {
           mouse.accepted = false

@@ -346,3 +346,10 @@ function startScreen(screens, focused) {
 function cardText(name, own, namedMenu) {
   return namedMenu && own && own !== name ? own : name
 }
+
+// Whether the indicators' reveal stays open (KEYS-88): a hover holds it until
+// the pointer leaves the bar, and the mode, whose cursor on the centre counts
+// as the pointer there, holds it until the mode ends.
+function revealHeld(s) {
+  return !!(s.centerHovered || s.barHovered || s.keysActive)
+}

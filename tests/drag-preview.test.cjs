@@ -107,3 +107,11 @@ test('a drag step that leaves a slot as it was gives it the same preview object'
   assert.equal(drag.slot(one, 'audio', 'bar:right'), drag.slot(state('audio', 'bar:right'), 'audio', 'bar:right'));
   assert.notEqual(drag.slot(one, 'audio', 'bar:right'), drag.slot(two, 'audio', 'bar:right'));
 });
+
+test('a menu row pressed on its name carries its icon under the pointer', () => {
+  // A 27 px icon: a press on it keeps its spot, a press off it (39 px along
+  // the row, on the name) holds the icon by its middle.
+  assert.equal(drag.grabOffset(4, 27), 4);
+  assert.equal(drag.grabOffset(39, 27), 13.5);
+  assert.equal(drag.grabOffset(-3, 27), 13.5);
+});

@@ -940,6 +940,9 @@ Item {
       readonly property int index: ObjectModel.index
       readonly property string title: drawer.memberTitle(modelData)
       readonly property bool labelled: drawer.namedMenu
+      // A menu row drags as a whole, from its own handler; the widget's own
+      // handler (Bar.qml drawerDrag) stands down for it.
+      readonly property bool rowDrags: labelled && !drawer.isSubmenu
       // A group's row in a zone's menu draws the group's icon and opens
       // its members in the submenu.
       readonly property bool opensSubmenu: drawer.rowGroup(modelData)
@@ -1150,7 +1153,7 @@ Item {
         // A submenu takes no drags yet: a drop into it would not resolve.
         DragHandler {
           target: null
-          enabled: mount.labelled && !drawer.isSubmenu
+          enabled: mount.rowDrags
           acceptedButtons: Qt.LeftButton
           property point lastScene
           onCentroidChanged: if (active) { lastScene = centroid.scenePosition; bar.updateIconDrag(lastScene, mount.member) }
@@ -1160,12 +1163,13 @@ Item {
               // Hold first: starting a drag can commit the previous
               // drop, which may close this drawer.
               drawer.dragMount = mount
+              // Offset from where the button went down: the pointer has
+              // moved past the drag threshold by now (DRAG-3).
               if (!bar.beginIconDrag(mount.member, hostWindow, lastScene,
-                  centroid.position.x,
-                  centroid.position.y)) drawer.releaseDrag(mount)
+                  centroid.pressPosition.x,
+                  centroid.pressPosition.y)) drawer.releaseDrag(mount)
             } else {
-              if (bar.barDragSource === mount.member) bar.finishIconDrag(lastScene, mount.member)
-              drawer.releaseDrag(mount)
+              bar.releaseIconDrag(lastScene, mount.member, function() { drawer.releaseDrag(mount) })
             }
           }
         }

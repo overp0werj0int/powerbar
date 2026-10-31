@@ -20,7 +20,7 @@ Drag and drop on the live bar, into drawers and onto zone dots. The bar controll
 
 - **DRAG-2** The dragged icon's image is grabbed from the widget when the drag starts. Until that image is ready no gap opens and the source slot stays where it is (`dragPreview.ready`). A drawer row that shows the widget with its name drags the widget alone; a row without one drags its whole cell.
 
-- **DRAG-3** The image keeps the grab point: it sits under the pointer at the same offset the pointer had inside the icon when pressed.
+- **DRAG-3** The image keeps the grab point: it sits under the pointer at the same offset the pointer had inside the icon when pressed. A menu row pressed on its name carries only its icon, held by the icon's middle, so the icon and its gap stay under the pointer (DragModel.grabOffset).
 
 - **DRAG-4** Starting a drag while an open drawer is in its own keyboard mode turns that drawer's keyboard cursor off; the drawer stays open. Nothing in `BarKeys.qml` reacts to a drag, so the bar's keyboard mode (keyboard.md) carries on. (unverified at runtime)
 
@@ -64,7 +64,7 @@ Drag and drop on the live bar, into drawers and onto zone dots. The bar controll
 
 - **DRAG-22** The drop target is found from the dragged widget's painted centre along the bar's axis (the pointer position corrected by the widget's measured ink), falling back to the pointer itself; the first visible slot under either point wins, else the nearest slot of the zone under the pointer, else the zone's end. Widgets yielded to an expansion or in a hidden zone take no drops.
 
-- **DRAG-23** A release up to 0.6 x bar size beyond the bar's inner edge (away from the screen edge) still lands on the bar, unless it is over an open drawer.
+- **DRAG-23** A release up to 0.6 x bar size beyond the bar's inner edge (away from the screen edge) still lands on the bar, unless it is over an open drawer. While a drag lasts, the bar's window takes the pointer over that band (its input region grows to the strip and the slack), so a release there is the bar's whatever lies under it. Code: DragModel.stripBand, dropSurface; Bar.qml mask.
 
 - **DRAG-24** Dropping on an open zone drawer (on a row, or on its empty area) saves the widget with `powerbarVisibility: "managed"` in that drawer's zone (appended to the zone's end when dropped on empty drawer area). Dropping on a group drawer makes it a member of that group (membership only).
 
@@ -85,6 +85,8 @@ Drag and drop on the live bar, into drawers and onto zone dots. The bar controll
 - **DRAG-76** A widget dropped just before a group icon drawn right before it (the group is anchored on the widget itself, groups.md GROUP-27) passes the group: the group, and any drawn after it on the same widget, re-anchor on the entry after the widget, ahead of the groups already there, and the layout is unchanged. Only within one zone and one run (both shown or both On demand). Before, the drop resolved to the widget's own place and nothing moved, so Shift+Left (keyboard.md KEYS-86) could not take a widget past its group while Shift+Right could. A pointer drop there takes the same path (checked in a box: it lands before the group). Code: Bar.qml dropAt, passOwnGroup; GroupsModel.passGroups.
 
 - **DRAG-32** Releasing outside the bar and drawers, or back over the icon's own spot, changes nothing in the config; the image glides back to the source slot (DRAG-42).
+
+- **DRAG-77** A release that the bar's window loses the pointer right after is a release outside (DRAG-32): the drag is cancelled and the image glides back. Hyprland releases a held button whenever it hands the pointer to another surface, just before the leave; with nothing keyboard-focused (an empty workspace) it does so as soon as the pointer leaves the bar's input region (the strip, its slack while dragging, an open drawer), with the button still down, and that release carries the last point on the bar. Before, the widget dropped at that last point. With a focused window Hyprland keeps the pointer on the bar until the real release, which lands as usual; one off the band and drawers also cancels. Powerbar does not take the keyboard to keep the pointer (DRAG-42). The release waits one turn of the event loop for the leave that arrives in the same batch. Code: DragRelease.qml; Bar.qml releaseIconDrag, cancelIconDrag.
 
 - **DRAG-33** A drag that starts on a drawer row leaves the drawer open throughout (drawers hold while `dragMotionActive`) and, after a drop into a drawer, as in DRAG-27.
 

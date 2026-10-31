@@ -24,6 +24,14 @@ function slot(state, key, surface) {
 function endGap(state, surface) {
   return !!state && state.ready === true && !state.targetKey && state.targetSurface === surface
 }
+// Where the image hangs from the pointer, along one axis: the pressed spot
+// when it is on the image, else the image's middle. A menu row is pressed
+// anywhere on its icon or name but carries only its icon, so a press on the
+// name carries the icon centred under the pointer, not beside it (DRAG-3).
+function grabOffset(offset, size) {
+  return offset >= 0 && offset <= size ? offset : size / 2
+}
+
 function afterPointer(pointer, origin, contentOffset, contentExtent) {
   return pointer > origin + contentOffset + contentExtent / 2
 }
@@ -93,19 +101,27 @@ function nearestDropTarget(candidates, point, vertical) {
 // group's drawer (groups don't nest, so that drawer is no drop surface).
 function dropSurface(p, size, window, position, barExtent, barSize, drawer, nested) {
   if (p.x < 0 || p.x > size.width || p.y < 0 || p.y > size.height) return null
-  var vertical = position === "left" || position === "right"
-  var stripX = position === "right" ? window.width - barExtent : 0
-  var stripY = position === "bottom" ? window.height - barExtent : 0
   var inDrawer = !!drawer && drawer.open && !nested
     && p.x >= drawer.x && p.x <= drawer.x + drawer.width && p.y >= drawer.y && p.y <= drawer.y + drawer.height
-  var slack = inDrawer ? 0 : barSize * 0.6
+  var band = stripBand(window, position, barExtent, inDrawer ? 0 : barSize * 0.6)
+  var vertical = position === "left" || position === "right"
   var cross = vertical ? p.x : p.y
-  var stripStart = vertical ? stripX : stripY
-  var inStrip = position === "top" || position === "left"
-    ? cross >= stripStart && cross <= stripStart + barExtent + slack
-    : cross >= stripStart - slack && cross <= stripStart + barExtent
+  var start = vertical ? band.x : band.y
+  var inStrip = cross >= start && cross <= start + (vertical ? band.width : band.height)
   if (!inStrip && !inDrawer) return null
   return { inStrip: inStrip, inDrawer: inDrawer }
+}
+
+// The bar's strip with `slack` px more off its inner edge, in window
+// coordinates: where a release lands on the bar. While a drag lasts the
+// window takes the pointer there too, so a release in the slack is the
+// bar's and not another surface's (DRAG-23, DRAG-77).
+function stripBand(window, position, barExtent, slack) {
+  var depth = barExtent + slack
+  if (position === "left") return { x: 0, y: 0, width: depth, height: window.height }
+  if (position === "right") return { x: window.width - depth, y: 0, width: depth, height: window.height }
+  if (position === "bottom") return { x: 0, y: window.height - depth, width: window.width, height: depth }
+  return { x: 0, y: 0, width: window.width, height: depth }
 }
 
 // What a drag over the bar or a drawer drops on, from measured candidates
