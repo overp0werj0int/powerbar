@@ -38,7 +38,7 @@ Item {
 
   Preferences { id: preferencesPane; bar: root }
   // The keyboard mode (Super+B): a cursor on the bar (BarKeys.qml).
-  BarKeys { id: barKeysItem; bar: root }
+  BarKeys { id: barKeysItem; bar: root; onActiveChanged: if (!active) centerSectionRevealTimer.restart() }
   readonly property var barKeys: barKeysItem
   // The command line (omarchy-shell powerbar …), read by the IpcHandler below.
   BarCli { id: cliItem; bar: root; preferences: preferencesPane }
@@ -2753,7 +2753,8 @@ Item {
     interval: 120
     // Collapse only; opening is the center island's own hover, so a timer left
     // pending by a pointer that dipped off the bar cannot reveal anything.
-    onTriggered: if (!root.centerSectionHovered && !root.barHovered) root.centerSectionRevealHeld = false
+    onTriggered: if (!KeysModel.revealHeld({ centerHovered: root.centerSectionHovered, barHovered: root.barHovered,
+      keysActive: root.barKeys.active })) root.centerSectionRevealHeld = false
   }
 
   function setBarHovered(hovered) {
