@@ -1734,6 +1734,19 @@ Item {
     barDragHandleHeld = { handle: handle, x1: Math.min(a.x, b.x), y1: Math.min(a.y, b.y), x2: Math.max(a.x, b.x), y2: Math.max(a.y, b.y) }
   }
 
+  // Every pointer drag ends here: its release lands or, when the window
+  // loses the pointer in the same turn, cancels (DRAG-77). after: the
+  // caller's own clean-up, run once the outcome is applied.
+  function releaseIconDrag(scenePoint, slot, after) {
+    if (root.barDragSource !== slot) { if (after) after(); return }
+    dragRelease.release(scenePoint, slot, after)
+  }
+  DragRelease {
+    id: dragRelease
+    onLanded: function(point, slot) { root.finishIconDrag(point, slot) }
+    onLeft: function(point, slot) { if (root.barDragSource === slot) root.cancelIconDrag("left") }
+  }
+
   function finishIconDrag(scenePoint, slot) {
     if (root.barDragSource !== slot) return false
     // The drop the preview shows: recomputing at release read a layout the open
@@ -1772,13 +1785,14 @@ Item {
     return changed
   }
 
-  // Esc during a pointer drag (DRAG-42): the drop is forgotten and the image
-  // glides back as for a release outside; the release that follows finds no
+  // Esc during a pointer drag (DRAG-42), or a release the window lost the
+  // pointer right after (DRAG-77): the drop is forgotten and the image
+  // glides back as for a release outside; a release that follows finds no
   // drag of its own and does nothing.
-  function cancelIconDrag() {
+  function cancelIconDrag(why) {
     var slot = root.barDragSource
     if (!slot || root.barDragSettling) return false
-    root.ev("drag", "cancel esc")
+    root.ev("drag", "cancel " + (why || "esc"))
     springOpen.stop()
     springHandle.stop()
     root.barDragDrop = null
@@ -4461,6 +4475,17 @@ Item {
         height: root.barSize
         intersection: Intersection.Combine
       }
+      // During a drag the strip and its slack take the pointer, so a release
+      // there is the bar's (DRAG-23) and nothing else takes the pointer
+      // from the drag before it leaves them (DRAG-77).
+      Region {
+        readonly property bool on: root.barDragWindow === barWindow && !!root.barDragSource
+        readonly property var band: DragModel.stripBand(barWindow, root.position, barWindow.metrics.extent, root.barSize * 0.6)
+        x: band.x; y: band.y
+        width: on ? band.width : 0
+        height: on ? band.height : 0
+        intersection: Intersection.Combine
+      }
       // A drawer stepped aside for a member's panel takes no clicks.
       Region {
         x: drawer.x; y: drawer.y
@@ -4607,6 +4632,9 @@ Item {
       }
       HoverHandler { id: windowHover }
     }
+    // The pointer anywhere on this window, the drawer included: it ends only
+    // when the window loses the pointer (DRAG-77).
+    HoverHandler { onHoveredChanged: if (!hovered && root.barDragWindow === barWindow) dragRelease.pointerLeft() }
     // Activity badges (PeekBadge): over the strip, so one stays in sight
     // while the strip slides out under it. On the notch, one each side of
     // the camera.
@@ -6682,8 +6710,7 @@ Item {
               (presentation.x + centroid.pressPosition.x),
               (presentation.y + centroid.pressPosition.y))) releaseMount()
         } else {
-          if (root.barDragSource === slot) root.finishIconDrag(lastScene, slot)
-          releaseMount()
+          root.releaseIconDrag(lastScene, slot, releaseMount)
         }
       }
       function releaseMount() {
@@ -7016,7 +7043,7 @@ Item {
         dragging = false
 
         if (wasDragging) {
-          root.finishIconDrag(slot.mapToItem(null, mouse.x, mouse.y), slot)
+          root.releaseIconDrag(slot.mapToItem(null, mouse.x, mouse.y), slot)
           mouse.accepted = true
         } else if (!wasDragging) {
           mouse.accepted = false

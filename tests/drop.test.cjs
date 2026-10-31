@@ -28,6 +28,24 @@ test('an open drawer is its own surface, and no slack reaches past the strip int
   assert.equal(surface({ x: 100, y: 80 }, { drawer, nested: true }), null, 'groups do not nest');
 });
 
+test('while a drag lasts the window takes the pointer over the whole strip and its slack: every release there lands on the bar', () => {
+  const band = (position, w = win) => drag.stripBand(w, position, 38, 38 * 0.6);
+  assert.deepEqual(band('top'), { x: 0, y: 0, width: 1512, height: 38 + 22.8 });
+  assert.deepEqual(band('bottom'), { x: 0, y: 448 - 60.8, width: 1512, height: 60.8 });
+  const side = { width: 448, height: 945 };
+  assert.deepEqual(band('left', side), { x: 0, y: 0, width: 60.8, height: 945 });
+  assert.deepEqual(band('right', side), { x: 448 - 60.8, y: 0, width: 60.8, height: 945 });
+  for (const position of ['top', 'bottom', 'left', 'right']) {
+    const w = position === 'left' || position === 'right' ? side : win, b = band(position, w);
+    for (let cross = -2; cross <= 450; cross += 0.4) {
+      const p = position === 'top' || position === 'bottom' ? { x: 100, y: cross } : { x: cross, y: 100 };
+      const inBand = p.x >= b.x && p.x <= b.x + b.width && p.y >= b.y && p.y <= b.y + b.height;
+      const s = drag.dropSurface(p, w, w, position, 38, 38, null, false);
+      assert.equal(inBand, !!(s && s.inStrip), `${position} at ${cross}`);
+    }
+  }
+});
+
 const cell = (slot, x, extra = {}) => ({ slot, region: extra.region || 'left', groupHeader: !!extra.groupHeader, inDrawer: !!extra.inDrawer,
   x, y: 0, width: 30, height: 38, contentX: 0, contentY: 0, contentWidth: 30, contentHeight: 38 });
 const base = (over) => Object.assign({ candidates: [cell('a', 0), cell('b', 30), cell('c', 60)], probe: { x: 40, y: 10 }, point: { x: 40, y: 10 },

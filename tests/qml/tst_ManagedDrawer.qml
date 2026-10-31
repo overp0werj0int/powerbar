@@ -104,7 +104,7 @@ Item {
       dragPoint = scenePoint
       return true
     }
-    function finishIconDrag() {}
+    function releaseIconDrag(scenePoint, slot, after) { if (after) after() }
     function clearBarDrag() {}
   }
 

@@ -1169,8 +1169,7 @@ Item {
                   centroid.pressPosition.x,
                   centroid.pressPosition.y)) drawer.releaseDrag(mount)
             } else {
-              if (bar.barDragSource === mount.member) bar.finishIconDrag(lastScene, mount.member)
-              drawer.releaseDrag(mount)
+              bar.releaseIconDrag(lastScene, mount.member, function() { drawer.releaseDrag(mount) })
             }
           }
         }

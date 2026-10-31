@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- A widget dragged off the bar on an empty workspace no longer drops at the edge of the bar after a moment while the button is still down; Hyprland lets go of the press as the pointer leaves the bar there, and that release now cancels the drag, the widget gliding back (DRAG-77). While a drag lasts the bar also keeps the pointer over its strip and the slack below it, so a release there lands on the bar with or without a window under it (DRAG-23).
 - In the keyboard mode the indicators the cursor on Clock revealed now stay revealed until the mode ends, on every bar edge (KEYS-88); before, they closed as soon as the cursor left the centre unless the bar counted itself hovered, which a left bar did with the pointer elsewhere until the pointer first moved, so a left bar and a right bar differed. On a side bar with too little room the revealed indicators give way behind dots with their count, now on the right bar too.
 - Turning the background blur on or off while a name card or tooltip was showing (or for a moment after it went, as after leaving the keyboard mode) no longer makes the shell exit and restart with a Wayland protocol error, losing the change; the card now comes back once the bar is mapped again (LOOK-152).
 - An icon dragged out of a menu or a drawer now keeps the spot you pressed under the pointer, and its drop place follows the pointer (DRAG-3); before, it was offset by the distance the pointer had moved before the drag began, and a menu row's drag started twice, the first one ending at once and queuing a settings write.
