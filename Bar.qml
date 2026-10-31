@@ -235,7 +235,7 @@ Item {
       if (!slot || (keys && keys.indexOf(slot.instanceKey) < 0)) return
       var window = slotWindow(slot)
       if (!window || !screen || !sameWindow(window, { screen: screen })) return
-      var onBar = slot.mainVisible && !slot.drawerHost && slot.visible
+      var onBar = slot.mainVisible && slot.visible
       var item = onBar ? slot.presentationItem : slot.needsPlaceholder ? null : slot.activeItem
       if (!item || typeof item.grabToImage !== "function") return
       var width = onBar ? item.width : Math.max(item.width, item.implicitWidth)
@@ -247,7 +247,7 @@ Item {
         prepare: function(job) {
           // A queued readback starts on a later frame: use the current geometry
           // and the current bar/drawer source at that point.
-          onBar = slot.mainVisible && !slot.drawerHost && slot.visible
+          onBar = slot.mainVisible && slot.visible
           item = onBar ? slot.presentationItem : slot.needsPlaceholder ? null : slot.activeItem
           if (!item || typeof item.grabToImage !== "function") return false
           width = onBar ? item.width : Math.max(item.width, item.implicitWidth)
@@ -261,7 +261,7 @@ Item {
         valid: function() {
           return (!valid || valid()) && !root.vertical && slot && slot.record === record
             && window && window.moduleItems.indexOf(slot) >= 0
-            && (!prepared || (onBar ? slot.mainVisible && !slot.drawerHost && slot.presentationItem === item : slot.activeItem === item))
+            && (!prepared || (onBar ? slot.mainVisible && slot.presentationItem === item : slot.activeItem === item))
         },
         accept: function(result) {
           var face = root.faceOf(slot, onBar, width, height)
@@ -1700,7 +1700,7 @@ Item {
   function groupSlotAt(scenePoint, source) {
     var window = root.slotWindow(source) || root.barDragWindow
     return (window && window.moduleItems || []).find(function(slot) {
-      if (!slot || !slot.groupHeader || slot.drawerHost || !slot.mainVisible || !root.sameWindow(root.slotWindow(slot), window)) return false
+      if (!slot || !slot.groupHeader || !slot.mainVisible || !root.sameWindow(root.slotWindow(slot), window)) return false
       var p = slot.mapFromItem(null, scenePoint.x, scenePoint.y)
       return p.x >= 0 && p.y >= 0 && p.x < slot.width && p.y < slot.height
     }) || null
@@ -1890,7 +1890,7 @@ Item {
     var owner = root.groupFor(root.barDragSettleKey)
     var choice = DragModel.settleTarget(slots.map(function(candidate) {
       return { key: candidate.instanceKey, drawer: !!candidate.drawerHost,
-        shown: !candidate.drawerHost && candidate.mainVisible }
+        shown: candidate.mainVisible }
     }), root.barDragSettleKey, owner ? GroupsModel.groupKey(owner.id) : "")
     var target = slots[choice.index] || null
     // A delegate the commit just made sits where its Grid has not placed it
@@ -6335,7 +6335,8 @@ Item {
     readonly property bool inlineCandidate: root.onDemandInline && dotsCandidate
     readonly property bool fitFolded: !!(homeWindow && homeWindow.zoneFitFolded[instanceKey])
     readonly property bool fitYielded: !!(homeWindow && homeWindow.zoneFitYielded[instanceKey])
-    readonly property bool mainVisible: baseVisible && !fitFolded && !fitYielded
+    // On the bar: not folded, yielded, or drawn by a drawer row.
+    readonly property bool mainVisible: baseVisible && !drawerHost && !fitFolded && !fitYielded
     // Fades only for zone-fit changes: a yield or fold fades the widget out
     // fast; a yielded widget comes back after the moment's zone has shrunk.
     // The flag stays up while yielded or folded, so the return fades too.
@@ -6647,7 +6648,7 @@ Item {
       readonly property real slotLength: root.vertical ? slot.height : slot.width
       readonly property real insetLength: root.vertical ? slot.animatedInsetY : slot.animatedInsetX
       readonly property var hostWindow: root.targetWindow(slot)
-      open: !slot.drawerHost && slot.mainVisible && (slot.preview.before || slot.preview.after)
+      open: slot.mainVisible && (slot.preview.before || slot.preview.after)
       glide: hostWindow ? hostWindow.dropGlide || null : null
       glideKey: slot.region
       gapStart: slot.preview.before ? 0 : slot.cellExtent + (root.vertical ? slot.settleExtraHeight : slot.settleExtraWidth)
