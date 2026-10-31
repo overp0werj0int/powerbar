@@ -24,12 +24,12 @@ function slot(state, key, surface) {
 function endGap(state, surface) {
   return !!state && state.ready === true && !state.targetKey && state.targetSurface === surface
 }
-// Where the image hangs from the pointer, along one axis: the pressed spot,
-// kept inside the image. A menu row is pressed anywhere on its icon or name
-// but carries only its icon, so a press on the name carries the icon under
-// the pointer, not a name's width beside it (DRAG-3).
+// Where the image hangs from the pointer, along one axis: the pressed spot
+// when it is on the image, else the image's middle. A menu row is pressed
+// anywhere on its icon or name but carries only its icon, so a press on the
+// name carries the icon centred under the pointer, not beside it (DRAG-3).
 function grabOffset(offset, size) {
-  return Math.max(0, Math.min(offset, size))
+  return offset >= 0 && offset <= size ? offset : size / 2
 }
 
 function afterPointer(pointer, origin, contentOffset, contentExtent) {

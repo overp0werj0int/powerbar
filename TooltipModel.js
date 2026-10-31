@@ -89,10 +89,11 @@ function spot(position, barVertical, target, popup, gap, drawer, inDrawer, bound
 // Whether the card's surface shows. It is a popup of the bar window, as long
 // as the bar, and Quickshell shows a wanted popup the moment its bar maps.
 // A bar mapped again (a blur change, a screen move) has no size until the
-// compositor's first configure, and a popup asked for at no width is a
-// protocol error that ends the shell. So the card waits for the bar's size.
+// compositor's first configure, and a popup asked for at no length is a
+// protocol error that ends the shell. So the card waits for its own length,
+// which follows the bar's (its reach out from the bar is never 0).
 //   wanted:  a card is up or held; sliding: the bar slides out or in
-//   width, height: the card surface's own size, which follows the bar's
-function surfaceShown(wanted, sliding, width, height) {
-  return wanted && !sliding && width > 0 && height > 0
+//   length:  the card surface's own length along the bar
+function surfaceShown(wanted, sliding, length) {
+  return wanted && !sliding && length > 0
 }

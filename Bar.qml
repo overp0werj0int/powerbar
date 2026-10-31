@@ -4068,7 +4068,12 @@ Item {
     readonly property bool remapping: remapGuard.remapping || blurRemap.running
     property bool layoutFrozen: false
     function freezeLayout() { layoutFrozen = true; layoutThaw.stop(); layoutThawFallback.restart() }
-    onRemappingChanged: if (!remapping && layoutFrozen) layoutThaw.restart()
+    onRemappingChanged: {
+      if (!remapping && layoutFrozen) layoutThaw.restart()
+      // The keys' grab, cleared by the unmap, starts again on the new surface.
+      if (remapping) keysGrabReady = false
+      else if (keysHere && keysWindowActive) keysGrabReady = true
+    }
     Timer { id: layoutThaw; interval: 250; onTriggered: if (!barWindow.remapping) barWindow.layoutFrozen = false }
     // A screen move that settles without a remap still thaws.
     Timer { id: layoutThawFallback; interval: 2000; onTriggered: if (!barWindow.remapping) barWindow.layoutFrozen = false }
@@ -4517,7 +4522,9 @@ Item {
       windows: [barWindow]
       // Only the compositor's clear ends the mode: the grab also clears when
       // the mode lets go of the keys.
-      onCleared: if (barWindow.keysHere) root.barKeys.leave()
+      // Not while the bar remaps (a blur change, a screen move): the unmap
+      // clears the grab, and the mode goes on once the bar maps again.
+      onCleared: if (barWindow.keysHere && !barWindow.remapping) root.barKeys.leave()
     }
     HyprlandFocusGrab {
       // Hover drawers must stay passive so wheel input reaches other windows.
@@ -4988,10 +4995,11 @@ Item {
       // compositor fades a surface that closes, and a card coming up
       // elsewhere meanwhile stood beside the old one fading, a second card
       // in the wrong zone. The next one reuses the surface instead.
-      // Its own size, not the bar's: on a side bar the bar's height arrives
-      // with the configure, and a visible bound to it ran before span did,
-      // showing the popup at no height (LOOK-152).
-      visible: TooltipModel.surfaceShown(cardUp || tooltipHold.running, barWindow.sliding, implicitWidth, implicitHeight)
+      // Its own length, not the bar's: on a side bar the bar's height
+      // arrives with the configure, and a visible bound to it ran before
+      // span did, showing the popup at no height (LOOK-152). Only the length:
+      // the reach depends on grown, which a visibility change resets.
+      visible: TooltipModel.surfaceShown(cardUp || tooltipHold.running, barWindow.sliding, root.vertical ? implicitHeight : implicitWidth)
       onCardUpChanged: {
         if (cardUp) Qt.callLater(barWindow.reanchorTooltip)
         else { text = ""; tooltipHold.restart() }

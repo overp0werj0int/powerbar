@@ -20,7 +20,7 @@ Drag and drop on the live bar, into drawers and onto zone dots. The bar controll
 
 - **DRAG-2** The dragged icon's image is grabbed from the widget when the drag starts. Until that image is ready no gap opens and the source slot stays where it is (`dragPreview.ready`). A drawer row that shows the widget with its name drags the widget alone; a row without one drags its whole cell.
 
-- **DRAG-3** The image keeps the grab point: it sits under the pointer at the same offset the pointer had inside the icon when pressed. A menu row pressed on its name carries only its icon, held at the nearest point of the icon, so the icon and its gap stay under the pointer (DragModel.grabOffset).
+- **DRAG-3** The image keeps the grab point: it sits under the pointer at the same offset the pointer had inside the icon when pressed. A menu row pressed on its name carries only its icon, held by the icon's middle, so the icon and its gap stay under the pointer (DragModel.grabOffset).
 
 - **DRAG-4** Starting a drag while an open drawer is in its own keyboard mode turns that drawer's keyboard cursor off; the drawer stays open. Nothing in `BarKeys.qml` reacts to a drag, so the bar's keyboard mode (keyboard.md) carries on. (unverified at runtime)
 
