@@ -82,11 +82,11 @@ Item {
     var w = keys.window
     if (item.isFoldHandle) return item.shown && !item.fitYielded && !w.zoneHidden(item.zone)
     if (item.isPrefsButton) return !w.zoneHidden("right")
-    return item.mainVisible && !item.fitYielded && !w.zoneHidden(item.region)
+    return item.mainVisible && !w.zoneHidden(item.region)
   }
   // A widget of an expansion that will be a stop once it has grown.
   function landable(slot) {
-    return slot.mainVisible && !slot.fitYielded && !keys.window.zoneHidden(slot.region)
+    return slot.mainVisible && !keys.window.zoneHidden(slot.region)
   }
   // Every stop on the bar, in bar order, row by row: { item, kind, zone, at,
   // row } (row 1: a notch zone's second row, under the bar's own).
@@ -855,7 +855,7 @@ Item {
     if (!target) return
     pending = null
     var w = window
-    var how = KeysModel.route({ onBar: seen(target), inline: bar.onDemandInline, behindDots: !!target.inlineCandidate,
+    var how = KeysModel.route({ onBar: seen(target), inline: bar.onDemandInline, behindDots: target.presence === "waiting",
       folded: !!target.fitFolded, inDrawer: inZoneDrawer(target) })
     if (how === "put") { landOn(target, member); return }
     closeDrawer(false)

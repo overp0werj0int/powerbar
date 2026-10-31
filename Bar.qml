@@ -22,6 +22,7 @@ import "CellModel.js" as CellModel
 import "ZoneFitModel.js" as ZoneFitModel
 import "NotchModel.js" as NotchModel
 import "InlineQueue.js" as InlineQueue
+import "PresenceModel.js" as PresenceModel
 import "RenderModel.js" as RenderModel
 import "SectionsModel.js" as SectionsModel
 import "ZoneOrderModel.js" as ZoneOrderModel
@@ -2922,9 +2923,9 @@ Item {
       if (sourceWindow && (inStrip ? !!slot.drawerHost : !slot.drawerHost)) continue
       var item = slot.drawerHost || slot
       if (item.width <= 0 || item.height <= 0 || (!slot.mainVisible && !slot.drawerHost)) continue
-      // Widgets out of view (yielded to an expansion, or in a zone it hid)
-      // keep their place but take no drops: the pointer is over what is seen.
-      if (!slot.drawerHost && (slot.fitYielded || (slot.homeWindow && slot.homeWindow.zoneHidden(slot.region)))) continue
+      // Widgets in a zone an expansion hid keep their place but take no
+      // drops: the pointer is over what is seen.
+      if (!slot.drawerHost && slot.homeWindow && slot.homeWindow.zoneHidden(slot.region)) continue
       if (sourceWindow && !root.sameWindow(root.slotWindow(slot), sourceWindow)) continue
 
       var slotPoint = { x: slot.x, y: slot.y }
@@ -3578,7 +3579,7 @@ Item {
       var seen = {}
       for (var i = 0; i < items.length; i++) {
         var s = items[i]
-        if (s && s.managed && !s.memberGroup && !s.drawerHost && !s.inlineShown && !seen[s.region] && (s.activityVisible || s.panelOpen || s.hovered)) {
+        if (s && s.claim === "revealed" && !seen[s.region]) {
           seen[s.region] = true
           out.push({ zone: s.region, sourceKey: s.instanceKey })
         }
@@ -3616,7 +3617,7 @@ Item {
       for (var i = 0; model && i < model.count; i++) {
         var s = model.get(i)
         if (s && s.fitExtent > 0) out.push({ key: s.instanceKey, extent: s.fitExtent, spill: s.cellSpill })
-        else if (s && expand && s.inlineToken === expand && s.inlineCandidate && s.cellExtent > 0)
+        else if (s && expand && s.inlineToken === expand && s.presence === "waiting" && s.cellExtent > 0)
           out.push({ key: s.instanceKey, extent: s.cellExtent, spill: s.cellSpill })
       }
       return out
@@ -3729,7 +3730,7 @@ Item {
       var out = { left: 0, center: 0, right: 0, centerStart: 0, centerEnd: 0 }
       if (!root.onDemandDots) return out
       for (var s of moduleItems) {
-        if (!s || !s.dotsCandidate || out[s.region] === undefined) continue
+        if (!s || s.presence !== "waiting" || out[s.region] === undefined) continue
         out[s.region]++
         if (s.region === "center") out[s.centerSide === "start" ? "centerStart" : "centerEnd"]++
       }
@@ -6325,18 +6326,15 @@ Item {
     property alias highlightItem: barHighlight
     property bool activityVisible: false
     property real activityUntil: 0
-    // Visible on the bar by its own rules, before the zone fit.
     // Shown in the bar by an inline expansion of its zone.
     readonly property bool inlineShown: managed && !!homeWindow && homeWindow.inlineZone !== "" && homeWindow.inlineZone === inlineToken
-    readonly property bool baseVisible: !memberGroup && (alwaysShown || (managed && !drawerHost && (activityVisible || panelOpen || hovered || inlineShown)))
-    // Waits behind its zone's dots (inline and menu modes).
-    readonly property bool dotsCandidate: root.onDemandDots && managed && !memberGroup && !baseVisible && !blank
-    // Waits there to expand in the bar (inline mode).
-    readonly property bool inlineCandidate: root.onDemandInline && dotsCandidate
+    // What it asks of its zone before the zone fit, and where it is after
+    // it (PresenceModel.js).
+    readonly property string claim: PresenceModel.claim(slot)
     readonly property bool fitFolded: !!(homeWindow && homeWindow.zoneFitFolded[instanceKey])
     readonly property bool fitYielded: !!(homeWindow && homeWindow.zoneFitYielded[instanceKey])
-    // On the bar: not folded, yielded, or drawn by a drawer row.
-    readonly property bool mainVisible: baseVisible && !drawerHost && !fitFolded && !fitYielded
+    readonly property string presence: PresenceModel.presence(slot)
+    readonly property bool mainVisible: presence === "bar"
     // Fades only for zone-fit changes: a yield or fold fades the widget out
     // fast; a yielded widget comes back after the moment's zone has shrunk.
     // The flag stays up while yielded or folded, so the return fades too.
@@ -6541,7 +6539,7 @@ Item {
       // A widget that animates its own width (the tray's reveal) opts out:
       // holding would leave its island wide after it closes.
       var holds = !(activeItem && activeItem.powerbarWidthHold === false)
-      if (!(target > 0) || !baseVisible || !holdArmed || relayout || !holds) { heldExtent = target; shrinkAt = 0; holdTimer.stop(); return }
+      if (!(target > 0) || claim === "" || !holdArmed || relayout || !holds) { heldExtent = target; shrinkAt = 0; holdTimer.stop(); return }
       var now = Date.now()
       var h = CellModel.hold(heldExtent, target, now, root.widthHoldMs, shrinkAt, slotTokens.cell)
       heldExtent = h.value
@@ -6550,7 +6548,7 @@ Item {
     }
     // Deferred: a widget's size can change while its cell is being measured.
     onLandingExtentChanged: Qt.callLater(updateHold)
-    onBaseVisibleChanged: Qt.callLater(updateHold)
+    onClaimChanged: Qt.callLater(updateHold)
     Timer { id: holdTimer; repeat: false; onTriggered: slot.updateHold() }
     readonly property real heldPad: Math.max(0, heldExtent - landingExtent)
     readonly property real cellExtent: landingExtent > 0 ? landingExtent + heldPad : 0
@@ -6585,7 +6583,7 @@ Item {
     // The slot's length along the bar by its own rules: the zone fit's input,
     // so it never depends on the fit's result. A folded slot takes no space;
     // a yielded one keeps its space.
-    readonly property real fitExtent: baseVisible && (!preview.hidden || preview.holdSpace)
+    readonly property real fitExtent: claim !== "" && (!preview.hidden || preview.holdSpace)
       ? cellExtent + (root.vertical ? settleExtraHeight : settleExtraWidth)
         + ((preview.before || preview.after) ? (root.vertical ? root.dragGapHeight : root.dragGapWidth) : 0) : 0
     readonly property real layoutExtent: fitFolded ? 0 : fitExtent

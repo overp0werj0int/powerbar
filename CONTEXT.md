@@ -25,6 +25,13 @@ The rule governing a widget's presence: Always shown, Managed, or Always hidden.
 Preferences call Managed "On demand".
 _Avoid_: Section when referring to a visibility rule.
 
+**Presence**:
+Where a widget is right now, from its visibility mode, the zone fit and the
+drawers: on the bar; yielded (it keeps its room, unseen, while a neighbour
+grows); folded (no room, or drawn by a drawer row); waiting behind its zone's
+dots or drawer; in its group; or nowhere (pending, or hidden).
+_Avoid_: Placement, which is the zone and order a widget is saved in.
+
 **Main island**:
 The themed surface containing a zone's visible widgets in the main bar.
 
