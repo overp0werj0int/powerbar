@@ -427,9 +427,9 @@ Item {
   width: bar.vertical ? crossLength : length
   height: bar.vertical ? length : crossLength
   x: isSubmenu ? (subPlace ? subPlace.x : 0)
-    : bar.vertical ? (bar.position === "left" ? bar.extentOf(hostWindow) + gap : hostWindow.drawerExtent - gap - width) : axisPosition
+    : bar.vertical ? (bar.position === "left" ? bar.metricsOf(hostWindow).extent + gap : hostWindow.drawerExtent - gap - width) : axisPosition
   y: isSubmenu ? (subPlace ? subPlace.y : 0)
-    : bar.vertical ? axisPosition : (bar.position === "top" ? bar.extentOf(hostWindow) + gap : hostWindow.drawerExtent - gap - height)
+    : bar.vertical ? axisPosition : (bar.position === "top" ? bar.metricsOf(hostWindow).extent + gap : hostWindow.drawerExtent - gap - height)
   visible: presenting
   enabled: opened
   focus: opened && keyboardMode

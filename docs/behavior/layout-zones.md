@@ -183,7 +183,7 @@ Numbers below use Omarchy's default theme tokens: bar 26 px (horizontal) or 28 p
 
 - **ZONE-89** On a notched screen with a top bar, in the Flat, Floating and Islands styles, the center splits around the camera:
   - Left of center ends at the camera's left edge. The box and Right of center start at its right edge (the box on the other side with `powerbarCenterSide` "left", ZONE-96).
-  - The keep-out is the camera's width (ZONE-80) plus a screen edge's inset (`islandScreenInset`) on each side. Each side's island edge sits exactly on it, from its own end pad.
+  - The keep-out is the camera's width (ZONE-80) plus a screen edge's inset (the window's `metrics.screenInset`) on each side. Each side's island edge sits exactly on it, from its own end pad.
   - The fit places the keep-out as a fixed slot just before the box, padded by the end pads of the cells beside it (`notchPads`). So the center never slides over the camera, and widgets fold towards their own side.
   - An inline expansion of the left zone makes Left of center yield up to the camera, never past it; one that still collides opens its drawer, as a second island under the bar (ZONE-31).
   - In islands style each side is its own island. A screen without a notch keeps one center as before.
@@ -256,7 +256,7 @@ Numbers below use Omarchy's default theme tokens: bar 26 px (horizontal) or 28 p
   - The exclusive zone and Omarchy's per-screen bar size (`screenBarSizes`, read by notifications) take the notch's height.
   - The islands and floating styles and the Notch style keep their own rules (ZONE-81, ZONE-83).
 
-  Code: Bar.qml fitsNotch, notchTokensFor, tokensIn, sizeIn, thicknessIn, screenInsetIn, endPadIn, zoneGapIn, highlightRadiusIn, cellHighlight; barWindow notchFit, barSize, cellTokens, extent.
+  Code: Bar.qml fitsNotch, notchTokensFor, metricsOf, cellHighlight; barWindow notchFit, barSize, cellTokens, extent, metrics (CellModel.metrics).
 
 ## Retired IDs
 

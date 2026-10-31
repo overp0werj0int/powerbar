@@ -90,6 +90,23 @@ function flatEdge(k, margin, iconSlot) {
   return Math.max(0, (Number(margin) || 0) + (Number(iconSlot) || 0) / 2 - k.inset - k.cell / 2)
 }
 
+// One bar window's sizes, from its cells and the bar's look.
+//   k       the window's tokens (its own beside a notch, else the bar's)
+//   look    { flat, edgeGap, flatMargin, iconSlot, spacing, rounding }
+//   size    the window's bar thickness; extent: that with its gaps
+// Returns { size, extent, tokens, thickness, screenInset, zoneGap,
+// highlightRadius, endPad(spill) }: the inset off the screen's sides (islands
+// keep the bar gap, a flat bar its end glyphs where Omarchy has them), the
+// gap between zones (one icon cell plus the spacing), and the island end pad.
+function metrics(k, look, size, extent) {
+  return {
+    size: size, extent: extent, tokens: k, thickness: k.thickness,
+    screenInset: look.flat ? flatEdge(k, look.flatMargin, look.iconSlot) : look.edgeGap,
+    zoneGap: k.cell + look.spacing,
+    highlightRadius: radius(k, look.rounding),
+    endPad: function(spill) { return endPad(k, spill) }
+  }
+}
 // The highlight for a placed slot, in slot coordinates along the bar.
 function highlight(k, p, rounding) {
   return { start: (p.extent - p.cell) / 2, length: p.cell, thickness: k.thickness, radius: radius(k, rounding) }
