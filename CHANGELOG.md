@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- The key legend now fades in and out at your Hyprland layer-fade speed and curve (`fadeLayersIn`, `fadeLayersOut`, or the `fade` they inherit), re-read when Hyprland reloads its config; it had used a fixed 180/120 ms since its surface stopped being mapped each time (KEYS-32).
 - A widget dragged out of a menu or a drawer and held on a group icon, or on any widget past the moment its card would show, now keeps following the pointer and drops where you release it; before, the widget's card opened under the pointer, took it, and the drag ended, the widget gliding back on release (DRAG-78).
 - Dragging a widget to the end of a menu, below its last row, now outlines a whole row there; before, the outline was cut to two short lines a bar thick, the end gap being only as wide as the bar is thick (DRAG-17).
 - The drop gap now opens under a dragged widget in the bar's end zone (Right, and Left of center) too: before, over the first half of each widget there the gap opened a whole cell short of the pointer, towards the bar's start, as when bringing a widget out of a menu onto a right or bottom zone. Moving along a zone the gap now trades places with the widget you drag onto, in every zone (DRAG-10).

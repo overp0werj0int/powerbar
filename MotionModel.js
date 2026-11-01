@@ -15,12 +15,34 @@ function drawerMs(opening, notch) {
   return notch ? stripMs(opening, true) : opening ? 160 : 110
 }
 
-// The keyboard's key strip fades in over 180 ms and out over 120 (ease out),
-// as Omarchy's compositor faded its layer in and out each time it mapped
-// (looknfeel.lua fadeLayersIn 1.8, fadeLayersOut 1.2) before the strip's
-// surface stayed mapped (keyboard.md KEYS-32).
+// The keyboard's key strip stays mapped (keyboard.md KEYS-32), so it fades
+// itself as Hyprland fades layers (layerFade). Until Hyprland's report is
+// read it fades in over 180 ms and out over 120, ease out.
 function keyStripMs(showing) {
   return showing ? 180 : 120
+}
+var KEY_STRIP_CURVE = [0.23, 1, 0.32, 1, 1, 1]
+
+// The strip's fade as Hyprland fades layers today, read from
+// `hyprctl -j animations` ([leaves, curves]): fadeLayersIn or fadeLayersOut,
+// or the nearest tuned leaf above it (fadeLayers, fade, global), its speed in
+// tenths of a second and its curve. Unread, the times above and the strip's
+// own curve.
+var LAYER_FADE_PARENT = { fadeLayersIn: "fadeLayers", fadeLayersOut: "fadeLayers", fadeLayers: "fade", fade: "global" }
+function layerFade(report, showing) {
+  var leaves = Array.isArray(report) && Array.isArray(report[0]) ? report[0] : []
+  var curves = Array.isArray(report) && Array.isArray(report[1]) ? report[1] : []
+  var named = function(list, name) { return list.find(function(item) { return item && item.name === name }) }
+  var name = showing ? "fadeLayersIn" : "fadeLayersOut"
+  var leaf = named(leaves, name)
+  while (leaf && leaf.overridden !== true && LAYER_FADE_PARENT[name]) {
+    name = LAYER_FADE_PARENT[name]
+    leaf = named(leaves, name)
+  }
+  if (!leaf || leaf.overridden !== true || !isFinite(leaf.speed)) return { ms: keyStripMs(showing), curve: KEY_STRIP_CURVE }
+  var curve = named(curves, leaf.bezier)
+  return { ms: leaf.enabled === false ? 0 : Math.round(leaf.speed * 100),
+    curve: curve ? [curve.X0, curve.Y0, curve.X1, curve.Y1, 1, 1] : KEY_STRIP_CURVE }
 }
 
 // A widget growing into or out of its zone (an inline expansion, an activity
