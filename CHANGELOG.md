@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Dragging a widget to the end of a menu, below its last row, now outlines a whole row there; before, the outline was cut to two short lines a bar thick, the end gap being only as wide as the bar is thick (DRAG-17).
 - The drop gap now opens under a dragged widget in the bar's end zone (Right, and Left of center) too: before, over the first half of each widget there the gap opened a whole cell short of the pointer, towards the bar's start, as when bringing a widget out of a menu onto a right or bottom zone. Moving along a zone the gap now trades places with the widget you drag onto, in every zone (DRAG-10).
 - Dragging a menu row by its name now carries its icon under the pointer, and the drop gap follows the pointer; before, the icon and its gap trailed the pointer by as far as the press was along the name.
 - Turning blur on or off with a card up or held on a left or right bar no longer ends the shell; the earlier fix covered top and bottom bars only.

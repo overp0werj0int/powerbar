@@ -909,7 +909,9 @@ Item {
             readonly property bool gap: DragModel.endGap(bar.dragPreview, bar.dragSurfaceForDrawer(drawer))
             x: drawer.stripVertical ? 0 : contents.width
             y: drawer.stripVertical ? contents.height : 0
-            targetWidth: drawer.stripVertical ? drawer.thickness : gap ? bar.dragGapWidth : 0
+            // Across, as wide as a row: it clips, and in a menu the outline
+            // in it is a whole row.
+            targetWidth: drawer.stripVertical ? (drawer.namedMenu ? drawer.menuRowWidth : drawer.thickness) : gap ? bar.dragGapWidth : 0
             targetHeight: drawer.stripVertical ? (gap ? (drawer.namedMenu ? drawer.rowPitch : bar.dragGapHeight) : 0) : drawer.thickness
             motionEnabled: bar.animationsEnabled && drawer.opened && !drawer.replaying && !bar.dragHandover
             DrawerOutline {
