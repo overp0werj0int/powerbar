@@ -59,6 +59,24 @@ Item {
   // without reduceMotion reads as motion on.
   readonly property bool systemMotion: Style.reduceMotion !== true
   readonly property bool animationsEnabled: barOptions.animations && systemMotion
+  // Hyprland's animation tree (`hyprctl -j animations`), read at start and
+  // again when its config reloads: the key legend fades as the compositor
+  // fades layers (MotionModel.layerFade, KEYS-32).
+  property var hyprAnimations: null
+  readonly property var keyStripFadeIn: MotionModel.layerFade(hyprAnimations, true)
+  readonly property var keyStripFadeOut: MotionModel.layerFade(hyprAnimations, false)
+  Process {
+    id: hyprAnimationsProc
+    running: true
+    command: ["hyprctl", "-j", "animations"]
+    stdout: StdioCollector {
+      onStreamFinished: { try { root.hyprAnimations = JSON.parse(text) } catch (e) {} }
+    }
+  }
+  Connections {
+    target: Hyprland
+    function onRawEvent(event) { if (event && String(event.name) === "configreloaded") hyprAnimationsProc.running = true }
+  }
   // `powerbarFrameLog` (shell.json only): the bar's event timeline and the
   // frame timing of its motions in the shell log, for live debugging
   // (FrameLog.qml, INTEG-146). ev() names what happened; ms > 0 also times
@@ -102,7 +120,7 @@ Item {
     enabled: root.frameLog
     // Coming on is watched as a motion (the strip fading in), so its run
     // starts with the mode and not with the card, which follows it.
-    function onActiveChanged() { root.ev("keys", barKeysItem.active ? "on" : "off", barKeysItem.active ? MotionModel.keyStripMs(true) : 0) }
+    function onActiveChanged() { root.ev("keys", barKeysItem.active ? "on" : "off", barKeysItem.active ? root.keyStripFadeIn.ms : 0) }
     function onCursorChanged() { if (barKeysItem.active) root.ev("cursor", root.evName(barKeysItem.cursor)) }
   }
   // Neighbours make way over a time that grows with the gap (150 ms for an
@@ -4799,13 +4817,14 @@ Item {
         anchors.centerIn: parent
         // Hidden by its opacity, not visibility: a hidden column lays out
         // nothing, and the surface would shrink to its padding and grow again.
-        // It fades as the compositor faded the layer each time it mapped;
-        // the README's no_anim rule for `powerbar` gave that one no fade.
+        // It fades as the compositor fades layers, with the user's tuning;
+        // the README's no_anim rule for `powerbar` gives that one no fade.
         opacity: keysStrip.surface.shown ? 1 : 0
         Behavior on opacity {
           id: stripFade
-          enabled: root.systemMotion && keysStrip.layer !== "powerbar"
-          NumberAnimation { duration: MotionModel.keyStripMs(stripFade.targetValue > 0.5); easing.type: Easing.BezierSpline; easing.bezierCurve: [0.23, 1, 0.32, 1, 1, 1] }
+          readonly property var fade: targetValue > 0.5 ? root.keyStripFadeIn : root.keyStripFadeOut
+          enabled: root.systemMotion && keysStrip.layer !== "powerbar" && fade.ms > 0
+          NumberAnimation { duration: stripFade.fade.ms; easing.type: Easing.BezierSpline; easing.bezierCurve: stripFade.fade.curve }
         }
         width: implicitWidth
         height: implicitHeight
