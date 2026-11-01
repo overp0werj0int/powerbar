@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- The drop gap now opens under a dragged widget in the bar's end zone (Right, and Left of center) too: before, over the first half of each widget there the gap opened a whole cell short of the pointer, towards the bar's start, as when bringing a widget out of a menu onto a right or bottom zone. Moving along a zone the gap now trades places with the widget you drag onto, in every zone (DRAG-10).
 - Dragging a menu row by its name now carries its icon under the pointer, and the drop gap follows the pointer; before, the icon and its gap trailed the pointer by as far as the press was along the name.
 - Turning blur on or off with a card up or held on a left or right bar no longer ends the shell; the earlier fix covered top and bottom bars only.
 - A widget dragged off the bar on an empty workspace no longer drops at the edge of the bar after a moment while the button is still down; Hyprland lets go of the press as the pointer leaves the bar there, and that release now cancels the drag, the widget gliding back (DRAG-77). While a drag lasts the bar also keeps the pointer over its strip and the slack below it, so a release there lands on the bar with or without a window under it (DRAG-23).

@@ -44,6 +44,22 @@ function afterCentre(probe, centre, previous, deadZone) {
   if (previous === false) return probe > centre + dz
   return probe > centre
 }
+// Where a drag over a bar cell flips from a gap before the cell to one after
+// it: halfway between the places those two gaps take once the cell's list has
+// made room for one, so the gap opens under the dragged widget (DRAG-10). A
+// list hanging from its start makes room past the gap, one hanging from its
+// end before it, the centre box on both sides; the side of a cell alone would
+// put the gap a whole cell off in half of it. The live layout holds the room
+// open now (a gap, the dragged widget's own place), so the cell's place
+// without it comes first; within one list that room only moves, which makes
+// the rule a swap with the cell the widget enters.
+//   centre: the cell's centre now      ahead: room open ahead of it
+//   room: all the room open in its list
+//   startGrowth: the share of a new gap the list makes on its start side
+//   gap: the gap's length
+function landingPivot(centre, ahead, room, startGrowth, gap) {
+  return centre - ahead + startGrowth * room + (0.5 - startGrowth) * gap
+}
 // Where a released icon settles once the layout has committed: its own drawer
 // cell, else its own main-bar slot, else the group icon now containing it.
 // Without a visible home it fades where it was released.
@@ -126,26 +142,31 @@ function stripBand(window, position, barExtent, slack) {
 
 // What a drag over the bar or a drawer drops on, from measured candidates
 // (rects in scene pixels, each with an opaque `slot`, its `region`, whether it
-// is a `groupHeader` and whether it sits in a drawer, `inDrawer`). In order:
-// the candidate under the dragged widget's painted centre (probe), else under
-// the pointer; over its own place with nothing under it, nothing changes
-// ({ source }); the dots ({ handle }, filled in by the caller); a widget from a
-// drawer onto a bar group icon goes into the group; beside a candidate, on the
-// side of its cell's centre with a dead zone around it so the gap does not
-// flicker (previous: { slot, after } of the drop shown); else the nearest
-// candidate of the zone (or of the drawer), else the zone or drawer itself.
+// is a `groupHeader`, whether it sits in a drawer, `inDrawer`, and the `pivot`
+// along the axis where its side flips, landingPivot). In order: the candidate
+// under the dragged widget's painted centre (probe), else under the pointer;
+// over its own place with nothing under it, nothing changes ({ source }); the
+// dots ({ handle }, filled in by the caller); a widget from a drawer onto a bar
+// group icon goes into the group; beside a candidate, on the side of its pivot
+// with a dead zone around it so the gap does not flicker (previous:
+// { slot, after } of the drop shown); off the candidates (the strip's slack
+// across the bar) beside the one of the zone (or of the drawer) level with the
+// probe along the axis, the same way; else the nearest candidate of the zone,
+// else the zone or drawer itself.
 function resolveDrop(d) {
   var within = function(p, c) { return p.x >= c.x && p.x <= c.x + c.width && p.y >= c.y && p.y <= c.y + c.height }
+  var axis = d.alongColumn ? d.probe.y : d.probe.x
+  var beside = function(c) {
+    var previous = d.previous && d.previous.slot === c.slot ? d.previous.after : undefined
+    return { slot: c.slot, after: afterCentre(axis, c.pivot, previous, d.deadZone) }
+  }
   var hit = d.candidates.find(function(c) { return within(d.probe, c) }) || d.candidates.find(function(c) { return within(d.point, c) })
   if (!hit && d.sourceRect && within(d.point, d.sourceRect)) return { source: true }
   if (d.handle) return { handle: true }
   if (hit && hit.groupHeader && !hit.inDrawer && d.sourceInDrawer && !d.sourceGroupHeader) return { slot: hit.slot, into: true }
-  if (hit) {
-    var previous = d.previous && d.previous.slot === hit.slot ? d.previous.after : undefined
-    return { slot: hit.slot, after: d.alongColumn
-      ? afterCentre(d.probe.y, hit.y + hit.contentY + hit.contentHeight / 2, previous, d.deadZone)
-      : afterCentre(d.probe.x, hit.x + hit.contentX + hit.contentWidth / 2, previous, d.deadZone) }
-  }
+  if (hit) return beside(hit)
   var nearby = d.inDrawer ? d.candidates : d.candidates.filter(function(c) { return c.region === d.zone })
+  var level = nearby.find(function(c) { return d.alongColumn ? axis >= c.y && axis <= c.y + c.height : axis >= c.x && axis <= c.x + c.width })
+  if (level) return beside(level)
   return nearestDropTarget(nearby, d.probe, d.alongColumn) || (d.inDrawer ? { drawer: true } : { zone: d.zone })
 }

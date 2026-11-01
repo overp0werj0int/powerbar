@@ -2948,11 +2948,11 @@ Item {
         y: slotPoint.y,
         width: item.width,
         height: item.height,
-        // A bar slot's landing reference is its cell, past any open drag gap.
-        contentX: (slot.drawerHost ? slot.drawerHost.contentOffsetX : root.vertical ? 0 : slot.animatedInsetX),
-        contentY: (slot.drawerHost ? slot.drawerHost.contentOffsetY : root.vertical ? slot.animatedInsetY : 0),
-        contentWidth: (slot.drawerHost ? slot.drawerHost.baseWidth : root.vertical ? slot.naturalWidth : slot.cellExtent),
-        contentHeight: (slot.drawerHost ? slot.drawerHost.baseHeight : root.vertical ? slot.cellExtent : slot.naturalHeight)
+        // A drawer row's side flips at its cell's centre, a bar slot's where
+        // the gap would open under the dragged widget (DRAG-10).
+        pivot: !slot.drawerHost ? root.barLandingPivot(slot, slotPoint, sourceSlot)
+          : alongColumn ? slotPoint.y + slot.drawerHost.contentOffsetY + slot.drawerHost.baseHeight / 2
+          : slotPoint.x + slot.drawerHost.contentOffsetX + slot.drawerHost.baseWidth / 2
       })
     }
 
@@ -2966,6 +2966,25 @@ Item {
       handleToken: handle.inlineToken, managedBefore: root.handleDropBefore(handle, sourceSlot) }
     if (drop.drawer) return { drawer: drawer }
     return drop
+  }
+
+  // DragModel.landingPivot for a bar slot whose scene place is `at`. The room
+  // open in its list is each slot's length past its rest (a drop gap, or the
+  // dragged widget's own place, which the drop leaves) and the list's end gap.
+  function barLandingPivot(slot, at, sourceSlot) {
+    var list = slot.parent.parent
+    var ahead = slot.cellLead, room = list.endGapLength, kids = slot.parent.children
+    for (var i = 0; i < kids.length; i++) {
+      var k = kids[i]
+      if (!k || k.cellExtent === undefined) continue
+      var rest = k === sourceSlot || k.fitFolded || k.claim === "" ? 0
+        : k.cellExtent + (root.vertical ? k.settleExtraHeight : k.settleExtraWidth)
+      var open = root.alongSize(k) - rest
+      room += open
+      if (k !== slot && root.along(k) < root.along(slot)) ahead += open
+    }
+    return DragModel.landingPivot(root.along(at) + slot.cellLead + slot.cellExtent / 2, ahead, room, list.startGrowth,
+      root.vertical ? root.dragGapHeight : root.dragGapWidth)
   }
 
   // Dots at a zone's start take the widget at the start of the zone's list.
@@ -5822,6 +5841,8 @@ Item {
       listRole: "center"
       region: "center"
       previewEnd: false
+      // Centred, it grows both ways (DRAG-57); beside the camera, away from it.
+      startGrowth: centerRoot.split > 0 ? (centerRoot.boxBefore ? 1 : 0) : 0.5
       readonly property real lead: centerRoot.split > 0
         ? centerRoot.middle + centerRoot.split / 2 + centerRoot.metrics.endPad(leadSpill) - shownLead
         : centerRoot.middle - listLength / 2
@@ -6144,6 +6165,11 @@ Item {
     readonly property var slotModel: homeWindow ? homeWindow.widgetModels[listRole] : null
     property bool previewEnd: true
     readonly property bool previewEndGap: previewEnd && DragModel.endGap(root.dragPreview, "bar:" + region)
+    readonly property real endGapLength: root.alongSize(endGap)
+    // The share of a gap opening in the list that it makes room for on its
+    // start side: none where the list hangs from its start, all where it hangs
+    // from its end (Right, and Left of center off the box or the camera).
+    property real startGrowth: listRole === "right" || listRole === "centerBegin" ? 1 : 0
     // Where this list draws its zone's drawer handle, as the zone fit says.
     readonly property var fitHandles: homeWindow && homeWindow.zoneFit ? homeWindow.zoneFit.handles : null
     readonly property bool centerStartDots: !!fitHandles && (fitHandles.center === "start" || fitHandles.center === "both")
