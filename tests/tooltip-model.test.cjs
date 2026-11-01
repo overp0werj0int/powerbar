@@ -87,17 +87,6 @@ test('a slid tooltip beside an open drawer still clears the drawer', () => {
   assert.deepEqual(m.place('top', { x: 1482, y: 7, width: 20, height: 32 }, popup, 6, drawer, false, screen, null, 4), { x: 1408, y: 96 });
 });
 
-test('the card waits for its own length before it shows', () => {
-  // The card is held a moment after the keys go off; the blur turned off then
-  // remaps the bar, which is mapped again before the compositor sizes it.
-  assert.equal(tips.surfaceShown(true, false, 1512), true);
-  assert.equal(tips.surfaceShown(true, false, 0), false);
-  assert.equal(tips.surfaceShown(true, false, 945), true);
-  // Otherwise as before: not while the bar slides, nor when no card is wanted.
-  assert.equal(tips.surfaceShown(true, true, 1512), false);
-  assert.equal(tips.surfaceShown(false, false, 1512), false);
-});
-
 test('no card shows or stays while a pointer drag is on, the keyboard cursor\'s aside', () => {
   const hovered = { visible: true, opacity: 1, tooltipHovered: true };
   assert.equal(tips.cardHovered(hovered, false, false), true);

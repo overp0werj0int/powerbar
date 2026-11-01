@@ -86,23 +86,10 @@ function spot(position, barVertical, target, popup, gap, drawer, inDrawer, bound
   return at
 }
 
-// Whether the card's surface shows. It is a popup of the bar window, as long
-// as the bar, and Quickshell shows a wanted popup the moment its bar maps.
-// A bar mapped again (a blur change, a screen move) has no size until the
-// compositor's first configure, and a popup asked for at no length is a
-// protocol error that ends the shell. So the card waits for its own length,
-// which follows the bar's (its reach out from the bar is never 0).
-//   wanted:  a card is up or held; sliding: the bar slides out or in
-//   length:  the card surface's own length along the bar
-function surfaceShown(wanted, sliding, length) {
-  return wanted && !sliding && length > 0
-}
-
 // Whether a target's card may show or stay. The keyboard cursor's name card
 // stays while the cursor is there; otherwise the target must be drawn and
-// hovered, and no pointer drag be on: a card opening under the pointer takes
-// it, and Hyprland lets go of the held button there, which ended the drag
-// (a widget from a menu resting on a group icon cancelled; DRAG-78).
+// hovered, and no pointer drag be on: a card would cover the drop marks, and
+// one mapping under the pointer ended the drag (DRAG-78).
 //   target:   the item asking ({ visible, opacity, tooltipHovered })
 //   keysCard: the keyboard cursor's card is the target's
 //   dragging: a pointer drag is on

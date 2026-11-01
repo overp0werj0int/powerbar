@@ -92,7 +92,7 @@ Drag and drop on the live bar, into drawers and onto zone dots. The bar controll
 
 - **DRAG-34** The widget's tooltip hides when a drag begins.
 
-- **DRAG-78** No hover card shows or stays while a pointer drag is on, the keyboard cursor's name card aside. A card opening under the pointer takes it, and Hyprland lets go of the held button as the pointer goes to the card's surface, which cancelled the drag (DRAG-77): a widget from a menu or drawer resting on a group icon past the card delay stopped following the pointer, and the release glided it back. Code: TooltipModel.js cardHovered; Bar.qml targetTooltipHovered.
+- **DRAG-78** No hover card shows or stays while a pointer drag is on, the keyboard cursor's name card aside. Before the card surface stayed mapped (LOOK-153), a card mapping under the pointer took it, and Hyprland let go of the held button as the pointer went to the card's surface, which cancelled the drag (DRAG-77): a widget from a menu or drawer resting on a group icon past the card delay stopped following the pointer, and the release glided it back. A card would also cover the drop marks. Code: TooltipModel.js cardHovered; Bar.qml targetTooltipHovered.
 
 ## Drag settlement and animation
 

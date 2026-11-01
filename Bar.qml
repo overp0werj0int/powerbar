@@ -5020,7 +5020,6 @@ Item {
     // A strip that let go of its surface to take a new namespace maps again.
     Timer { id: keysStripRemap; interval: 60; onTriggered: keysStrip.mappedLayer = keysStrip.layer }
 
-    Timer { id: tooltipHold; interval: 800 }
     PopupWindow {
       id: tooltipWindow
       // Never takes the pointer: a tooltip that slid over its widget or the
@@ -5028,19 +5027,21 @@ Item {
       mask: Region {}
 
       readonly property bool cardUp: root.tooltipShown && root.tooltipTarget !== null && root.tooltipText !== "" && root.targetBelongsToWindow(root.tooltipTarget, barWindow)
-      // A card taken down hides at once, but its surface stays a moment
-      // (as long as the next tooltip shows at once, tooltipWarmUntil): the
-      // compositor fades a surface that closes, and a card coming up
-      // elsewhere meanwhile stood beside the old one fading, a second card
-      // in the wrong zone. The next one reuses the surface instead.
-      // Its own length, not the bar's: on a side bar the bar's height
-      // arrives with the configure, and a visible bound to it ran before
-      // span did, showing the popup at no height (LOOK-152). Only the length:
+      // The surface stays mapped, empty, while no card is up (LOOK-153).
+      // Mapped fresh under a still pointer, Hyprland handed it the pointer
+      // in spite of its empty mask until the pointer moved, so the bar read
+      // unhovered and the card closed 80 ms after it showed. Nor does the
+      // compositor fade an old card out beside a new one, and nothing maps
+      // while the bar slides. It waits for its own length, not the bar's: a
+      // bar mapped again (LOOK-127, LOOK-151) has no size until the
+      // compositor's first configure, a popup asked for at no length is a
+      // protocol error that ends the shell, and on a side bar a visible bound
+      // to the bar's height ran before span did (LOOK-152). Only the length:
       // the reach depends on grown, which a visibility change resets.
-      visible: TooltipModel.surfaceShown(cardUp || tooltipHold.running, barWindow.sliding, root.vertical ? implicitHeight : implicitWidth)
+      visible: (root.vertical ? implicitHeight : implicitWidth) > 0
       onCardUpChanged: {
         if (cardUp) Qt.callLater(barWindow.reanchorTooltip)
-        else { text = ""; tooltipHold.restart() }
+        else text = ""
       }
       color: "transparent"
       // One surface for every card: it spans the bar window's whole length,
@@ -5122,7 +5123,7 @@ Item {
 
       EffectSurface {
         id: tooltipBubble
-        visible: tooltipWindow.text !== ""
+        visible: tooltipWindow.text !== "" && !barWindow.sliding
         x: tooltipWindow.at.x - tooltipWindow.originX
         y: tooltipWindow.at.y - tooltipWindow.originY
         width: implicitWidth
