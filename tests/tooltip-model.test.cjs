@@ -97,3 +97,13 @@ test('the card waits for its own length before it shows', () => {
   assert.equal(tips.surfaceShown(true, true, 1512), false);
   assert.equal(tips.surfaceShown(false, false, 1512), false);
 });
+
+test('no card shows or stays while a pointer drag is on, the keyboard cursor\'s aside', () => {
+  const hovered = { visible: true, opacity: 1, tooltipHovered: true };
+  assert.equal(tips.cardHovered(hovered, false, false), true);
+  assert.equal(tips.cardHovered(hovered, false, true), false, 'a card under the pointer would end the drag');
+  assert.equal(tips.cardHovered({ ...hovered, tooltipHovered: false }, false, false), false);
+  assert.equal(tips.cardHovered({ ...hovered, opacity: 0 }, false, false), false);
+  assert.equal(tips.cardHovered({ ...hovered, tooltipHovered: false }, true, false), true, 'the cursor holds its card');
+  assert.equal(tips.cardHovered(null, true, false), false);
+});

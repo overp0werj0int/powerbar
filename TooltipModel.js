@@ -97,3 +97,17 @@ function spot(position, barVertical, target, popup, gap, drawer, inDrawer, bound
 function surfaceShown(wanted, sliding, length) {
   return wanted && !sliding && length > 0
 }
+
+// Whether a target's card may show or stay. The keyboard cursor's name card
+// stays while the cursor is there; otherwise the target must be drawn and
+// hovered, and no pointer drag be on: a card opening under the pointer takes
+// it, and Hyprland lets go of the held button there, which ended the drag
+// (a widget from a menu resting on a group icon cancelled; DRAG-78).
+//   target:   the item asking ({ visible, opacity, tooltipHovered })
+//   keysCard: the keyboard cursor's card is the target's
+//   dragging: a pointer drag is on
+function cardHovered(target, keysCard, dragging) {
+  if (!target) return false
+  if (keysCard) return true
+  return !dragging && target.visible !== false && target.opacity !== 0 && target.tooltipHovered === true
+}

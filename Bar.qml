@@ -1408,9 +1408,7 @@ Item {
   }
 
   function targetTooltipHovered(target) {
-    // The keyboard cursor's name card stays while the cursor is there.
-    if (!!target && barKeysItem.here && target === barKeysItem.cardTarget) return true
-    return !!target && target.visible !== false && target.opacity !== 0 && target.tooltipHovered === true
+    return TooltipModel.cardHovered(target, barKeysItem.here && target === barKeysItem.cardTarget, !!barDragSource)
   }
 
   // Once a tooltip has been read, its neighbours along the bar show at once.
