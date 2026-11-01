@@ -137,6 +137,8 @@ Item {
     bar.drags = []
     bar.dragPoint = null
     bar.members = { left: [a, b], right: [c] }
+    bar.barDragSource = null
+    bar.dragPreview = null
     drawer.close("immediate")
     drawer.reveal = 0
   }
@@ -222,6 +224,48 @@ Item {
     drawer.releaseDrag(row)
     compare(a.drawerHost, null, "the drawer catches up once the drag ends")
     verify(b.drawerHost !== null)
+  }
+
+  // The drop outlines in the drawer that show, each with its clip check.
+  function shownOutlines(item, out) {
+    out = out || []
+    for (var i = 0; i < item.children.length; i++) {
+      var k = item.children[i]
+      if (k.fullGap !== undefined && k.landingOffset !== undefined && k.visible && k.opacity > 0) out.push(k)
+      shownOutlines(k, out)
+    }
+    return out
+  }
+  // Whether all of the item shows: no clipping parent cuts it.
+  function drawnWhole(item) {
+    var r = item.mapToItem(null, 0, 0)
+    for (var p = item.parent; p; p = p.parent) {
+      if (!p.clip) continue
+      var q = p.mapToItem(null, 0, 0)
+      if (r.x < q.x - 0.5 || r.y < q.y - 0.5 || r.x + item.width > q.x + p.width + 0.5 || r.y + item.height > q.y + p.height + 0.5) return false
+    }
+    return true
+  }
+
+  // A drop at a menu's end outlines a whole row there, as beside a row
+  // (DRAG-17); before, the end gap was a bar thick, and cut the outline to
+  // two short lines.
+  function test_aDropAtAMenusEndOutlinesAWholeRow_data() {
+    return [{ tag: "top bar", vertical: false, position: "top" }, { tag: "left bar", vertical: true, position: "left" }]
+  }
+  function test_aDropAtAMenusEndOutlinesAWholeRow(data) {
+    bar.vertical = data.vertical
+    bar.position = data.position
+    bar.onDemandMenu = true
+    drawer.openZone("left", false)
+    verify(drawer.namedMenu)
+    tryVerify(function() { return drawer.reveal === 1 })
+    bar.barDragSource = c
+    bar.dragPreview = { ready: true, targetSurface: "managed:left" }
+    tryVerify(function() { return shownOutlines(drawer).length === 1 }, 2000, "the end gap's outline shows")
+    var outline = shownOutlines(drawer)[0]
+    tryVerify(function() { return outline.width >= drawer.menuRowWidth - 1 }, 2000, "a row wide")
+    verify(drawnWhole(outline.body), "and drawn whole")
   }
 
   // A menu row's drag (DRAG-3): the bar draws the dragged icon at the
