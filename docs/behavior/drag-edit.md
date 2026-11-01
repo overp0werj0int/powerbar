@@ -92,6 +92,8 @@ Drag and drop on the live bar, into drawers and onto zone dots. The bar controll
 
 - **DRAG-34** The widget's tooltip hides when a drag begins.
 
+- **DRAG-78** No hover card shows or stays while a pointer drag is on, the keyboard cursor's name card aside. A card opening under the pointer takes it, and Hyprland lets go of the held button as the pointer goes to the card's surface, which cancelled the drag (DRAG-77): a widget from a menu or drawer resting on a group icon past the card delay stopped following the pointer, and the release glided it back. Code: TooltipModel.js cardHovered; Bar.qml targetTooltipHovered.
+
 ## Drag settlement and animation
 
 - **DRAG-35** On release the image stays visible and glides to its target over 180 ms (`dragSettleDuration`, OutCubic), following the target slot frame by frame if it is still moving. With animations off there is no glide.
