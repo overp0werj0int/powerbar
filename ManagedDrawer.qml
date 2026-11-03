@@ -792,7 +792,9 @@ Item {
   }
 
   // The dots of a zone or centre side on this bar.
-  function handleFor(t) { return (hostWindow.foldHandles || []).find(function(h) { return h && h.inlineToken === t }) || null }
+  // The dots a side's menu hangs from: the shown ones. On the notch a side's
+  // token can name dots on both sides of the camera, one of them hidden.
+  function handleFor(t) { return (hostWindow.foldHandles || []).find(function(h) { return h && h.shown && h.visible && h.inlineToken === t }) || null }
   // The side keys of the menu mode: on a group's row in a zone's menu the one
   // its chevron points along opens its submenu; in the submenu the one
   // towards the menu goes back.

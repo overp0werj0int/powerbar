@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- On the notch, a widget held on the dots left of the camera now opens their menu under those dots; before, the menu opened under the dots right of the camera (DRAG-16).
 - Works with Omarchy r7569 and later, which removes `ScreenMoveRemap`. Powerbar v0.9.6 used it, and its bar fails to load on those builds. Powerbar now keeps its own remap for a screen that moves within the layout (LOOK-151).
 - A widget's hover card no longer closes a moment after it shows when the pointer rests perfectly still on the widget; the card's surface now stays mapped, empty, between cards, on every bar edge and in drawers and menus (LOOK-153).
 - The key legend now fades in and out at your Hyprland layer-fade speed and curve (`fadeLayersIn`, `fadeLayersOut`, or the `fade` they inherit), re-read when Hyprland reloads its config; it had used a fixed 180/120 ms since its surface stopped being mapped each time (KEYS-32).
