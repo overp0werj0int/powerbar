@@ -27,6 +27,12 @@ Item {
     // The page's sheet: the pages measure the camera's top from its edge.
     readonly property Item sheet: card
     property int page: 0
+    // Leaving a page pushes its inspector back, so coming back starts on its
+    // board, the keys walking the board, not a card left out.
+    onPageChanged: pageItems.forEach(function (item, i) {
+        if (i !== page && item && item.inspecting)
+            item.inspecting = false;
+    })
     // Changes save as they are made, so the footer stays quiet unless one fails.
     property string status: ""
     property var snapshots: ({})
