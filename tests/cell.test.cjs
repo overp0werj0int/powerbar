@@ -183,3 +183,15 @@ test('a window\'s metrics follow its own cells', () => {
     for (const spill of [0, 3]) assert.equal(m.endPad(spill), cell.endPad(k, spill));
   }
 });
+test('a highlight in a rounded outer corner nests in it, the gap kept to the curve', () => {
+  const arcs = [{ corner: 'tl', x: 4, y: 4, r: 16 }, { corner: 'tr', x: 1508, y: 4, r: 16 }];
+  // Three in from the top and the side: concentric, 16 - 3.
+  assert.deepEqual(cell.nestedCorners({ x: 7, y: 7, width: 30, height: 26 }, arcs, 3), { tl: 13, tr: 3, bl: 3, br: 3 });
+  // Uneven insets take the larger, so the curve stays inside the bar's.
+  assert.equal(cell.nestedCorners({ x: 10, y: 7, width: 30, height: 26 }, arcs, 3).tl, 10);
+  assert.equal(cell.nestedCorners({ x: 1478, y: 7, width: 27, height: 26 }, arcs, 3).tr, 13);
+  // Past the corner's reach it keeps its own radius, and never passes half its side.
+  assert.equal(cell.nestedCorners({ x: 40, y: 7, width: 20, height: 20 }, arcs, 3).tl, 3);
+  assert.equal(cell.nestedCorners({ x: 7, y: 7, width: 16, height: 16 }, [{ corner: 'tl', x: 4, y: 4, r: 30 }], 3).tl, 8);
+  assert.deepEqual(cell.nestedCorners({ x: 7, y: 7, width: 20, height: 20 }, [], 3), { tl: 3, tr: 3, bl: 3, br: 3 });
+});

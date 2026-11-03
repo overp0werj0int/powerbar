@@ -4097,6 +4097,29 @@ Item {
     readonly property var screenTop: { var m = panelMode; return root.vertical ? root.notchFor(screen, "top") : notch }
     readonly property var outerCorners: screenTop && !notchLook && !root.flat
       ? NotchModel.outerCorners(screenTop, root.edgeGap, root.islandRounding, barSize) : null
+    // Those corners where they are drawn now, in `item`'s coordinates:
+    // [{ corner, x, y, r }] for CellModel.nestedCorners, so a highlight or a
+    // drop outline in one nests its own corner in it (LOOK-150). The same
+    // surfaces and corners as the radii set below.
+    function outerArcs(item) {
+      var c = outerCorners
+      if (!c || !item) return []
+      var out = []
+      function add(surface, corner) {
+        if (!surface || !surface.visible || !(surface.width > 0)) return
+        var p = surface.mapToItem(item, corner === "tr" ? surface.width : 0, 0)
+        out.push({ corner: corner, x: p.x, y: p.y, r: c.top })
+      }
+      var end = root.position === "right" ? "tr" : "tl"
+      if (root.islands) {
+        add(leftIsland, end)
+        if (!root.vertical) add(rightIsland, "tr")
+      } else if (notchWrap) {
+        add(wrapSurface, "tl")
+        add(wrapSurface, "tr")
+      } else if (root.vertical) add(floatSurface, end)
+      return out
+    }
     // Hidden for a moment to remap (a blur change, a screen move). Widgets read
     // as invisible meanwhile, so the window freezes its slots' measurements
     // first and thaws them once the widgets have reported their sizes again.
@@ -4612,6 +4635,7 @@ Item {
     }
     // A floating bar: one continuous surface, held off the edges like islands.
     EffectSurface {
+      id: floatSurface
       visible: root.floating && !barWindow.notchLook && !barWindow.notchWrap
       x: mainStrip.x + (root.vertical ? (barWindow.extent - barWindow.barSize) / 2 : root.edgeGap)
       y: mainStrip.y + (root.vertical ? root.edgeGap : (barWindow.extent - barWindow.barSize) / 2)
@@ -4631,6 +4655,7 @@ Item {
     // On the notched screen it dips round the camera and follows the
     // screen's top corners, a gap off both (LOOK-147).
     NotchWrapSurface {
+      id: wrapSurface
       visible: root.floating && barWindow.notchWrap
       x: mainStrip.x + root.edgeGap
       y: mainStrip.y + (barWindow.extent - barWindow.barSize) / 2
@@ -4769,6 +4794,7 @@ Item {
               hoverColor: root.onBarHoverColor
               selectedColor: root.onBarSelectedColor
               rounding: barWindow.metrics.highlightRadius
+              cornerHost: barWindow
             }
             ZoneDot { ink: root.barForeground }
           }
@@ -5569,6 +5595,7 @@ Item {
       selected: preferencesPane.opened
       motionEnabled: root.animationsEnabled
       readonly property var hostWindow: preferencesButton.hostWindow
+      cornerHost: hostWindow
       glide: hostWindow ? hostWindow.highlightGlide || null : null
       glideKey: "right"
       hoverColor: root.onBarHoverColor
@@ -6048,6 +6075,7 @@ Item {
       selected: foldHandle.drawerOpen || foldHandle.dropTarget
       motionEnabled: root.animationsEnabled
       readonly property var hostWindow: root.targetWindow(foldHandle)
+      cornerHost: hostWindow
       glide: hostWindow ? hostWindow.highlightGlide || null : null
       glideKey: foldHandle.zone
       hoverColor: root.onBarHoverColor
@@ -6840,6 +6868,7 @@ Item {
     HoverHighlight {
       id: barHighlight
       readonly property var hostWindow: root.targetWindow(slot)
+      cornerHost: hostWindow
       readonly property Item hostLayer: hostWindow && hostWindow.highlightLayers ? hostWindow.highlightLayers[slot.region] || null : null
       parent: hostLayer || presentation
       // A slot still at no width has no place yet (positioners skip it until
@@ -6933,7 +6962,15 @@ Item {
       visible: centres.length > 1 && index >= 0 && barHighlight.hovered && !barHighlight.selected && !slot.activityFlash
       width: geometry.side
       height: geometry.side
-      radius: geometry.radius
+      // In a rounded outer corner it nests in the curve as the track does
+      // (LOOK-150); the corners are in the layer's coordinates, as x and y.
+      property var arcs: []
+      readonly property var corners: CellModel.nestedCorners(compoundThumb, arcs, geometry.radius)
+      radius: corners.tl
+      topLeftRadius: corners.tl
+      topRightRadius: corners.tr
+      bottomLeftRadius: corners.bl
+      bottomRightRadius: corners.br
       color: root.onBarHoverColor
       z: 1
       Accessible.ignored: true
@@ -6966,6 +7003,8 @@ Item {
         var cross = root.vertical ? s.x + (strip.width - width) / 2 : s.y + (strip.height - height) / 2
         x = root.vertical ? cross : along
         y = root.vertical ? along : cross
+        var host = barHighlight.hostWindow
+        arcs = host && typeof host.outerArcs === "function" ? host.outerArcs(layer) : []
       }
       GeometryObserver {
         target: compoundThumb.visible ? slot : null
