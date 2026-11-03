@@ -8,6 +8,7 @@ import qs.Ui
 import "IconSearch.js" as IconSearch
 import "OmarchyIcons.js" as OmarchyIcons
 import "GroupsModel.js" as GroupsModel
+import "MotionModel.js" as MotionModel
 
 // The group icon picker (docs/behavior/preferences.md): a popover over the Groups
 // page, under the icon well. Its icons are the glyphs your widgets draw,
@@ -39,8 +40,8 @@ Item {
   readonly property real cellSize: Style.space(38)
   readonly property int columns: Math.max(1, Math.floor((grid.width + Style.space(2)) / (cellSize + Style.space(2))))
   readonly property var hints: source === "own"
-    ? [{ keys: "←→", label: "Colour" }, { keys: "enter", label: "Use it" }, { keys: "tab", label: "Source" }, { keys: "esc", label: "Close" }]
-    : [{ keys: "←↑→↓", label: "Move" }, { keys: "enter", label: "Choose" }, { keys: "tab", label: "Source" },
+    ? [{ keys: "←→", label: "Colour" }, { keys: "enter", label: "Use it" }, { keys: "tab shift+tab", label: "Source" }, { keys: "esc", label: "Close" }]
+    : [{ keys: "enter", label: "Choose" }, { keys: "tab shift+tab", label: "Source" },
       { keys: "ctrl+v", label: "Paste" }, { keys: "esc", label: query ? "Clear search" : "Close" }]
 
   function open(group, anchorItem) {
@@ -258,8 +259,8 @@ Item {
     opacity: picker.opened ? 1 : 0
     scale: picker.opened ? 1 : 0.97
     transformOrigin: Item.TopLeft
-    Behavior on opacity { enabled: picker.bar.animationsEnabled; NumberAnimation { duration: 150; easing.type: Easing.OutCubic } }
-    Behavior on scale { enabled: picker.bar.animationsEnabled; NumberAnimation { duration: 150; easing.type: Easing.OutCubic } }
+    Behavior on opacity { enabled: picker.bar.animationsEnabled; NumberAnimation { duration: MotionModel.APPEAR_MS; easing.type: Easing.OutCubic } }
+    Behavior on scale { enabled: picker.bar.animationsEnabled; NumberAnimation { duration: MotionModel.APPEAR_SCALE_MS; easing.type: Easing.OutCubic } }
     MouseArea { anchors.fill: parent }
 
     ColumnLayout {
@@ -308,13 +309,13 @@ Item {
             event.accepted = true
           }
         }
-        Text {
+        GrayText {
           text: picker.source === "own" ? "" : picker.query.trim()
             ? picker.results.length + " found" : picker.offered.length.toLocaleString(Qt.locale("en_US"), "f", 0) + " icons"
           textFormat: Text.PlainText
           color: Qt.alpha(Commons.Color.popups.text, 0.55)
           font.family: Style.font.family
-          font.pixelSize: Style.font.caption
+          font.pixelSize: Ink.caption
         }
       }
 
@@ -345,7 +346,7 @@ Item {
           required property var modelData
           width: grid.width
           height: modelData.header ? Style.space(26) : picker.cellSize + Style.space(2)
-          Text {
+          GrayText {
             visible: !!rowItem.modelData.header
             anchors.bottom: parent.bottom
             anchors.bottomMargin: Style.space(4)
@@ -354,7 +355,7 @@ Item {
             textFormat: Text.PlainText
             color: Qt.darker(Commons.Color.popups.text, 1.4)
             font.family: Style.font.family
-            font.pixelSize: Style.font.caption
+            font.pixelSize: Ink.caption
             font.bold: true
             font.letterSpacing: 0.6
           }
@@ -376,7 +377,7 @@ Item {
                 borderSpec: isCursor ? Border.controlSpec("focus", Commons.Color.popups.text, Commons.Color.accent)
                   : picker.isCurrent(icon) ? Border.flat(Qt.alpha(Commons.Color.popups.text, 0.5), 1) : Border.none()
                 HoverHandler { id: cellHover; onHoveredChanged: if (hovered) picker.cursor = cell.modelData.at }
-                Text {
+                GrayText {
                   x: cell.pasted ? Style.space(10) : (parent.width - width) / 2
                   anchors.verticalCenter: parent.verticalCenter
                   text: cell.icon.glyph
@@ -385,7 +386,7 @@ Item {
                   font.family: cell.icon.font || (picker.bar ? picker.bar.fontFamily : Style.font.family)
                   font.pixelSize: Style.font.iconLarge
                 }
-                Text {
+                GrayText {
                   id: useLabel
                   visible: cell.pasted
                   x: Style.space(36)
@@ -405,7 +406,7 @@ Item {
             }
           }
         }
-        Text {
+        GrayText {
           anchors.centerIn: parent
           width: parent.width - Style.space(40)
           visible: picker.offered.length === 0
@@ -436,7 +437,7 @@ Item {
             anchors.centerIn: parent
             width: parent.width - Style.space(40)
             spacing: Style.space(4)
-            Text {
+            GrayText {
               textFormat: Text.PlainText
               Layout.alignment: Qt.AlignHCenter
               text: "󰉍"
@@ -444,17 +445,17 @@ Item {
               font.family: Style.font.family
               font.pixelSize: Style.font.iconLarge * 1.4
             }
-            Text {
+            GrayText {
               Layout.fillWidth: true
               text: "Drop an SVG or PNG here"
               textFormat: Text.PlainText
               color: Commons.Color.popups.text
               font.family: Style.font.family
-              font.pixelSize: Style.font.body
+              font.pixelSize: Ink.label
               font.bold: true
               horizontalAlignment: Text.AlignHCenter
             }
-            Text {
+            GrayText {
               Layout.fillWidth: true
               text: "or paste one with Ctrl+V, or type its path and press Enter. Up to 512 KB; Powerbar keeps its own copy."
               textFormat: Text.PlainText
@@ -464,7 +465,7 @@ Item {
               horizontalAlignment: Text.AlignHCenter
               wrapMode: Text.WordWrap
             }
-            Text {
+            GrayText {
               Layout.fillWidth: true
               visible: picker.ownError !== ""
               text: picker.ownError
@@ -487,12 +488,12 @@ Item {
           ColumnLayout {
             Layout.fillWidth: true
             spacing: Style.space(4)
-            Text {
+            GrayText {
               text: picker.own ? picker.own.name : ""
               textFormat: Text.PlainText
               color: Commons.Color.popups.text
               font.family: Style.font.family
-              font.pixelSize: Style.font.body
+              font.pixelSize: Ink.label
               font.bold: true
               elide: Text.ElideMiddle
               Layout.fillWidth: true
@@ -507,13 +508,13 @@ Item {
               Accessible.name: "Icon colour"
               onChanged: function(value) { picker.tint = value; field.forceActiveFocus() }
             }
-            Text {
+            GrayText {
               text: picker.tint === "text" ? "Drawn in the bar's text colour, like your other icons. A multicolour image shows as its outline."
                 : "Keeps its colours; they won't follow Light or Dark."
               textFormat: Text.PlainText
               color: Qt.alpha(Commons.Color.popups.text, 0.6)
               font.family: Style.font.family
-              font.pixelSize: Style.font.caption
+              font.pixelSize: Ink.caption
               wrapMode: Text.WordWrap
               Layout.fillWidth: true
             }
@@ -536,17 +537,17 @@ Item {
         ColumnLayout {
           Layout.fillWidth: true
           spacing: Style.space(1)
-          Text {
+          GrayText {
             text: picker.current ? picker.current.name : "Nothing under the cursor"
             textFormat: Text.PlainText
             color: Commons.Color.popups.text
             font.family: Style.font.family
-            font.pixelSize: Style.font.body
+            font.pixelSize: Ink.label
             font.bold: true
             elide: Text.ElideRight
             Layout.fillWidth: true
           }
-          Text {
+          GrayText {
             text: !picker.current ? "" : picker.current.source === -1 ? "Pasted, drawn in the bar's font"
               : picker.current.source === IconSearch.BAR ? "Drawn by a widget on your bar"
               : picker.current.logo ? "Omarchy's font" : picker.current.source === IconSearch.OMARCHY ? "Used by Omarchy"
@@ -554,18 +555,18 @@ Item {
             textFormat: Text.PlainText
             color: Qt.alpha(Commons.Color.popups.text, 0.55)
             font.family: Style.font.family
-            font.pixelSize: Style.font.caption
+            font.pixelSize: Ink.caption
             elide: Text.ElideRight
             Layout.fillWidth: true
           }
         }
         KeyCap { text: "enter" }
-        Text {
+        GrayText {
           textFormat: Text.PlainText
           text: "Choose"
           color: Qt.alpha(Commons.Color.popups.text, 0.6)
           font.family: Style.font.family
-          font.pixelSize: Style.font.caption
+          font.pixelSize: Ink.caption
         }
       }
     }

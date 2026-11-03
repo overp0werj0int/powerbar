@@ -13,18 +13,18 @@
 // agree on which screens have a notch and how tall it is.
 //
 // The file has no width or shape. notch-panels.json, next to this file, gives
-// each panel's camera housing in panel pixels from macOS readings (its sources
-// are in it): its width along the screen's top edge, the radius of its bottom
-// corners and that of its shoulders, the inside curves where the screen's top
-// edge turns down into it. Below the shoulders the housing is width - 2 x
-// shoulder wide. A panel it lacks takes the MacBook Pro's, and
-// powerbarNotchWidth (logical px) sets the width for a panel that differs.
-var DEFAULT_WIDTH = 370
-var DEFAULT_RADIUS = 16
-var DEFAULT_SHOULDER = 8
-// The same housing in logical px at the MacBook's scale 2: the gap two-zone
-// modes keep on a screen without a notch.
-var DEFAULT_LOGICAL_WIDTH = 185
+// each panel's camera housing in panel pixels, measured on Apple's bezel
+// artwork (its sources are in it): its width along the screen's top edge, the
+// radius of its bottom corners and that of its shoulders, the inside curves
+// where the screen's top edge turns down into it, and the radius of the
+// screen's own top corners. Below the shoulders the housing is width - 2 x
+// shoulder wide. A panel it lacks takes the 14-inch MacBook Pro's, and
+// powerbarNotchWidth and powerbarNotchHeight (logical px) set the size for a
+// panel that differs.
+var DEFAULT_WIDTH = 382
+var DEFAULT_RADIUS = 20
+var DEFAULT_SHOULDER = 6
+var DEFAULT_SCREEN_RADIUS = 40
 
 // The described panels; anything malformed is dropped.
 function parseCutouts(text) {
@@ -47,8 +47,9 @@ function parseCutouts(text) {
 }
 
 // notch-panels.json's housings: [{ width, height, notchWidth, radius,
-// shoulder }] (panel px); a row without a shape takes the default one, and
-// anything malformed is dropped.
+// shoulder, screenRadius }] (panel px); a row without a shape takes the
+// default one, one without screenRadius square corners, and anything
+// malformed is dropped.
 function parsePanels(text) {
   var parsed
   try {
@@ -64,21 +65,23 @@ function parsePanels(text) {
     if (!(width > 0) || !(height > 0) || !(notch > 0) || notch >= width) continue
     var radius = p.radius === undefined ? DEFAULT_RADIUS : Number(p.radius)
     var shoulder = p.shoulder === undefined ? DEFAULT_SHOULDER : Number(p.shoulder)
+    var screenRadius = p.screenRadius === undefined ? 0 : Number(p.screenRadius)
     if (!(radius >= 0) || !(shoulder >= 0) || (radius + shoulder) * 2 >= notch) continue
-    out.push({ width: width, height: height, notchWidth: notch, radius: radius, shoulder: shoulder })
+    if (!(screenRadius >= 0) || screenRadius * 2 >= height) continue
+    out.push({ width: width, height: height, notchWidth: notch, radius: radius, shoulder: shoulder, screenRadius: screenRadius })
   }
   return out
 }
 
-// A panel's camera housing in panel pixels, { notchWidth, radius, shoulder }:
-// its notch-panels.json row, matched by mode as panelOf matches, else the
-// default.
+// A panel's camera housing in panel pixels, { notchWidth, radius, shoulder,
+// screenRadius }: its notch-panels.json row, matched by mode as panelOf
+// matches, else the default.
 function housingOf(panels, panel) {
   var list = Array.isArray(panels) ? panels : []
   for (var i = 0; i < list.length; i++) {
     if (Math.abs(list[i].width - panel.width) <= 4 && Math.abs(list[i].height - panel.height) <= 4) return list[i]
   }
-  return { notchWidth: DEFAULT_WIDTH, radius: DEFAULT_RADIUS, shoulder: DEFAULT_SHOULDER }
+  return { notchWidth: DEFAULT_WIDTH, radius: DEFAULT_RADIUS, shoulder: DEFAULT_SHOULDER, screenRadius: DEFAULT_SCREEN_RADIUS }
 }
 
 // The described panel this screen is, or null. `mode` is the output's
@@ -112,27 +115,33 @@ function panelOf(cutouts, screenName, logicalWidth, logicalHeight, devicePixelRa
 }
 
 // The notch a top bar on this screen meets, in logical px: { housing, width,
-// height, radius, shoulder }, or null (no notch, or a bar on another edge).
+// height, radius, shoulder, screenRadius }, or null (no notch, or a bar on
+// another edge).
 // width: a positive powerbarNotchWidth, else the panel's housing (`panels`,
-// from parsePanels); height: a positive calibrated height (Omarchy's [bar]
-// notch-height), else the described rows; radius and shoulder: the housing's
-// corners, kept within its height.
-function notchOf(cutouts, position, screenName, logicalWidth, logicalHeight, devicePixelRatio, mode, width, calibratedHeight, panels) {
+// from parsePanels); height: a positive powerbarNotchHeight, else a positive
+// calibrated height (Omarchy's [bar] notch-height), else the described rows;
+// radius and shoulder: the housing's corners, kept within its height;
+// screenRadius: the screen's top corners.
+function notchOf(cutouts, position, screenName, logicalWidth, logicalHeight, devicePixelRatio, mode, width, calibratedHeight, panels, setHeight) {
   if (position !== "top") return null
   var found = panelOf(cutouts, screenName, logicalWidth, logicalHeight, devicePixelRatio, mode)
   if (!found) return null
   var ratio = Number(logicalWidth) / found.physicalWidth
   var shape = housingOf(panels, found.panel)
   var housing = Math.ceil(shape.notchWidth * ratio)
-  var height = Number(calibratedHeight) > 0 ? Math.round(Number(calibratedHeight)) : Math.ceil(found.panel.top * ratio)
+  var detected = Number(calibratedHeight) > 0 ? Math.round(Number(calibratedHeight)) : Math.ceil(found.panel.top * ratio)
+  var height = Number(setHeight) > 0 ? Math.round(Number(setHeight)) : detected
   var shoulder = Math.min(shape.shoulder * ratio, height / 2)
   return {
     // housing: the default width, what an unset width falls back to.
     housing: housing,
     width: Number(width) > 0 ? Math.round(Number(width)) : housing,
+    // detectedHeight: the default height, what an unset height falls back to.
+    detectedHeight: detected,
     height: height,
     radius: Math.min(shape.radius * ratio, height - shoulder),
-    shoulder: shoulder
+    shoulder: shoulder,
+    screenRadius: shape.screenRadius * ratio
   }
 }
 
@@ -144,6 +153,96 @@ function cornersOf(notch, width) {
   var fit = Math.max(0, Number(width) / 2)
   var k = r + s > fit ? fit / (r + s) : 1
   return { radius: r * k, shoulder: s * k }
+}
+
+// A floating bar or the islands beside a notch, on the notched screen
+// (docs/behavior/appearance.md LOOK-147, LOOK-148), in logical px.
+//
+// The thickness a floating bar needs there: its own, or the camera's depth
+// plus one gap when that is more, so a band one gap thick runs under the
+// cutout.
+function wrapThickness(notch, barSize, gap) {
+  return notch ? Math.max(barSize, notch.height + gap) : barSize
+}
+// A floating bar's thickness on a screen, whatever style the bar has now:
+// round the notch it wraps on a horizontal bar, else its own size (or the
+// notch's depth when that is more, as Omarchy's barSizes reports it).
+function floatingThickness(notch, barSize, gap, vertical) {
+  return notch && !vertical ? wrapThickness(notch, barSize, gap) : Math.max(barSize, notch ? notch.height : 0)
+}
+// The outer corners of a surface held `gap` off the screen's rounded top
+// corners: the top ones concentric with the screen's (its radius less the
+// gap, or the rounding when that is more, as for a screen whose corners are
+// unknown), within the height the bottom ones leave; the bottom ones the
+// rounding. null without a notch.
+function outerCorners(notch, gap, rounding, height) {
+  if (!notch) return null
+  var bottom = Math.max(0, Number(rounding) || 0)
+  var top = Math.max(bottom, (Number(notch.screenRadius) || 0) - gap)
+  return { top: Math.max(0, Math.min(top, height - bottom)), bottom: bottom }
+}
+// The cutout a floating bar makes round the camera, in the bar's own
+// coordinates (it sits at barX, barY in a window `windowWidth` wide with the
+// camera centred): its sides `gap` off the housing below the shoulders, its
+// floor `gap` below the camera with the camera's bottom corners grown by the
+// gap (concentric), and where the bar's top edge turns down into it a fillet
+// of the camera's top radius, its shoulder. null without a notch.
+function wrapCut(notch, windowWidth, barX, barY, gap) {
+  if (!notch) return null
+  var c = cornersOf(notch, notch.width)
+  var left = (windowWidth - notch.width) / 2
+  return {
+    start: left + c.shoulder - gap - barX,
+    end: left + notch.width - c.shoulder + gap - barX,
+    depth: notch.height + gap - barY,
+    radius: c.radius + gap,
+    fillet: Math.max(0, Math.min(c.shoulder, (notch.height + gap - barY) / 2))
+  }
+}
+// The outline of a surface o.width x o.height at o.x, o.y (default 0) as an
+// SVG path, clockwise: corners o.tl, o.tr, o.br, o.bl and, when o.cut is
+// given (wrapCut), a dip round the camera from its top edge. o.inset draws the
+// same outline that much inside (a border's inner edge): the box shrinks, its
+// corners and the fillets tighten, the cut widens and deepens.
+function wrapOutline(o) {
+  var d = Math.max(0, Number(o.inset) || 0), ox = Number(o.x) || 0, oy = Number(o.y) || 0
+  var w = o.width, h = o.height
+  var r = function(v) { return Math.max(0, (Number(v) || 0) - d) }
+  var room = Math.max(0, (h - 2 * d) / 2)
+  var tl = Math.min(r(o.tl), room), tr = Math.min(r(o.tr), room)
+  var bl = Math.min(r(o.bl), room), br = Math.min(r(o.br), room)
+  var n = function(v) { return String(Math.round(v * 1000) / 1000) }
+  var parts = []
+  var move = function(x, y) { parts.push("M " + n(x + ox) + " " + n(y + oy)) }
+  var line = function(x, y) { parts.push("L " + n(x + ox) + " " + n(y + oy)) }
+  var arc = function(rad, x, y, convex) {
+    if (rad <= 0) return line(x, y)
+    parts.push("A " + n(rad) + " " + n(rad) + " 0 0 " + (convex ? 1 : 0) + " " + n(x + ox) + " " + n(y + oy))
+  }
+  move(d, d + tl)
+  arc(tl, d + tl, d, true)
+  var cut = o.cut
+  if (cut) {
+    var cs = cut.start - d, ce = cut.end + d, depth = cut.depth + d
+    var f = Math.max(0, Math.min(cut.fillet - d, (depth - d) / 2))
+    var rc = Math.max(0, Math.min(cut.radius + d, (ce - cs) / 2, depth - d - f))
+    line(cs - f, d)
+    arc(f, cs, d + f, true)
+    line(cs, depth - rc)
+    arc(rc, cs + rc, depth, false)
+    line(ce - rc, depth)
+    arc(rc, ce, depth - rc, false)
+    line(ce, d + f)
+    arc(f, ce + f, d, true)
+  }
+  line(w - d - tr, d)
+  arc(tr, w - d, d + tr, true)
+  line(w - d, h - d - br)
+  arc(br, w - d - br, h - d, true)
+  line(d + bl, h - d)
+  arc(bl, d, h - d - bl, true)
+  parts.push("Z")
+  return parts.join(" ")
 }
 
 // The corners the notch mode's zones take from the camera, in logical px

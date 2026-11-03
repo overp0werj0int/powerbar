@@ -1,9 +1,8 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const vm = require('node:vm');
-const fs = require('node:fs');
-const m = vm.createContext({});
-vm.runInContext(fs.readFileSync(`${__dirname}/../ManagedModel.js`, 'utf8'), m);
+const load = require('./load.cjs');
+const m = load('ManagedModel.js');
+const J = v => JSON.parse(JSON.stringify(v));
 test('explicit modes win; every discovered widget defaults to shown, old configs keep provenance; discovery defers', () => {
   assert.equal(m.mode({}, null), 'pending');
   assert.equal(m.mode({}, { firstParty: true }), 'shown');
@@ -15,12 +14,14 @@ test('explicit modes win; every discovered widget defaults to shown, old configs
   assert.equal(m.mode({ powerbarVisibility: 'shown' }, { firstParty: false }), 'shown');
 });
 test('timing defaults, invalid values, and bounds', () => {
-  assert.equal(m.seconds(undefined, 10, 60), 10);
-  assert.equal(m.seconds(null, 5, 15), 5);
-  assert.equal(m.seconds('invalid', 5, 15), 5);
-  assert.equal(m.seconds(Infinity, 10, 60), 10);
-  assert.equal(m.seconds(-10, 10, 60), 1);
-  assert.equal(m.seconds(1000, 10, 60), 60);
+  assert.equal(m.seconds(undefined, m.revealSeconds), 2.5);
+  assert.equal(m.seconds(null, m.graceSeconds), 1);
+  assert.equal(m.seconds('invalid', m.graceSeconds), 1);
+  assert.equal(m.seconds(Infinity, m.revealSeconds), 2.5);
+  assert.equal(m.seconds(-10, m.revealSeconds), 1);
+  assert.equal(m.seconds('5', m.graceSeconds), 5);
+  assert.equal(m.seconds(1000, m.revealSeconds), 60);
+  assert.equal(m.seconds(1000, m.graceSeconds), 15);
 });
 test('activity extends from the most recent event, never queues intervals', () => {
   let until = m.deadline(0, 10);
@@ -36,6 +37,20 @@ test('hover and interaction suspend dismissal; entry and exit remain distinct', 
   assert.equal(m.dismissDelay(false, false, true, true, 5, 7), 0);
   assert.equal(m.dismissDelay(false, false, false, false, 5, 7), 5000);
   assert.equal(m.dismissDelay(false, false, false, true, 5, 7), 7000);
+  // Hovering the rest of the bar keeps no hover drawer.
+  assert.equal(m.dismissDelay(false, false, false, false, 5, 7, false, true), 5000);
+});
+test('a drawer pinned by a click stays while the pointer is on the bar and goes after the exit grace once it has left', () => {
+  // The pointer anywhere on the bar, the source or the drawer: no timer.
+  assert.equal(m.dismissDelay(false, false, false, false, 5, 7, true, true), 0);
+  assert.equal(m.dismissDelay(true, false, false, false, 5, 7, true, false), 0);
+  assert.equal(m.dismissDelay(false, true, false, true, 5, 7, true, false), 0);
+  // Left the bar and the drawer: the exit grace, whether it was entered or not.
+  assert.equal(m.dismissDelay(false, false, false, false, 5, 7, true, false), 7000);
+  assert.equal(m.dismissDelay(false, false, false, true, 5, 7, true, false), 7000);
+  // Held (driven by keys, a panel open, a drag): no timer.
+  assert.equal(m.dismissDelay(false, false, true, true, 5, 7, true, false), 0);
+  assert.equal(m.dismissDelay(false, false, true, true, 5, 7, false, false), 0);
 });
 test('only public presentation values enter the activity snapshot', () => {
   const widget = { text: '4', icon: 'bell', value: 4, width: 20, visible: false, opacity: 0 };
@@ -125,10 +140,42 @@ test('a hover-opened drawer gives way when the pointer lands on another stop alo
   // A zone's drawer: its own zone is its source.
   assert.equal(m.closesForStop(true, false, false, '', 'right', { groupId: '', region: 'right' }), false);
   assert.equal(m.closesForStop(true, false, false, '', 'right', { groupId: '', region: 'left' }), true);
+  // A zone's menu: its dots are its source, so any stop closes it.
+  assert.equal(m.closesForStop(true, false, false, '', 'right', { groupId: '', region: 'right' }, true), true);
+  assert.equal(m.closesForStop(true, true, false, '', 'right', { groupId: '', region: 'right' }, true), false);
   // Pinned or keyboard drawers, a panel open or a drag: they stay.
   assert.equal(m.closesForStop(true, true, false, 'g1', 'right', { groupId: '', region: 'right' }), false);
   assert.equal(m.closesForStop(true, false, true, 'g1', 'right', { groupId: '', region: 'right' }), false);
   assert.equal(m.closesForStop(false, false, false, 'g1', 'right', { groupId: '', region: 'right' }), false);
+});
+
+test('a menu row shows a glyph, or a picture that fits the icon cell, in its icon cell', () => {
+  assert.equal(m.menuIcon(true, false, 12, 30), true, 'a glyph');
+  // Reprieve's mark: an 18 px image, past a glyph's 16 px.
+  assert.equal(m.menuIcon(false, true, 18, 30), true, 'a picture that fits');
+  assert.equal(m.menuIcon(false, true, 48, 30), false, 'a row of pictures is a value');
+  assert.equal(m.menuIcon(false, false, 18, 30), false, 'text is a value');
+  assert.equal(m.menuIcon(false, true, 0, 30), false, 'nothing painted');
+});
+
+test("a kit button's text that leads with an icon splits into the icon and the rest", () => {
+  assert.deepEqual(J(m.iconLead('\u{f0238} 14')), { icon: '\u{f0238}', rest: '14' }, "Crash Desk's count");
+  assert.deepEqual(J(m.iconLead('\ue0b0  3 new ')), { icon: '\ue0b0', rest: '3 new' });
+  assert.equal(m.iconLead('\u{f0238}'), null, 'a bare icon');
+  assert.equal(m.iconLead('\u{f0238}14'), null, 'no space after the icon');
+  assert.equal(m.iconLead('100% \u{f0079}'), null, 'a value that ends in an icon');
+  assert.equal(m.iconLead('\u{f0238} 1\n2'), null, 'several lines');
+  assert.equal(m.iconLead(''), null);
+  assert.equal(m.countText(['3']), '3', "omabox's box count");
+  assert.equal(m.countText([' 12 ', 'omabox']), '12', 'the one number among texts');
+  assert.equal(m.countText(['99+']), '99+');
+  assert.equal(m.countText(['1234']), '', 'too long for a count');
+  assert.equal(m.countText(['3', '4']), '', 'two counts: neither');
+  assert.equal(m.countText(['3 new', '']), '', 'not a bare number');
+  assert.equal(m.countText([]), '');
+  assert.equal(m.countText(undefined), '');
+  assert.equal(m.countIconShift(48 / 2 + 8 + 4, 4, 16, 48), 0, 'icon centred alone, count after it');
+  assert.equal(m.countIconShift(48 / 2 + 8 - 6 + 4, 4, 16, 48), -6, 'icon and count centred together');
 });
 
 test('a menu row: text widgets show a value at its end; the widest row sets the width', () => {
@@ -141,4 +188,21 @@ test('a menu row: text widgets show a value at its end; the widest row sets the 
   assert.equal(m.menuRowWidth([{ labelStart: 30, title: 60, value: 0 }, { labelStart: 4, title: 40, value: 20 }], tokens), 108);
   assert.equal(m.menuRowWidth([{ labelStart: 30, title: 300, value: 0 }], tokens), 320 - 12, 'at most 320 with the insets');
   assert.equal(m.menuRowWidth([], tokens), 120 - 12, 'an empty menu is four cells wide');
+});
+
+test('a submenu opens beside its row, on the side with room', () => {
+  const base = { menu: { x: 100, y: 40, width: 200, height: 300 }, row: { y: 120, height: 30 }, width: 180, height: 90,
+    screen: { width: 1500, height: 400 }, edge: 6, inset: 4 };
+  // Below a top bar: after the menu, its first row level with the group's.
+  assert.deepEqual(JSON.parse(JSON.stringify(m.placeSubmenu({ ...base, position: 'top' }))), { x: 304, y: 116, before: false });
+  // No room after it (a right zone's menu): before it.
+  const right = { ...base, menu: { x: 1300, y: 40, width: 194, height: 300 }, position: 'top' };
+  assert.deepEqual(JSON.parse(JSON.stringify(m.placeSubmenu(right))), { x: 1116, y: 116, before: true });
+  // Above a bottom bar: its last row level with the group's.
+  assert.equal(m.placeSubmenu({ ...base, position: 'bottom' }).y, 64);
+  // Beside a side bar: away from the bar, whatever the room.
+  assert.equal(m.placeSubmenu({ ...base, position: 'left' }).x, 304);
+  assert.equal(m.placeSubmenu({ ...base, menu: { x: 400, y: 40, width: 200, height: 300 }, position: 'right' }).x, 216);
+  // Kept on screen: a row near the bottom pulls it up.
+  assert.equal(m.placeSubmenu({ ...base, row: { y: 350, height: 30 }, position: 'top' }).y, 304);
 });

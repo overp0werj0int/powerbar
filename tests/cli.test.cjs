@@ -1,12 +1,10 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const vm = require('node:vm');
 const fs = require('node:fs');
+const load = require('./load.cjs');
 const J = v => JSON.parse(JSON.stringify(v));
-const m = vm.createContext({});
-vm.runInContext(fs.readFileSync(`${__dirname}/../CliModel.js`, 'utf8'), m);
-const a = vm.createContext({});
-vm.runInContext(fs.readFileSync(`${__dirname}/../AppearanceModel.js`, 'utf8'), a);
+const m = load('CliModel.js');
+const a = load('AppearanceModel.js');
 
 test('settings are found by name or by their shell.json key; shortcuts by target', () => {
   assert.equal(m.find('autoHide').key, 'powerbarAutoHide');
@@ -36,7 +34,8 @@ test('values are checked as Preferences offers them', () => {
   assert.deepEqual(J(m.check(m.find('autoHide'), 'off')), { value: false });
   assert.ok(m.check(m.find('autoHide'), 'yes').error);
   assert.deepEqual(J(m.check(m.find('onDemand'), 'inline')), { value: 'inline' });
-  assert.match(m.check(m.find('onDemand'), 'menu').error, /drawer, inline/);
+  assert.deepEqual(J(m.check(m.find('onDemand'), 'menu')), { value: 'menu' });
+  assert.match(m.check(m.find('onDemand'), 'list').error, /drawer, shelf, inline, menu/);
   assert.deepEqual(J(m.check(m.find('spacing'), 4)), { value: 4 });
   assert.match(m.check(m.find('spacing'), 17).error, /from 0 to 16/);
   assert.match(m.check(m.find('spacing'), 2.5).error, /steps of 1/);
@@ -44,13 +43,25 @@ test('values are checked as Preferences offers them', () => {
   assert.match(m.check(m.find('shape.borderWidth'), 1.2).error, /steps of 0.5/);
   assert.match(m.check(m.find('surface.opacity'), 42).error, /steps of 5/);
   assert.deepEqual(J(m.check(m.find('surface.opacity'), 45)), { value: 45 });
+  assert.deepEqual(J(m.check(m.find('surface.overWindows'), 65)), { value: 65 });
+  assert.match(m.check(m.find('surface.overWindows'), 62).error, /steps of 5/);
+  assert.match(m.check(m.find('surface.overWindows'), 105).error, /from 0 to 100/);
+  assert.equal(m.find('surface.overWindows').writer, 'look');
   assert.deepEqual(J(m.check(m.find('shape.rounding'), 13, ctx)), { value: 13 });
   assert.match(m.check(m.find('shape.rounding'), 14, ctx).error, /from 0 to 13/);
   assert.deepEqual(J(m.check(m.find('revealSeconds'), 2.5)), { value: 2.5 });
   assert.match(m.check(m.find('revealSeconds'), 0).error, /from 1 to 60/);
   assert.match(m.check(m.find('spacing'), '4').error, /is a number/);
-  assert.deepEqual(J(m.check(m.find('centerAnchor'), '')), { value: '' });
-  assert.ok(m.check(m.find('centerAnchor'), 3).error);
+});
+
+test('retired settings say what took their place', () => {
+  for (const name of ['zones', 'powerbarZones', 'centerAnchor']) {
+    assert.equal(m.find(name), null, name);
+    assert.ok(m.retiredNote(name), name);
+  }
+  assert.match(m.retiredNote('zones'), /always five; see set style notch/);
+  assert.equal(m.retiredNote('spacing'), '');
+  assert.ok(m.find('style').choices.includes('notch'));
 });
 
 test('shortcut values: keys, none, or a confirmed replacement', () => {
@@ -93,7 +104,9 @@ test('a widget change is checked whole', () => {
   const ctx = { groups: ['g-1'] };
   assert.deepEqual(J(m.widgetPatch({ visibility: 'managed' }, ctx)), { patch: { visibility: 'managed' } });
   assert.match(m.widgetPatch({ visibility: 'gone' }, ctx).error, /shown, managed, hidden/);
-  assert.match(m.widgetPatch({ zone: 'top' }, ctx).error, /left, center, right/);
+  assert.match(m.widgetPatch({ zone: 'top' }, ctx).error, /left, centerBegin, center, centerEnd, right/);
+  assert.deepEqual(J(m.widgetPatch({ zone: 'centerEnd' }, ctx)), { patch: { zone: 'centerEnd' } });
+  assert.match(m.widgetPatch({ centered: true }, ctx).error, /unknown field centered/);
   assert.match(m.widgetPatch({ colour: 'red' }, ctx).error, /unknown field colour/);
   assert.match(m.widgetPatch({ group: 'g-2' }, ctx).error, /group/);
   assert.deepEqual(J(m.widgetPatch({ group: '' }, ctx)), { patch: { group: '' } });
@@ -190,4 +203,23 @@ test('a group change refuses values it would not keep whole', () => {
   assert.equal(m.groupPatch({ iconImage: '/home/u/a.svg' }).patch.iconImage, '/home/u/a.svg');
   for (const bad of ['http://example.com/a.svg', '/home/u/a.txt', '/home/u/../../etc/a.png', '/a\nb.svg', 'file:///a.svg'])
     assert.match(m.groupPatch({ iconImage: bad }).error, /absolute path/, bad);
+});
+
+// `get NAME` answers from BarCli.valueOf, which names each setting in a
+// switch: one left out reads back null though `set` takes it.
+test('every setting has a reading in BarCli.valueOf', () => {
+  const src = fs.readFileSync(`${__dirname}/../BarCli.qml`, 'utf8');
+  const body = src.slice(src.indexOf('function valueOf('), src.indexOf('function values('));
+  const read = new Set([...body.matchAll(/case "([^"]+)":/g)].map(x => x[1]));
+  assert.deepEqual(J(m.settings.map(s => s.name).filter(n => !read.has(n))), []);
+});
+
+// newGroup and setGroup keep one rule: a long name is refused, not cut.
+test('a group name is trimmed, defaults to New group, and is refused past 80 characters', () => {
+  assert.equal(m.groupName('  Media ').name, 'Media');
+  assert.equal(m.groupName('').name, 'New group');
+  assert.equal(m.groupName(undefined).name, 'New group');
+  assert.equal(m.groupName('x'.repeat(80)).name.length, 80);
+  assert.equal(m.groupName('x'.repeat(81)).error, 'label is at most 80 characters');
+  assert.equal(m.groupPatch({ label: 'x'.repeat(81) }).error, 'label is at most 80 characters');
 });

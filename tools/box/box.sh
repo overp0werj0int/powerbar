@@ -31,8 +31,10 @@ copy() {
   rsync -a --delete --exclude .git --exclude .claude --exclude docs --exclude tests "$SRC/" "$dst/"
 }
 
+# restart-shell waits (30 s by default) for Omarchy's own bar, which Powerbar
+# replaces and so never draws; ready() waits for Powerbar instead.
 ready() {
-  omabox wait -b "$N" --timeout 60s cmd -- omarchy-shell powerbar help >/dev/null 2>&1 || { echo "box.sh: Powerbar did not answer in $N" >&2; return 1; }
+  omabox wait -b "$N" --timeout 60s until -- omarchy-shell powerbar help >/dev/null 2>&1 || { echo "box.sh: Powerbar did not answer in $N" >&2; return 1; }
   omabox wait -b "$N" still >/dev/null 2>&1
   return 0
 }
@@ -52,12 +54,12 @@ bar['powerbarAutoHide'] = False
 cfg['bar'] = bar
 tmp = p + '.tmp'; json.dump(cfg, open(tmp, 'w'), indent=1); os.replace(tmp, p)
 PY
-    omabox restart-shell -b "$N" >/dev/null 2>&1
+    OMABOX_READY_TIMEOUT=2s omabox restart-shell -b "$N" >/dev/null 2>&1
     ready && echo "box.sh: $N up"
     ;;
   sync)
     copy
-    omabox restart-shell -b "$N" >/dev/null 2>&1
+    OMABOX_READY_TIMEOUT=2s omabox restart-shell -b "$N" >/dev/null 2>&1
     ready
     ;;
   conf)

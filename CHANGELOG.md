@@ -1,5 +1,332 @@
 # Changelog
 
+## 0.10.0 — 2026-11-04
+
+Five zones, new ways to keep widgets out of the way, and a Preferences window
+rebuilt as an exploded view of your bar. Omarchy r7569 and later need this
+version.
+
+### Before you update
+
+- **Omarchy r7569 and later need 0.10.** Those builds remove
+  `ScreenMoveRemap`, and 0.9.6's bar fails to load on them. Powerbar now keeps
+  its own remap.
+- **Zone modes are gone.** Three zones, Two zones, "Pinned to screen center"
+  and "Keep at screen center" make way for the five zones. Your layout is read
+  into them once, and the arrangements each mode kept are copied to
+  `~/.cache/powerbar/zone-layouts-<date>.json` first. `set zones` and
+  `set centerAnchor` say what replaced them.
+
+### Out of the way
+
+- **On a shelf.** A fourth On demand display: the drawer grows out of the bar
+  as one surface with it, in the bar's colours, with curved corners and one
+  border round both (`omarchy-shell powerbar set onDemand shelf`).
+- **In a menu.** Each zone's dots open a menu of its On demand widgets with
+  their icons and names, walked with the pointer or the keys. An On demand
+  group is a row that opens a submenu.
+- **Tray icons on the bar.** Preferences > Layout has an In the tray plate.
+  Drag an icon onto the bar, On demand, Hidden or into a group and it works as
+  a widget, with the tray's click, right-click menu and scroll. Drag it back
+  and the tray shows it again.
+- **Readable over windows.** Drawers, menus, the key legend, search and
+  tooltips keep a minimum opacity on a clear bar (Look > Surface > Over
+  windows, 65 % by default).
+- **Activity peeks while the bar is off.** With the bar switched off, a widget
+  that changes still comes out alone on its badge.
+
+### The bar
+
+- **Five zones.** The bar's zones are now Omarchy's sections: Left, Left of
+  center, Center, Right of center and Right. Widgets Omarchy puts in its new
+  sections show on Powerbar, and the stock bar reads Powerbar's layout the
+  same way.
+- **Notch is a style.** Black ears on the notched screen's top edge, islands
+  elsewhere, and the bar can move to another edge. Drawers and menus hang from
+  the ears as one surface, and a zone's menu sits flush with its ear's end.
+- **Every style fits the camera.** A floating bar dips round it and follows
+  the screen's rounded corners, a flat bar ends level with it, and Center can
+  sit on either side of it. Highlights in a rounded corner round with it. The
+  notch's height can be set too, and every panel's camera is now measured on
+  Apple's artwork.
+- **Panels morph.** Moving from one widget's panel to another's in the same
+  zone morphs the card into place, as under Omarchy's bar.
+- **Quieter dots.** A zone's waiting widgets are marked by one small empty
+  circle instead of three dots.
+
+### Preferences
+
+- **The Layout page is an exploded view of your bar.** On the bar, On demand,
+  Hidden and In the tray are plates tilted back under the camera, split into
+  the five zones. Enter or a click pulls a widget forward on a dashed line to
+  its inspector.
+- **The Groups page uses the same plates.** Each zone lists its groups with
+  their widgets right under them. A group pulls forward to an inspector where
+  its icon and name are the controls.
+- **Look and Behavior replace the Bar page.** Two desks of strips, with
+  numbers on flat faders. The real bar shows every change, so there is no
+  preview to read.
+- **One scale throughout.** Type, gaps and corners follow a single golden scale
+  taken from your theme. A switch lays the pages flat if you prefer them that
+  way (Behavior > Pages in perspective).
+
+### Keyboard and motion
+
+- **Icon by icon.** The cursor reveals the indicators, and the keys walk their
+  icons and Workspaces' one at a time. Enter presses the one under the cursor.
+- **Esc cancels a drag** on the bar in the keyboard mode, and on the Layout and
+  Groups pages.
+- **Powerbar follows Hyprland.** With its animations off, Powerbar stands still
+  too, and the key legend fades at your layer-fade speed and curve.
+
+### Fixes
+
+- A double click on the bar no longer opens Omarchy's wallpaper selector.
+- Turning blur on or off with a card showing no longer ends the shell.
+- Widget panels open at the bar's edge on current Omarchy builds, not over the
+  bar.
+- Hover cards no longer stick after a quick pass, or close by themselves with
+  the pointer at rest.
+- A clicked drawer or menu closes on its own 1 s after the pointer leaves, and
+  a click on a window closes it and reaches the window.
+- A panel opened from a group menu or a drawer takes the mouse again.
+- Dragging out of menus and drawers keeps the icon under the pointer and the
+  drop place right, on empty workspaces too.
+- A shortcut changed while an earlier change was still being written now
+  reaches Hyprland.
+
+<details>
+<summary>Every change in this release</summary>
+
+- A shelf and its bar surface now share one border: the bar's line across the join is gone, and the shelf's border runs on from the bar's, on every join and screen edge. On a translucent bar the line still shows through. A flat bar's shelf has no border, as the bar has none.
+- The Layout and Groups pages show the Clock's clock icon again, not the first letters of the day ("Tu"). Any wide widget that draws only words gets its stock icon.
+- The key legend on the Look, Behavior and Tuning pages is down to two lines: the focused control's own keys, then the page's until there are two. The other lines are gone; their keys still work.
+- No more warnings: the binding loop at startup on a machine with no camera file, and the error when a drawer opened after On demand went from menu to drawer.
+- The README's hero and screenshots show the current look: a floating bar with its menu open in front of the Preferences Layout page, and a new gallery.
+- On the notch and in shelves, the bar's corners go square only where the drawer really joins them. Every open shelf or notch drawer squared both, so an ear's outer corner went sharp with a menu nowhere near it (DEMAND-122).
+- On the notch, a drawer that runs past its ear under the camera now curves into the band on that side too, instead of showing a round corner with a sharp sliver of wallpaper above it: the ear's black runs on through the camera and the other ear (ZONE-88).
+- A shelf that would stop just short of its surface's end, flush at the other, now runs on to it, and one that would stop just past it runs on until both curves have their full radius. Before, the join was a small nub (DEMAND-121).
+- A widget's card no longer stays on the bar after the pointer has left. Crossing a widget quickly (to another zone and back, or off the screen) could leave its card showing until another card came and went. A card now draws only once it is really up (LOOK-154).
+- On the notch, a zone's menu now hangs flush with the end of its ear nearest the dots, and it and the ear are drawn as one surface. The ear's corner goes square where the menu is flush with it or runs past it, and where the ear runs on, the menu curves into it with the ear's own radius. Before, the menu hung from under the dots with small fixed shoulders whatever the ear did: a step where it ran past the ear's rounded end, and a nub where it almost lined up with it (ZONE-88).
+- On demand has a fourth display, On a shelf (`powerbarOnDemand: "shelf"`). It works as In a drawer does, but the drawer is no longer a separate island floating under the bar. It comes out of the bar as one surface with it, in the bar's colours, with reverse-rounded corners where it joins and the bar's corner squared where it runs flush or past the bar's end, and it slides out of the bar as the notch's drawers do. It is a separate option so its look can be tuned on its own (DEMAND-120 to DEMAND-125).
+- Bar: on a screen with rounded corners, the highlight, the keyboard cursor and the drop outline of a widget in the bar's rounded corner now round with that corner, keeping an even gap to its curve, instead of poking a square corner into it (LOOK-150).
+- Preferences: dashed outlines (the tray, "Not in a group", the "+" rows, a hidden group's face) have clean, matching corners. Each corner is one solid piece and each side gets whole dashes spaced evenly, so no corner starts mid-dash. The branch lines under a group are smooth on the tilted plate: one line per group, antialiased, instead of short pieces that stepped.
+- Preferences: a dimmed fader's knob no longer shows the track and its marks through it.
+- Preferences: switching pages pushes a pulled-out inspector back, on the Layout and Groups pages, so coming back to the page the arrows walk the board again instead of the inspector's controls.
+- Groups page: Tab and Shift+Tab go from plate to plate (the groups, then "Not in a group"), the cursor and a lifted widget with them, as they go from layer to layer on the Layout page; the legend says "tab shift+tab Next layer, or back" on both plates (PREFS-117).
+- Groups page: the branch lines under a group start at the face's bottom edge and each tick ends on its widget's edge, with no gap before the widget and no overlap into the face.
+- Groups page: Shift+Down on a widget past its zone's last group takes it out to "Not in a group", the way Shift+Up from there puts one in the chosen group. Before, the step stopped at the "+" and nothing happened (PREFS-117).
+- Preferences: the key legends are shorter. Lines for plain cursor movement (h/l, j/k) are gone, since moving the cursor is obvious; the arrows get a line only where they do more, drawn in one keycap (←↑→↓) as the bar's keyboard mode draws them. A lifted widget reads "←↑→↓ Move it" and Shift's move one "shift+←↑→↓ Move it", whatever the layer or zone, instead of two lines; Tab lines show Tab and Shift+Tab. The keys themselves are unchanged: h/j/k/l and the arrows still work everywhere, and Shift+Tab walks back. With fewer lines, the legend's band on the Layout and Groups pages is shorter, so the plates get more room (PREFS-103).
+- Groups page: the inspector now comes out only when you pull a group forward, as a widget is on the Layout page: Enter on a face or one of its widgets (focus goes in and stays until Esc), a click on either, a new group, or Edit group on the Layout page, which now sits at the foot of the group's first strip there. Esc pushes it back (PREFS-116, PREFS-117).
+- The inspectors' Dissolve and Edit group outlines are only as wide as their label.
+- Preferences: both inspectors (a widget's on the Layout page, a group's on the Groups page) are now small desks of three strips, walked with the same keys as the Look and Behavior pages: j/k down a strip and on, h/l to the same row of the next strip, Tab to the next strip. Every layer and every zone square is its own stop, so the cursor lands on the zone you will choose. Enter on a widget starts on its shortcut when it can have one; Tab into a group's starts on Show, or on its name while it is still "New group". The card keeps one height as the cursor moves (PREFS-26, PREFS-101, PREFS-116).
+- Groups page: the group's face in the inspector is now the control. Its icon and its name, drawn in the bar's colour and font, are two stops; Enter on the icon opens the icon picker, Enter on the name edits it in place. The separate Name field and Change icon button are gone (PREFS-40, PREFS-44).
+- Groups page: the chosen group is now pulled out of its plate like a widget on the Layout page: a tilted copy of its face over the inspector and a dashed leader back to its place (PREFS-116). Dissolve stands on its own under the inspector's strips, at the right, and after a dissolve the cursor goes back to the faces instead of resting on the next group's Dissolve. Count from and Urgent from are rows in the inspector, enabled while the cursor is on one of the group's widgets (PREFS-83).
+- A widget's shortcut in the inspector now puts its keycaps on a line under its label, so a long combination no longer runs past its column.
+- On the notch, a widget held on the dots left of the camera now opens their menu under those dots; before, the menu opened under the dots right of the camera (DRAG-16).
+- Works with Omarchy r7569 and later, which removes `ScreenMoveRemap`. Powerbar v0.9.6 used it, and its bar fails to load on those builds. Powerbar now keeps its own remap for a screen that moves within the layout (LOOK-151).
+- A widget's hover card no longer closes a moment after it shows when the pointer rests perfectly still on the widget; the card's surface now stays mapped, empty, between cards, on every bar edge and in drawers and menus (LOOK-153).
+- The key legend now fades in and out at your Hyprland layer-fade speed and curve (`fadeLayersIn`, `fadeLayersOut`, or the `fade` they inherit), re-read when Hyprland reloads its config; it had used a fixed 180/120 ms since its surface stopped being mapped each time (KEYS-32).
+- A widget dragged out of a menu or a drawer and held on a group icon, or on any widget past the moment its card would show, now keeps following the pointer and drops where you release it; before, the widget's card opened under the pointer, took it, and the drag ended, the widget gliding back on release (DRAG-78).
+- Dragging a widget to the end of a menu, below its last row, now outlines a whole row there; before, the outline was cut to two short lines a bar thick, the end gap being only as wide as the bar is thick (DRAG-17).
+- The drop gap now opens under a dragged widget in the bar's end zone (Right, and Left of center) too: before, over the first half of each widget there the gap opened a whole cell short of the pointer, towards the bar's start, as when bringing a widget out of a menu onto a right or bottom zone. Moving along a zone the gap now trades places with the widget you drag onto, in every zone (DRAG-10).
+- Dragging a menu row by its name now carries its icon under the pointer, and the drop gap follows the pointer; before, the icon and its gap trailed the pointer by as far as the press was along the name.
+- Turning blur on or off with a card up or held on a left or right bar no longer ends the shell; the earlier fix covered top and bottom bars only.
+- A widget dragged off the bar on an empty workspace no longer drops at the edge of the bar after a moment while the button is still down; Hyprland lets go of the press as the pointer leaves the bar there, and that release now cancels the drag, the widget gliding back (DRAG-77). While a drag lasts the bar also keeps the pointer over its strip and the slack below it, so a release there lands on the bar with or without a window under it (DRAG-23).
+- In the keyboard mode the indicators the cursor on Clock revealed now stay revealed until the mode ends, on every bar edge (KEYS-88); before, they closed as soon as the cursor left the centre unless the bar counted itself hovered, which a top or left bar does during the keyboard mode with the pointer elsewhere until the pointer moves (Hyprland hands the grabbed bar the pointer at 0,0), so a left bar and a right bar differed. On a side bar with too little room the revealed indicators give way behind dots with their count, now on the right bar too.
+- Turning the background blur on or off while a name card or tooltip was showing (or for a moment after it went, as after leaving the keyboard mode) no longer makes the shell exit and restart with a Wayland protocol error, losing the change; the card now comes back once the bar is mapped again (LOOK-152).
+- An icon dragged out of a menu or a drawer now keeps the spot you pressed under the pointer, and its drop place follows the pointer (DRAG-3); before, it was offset by the distance the pointer had moved before the drag began, and a menu row's drag started twice, the first one ending at once and queuing a settings write.
+- A widget inside a group whose own visibility is On demand no longer makes its zone's widgets give way when it has activity; it is drawn in its group, not on the bar, and another widget of that zone revealed at the same time now gets the room.
+- During a drag out of a drawer, an always-shown widget that gets room on the bar again while the drawer still draws it is treated as in the drawer everywhere until the drawer lets it go; before, its place on the bar already lit on hover, took clicks and showed its drop marks, while the keyboard mode and tooltips treated it as in the drawer.
+- Switching from one widget's panel to another's in the same zone (a click on the other widget, or Left/Right in a panel) now morphs the card into the new panel's place, as under Omarchy's bar, for Omarchy's widgets and third-party ones alike; before, the old card closed and a fresh one grew in (INTEG-159).
+- Frame log (`powerbarFrameLog`): the wait from an event to its motion's first frame is now reported as `startup=` on the `PB-FT` line (and `startup dt=` on the timeline when over 25 ms) instead of as a long frame, so `long=` counts only stutters during the motion. Each motion's nominal time now comes from its animation's own duration: a drawer on a bar is timed at 160 ms open (was 200), the strip and drawers on the notch at 220/140 ms (were 180/130 and 200/110), an inline expansion at 120 to 200 ms open and 280 ms closing (was 260 both ways), and a drag at its make-way time (INTEG-146).
+- The ids Powerbar gives a widget another program adds (and a first start's marks) now wait until you leave the bar, like every other settings write, and go in one write with Powerbar's other repairs to that config; before, `omarchy bar put` or a widget install was followed at once by a second full write of shell.json and its stall, even with the pointer on the bar (INTEG-158).
+- The digest `omarchy-shell powerbar build` answers now also covers `notch-panels.json` and the compiled shader, so `tools/build-check.sh` calls a shell stale when either changed since it loaded.
+- The room the bar keeps for a long menu goes back 3 s after the last menu closes; before, the bar's surface stayed nearly screen-tall for the rest of the session, and the bar's motion redrew all of it.
+- On a side bar the card's surface no longer shrinks and grows with each card's words while it is shown, so cards change words without a resize.
+- Preferences' open fade and the page slide now start once their first frame is painted, so both are seen from the start; before, building that frame took most of the motion's time and the card popped in or the page jumped halfway.
+- `omarchy-shell powerbar newGroup` refuses a name over 80 characters, as `setGroup` does, instead of cutting it; group and widget edits from the command line answer an error when the change was not saved instead of `ok`.
+- A shortcut change is no longer taken back because a config error `bindings.lua` already had moved to another line when Powerbar's block was written.
+- The arrangements the retired zone modes kept stay in shell.json until their copy in the cache folder is made, as the warning says; before, a failed copy was followed by the next settings write deleting them.
+- With Center set left of the camera (`centerSide left`), a screen without a camera keeps the Center box's on-demand widgets behind Right of center's dots, as it should (ZONE-96); before, it counted them on the other side's dots. Beside a camera, the box's on-demand widgets now also draw at the dots they are counted on (ZONE-26).
+- `omarchy-shell powerbar get centerSide` answers the side the Center zone takes by a camera notch instead of `null`.
+- Keyboard page: a shortcut removed, restored or taken while the previous change was still being written to Hyprland is now bound too; before, it was saved in the settings but never reached `bindings.lua`, and a refused earlier change could put back the wrong shortcuts.
+- Groups page: a group name, badge count or urgent property typed without Enter is saved to the group or widget it was typed for when you click another one; before, the click selected the next one first and the text was saved there.
+- Widget panels open at the bar's edge again instead of over the bar. Omarchy now measures a panel's place from the bar's size, not from the bar window, and Powerbar still corrected for the window's drawer space, which pulled every panel up onto the bar; it now corrects for whichever measure the installed Omarchy uses (INTEG-157).
+- Preferences follows one golden type, spacing and corner scale on every page, the inspectors included: four text sizes from the theme's base size on golden line heights, three text strengths, gaps of 2, 3, 5, 8, 13, 21, 34 and 55 px by how closely things belong together, every control 25 px tall, and corners stepped down from the theme's rounding (square on a square theme). Inspector switch rows and choice chips now match the desks, desk chips drop to the caption size before cutting a word, and the name tip is a small floating surface (PREFS-133, PREFS-134).
+- With Hyprland's animations off (`omarchy toggle animations`) Powerbar no longer animates either, as Omarchy's own widgets do; its own Animations switch still turns motion off on an animated desktop, and its caption says why nothing moves while Hyprland's are off (INTEG-21).
+- The Look, Behavior and Tuning pages now share the Layout page's spacing and type: strips have a tile's 8 px padding and sit 8 px apart, controls are 4 px apart, rows are a chip's height with 4 px of padding, the marked area of a row, fader or row of chips reaches 4 px out, strip captions are the layer captions' size, and shortcut labels are regular weight like the other rows (PREFS-124, PREFS-125, PREFS-129).
+- A fader's tick marks and its default mark are now one height on every page, told apart by strength; before, sliders with few steps showed short ticks and the rest only a tall default mark (PREFS-60, PREFS-127).
+- The key legend's labels start at the same line on every page; before, each page's key column was as wide as its own widest keys (PREFS-103).
+- Groups page: the pool's filter opens with / while walking the groups and widgets (not from the group inspector), or a click on it, and takes the keys while open; Esc in it clears it and goes back to where you were, Enter or Down goes to the matches, and Esc in the pool now closes Preferences as everywhere else instead of looping between the pool and the filter. Letters typed in the pool no longer start a filter, and the legend shows / (PREFS-42).
+- The Look, Behavior and Tuning pages now look like the Layout and Groups pages in their small details: the cursor's row, shortcut row or chip takes the Layout chip's focus fill and focus ring instead of the stronger selected fill with an accent edge, rows take the chip's corner radius, a switch row, a group of pick rows, a row of chips and a fader are all marked the same way, their area in the focus fill with the focus ring round it (the cursor's pick row, chip or knob still marked inside), rows, faders and rows of chips stay down (the Tuning page's Controls rise switch lifts them for comparison), row labels are regular weight like chip labels, hovered rows take the chip's hover fill, the fader's focus ring is in the focus colour, and the strip the cursor is in no longer draws an accent outline: its lift alone says where the cursor is, as a tile's does (PREFS-125, PREFS-127 to PREFS-129).
+- The raised chip on the Layout and Groups pages (the cursor's, and the one pulled out to the inspector) casts one flat shadow band in its shape, like the slabs' edges and the inspector's shadow, instead of six blurred rings that banded and shimmered as the chip rose and fell; and a chip or tile the cursor leaves drops at once with its shadow instead of settling over 120 ms, and its fill and growth go in the same frame (the chip's colour no longer fades over 90 ms), so a fast cursor leaves no trail of dimming shadows or grey chips behind it; the lift still glides up (PREFS-104, PREFS-125).
+- A drawer, group drawer or menu opened by a click now closes on its own 1 s after the pointer has left it and the bar (the exit grace), and keyboard focus goes back to the window that had it; before, it stayed until Esc or a click outside. A key pressed in it makes it a keyboard drawer again, which keeps no timer. In menu mode, leaving a group's icon now starts its drawer's grace too (DEMAND-104, GROUP-36).
+- The cursor's tile on the Layout and Groups pages, and the cursor's strip on the desks, now rises 10 px instead of 5, its dark edge reaching down to the line it rested on as one block, so the lifted card stands apart from the ones lying flat; the edge is now only the band under the card, half a pixel in from each side, so it no longer peeks out along the card's sides under the tilt; the shadow band under a raised chip, row, fader or chip row is cut the same way, so it no longer shows past the ring along the sides (PREFS-104, PREFS-125).
+- The strip the cursor is in on the Look, Behavior and Tuning pages rises off its plate like the cursor's tile on the Layout and Groups pages; the rise now lives in the shared tile (ZoneTile), so every card lifts the same way (PREFS-104, PREFS-125).
+- The camera's black cap on the Layout, Groups, Look and Behavior pages starts just under the Preferences card's outline instead of covering it, and the inspector's zone map draws its camera under a chosen or focused Center cell's border the same way (PREFS-24, PREFS-26).
+- Preferences' tilted pages are their own switch: Behavior > Comes and goes > "Pages in perspective" (`powerbarPreferencesTilt`, default on, `preferencesTilt` on the CLI). Before, turning Animations off also laid every page flat (PREFS-70, PREFS-99).
+- The Look page's Notch strip has a "Back to the camera's size" row above its faders: Space, Enter or a click puts both the width and the height back to the measured size in one write, and the row dims while they are there (PREFS-95).
+- On the Look, Behavior and Tuning desks h/l now walk as one grid: at the ends of a row of chips (Scope, Text and icons, Screen edge) they go on to the same row of the next or previous strip, as they do from a switch or a pick row, entering a chip row at the chip nearest the way in; before, the row's ends swallowed them. Faders alone keep h/l for their value (PREFS-126, PREFS-128).
+
+- Preferences' text, and the keycaps of the bar's key legend, no longer show blue and orange colour fringes: they are antialiased in grey, as the bar's own text is (PREFS-102).
+- Esc cancels a drag on the bar while the keyboard mode is on there: with the button still down, the widget glides back, its gap closes and nothing is saved; letting go afterwards does nothing. Outside the keyboard mode the bar has no keyboard to hear it, and asking for one mid-drag would end the drag (DRAG-42).
+- Behavior page: a shortcut whose keys are taken says so in two lines at most ("Super B already opens …"), instead of a caption that wrapped to four lines and stretched the Keyboard strip (PREFS-72).
+- Groups page: a keyboard lift (Space) now shows the lifted widget or face over its landing place, as a pointer drag does (a face over its own row until it moves, then where it lands in the next zone), and a copy over a "+" no longer hides its highlight (PREFS-119).
+- Groups page: a group moved to another zone and back (Shift+h/l, or the inspector's Zone) returns to the place it had there, instead of the zone's end (PREFS-117).
+- Layout page: moving a widget past a group at its zone's end (Everything past the AI group) now works; it did nothing when the widget was the zone's last (PREFS-27).
+- Omapop's mark shows on the bar, in drawers and in menu rows; it drew nothing (on Omarchy's own bar too), because its icon fills a loader the kit leaves without a size. Powerbar now gives such icons the icon canvas (INTEG-156).
+- Drawers and menus over windows keep a minimum opacity: Look > Surface has a new "Over windows" fader (default 65 %), so with a clear or see-through bar the surfaces Powerbar draws beyond it (drawers, the menu and its submenus, the key legend and search, tooltips) stay at least that opaque. The bar itself is unchanged; 0 draws them as the bar, as before. Also `surface.overWindows` on the command line and `over-windows` in a theme's `powerbar.toml` (LOOK-150).
+- A menu row for a widget that draws a count beside its icon (omabox's box count) now shows the icon in the icon cell and the count at the row's end, instead of the count running into the name; in a drawer strip and on the bar its cell now makes room for the count, which was cut in half.
+- A double click on the bar no longer opens Omarchy's wallpaper selector. A step to or from glassy remaps the bar, and Hyprland handed the pointer to the desktop until it moved, so the next double click went to the wallpaper; the bar now waits for the pointer to leave before it remaps (the blur shows then), and so does the remap when its screen moves within the layout (LOOK-151). On the notch, a double click on the camera cycles the background too instead of reaching the desktop (LOOK-127, LOOK-133).
+- The "Center" caption beside the camera on the Layout and Groups pages answers the pointer like its dot: resting on it lights the dot, and a click or a drag on it swaps Center's side (PREFS-105).
+- On the Layout page, the cursor on a hidden widget (or a tray icon) no longer lights its zone's column on the layers above, inspected or not; k out of the slab still lands in the widget's zone (PREFS-99).
+- The key legend at the bottom left of the Layout, Groups, Look and Behavior pages is written in the same size as the captions under the strip titles (PREFS-103).
+- **The Bar page becomes two desks, Look and Behavior.** Preferences now have four pages (1 Layout, 2 Groups, 3 Look, 4 Behavior; `preferencesPage 3` and `4`, above 4 Behavior). Each is one of the Layout page's tilted plates under the same camera, its strips side by side, the camera's shade falling on those under it, and no bar preview: the real bar shows every change. Look holds Style (the styles as pick rows and the Screen edge as a row of chips), Size, Shape, Surface, Shadow and, on a notched screen, Notch; its numbers are faders lying flat at the strips' bottoms, name at the left and value at the right (h/l, Shift for five, Home/End, Backspace back to the theme's value, Enter, Esc, a drag or the wheel when focused). Behavior holds Comes and goes, On demand and Keyboard as rows with a caption each. On both pages j/k move the cursor and h/l move a value: j/k down a strip and on, h/l a fader's value, chip to chip on a row of chips, else the same row of the next strip; Tab to the next strip; the keys are a legend at the bottom left. The first start's notification and `preferencesKeyboard` open Behavior at the Bar keyboard row; Hyprland's gaps are no longer read and the placement graphic and the Notch Reset button are gone. The tilted desks draw through one multisampled layer, so no edge on them steps (switches, rows, chips, keycaps, fader ticks, hairlines), and a chosen pick row's dot sits in the middle of its ring (PREFS-124 to PREFS-131).
+- **The Groups page is two of the Layout page's plates.** The same camera, from the same place and with the same arguments, over two tilted plates drawn by the same parts as the Layout page: "Groups", the bar layer's plate with each zone's tile listing its groups' faces where the bar puts them (on the bar tinted, on demand with a ring, hidden dashed; always named), every group's widgets indented right under its face on a branch hairline, room for eight rows with more scrolling inside the tile, and a "+" row under them; and "Not in a group", the widgets in no group as one slab in bar order, with its filter. The Center dot beside the camera works as on the Layout page. j/k walk down a zone's list, every widget on the way, and on to the slab; h/l go to the same row in the next zone, so nothing is hidden and nothing swaps. A widget is picked up with Space or a drag and dropped at any group's gap, on the slab or on a "+" (a new group there, with it as the first member), Esc putting it back, mid-drag too; Shift with h/j/k/l moves it a row or a zone at once. A face moves zone with Space then h/l, Shift+h/l or a drag, and past the next group with Shift+j/k; its layer is set in the inspector. The chosen group's inspector sits at the bottom right with its name, how it shows, its layer, zone, icon and shortcut, and the badge sources of the widget under the cursor; the keys are a legend beside it (PREFS-109 to PREFS-123).
+- The camera on the Layout, Groups, Look and Behavior pages no longer pours a beam through the plates: its black cap ends in a torn paper edge a little above them, with the paper's lighter core showing along the tear and a soft shade falling a short way under it, over the gaps and the Center tiles alike (one fragment shader, the cap's sides where they were; PREFS-24). With `"powerbarTuning": true` on the bar in shell.json (no Preferences switch, like the frame log) Preferences gain a fifth page, Tuning, its tab at the header's right: the numbers behind the look as faders under the camera (the cap's tear, fringe and shade), moved live and kept in `~/.cache/powerbar/tuning.json` while the page is there, plus the frame log switch; off, the shipped defaults draw (PREFS-132, INTEG-155); a shade spread past the cap's sides falls on every page's tiles and strips alike. The Center leader is one accent dash all along (PREFS-105), and the inspector's leader points at the window's edge when its chip is scrolled out of view (PREFS-101), and an empty zone tile under the cursor no longer draws an outline: its name reads bold; the slabs keep theirs (PREFS-27).
+- A raised zone tile takes its edge with it, so every tile's edge reads the same (PREFS-104); the Preferences focus ring is a hairline with 5 px of room, in the theme's shape (PREFS-108); the inspector's zone map is square on a square theme (PREFS-26).
+- In the Layout page's inspector, Tab and Shift+Tab walk its controls (Layer, Zone, Shortcut, Peeks on activity, Group) and wrap round inside it instead of leaving it, and the legend names each control's own keys; the Group dropdown opens above itself, in view, instead of below the window's edge; the Layer list's own j/k line is gone, the legend shows it (PREFS-26, PREFS-101).
+- The Layout page's Hidden layer is one slab in bar order instead of five near-empty zones: a hidden widget keeps its zone, which the inspector shows and Shift with h or l changes; h and l walk along the slab (and the tray's), j and k go by rows, x on a hidden widget brings it back (PREFS-107).
+- **The Layout page is an exploded view of the bar.** Preferences are now
+  a page under the bar: a rounded sheet a small gap off the screen's edges
+  and off a floating bar's border, its top in the same place whatever the
+  bar's style but one (the Notch style on a screen without a camera, a
+  taller bar, moves it down to keep the same gap). On the bar, On demand, Hidden and the tray are
+  plates tilted back in perspective, each with its name, its five zones (Hidden
+  and the tray as one slab each) as
+  tiles of one width mirrored about the screen's middle (Center under the
+  camera on a notched screen, its black cap torn a little above the
+  layers on Center's own lines), and the widgets as small chips.
+  Enter or a click pulls a chip forward on a dashed leader to an inspector
+  at the front, where its layer (j/k), zone, shortcut, activity peek and
+  group are set; Esc pushes it back. The keys are a legend at the bottom
+  left, beside the inspector, in small text. Resting the pointer on a chip shows its full
+  name and id. h and l change zone; j and k walk a zone and carry on into
+  the next layer, with or without a chip picked up; Shift with h or l
+  moves the chip to the next zone at once, Shift with j or k to the same
+  zone on the next layer at once. Esc puts a picked-up chip back, during a
+  pointer drag too. The cursor's chip and its tile rise a little off
+  the layer. A layer that gains or loses a chip only grows or shrinks
+  downward: its top edge and what sits near it stay put. The layers share
+  the page between the header and the legend, so the legend and the
+  inspector never move: a layer gets the height it needs while the layers
+  fit, else each starts at its name and one row and the rest is shared out
+  fairly; a zone with more rows than its layer has then scrolls inside its
+  tile, with a hairline thumb and faded edges, by wheel, keys or a drag held at
+  its edge. With animations off the layers lie flat.
+- **Center can sit left of the camera.** On a notched screen the Center
+  zone's widgets sit beside the camera, on the right until now. A dot beside
+  the camera on the Layout page (or `powerbar set centerSide left`) moves
+  them to the left; they come next to the camera on either side.
+- **A zone's dots are a small circle.** With five zones a bar could carry
+  five sets of three dots; each zone now marks its waiting widgets with
+  one small, quiet empty circle, on horizontal and vertical bars alike,
+  and the drawer mode's zone button shows it too.
+  It takes the same space and opens the same menu or drawer.
+- **The Left of center menu opens on hover.** Resting on its circle no
+  longer reveals the indicators, which slid the circle away and the clock
+  under the pointer, so the menu closed at once and a click opened the
+  clock instead.
+- **Menus show Crash Desk's and Omapop's icons.** A widget whose text is an
+  icon and a count (Crash Desk) shows the icon in the menu's icon cell and
+  the count at the row's end; Omapop's drawn mark counts as an icon.
+- **On demand in a menu.** Preferences > Bar > On demand > Show them has a
+  third choice, In a menu: each zone's dots open a menu of its On demand
+  widgets with their icons and names, walked with the pointer or the keys.
+  An On demand group is a row that opens its widgets in a submenu. On the
+  notch the menu slides out under the ear's dots (`powerbarOnDemand: "menu"`).
+  A widget whose icon is a picture (Reprieve's mark) shows it in the icon
+  cell, as group menus now do too.
+- **A floating bar wraps the notch.** On a MacBook's notched screen the
+  floating bar dips round the camera, the same gap off it as off the
+  screen's edges, with its border and shadow following the cutout. Its top
+  corners follow the screen's rounded corners, as the outer islands' do in
+  the Islands style. A small bar grows there to keep a band under the
+  camera. A bar on the left or right edge rounds its top corner on the
+  screen's edge the same way.
+- **Five zones.** The bar's zones are Omarchy's sections: Left, Left of
+  center, Center, Right of center and Right. Center sits over the middle of
+  the bar, or first right of the camera on a notched screen. Preferences >
+  Layout shows the five as columns sized like the bar, with the camera
+  between Left of center and Center; it turns for a side bar, and picks the
+  screen to picture when one has a camera and another not. A widget's Zone
+  is a small map of the bar.
+- **Notch is a style.** Preferences > Bar > Style offers Notch on a MacBook:
+  black ears on the notched screen's top edge, islands elsewhere. The bar
+  can now move to another edge in it.
+- **Zone modes are gone.** Three zones, Two zones, "Pinned to screen center"
+  and "Keep at screen center" make way for the five zones. Your layout is
+  read into them once: the pinned widget becomes Center, what was before it
+  Left of center, what was after it Right of center; a notch layout's zones
+  become Left and Right of center. The arrangements each mode kept are
+  copied to `~/.cache/powerbar/zone-layouts-<date>.json` before they leave
+  `shell.json`. `set zones` and `set centerAnchor` say what replaced them;
+  `setWidget` takes `centerBegin` and `centerEnd` zones and drops `centered`.
+- **Older Omarchy.** Where Omarchy's bar has only left, center and right,
+  Powerbar writes those three, Center holding one widget (the one Omarchy's
+  bar centres), and keeps the split beside them.
+- **Omarchy's new bar sections.** Widgets Omarchy places in `centerBegin`,
+  `centerEnd` or its tray drawer show on Powerbar again. Omarchy puts every
+  newly installed widget in `centerEnd`, so these used to vanish. Powerbar
+  saves the layout in Omarchy's shape, so the stock bar reads it the same way.
+- **Notch height.** Preferences > Bar > Notch has a height slider next to
+  the width (`omarchy-shell powerbar set notchHeight N`), defaulting to the
+  detected height. The tile now shows on any machine with a notched screen.
+- **Indicators under the keyboard.** The cursor on the indicators reveals
+  them, and the keys along the bar walk their icons (and Workspaces') one
+  by one before moving on; Enter presses the one under the cursor. Their
+  highlight no longer lands on a folded icon beside the widget.
+- **A flat bar fits the notch.** On a notched screen a flat top bar, large
+  or small, is exactly as tall as the camera, so it ends level with it. Both
+  draw the same there: the large bar's spacing, with highlights sized to the
+  strip. Other screens keep the bar's own size.
+- **Expansions stop at the notch.** An inline
+  expansion that would run over the camera opens its drawer instead, as a
+  second island under the bar, the way it does when the bar is full.
+- **Activity peeks while the bar is off.** With the bar switched off
+  (Super+Shift+Space), a widget that changes still comes out alone on its
+  badge, as on an autohidden bar. Show on widget activity now applies with
+  or without Autohide.
+- **Tray icons on the bar.** Preferences > Layout has an In the tray shelf
+  with the icons in Omarchy's tray. Drag one onto the bar, On demand, Hidden
+  or into a group and it leaves the tray and works as a widget, with the
+  tray's click, right-click menu and scroll. Drag it back and the tray shows
+  it again. On Omarchy's own bar such an icon stays hidden in the tray, where
+  its Manage list can bring it back. While its app is not running, drawers
+  and menus leave it out, as the tray does.
+- **Esc in the keyboard mode works beside Plume.** A widget's window-wide
+  shortcut (Plume 1.0 binds Esc for its settings inside its bar widget) took
+  Esc before the mode saw it; the mode now keeps its keys while it has them.
+- **A group's icon closes its member's panel.** With a member's panel open
+  from a group menu, clicking the group's icon closes the panel and brings
+  the menu back, instead of the panel sliding to the screen's left edge. A
+  drawer that closes any other way closes its member's panel with it. A
+  click on a group icon whose menu the pointer had opened now keeps the menu
+  open, as it does from rest.
+- **A member's panel takes the mouse again.** A panel opened from a group
+  menu or a drawer the click had opened (Audio's, say) worked only from the
+  keys: the bar kept the keyboard for the drawer underneath, and Hyprland
+  sent the pointer there too.
+- **A click on a window closes a clicked menu.** A group's menu or a zone's
+  On demand menu opened by a click held the keyboard so tightly that a click
+  on another window went nowhere and the menu stayed. It now holds the keys
+  as the keyboard mode does: the click closes the menu and reaches the
+  window. A click right as the pointer reached the dots no longer opens the
+  menu for hovering only.
+- **The notch measured on Apple's artwork.** Every notched MacBook panel's
+  camera and screen corners in `notch-panels.json` now come from Apple's
+  product bezel images, which draw the screen pixel for pixel. The camera is
+  a little wider at the top edge than macOS reports (191 instead of 185 at
+  scale 2 on a 14" Pro: its shoulders flare out 3 px a side), with rounder
+  bottom corners, and the 15" Air's is 6 px narrower than the guess it had.
+  Each panel also lists the radius of the screen's top corners.
+- **Reset the notch's size.** Preferences > Bar > Notch has a Reset button
+  while the width or height is set by hand; it goes back to the measured
+  size. Before, only Backspace on a slider could.
+
+</details>
+
 ## 0.9.6 — 2026-10-17
 
 Private folders for existing installs, from the marketplace review.

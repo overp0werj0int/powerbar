@@ -1,9 +1,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const vm = require('node:vm');
-const fs = require('node:fs');
-const m = vm.createContext({});
-vm.runInContext(fs.readFileSync(`${__dirname}/../GroupsModel.js`, 'utf8'), m);
+const load = require('./load.cjs');
+const m = load('GroupsModel.js');
 const fixture = () => ({ bar: { layout: { left: [
   { id: 'clock', powerbarInstance: 'one', format: 'HH:mm', powerbarVisibility: 'managed' },
   { id: 'clock', powerbarInstance: 'two', format: 'ddd' },
@@ -151,8 +149,7 @@ test('a visibility change in place leaves the group anchored', () => {
 });
 
 test('icons keep their font, your own image and its colour; old groups save unchanged', () => {
-  const groupsModel = vm.createContext({});
-  vm.runInContext(fs.readFileSync(`${__dirname}/../GroupsModel.js`, 'utf8'), groupsModel);
+  const groupsModel = load('GroupsModel.js');
   const config = { bar: { layout: { left: [], center: [], right: [] },
     powerbarGroups: [{ id: 'g', label: 'AI', icon: '\u{f024b}', section: 'left', items: [] }] } };
   groupsModel.edit(config, 'g', { label: 'AI' });
@@ -182,20 +179,19 @@ test('icons keep their font, your own image and its colour; old groups save unch
 });
 
 test('members whose widget was uninstalled leave the group; nothing is pruned without a layout', () => {
-  const groupsModel = vm.createContext({});
-  vm.runInContext(fs.readFileSync(`${__dirname}/../GroupsModel.js`, 'utf8'), groupsModel);
+  const groupsModel = load('GroupsModel.js');
   const bar = { layout: { left: [{ id: 'a', powerbarInstance: 'pw-a' }], center: [], right: [{ id: 'b', powerbarInstance: 'pw-b' }] },
     powerbarGroups: [{ id: 'g', label: 'AI', items: ['pw-a', 'pw-gone', 'pw-b', 'pw-also-gone'] }, { id: 'h', label: 'H', items: ['pw-gone2'] }] };
-  assert.equal(groupsModel.danglingMembers(bar), 3);
+  assert.deepEqual(plain(groupsModel.danglingMembers(bar)), ['pw-gone', 'pw-also-gone', 'pw-gone2']);
   assert.deepEqual(JSON.parse(JSON.stringify(groupsModel.groups(bar).map(g => g.items))), [['pw-a', 'pw-b'], []]);
   // The group itself stays, even when every member is gone.
   assert.equal(groupsModel.groups(bar).length, 2);
   // Written back once: nothing left to prune.
   bar.powerbarGroups = groupsModel.groups(bar);
-  assert.equal(groupsModel.danglingMembers(bar), 0);
+  assert.deepEqual(plain(groupsModel.danglingMembers(bar)), []);
   // No layout keys to check against (a config still loading): keep every member.
   const bare = { layout: { left: [], center: [], right: [] }, powerbarGroups: [{ id: 'g', label: 'AI', items: ['pw-x'] }] };
-  assert.equal(groupsModel.danglingMembers(bare), 0);
+  assert.deepEqual(plain(groupsModel.danglingMembers(bare)), []);
   assert.deepEqual(JSON.parse(JSON.stringify(groupsModel.groups(bare)[0].items)), ['pw-x']);
 });
 
@@ -234,4 +230,32 @@ test('a group icon takes a layout place under its own key, never a widget key', 
   assert.equal(m.isGroupKey('group:g-1'), true);
   assert.equal(m.isGroupKey('pw-abc'), false);
   assert.equal(m.isGroupKey(undefined), false);
+});
+
+test('anchorOn: groups drawn at the zone end re-anchor on a widget dropped past them, in order', () => {
+  const config = fixture();
+  config.bar.powerbarGroups = [
+    { id: 'a', label: 'A', section: 'left', before: '', items: [] },
+    { id: 'b', label: 'B', section: 'left', before: 'two', items: [] },
+    { id: 'c', label: 'C', section: 'left', before: '', items: [] }
+  ];
+  assert.equal(m.anchorOn(config, 'left', 'three', ['a', 'c']), true);
+  assert.deepEqual(config.bar.powerbarGroups.map(g => [g.id, g.before]), [['a', 'three'], ['b', 'two'], ['c', 'three']]);
+  assert.equal(m.anchorOn(config, 'left', 'three', ['a', 'c']), false, 'already there');
+  assert.equal(m.anchorOn(config, 'right', 'three', ['b']), false, 'another zone');
+  assert.equal(m.anchorOn(config, 'left', 'three', []), false);
+});
+
+test('pruning drops only the members it was given that are still not in the layout', () => {
+  const bar = { layout: { left: [{ id: 'a', powerbarInstance: 'pw-a' }, { id: 'clock' }], center: [], right: [] },
+    powerbarGroups: [{ id: 'g', label: 'AI', icon: 'x', items: ['pw-a', 'pw-gone', 'pw-clock'] }] };
+  // pw-clock lost its entry's key to another writer after the prune was decided.
+  assert.equal(m.pruneMembers(bar, ['pw-gone']), true);
+  assert.deepEqual(plain(bar.powerbarGroups[0].items), ['pw-a', 'pw-clock']);
+  assert.equal(bar.powerbarGroups[0].section, 'right', 'written as groups() reads it');
+  assert.equal(m.pruneMembers(bar, ['pw-gone']), false, 'once');
+  // A member whose widget is back keeps its place.
+  const back = { layout: { left: [{ id: 'a', powerbarInstance: 'pw-a' }], center: [], right: [] },
+    powerbarGroups: [{ id: 'g', items: ['pw-a'] }] };
+  assert.equal(m.pruneMembers(back, ['pw-a']), false);
 });

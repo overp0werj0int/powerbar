@@ -1,5 +1,6 @@
 import QtQuick
 import qs.Commons
+import "CellModel.js" as CellModel
 
 // Where a dragged widget will land: its cell outlined inside the open drop
 // gap. One look for every drop surface: the bar's zones, drawer strips and
@@ -22,8 +23,9 @@ Item {
   // The drop lands here: the gap is opening or open (it may still be short).
   property bool open: gapLength > 1
   // The landing cell: its length along the run and its thickness across.
-  property real cellAlong: bar ? (bar.barDragSource ? bar.barDragSource.cellLength : bar.cellTokens.cell) : 0
-  property real cellAcross: bar ? bar.cellTokens.thickness : 0
+  readonly property var hostWindow: bar ? bar.targetWindow(outline) : null
+  property real cellAlong: bar ? (bar.barDragSource ? bar.barDragSource.cellLength : bar.metricsOf(hostWindow).tokens.cell) : 0
+  property real cellAcross: bar ? bar.metricsOf(hostWindow).thickness : 0
   // The run's size across; the cell centres in it.
   property real crossLength: vertical ? (parent ? parent.width : 0) : (parent ? parent.height : 0)
   // Where the cell starts in the gap; below zero it centres. A menu row lands
@@ -45,6 +47,14 @@ Item {
   property string glideKey: ""
   readonly property bool shown: open && !!bar && !!bar.barDragSource
   readonly property alias body: frame
+  // In one of the bar's outer corners that follow the screen's, the outline's
+  // corner nests in that curve (LOOK-150), as a highlight's does.
+  property var arcs: []
+  function nest() {
+    arcs = shown && hostWindow && typeof hostWindow.outerArcs === "function" ? hostWindow.outerArcs(outline) : []
+  }
+  onXChanged: if (shown) Qt.callLater(outline.nest)
+  onYChanged: if (shown) Qt.callLater(outline.nest)
 
   readonly property real roomAlong: Math.max(gapLength, fullGap)
   readonly property real along: Math.max(0, Math.min(cellAlong, roomAlong - 2))
@@ -72,6 +82,7 @@ Item {
   Component.onCompleted: settle()
   function settle() {
     if (shown && !lit) {
+      nest()
       handedOff = false
       var from = glideLive() && motionEnabled ? glide.takeOver(outline) : null
       if (from) slideFrom(from)
@@ -119,19 +130,15 @@ Item {
     y: Math.round(outline.offY)
     width: Math.max(0, Math.round(outline.width + outline.offW))
     height: Math.max(0, Math.round(outline.height + outline.offH))
-    radius: outline.bar ? outline.bar.highlightRadius : 0
+    readonly property var corners: CellModel.nestedCorners(frame, outline.arcs, outline.bar ? outline.bar.metricsOf(outline.hostWindow).highlightRadius : 0)
+    radius: corners.tl
+    topLeftRadius: corners.tl
+    topRightRadius: corners.tr
+    bottomLeftRadius: corners.bl
+    bottomRightRadius: corners.br
     color: "transparent"
     border.width: 1
     border.color: Qt.rgba(outline.ink.r, outline.ink.g, outline.ink.b, 0.45)
-    Text {
-      anchors.centerIn: parent
-      visible: outline.onDemand
-      textFormat: Text.PlainText
-      text: outline.vertical ? "󰇙" : "󰇘"
-      color: outline.ink
-      opacity: 0.45
-      font.family: outline.bar ? outline.bar.fontFamily : Style.font.family
-      font.pixelSize: Style.font.body
-    }
+    ZoneDot { visible: outline.onDemand; ink: outline.ink; opacity: 0.35 }
   }
 }

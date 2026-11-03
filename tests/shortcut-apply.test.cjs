@@ -6,7 +6,8 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
-const S = require('../ShortcutModel.js');
+const load = require('./load.cjs');
+const S = load('ShortcutModel.js');
 
 const script = path.join(__dirname, '..', 'ShortcutApply.sh');
 const BLOCK = [S.BEGIN, 'o.bind("SUPER + B", "Powerbar keyboard", "omarchy-shell powerbar keys")', S.END].join('\n');
@@ -86,6 +87,22 @@ test('a block Hyprland refuses is taken back and the file is as it was', () => {
   assert.equal(r.status, 1); assert.equal(answer(r), 'error bindings.lua:4: bad key');
   assert.equal(b.read(), USER + '\n');
   assert.deepEqual(fs.readdirSync(b.hypr).sort(), ['bindings.lua']);
+});
+
+// The block moves the lines after it: an error the file already had comes
+// back on another line, and is not the block's.
+test('an error the file already had is not taken for the block\'s, wherever it moves', () => {
+  const b = box();
+  fs.writeFileSync(b.file, USER + '\n');
+  fs.writeFileSync(path.join(b.root, 'errors'), 'bindings.lua:4: bad key\n');
+  fs.writeFileSync(path.join(b.root, 'refuse'), 'bindings.lua:9: bad key\n');
+  let r = b.run(BLOCK);
+  assert.equal(answer(r), 'ok'); assert.equal(r.status, 0);
+  assert.equal(b.read(), USER + '\n\n' + BLOCK + '\n');
+  fs.writeFileSync(path.join(b.root, 'refuse'), 'bindings.lua:9: bad key\nbindings.lua:12: no such key\n');
+  r = b.run(BLOCK.replace('SUPER + B', 'SUPER + K'));
+  assert.equal(r.status, 1); assert.equal(answer(r), 'error bindings.lua:12: no such key');
+  assert.equal(b.read(), USER + '\n\n' + BLOCK + '\n');
 });
 
 test('a linked bindings.lua stays a link, its target gets the block', () => {

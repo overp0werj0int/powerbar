@@ -100,7 +100,7 @@ Other rules:
 
 - **Spacing modes.** `powerbarSpacingMode`: `"slots"` (default) or `"gaps"`.
 - **Preferences.** Style section, a `PrefsChoice` row "Spacing" with the chips
-  Equal slots and Equal gaps, above "Space between widgets".
+  Equal slots and Equal gaps, above "Widget spacing".
 - **Highlight.** The highlight is the layout box, centred on the ink. In Equal
   gaps, overlapping highlights stay symmetric; the newer one draws on top and
   the older one fades to 45%.
@@ -252,6 +252,7 @@ the new `FrameAnimation` (see step 9).
 
 ## Tooling
 
-The `omarchy-widget-lab` skill that produced the design is in
-`.claude/skills/omarchy-widget-lab/`. Use it for a new design question; it
+The `omarchy-widget-lab` skill that produced the design is the
+maintainer's, in `~/.claude/skills/omarchy-widget-lab/`, outside the
+repository (DEVELOPMENT.md, Skills). Use it for a new design question; it
 builds a fresh lab page.

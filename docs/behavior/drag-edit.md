@@ -20,7 +20,7 @@ Drag and drop on the live bar, into drawers and onto zone dots. The bar controll
 
 - **DRAG-2** The dragged icon's image is grabbed from the widget when the drag starts. Until that image is ready no gap opens and the source slot stays where it is (`dragPreview.ready`). A drawer row that shows the widget with its name drags the widget alone; a row without one drags its whole cell.
 
-- **DRAG-3** The image keeps the grab point: it sits under the pointer at the same offset the pointer had inside the icon when pressed.
+- **DRAG-3** The image keeps the grab point: it sits under the pointer at the same offset the pointer had inside the icon when pressed. A menu row pressed on its name carries only its icon, held by the icon's middle, so the icon and its gap stay under the pointer (DragModel.grabOffset).
 
 - **DRAG-4** Starting a drag while an open drawer is in its own keyboard mode turns that drawer's keyboard cursor off; the drawer stays open. Nothing in `BarKeys.qml` reacts to a drag, so the bar's keyboard mode (keyboard.md) carries on. (unverified at runtime)
 
@@ -32,9 +32,9 @@ Drag and drop on the live bar, into drawers and onto zone dots. The bar controll
 
 - **DRAG-7** The gap is the dragged widget's own landing extent (`dragLandingExtent`: its cell plus a gutter in Equal slots, its glyph plus a gap in Equal gaps; see layout-zones.md). Without one it is max(bar size, image size / bar scale) + gutter.
 
-- **DRAG-8** Neighbours make way over `150 * sqrt(gap / iconGap)` ms, clamped to 150..250 ms, with a sine in-out ease (see DRAG-67). With animations off (`powerbarAnimations: false`) slots move at once and there is no settle glide (DRAG-35).
+- **DRAG-8** Neighbours make way over `150 * sqrt(gap / iconGap)` ms, clamped to 150..250 ms, with a sine in-out ease (see DRAG-67). With animations off (`powerbarAnimations: false` or Hyprland's, INTEG-21) slots move at once and there is no settle glide (DRAG-35).
 
-- **DRAG-10** The side of the gap (before or after a cell) flips only when the probe point crosses that cell's centre by more than the 3 px dead zone (`Style.space(3)`): with no earlier decision after = probe > centre; once after, it stays after while probe >= centre - 3; once before, it flips to after only when probe > centre + 3. Code: DragModel.afterCentre()
+- **DRAG-10** The side of the gap (before or after a cell) flips at the cell's pivot, by more than the 3 px dead zone (`Style.space(3)`): with no earlier decision after = probe > pivot; once after, it stays after while probe >= pivot - 3; once before, it flips to after only when probe > pivot + 3. On the bar the pivot is halfway between the two places the gap would take once the cell's list has made room for it, so the gap opens under the dragged widget: a list hanging from its start (Left, Right of center) makes room past the gap, so the gap goes before the cell the widget comes onto; one hanging from its end (Right, Left of center) makes room before it, so the gap goes after the cell, which moves on; the centred box grows both ways and flips at the cell's centre; beside the camera, the box grows away from it. Moving within a list, this swaps the gap with the cell the widget enters. Before, the pivot was the cell's centre everywhere, and in a list hanging from its end the gap opened a whole cell before the widget over half of each cell (a widget brought out of a menu onto a right or bottom zone showed its gap beside the pointer, not under it). A cell shorter than the gap can leave a nearer place one cell on, which the next step takes. In drawers and menus the pivot stays the cell's centre. Code: DragModel.landingPivot, afterCentre; Bar.qml barLandingPivot, ModuleList.startGrowth
 
 - **DRAG-11** Drawers (zone and group), menus and empty zones use the same preview rules as the bar: before, after, into, or hidden, decided by `DragModel.slot()` and `endGap()`.
 
@@ -46,13 +46,13 @@ Drag and drop on the live bar, into drawers and onto zone dots. The bar controll
 
 - **DRAG-15** A widget (not a group icon, not a drawer member) held over a group icon on the bar for 400 ms (`springOpen`) opens that group's drawer without entering it. The drawer stays while the pointer is on the icon, on the drawer, or on the path between them (reach = drawer gap + bar extent + `Style.space(8)`, side margin `Style.space(12)`); once the pointer is on none of them it closes after 450 ms (`springClose`).
 
-- **DRAG-16** A widget (not a drawer member) held over a zone's dots (`handle`) for 400 ms (`springHandle`) opens the zone: inline expansion when `powerbarOnDemand` is `inline` (its drawer if the zone cannot expand), else the zone's drawer, not entered. A spring-opened drawer closes 450 ms after the pointer leaves it as in DRAG-15.
+- **DRAG-16** A widget (not a drawer member) held over a zone's dots (`handle`) for 400 ms (`springHandle`) opens the zone: inline expansion when `powerbarOnDemand` is `inline` (its drawer if the zone cannot expand), its dots' menu when it is `menu`, else the zone's drawer, not entered. A spring-opened drawer closes 450 ms after the pointer leaves it as in DRAG-15. The menu hangs from the dots held, the shown ones: on the notch a centre side's dots exist on both sides of the camera, one set hidden (ManagedDrawer.handleFor).
 
 - **DRAG-17** Where the widget will land, a 1 px outline of its cell (colour: the bar foreground at 45 % alpha, corner radius = the highlight radius) is drawn inside the open gap, on whole pixels, one pixel inside the gap's edges. It shows in every drop surface: bar zones, drawer strips, menu rows, while a drag is on and the drop lands in that gap; it is drawn at the size it has in the open gap, centred on the gap, while the gap is still opening, and keeps its place while it fades out (DRAG-75). Code: DropOutline.qml
 
 - **DRAG-75** The outline moves as the highlights do (appearance.md LOOK-139): when the drop moves to another gap in the same zone of a bar, or in the same drawer, the outline there starts where the last one was drawn, at its size, and glides to its own gap over the gap's own motion (DRAG-67) with OutCubic, while the last one goes out at once; a drop moving on mid-glide retargets it from where it is drawn. Shown with none to take over from (the drag's first gap, or another zone), it fades in over the same time, already at its cell's size; left with none taking over (the drop leaves the surface), it fades out in place. Animations off: no slide and no fade. Code: DropOutline.qml (`slideFrom`, `handOff`), HighlightGlide.qml (`dropGlide`, one per bar window keyed by zone; one per drawer)
 
-- **DRAG-18** When the drop lands On demand (on the dots, inside an inline run, in a zone drawer) the outline holds a dots glyph (`󰇘` on a horizontal bar, `󰇙` on a vertical one, 45 % alpha) instead of being empty.
+- **DRAG-18** When the drop lands On demand (on the dots, inside an inline run, in a zone drawer) the outline holds the dots' circle (ZONE-14) at 35 % opacity instead of being empty. Code: DropOutline.qml, ZoneDot.qml.
 
 - **DRAG-19** The outline fades in with the gap: opacity = min(1, gapLength / full gap).
 
@@ -62,9 +62,9 @@ Drag and drop on the live bar, into drawers and onto zone dots. The bar controll
 
 ## Drop resolution
 
-- **DRAG-22** The drop target is found from the dragged widget's painted centre along the bar's axis (the pointer position corrected by the widget's measured ink), falling back to the pointer itself; the first visible slot under either point wins, else the nearest slot of the zone under the pointer, else the zone's end. Widgets yielded to an expansion or in a hidden zone take no drops.
+- **DRAG-22** The drop target is found from the dragged widget's painted centre along the bar's axis (the pointer position corrected by the widget's measured ink), falling back to the pointer itself; the first visible slot under either point wins, else the slot of the zone under the pointer level with it along the bar (the strip's slack across the bar, sides as in DRAG-10), else the nearest slot of that zone, else the zone's end. Widgets yielded to an expansion or in a hidden zone take no drops.
 
-- **DRAG-23** A release up to 0.6 x bar size beyond the bar's inner edge (away from the screen edge) still lands on the bar, unless it is over an open drawer.
+- **DRAG-23** A release up to 0.6 x bar size beyond the bar's inner edge (away from the screen edge) still lands on the bar, unless it is over an open drawer. While a drag lasts, the bar's window takes the pointer over that band (its input region grows to the strip and the slack), so a release there is the bar's whatever lies under it. Code: DragModel.stripBand, dropSurface; Bar.qml mask.
 
 - **DRAG-24** Dropping on an open zone drawer (on a row, or on its empty area) saves the widget with `powerbarVisibility: "managed"` in that drawer's zone (appended to the zone's end when dropped on empty drawer area). Dropping on a group drawer makes it a member of that group (membership only).
 
@@ -86,17 +86,21 @@ Drag and drop on the live bar, into drawers and onto zone dots. The bar controll
 
 - **DRAG-32** Releasing outside the bar and drawers, or back over the icon's own spot, changes nothing in the config; the image glides back to the source slot (DRAG-42).
 
+- **DRAG-77** A release that the bar's window loses the pointer right after is a release outside (DRAG-32): the drag is cancelled and the image glides back. Hyprland releases a held button whenever it hands the pointer to another surface, just before the leave; with nothing keyboard-focused (an empty workspace) it does so as soon as the pointer leaves the bar's input region (the strip, its slack while dragging, an open drawer), with the button still down, and that release carries the last point on the bar. Before, the widget dropped at that last point. With a focused window Hyprland keeps the pointer on the bar until the real release, which lands as usual; one off the band and drawers also cancels. Powerbar does not take the keyboard to keep the pointer (DRAG-42). The release waits one turn of the event loop for the leave that arrives in the same batch. Code: DragRelease.qml; Bar.qml releaseIconDrag, cancelIconDrag.
+
 - **DRAG-33** A drag that starts on a drawer row leaves the drawer open throughout (drawers hold while `dragMotionActive`) and, after a drop into a drawer, as in DRAG-27.
 
 - **DRAG-34** The widget's tooltip hides when a drag begins.
+
+- **DRAG-78** No hover card shows or stays while a pointer drag is on, the keyboard cursor's name card aside. Before the card surface stayed mapped (LOOK-153), a card mapping under the pointer took it, and Hyprland let go of the held button as the pointer went to the card's surface, which cancelled the drag (DRAG-77): a widget from a menu or drawer resting on a group icon past the card delay stopped following the pointer, and the release glided it back. A card would also cover the drop marks. Code: TooltipModel.js cardHovered; Bar.qml targetTooltipHovered.
 
 ## Drag settlement and animation
 
 - **DRAG-35** On release the image stays visible and glides to its target over 180 ms (`dragSettleDuration`, OutCubic), following the target slot frame by frame if it is still moving. With animations off there is no glide.
 
-- **DRAG-36** Drops with an open gap to aim at (a bar gap beside a slot that is not the clock, a group icon, a drawer gap) glide into the open gap with the gap still drawn, then commit; the commit rebuilds every slot in one frame, swapping gap and slot. A change from outside Powerbar that removes the dragged widget during the glide discards the drop (nothing is written from inside that rebuild); any other interruption (a new press, a cancel) still commits it. Code: Bar.qml clearBarDrag(discard).
+- **DRAG-36** Drops with an open gap to aim at (a bar gap beside a slot, a group icon, a drawer gap) glide into the open gap with the gap still drawn, then commit; the commit rebuilds every slot in one frame, swapping gap and slot. A change from outside Powerbar that removes the dragged widget during the glide discards the drop (nothing is written from inside that rebuild); any other interruption (a new press, a cancel) still commits it. Code: Bar.qml clearBarDrag(discard).
 
-- **DRAG-37** Drops with no gap to aim at (a zone's end, the dots, beside the clock/centre anchor) commit first, then the image glides from the release point to the widget's new slot.
+- **DRAG-37** Drops with no gap to aim at (a zone's end, the dots) commit first, then the image glides from the release point to the widget's new slot.
 
 - **DRAG-38** A widget whose new home is not visible glides into its group icon and fades there when it joined a group, or fades where released when it has no visible home.
 
@@ -106,7 +110,7 @@ Drag and drop on the live bar, into drawers and onto zone dots. The bar controll
 
 - **DRAG-41** After a glide-then-commit drop, if the committed slot is 2 px or more from where the image landed, a 90 ms correction glide (`dragSettleCorrectionDuration`) follows, the image staying frozen where it landed in between; less than 2 px ends at once. The committed slot is measured once its zone (and, for a drawer member, its drawer row) has been laid out, so a slot already in place shows at once. Code: Bar.qml resolveDragSettle.
 
-- **DRAG-42** A cancelled drag (DRAG-32) glides back to the source over the same 180 ms as the source regains its space. There is no Escape binding for a drag.
+- **DRAG-42** A cancelled drag (DRAG-32) glides back to the source over the same 180 ms as the source regains its space. Esc while the button is still down cancels the drag the same way when the bar's window already has the keyboard (the keyboard mode on that bar, keyboard.md): the gap closes, nothing is written, the keyboard mode stays on, and the release that follows does nothing. Outside it the bar's window has no keyboard and Esc goes to the focused window; the window does not ask for the keyboard when a drag starts, because a layer that turns its keyboard on (Exclusive) mid-press loses the press: in a box the drag dropped 50 to 70 ms after it started, as if released where it was. Code: Bar.qml `cancelIconDrag()`, keyCatcherItem.
 
 ## Preview gap mechanics
 
@@ -134,7 +138,7 @@ Drag and drop on the live bar, into drawers and onto zone dots. The bar controll
 
 - **DRAG-55** Every drop writes the visibility it implies: bar and "shown" spots `"shown"`, drawer, dots and on-demand run spots `"managed"`, group drawers membership only. A drop never writes `"hidden"`.
 
-- **DRAG-57** The clock (centre anchor) stays centred: a gap beside it opens in the neighbouring list, not in its own slot, and a drop beside it commits first (DRAG-37).
+- **DRAG-57** The center box stays centred while a gap opens in it: the box grows by the gap on both sides, and Left and Right of center move with its edges (layout-zones.md ZONE-3).
 
 - **DRAG-58** The bar applies the edit to its own copy of the config at once and writes shell.json once, after the drag, glide and settle have finished (`configWriteSettled`); a bar move (DRAG-74) also holds writes.
 
@@ -168,7 +172,7 @@ Drag and drop on the live bar, into drawers and onto zone dots. The bar controll
 
 - **DRAG-73** In the keyboard mode Shift with the arrows drags the widget under the cursor one place at a time, landing as a pointer drop at that gap would (keyboard.md KEYS-86). It opens no gap: the widgets that moved glide from their old places to the new ones (Bar.qml glideEdit), and the write waits until the keyboard mode ends (integration.md INTEG-149).
 
-- **DRAG-74** Pressing and holding the clock's (centre anchor) empty area for 200 ms, or pressing it and moving 4 px, lifts the bar: an indicator shows on each screen edge, the one nearest the pointer (by the screen's diagonals) lights, and releasing writes `bar.position` to that edge (nothing if it is the current edge). Code: Bar.qml `CenterGestureArea`, `nearestScreenEdge()`; position: layout-zones.md ZONE-38.
+- **DRAG-74** Pressing and holding the bar's empty space for 200 ms, or pressing it and moving 4 px, lifts the bar: an indicator shows on each screen edge, the one nearest the pointer (by the screen's diagonals) lights, and releasing writes `bar.position` to that edge (nothing if it is the current edge). Code: Bar.qml `CenterGestureArea`, `nearestScreenEdge()`; position: layout-zones.md ZONE-38.
 
 ## Doc drift
 

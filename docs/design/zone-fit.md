@@ -148,6 +148,25 @@ widgets never move. The same holds in drawer mode for activity reveals.
   logs the drawn order): expanding the right zone or the centre's start shows
   the run beside the dots while every shown widget keeps its x.
 
+## Presence (31 October 2026)
+
+Where a slot is was decided by a chain of slot properties (`baseVisible`,
+`dotsCandidate`, `inlineCandidate`, `mainVisible`) and by readers that added
+their own clauses to it. `PresenceModel.js` now decides it, in two steps, with
+a truth table in `tests/presence.test.cjs`:
+
+- **`slot.claim`**, before the fit: `"shown"`, `"expanded"`, `"revealed"` or
+  `""`. The fit's inputs read it (`fitExtent`, the hold, the moments), never
+  the fit's answer, so the loop-free rule of step 2 holds.
+- **`slot.presence`**, after the fit: `"bar"`, `"yielded"`, `"folded"`,
+  `"waiting"` (behind the dots or the drawer button), `"group"` or `"none"`.
+  `slot.mainVisible` is `presence === "bar"`; a slot a drawer row draws is
+  never on the bar. The mode stays out of it: the dots' count checks it once.
+
+A zone an inline expansion hides (`zoneHidden`) stays a window question, asked
+next to `mainVisible`: a drag's source and a slot not yet measured are not in
+the fit, so they are never yielded there.
+
 ## The rule in one paragraph
 
 Zones are laid out on one line per bar window, keeping the zone gap
@@ -401,7 +420,7 @@ restore it byte for byte (`cmp`). Turn autohide off for captures.
 ## Risks
 
 - **Binding loops.** Avoided by the imperative `refit()` and by inputs
-  (`baseVisible`, `cellExtent`) that never read outputs.
+  (`claim`, `cellExtent`) that never read outputs.
 - **Churn.** Only assign `zoneFit` when the result changes (`RenderModel.equal`).
 - **Hold interaction.** Held widths are the input, so ticking values never
   refold. Folding must not reset holds (step 2).

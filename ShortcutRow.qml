@@ -22,8 +22,35 @@ BorderSurface {
   // "Suggested"; Enter takes them (checked for clashes), Space records others.
   property string suggested: ""
   readonly property bool suggesting: phase === "idle" && usable && !!suggested && !info.keys && !info.positional && info.source !== "removed"
-  // Where the label starts: compact rows indent; beside unindented choices, 0.
-  property real padding: Style.spacing.rowPaddingX
+  // Where the label starts: s in, the row's surface reaching s out past
+  // its column so the label stays in line with the fields around it
+  // (PREFS-133).
+  property real padding: Gap.s
+  // A line under the label (a desk's rows, PREFS-129), and the desk's cursor
+  // look: the Layout chip's focus fill and ring, risen with its shadow band
+  // (PREFS-104).
+  property string caption: ""
+  property bool cursor: false
+  // The keys on a line of their own under the label, at the right, for a
+  // column too narrow for both (the inspectors' strips).
+  property bool stacked: false
+  readonly property Item strip: {
+    for (var p = parent; p; p = p.parent)
+      if (p.isDeskStrip)
+        return p
+    return null
+  }
+  readonly property color base: strip ? strip.surfaceColor : "transparent"
+  CursorLift {
+    id: lift
+    up: row.cursor
+    animate: row.strip && row.strip.desk ? row.strip.desk.animate : true
+    lightTheme: row.strip ? row.strip.lightTheme : false
+    radius: row.radius
+  }
+  transform: Translate { y: -lift.raise }
+  scale: lift.grown
+  z: lift.raised ? 1 : 0
 
   // "idle", "recording" or "confirm" (the keys belong to something else).
   property string phase: "idle"
@@ -45,7 +72,7 @@ BorderSurface {
   readonly property string tag: !usable ? unavailable
     : store.busy && phase === "idle" ? "Saving"
     : phase === "recording" ? (notice || "Press the keys")
-    : phase === "confirm" ? clashes.map(function(c) { return c.description }).join(", ")
+    : phase === "confirm" ? (caption !== "" ? "" : clashes.map(function(c) { return c.description }).join(", "))
     : info.source === "omarchy" ? "Omarchy's"
     : info.source === "config" ? "Your Hyprland's"
     : info.source === "yours" ? ""
@@ -53,10 +80,13 @@ BorderSurface {
     : suggesting ? "Suggested"
     : info.source === "removed" ? "None, " + Shortcuts.label(info.fallback) + " removed"
     : "None"
+  // While its keys clash, a row with a caption says so there instead: the
+  // keys whole, the other binding's description cut to fit two lines.
+  readonly property string clashText: phase === "confirm" ? Shortcuts.clashText(captured, clashes) : ""
+  readonly property bool captionClash: phase === "confirm" && caption !== ""
   readonly property string message: store.error ? store.error
     : phase === "recording" ? "Hyprland's own shortcuts pause until you press one. Esc cancels."
-    : phase === "confirm" ? Shortcuts.label(captured) + " already opens " + clashes.map(function(c) { return c.description }).join(", ")
-      + ". Enter gives it to this one instead."
+    : phase === "confirm" ? clashText + ". Enter gives it to this one instead."
     : info.positional && !info.keys ? Shortcuts.label(info.positional) + " opens it as the bar's " + ordinal(info.positional) + " panel on the right; it follows its place."
     : ""
   function ordinal(keys) {
@@ -111,12 +141,16 @@ BorderSurface {
   Component.onDestruction: if (phase === "recording") store.stopRecording()
 
   Layout.fillWidth: true
-  implicitHeight: Style.spacing.controlHeight + Style.space(8)
-  radius: Math.max(0, Style.cornerRadius - Math.round(Style.spacing.rowPaddingX / 2))
-  color: phase !== "idle" ? Qt.alpha(Commons.Color.accent, 0.1)
-    : rowMouse.containsMouse && usable ? Style.hoverFillFor(Commons.Color.popups.text, Commons.Color.accent) : "transparent"
-  borderSpec: phase !== "idle" ? Border.controlSpec("focus", Commons.Color.popups.text, Commons.Color.accent) : Border.none()
-  opacity: usable ? 1 : 0.45
+  Layout.leftMargin: -padding
+  Layout.rightMargin: -padding
+  // A control's height at least, xs above and below its text.
+  implicitHeight: Math.max(Gap.control, (stacked ? grid.implicitHeight : labelColumn.implicitHeight) + 2 * Gap.xs)
+  radius: Round.control
+  color: phase !== "idle" ? Qt.tint(base, Qt.alpha(Commons.Color.accent, 0.1))
+    : cursor ? Qt.tint(base, Style.focusFillFor(Commons.Color.popups.text, Commons.Color.accent))
+    : rowMouse.containsMouse && usable ? Qt.alpha(Commons.Color.popups.text, 0.14) : "transparent"
+  borderSpec: phase !== "idle" || cursor ? Border.controlSpec("focus", Commons.Color.popups.text, Commons.Color.accent) : Border.none()
+  opacity: usable ? 1 : Ink.disabled
   activeFocusOnTab: true
   Accessible.role: Accessible.Button
   Accessible.name: label + ": " + (shownKeys ? Shortcuts.label(shownKeys) : "none") + (tag ? ", " + tag : "")
@@ -159,34 +193,50 @@ BorderSurface {
     else if (key === Qt.Key_Backspace && plain && (row.info.source === "yours" || row.info.source === "removed")) { row.store.restore(row.target); event.accepted = true }
   }
 
-  RowLayout {
+  GridLayout {
+    id: grid
     anchors.fill: parent
     anchors.leftMargin: row.padding
     anchors.rightMargin: row.padding
-    spacing: Style.space(8)
-    Text {
-      text: row.label
-      textFormat: Text.PlainText
-      color: Commons.Color.popups.text
-      font.family: Style.font.family
-      font.pixelSize: Style.font.body
-      font.bold: true
+    anchors.topMargin: row.stacked ? Gap.xs : 0
+    anchors.bottomMargin: row.stacked ? Gap.xs : 0
+    columns: row.stacked ? 2 : 4
+    columnSpacing: Gap.m
+    rowSpacing: Gap.xxs
+    ColumnLayout {
+      id: labelColumn
+      Layout.fillWidth: row.caption !== ""
+      spacing: Gap.xxs
+      InkText {
+        text: row.label
+      }
+      InkText {
+        visible: row.caption !== ""
+        Layout.fillWidth: true
+        text: row.captionClash ? row.clashText : row.caption
+        role: "caption"
+        color: row.captionClash ? Commons.Color.urgent : Ink.tint(tier)
+        wrapMode: Text.WordWrap
+        maximumLineCount: row.captionClash ? 2 : 100
+        elide: row.captionClash ? Text.ElideRight : Text.ElideNone
+      }
     }
-    Text {
-      Layout.fillWidth: true
+    InkText {
+      Layout.fillWidth: row.caption === ""
       horizontalAlignment: Text.AlignRight
       text: row.tag
-      textFormat: Text.PlainText
+      role: "caption"
       elide: Text.ElideRight
       color: row.phase === "confirm" || (row.phase === "recording" && row.notice) ? Commons.Color.urgent
-        : row.phase === "recording" ? Commons.Color.accent : Qt.alpha(Commons.Color.popups.text, 0.6)
-      font.family: Style.font.family
-      font.pixelSize: Style.font.bodySmall
+        : row.phase === "recording" ? Commons.Color.accent : Ink.tint(tier)
     }
     KeyCombo {
+      visible: !row.stacked || row.shownCaps.length > 0
+      Layout.columnSpan: row.stacked ? 2 : 1
+      Layout.alignment: row.stacked ? Qt.AlignRight : Qt.AlignVCenter
       keys: row.shownCaps
       foreground: row.phase === "confirm" ? Commons.Color.urgent : Commons.Color.popups.text
-      opacity: row.info.keys || row.phase !== "idle" ? 1 : 0.6
+      opacity: row.info.keys || row.phase !== "idle" ? 1 : Ink.secondary
     }
     Button {
       visible: row.phase === "confirm"

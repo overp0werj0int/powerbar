@@ -25,7 +25,7 @@ Item {
 
   readonly property real h: bar ? bar.barSize : 0
   readonly property bool leftSide: side === "left"
-  readonly property real outer: leftSide ? bar.islandScreenInset : width - bar.islandScreenInset
+  readonly property real outer: leftSide ? bar.metrics.screenInset : width - bar.metrics.screenInset
   // The camera's corners (Bar.qml notchCorners), as the zones have them.
   readonly property real shoulder: bar.notchCorners.shoulder
   readonly property real foot: Math.min(bar.notchCorners.radius, h / 2)

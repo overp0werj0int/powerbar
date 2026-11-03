@@ -101,5 +101,3 @@ function parse(text) {
     return out
   } catch (e) { return {} }
 }
-
-if (typeof module !== "undefined") module.exports = { privateUse, characters, glyphFrom, pick, merge, forget, prune, parse }

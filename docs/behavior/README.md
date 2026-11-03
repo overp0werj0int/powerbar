@@ -14,7 +14,7 @@ bug, which gets a test and a fix).
 | [groups.md](groups.md) | `GROUP-n` | groups, their faces, badges and icons, group drawers and menus, group shortcuts |
 | [keyboard.md](keyboard.md) | `KEYS-n` | the keyboard mode, cursor and stops, search, name card, key legend, focus, shortcuts |
 | [drag-edit.md](drag-edit.md) | `DRAG-n` | drag and drop on the bar, into drawers and onto dots, drop preview, settle |
-| [preferences.md](preferences.md) | `PREFS-n` | the Preferences window: Layout, Groups and Bar pages, tiles, controls, icon picker, resets |
+| [preferences.md](preferences.md) | `PREFS-n` | the Preferences window: Layout, Groups, Look and Behavior pages, desks, strips, faders, controls, icon picker, resets |
 | [appearance.md](appearance.md) | `LOOK-n` | theme tokens, shape, surface, shadow, blur, islands, tooltips, appearance scopes, `powerbar.toml`, bar auto-hide |
 | [integration.md](integration.md) | `INTEG-n` | startup, config healing, registry heal, Omarchy bar compatibility, the CLI and IPC, multi-monitor |
 

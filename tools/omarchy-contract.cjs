@@ -6,7 +6,7 @@
 // what it breaks in Powerbar, so a fix starts from the right place:
 //   contract drift: shell/shell.qml: shell.bar.summonBarWidget(id)
 //       breaks: `omarchy-shell shell summon` does nothing
-// Three kinds of check:
+// Five kinds of check:
 //   1. CONTRACT: literal lines in Omarchy's files that Powerbar depends on (the
 //      host handing the bar its config, the shell facade, the widget kit
 //      properties Powerbar reads, commands, state files, bind forms). When one
@@ -16,6 +16,16 @@
 //   2. Theme tokens: every Style.* and Commons.Color.* path Powerbar's own
 //      files use, found automatically, must be declared in Omarchy's Commons.
 //   3. qs.Commons singletons and qs.Ui types Powerbar uses must be registered.
+//   4. Additions, not only removals, in the surfaces Powerbar mirrors: the
+//      plugin facade (Ui/PluginBarApi.qml) against what Powerbar fills in
+//      it and what its own bar offers Omarchy's widgets, both ways; and the
+//      required properties of the qs.Ui types Powerbar creates.
+//   5. What Powerbar reads from outside the shell's files: the display
+//      cutouts file (the path Omarchy's bar reads, and its panels through
+//      NotchModel.parseCutouts) and the text `hyprctl binds` prints, taken
+//      from the format string in the installed Hyprland binary
+//      ($HYPRLAND_BIN, else /usr/bin/Hyprland) and read back through
+//      ShortcutModel.parseBinds, so no running Hyprland is needed.
 // Not covered: Quickshell's own API (IpcHandler, FileView, PopupWindow...)
 // and Hyprland's (hyprctl repl, hl.is_key_down, hl.define_submap); the QML
 // tests, startup probe and tools/smoke.sh exercise those.
@@ -57,7 +67,8 @@ const CONTRACT = [
   ["shell/shell.qml", "api.fontFamily = Qt.binding(function() { return shell.bar ? String(shell.bar.fontFamily || \"\") : \"\" })", "bar-state facade reads Powerbar's fontFamily"],
   ["shell/shell.qml", "api.position = Qt.binding(function() { return shell.bar ? String(shell.bar.position || \"top\") : \"top\" })", "bar-state facade reads Powerbar's position"],
   ["shell/plugins/notifications/Service.qml", ["shell.bar && !shell.bar.barHidden ? Math.max(0, shell.bar.barSize)",
-    "NotificationLogic.barClearance(shell ? shell.bar : null, screenName, defaultBarSize, Style.gapsOut)"], "notifications offset from the bar (barSize, then barSizeFor(screenName))"],
+    "NotificationLogic.barClearance(shell ? shell.bar : null, screenName, defaultBarSize, Style.gapsOut)",
+    "Delivery.barThickness(barRef, screenName, defaultBarSize)"], "notifications offset from the bar (barSize, then barSizeFor(screenName))"],
   ["shell/shell.qml", "shell.bar.summonBarWidget(id)", "`omarchy-shell shell summon` does nothing"],
   ["shell/shell.qml", "shell.bar.hideBarWidget(id)", "hide/toggle can't close a widget panel"],
   ["shell/shell.qml", "shell.bar.isBarWidgetOpen(id)", "toggle always opens"],
@@ -68,15 +79,7 @@ const CONTRACT = [
   ["shell/shell.qml", "function togglePanelAt(section: string, index: string): string {", "Super+Ctrl+1..9 panel keys stop"],
   ["shell/plugins/bar/Bar.qml", "if (\"bar\" in target) target.bar =", "the widget injection protocol Powerbar mirrors"],
   ["shell/Ui/qmldir", "PluginBarApi 1.0 PluginBarApi.qml", "third-party widgets get no bar"],
-  ["shell/Ui/PluginBarApi.qml", "required property string moduleName", "facade createObject fails on a new required property"],
-  ["shell/Ui/PluginBarApi.qml", "property var _switchPanelFrom: null", "facade callbacks Powerbar fills"],
-  ["shell/Ui/PluginBarApi.qml", "property var _moduleWidgets: null", "facade callbacks Powerbar fills"],
-  ["shell/Ui/PluginBarApi.qml", "property var _targetBelongsToWindow: null", "facade callbacks Powerbar fills"],
-  ["shell/Ui/PluginBarApi.qml", "property var _setCenterHoverRevealSuppressed: null", "facade callbacks Powerbar fills"],
-  ["shell/Ui/PluginBarApi.qml", "property bool _centerHoverRevealSuppressed: false", "facade binding target"],
   ["shell/Ui/PluginBarApi.qml", "readonly property var foreignPopoutMarker: ({ foreign: true })", "foreign popouts not signalled (PluginApiSync)"],
-  ["shell/Ui/PluginBarApi.qml", "property var clickTargets: []", "click targets not synced (PluginApiSync)"],
-  ["shell/Ui/PluginBarApi.qml", "property var layoutConfig: ({})", "layout not synced (PluginApiSync)"],
   ["shell/Ui/WidgetButton.qml", "registeredBar.registerClickTarget(root)", "buttons stop registering click targets"],
   ["shell/Ui/WidgetButton.qml", ["property color foreground: bar ? bar.barForeground : Color.foreground",
     "property color foreground: bar ? bar.barForeground : Commons.Color.foreground"], "widget colours (barForeground)"],
@@ -86,11 +89,14 @@ const CONTRACT = [
   ["shell/plugins/panels/clock/Panel.qml", "root.bar.shell.updateEntryInline(root.moduleName, entry)", "clock inline state stops saving"],
   ["shell/Ui/KeyboardPanel.qml", "root.bar.targetBelongsToWindow(target, root.anchorWindow)", "outside-click detection"],
   ["shell/Ui/KeyboardPanel.qml", "bar.requestPopout(coordinatorKey)", "one popout at a time"],
+  ["shell/Ui/KeyboardPanel.qml", "var last = bar && typeof bar.popoutCardFor === \"function\" ? bar.popoutCardFor(coordinatorKey) : null", "a panel taking over in the same zone opens fresh instead of morphing (Bar.qml popoutCardFor)"],
+  ["shell/Ui/KeyboardPanel.qml", "bar.notePopoutCard({ screen: screen.name, x: cardTarget.x, y: cardTarget.y,", "a panel taking over in the same zone opens fresh instead of morphing (Bar.qml notePopoutCard)"],
   ["shell/Ui/KeyboardPanel.qml", "readonly property var coordinatorKey: owner || root", "slot panelOpen (highlight, reveal, keyboard mode)"],
   ["shell/Ui/PopupCard.qml", "if (open) bar.requestPopout(coordinatorKey)", "one popout at a time"],
   ["shell/Ui/Panel.qml", "function closeForPopoutSwitch() {", "panel switches animate as full closes"],
   ["shell/Ui/KeyboardPanel.qml", "readonly property point cardOrigin: {", "popup gap compensation; panels at the wrong distance"],
   ["shell/Ui/KeyboardPanel.qml", "readonly property real barH: anchorWindow ? anchorWindow.height : 0", "popup gap compensation"],
+  ["shell/Ui/KeyboardPanel.qml", ["y = barH + gap", "y = barThickness + gap"], "popup gap compensation; panels open over the bar or off it"],
   ["shell/Ui/KeyboardPanel.qml", "readonly property var anchorWindow: anchorItem ? anchorItem.QsWindow.window : null", "popup gap compensation"],
   ["shell/Ui/KeyboardPanel.qml", "property int gap: Style.gapsOut", "panel offset (Powerbar binds gap)"],
   ["shell/Ui/KeyboardPanel.qml", "readonly property string barPos: bar ? bar.position : \"top\"", "popupStatus"],
@@ -107,8 +113,6 @@ const CONTRACT = [
   ["shell/Ui/WidgetButton.qml", "signal pressed(int button)", "group and custom buttons go dead"],
   ["shell/Ui/WidgetButton.qml", "property bool keepSpace: false", "custom command modules fail to load"],
   ["shell/Ui/BorderSurface.qml", "property var borderSpec: Border.none()", "islands and overlays fail to load"],
-  ["shell/Ui/ScreenMoveRemap.qml", "required property var window", "bar window fails to build"],
-  ["shell/Ui/ScreenMoveRemap.qml", "property bool remapping: false", "monitor-move remap"],
   ["shell/Ui/ButtonGroup.qml", "signal changed(string value)", "Preferences choices go dead"],
   ["shell/Ui/Dropdown.qml", "property bool showLabel: true", "Preferences dropdowns fail to load"],
   ["shell/Ui/TextField.qml", "property real verticalPadding: Style.spacing.inputPaddingY", "group text fields fail to load"],
@@ -157,10 +161,15 @@ const CONTRACT = [
   ["default/hypr/bindings/utilities.lua", "\"SUPER + CTRL + code:\" .. tostring(panel + 9),", "positional panel shortcuts not read"],
   ["default/hypr/bindings/utilities.lua", "\"omarchy-shell -q shell togglePanelAt right \" .. panel", "positional panel shortcuts not read"],
   ["default/hypr/bindings/utilities.lua", "hl.dsp.exec_cmd(", "binds written with exec_cmd not parsed"],
-  ["config/omarchy/shell.json", "\"centerAnchor\": \"omarchy.clock\",", "default anchor and its key"],
+  ["config/omarchy/shell.json", ["\"centerAnchor\": \"omarchy.clock\",", "\"centerEnd\": ["], "default anchor (its key, or the centre sections SectionsModel folds)"],
+  ["shell/Commons/Util.qml", ["readonly property var barSections: [\"left\", \"centerBegin\", \"center\", \"centerEnd\", \"right\", \"tray\"]",
+    "function normalizeLayout(layout) {"], "Omarchy's layout sections differ from the six SectionsModel folds"],
   ["shell/plugins/bar/BarModel.js", "if (settings.exec) return \"command\"", "custom module schema (BarModel.js)"],
   ["shell/plugins/panels/clock/manifest.json", "\"id\": \"omarchy.clock\",", "clock quiet-activity exemption"],
   ["shell/plugins/bar/widgets/Tray.manifest.json", "\"id\": \"omarchy.tray\",", "tray special case"],
+  ["shell/plugins/bar/widgets/Tray.qml", "readonly property var hiddenIds: settings.hidden instanceof Array ? settings.hidden : []", "tray icons moved onto the bar show in the tray too (TrayItemsModel.moveOut)"],
+  ["shell/plugins/bar/widgets/Tray.qml", "if (hiddenIds.indexOf(iid) !== -1) return \"hidden\"", "tray icons moved onto the bar show in the tray too (hidden by tray id)"],
+  ["shell/plugins/bar/widgets/TrayModel.js", "if (itemNamed(item, \"localsend\")) return true", "In the tray shelf lists icons the tray never draws (TrayItemsModel.ownedByOmarchy)"],
   ["shell/plugins/bar/widgets/Indicators.manifest.json", "\"id\": \"omarchy.indicators\",", "centre-reveal special case"],
   ["shell/plugins/bar/Bar.qml", "WlrLayershell.namespace: \"omarchy-bar-drag-ghost\"", "drag ghost namespace Powerbar reuses"],
   ["shell/plugins/bar/Bar.qml", "WlrLayershell.namespace: \"omarchy-bar-move-ghost\"", "move ghost namespace Powerbar reuses"],
@@ -172,9 +181,20 @@ const CONTRACT = [
 ]
 
 // qs.Ui types Powerbar instantiates, and qs.Commons singletons it imports.
+// REQUIRED: the required properties each one declares at its root today. One
+// Omarchy adds fails every place Powerbar creates the type without it.
 const UI_TYPES = ["BorderSurface", "ButtonGroup", "Dropdown", "PanelSectionHeader", "PluginBarApi",
-  "ScreenMoveRemap", "TextField", "Toggle", "ToggleSwitch", "WidgetButton"]
+  "TextField", "Toggle", "ToggleSwitch", "WidgetButton"]
 const COMMONS = ["Border", "Color", "Style", "Util"]
+const REQUIRED = { PluginBarApi: ["pluginId", "moduleName"] }
+// Facade members Powerbar leaves at their defaults, and why.
+const FACADE_UNFILLED = {
+  traySectionDragActive: "Omarchy's tray section; Powerbar has none, so it stays false",
+  traySectionPopoutOpen: "Omarchy's tray section; Powerbar has none, so it stays false",
+}
+// Facade members only a facade has: Powerbar's own bar, handed to Omarchy's
+// widgets, needs no copy of them.
+const FACADE_ONLY = ["pluginId", "moduleName", "foreignPopoutMarker"]
 
 const ROOT = path.resolve(__dirname, "..")
 const OMARCHY = path.resolve(process.argv[2] || process.env.OMARCHY_PATH || "/usr/share/omarchy")
@@ -230,12 +250,93 @@ for (const name of COMMONS) if (!new RegExp(`^singleton ${name} `, "m").test(com
 const uiDir = read("shell/Ui/qmldir") || ""
 for (const name of UI_TYPES) if (!new RegExp(`^${name} `, "m").test(uiDir)) drift("shell/Ui/qmldir", `${name} 1.0 ${name}.qml`, `qs.Ui ${name} in Powerbar`)
 
+// 4. Additions in the surfaces Powerbar mirrors.
+// A QML file's root members, one per declaration at the root object's depth.
+function rootMembers(text) {
+  const members = []
+  let depth = 0
+  for (const raw of text.split("\n")) {
+    const line = raw.replace(/\/\/.*$/, "").replace(/"(?:[^"\\]|\\.)*"/g, '""')
+    if (depth === 1) {
+      const m = line.match(/^\s*(required\s+|readonly\s+)?property\s+\S+\s+(\w+)/)
+      const f = line.match(/^\s*function\s+(\w+)\s*\(/)
+      if (m) members.push({ kind: m[1] ? m[1].trim() : "property", name: m[2], callback: /^\s*property\s+var\s+_\w+\s*:\s*null\b/.test(line) })
+      else if (f) members.push({ kind: "function", name: f[1] })
+    }
+    for (const c of line) { if (c === "{") depth++; else if (c === "}") depth-- }
+  }
+  return members
+}
+const ownBar = fs.readFileSync(path.join(ROOT, "Bar.qml"), "utf8")
+const ownSync = fs.readFileSync(path.join(ROOT, "PluginApiSync.qml"), "utf8")
+let mirrored = 0
+for (const [type, pinned] of Object.entries(Object.assign(Object.fromEntries(UI_TYPES.map((t) => [t, []])), REQUIRED))) {
+  const rel = `shell/Ui/${type}.qml`, text = read(rel)
+  if (text === null) continue
+  const required = rootMembers(text).filter((m) => m.kind === "required").map((m) => m.name)
+  for (const name of required) if (!pinned.includes(name))
+    drift(rel, `a new required property ${name}`, `every ${type} Powerbar creates fails to load until it sets ${name}`)
+  mirrored++
+}
+const facadeRel = "shell/Ui/PluginBarApi.qml", facadeText = read(facadeRel)
+if (facadeText !== null) {
+  const members = rootMembers(facadeText), names = members.map((m) => m.name)
+  const start = ownBar.indexOf("pluginBarApiComponent.createObject(null, {")
+  const block = start < 0 ? "" : ownBar.slice(start, ownBar.indexOf("\n    })", start))
+  const created = [...block.matchAll(/^\s{6}(\w+):/gm)].map((m) => m[1])
+  const assigned = [...(ownBar + ownSync).matchAll(/\b(?:api|apis\[\w+\]|pluginBarApis\[\w+\])\.(\w+)\s*=(?!=)/g)].map((m) => m[1])
+  const filled = new Set(created.concat(assigned))
+  for (const m of members) {
+    mirrored++
+    if (m.kind === "required" && !created.includes(m.name))
+      drift(facadeRel, `required property ${m.name}`, "Bar.qml pluginBarApiFor does not set it: no third-party widget gets a bar")
+    else if (m.callback && !filled.has(m.name))
+      drift(facadeRel, `callback ${m.name}`, `Bar.qml pluginBarApiFor does not fill it: what it backs does nothing for third-party widgets`)
+    else if (m.kind === "property" && !m.callback && !filled.has(m.name) && !FACADE_UNFILLED[m.name])
+      drift(facadeRel, `property ${m.name}`, "Bar.qml bindPluginBarApi or PluginApiSync never sets it: third-party widgets read its default")
+    if (m.kind === "required" || m.name.startsWith("_") || FACADE_ONLY.includes(m.name) || FACADE_UNFILLED[m.name]) continue
+    const own = m.kind === "function" ? new RegExp(`^  function ${m.name}\\s*\\(`, "m") : new RegExp(`^  (readonly )?property \\S+ ${m.name}\\b`, "m")
+    if (!own.test(ownBar)) drift(facadeRel, `${m.kind === "function" ? "function" : "property"} ${m.name}`, `Powerbar's bar (Bar.qml) has no ${m.name} for Omarchy's own widgets`)
+  }
+  for (const name of filled) if (!names.includes(name))
+    drift(facadeRel, `no ${name}`, `Bar.qml or PluginApiSync.qml still fills ${name}: remove it, or the facade's replacement takes its place`)
+}
+
+// 5. What Powerbar reads outside the shell's files.
+function loadModel(file) { return require(path.join(ROOT, "tests", "load.cjs"))(file) }
+const cutoutsRel = "shell/plugins/bar/Bar.qml"
+const omarchyCutouts = ((read(cutoutsRel) || "").match(/path:\s*"([^"]*cutouts[^"]*)"/) || [])[1]
+const ownCutouts = (ownBar.match(/"([^"]*display-cutouts\.json)"/) || [])[1]
+if (!omarchyCutouts) drift(cutoutsRel, "path: \"…cutouts…\"", "notch screens: where Omarchy's bar reads the display cutouts is unknown")
+else if (omarchyCutouts !== ownCutouts) drift(cutoutsRel, `path: "${ownCutouts}"`, `Omarchy reads the cutouts from ${omarchyCutouts}; Powerbar's Bar.qml cutouts path no longer matches`)
+else if (fs.existsSync(omarchyCutouts)) {
+  const text = fs.readFileSync(omarchyCutouts, "utf8")
+  const listed = (() => { try { return (JSON.parse(text).panels || []).length } catch (e) { return -1 } })()
+  if (listed !== loadModel("NotchModel.js").parseCutouts(text).length)
+    drift(omarchyCutouts, "{ \"panels\": [ { connector, width, height, top } ] }", "NotchModel.parseCutouts drops panels the file lists: notch screens go unseen")
+}
+const hyprland = process.env.HYPRLAND_BIN || "/usr/bin/Hyprland"
+let bindsFormat = ""
+try {
+  const bin = fs.readFileSync(hyprland), at = bin.indexOf("\tmodmask: {}")
+  if (at >= 0) bindsFormat = bin.subarray(bin.lastIndexOf(0, at) + 1, bin.indexOf(0, at)).toString("latin1")
+} catch (e) {}
+if (!bindsFormat) drift(hyprland, "\"\\tmodmask: {}\" in the `hyprctl binds` text", "the binds' text format is unknown: shortcut clashes and live state (ShortcutModel.parseBinds)")
+else {
+  const sample = { modmask: "64", key: "B", description: "Sample bind", submap: "" }
+  const block = bindsFormat.replace(/(\w+): \{\}/g, (all, field) => `${field}: ${field in sample ? sample[field] : "0"}`).replace(/\{\}/g, "0")
+  const parsed = loadModel("ShortcutModel.js").parseBinds(block + block)
+  const want = { keys: "SUPER + B", mask: 64, key: "B", description: "Sample bind", submap: "" }
+  if (parsed.length !== 2 || JSON.stringify(parsed[0]) !== JSON.stringify(want))
+    drift(hyprland, JSON.stringify(bindsFormat), "ShortcutModel.parseBinds no longer reads `hyprctl binds`: shortcut clashes and live state")
+}
+
 let version = ""
 try { version = fs.readFileSync(path.join(OMARCHY, "version"), "utf8").trim() } catch (e) {}
-const total = CONTRACT.length + styleCount + colorCount + COMMONS.length + UI_TYPES.length
+const total = CONTRACT.length + styleCount + colorCount + COMMONS.length + UI_TYPES.length + mirrored + 2
 if (failures.length) {
   console.log(failures.join("\n"))
   console.log(`omarchy contract: ${failures.length} of ${total} checks drifted (Omarchy ${version || "?"} at ${OMARCHY})`)
   process.exit(1)
 }
-console.log(`omarchy contract: all ${total} checks hold (Omarchy ${version || "?"} at ${OMARCHY}; ${CONTRACT.length} lines, ${styleCount} Style and ${colorCount} Color tokens)`)
+console.log(`omarchy contract: all ${total} checks hold (Omarchy ${version || "?"} at ${OMARCHY}; ${CONTRACT.length} lines, ${styleCount} Style and ${colorCount} Color tokens, ${mirrored} mirrored members, cutouts and binds)`)

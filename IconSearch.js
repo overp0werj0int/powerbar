@@ -146,5 +146,3 @@ function vertical(rowList, at, dir) {
   }
   return at
 }
-
-if (typeof module !== "undefined") module.exports = { BAR, OMARCHY, EMOJI, words, index, isIconGlyph, score, search, pastedGlyph, rows, vertical }

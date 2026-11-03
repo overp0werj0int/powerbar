@@ -11,14 +11,15 @@ TestCase {
     id: bar
     property bool vertical: false
     property var barDragSource: ({ cellLength: 20 })
-    property var cellTokens: ({ cell: 20, thickness: 24 })
+    property var metrics: ({ tokens: { cell: 20, thickness: 24 }, thickness: 24, highlightRadius: 6 })
     property real dragGapWidth: 30
     property real dragGapHeight: 30
     property color barForeground: "white"
     property bool animationsEnabled: true
     property bool dragHandover: false
     property int dragMotionDuration: 150
-    property real highlightRadius: 6
+    function targetWindow(item) { return null }
+    function metricsOf(window) { return metrics }
     property string fontFamily: "sans"
   }
 

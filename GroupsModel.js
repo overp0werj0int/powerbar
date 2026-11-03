@@ -1,12 +1,20 @@
+.import "ManagedModel.js" as ManagedModel
+.import "SectionsModel.js" as SectionsModel
+
 // Groups reference existing widget instances; settings and enablement stay in
 // bar.layout. Removing a group therefore cannot delete a widget or its service.
-var sections = ["left", "center", "right"]
+// The most characters of a group's name that are kept.
+var labelLength = 80
+// What a group's face, badge count and member rows can be.
+var faces = ["glyph", "text", "both"]
+var badgeModes = ["sum", "members"]
+var memberDisplays = ["native", "name", "both"]
 // A group's icon takes a place in the layout under this instance key; no
 // widget's key starts with it.
 function groupKey(id) { return "group:" + id }
 function isGroupKey(key) { return typeof key === "string" && key.indexOf("group:") === 0 }
 // A group's own image: an absolute local path to an SVG or PNG, nothing else
-// (no URL, so drawing it never reaches the network). CliModel.js has the same rule.
+// (no URL, so drawing it never reaches the network).
 function imagePath(v) {
   return typeof v === "string" && v.length <= 1024 && /^\/[^\x00-\x1f\x7f]*\.(svg|png)$/i.test(v)
     && !/(^|\/)\.\.(\/|$)/.test(v) ? v : undefined
@@ -66,7 +74,7 @@ function needsRuns(group, face) {
 function layoutKeys(bar) {
   var layout = bar && bar.layout, keys = {}, any = false
   if (!layout || typeof layout !== "object") return null
-  sections.forEach(function(section) {
+  SectionsModel.sections.forEach(function(section) {
     (Array.isArray(layout[section]) ? layout[section] : []).forEach(function(entry) {
       if (entry && typeof entry.powerbarInstance === "string" && entry.powerbarInstance) { keys[entry.powerbarInstance] = true; any = true }
     })
@@ -74,31 +82,47 @@ function layoutKeys(bar) {
   return any ? keys : null
 }
 // Saved members whose widget is no longer in the layout (uninstalled since it
-// was grouped). groups() leaves them out; Bar writes the cleaned list once.
+// was grouped). groups() leaves them out; the heal writes the cleaned list
+// once (HealModel, pruneMembers).
 function danglingMembers(bar) {
-  var known = layoutKeys(bar), count = 0
-  if (!known) return 0
+  var known = layoutKeys(bar), keys = []
+  if (!known) return keys
   ;(bar && Array.isArray(bar.powerbarGroups) ? bar.powerbarGroups : []).forEach(function(g) {
     ;(g && Array.isArray(g.items) ? g.items : []).forEach(function(key) {
-      if (typeof key === "string" && key && !isGroupKey(key) && !known[key]) count++
+      if (typeof key === "string" && key && !isGroupKey(key) && !known[key] && keys.indexOf(key) < 0) keys.push(key)
     })
   })
-  return count
+  return keys
 }
-function groups(bar) {
+// Writes the groups back, each as groups() reads it, without the members in
+// `keys` that are still not in the layout. Only those: a member whose entry
+// lost its key to another writer since stays, for the heal that puts the key
+// back. Returns whether it changed bar.
+function pruneMembers(bar, keys) {
+  var known = layoutKeys(bar) || {}
+  var gone = (Array.isArray(keys) ? keys : []).filter(function(key) { return !known[key] })
+  var listed = (bar && Array.isArray(bar.powerbarGroups) ? bar.powerbarGroups : []).some(function(g) {
+    return g && Array.isArray(g.items) && g.items.some(function(key) { return gone.indexOf(key) >= 0 })
+  })
+  if (!listed) return false
+  bar.powerbarGroups = groups(bar, gone)
+  return true
+}
+// gone: the members to leave out; every member not in the layout when absent.
+function groups(bar, gone) {
   var ids = [], members = [], known = layoutKeys(bar)
   return (bar && Array.isArray(bar.powerbarGroups) ? bar.powerbarGroups : []).filter(function(g) {
     if (!g || typeof g.id !== "string" || !g.id || ids.indexOf(g.id) >= 0) return false
     ids.push(g.id); return true
   }).map(function(g) {
     return { id: g.id, label: String(g.label || "Group"), icon: String(g.icon || icons[0].glyph),
-      section: sections.indexOf(g.section) >= 0 ? g.section : "right", before: String(g.before || ""),
-      visibility: ["shown", "managed", "hidden"].indexOf(g.visibility) >= 0 ? g.visibility : "shown",
-      face: ["glyph", "text", "both"].indexOf(g.face) >= 0 ? g.face : "glyph",
+      section: SectionsModel.lists.indexOf(g.section) >= 0 ? g.section : "right", before: String(g.before || ""),
+      visibility: ManagedModel.visibilityModes.indexOf(g.visibility) >= 0 ? g.visibility : "shown",
+      face: faces.indexOf(g.face) >= 0 ? g.face : "glyph",
       tooltip: typeof g.tooltip === "boolean" ? g.tooltip : undefined,
       badge: g.badge !== false,
       badgeMode: g.badgeMode === "members" ? "members" : "sum",
-      memberDisplay: ["native", "name", "both"].indexOf(g.memberDisplay) >= 0 ? g.memberDisplay : "native",
+      memberDisplay: memberDisplays.indexOf(g.memberDisplay) >= 0 ? g.memberDisplay : "native",
       // Absent unless set, so groups that don't use them save as before.
       iconFont: g.iconFont === "omarchy" ? "omarchy" : undefined,
       iconImage: imagePath(g.iconImage),
@@ -106,7 +130,7 @@ function groups(bar) {
       items: (Array.isArray(g.items) ? g.items : []).filter(function(key) {
         if (typeof key !== "string" || !key || isGroupKey(key) || members.indexOf(key) >= 0) return false
         // A widget uninstalled since it was grouped is no longer a member.
-        if (known && !known[key]) return false
+        if (gone ? gone.indexOf(key) >= 0 : known && !known[key]) return false
         members.push(key); return true
       }) }
   })
@@ -133,7 +157,7 @@ function create(config, id, label) {
 function edit(config, id, patch) {
   var list = groups(config.bar), group = list.find(function(g) { return g.id === id })
   if (!group) return false
-  if (typeof patch.label === "string" && patch.label.trim()) group.label = patch.label.trim().slice(0, 80)
+  if (typeof patch.label === "string" && patch.label.trim()) group.label = patch.label.trim().slice(0, labelLength)
   // A new icon replaces the old one whole: a glyph clears your own image and
   // its tint (a tint belongs to the image it was chosen with), and each icon
   // keeps the font it was chosen in.
@@ -145,18 +169,18 @@ function edit(config, id, patch) {
   }
   if (imagePath(patch.iconImage)) group.iconImage = patch.iconImage
   if (patch.iconTint === "text" || patch.iconTint === "own") group.iconTint = patch.iconTint === "own" ? "own" : undefined
-  if (sections.indexOf(patch.section) >= 0) { group.section = patch.section; group.before = "" }
+  if (SectionsModel.lists.indexOf(patch.section) >= 0) { group.section = patch.section; group.before = "" }
   if (typeof patch.before === "string") group.before = patch.before
-  if (["shown", "managed", "hidden"].indexOf(patch.visibility) >= 0) group.visibility = patch.visibility
-  if (["glyph", "text", "both"].indexOf(patch.face) >= 0) group.face = patch.face
+  if (ManagedModel.visibilityModes.indexOf(patch.visibility) >= 0) group.visibility = patch.visibility
+  if (faces.indexOf(patch.face) >= 0) group.face = patch.face
   if (typeof patch.tooltip === "boolean") group.tooltip = patch.tooltip
   if (typeof patch.badge === "boolean") group.badge = patch.badge
-  if (["sum", "members"].indexOf(patch.badgeMode) >= 0) group.badgeMode = patch.badgeMode
-  if (["native", "name", "both"].indexOf(patch.memberDisplay) >= 0) group.memberDisplay = patch.memberDisplay
+  if (badgeModes.indexOf(patch.badgeMode) >= 0) group.badgeMode = patch.badgeMode
+  if (memberDisplays.indexOf(patch.memberDisplay) >= 0) group.memberDisplay = patch.memberDisplay
   config.bar.powerbarGroups = list; return true
 }
 function moveHeader(config, id, section, beforeKey, relativeGroupId, after, visibility) {
-  if (!config || !config.bar || sections.indexOf(section) < 0) return false
+  if (!config || !config.bar || SectionsModel.lists.indexOf(section) < 0) return false
   if (visibility !== "shown" && visibility !== "managed") return false
   var list = groups(config.bar), source = list.find(function(g) { return g.id === id })
   if (!source || relativeGroupId === id) return false
@@ -221,6 +245,18 @@ function passGroups(config, section, key, id) {
   config.bar.powerbarGroups = rest
   return true
 }
+// A widget dropped past groups drawn at its zone's end (no anchor, or one
+// that is not there) lands after them: those groups re-anchor on the widget,
+// in their order. Nothing in the layout moves.
+function anchorOn(config, section, key, ids) {
+  if (!config || !config.bar || !key || !ids || !ids.length) return false
+  var list = groups(config.bar), changed = false
+  list.forEach(function(g) {
+    if (g.section === section && ids.indexOf(g.id) >= 0 && g.before !== key) { g.before = key; changed = true }
+  })
+  if (changed) config.bar.powerbarGroups = list
+  return changed
+}
 function remove(config, id) {
   var list = groups(config.bar), next = list.filter(function(g) { return g.id !== id })
   if (next.length === list.length) return false
@@ -229,7 +265,7 @@ function remove(config, id) {
 function assign(config, key, id, before) {
   var list = groups(config.bar), destination = list.find(function(g) { return g.id === id })
   if (id && !destination) return false
-  var exists = sections.some(function(section) {
+  var exists = SectionsModel.sections.some(function(section) {
     return (config.bar.layout[section] || []).some(function(e) { return e && e.powerbarInstance === key })
   })
   if (!exists || isGroupKey(key)) return false
@@ -243,7 +279,7 @@ function assign(config, key, id, before) {
 }
 function render(layout, list) {
   var result = {}
-  sections.forEach(function(section) {
+  SectionsModel.lists.forEach(function(section) {
     result[section] = (layout[section] || []).slice()
     list.filter(function(g) { return g.section === section && g.visibility !== "hidden" }).forEach(function(g) {
       var at = result[section].findIndex(function(e) { return e.powerbarInstance === g.before })

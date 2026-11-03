@@ -1,8 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const vm = require('node:vm');
-const fs = require('node:fs');
-const load = file => { const c = vm.createContext({}); vm.runInContext(fs.readFileSync(`${__dirname}/../${file}`, 'utf8'), c); return c; };
+const load = require('./load.cjs');
 const cell = load('CellModel.js');
 const hl = load('HighlightModel.js');
 
@@ -118,6 +116,19 @@ test('compound thumbs nest at the track curve', () => {
 test('inkRect: kit glyphs and labels are centred; children give the painted span', () => {
   const glyph = { width: 27, height: 26, glyphPaintedWidth: 9, opticalSize: 16, children: [] };
   assert.deepEqual({ ...hl.inkRect(glyph, false) }, { start: 9, length: 9, glyph: true });
+  const drawn = { width: 27, height: 26, glyphPaintedWidth: 0, opticalSize: 18, iconComponent: {}, labelText: '', componentPaintedWidth: 18, children: [] };
+  assert.deepEqual({ ...hl.inkRect(drawn, false) }, { start: 4.5, length: 18, glyph: true }, 'a drawn icon is an icon');
+  // A count drawn beside the icon as the button's own text (omabox) is ink:
+  // the cell makes room for it, and the icon's own span is kept for menus.
+  const count = { x: 39, y: 5, width: 7, height: 16, paintedWidth: 7, text: '3', visible: true, opacity: 1, children: [] };
+  const counted = { ...drawn, width: 54, componentPaintedWidth: 16, children: [count] };
+  assert.deepEqual({ ...hl.inkRect(counted, false) }, { start: 19, length: 27, glyph: true, iconStart: 19, iconLength: 16 });
+  const k = cell.tokens({ bar: 26 });
+  assert.equal(cell.place(k, 27, cell.isGlyph(27, true), true).cell, 27 + 2 * k.air, 'the cell holds the count');
+  assert.deepEqual({ ...hl.inkRect({ ...counted, children: [{ ...count, visible: false }] }, false) }, { start: 19, length: 16, glyph: true }, 'a hidden count is not');
+  assert.deepEqual({ ...hl.inkRect({ ...counted, children: [{ ...count, text: '' }] }, false) }, { start: 19, length: 16, glyph: true }, 'nor an empty one');
+  const labelled = { ...drawn, labelText: '3' };
+  assert.equal(hl.inkRect(labelled, false).glyph, false, 'a drawn icon with a label is not');
   const battery = { width: 54, height: 26, glyphPaintedWidth: 41, opticalSize: 16, children: [] };
   assert.deepEqual({ ...hl.inkRect(battery, false) }, { start: 6.5, length: 41, glyph: false });
   const label = { width: 60, height: 26, labelWidth: 43, children: [] };
@@ -148,4 +159,39 @@ test('inkRect: kit glyphs and labels are centred; children give the painted span
   assert.deepEqual({ ...hl.inkRect(box(0, 146, { children: [button] }), false) }, { start: 8.5, length: 129, glyph: false });
   const vlabel = { width: 28, height: 40, labelWidth: 14, scaledVerticalPadding: 6, children: [] };
   assert.deepEqual({ ...hl.inkRect(vlabel, true) }, { start: 6, length: 28, glyph: true });
+  // A picture: an image (with a status dot beside it), no text.
+  const image = (w, extra) => box(0, w, { source: 'mark.svg', sourceSize: {}, fillMode: 1, ...extra });
+  const dot = box(0, 5, { color: '#fda52b', radius: 2.5 });
+  assert.equal(hl.picture(box(0, 27, { children: [box(4, 18, { children: [image(18), dot] })] })), true);
+  assert.equal(hl.picture(box(0, 27, { children: [image(18), box(20, 8, { font: {}, text: '3' })] })), false, 'a count beside it');
+  assert.equal(hl.picture(box(0, 27, { children: [image(18, { source: '' })] })), false, 'no image loaded');
+  assert.equal(hl.picture(box(0, 27, { children: [image(18, { visible: false })] })), false, 'hidden');
+});
+
+test('a window\'s metrics follow its own cells', () => {
+  for (const flat of [false, true]) for (const bar of [26, 38, 32]) for (const mode of ['slots', 'gaps']) {
+    const k = cell.tokens({ bar, spacing: 4, mode });
+    const look = { flat, edgeGap: 6, flatMargin: 8, iconSlot: 27, spacing: 4, rounding: 10 };
+    const m = cell.metrics(k, look, bar, bar + 12);
+    assert.equal(m.size, bar);
+    assert.equal(m.extent, bar + 12);
+    assert.equal(m.tokens, k);
+    assert.equal(m.thickness, k.thickness);
+    assert.equal(m.screenInset, flat ? cell.flatEdge(k, 8, 27) : 6);
+    assert.equal(m.zoneGap, k.cell + 4);
+    assert.equal(m.highlightRadius, cell.radius(k, 10));
+    for (const spill of [0, 3]) assert.equal(m.endPad(spill), cell.endPad(k, spill));
+  }
+});
+test('a highlight in a rounded outer corner nests in it, the gap kept to the curve', () => {
+  const arcs = [{ corner: 'tl', x: 4, y: 4, r: 16 }, { corner: 'tr', x: 1508, y: 4, r: 16 }];
+  // Three in from the top and the side: concentric, 16 - 3.
+  assert.deepEqual(cell.nestedCorners({ x: 7, y: 7, width: 30, height: 26 }, arcs, 3), { tl: 13, tr: 3, bl: 3, br: 3 });
+  // Uneven insets take the larger, so the curve stays inside the bar's.
+  assert.equal(cell.nestedCorners({ x: 10, y: 7, width: 30, height: 26 }, arcs, 3).tl, 10);
+  assert.equal(cell.nestedCorners({ x: 1478, y: 7, width: 27, height: 26 }, arcs, 3).tr, 13);
+  // Past the corner's reach it keeps its own radius, and never passes half its side.
+  assert.equal(cell.nestedCorners({ x: 40, y: 7, width: 20, height: 20 }, arcs, 3).tl, 3);
+  assert.equal(cell.nestedCorners({ x: 7, y: 7, width: 16, height: 16 }, [{ corner: 'tl', x: 4, y: 4, r: 30 }], 3).tl, 8);
+  assert.deepEqual(cell.nestedCorners({ x: 7, y: 7, width: 20, height: 20 }, [], 3), { tl: 3, tr: 3, bl: 3, br: 3 });
 });

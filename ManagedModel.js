@@ -1,8 +1,15 @@
+.import "SectionsModel.js" as SectionsModel
+
 // Runtime policy, independent of QML and wall-clock timers.
-function seconds(value, fallback, maximum) {
+// How long an activity reveal lasts (powerbarManagedRevealSeconds), and the
+// grace before a drawer closes (powerbarManagedEntryGraceSeconds and
+// powerbarManagedExitGraceSeconds), in seconds.
+var revealSeconds = { min: 1, max: 60, fallback: 2.5 }
+var graceSeconds = { min: 1, max: 15, fallback: 1 }
+function seconds(value, range) {
   var number = Number(value)
   return value === undefined || value === null || !isFinite(number)
-    ? fallback : Math.max(1, Math.min(maximum, number))
+    ? range.fallback : Math.max(range.min, Math.min(range.max, number))
 }
 // A widget with no saved visibility is On the bar, as on Omarchy's bar,
 // wherever it comes from. Configs Powerbar ran on before this rule put widgets
@@ -19,7 +26,7 @@ function mode(entry, metadata, legacy) {
 }
 function layoutEntries(bar) {
   var layout = bar && bar.layout || {}
-  return [].concat(layout.left || [], layout.center || [], layout.right || [])
+  return [].concat.apply([], SectionsModel.sections.map(function(name) { return layout[name] || [] }))
 }
 // Whether Powerbar has run on this config: it gives every entry an instance
 // id on its first run and keeps its own settings in powerbar* keys. A config
@@ -41,7 +48,7 @@ function legacyDefaults(bar) {
 function healVisibility(bar, thirdParty) {
   if (!bar || typeof bar !== "object" || bar.powerbarVisibilityDefault === "shown") return false
   if (legacyDefaults(bar)) {
-    ["left", "center", "right"].forEach(function(section) {
+    SectionsModel.sections.forEach(function(section) {
       var entries = bar.layout && bar.layout[section]
       if (!Array.isArray(entries)) return
       for (var i = 0; i < entries.length; i++) {
@@ -61,13 +68,20 @@ function healVisibility(bar, thirdParty) {
 // itself, and so it does here until the user puts it somewhere: On the bar by
 // choice (an explicit "shown"), or On demand, where the drawer must show it.
 function placeholder(entry, mode) {
+  // A tray icon comes and goes with its app, as it does in the tray.
+  if (entry && entry.type === "trayItem") return false
   if (mode === "managed") return true
   return mode === "shown" && !!entry && typeof entry === "object" && entry.powerbarVisibility === "shown"
 }
 function deadline(now, duration) { return now + duration * 1000 }
 function remaining(until, now) { return Math.max(0, until - now) }
-function dismissDelay(sourceHovered, drawerHovered, interactionHeld, entered, entrySeconds, exitSeconds) {
+// How long until a drawer closes on its own, in ms; 0 runs no timer. A drawer
+// pinned by a click (clickPinned) also stays while the pointer is anywhere on
+// the bar, and once it has left both goes after the exit grace, entered or not
+// (on-demand-drawers.md DEMAND-104).
+function dismissDelay(sourceHovered, drawerHovered, interactionHeld, entered, entrySeconds, exitSeconds, clickPinned, barHovered) {
   if (sourceHovered || drawerHovered || interactionHeld) return 0
+  if (clickPinned) return barHovered ? 0 : exitSeconds * 1000
   return (entered ? exitSeconds : entrySeconds) * 1000
 }
 // The pointer landed on another stop on the bar (stop: { groupId, region }).
@@ -76,9 +90,11 @@ function dismissDelay(sourceHovered, drawerHovered, interactionHeld, entered, en
 // group's drawer belongs to its icon; a zone's drawer to its zone. Pinned or
 // keyboard drawers (keyboardMode), and one whose widget has a panel open or is
 // being dragged (held), stay.
-function closesForStop(opened, keyboardMode, held, drawerGroupId, drawerZone, stop) {
+function closesForStop(opened, keyboardMode, held, drawerGroupId, drawerZone, stop, zoneMenu) {
   if (!opened || keyboardMode || held || !stop) return false
   if (drawerGroupId) return stop.groupId !== drawerGroupId
+  // A zone's menu has only its dots for a source, and they are no stop.
+  if (zoneMenu) return true
   return !stop.groupId && stop.region !== drawerZone
 }
 function groupMenu(group) {
@@ -98,6 +114,45 @@ function menuLabelStart(showIcon, cell, air) {
 // cells and at most 320 px (longer names elide).
 function menuWidth(content, inset, cell) {
   return Math.min(320, Math.max(4 * cell, content + 2 * inset))
+}
+// A kit button's text that leads with an icon (Crash Desk's "󰈸 14"): its
+// icon and the text after the space, which a menu row splits between its
+// icon cell and its end. null for anything else (a bare icon, a value such
+// as "100% 󰁹", text over several lines). Icons as the kit reads them
+// (WidgetButton.isIconGlyph): private-use code points, and arrows and
+// symbols.
+function iconLead(text) {
+  var s = String(text || "")
+  var code = s.codePointAt(0)
+  if (!(code > 0)) return null
+  var icon = (code >= 0xe000 && code <= 0xf8ff) || (code >= 0xf0000 && code <= 0xffffd)
+    || (code >= 0x100000 && code <= 0x10fffd) || (code >= 0x2190 && code <= 0x2bff)
+  var size = code > 0xffff ? 2 : 1
+  if (!icon || !/^\s/.test(s.slice(size)) || s.indexOf("\n") >= 0) return null
+  var rest = s.slice(size).trim()
+  return rest === "" ? null : { icon: s.slice(0, size), rest: rest }
+}
+// A count a kit icon button draws beside its icon as a child of its own
+// (omabox's "3" right of its mark): the one visible text among the button's
+// own children that is a short number ("3", "12", "99+"). "" when there is
+// none, or more than one.
+function countText(texts) {
+  var found = (texts || []).map(function(t) { return String(t === undefined || t === null ? "" : t).trim() })
+    .filter(function(t) { return /^\d{1,3}\+?$/.test(t) })
+  return found.length === 1 ? found[0] : ""
+}
+// How far a counted button's icon sits left of the centre its ink was
+// measured at (0 or less): a shell that centres the icon alone leaves it
+// there; one that centres icon and count together moves it left, so the
+// count starts one gap after it. countX is the count's left edge in the
+// button, iconLength the icon's width.
+function countIconShift(countX, gap, iconLength, buttonWidth) {
+  return Math.min(0, countX - gap - iconLength / 2 - buttonWidth / 2)
+}
+// Whether a menu row shows its widget in the icon cell: a glyph, or a
+// picture (an image, no text) whose ink fits the cell.
+function menuIcon(glyph, picture, inkLength, cell) {
+  return !!glyph || (!!picture && inkLength > 0 && inkLength <= cell)
 }
 // A menu row's value: with icons shown, a member that is text on the bar (the
 // clock, the battery) shows its text at the row's end, at most maxInk wide.
@@ -158,6 +213,24 @@ function placeMenu(o) {
     if (start + o.length > o.screen - o.edge) { start = centre + o.row / 2 + o.inset - o.length; flipped = true }
   }
   return { start: clamp(start, o.length, o.screen, o.edge), flipped: flipped }
+}
+// A submenu beside its row in the menu (On demand "menu", a group's row).
+// It opens away from the bar on a side bar, else on the side with room
+// (after the menu first), one inset from it; its first row is level with
+// the group's row (its last row on a bottom bar), kept on screen.
+//   o.menu { x, y, width, height } and o.row { y, height } in window px
+//   o.width, o.height  the submenu    o.screen { width, height }  the window
+//   o.edge  screen margin   o.inset   o.position  the bar's edge
+function placeSubmenu(o) {
+  var x, before = false
+  if (o.position === "left") x = o.menu.x + o.menu.width + o.inset
+  else if (o.position === "right") { x = o.menu.x - o.inset - o.width; before = true }
+  else {
+    x = o.menu.x + o.menu.width + o.inset
+    if (x + o.width > o.screen.width - o.edge) { x = o.menu.x - o.inset - o.width; before = true }
+  }
+  var y = o.position === "bottom" ? o.row.y + o.row.height + o.inset - o.height : o.row.y - o.inset
+  return { x: clamp(x, o.width, o.screen.width, o.edge), y: clamp(y, o.height, o.screen.height, o.edge), before: before }
 }
 function cursorVisible(keyboardMode, cursorActive, count) {
   return !!keyboardMode && !!cursorActive && count > 0

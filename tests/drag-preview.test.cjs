@@ -1,6 +1,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const drag = require('../DragModel.js');
+const load = require('./load.cjs');
+const drag = load('DragModel.js');
 
 const state = (targetKey, targetSurface, after = false) => ({
   ready: true, sourceKey: 'clock:two', sourceSurface: 'bar:left',
@@ -97,4 +98,20 @@ test('landing after a cell holds within a 3 px dead zone, so the gap cannot flic
     after = next;
   }
   assert.equal(changes, 2);
+});
+
+test('a drag step that leaves a slot as it was gives it the same preview object', () => {
+  const one = state('audio', 'bar:right'), two = state('network', 'bar:right');
+  assert.equal(drag.slot(one, 'clock', 'bar:left'), drag.slot(two, 'clock', 'bar:left'));
+  assert.equal(drag.slot(one, 'clock:two', 'bar:left'), drag.slot(two, 'clock:two', 'bar:left'));
+  assert.equal(drag.slot(one, 'audio', 'bar:right'), drag.slot(state('audio', 'bar:right'), 'audio', 'bar:right'));
+  assert.notEqual(drag.slot(one, 'audio', 'bar:right'), drag.slot(two, 'audio', 'bar:right'));
+});
+
+test('a menu row pressed on its name carries its icon under the pointer', () => {
+  // A 27 px icon: a press on it keeps its spot, a press off it (39 px along
+  // the row, on the name) holds the icon by its middle.
+  assert.equal(drag.grabOffset(4, 27), 4);
+  assert.equal(drag.grabOffset(39, 27), 13.5);
+  assert.equal(drag.grabOffset(-3, 27), 13.5);
 });

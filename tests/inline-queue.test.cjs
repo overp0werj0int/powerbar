@@ -1,9 +1,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const vm = require('node:vm');
-const fs = require('node:fs');
-const c = vm.createContext({});
-vm.runInContext(fs.readFileSync(`${__dirname}/../InlineQueue.js`, 'utf8'), c);
+const load = require('./load.cjs');
+const c = load('InlineQueue.js');
 const advance = (s, o) => JSON.parse(JSON.stringify(c.advance(s, o)));
 
 // A small driver: the bar's side of the queue, with a fake clock and timer.

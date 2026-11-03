@@ -1,6 +1,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const tips = require('../TooltipModel.js');
+const load = require('./load.cjs');
+const tips = load('TooltipModel.js');
 
 const popup = { width: 100, height: 30 };
 const gap = 6;
@@ -42,6 +43,11 @@ test("a drawer's item puts its tooltip outside the drawer", () => {
   assert.deepEqual(tips.place('top', rowItem, popup, gap, menu, true), { x: 626, y: 100 });
   // No room on the right of the menu: on its left, never slid back over it.
   assert.deepEqual(tips.place('top', rowItem, popup, gap, menu, true, { width: 700, height: 1000 }), { x: 294, y: 100 });
+  // A submenu opened on its menu's left: its card stays on the left, off the menu.
+  const sub = Object.assign({}, menu, { before: true });
+  assert.deepEqual(tips.place('top', rowItem, popup, gap, sub, true, { width: 1920, height: 1000 }), { x: 294, y: 100 });
+  // Unless there is no room there.
+  assert.deepEqual(tips.place('top', rowItem, popup, gap, Object.assign({}, sub, { x: 50 }), true, { width: 1920, height: 1000 }), { x: 276, y: 100 });
 });
 
 const m = tips;
@@ -79,4 +85,14 @@ test('a slid tooltip beside an open drawer still clears the drawer', () => {
   // The last widget's tooltip slides left, onto the drawer hanging below the bar.
   const drawer = { x: 1380, y: 46, width: 132, height: 44, vertical: false };
   assert.deepEqual(m.place('top', { x: 1482, y: 7, width: 20, height: 32 }, popup, 6, drawer, false, screen, null, 4), { x: 1408, y: 96 });
+});
+
+test('no card shows or stays while a pointer drag is on, the keyboard cursor\'s aside', () => {
+  const hovered = { visible: true, opacity: 1, tooltipHovered: true };
+  assert.equal(tips.cardHovered(hovered, false, false), true);
+  assert.equal(tips.cardHovered(hovered, false, true), false, 'a card under the pointer would end the drag');
+  assert.equal(tips.cardHovered({ ...hovered, tooltipHovered: false }, false, false), false);
+  assert.equal(tips.cardHovered({ ...hovered, opacity: 0 }, false, false), false);
+  assert.equal(tips.cardHovered({ ...hovered, tooltipHovered: false }, true, false), true, 'the cursor holds its card');
+  assert.equal(tips.cardHovered(null, true, false), false);
 });

@@ -38,6 +38,27 @@ function radius(k, rounding) {
   return Math.max(0, Math.min(k.thickness / 2, (Number(rounding) || 0) - k.inset))
 }
 
+// A highlight's or drop outline's four corners (tl, tr, bl, br), nested in
+// the bar's outer corners that follow the screen's (Bar outerArcs,
+// appearance.md LOOK-150). arcs: [{ corner: "tl" | "tr" | "bl" | "br", x, y,
+// r }], each the surface's corner point and its radius, in the rect's
+// coordinates. A rect corner in one keeps the gap to its curve that it keeps
+// to its sides: r less the larger of its two insets, so the curve stays
+// inside the surface's. Never below `base`, never past half the rect.
+function nestedCorners(rect, arcs, base) {
+  var cap = Math.max(0, Math.min(rect.width, rect.height) / 2)
+  var b = Math.max(0, Math.min(cap, Number(base) || 0))
+  var out = { tl: b, tr: b, bl: b, br: b }
+  for (var i = 0; arcs && i < arcs.length; i++) {
+    var a = arcs[i]
+    var dx = a.corner.charAt(1) === "l" ? rect.x - a.x : a.x - (rect.x + rect.width)
+    var dy = a.corner.charAt(0) === "t" ? rect.y - a.y : a.y - (rect.y + rect.height)
+    var r = Math.min(cap, a.r - Math.max(0, dx, dy))
+    if (r > out[a.corner]) out[a.corner] = r
+  }
+  return out
+}
+
 // A glyph is what reads as an icon: the kit says so, or it paints no wider
 // than a large icon glyph in one piece.
 function isGlyph(ink, glyphHint) {
@@ -90,6 +111,23 @@ function flatEdge(k, margin, iconSlot) {
   return Math.max(0, (Number(margin) || 0) + (Number(iconSlot) || 0) / 2 - k.inset - k.cell / 2)
 }
 
+// One bar window's sizes, from its cells and the bar's look.
+//   k       the window's tokens (its own beside a notch, else the bar's)
+//   look    { flat, edgeGap, flatMargin, iconSlot, spacing, rounding }
+//   size    the window's bar thickness; extent: that with its gaps
+// Returns { size, extent, tokens, thickness, screenInset, zoneGap,
+// highlightRadius, endPad(spill) }: the inset off the screen's sides (islands
+// keep the bar gap, a flat bar its end glyphs where Omarchy has them), the
+// gap between zones (one icon cell plus the spacing), and the island end pad.
+function metrics(k, look, size, extent) {
+  return {
+    size: size, extent: extent, tokens: k, thickness: k.thickness,
+    screenInset: look.flat ? flatEdge(k, look.flatMargin, look.iconSlot) : look.edgeGap,
+    zoneGap: k.cell + look.spacing,
+    highlightRadius: radius(k, look.rounding),
+    endPad: function(spill) { return endPad(k, spill) }
+  }
+}
 // The highlight for a placed slot, in slot coordinates along the bar.
 function highlight(k, p, rounding) {
   return { start: (p.extent - p.cell) / 2, length: p.cell, thickness: k.thickness, radius: radius(k, rounding) }
@@ -134,11 +172,4 @@ function badge(hl, island, size) {
   x = Math.max(1, Math.min(island.width - 1 - size.width, x))
   y = Math.max(1, Math.min(island.height - 1 - size.height, y))
   return { x: x, y: y }
-}
-
-if (typeof module !== "undefined") module.exports = {
-  tokens: tokens, radius: radius, isGlyph: isGlyph, cellLength: cellLength, place: place,
-  endPad: endPad, highlight: highlight, dragGap: dragGap, iconGap: iconGap,
-  dragDuration: dragDuration, hold: hold, thumb: thumb, badge: badge,
-  MAX_INK: MAX_INK, GLYPH_INK: GLYPH_INK
 }

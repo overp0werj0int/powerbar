@@ -13,6 +13,8 @@ Item {
   property real size: Style.font.iconLarge
   property real maxAspect: 3.2
   property color color: Commons.Color.popups.text
+  // Draw the glyph even where there is an image.
+  property bool glyphOnly: false
   readonly property string key: record && record.instanceKey ? record.instanceKey : ""
   readonly property var live: key ? preferences.snapshots[key] : null
   readonly property string cachedUrl: !live && key !== "" && !record.groupId ? preferences.cachedImageUrl(key) : ""
@@ -24,7 +26,7 @@ Item {
   readonly property bool cacheUsable: useCache && cached.status === Image.Ready
     && (Math.abs(imageHeight - Style.bar.sizeHorizontal) <= 1
       || Math.abs(imageHeight - Style.bar.sizeHorizontal - (bar ? bar.largeBarLip * 2 : 0)) <= 1)
-  readonly property bool hasImage: !!live || cacheUsable
+  readonly property bool hasImage: !glyphOnly && (!!live || cacheUsable)
   // Images are grabbed at twice their size; a large bar's slots include a lip
   // above and below the widget (beside it on a vertical bar), trimmed here so
   // the icon shows the widget alone at either bar size.
@@ -43,8 +45,12 @@ Item {
   readonly property real aspect: Math.max(1, imageWidth - trimX * 2) / Math.max(1, imageHeight - trimY * 2)
   // A group shows its icon: a glyph in its own font, or your own image.
   readonly property bool isGroup: !!(record && record.groupId)
-  implicitHeight: hasImage ? size : isGroup ? groupFace.implicitHeight : glyph.implicitHeight
-  implicitWidth: hasImage ? Math.min(size * maxAspect, size * aspect) : isGroup ? groupFace.implicitWidth : glyph.implicitWidth
+  // A tray icon with no image of its own yet: the app's icon while it runs
+  // (Preferences.trayIcon).
+  readonly property string trayUrl: !hasImage && record && record.trayItem ? preferences.trayIcon(record) : ""
+  readonly property bool trayShown: trayUrl !== ""
+  implicitHeight: hasImage || trayShown ? size : isGroup ? groupFace.implicitHeight : glyph.implicitHeight
+  implicitWidth: hasImage ? Math.min(size * maxAspect, size * aspect) : trayShown ? size : isGroup ? groupFace.implicitWidth : glyph.implicitWidth
   clip: hasImage && (trimX > 0 || trimY > 0)
   Accessible.ignored: true
 
@@ -56,7 +62,7 @@ Item {
   }
   Image {
     anchors.fill: frame
-    visible: !!icon.live
+    visible: !!icon.live && !icon.glyphOnly
     source: icon.live ? icon.live.url : ""
     fillMode: Image.PreserveAspectFit
     smooth: true
@@ -65,7 +71,7 @@ Item {
   Image {
     id: cached
     anchors.fill: frame
-    visible: icon.cacheUsable
+    visible: icon.cacheUsable && !icon.glyphOnly
     source: icon.cachedUrl
     asynchronous: true
     cache: true
@@ -83,10 +89,23 @@ Item {
     fontSize: Math.round(icon.size * 0.72)
     imageSize: Math.round(icon.size * 0.72)
   }
-  Text {
+  TintedImage {
+    anchors.centerIn: parent
+    visible: icon.trayShown
+    width: Math.round(icon.size * 0.8)
+    height: width
+    fillMode: Image.PreserveAspectFit
+    sourceSize.width: Math.round(width * Screen.devicePixelRatio)
+    sourceSize.height: Math.round(height * Screen.devicePixelRatio)
+    source: icon.trayUrl
+    // Symbolic icons take the text colour, as on the bar.
+    tint: icon.trayUrl.split("?")[0].slice(-9) === "-symbolic"
+    color: icon.color
+  }
+  GrayText {
     id: glyph
     anchors.centerIn: parent
-    visible: !icon.hasImage && !icon.isGroup
+    visible: !icon.hasImage && !icon.isGroup && !icon.trayShown
     text: icon.key ? icon.preferences.icon(icon.record) : ""
     textFormat: Text.PlainText
     color: icon.record && icon.record.groupId ? Commons.Color.accent : icon.color

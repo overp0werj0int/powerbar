@@ -1,6 +1,9 @@
 import QtQuick
 import QtQuick.Controls as Controls
 import QtQuick.Layouts
+import QtQuick.Shapes
+import QtQuick.Effects
+import QtQml.Models
 import qs.Commons
 import qs.Commons as Commons
 import qs.Ui
@@ -9,6 +12,9 @@ import "DragModel.js" as DragModel
 import "CellModel.js" as CellModel
 import "RenderModel.js" as RenderModel
 import "NotchModel.js" as NotchModel
+import "SectionsModel.js" as SectionsModel
+import "MotionModel.js" as MotionModel
+import "ShelfModel.js" as ShelfModel
 
 // Lives in the bar's window: widgets keep the same QsWindow and popup anchors.
 Item {
@@ -32,23 +38,36 @@ Item {
   // A drag's landing outline slides on to the next landing spot (DRAG-75).
   readonly property HighlightGlide dropGlide: HighlightGlide {}
   readonly property bool presenting: opened || reveal > 0.001 || !!dragMount
-  onPresentingChanged: if (!presenting && bar.managedOwner === drawer) bar.managedOwner = null
+  onPresentingChanged: {
+    if (!presenting && bar.managedOwner === drawer) bar.managedOwner = null
+    reportJoin()
+  }
   Behavior on reveal {
     enabled: bar.animationsEnabled && !drawer.instantClose && !drawer.replaying
     // Drawers open a few dozen times a day: quick, a strong ease-out both
     // ways, and closing faster than opening. On the notch, the zones' slide
     // out of the camera: a spring held to a few px out, ease-out back in.
     NumberAnimation {
-      duration: drawer.fromNotch ? (drawer.opened ? 220 : 140) : drawer.opened ? 160 : 110
-      easing.type: drawer.fromNotch ? (drawer.opened ? Easing.OutBack : Easing.OutCubic) : Easing.BezierSpline
+      duration: MotionModel.drawerMs(drawer.opened, drawer.attached)
+      easing.type: drawer.attached ? (drawer.opened ? Easing.OutBack : Easing.OutCubic) : Easing.BezierSpline
       easing.overshoot: NotchModel.backOvershoot(drawer.height, drawer.hostWindow.notchOvershoot)
       easing.bezierCurve: [0.23, 1, 0.32, 1, 1, 1]
     }
   }
   // On the notched screen the drawer is the notch's (docs/behavior/groups.md):
   // black, hanging from the bar, sliding down out of it.
-  readonly property bool fromNotch: !!hostWindow.notchLook && !bar.vertical
-  opacity: (fromNotch ? 1 : Math.max(0, Math.min(1, reveal))) * asideOpacity
+  readonly property bool fromNotch: !!hostWindow.notchLook && !bar.vertical && !isSubmenu
+  // In the notch's colours: its drawers, and a submenu of a notch menu.
+  readonly property bool notchColours: fromNotch || isSubmenu && parentMenu.fromNotch
+  // On demand "shelf" (on-demand-drawers.md DEMAND-120): a strip drawer
+  // joined to the bar's edge, in the bar's colours, sliding out of the bar as
+  // the notch's do. Menus and submenus stay apart.
+  readonly property bool shelf: bar.onDemandShelf && !fromNotch && !isSubmenu && surfaceRole !== "menu"
+  // Joined to the bar: slides out of it, cut at its edge.
+  readonly property bool attached: fromNotch || shelf
+  // Drawn in the bar's own surface colour and ink.
+  readonly property bool barColours: notchColours || shelf
+  opacity: (attached ? 1 : Math.max(0, Math.min(1, reveal))) * asideOpacity
   // The opening motion starts on the second frame after the open: the first
   // lays out and paints the rows just mounted and the main bar's change,
   // which can take a few frames' time. Started before it, the motion was
@@ -72,8 +91,15 @@ Item {
   // back for the keyboard, and closes for the pointer: the panel was the last
   // stop. The grace lets one member's panel hand over to another's.
   readonly property bool memberPanelOpen: slots.some(function(slot) { return slot.panelOpen })
+    || (!!submenu && submenu.opened && submenu.memberPanelOpen)
   property bool steppedAside: false
-  onSteppedAsideChanged: bar.ev("drawer", steppedAside ? "aside" : "back")
+  onSteppedAsideChanged: {
+    bar.ev("drawer", steppedAside ? "aside" : "back")
+    // Aside, the bar lets go of the keyboard (DEMAND-51); back, its grab
+    // waits for the keys again, as a fresh drawer's does.
+    grabReady = false
+    if (!steppedAside && opened) grabDelay.restart()
+  }
   onMemberPanelOpenChanged: {
     if (memberPanelOpen) { asideEnd.stop(); steppedAside = opened }
     else if (steppedAside) asideEnd.restart()
@@ -91,6 +117,9 @@ Item {
   Connections {
     target: drawer.bar
     function onActivePopoutChanged() { if (drawer.steppedAside && !asideEnd.running) asideEnd.restart() }
+    // A drawer pinned by a click stays while the pointer is anywhere on the
+    // bar, on any monitor; leaving it restarts the one-shot timer (DEMAND-104).
+    function onBarHoveredChanged() { if (drawer.clickPinned) drawer.scheduleDismissal() }
   }
   property real asideOpacity: steppedAside ? 0 : 1
   Behavior on asideOpacity { enabled: bar.animationsEnabled && drawer.opened; NumberAnimation { duration: 110; easing.type: Easing.OutCubic } }
@@ -98,11 +127,14 @@ Item {
   // drawer's near edge) from 96%; nothing appears from nothing.
   readonly property real originAlong: sourceCell ? (sourceCell.start + sourceCell.end) / 2 - axisPosition
     : zone === "left" ? 0 : zone === "right" ? paintedLength : paintedLength / 2
+  // A submenu grows out of its row's side of the menu.
   transform: Scale {
-    origin.x: bar.vertical ? (bar.position === "left" ? 0 : drawer.width) : drawer.originAlong
-    origin.y: !bar.vertical ? (bar.position === "top" ? 0 : drawer.height) : drawer.originAlong
-    xScale: drawer.fromNotch ? 1 : 0.96 + 0.04 * Math.max(0, drawer.reveal)
-    yScale: drawer.fromNotch ? 1 : 0.96 + 0.04 * Math.max(0, drawer.reveal)
+    origin.x: drawer.isSubmenu ? (drawer.subPlace && drawer.subPlace.before ? drawer.width : 0)
+      : bar.vertical ? (bar.position === "left" ? 0 : drawer.width) : drawer.originAlong
+    origin.y: drawer.isSubmenu ? (bar.position === "bottom" ? drawer.height : 0)
+      : !bar.vertical ? (bar.position === "top" ? 0 : drawer.height) : drawer.originAlong
+    xScale: drawer.attached ? 1 : 0.96 + 0.04 * Math.max(0, drawer.reveal)
+    yScale: drawer.attached ? 1 : 0.96 + 0.04 * Math.max(0, drawer.reveal)
   }
   property bool grabReady: false
   onOpenedChanged: {
@@ -110,14 +142,40 @@ Item {
     if (opened) grabDelay.restart()
     else grabDelay.stop()
     if (!opened) { asideEnd.stop(); steppedAside = false }
-    if (opened) bar.ev("drawer", "open " + (groupId ? "group:" + groupId : zone) + (keyboardMode ? " keys" : "")
-      + " on " + (hostWindow && hostWindow.screen ? hostWindow.screen.name : "?"), bar.animationsEnabled ? 200 : 0)
+    if (opened) bar.ev("drawer", "open " + (isSubmenu ? "submenu " : "") + (groupId ? "group:" + groupId : token) + (keyboardMode ? " keys" : "")
+      + " on " + (hostWindow && hostWindow.screen ? hostWindow.screen.name : "?"), bar.animationsEnabled ? MotionModel.drawerMs(true, attached) : 0)
   }
   Timer { id: grabDelay; interval: 250; onTriggered: drawer.grabReady = drawer.opened }
+  // A click pinning a hover drawer waits the same moment: a grab that starts
+  // before the bar has the keyboard is cleared at once, closing the drawer.
+  // A drawer that lets go of the keys (a pointer drag, the keyboard mode
+  // letting it go) closes as a hover drawer does: no longer pinned either.
+  onKeyboardModeChanged: {
+    if (!keyboardMode) clickPinned = false
+    if (keyboardMode && opened && !grabDelay.running) { grabReady = false; grabDelay.restart() }
+  }
   property string zone: ""
+  // What a zone's drawer opened for: its region, or in menu mode the side of
+  // it whose dots opened it ("center:start"); `zone` is the region either way.
+  property string token: ""
   property string groupId: ""
+  // Whether it is open for zone `name`, not for a group.
+  function showsZone(name) { return opened && !groupId && zone === name }
+  // On demand "menu" (on-demand-drawers.md DEMAND-94): a zone's drawer is a
+  // menu of icons and names hanging from its dots, and a group's row in it
+  // opens the group's members in a submenu beside it. A drawer with a
+  // parentMenu is that submenu.
+  property var parentMenu: null
+  readonly property bool isSubmenu: !!parentMenu
+  readonly property bool zoneMenu: bar.onDemandMenu && !groupId && !isSubmenu
+  readonly property var submenu: isSubmenu ? null : hostWindow.managedSubmenu || null
+  // The dots a zone's menu hangs from.
+  property Item anchorHandle: null
+  // A submenu's row in its menu.
+  property Item parentRow: null
+  function rowGroup(slot) { return zoneMenu && !!slot && slot.groupHeader === true }
   readonly property var groupConfig: bar.groups.find(function(g) { return g.id === groupId }) || null
-  readonly property string surfaceRole: Model.drawerSurface(groupConfig)
+  readonly property string surfaceRole: zoneMenu || isSubmenu ? "menu" : Model.drawerSurface(groupConfig)
   readonly property bool namedMenu: surfaceRole === "menu"
   // Drawers are islands with the island radius, always floating one bar gap
   // from the bar (docs/behavior/on-demand-drawers.md). Menus and strips are
@@ -125,23 +183,87 @@ Item {
   // bar's own size or the notch's.
   readonly property var tokens: bar.drawerTokens
   readonly property real surfaceRadius: Math.min(bar.islandRounding, tokens.bar / 2)
-  readonly property bool stripVertical: Model.drawerVertical(groupConfig, bar.vertical)
-  readonly property string memberDisplay: groupConfig ? groupConfig.memberDisplay : "native"
-  function memberTitle(slot) { return slot ? slot.displayName : "" }
+  readonly property bool stripVertical: namedMenu || Model.drawerVertical(groupConfig, bar.vertical)
+  // Menus of the menu mode show icons and names; a submenu of a group set to
+  // names only shows names.
+  readonly property string memberDisplay: zoneMenu ? "both"
+    : isSubmenu ? (groupConfig && groupConfig.memberDisplay === "name" ? "name" : "both")
+    : groupConfig ? groupConfig.memberDisplay : "native"
+  function memberTitle(slot) { return bar.slotName(slot) }
   FontMetrics {
     id: menuMetrics
     font.family: Style.font.menuFamily
     font.pixelSize: Style.font.bodySmall
   }
-  // Menus: rows are highlight cells. An icon keeps its cell at the row's
+  // Menus: rows are highlight cells. An icon (a glyph, or a picture that fits
+  // the cell, ManagedModel.menuIcon) keeps its cell at the row's
   // start and its name starts after it; a row without an icon starts its name
   // at the icon edge; anything that is text on the bar (the clock, the
   // battery) is a value, right-aligned one air from the row's end.
   readonly property bool menuIcons: namedMenu && memberDisplay === "both"
   function menuInk(slot) { return bar.vertical && slot.crossInk ? slot.crossInk : slot.ink }
-  function menuGlyph(slot) { var ink = menuInk(slot); return CellModel.isGlyph(ink.length, ink.glyph) }
-  function menuValueWidth(slot) { return Model.menuValueWidth(menuIcons, menuGlyph(slot), menuInk(slot).length, CellModel.MAX_INK) }
-  function menuLabelStart(slot) { return Model.menuLabelStart(menuIcons && menuGlyph(slot), tokens.cell, tokens.air) }
+  // The icon's own span in that ink: a drawn icon with a count beside it
+  // (HighlightModel.inkRect's iconStart) centres its icon, not both, in the
+  // icon cell.
+  function menuIconInk(slot) {
+    var ink = menuInk(slot)
+    return ink && ink.iconLength > 0 ? { start: ink.iconStart, length: ink.iconLength, glyph: true } : ink
+  }
+  // A kit button whose text leads with an icon (Crash Desk's "󰈸 14") is split
+  // in a row: its icon in the icon cell, the rest as the value, both drawn by
+  // the row from the button's own text and colour (ManagedModel.iconLead).
+  // A kit icon button that draws a count beside its icon as a child of its
+  // own (omabox's mark and "3", ManagedModel.countText) keeps its own face,
+  // cut to the icon cell (`native`), and the row draws the count as its
+  // value; iconShift is how far its icon sits left of its measured ink.
+  function menuSplit(slot) {
+    if (!menuIcons || !slot || rowGroup(slot)) return null
+    var targets = slot.slotTargets || []
+    var button = targets.length === 1 ? targets[0] : null
+    if (!button || typeof button.isIconGlyph !== "function" || !button.visible) return null
+    var lead = Model.iconLead(button.text)
+    if (lead) return { icon: lead.icon, rest: lead.rest, button: button, native: false, iconShift: 0 }
+    if (!button.iconComponent && !button.isIconGlyph(button.text)) return null
+    var texts = [], items = []
+    var kids = button.children || []
+    for (var i = 0; i < kids.length; i++) {
+      var k = kids[i]
+      if (!k || !k.visible || k.opacity <= 0 || !("paintedWidth" in k) || typeof k.text !== "string") continue
+      texts.push(k.text)
+      items.push(k)
+    }
+    var count = Model.countText(texts)
+    if (count === "") return null
+    var counter = items[texts.map(function(t) { return t.trim() }).indexOf(count)]
+    var ink = menuIconInk(slot)
+    // Where the count starts in the widget: its face is cut there.
+    var countLeft = counter.x + (slot.presentationItem ? button.mapToItem(slot.presentationItem, 0, 0).x : 0)
+    return { icon: "", rest: count, button: button, native: true, countLeft: countLeft,
+      iconShift: Model.countIconShift(counter.x, Style.space(4), ink.length, button.width) }
+  }
+  FontMetrics {
+    id: splitMetrics
+    font.family: bar.fontFamily
+    font.pixelSize: Style.font.body
+  }
+  function menuGlyph(slot) {
+    if (menuSplit(slot)) return true
+    var ink = menuInk(slot)
+    return Model.menuIcon(CellModel.isGlyph(ink.length, ink.glyph), slot.pictured, ink.length, tokens.cell)
+  }
+  // A group's row: its icon in the icon cell, its name, and a chevron where
+  // a value would be.
+  readonly property real chevronWidth: menuMetrics.advanceWidth("󰅂")
+  // Whether a submenu opens before this menu (ManagedModel.placeSubmenu's
+  // rule, for a submenu as wide as the menu).
+  readonly property bool subBefore: zoneMenu && (bar.vertical ? bar.position === "right"
+    : x + 2 * width + tokens.inset > hostWindow.width - bar.edgeGap)
+  function menuValueWidth(slot) {
+    var split = rowGroup(slot) ? null : menuSplit(slot)
+    if (split) return Math.min(splitMetrics.advanceWidth(split.rest), CellModel.MAX_INK)
+    return rowGroup(slot) ? chevronWidth : Model.menuValueWidth(menuIcons, menuGlyph(slot), menuInk(slot).length, CellModel.MAX_INK)
+  }
+  function menuLabelStart(slot) { return Model.menuLabelStart(rowGroup(slot) || menuIcons && menuGlyph(slot), tokens.cell, tokens.air) }
   readonly property real menuRowWidth: !namedMenu ? 0 : Model.menuRowWidth(slots.map(function(slot) {
     return { labelStart: menuLabelStart(slot), title: menuMetrics.advanceWidth(memberTitle(slot)), value: menuValueWidth(slot) }
   }), tokens)
@@ -151,27 +273,61 @@ Item {
   property bool sourceHovered: false
   property bool entered: false
   property bool keyboardMode: false
+  // Opened or pinned by a click (the dots, a zone's drawer button, a group's
+  // icon): it takes the keys as a keyboard drawer does, but also closes on
+  // its own once the pointer has left it and the bar (DEMAND-104). A key
+  // pressed in it, or an open for the keyboard, makes it a keyboard drawer.
+  property bool clickPinned: false
   // Opened from the bar's keyboard cursor (BarKeys.qml): it stays while the
   // cursor is on it, and its keys go to the cursor's rules first.
   property bool barKeysHeld: false
   property int cursor: 0
   property bool cursorActive: false
   readonly property bool selectionVisible: Model.cursorVisible(keyboardMode, cursorActive, slots.length)
-  readonly property bool containsMouse: hover.hovered
-  readonly property var slots: presenting ? (groupId ? bar.groupSlots(groupId, hostWindow) : bar.managedSlots(zone, hostWindow)) : []
-  // The mounts' model is one identity token per member, not the members: a
-  // Repeater over QObjects exposes every property of every member as a role,
-  // which cost milliseconds per member on each open. The Repeater still
-  // rebuilds exactly when the members change; each mount reads its member
-  // from this plain table, which never notifies.
-  readonly property var mounted: ({ list: [] })
-  property var mountTokens: []
+  // A zone's menu counts its submenu as part of it.
+  readonly property bool containsMouse: hover.hovered || (!!submenu && submenu.opened && submenu.containsMouse)
+  readonly property var slots: presenting ? (groupId ? bar.groupSlots(groupId, hostWindow) : bar.managedSlots(token || zone, hostWindow)) : []
+  // One row (mount) per member, kept across opens, closes and zones while
+  // its member's slot lives: building a row took milliseconds per member on
+  // every open. An open moves the rows its members need into the drawer and
+  // hosts the members there; a close parks them, their members back on the
+  // bar. A parked row reads no member (modelData is null), so it does no
+  // work while the member changes on the bar.
+  RetainedStore {
+    id: mountStore
+    factory: mountRow
+    recordProperty: "member"
+    keyOf: function(slot) { return String(slot) }
+    equivalent: function(a, b) { return a === b }
+  }
+  ObjectModel { id: mountModel }
   function refreshMounts() {
     if (dragMount) return
     var list = slots
-    mounted.list = list
-    var tokens = list.map(function(slot) { return String(slot) })
-    if (!RenderModel.equal(tokens, mountTokens)) mountTokens = tokens
+    var kept = []
+    for (var key in mountStore.objects) {
+      var member = mountStore.objects[key].member
+      if (member && list.indexOf(member) < 0) kept.push(member)
+    }
+    mountStore.reconcile(kept.concat(list))
+    var rows = list.map(function(slot) { return mountStore.get(String(slot)) })
+    for (var k in mountStore.objects) if (rows.indexOf(mountStore.objects[k]) < 0) unhost(mountStore.objects[k])
+    RenderModel.reconcileLists([mountModel], [rows], mountStore)
+    rows.forEach(host)
+    mountStore.sweep()
+  }
+  // A row hosting its member starts where it stands, as a new row would
+  // (AnimatedSlot.ready), rather than growing from its parked size.
+  function host(row) {
+    if (row.hosted) return
+    row.ready = false
+    row.member.drawerHost = row
+    Qt.callLater(function() { if (row) row.ready = true })
+  }
+  function unhost(row) {
+    var member = row.member
+    if (member && member.drawerHost === row) member.drawerHost = null
+    if (submenu && submenu.parentRow === row) submenu.close("immediate")
   }
   onDragMountChanged: refreshMounts()
   function releaseDrag(mount) { if (dragMount === mount) dragMount = null }
@@ -187,8 +343,8 @@ Item {
     if (namedMenu) {
       if (bar.barDragImageLabelled || memberDisplay === "name")
         return { item: item, local: { x: menuRowWidth / 2, y: start + tokens.thickness / 2 } }
-      var ink = menuInk(source), value = menuValueWidth(source)
-      var ox = menuIcons && menuGlyph(source) ? tokens.cell / 2 - (ink.start + ink.length / 2)
+      var ink = menuInk(source), icon = menuIconInk(source), value = menuValueWidth(source)
+      var ox = menuIcons && menuGlyph(source) ? tokens.cell / 2 - (icon.start + icon.length / 2)
         : value > 0 ? menuRowWidth - tokens.air - (ink.start + ink.length) : 0
       return { item: item, local: { x: ox + source.naturalWidth / 2, y: start + (tokens.thickness - source.naturalHeight) / 2 + source.naturalHeight / 2 } }
     }
@@ -200,7 +356,10 @@ Item {
     var cross = (along ? item.width : item.height) / 2
     return { item: item, local: along ? { x: cross, y: centre } : { x: centre, y: cross } }
   }
-  readonly property bool interactionHeld: keyboardMode || barKeysHeld || bar.dragMotionActive || slots.some(function(slot) { return slot.panelOpen })
+  // A drawer pinned by a click is not held by its keys: the pointer decides
+  // when it goes (DEMAND-104); a keyboard drawer has no timer (DEMAND-50).
+  readonly property bool interactionHeld: (keyboardMode && !clickPinned) || barKeysHeld || bar.dragMotionActive || memberPanelOpen
+    || (!!submenu && submenu.opened && submenu.keyboardMode && !submenu.clickPinned)
   // Menu padding, and the pitch a drag opens between rows.
   readonly property real padding: tokens.inset
   readonly property real rowPitch: tokens.thickness + tokens.inset
@@ -209,16 +368,20 @@ Item {
   readonly property real gap: bar.flat ? bar.edgeGap : 0
   readonly property real thickness: tokens.bar
   readonly property real extent: opened ? thickness + gap : 0
-  readonly property real axisExtent: bar.vertical ? hostWindow.height : hostWindow.width
+  readonly property real axisExtent: bar.alongSize(hostWindow)
   // Strip ends: the island rule, so the end cells sit one inset from the ends.
   readonly property real leadPad: namedMenu ? padding : CellModel.endPad(tokens, bar.edgeSpill(contents, false))
   readonly property real trailPad: namedMenu ? padding : CellModel.endPad(tokens, bar.edgeSpill(contents, true))
-  readonly property real desiredLength: (bar.vertical ? grid.height : grid.width)
+  readonly property real desiredLength: bar.alongSize(grid)
     + (namedMenu ? 2 * padding : leadPad + trailPad)
   readonly property real desiredCross: (bar.vertical ? grid.width : grid.height) + 2 * padding
   readonly property real crossLength: namedMenu
     ? Math.min(Math.max(thickness, desiredCross), hostWindow.drawerExtent - gap - bar.edgeGap) : thickness
-  readonly property real length: opened ? Math.min(Math.max(thickness, desiredLength), Math.max(thickness, axisExtent - 2 * bar.edgeGap)) : closingLength
+  readonly property real contentLength: opened ? Math.min(Math.max(thickness, desiredLength), Math.max(thickness, axisExtent - 2 * bar.edgeGap)) : closingLength
+  // Joined to the bar, a strip can run a little longer so that its ends curve
+  // cleanly (shelfFit); its cells stay centred in the extra.
+  readonly property real length: shelfFit ? shelfFit.length : contentLength
+  readonly property real fitPad: (length - contentLength) / 2
   readonly property real paintedLength: bar.vertical ? height : width
   // The group icon's cell along the bar, in the window's coordinates. The icon
   // moves with its zone too (a zone grows, slides or yields), which its own x
@@ -226,7 +389,7 @@ Item {
   property int anchorRevision: 0
   property int islandRevision: 0
   GeometryObserver {
-    target: drawer.presenting ? drawer.anchorSlot : null
+    target: drawer.presenting ? drawer.anchorSlot || drawer.anchorHandle : null
     host: drawer.hostWindow.contentItem
     onChanged: drawer.anchorRevision++
   }
@@ -237,15 +400,23 @@ Item {
   }
   readonly property var sourceCell: {
     if (anchorCenter >= 0) return { start: anchorCenter - tokens.cell / 2, end: anchorCenter + tokens.cell / 2 }
+    // The dots' highlight cell, centred in their slot.
+    if (anchorHandle) {
+      var handleGeometry = anchorRevision + anchorHandle.x + anchorHandle.y + anchorHandle.width + anchorHandle.height
+      var h = anchorHandle.mapToItem(hostWindow.contentItem, 0, 0)
+      var cell = anchorHandle.cellPlace ? anchorHandle.cellPlace.cell : tokens.cell
+      var mid = bar.vertical ? h.y + anchorHandle.height / 2 : h.x + anchorHandle.width / 2
+      return { start: mid - cell / 2, end: mid + cell / 2 }
+    }
     if (!anchorSlot) return null
     var geometry = anchorRevision + anchorSlot.x + anchorSlot.y + anchorSlot.width + anchorSlot.height + anchorSlot.cellLength
     var p = anchorSlot.mapToItem(hostWindow.contentItem, 0, 0)
-    var along = bar.vertical ? anchorSlot.height : anchorSlot.width
+    var along = bar.alongSize(anchorSlot)
     // The icon's own stretch of its slot, as the highlight (DRAG-75): a drop
     // gap the slot holds is left out.
     var lead = anchorSlot.cellLead > 0 ? anchorSlot.cellLead : 0
     var own = anchorSlot.cellExtent > 0 ? Math.min(along - lead, anchorSlot.cellExtent) : along - lead
-    var start = (bar.vertical ? p.y : p.x) + lead + (own - anchorSlot.cellLength) / 2
+    var start = bar.along(p) + lead + (own - anchorSlot.cellLength) / 2
     return { start: start, end: start + anchorSlot.cellLength }
   }
   readonly property var zoneIsland: {
@@ -256,29 +427,99 @@ Item {
     return bar.vertical ? { start: p.y, end: p.y + island.height } : { start: p.x, end: p.x + island.width }
   }
   readonly property var placement: {
-    var o = { length: paintedLength, screen: axisExtent, edge: bar.edgeGap, source: sourceCell, island: zoneIsland,
+    var o = { length: contentLength, screen: axisExtent, edge: bar.edgeGap, source: sourceCell, island: zoneIsland,
       zone: zone, snap: tokens.thickness / 2, inset: tokens.inset, row: tokens.thickness, vertical: bar.vertical }
     return namedMenu ? Model.placeMenu(o) : Model.placeStrip(o)
   }
-  readonly property real axisPosition: placement.start
+  // The surface a shelf, or a notch's drawer, hangs from (Bar shelfHost):
+  // the island under its source cell, so a notch's hangs from its ear.
+  readonly property var shelfHost: {
+    if (!attached) return null
+    var geometry = islandRevision
+    return hostWindow.shelfHost(zone, sourceCell ? (sourceCell.start + sourceCell.end) / 2 : undefined)
+  }
+  // Along the bar: a notch's zone menu is edge-aligned, flush with the end of
+  // its ear nearest its dots (layout-zones.md ZONE-88); anything else joined
+  // to the bar moves, and a strip lengthens, so that neither end lands too
+  // close to its surface's end to curve cleanly (DEMAND-121).
+  readonly property var shelfFit: {
+    if (!shelfHost) return null
+    var min = Math.min(bar.edgeGap, shelfHost.start), max = Math.max(axisExtent - bar.edgeGap, shelfHost.end)
+    var start = fromNotch && anchorHandle && shelfHost.item
+      ? ShelfModel.alignStart(shelfHost.hang, contentLength, sourceCell, min, max) : placement.start
+    return ShelfModel.fit(start, contentLength, shelfHost, surfaceRadius, min, max, !namedMenu)
+  }
+  readonly property real axisPosition: shelfFit ? shelfFit.start : placement.start
+  // The shelf's outline in its own frame (ShelfModel.outline), as deep as
+  // the drawer plus the spring's overshoot, which it fills toward the bar.
+  readonly property real crossPainted: bar.vertical ? width : height
+  readonly property var shelfShape: shelfHost ? ShelfModel.outline({ length: paintedLength, depth: crossPainted + clipper.overshoot,
+    radius: surfaceRadius, barStart: shelfHost.start - axisPosition, barEnd: shelfHost.end - axisPosition, barRadius: shelfHost.radius, border: shelfBorder }) : null
+  // Its border, as wide as the bar's (none where the bar has none).
+  readonly property real shelfBorder: shelf && !bar.flat && !Border.isNone(bar.islandBorder) ? Border.top(bar.islandBorder) : 0
+  // While it shows, the bar squares the corners it joins (DEMAND-122).
+  readonly property string shelfCorners: shelfShape && presenting
+    ? ShelfModel.squaredCorners(bar.position, shelfShape.start, shelfShape.end).join(" ") : ""
+  function reportJoin() {
+    var held = hostWindow.shelfJoin
+    if (!shelfHost || !presenting) {
+      if (held && held.owner === drawer) hostWindow.shelfJoin = null
+      return
+    }
+    if (held && held.owner === drawer && held.surface === shelfHost.item && held.corners.join(" ") === shelfCorners) return
+    hostWindow.shelfJoin = { owner: drawer, surface: shelfHost.item, corners: shelfCorners ? shelfCorners.split(" ") : [] }
+  }
+  onShelfCornersChanged: reportJoin()
+  onShelfHostChanged: reportJoin()
+  // A shelf starts at the bar surface's far edge, with no gap.
+  readonly property real shelfEdge: {
+    var m = bar.metricsOf(hostWindow)
+    return (m.extent + m.size) / 2
+  }
+  // A submenu beside its row (ManagedModel.placeSubmenu).
+  property int rowRevision: 0
+  readonly property var subPlace: {
+    if (!isSubmenu || !parentRow || !parentMenu) return null
+    var geometry = rowRevision + parentMenu.x + parentMenu.y + parentMenu.width + parentMenu.height
+    var r = parentRow.mapToItem(hostWindow.contentItem, 0, 0)
+    return Model.placeSubmenu({ menu: { x: parentMenu.x, y: parentMenu.y, width: parentMenu.width, height: parentMenu.height },
+      row: { y: r.y, height: parentRow.height }, width: width, height: height,
+      screen: { width: hostWindow.width, height: hostWindow.height }, edge: bar.edgeGap, inset: tokens.inset, position: bar.position })
+  }
   width: bar.vertical ? crossLength : length
   height: bar.vertical ? length : crossLength
-  x: bar.vertical ? (bar.position === "left" ? bar.extentOf(hostWindow) + gap : hostWindow.drawerExtent - gap - width) : axisPosition
-  y: bar.vertical ? axisPosition : (bar.position === "top" ? bar.extentOf(hostWindow) + gap : hostWindow.drawerExtent - gap - height)
+  // Over the bar, for the row of it that covers its border (clipper); the
+  // rest is cut at the bar's edge.
+  z: shelf ? 1 : 0
+  x: isSubmenu ? (subPlace ? subPlace.x : 0)
+    : bar.vertical ? (shelf ? (bar.position === "left" ? shelfEdge : hostWindow.drawerExtent + bar.metricsOf(hostWindow).extent - shelfEdge - width)
+      : bar.position === "left" ? bar.metricsOf(hostWindow).extent + gap : hostWindow.drawerExtent - gap - width) : axisPosition
+  y: isSubmenu ? (subPlace ? subPlace.y : 0)
+    : bar.vertical ? axisPosition : shelf ? (bar.position === "top" ? shelfEdge : hostWindow.drawerExtent + bar.metricsOf(hostWindow).extent - shelfEdge - height)
+      : bar.position === "top" ? bar.metricsOf(hostWindow).extent + gap : hostWindow.drawerExtent - gap - height
   visible: presenting
   enabled: opened
   focus: opened && keyboardMode
 
-  function openZone(nextZone, keyboard, nextGroup, nextAnchor) {
+  // nextZone: a region, or in menu mode a side's token ("center:end");
+  // nextHandle: the dots a zone's menu hangs from; byClick: a click opened it
+  // for the keys, so it is pinned by the click (DEMAND-104).
+  function openZone(nextZone, keyboard, nextGroup, nextAnchor, nextHandle, byClick) {
     nextGroup = nextGroup || ""
-    if (bar.barHidden || (nextGroup ? bar.groupSlots(nextGroup, hostWindow) : bar.managedSlots(nextZone, hostWindow)).length === 0) return
-    if (!keyboard && suppressedZone === nextZone) return
+    // A click or key decides: a hover still waiting on its intent (the pointer
+    // just arrived) would reopen the drawer for hovering only.
+    if (keyboard === true) { zoneIntent.stop(); intentZone = ""; intentStill = null }
+    var nextToken = String(nextZone || "")
+    // The centre has a menu per side: a bare "center" (managed center) opens
+    // the first side with widgets.
+    if (bar.onDemandMenu && !nextGroup && nextToken === "center")
+      nextToken = bar.managedSlots("center:start", hostWindow).length ? "center:start" : "center:end"
+    if (bar.barHidden || (nextGroup ? bar.groupSlots(nextGroup, hostWindow) : bar.managedSlots(nextToken, hostWindow)).length === 0) return
+    if (!keyboard && suppressedZone === nextToken) return
     if (keyboard) suppressedZone = ""
     if (bar.managedOwner && bar.managedOwner !== drawer) bar.managedOwner.close("immediate")
-    var changingZone = opened && (zone !== nextZone || groupId !== nextGroup)
-    if (changingZone && slots.some(function(slot) { return slot.panelOpen })) {
-      if (bar.activePopout && typeof bar.activePopout.close === "function") bar.activePopout.close()
-    }
+    var changingZone = opened && (token !== nextToken || groupId !== nextGroup)
+    if (changingZone) { closeMemberPanel(); if (submenu) submenu.close("immediate") }
     var needsReveal = !opened || changingZone
     if (needsReveal) {
       replaying = true
@@ -287,11 +528,14 @@ Item {
     }
     if (changingZone || !opened) { entered = false; cursor = 0; sourceHovered = false }
     cursorActive = false
-    zone = nextZone
+    zone = nextToken.split(":")[0]
+    token = nextToken
     groupId = nextGroup
     anchorSlot = nextAnchor || null
+    anchorHandle = bar.onDemandMenu && !nextGroup ? nextHandle || handleFor(nextToken) : null
     anchorCenter = -1
     keyboardMode = keyboard === true
+    clickPinned = keyboardMode && byClick === true
     instantClose = false
     opened = true
     bar.managedOwner = drawer
@@ -301,20 +545,115 @@ Item {
       revealStart.restart()
     }
     dismissal.stop()
+    // A click from a drawer's row may leave the pointer off the bar and off
+    // what opens: its timer starts now rather than on the next hover change.
+    if (clickPinned) scheduleDismissal()
     if (keyboardMode) Qt.callLater(function() { drawer.forceActiveFocus() })
   }
-  function openGroup(id, slot, keyboard) {
+  function openGroup(id, slot, keyboard, byClick) {
     // A managed group header returns to its hidden main slot when switching
     // drawers. Keep the clicked position as the anchor during that switch.
     var fromDrawer = !!slot.drawerHost
     var item = slot.presentationItem
     var point = fromDrawer ? item.mapToItem(hostWindow.contentItem, item.width / 2, item.height / 2) : null
-    openZone(slot.region, keyboard, id, fromDrawer ? null : slot)
-    if (point && groupId === id) anchorCenter = bar.vertical ? point.y : point.x
+    openZone(slot.region, keyboard, id, fromDrawer ? null : slot, null, byClick)
+    if (point && groupId === id) anchorCenter = bar.along(point)
   }
+  // A click on a group's icon (GROUP-36): the drawer is pinned by the click.
   function toggleGroup(id, slot) {
-    if (opened && groupId === id && keyboardMode) close()
-    else openGroup(id, slot, true)
+    // Its icon while a member's panel is open: the panel closes and the
+    // drawer comes back pinned, rather than closing under the panel.
+    if (opened && groupId === id && steppedAside) {
+      closeMemberPanel()
+      openGroup(id, slot, true, true)
+      asideCheck()
+    } else if (opened && groupId === id && keyboardMode) close()
+    else openGroup(id, slot, true, true)
+  }
+  // A member's panel is anchored to the member: it closes with the drawer,
+  // or it would follow the member back to its hidden slot on the bar.
+  function closeMemberPanel() {
+    if (memberPanelOpen && bar.activePopout && typeof bar.activePopout.close === "function") bar.activePopout.close()
+  }
+  // A submenu: group `id`'s members beside `row`, its row in the menu. For
+  // the keyboard it takes the keys with the cursor on its first member.
+  function openSub(id, row, keyboard) {
+    if (!isSubmenu || !row || bar.groupSlots(id, hostWindow).length === 0) return
+    var changing = opened && groupId !== id
+    if (changing) closeMemberPanel()
+    var needsReveal = !opened || changing
+    if (needsReveal) {
+      replaying = true
+      reveal = 0
+      shownAt = Date.now()
+      entered = false
+      cursor = 0
+    }
+    zone = parentMenu.zone
+    token = ""
+    groupId = id
+    parentRow = row
+    rowRevision++
+    keyboardMode = keyboard === true
+    // Its menu's timer covers it, pinned or not (DEMAND-104).
+    clickPinned = false
+    cursorActive = keyboardMode
+    if (keyboardMode) cursor = 0
+    instantClose = false
+    opened = true
+    if (needsReveal) {
+      revealStart.epoch = ++transitionEpoch
+      revealStart.ticks = 0
+      revealStart.restart()
+    }
+    if (keyboardMode) Qt.callLater(function() { if (drawer.opened && drawer.keyboardMode) drawer.forceActiveFocus() })
+  }
+  // The submenu closes; the keys come back to this menu's row.
+  function closeSubmenu(refocus) {
+    if (!submenu || !submenu.opened) return
+    submenu.close()
+    if (refocus && opened && keyboardMode) forceActiveFocus()
+  }
+  // Row i pressed (a click, Enter): a group's row opens its submenu, any
+  // other does what a click on the widget does.
+  function activateRow(i, keyboard) {
+    var slot = slots[i]
+    if (!slot) return
+    if (rowGroup(slot)) {
+      var row = widgets.itemAt(i)
+      if (submenu && row) submenu.openSub(slot.entry.powerbarGroupId, row, keyboard === true)
+      return
+    }
+    slot.activate()
+  }
+  // The pointer on a row of a zone's menu: a group's row opens its submenu
+  // after a short rest; another row lets an open submenu go after a grace,
+  // so a pointer crossing a row on its way into the submenu keeps it.
+  function rowHovered(row) {
+    if (!zoneMenu || !submenu) return
+    if (row.opensSubmenu) { subIntent.row = row; subIntent.restart() }
+    else subIntent.stop()
+    if (submenu.opened && submenu.parentRow !== row && !submenu.keyboardMode) subAway.restart()
+  }
+  Timer {
+    id: subIntent
+    interval: 120
+    property Item row: null
+    onTriggered: {
+      var row = subIntent.row
+      if (row && row.rowHovered && drawer.opened && drawer.submenu && !drawer.bar.barDragSource)
+        drawer.submenu.openSub(row.modelData.entry.powerbarGroupId, row, false)
+    }
+  }
+  Timer {
+    id: subAway
+    interval: 250
+    onTriggered: {
+      var sub = drawer.submenu
+      if (!sub || !sub.opened || sub.keyboardMode || sub.containsMouse || sub.memberPanelOpen) return
+      if (sub.parentRow && sub.parentRow.rowHovered) return
+      sub.close()
+    }
   }
   // A group icon opens its drawer once the pointer has rested on it 90 ms,
   // as the dots do (groups.md GROUP-32), so a pointer sweeping along the bar
@@ -345,19 +684,23 @@ Item {
   function open(payloadJson) {
     var payload = {}
     try { payload = JSON.parse(payloadJson || "{}") || {} } catch (error) {}
-    openZone(["left", "center", "right"].indexOf(payload.zone) >= 0 ? payload.zone : "center", true)
+    openZone(SectionsModel.zones.indexOf(payload.zone) >= 0 ? payload.zone : "center", true)
   }
   function close(reason) {
-    if (opened) bar.ev("drawer", "close " + (groupId ? "group:" + groupId : zone) + " " + (reason || "-"),
-      bar.animationsEnabled && reason !== "immediate" ? 110 : 0)
+    if (opened) bar.ev("drawer", "close " + (isSubmenu ? "submenu " : "") + (groupId ? "group:" + groupId : token) + " " + (reason || "-"),
+      bar.animationsEnabled && reason !== "immediate" ? MotionModel.drawerMs(false, attached) : 0)
+    closeMemberPanel()
+    if (submenu) submenu.close("immediate")
+    subIntent.stop()
+    subAway.stop()
     dismissal.stop()
     ++transitionEpoch
     replaying = false
     instantClose = reason === "immediate"
     // Only explicit dismissal under the pointer waits for a fresh hover.
     // A timed dismissal must never lock out the next entry.
-    suppressedZone = reason !== "timeout" && sourceHovered ? zone : ""
-    closingLength = paintedLength
+    suppressedZone = reason !== "timeout" && sourceHovered ? token : ""
+    closingLength = contentLength
     // Keep widget presentations in the drawer until the contraction ends.
     // The presenting binding releases them back to the main bar afterward.
     opened = false
@@ -368,6 +711,7 @@ Item {
       reveal = 0
     }
     keyboardMode = false
+    clickPinned = false
     cursorActive = false
     sourceHovered = false
     entered = false
@@ -380,15 +724,17 @@ Item {
   // once. The zone's own drawer, already open, is held at once.
   property string intentZone: ""
   property var intentStill: null
-  function sourceEnter(nextZone, still) {
+  property Item intentHandle: null
+  function sourceEnter(nextZone, still, handle) {
     if (opened && keyboardMode) {
-      sourceHovered = zone === nextZone
+      sourceHovered = token === nextZone
       return
     }
     zoneIntent.stop()
     intentZone = ""
     intentStill = null
-    if (!still || (opened && zone === nextZone && !groupId)) { enterZoneNow(nextZone); return }
+    intentHandle = handle || null
+    if (!still || (opened && token === nextZone && !groupId)) { enterZoneNow(nextZone, handle); return }
     intentZone = nextZone
     intentStill = still
     zoneIntent.restart()
@@ -400,12 +746,12 @@ Item {
       var zone = drawer.intentZone, still = drawer.intentStill
       drawer.intentZone = ""
       drawer.intentStill = null
-      if (zone && still && still()) drawer.enterZoneNow(zone)
+      if (zone && still && still()) drawer.enterZoneNow(zone, drawer.intentHandle)
     }
   }
-  function enterZoneNow(nextZone) {
-    openZone(nextZone, false)
-    if (opened && zone === nextZone) { sourceHovered = true; dismissal.stop() }
+  function enterZoneNow(nextZone, handle) {
+    openZone(nextZone, false, "", null, handle)
+    if (opened && token === nextZone) { sourceHovered = true; dismissal.stop() }
   }
   // The pointer reached another stop along the bar: a hover-opened drawer
   // closes rather than waiting out the grace (ManagedModel.closesForStop),
@@ -423,20 +769,22 @@ Item {
       var slot = drawer.stopSlot
       if (!slot || !slot.stopHovered || drawer.containsMouse || drawer.sourceHovered) return
       var stop = { groupId: slot.groupHeader ? slot.entry.powerbarGroupId : "", region: slot.region }
-      var held = bar.dragMotionActive || drawer.slots.some(function(s) { return s.panelOpen })
-      if (Model.closesForStop(drawer.opened, drawer.keyboardMode, held, drawer.groupId, drawer.zone, stop)) drawer.close()
+      var held = bar.dragMotionActive || drawer.memberPanelOpen
+      if (Model.closesForStop(drawer.opened, drawer.keyboardMode, held, drawer.groupId, drawer.zone, stop, drawer.zoneMenu)) drawer.close()
     }
   }
   function sourceLeave(nextZone) {
     if (suppressedZone === nextZone) suppressedZone = ""
-    if (zone !== nextZone) return
+    if (token !== nextZone) return
     sourceHovered = false
     scheduleDismissal()
   }
   function scheduleDismissal() {
     dismissal.stop()
-    if (!opened) return
-    var delay = Model.dismissDelay(sourceHovered, containsMouse, interactionHeld, entered, bar.managedEntrySeconds, bar.managedExitSeconds)
+    // A submenu goes with its menu.
+    if (!opened || isSubmenu) return
+    var delay = Model.dismissDelay(sourceHovered, containsMouse, interactionHeld, entered, bar.managedEntrySeconds, bar.managedExitSeconds,
+      clickPinned, bar.barHovered)
     if (delay > 0) { dismissal.interval = delay; dismissal.start() }
   }
   onContainsMouseChanged: {
@@ -450,7 +798,18 @@ Item {
   }
   Component.onCompleted: refreshMounts()
   Component.onDestruction: if (bar.managedOwner === drawer) bar.managedOwner = null
-  Timer { id: dismissal; repeat: false; onTriggered: drawer.close("timeout") }
+  // Said just before a drawer pinned by a click closes on its timer, while it
+  // still has the keys: the bar gives them back to the window that had them
+  // (DEMAND-104, Bar.qml returnFocus).
+  signal pinnedTimeout()
+  Timer {
+    id: dismissal
+    repeat: false
+    onTriggered: {
+      if (drawer.clickPinned && drawer.keyboardMode) drawer.pinnedTimeout()
+      drawer.close("timeout")
+    }
+  }
 
   // The cell showing member i (the keyboard's name card anchors on it).
   function cellAt(i) { return widgets.itemAt(i) }
@@ -473,22 +832,50 @@ Item {
   // A key let go here after it took the keys back to the bar (an along key
   // out of a menu, Tab): the cursor's next drawer previews as from the bar.
   Keys.onReleased: function(event) { if (!event.isAutoRepeat && bar.barKeys.heldBy(hostWindow)) bar.barKeys.released() }
+  // Keys meant for the drawer reach it before any window-wide Shortcut a
+  // widget declares (Bar.qml keyCatcher).
+  Keys.onShortcutOverride: function(event) { if (keyboardMode || barKeysHeld) event.accepted = true }
   Keys.onPressed: function(event) {
+    // Keys now drive it: a drawer pinned by a click becomes a keyboard drawer,
+    // with no close timer (DEMAND-104, DEMAND-50).
+    if (clickPinned) clickPinned = false
+    if (isSubmenu && parentMenu.clickPinned) parentMenu.clickPinned = false
+    if (subKey(event)) { event.accepted = true; return }
     if (barKeysHeld && bar.barKeys.drawerKey(event)) { event.accepted = true; return }
     switch (event.key) {
-    case Qt.Key_Escape: close(); break
+    case Qt.Key_Escape: if (isSubmenu) parentMenu.closeSubmenu(true); else close(); break
     case Qt.Key_Tab: navigate(event.modifiers & Qt.ShiftModifier ? -1 : 1); break
     case Qt.Key_Backtab: case Qt.Key_Left: case Qt.Key_Up: navigate(-1); break
     case Qt.Key_Right: case Qt.Key_Down: navigate(1); break
     case Qt.Key_Return: case Qt.Key_Enter: case Qt.Key_Space: {
       var press = Model.pressAction(keyboardMode, cursorActive, slots.length)
       if (press === "select") navigate(1)
-      else if (press === "activate" && slots[cursor]) slots[cursor].activate()
+      else if (press === "activate") activateRow(cursor, keyboardMode)
       break
     }
     default: return
     }
     event.accepted = true
+  }
+
+  // The dots of a zone or centre side on this bar.
+  // The dots a side's menu hangs from: the shown ones. On the notch a side's
+  // token can name dots on both sides of the camera, one of them hidden.
+  function handleFor(t) { return (hostWindow.foldHandles || []).find(function(h) { return h && h.shown && h.visible && h.inlineToken === t }) || null }
+  // The side keys of the menu mode: on a group's row in a zone's menu the one
+  // its chevron points along opens its submenu; in the submenu the one
+  // towards the menu goes back.
+  function subKey(event) {
+    var side = event.key === Qt.Key_Left ? -1 : event.key === Qt.Key_Right ? 1 : 0
+    if (!side || event.modifiers & (Qt.ShiftModifier | Qt.ControlModifier | Qt.AltModifier)) return false
+    if (isSubmenu) {
+      var towards = subPlace && subPlace.before ? 1 : -1
+      if (side === towards) parentMenu.closeSubmenu(true)
+      return true
+    }
+    if (!zoneMenu || !cursorActive || !rowGroup(slots[cursor]) || side !== (subBefore ? -1 : 1)) return false
+    activateRow(cursor, true)
+    return true
   }
 
   // A drop's landing spot in this drawer, outlined as on the bar: a cell in a
@@ -500,54 +887,115 @@ Item {
     vertical: drawer.stripVertical
     cellAlong: drawer.namedMenu ? drawer.tokens.thickness : (drawer.bar.barDragSource ? drawer.bar.barDragSource.cellLength : drawer.tokens.cell)
     cellAcross: drawer.namedMenu ? drawer.menuRowWidth : drawer.tokens.thickness
-    ink: drawer.namedMenu && !drawer.fromNotch ? drawer.bar.textOn(Commons.Color.menu.text) : drawer.bar.barForeground
+    ink: drawer.namedMenu && !drawer.notchColours ? drawer.bar.textOn(Commons.Color.menu.text) : drawer.bar.barForeground
   }
-  // On the notch (fromNotch) the drawer slides down out of the bar and is
-  // cut at the bar's bottom edge, as a zone slides out of the camera: the
-  // clip runs along the drawer's top, wide and deep enough for its shoulders
-  // and shadow. Elsewhere it neither clips nor moves.
+  // A shelf running on past its bar surface's end: the fillets that curve up
+  // from its top edge into that end (ShelfModel.outline ups). They stand
+  // beside the bar, above the edge the shelf slides out of, so they are
+  // drawn here, outside its cut, and come in with it, over the body so that
+  // their border's end stays on top of its fill.
+  Shape {
+    id: shelfUps
+    z: 1
+    visible: !!drawer.shelfShape && drawer.shelfShape.ups.length > 0
+    width: drawer.width
+    height: drawer.height
+    opacity: Math.max(0, Math.min(1, drawer.reveal))
+    preferredRendererType: Shape.CurveRenderer
+    transform: Matrix4x4 {
+      matrix: { var m = ShelfModel.frameMatrix(bar.position, shelfUps.width, shelfUps.height); return Qt.matrix4x4(m[0], m[1], m[2], m[3], m[4], m[5], m[6], m[7], m[8], m[9], m[10], m[11], m[12], m[13], m[14], m[15]) }
+    }
+    ShapePath {
+      fillColor: bar.mainSurfaceColor
+      strokeColor: "transparent"
+      PathSvg { path: drawer.shelfShape ? drawer.shelfShape.ups.map(function(u) { return u.fill }).join(" ") : "" }
+    }
+    ShapePath {
+      fillColor: "transparent"
+      strokeColor: drawer.shelfBorder > 0 ? Border.color(bar.islandBorder) : "transparent"
+      strokeWidth: drawer.shelfBorder
+      capStyle: ShapePath.FlatCap
+      PathSvg { path: drawer.shelfShape && drawer.shelfBorder > 0 ? drawer.shelfShape.ups.map(function(u) { return u.edge }).join(" ") : "" }
+    }
+  }
+  // Joined to the bar (a shelf, or on the notch), the drawer slides out of
+  // the bar and is cut at its edge, as a zone slides out of the camera: the
+  // clip runs along the drawer's bar side, wide and deep enough for its
+  // corners and shadow. Elsewhere it neither clips nor moves.
   Item {
     id: clipper
-    readonly property real side: drawer.fromNotch ? bar.notchCorners.shoulder + Math.ceil(bar.surfaceEffects.shadowSize) * 2 : 0
+    // Room past the drawer's three free sides for its fillets and shadow; on
+    // the bar's side, where it is cut, the bar's border, which it covers
+    // (ShelfModel.outline).
+    readonly property real side: drawer.attached ? drawer.surfaceRadius + Math.ceil(bar.surfaceEffects.shadowSize) * 2 : 0
     // How far past its place the body is (OutBack's overshoot, a few px).
-    readonly property real overshoot: drawer.fromNotch ? Math.max(0, (drawer.reveal - 1) * drawer.height) : 0
-    x: -side
-    width: drawer.width + 2 * side
-    height: drawer.height + side
-    clip: drawer.fromNotch
+    readonly property real overshoot: drawer.attached ? Math.max(0, (drawer.reveal - 1) * drawer.crossPainted) : 0
+    readonly property string edge: drawer.attached ? bar.position : ""
+    x: edge === "left" ? -drawer.shelfBorder : -side
+    y: edge === "top" ? -drawer.shelfBorder : -side
+    width: drawer.width + (edge === "left" || edge === "right" ? side + drawer.shelfBorder : 2 * side)
+    height: drawer.height + (edge === "top" || edge === "bottom" ? side + drawer.shelfBorder : 2 * side)
+    clip: drawer.attached
     Item {
       id: body
-      x: clipper.side
+      x: -clipper.x
+      y: -clipper.y
       width: drawer.width
       height: drawer.height
-      transform: Translate { y: drawer.fromNotch ? -(1 - drawer.reveal) * drawer.height : 0 }
+      // Slides out of the bar's edge (the notch's, or a shelf's).
+      readonly property real tucked: (1 - drawer.reveal) * drawer.crossPainted
+      transform: Translate {
+        x: clipper.edge === "left" ? -body.tucked : clipper.edge === "right" ? body.tucked : 0
+        y: clipper.edge === "top" ? -body.tucked : clipper.edge === "bottom" ? body.tucked : 0
+      }
       EffectSurface {
         anchors.fill: parent
-        visible: !drawer.fromNotch
-        color: bar.overlaySurfaceColor
+        visible: !drawer.attached
+        color: drawer.notchColours ? bar.mainSurfaceColor : bar.overlaySurfaceColor
         shadowEnabled: bar.surfaceEffects.shadow
         shadowSize: bar.surfaceEffects.shadowSize
         shadowOpacity: bar.surfaceEffects.shadowOpacity
         radius: drawer.surfaceRadius
         borderSpec: bar.islandBorder
       }
-      // The notch's: its shoulders curve up into the bar's bottom edge either
-      // side, as the screen's top edge curves into the camera, and its bottom
-      // corners are the camera's. While the spring overshoots, the body moves
-      // past its place and the shape reaches back up by as much, so its top
-      // stays on the bar and never shows a gap.
-      NotchShape {
-        visible: drawer.fromNotch
-        x: -bar.notchCorners.shoulder
-        y: -clipper.overshoot
-        width: parent.width + 2 * bar.notchCorners.shoulder
-        height: parent.height + clipper.overshoot
-        shoulderStart: bar.notchCorners.shoulder; shoulderEnd: bar.notchCorners.shoulder
-        radiusStart: bar.notchCorners.radius; radiusEnd: bar.notchCorners.radius
-        color: bar.mainSurfaceColor
-        shadowEnabled: bar.surfaceEffects.shadow
-        shadowSize: bar.surfaceEffects.shadowSize
-        shadowOpacity: bar.surfaceEffects.shadowOpacity
+      // A shelf's, and a notch drawer's: the bar's surface carried on down,
+      // its ends curving out into the bar's edge or on from its end
+      // (ShelfModel.outline), drawn in its own frame and turned to the bar's
+      // edge. Its shadow is the body's, cut at the bar's edge with the rest.
+      // While the spring overshoots, the body moves past its place and the
+      // shape reaches back toward the bar by as much, so it never shows a gap.
+      RectangularShadow {
+        visible: !!drawer.shelfShape && bar.surfaceEffects.shadow
+        z: -1
+        anchors.fill: parent
+        radius: drawer.surfaceRadius
+        blur: bar.surfaceEffects.shadowSize
+        color: Qt.rgba(0, 0, 0, bar.surfaceEffects.shadowOpacity)
+      }
+      Shape {
+        id: shelfSurface
+        visible: !!drawer.shelfShape
+        readonly property real reach: clipper.overshoot
+        x: clipper.edge === "left" ? -reach : 0
+        y: clipper.edge === "top" ? -reach : 0
+        width: drawer.width + (bar.vertical ? reach : 0)
+        height: drawer.height + (bar.vertical ? 0 : reach)
+        preferredRendererType: Shape.CurveRenderer
+        transform: Matrix4x4 {
+          matrix: { var m = ShelfModel.frameMatrix(bar.position, shelfSurface.width, shelfSurface.height); return Qt.matrix4x4(m[0], m[1], m[2], m[3], m[4], m[5], m[6], m[7], m[8], m[9], m[10], m[11], m[12], m[13], m[14], m[15]) }
+        }
+        ShapePath {
+          fillColor: bar.mainSurfaceColor
+          strokeColor: "transparent"
+          PathSvg { path: drawer.shelfShape ? drawer.shelfShape.fill : "" }
+        }
+        ShapePath {
+          fillColor: "transparent"
+          strokeColor: drawer.shelfBorder > 0 ? Border.color(bar.islandBorder) : "transparent"
+          strokeWidth: drawer.shelfBorder
+          capStyle: ShapePath.FlatCap
+          PathSvg { path: drawer.shelfShape && drawer.shelfBorder > 0 ? drawer.shelfShape.edge : "" }
+        }
       }
       HoverHandler { id: hover }
       Flickable {
@@ -559,15 +1007,15 @@ Item {
         anchors.margins: drawer.namedMenu ? drawer.padding : 0
         clip: true
         boundsBehavior: Flickable.StopAtBounds
-        contentWidth: grid.width + (drawer.namedMenu || bar.vertical ? 0 : drawer.leadPad + drawer.trailPad)
-        contentHeight: grid.height + (drawer.namedMenu || !bar.vertical ? 0 : drawer.leadPad + drawer.trailPad)
+        contentWidth: grid.width + (drawer.namedMenu || bar.vertical ? 0 : drawer.leadPad + drawer.trailPad + drawer.fitPad * 2)
+        contentHeight: grid.height + (drawer.namedMenu || !bar.vertical ? 0 : drawer.leadPad + drawer.trailPad + drawer.fitPad * 2)
         flickableDirection: drawer.stripVertical ? Flickable.VerticalFlick : Flickable.HorizontalFlick
         Controls.ScrollBar.horizontal: Controls.ScrollBar { policy: !drawer.stripVertical && viewport.contentWidth > viewport.width ? Controls.ScrollBar.AsNeeded : Controls.ScrollBar.AlwaysOff }
         Controls.ScrollBar.vertical: Controls.ScrollBar { policy: drawer.stripVertical && viewport.contentHeight > viewport.height ? Controls.ScrollBar.AsNeeded : Controls.ScrollBar.AlwaysOff }
         Item {
           id: grid
-          x: drawer.namedMenu || bar.vertical ? 0 : drawer.leadPad
-          y: drawer.namedMenu || !bar.vertical ? 0 : drawer.leadPad
+          x: drawer.namedMenu || bar.vertical ? 0 : drawer.leadPad + drawer.fitPad
+          y: drawer.namedMenu || !bar.vertical ? 0 : drawer.leadPad + drawer.fitPad
           implicitWidth: drawer.stripVertical ? Math.max(contents.width, drawer.thickness) : contents.width + endGap.width
           implicitHeight: drawer.stripVertical ? contents.height + endGap.height : Math.max(contents.height, drawer.thickness)
           transformOrigin: Item.TopLeft
@@ -583,192 +1031,7 @@ Item {
             spacing: drawer.namedMenu ? drawer.padding : 0
             Repeater {
               id: widgets
-              model: drawer.mountTokens
-              AnimatedSlot {
-                id: mount
-                required property int index
-                // Read once: a mount keeps its member for its whole life.
-                readonly property var modelData: drawer.mounted.list[index]
-                readonly property string title: modelData ? modelData.displayName : ""
-                readonly property bool labelled: drawer.namedMenu
-                readonly property bool showNative: drawer.memberDisplay !== "name"
-                readonly property var place: modelData ? modelData.cellPlace : null
-                // Strip slots report their spill so the strip's ends follow the island rule.
-                readonly property real cellSpill: drawer.namedMenu || !place ? 0 : place.spill
-                readonly property var rowInk: modelData ? drawer.menuInk(modelData) : null
-                readonly property bool rowIcon: drawer.menuIcons && !!modelData && drawer.menuGlyph(modelData)
-                readonly property real valueWidth: modelData ? drawer.menuValueWidth(modelData) : 0
-                readonly property real labelStart: modelData ? drawer.menuLabelStart(modelData) : 0
-                readonly property real dragGap: drawer.namedMenu ? drawer.rowPitch : drawer.stripVertical ? bar.dragGapHeight : bar.dragGapWidth
-                readonly property var preview: modelData
-                  ? DragModel.slot(bar.dragPreview, modelData.instanceKey, bar.dragSurfaceForDrawer(drawer))
-                  : ({ hidden: false, before: false, after: false })
-                readonly property real baseWidth: !modelData ? 0 : drawer.namedMenu ? drawer.menuRowWidth
-                  : bar.vertical ? drawer.thickness : place.extent
-                readonly property real baseHeight: !modelData ? 0 : drawer.namedMenu ? drawer.tokens.thickness
-                  : bar.vertical ? place.extent : Math.max(modelData.naturalHeight, drawer.thickness)
-                // Where the widget's own box sits: its ink centred in its cell (strips),
-                // its glyph centred in the icon cell or its value right-aligned (menus).
-                readonly property real contentOffsetX: animatedInsetX + (!modelData ? 0
-                  : drawer.namedMenu ? (rowIcon ? drawer.tokens.cell / 2 - (rowInk.start + rowInk.length / 2)
-                    : valueWidth > 0 ? drawer.menuRowWidth - drawer.tokens.air - (rowInk.start + rowInk.length) : 0)
-                  : bar.vertical ? modelData.crossShift : modelData.inkShift)
-                readonly property real contentOffsetY: animatedInsetY + (!modelData ? 0
-                  : drawer.namedMenu ? (drawer.tokens.thickness - modelData.naturalHeight) / 2
-                  : bar.vertical ? modelData.inkShift : (baseHeight - modelData.naturalHeight) / 2)
-                targetWidth: preview.hidden && !preview.holdSpace && !drawer.stripVertical ? 0
-                  : baseWidth + (!drawer.stripVertical && (preview.before || preview.after) ? dragGap : 0)
-                targetHeight: preview.hidden && !preview.holdSpace && drawer.stripVertical ? 0
-                  : baseHeight + (drawer.stripVertical && (preview.before || preview.after) ? dragGap : 0)
-                targetInsetX: !drawer.stripVertical && preview.before ? dragGap : 0
-                targetInsetY: drawer.stripVertical && preview.before ? dragGap : 0
-                // The commit swaps a gap for the row that takes it in one frame, as on the bar.
-                motionEnabled: bar.animationsEnabled && drawer.opened && !drawer.replaying && !bar.dragHandover
-                motionDuration: bar.dragMotionActive ? bar.dragMotionDuration : 120
-                motionEasing: bar.dragMotionActive ? bar.dragMotionEasing : Easing.OutCubic
-                motionOvershoot: 0
-                opacity: preview.hidden || (modelData && modelData.settleHidden) ? 0 : 1
-                readonly property var hostDrawer: drawer
-                // The landing spot in this member's gap, outlined as on the bar: a
-                // cell in a strip, a row in a menu.
-                DrawerOutline {
-                  readonly property real lengthAlong: drawer.stripVertical ? mount.height : mount.width
-                  readonly property real insetAlong: drawer.stripVertical ? mount.animatedInsetY : mount.animatedInsetX
-                  readonly property real base: drawer.stripVertical ? mount.baseHeight : mount.baseWidth
-                  open: drawer.opened && !mount.preview.hidden && (mount.preview.before || mount.preview.after)
-                  gapStart: mount.preview.before ? 0 : base
-                  gapLength: !open ? 0 : mount.preview.before ? insetAlong : Math.max(0, lengthAlong - base)
-                  fullGap: mount.dragGap
-                  landingOffset: drawer.namedMenu ? (mount.preview.before ? 0 : drawer.padding) : -1
-                  z: 3
-                }
-                Component.onCompleted: if (modelData) modelData.drawerHost = mount
-                Component.onDestruction: {
-                  if (modelData && modelData.drawerHost === mount) modelData.drawerHost = null
-                  // The row driving a drag can't report its release any more: end
-                  // the drag rather than leave the bar stuck in it.
-                  if (drawer.dragMount === mount) {
-                    drawer.dragMount = null
-                    if (modelData && bar.barDragSource === modelData) bar.clearBarDrag()
-                  }
-                }
-                HoverHandler {
-                  id: memberHover
-                  enabled: drawer.opened && !bar.barDragSource
-                  // In the keyboard mode the pointer moves the cursor onto the row.
-                  onPointChanged: if (hovered) bar.barKeys.pointerOnRow(drawer, mount.index, point.scenePosition)
-                  // A menu row shows its name already; it shows the widget's own
-                  // tooltip (a volume, a status), which the row's pointer would
-                  // otherwise keep from the widget. The keyboard's card shows that
-                  // text while the keys hold the drawer.
-                  onHoveredChanged: {
-                    if (!hovered) bar.barKeys.pointerLeft()
-                    if (!drawer.namedMenu || bar.barKeys.here && bar.barKeys.drawer === drawer) return
-                    if (!hovered) { bar.hideTooltip(mount); return }
-                    var text = mount.ownTooltip()
-                    // Once the row's hover has reached tooltipHovered.
-                    if (text && text !== mount.title) Qt.callLater(function() { if (memberHover.hovered) bar.showTooltip(mount, text) })
-                  }
-                }
-                readonly property bool tooltipHovered: memberHover.hovered && drawer.opened
-                function ownTooltip() {
-                  var targets = modelData ? modelData.slotTargets || [] : []
-                  for (var i = 0; i < targets.length; i++) if (targets[i] && targets[i].tooltipText) return String(targets[i].tooltipText)
-                  return ""
-                }
-                // The member's highlight: the whole row in a menu; its cell in a strip,
-                // centred on the slot, like on the bar.
-                HoverHighlight {
-                  id: memberHighlight
-                  readonly property real cell: drawer.namedMenu ? mount.baseWidth : mount.place ? mount.place.cell : 0
-                  readonly property real thick: drawer.tokens.thickness
-                  parent: drawer.namedMenu ? mount : stripHighlights
-                  x: drawer.namedMenu ? mount.animatedInsetX
-                    : bar.vertical ? mount.x + (mount.width - thick) / 2 : mount.x + mount.animatedInsetX + (mount.baseWidth - cell) / 2
-                  y: drawer.namedMenu ? mount.animatedInsetY
-                    : bar.vertical ? mount.y + mount.animatedInsetY + (mount.baseHeight - cell) / 2 : mount.y + (mount.height - thick) / 2
-                  width: drawer.namedMenu || !bar.vertical ? cell : thick
-                  height: drawer.namedMenu || !bar.vertical ? thick : cell
-                  z: -1
-                  // The keyboard cursor lights the same mark, outlined (KEYS-69).
-                  readonly property bool keysCursor: drawer.selectionVisible && drawer.cursor === mount.index
-                  hovered: ((memberHover.hovered && !bar.barDragSource) || keysCursor) && drawer.opened && !preview.hidden
-                  outlined: keysCursor && hovered
-                  selected: modelData ? modelData.panelOpen : false
-                  motionEnabled: bar.animationsEnabled
-                  glide: rowGlide
-                  glideKey: "rows"
-                  hoverColor: bar.highlightHoverColor
-                  selectedColor: bar.highlightSelectedColor
-                  rounding: CellModel.radius(drawer.tokens, bar.islandRounding)
-                }
-                Text {
-                  id: label
-                  visible: mount.labelled
-                  textFormat: Text.PlainText
-                  text: mount.title
-                  // On the notch's black, the bar's own light text.
-              color: drawer.fromNotch ? drawer.bar.barForeground : drawer.bar.textOn(drawer.namedMenu ? Commons.Color.menu.text : Commons.Color.popups.text)
-                  font.family: drawer.namedMenu ? Style.font.menuFamily : Style.font.family
-                  font.pixelSize: Style.font.bodySmall
-                  // Names end one air before the row's end, or before a trailing value.
-                  x: mount.labelStart + mount.animatedInsetX
-                  y: (mount.baseHeight - height) / 2 + mount.animatedInsetY
-                  width: Math.max(0, drawer.menuRowWidth - mount.labelStart - drawer.tokens.air
-                    - (mount.valueWidth > 0 ? mount.valueWidth + drawer.tokens.air : 0))
-                  elide: Text.ElideRight
-                }
-                // A menu row takes the pointer whole: a drag anywhere on it moves
-                // the member and a click activates it. Above the widget, whose own
-                // area took presses for itself, so a value widget (the battery)
-                // could only be dragged by its name.
-                Item {
-                  id: rowPointer
-                  anchors.fill: parent
-                  visible: mount.labelled
-                  z: 10
-                  DragHandler {
-                    target: null
-                    enabled: mount.labelled
-                    acceptedButtons: Qt.LeftButton
-                    property point lastScene
-                    onCentroidChanged: if (active) { lastScene = centroid.scenePosition; bar.updateIconDrag(lastScene, modelData) }
-                    onActiveChanged: {
-                      if (active) {
-                        lastScene = centroid.scenePosition
-                        // Hold first: starting a drag can commit the previous
-                        // drop, which may close this drawer.
-                        drawer.dragMount = mount
-                        if (!bar.beginIconDrag(modelData, hostWindow, lastScene,
-                            centroid.position.x,
-                            centroid.position.y)) drawer.releaseDrag(mount)
-                      } else {
-                        if (bar.barDragSource === modelData) bar.finishIconDrag(lastScene, modelData)
-                        drawer.releaseDrag(mount)
-                      }
-                    }
-                  }
-                  MouseArea {
-                    anchors.fill: parent
-                    acceptedButtons: Qt.LeftButton | Qt.RightButton
-                    onClicked: function(mouse) {
-                      if (mouse.button === Qt.LeftButton) modelData.activate()
-                      else {
-                        var targets = bar.targetsForSlot(modelData)
-                        for (var target of targets) if (target && typeof target.triggerPress === "function") {
-                          target.triggerPress(Qt.RightButton); break
-                        }
-                      }
-                    }
-                    onWheel: function(wheel) {
-                      var targets = bar.targetsForSlot(modelData)
-                      for (var target of targets) if (target && typeof target.wheelMoved === "function") {
-                        target.wheelMoved(wheel.angleDelta.y); break
-                      }
-                    }
-                  }
-                }
-              }
+              model: mountModel
             }
           }
           AnimatedSlot {
@@ -776,7 +1039,9 @@ Item {
             readonly property bool gap: DragModel.endGap(bar.dragPreview, bar.dragSurfaceForDrawer(drawer))
             x: drawer.stripVertical ? 0 : contents.width
             y: drawer.stripVertical ? contents.height : 0
-            targetWidth: drawer.stripVertical ? drawer.thickness : gap ? bar.dragGapWidth : 0
+            // Across, as wide as a row: it clips, and in a menu the outline
+            // in it is a whole row.
+            targetWidth: drawer.stripVertical ? (drawer.namedMenu ? drawer.menuRowWidth : drawer.thickness) : gap ? bar.dragGapWidth : 0
             targetHeight: drawer.stripVertical ? (gap ? (drawer.namedMenu ? drawer.rowPitch : bar.dragGapHeight) : 0) : drawer.thickness
             motionEnabled: bar.animationsEnabled && drawer.opened && !drawer.replaying && !bar.dragHandover
             DrawerOutline {
@@ -788,6 +1053,275 @@ Item {
             motionDuration: bar.dragMotionDuration
             motionEasing: bar.dragMotionEasing
             motionOvershoot: 0
+          }
+        }
+      }
+    }
+  }
+  // A member's row: its widget drawn in it (a strip's cell), or its icon,
+  // name and value (a menu's row). Kept by mountStore.
+  Component {
+    id: mountRow
+    AnimatedSlot {
+      id: mount
+      // The member's slot, for the row's whole life (mountStore).
+      property Item member: null
+      readonly property bool hosted: !!member && member.drawerHost === mount
+      // What the row draws: its member while it hosts it, nothing while parked.
+      readonly property var modelData: hosted ? member : null
+      readonly property int index: ObjectModel.index
+      readonly property string title: drawer.memberTitle(modelData)
+      readonly property bool labelled: drawer.namedMenu
+      // A menu row drags as a whole, from its own handler; the widget's own
+      // handler (Bar.qml drawerDrag) stands down for it.
+      readonly property bool rowDrags: labelled && !drawer.isSubmenu
+      // A group's row in a zone's menu draws the group's icon and opens
+      // its members in the submenu.
+      readonly property bool opensSubmenu: drawer.rowGroup(modelData)
+      readonly property bool rowHovered: memberHover.hovered
+      // A split row draws its widget's icon and value itself (menuSplit).
+      readonly property var split: drawer.namedMenu && modelData ? drawer.menuSplit(modelData) : null
+      readonly property bool showNative: drawer.memberDisplay !== "name" && !opensSubmenu && (!split || split.native)
+      // A counted icon's own face, cut to the icon cell (menuSplit).
+      readonly property Item nativeParent: split && split.native ? iconClip : mount
+      readonly property real nativeX: contentOffsetX - (nativeParent === iconClip ? iconClip.x : 0)
+      readonly property real nativeY: contentOffsetY - (nativeParent === iconClip ? iconClip.y : 0)
+      Item {
+        id: iconClip
+        x: mount.animatedInsetX
+        y: mount.animatedInsetY
+        // To the cell's end, or where the count starts if sooner.
+        width: !mount.split || !mount.split.native ? drawer.tokens.cell
+          : Math.max(0, Math.min(drawer.tokens.cell, mount.contentOffsetX + mount.split.countLeft - x))
+        height: mount.baseHeight
+        clip: true
+      }
+      readonly property var place: modelData ? modelData.cellPlace : null
+      // Strip slots report their spill so the strip's ends follow the island rule.
+      readonly property real cellSpill: drawer.namedMenu || !place ? 0 : place.spill
+      readonly property var rowInk: modelData ? drawer.menuInk(modelData) : null
+      readonly property var rowIconInk: modelData ? drawer.menuIconInk(modelData) : null
+      readonly property bool rowIcon: drawer.menuIcons && !!modelData && drawer.menuGlyph(modelData)
+      readonly property real valueWidth: modelData ? drawer.menuValueWidth(modelData) : 0
+      readonly property real labelStart: modelData ? drawer.menuLabelStart(modelData) : 0
+      readonly property real dragGap: drawer.namedMenu ? drawer.rowPitch : drawer.stripVertical ? bar.dragGapHeight : bar.dragGapWidth
+      readonly property var preview: modelData
+        ? DragModel.slot(bar.dragPreview, modelData.instanceKey, bar.dragSurfaceForDrawer(drawer))
+        : ({ hidden: false, before: false, after: false })
+      readonly property real baseWidth: !modelData ? 0 : drawer.namedMenu ? drawer.menuRowWidth
+        : bar.vertical ? drawer.thickness : modelData.cellPlace.extent
+      readonly property real baseHeight: !modelData ? 0 : drawer.namedMenu ? drawer.tokens.thickness
+        : bar.vertical ? modelData.cellPlace.extent : Math.max(modelData.naturalHeight, drawer.thickness)
+      // Where the widget's own box sits: its ink centred in its cell (strips),
+      // its glyph centred in the icon cell or its value right-aligned (menus).
+      readonly property real contentOffsetX: animatedInsetX + (!modelData ? 0
+        : drawer.namedMenu ? (rowIcon ? drawer.tokens.cell / 2 - (rowIconInk.start + rowIconInk.length / 2) - (split ? split.iconShift : 0)
+          : valueWidth > 0 ? drawer.menuRowWidth - drawer.tokens.air - (rowInk.start + rowInk.length) : 0)
+        : bar.vertical ? modelData.crossShift : modelData.inkShift)
+      readonly property real contentOffsetY: animatedInsetY + (!modelData ? 0
+        : drawer.namedMenu ? (drawer.tokens.thickness - modelData.naturalHeight) / 2
+        : bar.vertical ? modelData.inkShift : (baseHeight - modelData.naturalHeight) / 2)
+      targetWidth: preview.hidden && !preview.holdSpace && !drawer.stripVertical ? 0
+        : baseWidth + (!drawer.stripVertical && (preview.before || preview.after) ? dragGap : 0)
+      targetHeight: preview.hidden && !preview.holdSpace && drawer.stripVertical ? 0
+        : baseHeight + (drawer.stripVertical && (preview.before || preview.after) ? dragGap : 0)
+      targetInsetX: !drawer.stripVertical && preview.before ? dragGap : 0
+      targetInsetY: drawer.stripVertical && preview.before ? dragGap : 0
+      // The commit swaps a gap for the row that takes it in one frame, as on the bar.
+      motionEnabled: hosted && bar.animationsEnabled && drawer.opened && !drawer.replaying && !bar.dragHandover
+      motionDuration: bar.dragMotionActive ? bar.dragMotionDuration : 120
+      motionEasing: bar.dragMotionActive ? bar.dragMotionEasing : Easing.OutCubic
+      motionOvershoot: 0
+      opacity: preview.hidden || (modelData && modelData.settleHidden) ? 0 : 1
+      readonly property var hostDrawer: drawer
+      // The landing spot in this member's gap, outlined as on the bar: a
+      // cell in a strip, a row in a menu.
+      DrawerOutline {
+        readonly property real lengthAlong: drawer.stripVertical ? mount.height : mount.width
+        readonly property real insetAlong: drawer.stripVertical ? mount.animatedInsetY : mount.animatedInsetX
+        readonly property real base: drawer.stripVertical ? mount.baseHeight : mount.baseWidth
+        open: drawer.opened && !mount.preview.hidden && (mount.preview.before || mount.preview.after)
+        gapStart: mount.preview.before ? 0 : base
+        gapLength: !open ? 0 : mount.preview.before ? insetAlong : Math.max(0, lengthAlong - base)
+        fullGap: mount.dragGap
+        landingOffset: drawer.namedMenu ? (mount.preview.before ? 0 : drawer.padding) : -1
+        z: 3
+      }
+      Component.onDestruction: {
+        drawer.unhost(mount)
+        // The row driving a drag can't report its release any more: end
+        // the drag rather than leave the bar stuck in it.
+        if (drawer.dragMount === mount) {
+          drawer.dragMount = null
+          if (member && bar.barDragSource === member) bar.clearBarDrag()
+        }
+      }
+      HoverHandler {
+        id: memberHover
+        enabled: drawer.opened && !bar.barDragSource
+        // In the keyboard mode the pointer moves the cursor onto the row.
+        onPointChanged: if (hovered) bar.barKeys.pointerOnRow(drawer, mount.index, point.scenePosition)
+        // A menu row shows its name already; it shows the widget's own
+        // tooltip (a volume, a status), which the row's pointer would
+        // otherwise keep from the widget. The keyboard's card shows that
+        // text while the keys hold the drawer.
+        onHoveredChanged: {
+          if (hovered) drawer.rowHovered(mount)
+          if (!hovered) bar.barKeys.pointerLeft()
+          if (!drawer.namedMenu || bar.barKeys.here && bar.barKeys.drawer === drawer) return
+          if (!hovered) { bar.hideTooltip(mount); return }
+          var text = mount.ownTooltip()
+          // Once the row's hover has reached tooltipHovered.
+          if (text && text !== mount.title) Qt.callLater(function() { if (memberHover.hovered) bar.showTooltip(mount, text) })
+        }
+      }
+      readonly property bool tooltipHovered: memberHover.hovered && drawer.opened
+      function ownTooltip() {
+        if (opensSubmenu) return ""
+        var targets = modelData ? modelData.slotTargets || [] : []
+        for (var i = 0; i < targets.length; i++) if (targets[i] && targets[i].tooltipText) return String(targets[i].tooltipText)
+        return ""
+      }
+      // The member's highlight: the whole row in a menu; its cell in a strip,
+      // centred on the slot, like on the bar.
+      HoverHighlight {
+        id: memberHighlight
+        readonly property real cell: drawer.namedMenu ? mount.baseWidth : mount.place ? mount.place.cell : 0
+        readonly property real thick: drawer.tokens.thickness
+        parent: drawer.namedMenu || !mount.hosted ? mount : stripHighlights
+        x: drawer.namedMenu ? mount.animatedInsetX
+          : bar.vertical ? mount.x + (mount.width - thick) / 2 : mount.x + mount.animatedInsetX + (mount.baseWidth - cell) / 2
+        y: drawer.namedMenu ? mount.animatedInsetY
+          : bar.vertical ? mount.y + mount.animatedInsetY + (mount.baseHeight - cell) / 2 : mount.y + (mount.height - thick) / 2
+        width: drawer.namedMenu || !bar.vertical ? cell : thick
+        height: drawer.namedMenu || !bar.vertical ? thick : cell
+        z: -1
+        // The keyboard cursor lights the same mark, outlined (KEYS-69).
+        readonly property bool keysCursor: drawer.selectionVisible && drawer.cursor === mount.index
+        hovered: ((memberHover.hovered && !bar.barDragSource) || keysCursor) && drawer.opened && !preview.hidden
+        outlined: keysCursor && hovered
+        // A group's row stays lit while its submenu is open.
+        selected: modelData ? modelData.panelOpen
+          || (mount.opensSubmenu && !!drawer.submenu && drawer.submenu.opened && drawer.submenu.parentRow === mount) : false
+        motionEnabled: bar.animationsEnabled
+        glide: rowGlide
+        glideKey: "rows"
+        hoverColor: drawer.shelf ? bar.onBarHoverColor : bar.highlightHoverColor
+        selectedColor: drawer.shelf ? bar.onBarSelectedColor : bar.highlightSelectedColor
+        rounding: CellModel.radius(drawer.tokens, bar.islandRounding)
+      }
+      Text {
+        id: label
+        visible: mount.labelled
+        textFormat: Text.PlainText
+        text: mount.title
+        // On the notch's black, the bar's own light text.
+        color: drawer.barColours ? drawer.bar.barForeground : drawer.bar.textOn(drawer.namedMenu ? Commons.Color.menu.text : Commons.Color.popups.text)
+        font.family: drawer.namedMenu ? Style.font.menuFamily : Style.font.family
+        font.pixelSize: Style.font.bodySmall
+        // Names end one air before the row's end, or before a trailing value.
+        x: mount.labelStart + mount.animatedInsetX
+        y: (mount.baseHeight - height) / 2 + mount.animatedInsetY
+        width: Math.max(0, drawer.menuRowWidth - mount.labelStart - drawer.tokens.air
+          - (mount.valueWidth > 0 ? mount.valueWidth + drawer.tokens.air : 0))
+        elide: Text.ElideRight
+      }
+      GroupFace {
+        visible: mount.opensSubmenu
+        group: mount.opensSubmenu ? mount.modelData.groupConfig : null
+        faceMode: "glyph"
+        color: label.color
+        fontFamily: Style.font.family
+        fontSize: Style.font.body
+        x: mount.animatedInsetX + (drawer.tokens.cell - width) / 2
+        y: mount.animatedInsetY + (mount.baseHeight - height) / 2
+      }
+      // A split row's icon, in the icon cell, and its value at the end,
+      // in the button's own font and colour.
+      Repeater {
+        model: !mount.split ? [] : mount.split.native ? [mount.split.rest] : [mount.split.icon, mount.split.rest]
+        Text {
+          required property string modelData
+          required property int index
+          // 0 the icon, 1 the value.
+          readonly property int part: mount.split && mount.split.native ? 1 : index
+          readonly property var button: mount.split ? mount.split.button : null
+          textFormat: Text.PlainText
+          text: modelData
+          color: !button ? label.color : button.active && button.useActiveColor ? button.activeColor : button.foreground
+          // The button's own fade: dimmed, or a widget's own (omabox with no boxes).
+          opacity: button ? button.opacity : 1
+          font.family: button ? button.fontFamily : drawer.bar.fontFamily
+          font.pixelSize: button ? button.fontSize : Style.font.body
+          renderType: Text.NativeRendering
+          width: part === 1 ? Math.min(implicitWidth, CellModel.MAX_INK) : implicitWidth
+          elide: Text.ElideRight
+          x: mount.animatedInsetX + (part === 0 ? (drawer.tokens.cell - width) / 2
+            : drawer.menuRowWidth - drawer.tokens.air - width)
+          y: (mount.baseHeight - height) / 2 + mount.animatedInsetY
+        }
+      }
+      Text {
+        visible: mount.opensSubmenu
+        textFormat: Text.PlainText
+        // Towards the side its submenu opens.
+        text: drawer.subBefore ? "󰅁" : "󰅂"
+        color: label.color
+        opacity: 0.7
+        font.family: Style.font.menuFamily
+        font.pixelSize: Style.font.bodySmall
+        x: mount.animatedInsetX + drawer.menuRowWidth - drawer.tokens.air - drawer.chevronWidth
+        y: (mount.baseHeight - height) / 2 + mount.animatedInsetY
+      }
+      // A menu row takes the pointer whole: a drag anywhere on it moves
+      // the member and a click activates it. Above the widget, whose own
+      // area took presses for itself, so a value widget (the battery)
+      // could only be dragged by its name.
+      Item {
+        id: rowPointer
+        anchors.fill: parent
+        visible: mount.labelled
+        z: 10
+        // A submenu takes no drags yet: a drop into it would not resolve.
+        DragHandler {
+          target: null
+          enabled: mount.rowDrags
+          acceptedButtons: Qt.LeftButton
+          property point lastScene
+          onCentroidChanged: if (active) { lastScene = centroid.scenePosition; bar.updateIconDrag(lastScene, mount.member) }
+          onActiveChanged: {
+            if (active) {
+              lastScene = centroid.scenePosition
+              // Hold first: starting a drag can commit the previous
+              // drop, which may close this drawer.
+              drawer.dragMount = mount
+              // Offset from where the button went down: the pointer has
+              // moved past the drag threshold by now (DRAG-3).
+              if (!bar.beginIconDrag(mount.member, hostWindow, lastScene,
+                  centroid.pressPosition.x,
+                  centroid.pressPosition.y)) drawer.releaseDrag(mount)
+            } else {
+              bar.releaseIconDrag(lastScene, mount.member, function() { drawer.releaseDrag(mount) })
+            }
+          }
+        }
+        MouseArea {
+          anchors.fill: parent
+          acceptedButtons: Qt.LeftButton | Qt.RightButton
+          onClicked: function(mouse) {
+            if (mouse.button === Qt.LeftButton) drawer.activateRow(mount.index, false)
+            else {
+              var targets = bar.targetsForSlot(modelData)
+              for (var target of targets) if (target && typeof target.triggerPress === "function") {
+                target.triggerPress(Qt.RightButton); break
+              }
+            }
+          }
+          onWheel: function(wheel) {
+            var targets = bar.targetsForSlot(modelData)
+            for (var target of targets) if (target && typeof target.wheelMoved === "function") {
+              target.wheelMoved(wheel.angleDelta.y); break
+            }
           }
         }
       }

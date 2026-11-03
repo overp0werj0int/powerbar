@@ -42,8 +42,8 @@ tools/box/edges.sh $B top.png
 tools/box/box.sh conf $B position=left; tools/box/edges.sh $B left.png -g "0,0 300x945" --vertical
 
 # Pointer: glide, then rest past the 400 ms tooltip delay.
-omabox pointer -b $B move 700 600 sleep 300; glide 1300 60 1330 22 6
-omabox pointer -b $B move 1331 22 sleep 900; omabox shot -b $B -g "700,0 812x200"
+omabox pointer -b $B move 700 600 sleep 300ms; glide 1300 60 1330 22 6
+omabox pointer -b $B move 1331 22 sleep 900ms; omabox shot -b $B -g "700,0 812x200"
 
 # What the bar did, in order, and each motion's frame timing (INTEG-146).
 tools/box/box.sh conf $B powerbarFrameLog=true

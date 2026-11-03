@@ -1,8 +1,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const vm = require('node:vm');
 const fs = require('node:fs');
-const load = file => { const c = vm.createContext({}); vm.runInContext(fs.readFileSync(`${__dirname}/../${file}`, 'utf8'), c); return c; };
+const load = require('./load.cjs');
 const J = v => JSON.parse(JSON.stringify(v));
 const notch = load('NotchModel.js');
 const cell = load('CellModel.js');
@@ -26,7 +25,13 @@ test("notch-panels.json gives each of Omarchy's notched panels a width", () => {
   assert.deepEqual(J(notch.parsePanels('{"panels":[{"width":10,"height":10,"notchWidth":20},{}]}')), []);
   assert.deepEqual(J(notch.parsePanels('nope')), []);
   assert.deepEqual(J(notch.parsePanels('{"panels":[{"width":100,"height":50,"notchWidth":60},{"width":100,"height":50,"notchWidth":60,"radius":25,"shoulder":5}]}')),
-    [{ width: 100, height: 50, notchWidth: 60, radius: 16, shoulder: 8 }], 'no shape: the default; corners wider than the housing: dropped');
+    [{ width: 100, height: 50, notchWidth: 60, radius: 20, shoulder: 6, screenRadius: 0 }], 'no shape: the default; corners wider than the housing: dropped');
+  assert.deepEqual(J(notch.parsePanels('{"panels":[{"width":100,"height":50,"notchWidth":60,"screenRadius":12},{"width":100,"height":50,"notchWidth":60,"screenRadius":25}]}')),
+    [{ width: 100, height: 50, notchWidth: 60, radius: 20, shoulder: 6, screenRadius: 12 }], 'screen corners over half the screen: dropped');
+});
+
+test("notch-panels.json gives every notched panel its screen's corners", () => {
+  assert.deepEqual(J(panels.map(p => [p.width, p.screenRadius])), [[3024, 40], [3456, 42], [2560, 36], [2880, 35]]);
 });
 
 test("the housing's corners fit the width they are drawn at", () => {
@@ -38,9 +43,9 @@ test("the housing's corners fit the width they are drawn at", () => {
 
 test("a panel's housing is its listed width, else the Pro's", () => {
   const air13 = { width: 2560, height: 1664, transform: 0 };
-  assert.deepEqual(J(notch.notchOf(cutouts, 'top', 'eDP-1', 1280, 832, 2, air13, 0, 0, panels)), { housing: 157, width: 157, height: 28, radius: 7, shoulder: 3.5 });
-  assert.equal(notch.notchOf(cutouts, 'top', 'eDP-1', 1512, 982, 2, mbp14, 0, 0, panels).housing, 185);
-  assert.equal(notch.notchOf(cutouts, 'top', 'eDP-1', 1280, 832, 2, air13).housing, 185, 'no table: the default');
+  assert.deepEqual(J(notch.notchOf(cutouts, 'top', 'eDP-1', 1280, 832, 2, air13, 0, 0, panels)), { housing: 163, width: 163, detectedHeight: 28, height: 28, radius: 9, shoulder: 3.25, screenRadius: 18 });
+  assert.equal(notch.notchOf(cutouts, 'top', 'eDP-1', 1512, 982, 2, mbp14, 0, 0, panels).housing, 191);
+  assert.equal(notch.notchOf(cutouts, 'top', 'eDP-1', 1280, 832, 2, air13).housing, 191, 'no table: the default');
 });
 
 test('the described panels parse; malformed ones are dropped', () => {
@@ -50,12 +55,13 @@ test('the described panels parse; malformed ones are dropped', () => {
 });
 
 test("a top bar on a described panel meets its notch, in logical px", () => {
-  assert.deepEqual(J(notch.notchOf(cutouts, 'top', 'eDP-1', 1512, 982, 2, mbp14)), { housing: 185, width: 185, height: 32, radius: 8, shoulder: 4 });
+  assert.deepEqual(J(notch.notchOf(cutouts, 'top', 'eDP-1', 1512, 982, 2, mbp14)), { housing: 191, width: 191, detectedHeight: 32, height: 32, radius: 10, shoulder: 3, screenRadius: 20 });
   // Fractional scale: Hyprland's mode decides, the logical size scales it.
-  assert.deepEqual(J(notch.notchOf(cutouts, 'top', 'eDP-1', 1890, 1228, 2, mbp14)), { housing: 232, width: 232, height: 40, radius: 10, shoulder: 5 });
+  assert.deepEqual(J(notch.notchOf(cutouts, 'top', 'eDP-1', 1890, 1228, 2, mbp14)), { housing: 239, width: 239, detectedHeight: 40, height: 40, radius: 12.5, shoulder: 3.75, screenRadius: 25 });
   // Before Hyprland answers, the logical size times a whole ratio stands in.
-  assert.deepEqual(J(notch.notchOf(cutouts, 'top', 'eDP-1', 1512, 982, 2, null)), { housing: 185, width: 185, height: 32, radius: 8, shoulder: 4 });
-  assert.deepEqual(J(notch.notchOf(cutouts, 'top', 'eDP-1', 1512, 982, 2, mbp14, 200, 34)), { housing: 185, width: 200, height: 34, radius: 8, shoulder: 4 }, 'set width and calibrated height win');
+  assert.deepEqual(J(notch.notchOf(cutouts, 'top', 'eDP-1', 1512, 982, 2, null)), { housing: 191, width: 191, detectedHeight: 32, height: 32, radius: 10, shoulder: 3, screenRadius: 20 });
+  assert.deepEqual(J(notch.notchOf(cutouts, 'top', 'eDP-1', 1512, 982, 2, mbp14, 200, 34)), { housing: 191, width: 200, detectedHeight: 34, height: 34, radius: 10, shoulder: 3, screenRadius: 20 }, 'set width and calibrated height win');
+  assert.deepEqual(J(notch.notchOf(cutouts, 'top', 'eDP-1', 1512, 982, 2, mbp14, 0, 34, null, 40)), { housing: 191, width: 191, detectedHeight: 34, height: 40, radius: 10, shoulder: 3, screenRadius: 20 }, 'a set height wins over the calibrated one');
 });
 
 test('no notch: another edge, another screen, a turned panel, Asahi hiding the notch row', () => {
@@ -87,11 +93,12 @@ function make(o) {
     pad: s => cell.endPad(k, s),
     handle: { extent: h.extent, spill: h.spill },
     notch: o.notch,
+    boxBefore: o.boxBefore === true,
     zones: {
       left: mk('L', z.left || [12]), right: mk('R', z.right || [12]),
       before: mk('B', z.before || []),
-      anchor: z.anchor === null ? null : mk('A', [z.anchor === undefined ? 40 : z.anchor])[0],
-      after: mk('F', z.after || []), center: mk('C', z.center || [])
+      box: z.anchor === null ? mk('C', z.center || []) : mk('A', [z.anchor === undefined ? 40 : z.anchor]),
+      after: mk('F', z.after || [])
     },
     previous: o.previous || null, transient: o.transient || null
   };
@@ -101,7 +108,7 @@ function centreSpans(input, r) {
   const fold = new Set(r.folded.center);
   const z = input.zones;
   const n = { key: 'notch', extent: input.notch, spill: 0 };
-  let slots = (z.anchor ? z.before.concat([n, z.anchor], z.after) : [n].concat(z.center)).filter(s => !fold.has(s.key));
+  let slots = z.before.concat(input.boxBefore ? z.box.concat([n]) : [n].concat(z.box), z.after).filter(s => !fold.has(s.key));
   const h = key => ({ key, extent: input.handle.extent, spill: input.handle.spill });
   if (['start', 'both'].includes(r.handles.center)) slots = [h('handle:center:start')].concat(slots);
   if (['end', 'both'].includes(r.handles.center)) slots = slots.concat([h('handle:center:end')]);
@@ -122,6 +129,27 @@ test('the notch slot stays on the camera and the anchor starts right of it', () 
   assert.ok(Math.abs(s.A0[0] - (756 + NOTCH / 2)) < 1e-6, 'anchor starts at the notch edge');
   assert.ok(s.B1[1] <= 756 - NOTCH / 2 + 1e-6, 'before-run ends left of the notch');
   assert.equal(r.centerShift, 0);
+});
+
+test('the box left of the camera (ZONE-96): it ends at the notch, Right of center starts past it', () => {
+  const input = make({ length: 1512, notch: NOTCH, boxBefore: true, zones: { before: [12, 12], anchor: 90, after: [12, 12] } });
+  const r = fit(input);
+  assert.equal(r.fits, true);
+  const s = centreSpans(input, r);
+  assert.ok(Math.abs((s.notch[0] + s.notch[1]) / 2 - 756) < 1e-6, 'notch centred on the screen');
+  assert.ok(Math.abs(s.A0[1] - (756 - NOTCH / 2)) < 1e-6, 'the box ends at the notch edge');
+  assert.ok(s.B1[1] <= s.A0[0] + 1e-6, 'before-run ends before the box');
+  assert.ok(Math.abs(s.F0[0] - (756 + NOTCH / 2)) < 1e-6, 'after-run starts at the notch edge');
+  assert.equal(r.centerShift, 0);
+  // A long left zone folds the left side from its far end: the box, next to
+  // the camera, folds last.
+  const long = make({ length: 1512, notch: NOTCH, boxBefore: true, zones: { left: Array(30).fill(12), before: [12, 12], anchor: 90, after: [12] } });
+  const f = fit(long);
+  assert.equal(f.fits, true);
+  assert.equal(f.centerShift, 0);
+  assert.ok(f.folded.left.length + f.folded.center.length > 0);
+  assert.ok(!f.folded.center.includes('A0') || f.folded.center.includes('B0'), 'the box folds only after Left of center');
+  assert.ok(!f.folded.center.includes('F0'), 'the right side has room: its widgets stay');
 });
 
 test('a long left zone folds on the left; the centre never slides over the camera', () => {
@@ -146,7 +174,7 @@ test('a long right zone folds on the right, the centre after-run included', () =
   assert.ok(!r.folded.center.includes('A0'), 'the anchor never folds');
 });
 
-test('without an anchor every centre widget sits right of the notch', () => {
+test('every widget of the box sits right of the notch', () => {
   const input = make({ length: 1512, notch: NOTCH, zones: { anchor: null, center: [12, 30, 12] } });
   const r = fit(input);
   const s = centreSpans(input, r);
@@ -175,7 +203,8 @@ test('on the notch a zone expansion wraps: nothing yields or hides, and the scre
   assert.ok(lasting.folded.left.length > 0);
   const moment = Object.assign({}, base, { previous: lasting, transient: { zone: 'left', unfold: 'left' } });
   const plain = fit(moment);
-  assert.ok(plain.hidden.center || plain.hidden.right || plain.fallbacks.length, 'two zones: the expansion runs into the notch');
+  assert.deepEqual(J(plain.fallbacks), [{ zone: 'left', reason: 'notch' }], 'two zones: an expansion that would cross the camera opens as a drawer');
+  assert.deepEqual(J(plain.hidden), { left: false, center: false, right: false }, 'nothing hides behind it');
   const r = fit(Object.assign({}, moment, { wrap: true }));
   assert.deepEqual(J(r.folded.left), [], 'its folded widgets come back');
   assert.deepEqual(J(r.yielded), []);
@@ -223,5 +252,73 @@ test('a notch zone past the screen edge wraps its outer widgets into a second ro
 
 test('the notch mode zones take the camera corners, or the default housing at scale 2', () => {
   assert.deepEqual(J(notch.zoneCorners({ radius: 9, shoulder: 3.5 })), { radius: 9, shoulder: 3.5 });
-  assert.deepEqual(J(notch.zoneCorners(null)), { radius: 8, shoulder: 4 });
+  assert.deepEqual(J(notch.zoneCorners(null)), { radius: 10, shoulder: 3 });
+});
+
+test("three zones: the camera's slot also holds the centre cells' end pads (notchPads)", () => {
+  const plain = make({ length: 1512, notch: NOTCH, zones: { before: [12, 12], anchor: 90, after: [12] } });
+  const padded = Object.assign({}, plain, { notchPads: true });
+  const a = fit(plain), b = fit(padded);
+  const pads = padded.pad(padded.zones.before[1].spill) + padded.pad(padded.zones.box[0].spill);
+  assert.equal(b.fits, true);
+  assert.ok(Math.abs((a.centerStart - b.centerStart) - pads / 2) < 1e-6, 'the centre starts half the pads further out');
+  assert.equal(b.centerShift, 0, 'the slot stays on the camera');
+});
+
+test('three zones: a side expansion makes the before-run yield up to the camera, never past it', () => {
+  const base = make({ length: 1512, notch: NOTCH, zones: { left: Array(20).fill(12), before: Array(4).fill(12), anchor: 90, after: [12] } });
+  const lasting = fit(base);
+  const grow = (n) => fit(Object.assign({}, make({ length: 1512, notch: NOTCH, zones: { left: Array(n).fill(12), before: Array(4).fill(12), anchor: 90, after: [12] } }),
+    { previous: lasting, transient: { zone: 'left', unfold: 'left' } }));
+  const some = grow(24);
+  assert.deepEqual(J(some.fallbacks), [], 'room before the camera: it expands');
+  assert.deepEqual(J(some.yielded), ['B0', 'B1'], 'the before-run yields from its start');
+  const far = grow(28);
+  assert.deepEqual(J(far.fallbacks), [{ zone: 'left', reason: 'notch' }], 'past the camera: the drawer');
+  assert.equal(far.hidden.center, false);
+});
+
+// A floating bar or island beside a notch (appearance.md LOOK-147, LOOK-148).
+const n14 = { width: 191, height: 32, radius: 10, shoulder: 3, screenRadius: 20 };
+
+test("a floating bar's cutout keeps the bar's gap around the camera's body", () => {
+  // 1512 wide window, bar 4 px off the edges, 38 thick.
+  const c = J(notch.wrapCut(n14, 1512, 4, 4, 4));
+  const camL = (1512 - 191) / 2;
+  assert.deepEqual(c, { start: camL + 3 - 4 - 4, end: camL + 191 - 3 + 4 - 4, depth: 32, radius: 14, fillet: 3 }, 'its top corners take the camera\'s top radius');
+  assert.equal(notch.wrapCut(null, 1512, 4, 4, 4), null);
+});
+
+test('a floating bar grows only to keep a band of one gap under the camera', () => {
+  assert.equal(notch.wrapThickness(n14, 38, 4), 38, 'large bar: 6 px band, unchanged');
+  assert.equal(notch.wrapThickness(n14, 26, 4), 36, 'small bar: grows to the camera plus a gap');
+  assert.equal(notch.wrapThickness(null, 26, 4), 26);
+});
+
+test("a floating bar's thickness, whatever the style, for Preferences' page (PREFS-102)", () => {
+  assert.equal(notch.floatingThickness(n14, 26, 4, false), 36, 'wraps the camera: its depth plus a gap');
+  assert.equal(notch.floatingThickness(n14, 38, 4, false), 38, 'a large bar is deeper than that already');
+  assert.equal(notch.floatingThickness(null, 26, 4, false), 26, 'no notch: its own size');
+  assert.equal(notch.floatingThickness(null, 30, 4, true), 30, 'a side bar: its own size');
+});
+
+test("outer top corners are concentric with the screen's, bottom ones keep the rounding", () => {
+  assert.deepEqual(J(notch.outerCorners(n14, 4, 8, 38)), { top: 16, bottom: 8 });
+  assert.deepEqual(J(notch.outerCorners(n14, 4, 8, 20)), { top: 12, bottom: 8 }, 'kept within the height left by the bottom');
+  assert.deepEqual(J(notch.outerCorners({ screenRadius: 2 }, 4, 8, 38)), { top: 8, bottom: 8 }, 'never under the rounding');
+  assert.deepEqual(J(notch.outerCorners({}, 4, 8, 38)), { top: 8, bottom: 8 }, 'unknown screen corners');
+  assert.deepEqual(J(notch.outerCorners(n14, 4, 0, 38)), { top: 16, bottom: 0 }, 'square islands still clear the corner');
+  assert.equal(notch.outerCorners(null, 4, 8, 38), null);
+});
+
+test('the outline runs round the bar and dips round the camera', () => {
+  const cut = { start: 650, end: 850, depth: 32, radius: 14, fillet: 8 };
+  const p = notch.wrapOutline({ width: 1504, height: 38, tl: 16, tr: 16, bl: 8, br: 8, cut: cut });
+  assert.equal(p, 'M 0 16 A 16 16 0 0 1 16 0 L 642 0 A 8 8 0 0 1 650 8 L 650 18 A 14 14 0 0 0 664 32 L 836 32 A 14 14 0 0 0 850 18 L 850 8 A 8 8 0 0 1 858 0 L 1488 0 A 16 16 0 0 1 1504 16 L 1504 30 A 8 8 0 0 1 1496 38 L 8 38 A 8 8 0 0 1 0 30 Z');
+  // The border's inner edge: inset 1, the cut 1 px wider and deeper.
+  const q = notch.wrapOutline({ width: 1504, height: 38, tl: 16, tr: 16, bl: 8, br: 8, cut: cut, inset: 1 });
+  assert.match(q, /^M 1 16 A 15 15 0 0 1 16 1 L 642 1 A 7 7 0 0 1 649 8 L 649 18 A 15 15 0 0 0 664 33 /);
+  // No cut: a plain rounded rectangle, shifted by an offset.
+  assert.equal(notch.wrapOutline({ width: 100, height: 20, tl: 4, tr: 4, bl: 4, br: 4, x: 10, y: 5 }),
+    'M 10 9 A 4 4 0 0 1 14 5 L 106 5 A 4 4 0 0 1 110 9 L 110 21 A 4 4 0 0 1 106 25 L 14 25 A 4 4 0 0 1 10 21 Z');
 });

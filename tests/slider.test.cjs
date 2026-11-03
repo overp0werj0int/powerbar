@@ -1,9 +1,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const vm = require('node:vm');
-const fs = require('node:fs');
-const model = vm.createContext({});
-vm.runInContext(fs.readFileSync(`${__dirname}/../SliderModel.js`, 'utf8'), model);
+const load = require('./load.cjs');
+const model = load('SliderModel.js');
 
 test('snaps to steps counted from the minimum, with clean decimals', () => {
   assert.equal(model.snap(1.26, 0.5, 3, 0.5), 1.5);

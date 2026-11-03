@@ -1,9 +1,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const vm = require('node:vm');
-const fs = require('node:fs');
-const m = vm.createContext({});
-vm.runInContext(fs.readFileSync(`${__dirname}/../GroupBadgeModel.js`, 'utf8'), m);
+const load = require('./load.cjs');
+const m = load('GroupBadgeModel.js');
 const plain = value => JSON.parse(JSON.stringify(value));
 
 test('auto-detects notification counts and urgency without polling', () => {

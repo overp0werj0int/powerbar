@@ -27,7 +27,12 @@ Item {
     preferences.status = ""
     return bar.canWriteConfig() ? "" : fail("the shell gives Powerbar no way to save its settings")
   }
-  function written() { return preferences.status ? fail(preferences.status) : "ok" }
+  // `kept`: what the bar's edit functions answered, false when the change was
+  // not queued.
+  function written(kept) {
+    if (preferences.status) return fail(preferences.status)
+    return kept === false ? fail("the change could not be saved") : "ok"
+  }
 
   // ---- settings --------------------------------------------------------------
   // What the bar uses now: the stored value, else its default, read from the
@@ -38,7 +43,6 @@ Item {
     case "position": return b.position
     case "background": return b.backgroundLook
     case "transparent": return b.requestedTransparent
-    case "centerAnchor": return b.centerAnchor
     case "style": return b.barOptions.style
     case "largeBar": return b.largeBar
     case "spacingMode": return b.spacingMode
@@ -47,12 +51,15 @@ Item {
     case "autoHideActivity": return b.autoHideActivity
     case "readableOverlay": return fx.readableOverlay
     case "animations": return b.animationsEnabled
-    case "onDemand": return b.onDemandInline ? "inline" : "drawer"
+    case "onDemand": return b.onDemandMode
     case "dotsBadge": return b.dotsBadge
     case "keyLegend": return b.keyLegend
+    case "preferencesTilt": return b.barOptions.preferencesTilt
     case "frameLog": return b.frameLog
+    case "tuning": return b.barOptions.tuning
     case "notchWidth": return b.screenNotch ? b.screenNotch.width : b.barOptions.notchWidth || null
-    case "zones": return b.zoneMode
+    case "notchHeight": return b.screenNotch ? b.screenNotch.height : b.barOptions.notchHeight || null
+    case "centerSide": return b.barOptions.centerSide
     case "revealSeconds": return b.managedRevealSeconds
     case "entryGraceSeconds": return b.managedEntrySeconds
     case "exitGraceSeconds": return b.managedExitSeconds
@@ -64,6 +71,7 @@ Item {
       return AppearanceModel.clampTo(AppearanceModel.ranges.borderWidth, look.values.borderWidth, Border.top(b.themeIslandBorder) / Style.space(1))
     case "surface.opacity": return Math.round(fx.backgroundOpacity * 100)
     case "surface.blur": return fx.blur
+    case "surface.overWindows": return Math.round(fx.overWindows * 100)
     case "surface.text": return b.foregroundChoice
     case "shadow.enabled": return fx.shadow
     case "shadow.softness": return fx.shadowSize
@@ -78,7 +86,7 @@ Item {
   }
   function get(name) {
     var s = Cli.find(name)
-    if (!s) return fail("no setting " + name + "; omarchy-shell powerbar settings lists them")
+    if (!s) return fail(Cli.retiredNote(name) || "no setting " + name + "; omarchy-shell powerbar settings lists them")
     if (s.type === "shortcut") {
       var bad = Cli.shortcutTarget(s.target, ctx())
       if (bad) return fail(bad)
@@ -90,7 +98,7 @@ Item {
   }
   function set(name, text) {
     var s = Cli.find(name)
-    if (!s) return fail("no setting " + name + "; omarchy-shell powerbar settings lists them")
+    if (!s) return fail(Cli.retiredNote(name) || "no setting " + name + "; omarchy-shell powerbar settings lists them")
     var cannot = begin()
     if (cannot) return cannot
     var checked = Cli.check(s, Cli.parseValue(text), ctx())
@@ -100,7 +108,6 @@ Item {
     switch (s.writer) {
     case "option": preferences.setOption(s.key, value); break
     case "style": preferences.setBarStyle(value); break
-    case "zones": preferences.setZoneMode(value); break
     case "scope":
       if (!bar.themeName) return fail("the current theme is not known yet")
       preferences.setScope(s.tile, value)
@@ -120,12 +127,11 @@ Item {
   }
   function reset(name) {
     var s = Cli.find(name)
-    if (!s) return fail("no setting " + name + "; omarchy-shell powerbar settings lists them")
+    if (!s) return fail(Cli.retiredNote(name) || "no setting " + name + "; omarchy-shell powerbar settings lists them")
     var cannot = begin()
     if (cannot) return cannot
     switch (s.writer) {
     case "option": preferences.setOption(s.key, undefined); break
-    case "zones": preferences.setZoneMode("three"); break
     case "style":
       // Earlier versions' powerbarIslands goes too, as choosing a style drops it.
       preferences.setOption("powerbarStyle", undefined)
@@ -150,7 +156,7 @@ Item {
   }
   function toggle(name) {
     var s = Cli.find(name)
-    if (!s) return fail("no setting " + name + "; omarchy-shell powerbar settings lists them")
+    if (!s) return fail(Cli.retiredNote(name) || "no setting " + name + "; omarchy-shell powerbar settings lists them")
     var next = Cli.toggled(s, valueOf(s))
     if (next.error) return fail(next.error)
     var cannot = begin()
@@ -171,7 +177,7 @@ Item {
       for (var k in entry) if (k !== "id" && k.indexOf("powerbar") !== 0) own[k] = entry[k]
       var group = bar.groupFor(r.instanceKey)
       return { id: r.id, instance: r.instanceKey, name: preferences.title(r), zone: r.section, index: r.index,
-        visibility: liveMode(r), group: group ? group.id : "", centered: r.section === "center" && bar.centerAnchor === r.id,
+        visibility: liveMode(r), group: group ? group.id : "",
         activityPeek: bar.activityPeeksFor(r.instanceKey, r.id), badgeProperty: r.badgeProperty,
         urgentProperty: r.urgentProperty, settings: own }
     })
@@ -198,19 +204,16 @@ Item {
     for (var field of ["badgeProperty", "urgentProperty"])
       if (p[field] && !GroupBadgeModel.propertyName(p[field], field === "badgeProperty"))
         return fail(p[field] + " is not a property name")
-    if (p.centered === true && (place.section !== "center" || place.mode !== "shown"))
-      return fail("centered is for a widget on the bar in the center zone")
     if (place.changed) {
       preferences.move(r, place.section, place.mode, place.before)
       if (preferences.status) return fail(preferences.status)
     }
-    if (p.group !== undefined) bar.assignGroup(r.instanceKey, p.group, "")
-    if (p.activityPeek !== undefined) bar.setActivityPeek(r.instanceKey, p.activityPeek)
-    if (p.badgeProperty !== undefined) bar.editMemberBadge(r.instanceKey, "badgeProperty", p.badgeProperty)
-    if (p.urgentProperty !== undefined) bar.editMemberBadge(r.instanceKey, "urgentProperty", p.urgentProperty)
-    if (p.centered === true) preferences.setOption("centerAnchor", r.id)
-    else if (p.centered === false && bar.centerAnchor === r.id) preferences.setOption("centerAnchor", "")
-    return written()
+    var kept = true
+    if (p.group !== undefined) kept = bar.assignGroup(r.instanceKey, p.group, "") && kept
+    if (p.activityPeek !== undefined) kept = bar.setActivityPeek(r.instanceKey, p.activityPeek) && kept
+    if (p.badgeProperty !== undefined) kept = bar.editMemberBadge(r.instanceKey, "badgeProperty", p.badgeProperty) && kept
+    if (p.urgentProperty !== undefined) kept = bar.editMemberBadge(r.instanceKey, "urgentProperty", p.urgentProperty) && kept
+    return written(kept)
   }
 
   // ---- groups ----------------------------------------------------------------
@@ -229,11 +232,14 @@ Item {
   function newGroup(label) {
     var cannot = begin()
     if (cannot) return cannot
-    var name = String(label || "").trim().slice(0, 80) || "New group"
+    var named = Cli.groupName(label)
+    if (named.error) return fail(named.error)
+    var name = named.name
     // As the Groups page makes them.
     var id = "g-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 7)
-    bar.editGroups(function(config) { GroupsModel.create(config, id, name) })
-    return preferences.status ? fail(preferences.status) : json({ id: id })
+    var kept = bar.editGroups(function(config) { GroupsModel.create(config, id, name) })
+    var answer = written(kept)
+    return answer === "ok" ? json({ id: id }) : answer
   }
   function setGroup(selector, text) {
     var cannot = begin()
@@ -259,10 +265,10 @@ Item {
         if (keys.indexOf(m.record.instanceKey) < 0) keys.push(m.record.instanceKey)
       }
     }
-    var id = g.id
-    if (Object.keys(edit).length) bar.editGroups(function(config) { GroupsModel.edit(config, id, edit) })
-    if (keys) for (var step of Cli.memberSteps(g.items, keys)) bar.assignGroup(step.key, step.group ? id : "", "")
-    return written()
+    var id = g.id, kept = true
+    if (Object.keys(edit).length) kept = bar.editGroups(function(config) { GroupsModel.edit(config, id, edit) })
+    if (keys) for (var step of Cli.memberSteps(g.items, keys)) kept = bar.assignGroup(step.key, step.group ? id : "", "") && kept
+    return written(kept)
   }
   function removeGroup(selector) {
     var cannot = begin()
@@ -270,8 +276,7 @@ Item {
     var found = Cli.groupRecord(bar.groups, selector)
     if (found.error) return fail(found.error)
     var id = found.group.id
-    bar.editGroups(function(config) { GroupsModel.remove(config, id) })
-    return written()
+    return written(bar.editGroups(function(config) { GroupsModel.remove(config, id) }))
   }
 
   // ---- shortcuts -------------------------------------------------------------

@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Window
 import qs.Commons
 import qs.Commons as Commons
+import "CellModel.js" as CellModel
 
 // Hover and selection for bar and drawer items, drawn like the tiles in
 // Preferences → Layout: a soft rounded fill behind the item. Visual only;
@@ -20,6 +21,16 @@ Item {
   property color hoverColor: "transparent"
   property color selectedColor: "transparent"
   property real rounding: 6
+  // The bar window, when the mark sits on the bar: in one of its outer
+  // corners that follow the screen's, the mark's corner nests in that curve
+  // (LOOK-150). Read when the mark lights or moves, in its own coordinates.
+  property var cornerHost: null
+  property var arcs: []
+  function nest() {
+    arcs = shown && cornerHost && typeof cornerHost.outerArcs === "function" ? cornerHost.outerArcs(mark) : []
+  }
+  onXChanged: if (shown) Qt.callLater(mark.nest)
+  onYChanged: if (shown) Qt.callLater(mark.nest)
   // The keyboard cursor: the same mark with an accent ring as its border, one
   // device pixel wide (keyboard.md KEYS-69). The caller also lights the mark
   // (`hovered`) for the cursor.
@@ -51,10 +62,13 @@ Item {
   onOutlinedChanged: Qt.callLater(mark.settle)
   Component.onCompleted: settle()
   function settle() {
+    // Queued before the mark itself was torn down: its functions are gone.
+    if (typeof glideLive !== "function") return
     var lighting = shown && !lit
     cursorMove = outlined !== ringed
     ringed = outlined
     if (lighting) {
+      nest()
       handedOff = false
       var from = glideLive() && motionEnabled ? glide.takeOver(mark) : null
       if (from) slideFrom(from)
@@ -108,7 +122,12 @@ Item {
     y: mark.offY
     width: Math.max(0, mark.width + mark.offW)
     height: Math.max(0, mark.height + mark.offH)
-    radius: Math.max(0, Math.min(mark.rounding, Math.min(width, height) / 2))
+    readonly property var corners: CellModel.nestedCorners(fill, mark.arcs, mark.rounding)
+    radius: corners.tl
+    topLeftRadius: corners.tl
+    topRightRadius: corners.tr
+    bottomLeftRadius: corners.bl
+    bottomRightRadius: corners.br
     color: mark.selected ? mark.selectedColor : mark.hoverColor
     // A border is drawn inside the shape: it has width only while it shows, so
     // the fill has no gap around it otherwise.

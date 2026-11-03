@@ -12,12 +12,12 @@ BorderSurface {
   // From the font, not the text: arrows come from a fallback font with a
   // taller line, and caps of one row must share one height.
   implicitHeight: Math.ceil(metrics.height) + Style.space(4)
-  radius: Math.min(Style.cornerRadius, Style.space(4))
+  radius: Round.small
   color: Qt.alpha(foreground, 0.07)
   borderSpec: Border.flat(Qt.alpha(foreground, 0.22), 1)
   Accessible.ignored: true
   FontMetrics { id: metrics; font: label.font }
-  Text {
+  GrayText {
     id: label
     // On the font's baseline, centred as the font's line would be: a fallback
     // glyph's taller line would lift the text off its neighbours' baseline.

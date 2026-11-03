@@ -1,14 +1,17 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const model = require('../RenderModel.js');
+const load = require('./load.cjs');
+const model = load('RenderModel.js');
+const sections = load('SectionsModel.js');
 const entry = (key, extra = {}) => ({ id: 'duplicate', powerbarInstance: key, ...extra });
 const config = () => ({ transparent: false, layout: { left: [entry('a'), entry('b')], center: [], right: [] } });
-test('retention keys distinguish duplicate IDs and anchor only the first matching instance', () => {
-  const layout = { left: [entry('a')], center: [entry('b'), entry('c')], right: [] };
+test('records keep duplicate ids apart and carry their zone and list', () => {
+  const layout = { left: [entry('a')], centerBegin: [entry('b')], center: [entry('c')], centerEnd: [entry('d'), entry('t', { powerbarList: 'tray' })], right: [] };
   const records = model.records(layout);
-  assert.deepEqual(records.map(r => r.key), ['a', 'b', 'c']);
-  assert.deepEqual(model.split(records, 'duplicate'), { left: ['a'], right: [], center: [], before: [], anchor: ['b'], after: ['c'] });
-  assert.deepEqual(model.split(records, ''), { left: ['a'], right: [], center: ['b', 'c'], before: [], anchor: [], after: [] });
+  assert.deepEqual(records.map(r => [r.key, r.region, r.drawn, r.list]), [
+    ['a', 'left', 'left', 'left'], ['b', 'center', 'centerBegin', 'centerBegin'], ['c', 'center', 'center', 'center'],
+    ['d', 'center', 'centerEnd', 'centerEnd'], ['t', 'center', 'centerEnd', 'tray']]);
+  assert.deepEqual(model.split(records), { left: ['a'], centerBegin: ['b'], center: ['c'], centerEnd: ['d', 't'], right: [] });
 });
 test('capture invalidation distinguishes identical reloads, surface alpha, settings, moves and unknown changes', () => {
   const original = config(), next = config();
@@ -55,4 +58,24 @@ test('shallowSame: the same keys in the same order with the same values', () => 
   assert.equal(model.shallowSame({ start: 1, length: 2 }, { start: 1, length: 3 }), false);
   assert.equal(model.shallowSame({ start: 1 }, null), false);
   assert.equal(model.shallowSame(null, null), false, 'not objects');
+});
+
+test('under the camera the box joins the side it sits on', () => {
+  assert.deepEqual(sections.lists.map(l => model.zoneOf(l, true)), ['left', 'left', 'right', 'right', 'right']);
+  assert.deepEqual(sections.lists.map(l => model.zoneOf(l, true, 'left')), ['left', 'left', 'left', 'right', 'right']);
+  assert.deepEqual(sections.lists.map(l => model.zoneOf(l, false, 'left')), ['left', 'center', 'center', 'center', 'right'], 'no camera: the three center lists share the center');
+  const layout = { left: [], centerBegin: [], center: [entry('c')], centerEnd: [], right: [] };
+  assert.equal(model.records(layout, true, 'left')[0].region, 'left');
+  assert.equal(model.records(layout, true)[0].region, 'right');
+});
+test('grayText switches default-rendered text under a tree and leaves chosen render types alone', () => {
+  const QT = 0, NATIVE = 1, CURVE = 2;
+  const label = { renderType: QT }, field = { renderType: QT, children: [{ renderType: QT }] };
+  const native = { renderType: NATIVE }, plain = { children: [] };
+  const root = { children: [plain, { children: [label, native, field, null] }] };
+  assert.equal(model.grayText(root, QT, CURVE), 3);
+  assert.deepEqual([label.renderType, field.renderType, field.children[0].renderType, native.renderType], [CURVE, CURVE, CURVE, NATIVE]);
+  assert.equal('renderType' in plain, false);
+  assert.equal(model.grayText(root, QT, CURVE), 0);
+  assert.equal(model.grayText(null, QT, CURVE), 0);
 });

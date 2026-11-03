@@ -26,6 +26,7 @@ import QtTest
 import ${JSON.stringify(pathToFileURL(repo).href)}
 import ${JSON.stringify(pathToFileURL(path.join(repo, 'PreferencesModel.js')).href)} as Model
 import ${JSON.stringify(pathToFileURL(path.join(repo, 'CellModel.js')).href)} as CellModel
+import ${JSON.stringify(pathToFileURL(path.join(repo, 'SectionsModel.js')).href)} as SectionsModel
 TestCase {
   id: root
   name: "PowerbarStartupBindings"
@@ -64,8 +65,7 @@ TestCase {
       property var initialItems: members("left", "shown", "")
       property var entries: [{section: "left", mode: "shown", index: 0, instanceKey: "first"}]
       property var preferences: ({})
-      property int anchorIndex: -1
-      function columnsFor(mode) { return Model.columns(mode, anchorIndex >= 0) }
+      function columnsFor(mode) { return mode === "tray" ? ["tray"] : SectionsModel.lists }
       ${cells}
       ${members}
     }

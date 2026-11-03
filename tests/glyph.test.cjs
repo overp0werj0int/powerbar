@@ -1,6 +1,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const model = require('../GlyphModel.js');
+const load = require('./load.cjs');
+const model = load('GlyphModel.js');
 
 test('reads a Nerd Font glyph, including ones outside the basic plane', () => {
   assert.equal(model.glyphFrom(''), '');

@@ -21,7 +21,15 @@ omabox for desktop tests in a private Hyprland session
 
 1. **Pure logic lives in `*Model.js`** with node tests in `tests/*.test.cjs`
    (decisions, layouts, ranking, placement). QML carries them out. New rules
-   get a model function and a test first.
+   get a model function and a test first. A rule has one owner: a model that
+   needs another's takes it with `.import "SectionsModel.js" as SectionsModel`
+   (QML's import for JS files) rather than a copy. Every test loads its models
+   through `tests/load.cjs`, which resolves those imports as QML does, and a
+   model that imports goes in `tests/qml/tst_ModelImports.qml`.
+   A QML test that needs Powerbar's singletons (Ink, Gap, Round, Tuning),
+   such as one that builds a Preferences page, imports the checkout as
+   `import Powerbar`: `tests/qml/kit.sh` lays it out with a qmldir, as
+   Quickshell resolves them (`tests/qml/tst_PreferencesPages.qml`).
    A change in what the user sees or can do updates its `docs/behavior/`
    entry in the same commit (new behaviors get the next free ID; never reuse
    one).
@@ -57,10 +65,15 @@ omabox for desktop tests in a private Hyprland session
    (validate.sh runs it too): each `contract drift:` line names the Omarchy
    file, the exact text Powerbar relied on that is gone, and what that breaks.
    Read what replaced it in that file, adapt Powerbar, then update the entry
-   in the script. Then `tools/smoke.sh` for Quickshell and Hyprland behaviour,
-   which the contract does not cover.
+   in the script. It also fails on additions: a member Omarchy adds to the
+   plugin facade (`Ui/PluginBarApi.qml`) that Powerbar does not fill or its
+   own bar lacks, and a new required property on a qs.Ui type Powerbar
+   creates. It reads the display cutouts path from Omarchy's bar and the
+   `hyprctl binds` text format from the Hyprland binary, so it needs no
+   running Hyprland. Then `tools/smoke.sh` for Quickshell and Hyprland
+   behaviour, which the contract does not cover.
 4. **The live desktop only when the user asks.** Restart the user's shell with
-   `.claude/skills/omarchy-widget-debug/scripts/live.sh restart powerbar`
+   `~/.claude/skills/omarchy-widget-debug/scripts/live.sh restart powerbar`
    (it refuses while the session is locked; never restart a locked session).
    Then `tools/build-check.sh` (through `omabox host --` under the guard)
    says whether the shell now runs this checkout: `current`, or `stale` when
@@ -74,12 +87,15 @@ omabox for desktop tests in a private Hyprland session
    Preferences; INTEG-146). The shell log then carries a timeline of what the
    bar did (`PB-EV t=<ms> <kind> <detail>`: keys, cursor, cards, hover, dots,
    inline asks and opens, drawers with their close reason, strip slides,
-   drags, folds, config deliveries) and one `PB-FT anim=… frames= wall= p95=
-   max= long=` line per motion, with `longframe dt=` on the timeline where a
-   frame stalled. In a box: `omabox log -b NAME shell --grep PB-`. On the
+   drags, folds, config deliveries) and one `PB-FT anim=… startup= frames=
+   wall= p95= max= long=` line per motion, with `longframe dt=` on the
+   timeline where a frame stalled during a motion and `startup dt=` where the
+   first frame came late (start-up latency, kept out of the frame stats). In a box: `omabox log -b NAME shell --grep PB-`. On the
    desktop the user sets the key, then
    `~/.claude/skills/omarchy-widget-debug/scripts/live.sh follow PB- 300`
-   while they reproduce. Turn it off afterwards.
+   while they reproduce. Turn it off afterwards. `"powerbarTuning": true`
+   adds a Tuning page to Preferences the same way: the numbers behind the
+   look as faders, and the frame log switch (INTEG-155, PREFS-132).
    For per-frame values of one motion, `tools/frame-probe.md`; for offscreen
    whole-bar timings, the bench (kept outside the plugin, see
    `docs/performance/implementation.md`). Measure before and after;
@@ -103,41 +119,71 @@ omabox for desktop tests in a private Hyprland session
 `screenshots/` holds the README gallery, real captures only. `preview.jpg`
 (the README hero and the plugin's preview) is `tools/showcase/card.html`
 rendered by `tools/showcase/render.sh` (headless Chromium, 1200x675 at 2x:
-16:9, the marketplace card's shape). The page is a gradient of the nord
-theme's own colours with one capture laid in as a screen,
-`screenshots/hero-nord.jpg`: a 1920x1080 box at scale 2.5 on nord, a layout
-of stock Omarchy widgets, keyboard mode inside the System group (keysOn,
-Left, Down, Down). The box's background is the same gradient under the
-screen, from `render.sh --wall OUT.png` and `omarchy-theme-bg-set`. Keep
-what matters inside the screen: catalogue cards crop the picture to between
-about 1.5:1 and 2.4:1, which takes only gradient. Re-run render.sh after
-replacing the capture.
+16:9, the marketplace card's shape). The card is words on the left and two
+untouched captures on the right, both from one box set up like the gallery
+below, with `tuning false`:
 
-The gallery shots are wide, readable captures from one omabox box
-(`omabox up gal --theme NAME --env POWERBAR_DISPLAY_CUTOUTS=/home/sbx/cutouts.json`),
-with the plugin copied into the box HOME, `omarchy bar use p0werj0int.powerbar`
-and `tools/showcase/seed.py` writing a bar of stock widgets. Set the screen
-per shot with `omabox -b gal hyprctl eval 'hl.monitor({ output = "HEADLESS-2",
-mode = "2400x275@60", position = "0x0", scale = 2.5 })'`; do that again after a
-`omarchy-theme-set`, which resets it. Keep shots wide (the key strip needs
-about 240 logical px of height) and only Preferences tall:
+- `screenshots/hero-bar.jpg`: tokyo-night over a plain violet-to-teal
+  gradient (`magick -size 2400x1500 gradient:'#5b4fa8'-'#2f7f8f'`, then
+  `omarchy-theme-bg-set`, so the bar stands out), a 1700x600 screen at scale
+  2.5, `set style floating`, `set onDemand menu`, `managed right`, cropped to
+  the top 1700x500.
+- `screenshots/hero-prefs.jpg`: catppuccin-latte, a 2880x1500 screen at
+  scale 2, `preferencesPage 1`, cropped to 2880x1348+0+114.
+
+Keep what matters inside 95..1105 x 88..588 of the page: catalogue cards
+crop the picture to between about 1.5:1 and 2.4:1. Re-run render.sh after
+replacing a capture.
+
+The gallery shots are wide, readable captures from one omabox box:
+`omabox up gal --stock-bar --theme NAME --env POWERBAR_DISPLAY_CUTOUTS=/home/sbx/cutouts.json`
+(`--stock-bar`, or the box starts from your own bar and its settings), the
+plugin copied into the box HOME (rsync as `tools/box/box.sh` does),
+`omarchy bar use p0werj0int.powerbar`, the `bar` object emptied, then
+`tools/showcase/seed.py` writing a bar of stock widgets in the five zones and a
+restart of the shell. The box has no network, so Weather draws nothing, and
+Bluetooth, Keyboard layout and Power draw nothing on the bar (no devices); in
+a drawer or menu they still have their icons. Stock themes have square, bordered
+bars (Hyprland's rounding 0), which hide the shelf's fillets, so round the bar
+in Powerbar's own settings, for every theme:
+`set shape.scope all`, `set shape.rounding 12`, `set shape.borders false`,
+`set shadow.scope all`, `set shadow.enabled false`. Set the screen per shot with
+`omabox -b gal hyprctl eval 'hl.monitor({ output = "HEADLESS-2", mode = "2400x300@60", position = "0x0", scale = 2.5 })'`;
+do that again after every `omarchy-theme-set`, which resets it. Commands below
+are `omabox run -b gal -- omarchy-shell powerbar ...`; `keys` is
+`omabox -b gal keys --wait`. Keep shots wide (the key strip needs about 240
+logical px of height) and only Preferences tall:
 
 | Shot | Theme, mode | State |
 | --- | --- | --- |
-| `drawer-latte.jpg` | catppuccin-latte, 2400x275 at 2.5 | floating; `powerbar managed right` |
-| `search-tokyo-night.jpg` | tokyo-night, 2400x600 at 2.5 | flat; `keysSearch`, type `tail` |
-| `notch-kanagawa.jpg` | kanagawa, 3024x1964 at 2, `shot -g 290,0,932,200` | `set zones notch`; `group g-show-system`. `cutouts.json`: `{"panels":[{"connector":"HEADLESS","width":3024,"height":1964,"top":64}]}` |
-| `preferences.jpg` | osaka-jade, 2560x1600 at 2 | islands; `preferencesPage 1` |
+| `shelf-latte.jpg` | catppuccin-latte, 2400x300 at 2.5 | islands; `set onDemand shelf`; `managed right` |
+| `menu-gruvbox.jpg` | gruvbox, 2400x700 at 2.5 | islands; `set onDemand menu`; `managed right`; keys `down` x4 (cursor on Extras), `Return` |
+| `search-tokyo-night.jpg` | tokyo-night, 2400x600 at 2.5 | flat; `set onDemand drawer`; `keysSearch`, keys `-t tail` |
+| `notch-kanagawa.jpg` | kanagawa, 3024x1964 at 2, `shot -g "400,0 760,180"` | `set style notch`; after setting the mode, `OMABOX_READY_TIMEOUT=2s omabox restart-shell -b gal` (the theme switch restarted the shell on the old mode, and it finds no notch); `group g-show-system`. `cutouts.json` in the box HOME: `{"panels":[{"connector":"HEADLESS-2","width":3024,"height":1964,"top":64}]}` |
+| `layout-jade-horse.jpg` | jade-horse, 2880x1500 at 2 | islands; `set onDemand drawer`; `preferencesPage 1` |
+| `groups-everforest.jpg` | everforest, 2880x1500 at 2 | islands; `set onDemand drawer`; `preferencesPage 2`; keys `Right` x4, `Down`, `Return` (Extras pulled forward) |
+| `look-catppuccin.jpg` | catppuccin, 2880x1400 at 2 | islands; `preferencesPage 3` |
 
-Park the pointer where it hovers nothing. JPEG at quality 88.
+Preferences needs 1440 logical px of width, or the desk strips cut their
+labels short ("Background opa…"). osaka-jade has no colours or wallpaper in
+Omarchy r7569 (a bare `backgrounds/` folder), so the Layout page moved to
+jade-horse. Park the pointer where it hovers nothing
+(`omabox pointer -b gal -- move 300 115`) and shoot with `--no-pointer`. JPEG
+at quality 88.
 
 ## Skills
 
 Development skills are not part of the plugin: `omarchy plugin add` clones
 this tree as it is, and Omarchy's plugin review rejects agent instructions in
 it, so `AGENTS.md`, `CLAUDE.md` and `.claude/` are git-ignored. Keep them
-locally (a `CLAUDE.md` of `@DEVELOPMENT.md` is enough). The maintainer's
-`.claude/skills/` holds:
+locally (a `CLAUDE.md` of `@DEVELOPMENT.md` is enough). The maintainer keeps
+one skill in the checkout's git-ignored `.claude/skills/`:
+
+- **verify**: drives Powerbar in an omabox box (`scripts/pbv.sh`) and
+  captures proof that a bar, keyboard-mode, drawer, group, settings or
+  Preferences behaviour works.
+
+The other three live in `~/.claude/skills/`, outside the checkout:
 
 - **omarchy-widget-ux**: theme tokens, keyboard model, motion budget, words.
   Read it before UI work.
@@ -148,7 +194,7 @@ locally (a `CLAUDE.md` of `@DEVELOPMENT.md` is enough). The maintainer's
   decisions go into `docs/behavior/` and the lab is deleted.
 
 Without them, the loop above still holds: `tools/validate.sh`, `tests/run`,
-`tools/smoke.sh`. (`.claude/skills/omarchy-widget-debug/scripts/live.sh`
+`tools/smoke.sh`. (`~/.claude/skills/omarchy-widget-debug/scripts/live.sh`
 restarts the live shell; without it use `omarchy restart shell`, never while
 the session is locked.)
 
@@ -159,7 +205,16 @@ does not accept agent instructions in a plugin. Update it with any change to
 
 ## Git
 
-- One branch per item; merge to master with `--no-ff`, then push.
+- `develop` is the working branch: one branch per item off `develop`, merged
+  back with `--no-ff`, then pushed. User-facing changes go under
+  `## Unreleased` in CHANGELOG.md.
+- `master` holds releases only. It stays the GitHub default branch, because
+  `omarchy-plugin-update` installs and updates from the remote's HEAD, so
+  every commit there reaches users. A release: on `release-X` off `develop`,
+  bump `manifest.json` and INTEG-1 and turn Unreleased into `## X — date`;
+  merge it into `develop`, then `develop` into `master` (`--no-ff`, "Release
+  X"), tag `vX` on master, push `master`, `develop` and the tag, and run the
+  release preflight.
 - Commit as the repo's GitHub noreply address; never edit the user's git
   config.
 - Commit messages: what changed and why, measured numbers where there are any.

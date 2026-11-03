@@ -3,12 +3,11 @@
 // Omarchy's bar, plus its Preferences button, until the user changes something.
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const vm = require('node:vm');
-const fs = require('node:fs');
-const load = file => { const c = vm.createContext({}); vm.runInContext(fs.readFileSync(`${__dirname}/../${file}`, 'utf8'), c); return c; };
+const load = require('./load.cjs');
 const plain = value => JSON.parse(JSON.stringify(value)); // vm objects differ in realm
 const bar = load('BarModel.js');
 const managed = load('ManagedModel.js');
+const heal = load('HealModel.js');
 const prefs = load('PreferencesModel.js');
 const appearance = load('AppearanceModel.js');
 const cell = load('CellModel.js');
@@ -36,8 +35,8 @@ const firstParty = { firstParty: true };
 test('clean config gives a stock-like bar: flat, top, always out, theme size', () => {
   assert.deepEqual(plain(bar.options(stock())), {
     style: 'flat', autoHide: false, autoHideActivity: true, largeBar: false,
-    spacingMode: 'slots', onDemand: 'drawer', animations: true, keyLegend: true, dotsBadge: true,
-    frameLog: false, notchWidth: 0
+    spacingMode: 'slots', onDemand: 'drawer', animations: true, keyLegend: true, preferencesTilt: true, dotsBadge: true,
+    frameLog: false, tuning: false, notchWidth: 0, notchHeight: 0, centerSide: 'right'
   });
   assert.deepEqual(plain(bar.options(undefined)), plain(bar.options({})));
   assert.equal(bar.normalizePosition(stock().position), 'top');
@@ -48,12 +47,12 @@ test('clean config keeps every option the user set', () => {
   const set = Object.assign(stock(), {
     powerbarStyle: 'islands', powerbarAutoHide: true, powerbarAutoHideActivity: false, powerbarLargeBar: true,
     powerbarSpacingMode: 'gaps', powerbarOnDemand: 'inline', powerbarAnimations: false,
-    powerbarKeyLegend: false, powerbarDotsBadge: false, powerbarFrameLog: true
+    powerbarKeyLegend: false, powerbarPreferencesTilt: false, powerbarDotsBadge: false, powerbarFrameLog: true, powerbarTuning: true
   });
   assert.deepEqual(plain(bar.options(set)), {
     style: 'islands', autoHide: true, autoHideActivity: false, largeBar: true,
-    spacingMode: 'gaps', onDemand: 'inline', animations: false, keyLegend: false, dotsBadge: false,
-    frameLog: true, notchWidth: 0
+    spacingMode: 'gaps', onDemand: 'inline', animations: false, keyLegend: false, preferencesTilt: false, dotsBadge: false,
+    frameLog: true, tuning: true, notchWidth: 0, notchHeight: 0, centerSide: 'right'
   });
   assert.equal(bar.options({ powerbarIslands: true }).style, 'islands');
 });
@@ -141,7 +140,7 @@ test('clean config folds nothing on a 1920 px screen', () => {
     length: 1920, inset: cell.flatEdge(k, 8, OMARCHY_ICON_SLOT), gap: k.cell + k.spacing, gutter: k.gutter,
     pad: s => cell.endPad(k, s), handle: { extent: h.extent, spill: h.spill },
     zones: { left: mk('L', [13, 100]), right: mk('R', [14, 14, 13, 13]), before: [],
-      anchor: mk('A', [92])[0], after: mk('F', [14]), center: [] },
+      box: mk('A', [92]), after: mk('F', [14]) },
     previous: null, transient: null
   }));
   assert.deepEqual(r.folded, { left: [], center: [], right: [] });
@@ -154,15 +153,10 @@ const thirdParty = entry => !String(typeof entry === 'string' ? entry : entry.id
 const metaFor = entry => thirdParty(entry) ? { firstParty: false } : firstParty;
 const all = b => [].concat(b.layout.left, b.layout.center, b.layout.right);
 const modes = b => all(b).map(e => managed.mode(e, metaFor(e), managed.legacyDefaults(b)));
-// Bar.qml's first-run write (ensureInstanceIds): the heal, then the ids.
+// The first-run heal (HealModel): the visibility rule, then the ids.
 const firstRun = b => {
-  managed.healVisibility(b, thirdParty);
-  for (const s of ['left', 'center', 'right'])
-    b.layout[s] = b.layout[s].map((e, i) => {
-      const entry = typeof e === 'string' ? { id: e } : e;
-      if (!entry.powerbarInstance) entry.powerbarInstance = `pw-${s}-${i}`;
-      return entry;
-    });
+  let n = 0;
+  heal.apply(b, heal.heal(b, { previous: null, thirdParty, newInstance: () => `pw-${++n}` }));
 };
 
 test('fresh switch from stock with a third-party widget: it shows on the bar, no visibility is written', () => {
