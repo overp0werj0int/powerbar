@@ -6,9 +6,11 @@ import qs.Ui
 
 // A labelled pick-one row for the five zones, drawn as a small bar: one cell
 // per zone in the proportions and order of the Layout page's columns, the
-// camera over Center when the preview has one, the chosen zone filled. One
-// focus stop: h/l or Left/Right walk the cells, Space or Enter chooses; a
-// click chooses at once. The caption names the zone under the cursor.
+// camera over Center when the preview has one, the chosen zone filled. On a
+// desk strip (DeskStrip) every cell is a stop, as a row of chips' are
+// (DeskChoice): the desk's h/l walk them and go on past the ends, Space or
+// Enter chooses; a click chooses at once. The caption names the zone under
+// the cursor.
 ColumnLayout {
   id: row
   // [{ value, label, share }] in bar order.
@@ -31,6 +33,15 @@ ColumnLayout {
     for (var i = 0; i < zones.length; i++) if (zones[i].value === zone) return i
     return -1
   }
+  // On a desk: a stop per zone, the chosen one home.
+  readonly property int deskStops: Math.max(1, zones.length)
+  readonly property int deskHome: Math.max(0, indexOf(value))
+  readonly property int deskStop: Math.max(0, map.cursor)
+  function deskFocus(stop, reason) {
+    map.cursor = stop
+    map.forceActiveFocus(reason === undefined ? Qt.OtherFocusReason : reason)
+  }
+  readonly property var keyHints: [{ keys: "h l", label: "Zone to zone, then the next strip" }, { keys: "space", label: "Move it to that zone" }]
   readonly property int shown: map.activeFocus && map.cursor >= 0 ? map.cursor : indexOf(value)
   readonly property var shownZone: shown >= 0 ? zones[shown] : null
 
@@ -40,6 +51,7 @@ ColumnLayout {
     elide: Text.ElideRight
   }
   ColumnLayout {
+    Layout.fillWidth: true
     spacing: Gap.xxs
     Item {
       id: map
@@ -47,21 +59,17 @@ ColumnLayout {
       readonly property real cellHeight: Gap.control
       readonly property real gap: Gap.xs
       readonly property real total: row.zones.reduce(function(sum, z) { return sum + z.share }, 0)
-      readonly property var keyHints: [{ keys: "h l", label: "Walk the zones" }, { keys: "space", label: "Move it to that zone" }]
-      implicitWidth: Style.space(232)
+      Layout.fillWidth: true
       implicitHeight: cellHeight
-      activeFocusOnTab: true
+      activeFocusOnTab: false
       Accessible.role: Accessible.RadioButton
       Accessible.name: "Zone: " + (row.shownZone ? row.shownZone.label : "")
-      onActiveFocusChanged: cursor = activeFocus ? Math.max(0, row.indexOf(row.value)) : -1
-      Keys.priority: Keys.BeforeItem
+      onActiveFocusChanged: if (!activeFocus) cursor = -1
+        else if (cursor < 0) cursor = Math.max(0, row.indexOf(row.value))
       Keys.onPressed: function(event) {
-        var key = Util.readingKey(event, true)
-        if (key === Qt.Key_Left) cursor = Math.max(0, cursor - 1)
-        else if (key === Qt.Key_Right) cursor = Math.min(row.zones.length - 1, cursor + 1)
-        else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter || event.key === Qt.Key_Space) {
-          if (cursor >= 0 && row.zones[cursor].value !== row.value) row.chosen(row.zones[cursor].value)
-        } else return
+        if (event.modifiers & (Qt.ControlModifier | Qt.AltModifier | Qt.MetaModifier)) return
+        if (event.key !== Qt.Key_Return && event.key !== Qt.Key_Enter && event.key !== Qt.Key_Space) return
+        if (cursor >= 0 && row.zones[cursor].value !== row.value) row.chosen(row.zones[cursor].value)
         event.accepted = true
       }
       // Cell n's left edge and width: shares of what the gaps leave.
@@ -86,7 +94,8 @@ ColumnLayout {
           width: map.span(index).width
           height: map.cellHeight
           radius: Round.small
-          color: chosen ? Style.selectedFillFor(Commons.Color.popups.text, Commons.Color.accent)
+          color: hot ? Style.focusFillFor(Commons.Color.popups.text, Commons.Color.accent)
+            : chosen ? Style.selectedFillFor(Commons.Color.popups.text, Commons.Color.accent)
             : cellMouse.containsMouse ? Style.hoverFillFor(Commons.Color.popups.text, Commons.Color.accent)
             : Qt.alpha(Commons.Color.popups.text, 0.07)
           borderSpec: hot ? Border.controlSpec("focus", Commons.Color.popups.text, Commons.Color.accent)
@@ -115,7 +124,7 @@ ColumnLayout {
             anchors.fill: parent
             hoverEnabled: true
             onClicked: {
-              map.cursor = zoneCell.index
+              row.deskFocus(zoneCell.index, Qt.MouseFocusReason)
               if (zoneCell.modelData.value !== row.value) row.chosen(zoneCell.modelData.value)
             }
           }
@@ -123,7 +132,7 @@ ColumnLayout {
       }
     }
     InkText {
-      Layout.preferredWidth: map.implicitWidth
+      Layout.fillWidth: true
       text: row.shownZone ? row.shownZone.label + (row.noteFor(row.shownZone.value) ? ", " + row.noteFor(row.shownZone.value) : "") : ""
       role: "caption"
       elide: Text.ElideRight

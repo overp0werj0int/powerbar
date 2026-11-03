@@ -7,11 +7,11 @@ import qs.Ui
 // Omarchy's Dropdown (qs.Ui Dropdown.qml), the same trigger and popup, with
 // the popup opening above the trigger (the Layout page's inspector sits at
 // the window's bottom, where the kit's popup, always below, would open
-// off-screen). The kit's has no placement of its own. Keyboard as the kit's:
-// Tab to the trigger, Enter, Space or Down opens, j/k or Up/Down walk the
+// off-screen). The kit's has no placement of its own. On a desk strip
+// (DeskStrip) it is one stop: Enter or Space opens, j/k or Up/Down walk the
 // options, Enter picks, Esc closes. `keyHints` name the keys for the page's
-// legend on the trigger, `listHints` while it is open. `label` names it for
-// accessibility; the field draws no label.
+// legend, `listHints` while it is open. `label` names it for accessibility;
+// the field draws no label.
 Item {
     id: root
 
@@ -22,6 +22,17 @@ Item {
     readonly property var popupBorderSpec: Border.localOrSurfaceSpec("popups", "border", Commons.Color.popups.border, Commons.Color.popups.border, Style.normalBorderWidth)
 
     readonly property bool popupOpen: popup.opened
+    readonly property int deskStops: 1
+    readonly property int deskHome: 0
+    function deskFocus(stop, reason) {
+        trigger.forceActiveFocus(reason === undefined ? Qt.OtherFocusReason : reason);
+    }
+    readonly property var keyHints: [
+        {
+            keys: "space",
+            label: root.openLabel
+        }
+    ]
     // The keys while the list is open, for the page's legend.
     readonly property var listHints: [
         {
@@ -68,17 +79,11 @@ Item {
 
         readonly property bool focusedNow: trigger.activeFocus
         readonly property bool hot: triggerHover.hovered
-        readonly property var keyHints: [
-            {
-                keys: "space",
-                label: root.openLabel
-            }
-        ]
 
         color: Style.controlFill(trigger.focusedNow, trigger.hot, Commons.Color.popups.text, Commons.Color.accent)
         borderSpec: Border.controlSpec(trigger.focusedNow ? "focus" : (trigger.hot ? "hover-cursor" : "normal"), Commons.Color.popups.text, Commons.Color.accent)
 
-        activeFocusOnTab: true
+        activeFocusOnTab: false
         Accessible.role: Accessible.ComboBox
         Accessible.name: root.label + ": " + root.currentLabel()
 
@@ -87,7 +92,7 @@ Item {
         }
 
         Keys.onPressed: function (event) {
-            if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter || event.key === Qt.Key_Space || event.key === Qt.Key_Down) {
+            if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter || event.key === Qt.Key_Space) {
                 root.toggle();
                 event.accepted = true;
             } else if (event.key === Qt.Key_Escape && popup.opened) {

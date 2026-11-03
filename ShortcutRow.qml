@@ -31,6 +31,9 @@ BorderSurface {
   // (PREFS-104).
   property string caption: ""
   property bool cursor: false
+  // The keys on a line of their own under the label, at the right, for a
+  // column too narrow for both (the inspectors' strips).
+  property bool stacked: false
   readonly property Item strip: {
     for (var p = parent; p; p = p.parent)
       if (p.isDeskStrip)
@@ -141,7 +144,7 @@ BorderSurface {
   Layout.leftMargin: -padding
   Layout.rightMargin: -padding
   // A control's height at least, xs above and below its text.
-  implicitHeight: Math.max(Gap.control, labelColumn.implicitHeight + 2 * Gap.xs)
+  implicitHeight: Math.max(Gap.control, (stacked ? grid.implicitHeight : labelColumn.implicitHeight) + 2 * Gap.xs)
   radius: Round.control
   color: phase !== "idle" ? Qt.tint(base, Qt.alpha(Commons.Color.accent, 0.1))
     : cursor ? Qt.tint(base, Style.focusFillFor(Commons.Color.popups.text, Commons.Color.accent))
@@ -190,11 +193,16 @@ BorderSurface {
     else if (key === Qt.Key_Backspace && plain && (row.info.source === "yours" || row.info.source === "removed")) { row.store.restore(row.target); event.accepted = true }
   }
 
-  RowLayout {
+  GridLayout {
+    id: grid
     anchors.fill: parent
     anchors.leftMargin: row.padding
     anchors.rightMargin: row.padding
-    spacing: Gap.m
+    anchors.topMargin: row.stacked ? Gap.xs : 0
+    anchors.bottomMargin: row.stacked ? Gap.xs : 0
+    columns: row.stacked ? 2 : 4
+    columnSpacing: Gap.m
+    rowSpacing: Gap.xxs
     ColumnLayout {
       id: labelColumn
       Layout.fillWidth: row.caption !== ""
@@ -223,6 +231,9 @@ BorderSurface {
         : row.phase === "recording" ? Commons.Color.accent : Ink.tint(tier)
     }
     KeyCombo {
+      visible: !row.stacked || row.shownCaps.length > 0
+      Layout.columnSpan: row.stacked ? 2 : 1
+      Layout.alignment: row.stacked ? Qt.AlignRight : Qt.AlignVCenter
       keys: row.shownCaps
       foreground: row.phase === "confirm" ? Commons.Color.urgent : Commons.Color.popups.text
       opacity: row.info.keys || row.phase !== "idle" ? 1 : Ink.secondary

@@ -9,7 +9,9 @@ import qs.Ui
 // label's line), and a switch at its right, or, for a pick-one row (`pick`),
 // a 14 px ring before the label, filled in the accent when chosen, a 6 px dot
 // in it (the same parity, so it sits on the ring's centre pixel); an action
-// row (`action`) has neither, its label in the accent, like a link. Space,
+// row (`action`) has neither, its label in the accent, like a link (in the
+// error colour while it asks again, `danger`; at the row's right end with
+// `trailing`, as a card's last action). Space,
 // Enter or a click toggles the switch, chooses the row or does the action.
 // With the cursor it looks and lifts as the Layout page's chip does
 // (PREFS-104): the focus fill over the strip's own colour, the focus ring,
@@ -22,6 +24,8 @@ BorderSurface {
   property bool checked: false
   property bool pick: false
   property bool action: false
+  property bool danger: false
+  property bool trailing: false
   // The legend's line for Space while the cursor is here, if the page's
   // does not say it (a Look pick row's "Choose it").
   property string spaceHint: ""
@@ -139,7 +143,8 @@ BorderSurface {
         id: labelText
         Layout.fillWidth: true
         text: row.label
-        color: row.action ? Commons.Color.accent : Ink.tint(1)
+        color: row.danger ? Commons.Color.error : row.action ? Commons.Color.accent : Ink.tint(1)
+        horizontalAlignment: row.trailing ? Text.AlignRight : Text.AlignLeft
         elide: Text.ElideRight
       }
       InkText {

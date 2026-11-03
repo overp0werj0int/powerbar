@@ -4,7 +4,7 @@ How Powerbar looks and when it shows: surface (opacity, blur, readable minimum),
 
 Storage: the look lives in `bar.powerbarAppearance` of shell.json: `all` (values shared by every theme) and `themes.<theme>` (values for one theme, plus that theme's `text`), each tile holding `use` (`this` or `all`; absent means the default scope) and its values: shape `{ rounding, borders, borderWidth }`, surface `{ opacity, blur }`, shadow `{ enabled, softness, strength }`. Behaviour switches stay flat in `bar`: `powerbarAutoHide`, `powerbarAutoHideActivity`, `powerbarReadableOverlay`, `powerbarAnimations`, `powerbarLargeBar` (layout-zones.md), and Omarchy's own `background` (or `transparent`). Keys from earlier versions are migrated (see Legacy migration).
 
-**Sources:** AppearanceModel.js, RenderModel.js (captureDelta), TooltipModel.js, EffectSurface.qml, BarFace.qml, TintedImage.qml, WidgetIcon.qml, Bar.qml (grep: autoHide, barOpacity, surfaceEffects, overlayStyled, tooltip, themeLook, barForeground, transparent, namespace), Preferences.qml (setLook, scopeHint), LookEditor.qml (the Shape, Surface and Shadow strips), BehaviorEditor.qml, tests/appearance.test.cjs, tests/render.test.cjs, tests/tooltip-model.test.cjs, tests/clean-defaults.test.cjs.
+**Sources:** AppearanceModel.js, RenderModel.js (captureDelta), TooltipModel.js, EffectSurface.qml, FaceEditor.qml, TintedImage.qml, WidgetIcon.qml, Bar.qml (grep: autoHide, barOpacity, surfaceEffects, overlayStyled, tooltip, themeLook, barForeground, transparent, namespace), Preferences.qml (setLook, scopeHint), LookEditor.qml (the Shape, Surface and Shadow strips), BehaviorEditor.qml, tests/appearance.test.cjs, tests/render.test.cjs, tests/tooltip-model.test.cjs, tests/clean-defaults.test.cjs.
 
 ## Surface effects (opacity, blur, shadow)
 
@@ -319,13 +319,13 @@ Storage: the look lives in `bar.powerbarAppearance` of shell.json: `all` (values
 
 - **LOOK-111** A changed layout re-renders only the widgets whose entry or index changed. Code: RenderModel.captureDelta.
 
-## Faces drawn in Preferences (BarFace, TintedImage)
+## Faces drawn in Preferences (FaceEditor, GroupFace, TintedImage)
 
-- **LOOK-112** A widget image saved in another text colour is redrawn in the bar's current text colour: its shape filled with that colour. Code: LayoutEditor.qml (recolour: f.ink !== barInkHex); BarFace TintedImage tint.
+- **LOOK-112** A widget image saved in another text colour is redrawn in the bar's current text colour: its shape filled with that colour. Code: LayoutEditor.qml (recolour: f.ink !== barInkHex); TintedImage tint.
 
 - **LOOK-113** Tinting uses the image's alpha as a mask, so soft edges stay soft (threshold 0.5, spread 1). Code: TintedImage.qml.
 
-- **LOOK-114** A text face is drawn in the bar's font and current text colour. Code: BarFace.qml.
+- **LOOK-114** A text face is drawn in the bar's font and current text colour (the Groups inspector's face, on the bar's colour). Code: FaceEditor.qml, GroupFace.qml.
 
 ## Bar backdrop (placement graphic, gone)
 

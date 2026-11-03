@@ -1,46 +1,31 @@
 import QtQuick
-import QtQuick.Window
 import qs.Commons
 import qs.Commons as Commons
 import qs.Ui
-import "BoardModel.js" as Board
 import "MotionModel.js" as MotionModel
 
 // The inspector on a board page (PREFS-101, PREFS-26): a surface at the
 // page's bottom right, in front of the plates, fading and growing in from
-// 97 % about its bottom edge, with the shadow it casts on them. Tab and
-// Shift+Tab walk its controls and wrap round inside it: a stop before
-// `first` and one after the last control send focus on round, because Qt
-// walks Tab itself and the stops are where it can be met. Esc that no
-// control took emits `escaped`. Clicks on it never reach the boards. Its
-// children are the body, xl all round (PREFS-133); `bodyHeight` sizes it.
+// 97 % about its bottom edge, with the shadow it casts on them. Its body is
+// a small desk (InspectorDesk), which takes Tab and Shift+Tab itself; Tab
+// from outside meets a stop before or after it and goes to the desk's
+// start. Esc that no control took emits `escaped`. Clicks on it never reach
+// the boards. Its children are the body, xl all round (PREFS-133);
+// `bodyHeight` sizes it.
 BorderSurface {
     id: panel
     // The Layout page, as InkIcon takes it: the theme and the Animations switch.
     required property var layout
-    // Where Tab starts and wraps to.
-    required property Item first
+    // Its desk: where focus starts.
+    required property Item desk
     property bool shown: false
     property real bodyHeight: 0
     default property alias content: body.data
     signal escaped
-    // The control focus was last on inside, for the fences.
-    property Item lastInside: null
-    readonly property Item focused: panel.Window.activeFocusItem
-    // Focus on the first control, as Tab would (Enter on a chip, PREFS-101).
+    // Focus on the desk's start (Enter on a chip, PREFS-101).
     function focusFirst() {
-        first.forceActiveFocus(Qt.TabFocusReason);
-    }
-    // The last control in Tab order inside the panel.
-    function lastControl() {
-        var last = first;
-        for (var item = first.nextItemInFocusChain(true); item && item !== endFence && item !== first && Board.within(item, panel); item = item.nextItemInFocusChain(true))
-            last = item;
-        return last;
-    }
-    onFocusedChanged: {
-        if (focused && focused !== startFence && focused !== endFence && Board.within(focused, panel))
-            lastInside = focused;
+        if (desk.visible)
+            desk.focusFirst();
     }
     anchors.right: parent.right
     anchors.bottom: parent.bottom
@@ -50,7 +35,9 @@ BorderSurface {
     radius: Round.container
     color: Qt.tint(Qt.rgba(Commons.Color.popups.background.r, Commons.Color.popups.background.g, Commons.Color.popups.background.b, 1), Qt.alpha(Commons.Color.popups.text, 0.065))
     borderSpec: Border.flat(Qt.alpha(Commons.Color.popups.text, 0.16), 1)
-    visible: opacity > 0
+    // Visible from the moment it is shown, so focus can go in before the
+    // fade's first frame.
+    visible: shown || opacity > 0
     opacity: shown ? 1 : 0
     scale: shown ? 1 : 0.97
     transformOrigin: Item.Bottom
@@ -75,13 +62,11 @@ BorderSurface {
         panel.escaped();
         event.accepted = true;
     }
-    // Shift+Tab from the first control meets this stop: on to the last.
-    // Tab from outside meets it first: on to the first.
+    // Tab from outside meets one of these stops: on to the desk's start.
     Item {
-        id: startFence
         activeFocusOnTab: panel.shown
         onActiveFocusChanged: if (activeFocus)
-            (panel.lastInside === panel.first ? panel.lastControl() : panel.first).forceActiveFocus(Qt.TabFocusReason)
+            panel.focusFirst()
     }
     MouseArea {
         anchors.fill: parent
@@ -97,16 +82,13 @@ BorderSurface {
         radius: panel.radius
         color: Ink.band(panel.layout.lightTheme)
     }
-    // The caller's children sit between the fences, so the Tab chain runs
-    // through them in order.
     Item {
         id: body
         anchors.fill: parent
     }
     Item {
-        id: endFence
         activeFocusOnTab: panel.shown
         onActiveFocusChanged: if (activeFocus)
-            (panel.lastInside === panel.lastControl() ? panel.first : panel.lastControl()).forceActiveFocus(Qt.TabFocusReason)
+            panel.focusFirst()
     }
 }

@@ -427,28 +427,38 @@ cursor: section 10. Hidden widgets read at secondary.
 A card in front of the plates, bottom right, at most 670 wide, that edits
 the thing under the cursor: Layout's (PREFS-101, PREFS-26) and Groups'
 (PREFS-116). `Round.container`, the tile colour, a 16 % hairline, its shadow
-(section 11). `xl` padding all round; columns `xl` apart; inside a column,
-fields `m` apart; blocks (the columns, a hairline, the row under them) `l`
-apart.
+(section 11). `xl` padding all round. Inside it, a small desk
+(`InspectorDesk`): three strips (`DeskStrip`, lying flat, no camera) `l`
+apart, all as tall as the tallest, so the card keeps one height while the
+cursor moves. Each strip keeps its own spacing (Desk strip, above) and the desk's
+keys (`DeskWalk`, shared with the Look and Behavior pages).
 
-The first column is the thing itself: a preview box (`xxxl` tall,
-`Round.container`, the background darkened 20 %), its name (section), `xxs`,
-what it is (caption, secondary).
+Over the card, the thing it edits is pulled out of its plate: a flat copy,
+tilted 1.5°, outlined in accent with a shadow, 30 px above the card, and a
+dashed accent leader from a dot at its empty place on the plate. Both
+pages draw it.
 
-Its fields are built from `LayerPicker`, `PrefsZoneMap`, `PrefsToggle`,
-`PrefsDropdown`, `ShortcutRow`, `PrefsChoice` and Omarchy's `Button`, and
-follow the desk's rules, not the kit's own sizes:
+The first strip is the thing itself: its name (section), `xxs`, what it is
+(caption, secondary), then its preview. On the Layout page a preview box
+(`xxxl` tall, `Round.container`, the background darkened 20 %). On the
+Groups page the face is the control (`FaceEditor`): icon and name drawn in
+the bar's colour, ink and font, each a stop, edited where it is seen.
+
+Its fields are built from `LayerPicker`, `PrefsZoneMap`, `PrefsDropdown`,
+`DeskShortcutRow`, `DeskTextRow` and the desk's `DeskChoice` and `DeskRow`,
+and follow the desk's rules, not the kit's own sizes:
 
 | Part | Rule |
 |---|---|
-| Field label ("Show", "Layer", "Zone", "Shortcut") | label role, primary, regular; `xxs` to its control |
-| Chips (`PrefsChoice`) | label size, `xs` apart, padding `xs` × `s`, `Round.control` |
-| Toggle row (`PrefsToggle`) | our own row, not the kit's `Toggle`: `Gap.switchRow` tall, label at label size and regular, no surface at rest; hovered or focused, `Round.control` reaching `s` outside the text |
-| Layer rows (`LayerPicker`) | `Gap.control` tall, `xs` apart, the parallelogram `m` before the label, `Round.small` |
-| Zone squares (`PrefsZoneMap`) | `Gap.control` tall, `xs` apart, `Round.small`; its caption `xxs` under it |
-| Buttons ("Change icon", Dissolve) | label size, padding `xs` × `s`, `Round.control` |
-| Hint under a field | caption, secondary, `xxs` under it |
-| Fields in a column | `m` apart |
+| Field label ("Show", "Layer", "Zone", "Group") | label role, primary, regular; `xxs` to its control |
+| Chips (`DeskChoice`) | a desk's chips (PREFS-128) |
+| Switch and action rows (`DeskRow`) | a desk's rows (PREFS-129); an action that ends something (Dissolve, Edit group) at the strip's bottom right, in the faders' place |
+| Value row (`DeskTextRow`) | `Gap.control` tall, label left, value or placeholder (caption, secondary) right; edits in place |
+| Shortcut (`DeskShortcutRow`, stacked) | label and owner on one line, keycaps `xxs` under them at the right |
+| Layer rows (`LayerPicker`) | `Gap.control` tall, `xs` apart, the parallelogram `m` before the label, `Round.small`; each a stop |
+| Zone squares (`PrefsZoneMap`) | `Gap.control` tall, `xs` apart, `Round.small`; each a stop; its caption `xxs` under it |
+| Footnote | caption, secondary, at the strip's foot |
+| Fields in a strip | `m` apart |
 
 ### Tooltip
 
@@ -494,10 +504,11 @@ PREFS-115).
 
 For the detail of one thing. It stands in front of the plates at the bottom
 right, opens on Enter or a click and closes on Esc (PREFS-101, PREFS-116).
-On Layout the thing is pulled out of its plate: its place becomes an accent
-outline, and a dashed accent leader runs from a dot there to a flat copy of
-the chip, tilted 1.5°, 30 px above the card (PREFS-101). Tab walks the
-card's controls and wraps inside it.
+On both pages the thing is pulled out of its plate: its place becomes an
+accent outline, and a dashed accent leader runs from a dot there to a flat
+copy of the chip or face, tilted 1.5°, 30 px above the card (PREFS-101,
+PREFS-116). Inside, the card is a small desk of three strips, walked with
+the desk's keys; focus never leaves it by Tab.
 
 ## 10. Focus and the cursor
 
