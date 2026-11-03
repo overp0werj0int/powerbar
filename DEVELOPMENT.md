@@ -119,33 +119,57 @@ omabox for desktop tests in a private Hyprland session
 `screenshots/` holds the README gallery, real captures only. `preview.jpg`
 (the README hero and the plugin's preview) is `tools/showcase/card.html`
 rendered by `tools/showcase/render.sh` (headless Chromium, 1200x675 at 2x:
-16:9, the marketplace card's shape). The page is a gradient of the nord
-theme's own colours with one capture laid in as a screen,
-`screenshots/hero-nord.jpg`: a 1920x1080 box at scale 2.5 on nord, a layout
-of stock Omarchy widgets, keyboard mode inside the System group (keysOn,
-Left, Down, Down). The box's background is the same gradient under the
-screen, from `render.sh --wall OUT.png` and `omarchy-theme-bg-set`. Keep
-what matters inside the screen: catalogue cards crop the picture to between
-about 1.5:1 and 2.4:1, which takes only gradient. Re-run render.sh after
-replacing the capture.
+16:9, the marketplace card's shape). The card is words on the left and two
+untouched captures on the right, both from one box set up like the gallery
+below with `powerbarOnDemand` "shelf", `powerbarStyle` "islands",
+`shape.rounding 12`, `shape.scope all` and `tuning false`:
 
-The gallery shots are wide, readable captures from one omabox box
-(`omabox up gal --theme NAME --env POWERBAR_DISPLAY_CUTOUTS=/home/sbx/cutouts.json`),
-with the plugin copied into the box HOME, `omarchy bar use p0werj0int.powerbar`
-and `tools/showcase/seed.py` writing a bar of stock widgets. Set the screen
-per shot with `omabox -b gal hyprctl eval 'hl.monitor({ output = "HEADLESS-2",
-mode = "2400x275@60", position = "0x0", scale = 2.5 })'`; do that again after a
-`omarchy-theme-set`, which resets it. Keep shots wide (the key strip needs
-about 240 logical px of height) and only Preferences tall:
+- `screenshots/hero-bar.jpg`: tokyo-night over a plain violet-to-teal
+  gradient (`magick -size 2400x1500 gradient:'#5b4fa8'-'#2f7f8f'`, then
+  `omarchy-theme-bg-set`, so the islands stand out), a 1700x600 screen at
+  scale 2.5, `managed right` for the shelf, cropped to the top 1700x240.
+- `screenshots/hero-prefs.jpg`: catppuccin-latte, a 2560x1600 screen at
+  scale 2, `preferencesPage 1`, cropped to 2560x1200+0+74.
+
+Keep what matters inside 95..1105 x 88..588 of the page: catalogue cards
+crop the picture to between about 1.5:1 and 2.4:1. Re-run render.sh after
+replacing a capture.
+
+The gallery shots are wide, readable captures from one omabox box:
+`omabox up gal --stock-bar --theme NAME --env POWERBAR_DISPLAY_CUTOUTS=/home/sbx/cutouts.json`
+(`--stock-bar`, or the box starts from your own bar and its settings), the
+plugin copied into the box HOME (rsync as `tools/box/box.sh` does),
+`omarchy bar use p0werj0int.powerbar`, the `bar` object emptied, then
+`tools/showcase/seed.py` writing a bar of stock widgets in the five zones and a
+restart of the shell. The box has no network, so Weather draws nothing, and
+Bluetooth, Keyboard layout and Power draw nothing on the bar (no devices); in
+a drawer or menu they still have their icons. Stock themes have square, bordered
+bars (Hyprland's rounding 0), which hide the shelf's fillets, so round the bar
+in Powerbar's own settings, for every theme:
+`set shape.scope all`, `set shape.rounding 12`, `set shape.borders false`,
+`set shadow.scope all`, `set shadow.enabled false` (a shadow draws a seam
+across a shelf's join). Set the screen per shot with
+`omabox -b gal hyprctl eval 'hl.monitor({ output = "HEADLESS-2", mode = "2400x300@60", position = "0x0", scale = 2.5 })'`;
+do that again after every `omarchy-theme-set`, which resets it. Commands below
+are `omabox run -b gal -- omarchy-shell powerbar ...`; `keys` is
+`omabox -b gal keys --wait`. Keep shots wide (the key strip needs about 240
+logical px of height) and only Preferences tall:
 
 | Shot | Theme, mode | State |
 | --- | --- | --- |
-| `drawer-latte.jpg` | catppuccin-latte, 2400x275 at 2.5 | floating; `powerbar managed right` |
-| `search-tokyo-night.jpg` | tokyo-night, 2400x600 at 2.5 | flat; `keysSearch`, type `tail` |
-| `notch-kanagawa.jpg` | kanagawa, 3024x1964 at 2, `shot -g 290,0,932,200` | `set style notch`; `group g-show-system`. `cutouts.json`: `{"panels":[{"connector":"HEADLESS","width":3024,"height":1964,"top":64}]}` |
-| `preferences.jpg` | osaka-jade, 2560x1600 at 2 | islands; `preferencesPage 1` |
+| `shelf-latte.jpg` | catppuccin-latte, 2400x300 at 2.5 | islands; `set onDemand shelf`; `managed right` |
+| `menu-gruvbox.jpg` | gruvbox, 2400x700 at 2.5 | islands; `set onDemand menu`; `managed right`; keys `down` x4 (cursor on Extras), `Return` |
+| `search-tokyo-night.jpg` | tokyo-night, 2400x600 at 2.5 | flat; `set onDemand drawer`; `keysSearch`, keys `-t tail` |
+| `notch-kanagawa.jpg` | kanagawa, 3024x1964 at 2, `shot -g "400,0 760,180"` | `set style notch`; after setting the mode, `OMABOX_READY_TIMEOUT=2s omabox restart-shell -b gal` (the theme switch restarted the shell on the old mode, and it finds no notch); `group g-show-system`. `cutouts.json` in the box HOME: `{"panels":[{"connector":"HEADLESS-2","width":3024,"height":1964,"top":64}]}` |
+| `layout-jade-horse.jpg` | jade-horse, 2880x1500 at 2 | islands; `set onDemand drawer`; `preferencesPage 1` |
+| `look-catppuccin.jpg` | catppuccin, 2880x1400 at 2 | islands; `preferencesPage 3` |
 
-Park the pointer where it hovers nothing. JPEG at quality 88.
+Preferences needs 1440 logical px of width, or the desk strips cut their
+labels short ("Background opa…"). osaka-jade has no colours or wallpaper in
+Omarchy r7569 (a bare `backgrounds/` folder), so the Layout page moved to
+jade-horse. Park the pointer where it hovers nothing
+(`omabox pointer -b gal -- move 300 115`) and shoot with `--no-pointer`. JPEG
+at quality 88.
 
 ## Skills
 

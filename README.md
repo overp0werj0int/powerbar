@@ -6,7 +6,7 @@
 [![Hyprland](https://img.shields.io/badge/Hyprland-Wayland-58e1ff?style=flat-square&logo=hyprland&logoColor=white)](https://hypr.land)
 [![License: MIT](https://img.shields.io/badge/License-MIT-6aa84f?style=flat-square)](LICENSE)
 
-![Powerbar on the nord theme over a gradient of its colours: keyboard mode inside the System group, its name and the key strip](preview.jpg)
+![Powerbar: the bar on tokyo-night with the right zone's shelf open, in front of the Preferences Layout page](preview.jpg)
 
 </div>
 
@@ -115,17 +115,23 @@ whose original copyright and MIT license notice are preserved in
 Each is one untouched capture of Powerbar on a stock Omarchy theme and its
 own wallpaper. The themes and wallpapers are Omarchy's (MIT).
 
-<p><img src="screenshots/drawer-latte.jpg" alt="A floating bar on catppuccin-latte with the right zone's On demand widgets open in a drawer below it"><br>
-<sub><b>Floating</b>, catppuccin-latte: On demand widgets in their zone's drawer</sub></p>
+<p><img src="screenshots/shelf-latte.jpg" alt="Islands on catppuccin-latte; the right island's On demand widgets (System tray, Elsewhen, Media and the Extras group) on a shelf that grows out of the island's underside as one surface, with curved joins"><br>
+<sub><b>On a shelf</b>, catppuccin-latte: the right zone's On demand widgets come out of its island as one surface</sub></p>
 
-<p><img src="screenshots/search-tokyo-night.jpg" alt="A flat bar on tokyo-night; typing tail in the keyboard mode's search opens the System group with the cursor on Tailscale"><br>
+<p><img src="screenshots/menu-gruvbox.jpg" alt="Islands on gruvbox in menu mode; the right zone's dots open a menu of its On demand widgets, and the Extras group row opens a submenu of Agents, Bluetooth and Keyboard layout beside it"><br>
+<sub><b>Menu</b>, gruvbox: the right zone's dots open a menu, and a group in it opens a submenu</sub></p>
+
+<p><img src="screenshots/search-tokyo-night.jpg" alt="A flat bar on tokyo-night; typing tail in the keyboard mode's search opens the System group with the cursor on Tailscale, and the indicators are revealed for the keys"><br>
 <sub><b>Flat</b>, tokyo-night: <code>/tail</code> opens the System group at Tailscale, with the key strip below</sub></p>
 
-<p><img src="screenshots/notch-kanagawa.jpg" alt="The Notch style on kanagawa: two black ears grow out of a MacBook's camera, a group's menu slides down from the bar"><br>
-<sub><b>Notch</b>, kanagawa, on a 14-inch MacBook screen: the zones grow out of the camera and a group slides down from it</sub></p>
+<p><img src="screenshots/notch-kanagawa.jpg" alt="The Notch style on kanagawa: the zones form one black band around a MacBook's camera, and the System group's menu hangs flush from the left ear with curved joins"><br>
+<sub><b>Notch</b>, kanagawa, on a 14-inch MacBook screen: the zones grow out of the camera and a group hangs from its ear</sub></p>
 
-<p><img src="screenshots/preferences.jpg" alt="Preferences, Layout page on osaka-jade: the bar as shelves (On the bar, On demand, Hidden) and the selected widget's settings"><br>
-<sub><b>Preferences</b>, osaka-jade: the Layout page, with the keys for what has focus along the bottom</sub></p>
+<p><img src="screenshots/layout-jade-horse.jpg" alt="Preferences, Layout page on jade-horse: the bar's layers (On the bar, On demand, Hidden, In the tray) as plates tilted back, each split into the five zones with its widgets as tiles"><br>
+<sub><b>Preferences</b>, jade-horse: the Layout page, each layer a tilted plate of the five zones, with the keys along the bottom</sub></p>
+
+<p><img src="screenshots/look-catppuccin.jpg" alt="Preferences, Look page on catppuccin: a desk of strips for Style, Size, Shape, Surface and Shadow, with radio rows, scope chips, switches and faders"><br>
+<sub><b>Preferences</b>, catppuccin: the Look page, a desk of strips with faders and pick rows</sub></p>
 
 ## Install
 
