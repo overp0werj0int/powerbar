@@ -114,16 +114,8 @@ Item {
   // While a control edits text, only its own keys work.
   readonly property var legend: focusedControl && focusedControl.editing ? focusedControl.keyHints : DeskModel.legend([
     {
-      keys: "j k",
-      label: "Down the strip, on to the next"
-    },
-    {
-      keys: "h l",
-      label: "Same row, next strip"
-    },
-    {
-      keys: "tab",
-      label: "Next strip"
+      keys: "tab shift+tab",
+      label: "Next strip, or back"
     },
     {
       keys: "esc",

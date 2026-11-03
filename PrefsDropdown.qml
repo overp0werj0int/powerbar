@@ -36,10 +36,6 @@ Item {
     // The keys while the list is open, for the page's legend.
     readonly property var listHints: [
         {
-            keys: "j k",
-            label: "Walk the options"
-        },
-        {
             keys: "enter",
             label: "Choose"
         },

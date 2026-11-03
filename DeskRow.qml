@@ -37,8 +37,7 @@ BorderSurface {
   readonly property int deskHome: 0
   function deskFocus(stop, reason) { forceActiveFocus(reason === undefined ? Qt.OtherFocusReason : reason) }
   readonly property bool ownsFocusRing: true
-  readonly property var keyHints: [{ keys: "h l", label: "Same row, next strip" }]
-    .concat(spaceHint ? [{ keys: "space", label: spaceHint }] : [])
+  readonly property var keyHints: spaceHint ? [{ keys: "space", label: spaceHint }] : []
 
   readonly property bool hot: mouse.containsMouse && enabled
   // The strip it is on, for its colour and theme.

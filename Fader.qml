@@ -64,7 +64,7 @@ Item {
   readonly property int deskHome: 0
   function deskFocus(stop, reason) { forceActiveFocus(reason === undefined ? Qt.OtherFocusReason : reason) }
   readonly property bool ownsFocusRing: true
-  readonly property var keyHints: [{ keys: "h l", label: "Less, more (shift: five steps)" }, { keys: "backspace", label: fader.defaultLabel }]
+  readonly property var keyHints: [{ keys: "←→", label: "Less, more (shift: five steps)" }, { keys: "backspace", label: fader.defaultLabel }]
     .concat(drafting ? [{ keys: "enter", label: "Apply now" }, { keys: "esc", label: "Drop the change" }] : [])
 
   readonly property real knobWidth: Style.space(8)

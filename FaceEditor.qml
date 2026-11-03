@@ -40,10 +40,6 @@ Item {
     }
   ] : [
     {
-      keys: "h l",
-      label: "Icon, name, then the next strip"
-    },
-    {
       keys: "enter",
       label: cursor === 0 ? "Choose an icon" : "Rename"
     }

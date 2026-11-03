@@ -14,20 +14,12 @@ DeskPage {
   id: page
   pageLines: [
     {
-      keys: "j k",
-      label: "Down the strip, on to the next"
-    },
-    {
-      keys: "h l",
-      label: "Less, more on a fader (shift: five steps)"
-    },
-    {
       keys: "backspace",
       label: "Back to the default"
     },
     {
-      keys: "tab",
-      label: "Next strip"
+      keys: "tab shift+tab",
+      label: "Next strip, or back"
     },
     {
       keys: "4",

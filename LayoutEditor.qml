@@ -171,10 +171,10 @@ Item {
     readonly property var plateFloors: rows.map(function (mode) {
         return Math.max(minPlate, 2 * tilePad + (slabbed(mode) ? 0 : nameRow) + chipHeight);
     })
-    // The legend's band: its tallest list (eight rows) and the margins
-    // around it, whatever it shows now, so the layers never resize as focus
-    // moves.
-    readonly property real legendBand: Gap.xl + 8 * capProbe.implicitHeight + 7 * Gap.s
+    // The legend's band: its tallest list (five rows, a chip's) and the
+    // margins around it, whatever it shows now, so the layers never resize
+    // as focus moves.
+    readonly property real legendBand: Gap.xl + 5 * capProbe.implicitHeight + 4 * Gap.s
     readonly property real stackRoom: Math.max(0, height - stackTop - legendBand)
     readonly property var plateHeights: Model.shareLayers(plateDemands, plateFloors, stackRoom, tilt, planeDistance, layerGap)
     readonly property var stack: Model.stackLayers(plateHeights, tilt, planeDistance, layerGap)
@@ -449,17 +449,13 @@ Item {
     // Close.
     readonly property var legend: focused === sideDot ? sideDot.keyHints.concat([
         {
-            keys: "tab",
+            keys: "tab shift+tab",
             label: "The layers"
         }
     ]) : lifted ? [
         {
-            keys: "j k",
-            label: liftTarget && slabbed(liftTarget.mode) ? "A row down or up, on to the next layer" : "Along the zone, on to the next layer"
-        },
-        {
-            keys: "h l",
-            label: liftTarget && slabbed(liftTarget.mode) ? "Along the slab" : "Zone"
+            keys: "←↑→↓",
+            label: "Move it"
         },
         {
             keys: "space",
@@ -476,36 +472,24 @@ Item {
         }
     ] : []).concat([
         {
-            keys: "h l",
-            label: slabbed(cursorCell.mode) ? "Along the slab" : editor.previewCamera ? "Along the layer, across the camera" : "Along the layer"
-        },
-        {
-            keys: "j k",
-            label: slabbed(cursorCell.mode) ? "A row down or up, on to the next layer" : "Down the zone, on to the next layer"
-        },
-        {
             keys: "space",
             label: "Pick up, then drop"
         },
         {
-            keys: "shift h l",
-            label: "Move it to the next zone"
-        },
-        {
-            keys: "shift j k",
-            label: "Move it to the next layer"
+            keys: "shift+←↑→↓",
+            label: "Move it"
         },
         {
             keys: "x",
             label: cursorRecord && cursorRecord.mode === "hidden" ? "Bring it back from the hidden layer" : "Send it to the hidden layer"
         },
         {
-            keys: "tab",
-            label: "Next layer"
+            keys: "tab shift+tab",
+            label: "Next layer, or back"
         }
     ]) : inspector.popupOpen ? inspector.popupHints : inspectorFocused ? inspector.legend : [
         {
-            keys: "tab",
+            keys: "tab shift+tab",
             label: "The layers"
         }
     ]

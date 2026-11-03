@@ -664,14 +664,15 @@ Item {
     readonly property real poolSpacing: layout.chipGap
     readonly property int poolPerRow: Editor.perRow(slabBox.width - 2 * tilePad, chipWidth, poolSpacing)
     readonly property int poolRows: Math.ceil(poolList.length / poolPerRow)
-    // The bottom band: the legend's longest list (nine rows) with its
-    // margins, or the inspector, whichever is taller (PREFS-115).
+    // The bottom band: the legend's longest list (seven rows, a face's or a
+    // widget's with the inspector out) with its margins, or the inspector,
+    // whichever is taller (PREFS-115).
     KeyCap {
         id: capProbe
         visible: false
         text: "x"
     }
-    readonly property real legendBand: Gap.xl + 9 * capProbe.implicitHeight + 8 * Gap.s
+    readonly property real legendBand: Gap.xl + 7 * capProbe.implicitHeight + 6 * Gap.s
     readonly property real bottomBand: Math.max(legendBand, selectedGroup ? inspector.height + Gap.xl : 0)
     // The plates share the room as the Layout page's layers do (PREFS-106,
     // PREFS-115): the list's plate as tall as its tallest zone (eight rows at
@@ -1646,7 +1647,7 @@ Item {
     // Tab goes to the inspector only while it is out (a click pulled it).
     readonly property var inspectorTab: inspector.shown ? [
         {
-            keys: "tab",
+            keys: "tab shift+tab",
             label: "The inspector"
         }
     ] : []
@@ -1676,13 +1677,13 @@ Item {
         }
     ] : focused === sideDot ? sideDot.keyHints.concat([
         {
-            keys: "tab",
+            keys: "tab shift+tab",
             label: "The groups"
         }
     ]) : lifted && liftingFace ? [
         {
-            keys: "h l",
-            label: "Move it to the next zone"
+            keys: "←→",
+            label: "Move it"
         },
         {
             keys: "space",
@@ -1694,12 +1695,8 @@ Item {
         }
     ] : lifted ? [
         {
-            keys: "h l",
-            label: layout.previewCamera ? "The same row in the next zone, across the camera" : "The same row in the next zone"
-        },
-        {
-            keys: "j k",
-            label: "Down the zone, on to the pool"
+            keys: "←↑→↓",
+            label: "Move it"
         },
         {
             keys: "space",
@@ -1709,29 +1706,14 @@ Item {
             keys: "esc",
             label: "Put it back"
         }
-    ] : stageFocused && at.area !== "pool" ? inspectLines.concat([
-        {
-            keys: "h l",
-            label: layout.previewCamera ? "The same row in the next zone, across the camera" : "The same row in the next zone"
-        },
-        {
-            keys: "j k",
-            label: "Down the zone, on to the pool"
-        }
-    ]).concat(at.area === "face" || at.area === "member" ? [
+    ] : stageFocused && at.area !== "pool" ? inspectLines.concat(at.area === "face" || at.area === "member" ? [
         {
             keys: "space",
             label: "Pick up, then drop"
-        }
-    ] : []).concat(at.area === "face" ? [
+        },
         {
-            keys: "shift h j k l",
-            label: "Move the face a zone, or past a group"
-        }
-    ] : at.area === "member" ? [
-        {
-            keys: "shift h j k l",
-            label: "Move it a row, or a zone"
+            keys: "shift+←↑→↓",
+            label: "Move it"
         }
     ] : []).concat([
         {
@@ -1755,14 +1737,6 @@ Item {
         }
     ]).concat([filterLine]).concat(inspectorTab) : stageFocused && at.area === "pool" ? [
         {
-            keys: "h l",
-            label: "Walk the widgets"
-        },
-        {
-            keys: "j k",
-            label: "By rows, up to the chosen group"
-        },
-        {
             keys: "space",
             label: "Pick up, then drop"
         },
@@ -1773,7 +1747,7 @@ Item {
         filterLine
     ].concat(inspectorTab) : inspectorFocused ? inspectorDesk.legend : [
         {
-            keys: "tab",
+            keys: "tab shift+tab",
             label: "The groups"
         },
         filterLine

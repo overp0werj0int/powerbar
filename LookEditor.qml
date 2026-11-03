@@ -13,20 +13,12 @@ DeskPage {
   id: look
   pageLines: [
     {
-      keys: "j k",
-      label: "Down the strip, on to the next"
-    },
-    {
-      keys: "h l",
-      label: "Less, more on a fader; chip to chip, then the next strip"
-    },
-    {
       keys: "space",
       label: "Toggle, or choose"
     },
     {
-      keys: "tab",
-      label: "Next strip"
+      keys: "tab shift+tab",
+      label: "Next strip, or back"
     },
     {
       keys: "backspace",
