@@ -1,18 +1,25 @@
 import QtQuick
 import qs.Commons
 import qs.Commons as Commons
+import qs.Ui
+import QtQuick.Layouts
 import "MotionModel.js" as MotionModel
 
 // The layers as a list of sheets, seen in the Layout page's perspective: the
-// chosen one filled (docs/behavior/preferences.md PREFS-26). One Tab stop; j
-// and k (or the arrows) choose the next layer down or up at once, a click
-// chooses one. The Layout page's inspector and the Groups page's use it.
+// chosen one filled (docs/behavior/preferences.md PREFS-26). On a desk strip
+// (DeskStrip) each layer is a row the cursor rests on, as a pick group's
+// rows are (DeskPickGroup): j/k walk them with the rest of the strip, Space
+// or Enter moves the widget there, a click too. The Layout page's inspector
+// and the Groups page's use it.
 Item {
     id: picker
     property string value: ""
     property bool withTray: false
     property bool animate: true
     signal chosen(string value)
+    // The desk walks the rows.
+    readonly property bool deskGroup: true
+    property var controls: []
     readonly property var options: [
         {
             value: "shown",
@@ -32,34 +39,10 @@ Item {
             label: "In the tray"
         }
     ] : [])
-    readonly property var keyHints: [
-        {
-            keys: "j k",
-            label: "Down or up a layer"
-        }
-    ]
-    activeFocusOnTab: true
     implicitHeight: rows.implicitHeight
+    Layout.fillWidth: true
     Accessible.role: Accessible.List
     Accessible.name: "Layer"
-    function step(dy) {
-        var i = options.findIndex(function (o) {
-            return o.value === picker.value;
-        });
-        var next = Math.max(0, Math.min(options.length - 1, i + dy));
-        if (next !== i)
-            chosen(options[next].value);
-    }
-    Keys.onPressed: function (event) {
-        var t = event.text;
-        if (event.key === Qt.Key_Down || t === "j")
-            step(1);
-        else if (event.key === Qt.Key_Up || t === "k")
-            step(-1);
-        else
-            return;
-        event.accepted = true;
-    }
     Column {
         id: rows
         width: parent.width
@@ -72,14 +55,50 @@ Item {
         }
         Repeater {
             model: picker.options
-            Rectangle {
+            onItemAdded: function (index, item) {
+                picker.controls = picker.controls.concat([item]).sort(function (a, b) {
+                    return a.index - b.index;
+                });
+            }
+            onItemRemoved: function (index, item) {
+                picker.controls = picker.controls.filter(function (r) {
+                    return r !== item;
+                });
+            }
+            BorderSurface {
                 id: row
                 required property var modelData
+                required property int index
                 readonly property bool chosen: modelData.value === picker.value
+                readonly property int deskStops: 1
+                readonly property int deskHome: 0
+                function deskFocus(stop, reason) {
+                    forceActiveFocus(reason === undefined ? Qt.OtherFocusReason : reason);
+                }
+                readonly property var keyHints: [
+                    {
+                        keys: "space",
+                        label: "Move it to this layer"
+                    }
+                ]
                 width: rows.width
                 height: Gap.control
                 radius: Round.control
-                color: chosen ? Qt.alpha(Commons.Color.accent, 0.28) : rowMouse.containsMouse ? Qt.alpha(Commons.Color.popups.text, 0.06) : "transparent"
+                activeFocusOnTab: false
+                Accessible.role: Accessible.RadioButton
+                Accessible.name: modelData.label
+                Accessible.checked: chosen
+                color: activeFocus ? Style.focusFillFor(Commons.Color.popups.text, Commons.Color.accent) : chosen ? Qt.alpha(Commons.Color.accent, 0.28) : rowMouse.containsMouse ? Qt.alpha(Commons.Color.popups.text, 0.06) : "transparent"
+                borderSpec: activeFocus ? Border.controlSpec("focus", Commons.Color.popups.text, Commons.Color.accent) : Border.none()
+                Keys.onPressed: function (event) {
+                    if (event.modifiers & (Qt.ControlModifier | Qt.AltModifier | Qt.MetaModifier))
+                        return;
+                    if (event.key !== Qt.Key_Space && event.key !== Qt.Key_Return && event.key !== Qt.Key_Enter)
+                        return;
+                    if (!row.chosen)
+                        picker.chosen(row.modelData.value);
+                    event.accepted = true;
+                }
                 Behavior on color {
                     enabled: picker.animate
                     ColorAnimation {
@@ -112,7 +131,11 @@ Item {
                     anchors.fill: parent
                     hoverEnabled: true
                     cursorShape: Qt.PointingHandCursor
-                    onClicked: picker.chosen(row.modelData.value)
+                    onClicked: {
+                        row.forceActiveFocus(Qt.MouseFocusReason);
+                        if (!row.chosen)
+                            picker.chosen(row.modelData.value);
+                    }
                 }
             }
         }

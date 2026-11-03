@@ -344,17 +344,17 @@ TestCase {
     compare(calls[0][2], "g1");
   }
   // A name typed for one group stays with it when a click selects another
-  // before the field finishes (the fix in a37aa7f).
+  // before the face's name finishes (the fix in a37aa7f; the face edits
+  // its own name in place, PREFS-116).
   function test_groupsNameTypedThenClick() {
     var page = createTemporaryObject(groupsPage, prefs);
     page.selectedId = "g1";
     wait(50);
-    var field = itemWith(page, function (k) { return k.placeholderText === "Group name" });
-    verify(field, "the inspector has the name field");
-    var at = centre(field);
-    mouseClick(test, at.x, at.y);
-    tryVerify(function () { return field.activeFocus }, 1000);
-    field.selectAll();
+    var face = itemWith(page, function (k) { return k.deskStops === 2 && k.pickIcon !== undefined });
+    verify(face, "the inspector has the face");
+    face.deskFocus(1);
+    keyClick(Qt.Key_Return);
+    verify(face.editing, "enter on the name edits it");
     keyClick("N");
     keyClick("e");
     keyClick("t");
@@ -365,9 +365,9 @@ TestCase {
   }
 
   function test_groupsBadgeFieldTypedThenClick_data() {
-    return [{ tag: "count", hint: "Count from: detected", prop: "badgeProperty" }, { tag: "urgent", hint: "Urgent from: detected", prop: "urgentProperty" }];
+    return [{ tag: "count", label: "Count from", prop: "badgeProperty" }, { tag: "urgent", label: "Urgent from", prop: "urgentProperty" }];
   }
-  // The same rule for the badge fields: typed for the widget the cursor was
+  // The same rule for the badge rows: typed for the widget the cursor was
   // on, kept when a click moves the cursor to another before they finish.
   function test_groupsBadgeFieldTypedThenClick(data) {
     var page = createTemporaryObject(groupsPage, prefs);
@@ -376,11 +376,12 @@ TestCase {
     page.place({ area: "member", id: "g2", pos: 0 });
     compare(page.member.instanceKey, "c1");
     wait(50);
-    var field = itemWith(page, function (k) { return k.placeholderText === data.hint });
-    verify(field, "the inspector has the field for the cursor's widget");
-    var at = centre(field);
+    var row = itemWith(page, function (k) { return k.label === data.label && k.committed !== undefined });
+    verify(row, "the inspector has the row");
+    verify(row.enabled, "enabled for the cursor's widget");
+    var at = centre(row);
     mouseClick(test, at.x, at.y);
-    tryVerify(function () { return field.activeFocus }, 1000);
+    verify(row.editing, "a click edits it");
     keyClick("n");
     var other = centre(chipOf(page, "b1"));
     mouseClick(test, other.x, other.y);
@@ -617,12 +618,15 @@ TestCase {
     page.focusFirst();
     tryVerify(function () { return page.stageFocused }, 1000);
     keyClick(Qt.Key_Return);
-    tryVerify(function () { return page.inspectorFocused }, 1000, "enter on a face takes the name field");
+    tryVerify(function () { return page.inspectorFocused }, 1000, "enter on a face takes the inspector");
+    compare(page.focused.options[0].value, "glyph", "the cursor starts on Show");
+    // Tab goes from strip to strip, to each one's first control, and round.
+    keyClick(Qt.Key_Tab);
     var seen = tabWalk(page);
-    verify(seen.length > 1, "the inspector has controls");
+    compare(seen.length, 3, "three strips");
     keyClick(Qt.Key_Tab, Qt.ShiftModifier);
     verify(page.inspectorFocused);
-    compare(page.focused, seen[seen.length - 1], "Shift+Tab from the first goes to the last");
+    compare(page.focused, seen[seen.length - 1], "Shift+Tab goes to the previous strip");
     keyClick(Qt.Key_Tab);
     keyClick(Qt.Key_Escape);
     verify(page.stageFocused, "esc goes back to the chosen face");

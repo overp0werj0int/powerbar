@@ -502,17 +502,7 @@ Item {
             keys: "tab",
             label: "Next layer"
         }
-    ] : inspector.popupOpen ? inspector.popupHints : inspectorFocused ? [
-        {
-            keys: "tab shift+tab",
-            label: "Next, previous control"
-        }
-    ].concat(focused && focused.keyHints ? focused.keyHints : []).concat([
-        {
-            keys: "esc",
-            label: "Back to the layers"
-        }
-    ]) : [
+    ] : inspector.popupOpen ? inspector.popupHints : inspectorFocused ? inspector.legend : [
         {
             keys: "tab",
             label: "The layers"
@@ -1408,7 +1398,8 @@ Item {
     }
 
     // The inspector: the selected widget at the front of the stack, bottom
-    // right, with where it is (its layer and zone) and how it behaves. Enter
+    // right, as a small desk of three strips (PREFS-26): the widget and its
+    // group, where it is (its layer and zone), its keys and activity. Enter
     // or a click brings it out; Esc pushes it back (PREFS-101).
     component Inspector: BoardInspector {
         id: panel
@@ -1422,16 +1413,16 @@ Item {
         readonly property bool inTray: !!record && record.mode === "tray"
         readonly property bool popupOpen: groupPicker.popupOpen
         readonly property var popupHints: groupPicker.listHints
+        readonly property var legend: inspectorDesk.legend
         layout: editor
-        // Tab and Shift+Tab wrap round Layer, Zone, Shortcut, Peeks on
-        // activity, Group or Edit group.
-        first: layerPicker
-        // xl all round, its columns xl apart (PREFS-133).
-        bodyHeight: body.implicitHeight
+        desk: inspectorDesk
+        // xl all round (PREFS-133).
+        bodyHeight: record ? inspectorDesk.implicitHeight : emptyText.implicitHeight
         // Esc pushes the chip back; an open dropdown takes it first.
         onEscaped: editor.pushBack()
 
         InkText {
+            id: emptyText
             visible: !panel.record
             anchors.left: parent.left
             anchors.right: parent.right
@@ -1442,25 +1433,25 @@ Item {
             wrapMode: Text.WordWrap
         }
 
-        RowLayout {
-            id: body
+        InspectorDesk {
+            id: inspectorDesk
             visible: !!panel.record
+            layout: editor
             anchors.left: parent.left
             anchors.right: parent.right
             anchors.top: parent.top
             anchors.margins: Gap.xl
-            spacing: Gap.xl
+            // Its shortcut, what is set most, when it can have one.
+            start: shortcutRow.usable ? shortcutRow : null
+            escLabel: "Back to the layers"
 
-            // The widget as the bar draws it, its name and id.
-            ColumnLayout {
-                Layout.preferredWidth: Style.space(148)
-                Layout.maximumWidth: Style.space(148)
-                Layout.alignment: Qt.AlignTop
-                spacing: Gap.xxs
+            // The widget as the bar draws it, and its group.
+            DeskStrip {
+                title: panel.record ? editor.preferences.title(panel.record) : ""
+                caption: panel.isGroup ? (panel.group ? panel.group.items.length + (panel.group.items.length === 1 ? " widget" : " widgets") + " in this group" : "") : panel.trayIcon ? (panel.inTray ? "In Omarchy's tray" : "Moved out of Omarchy's tray") : panel.record ? panel.record.id : ""
                 Rectangle {
                     Layout.fillWidth: true
-                    Layout.preferredHeight: 2 * Gap.xxxl
-                    Layout.bottomMargin: Gap.m - Gap.xxs
+                    Layout.preferredHeight: Gap.xxxl
                     radius: Round.control
                     color: Qt.tint(Qt.rgba(Commons.Color.popups.background.r, Commons.Color.popups.background.g, Commons.Color.popups.background.b, 1), Qt.rgba(0, 0, 0, 0.2))
                     clip: true
@@ -1468,45 +1459,73 @@ Item {
                         anchors.centerIn: parent
                         preferences: editor.preferences
                         record: panel.record || ({})
-                        size: Math.round(editor.iconSize * 2.4)
-                        maxAspect: 1.5
+                        size: Math.round(editor.iconSize * 1.6)
+                        maxAspect: 2.4
+                    }
+                }
+                // A group's members, by their faces.
+                Flow {
+                    visible: panel.isGroup
+                    Layout.fillWidth: true
+                    spacing: Gap.xs
+                    Repeater {
+                        model: panel.group ? panel.group.items : []
+                        WidgetIcon {
+                            required property string modelData
+                            preferences: editor.preferences
+                            record: editor.preferences.entries.find(function (e) {
+                                return e.instanceKey === modelData;
+                            }) || ({})
+                            size: Math.round(editor.iconSize * 0.85)
+                        }
                     }
                 }
                 InkText {
+                    visible: groupPicker.visible
                     Layout.fillWidth: true
-                    text: panel.record ? editor.preferences.title(panel.record) : ""
-                    role: "section"
+                    text: "Group"
                     elide: Text.ElideRight
                 }
-                InkText {
+                // Opens upward: the inspector sits at the window's bottom.
+                PrefsDropdown {
+                    id: groupPicker
+                    visible: !panel.isGroup && !panel.inTray
                     Layout.fillWidth: true
-                    text: panel.isGroup ? (panel.group ? panel.group.items.length + (panel.group.items.length === 1 ? " widget" : " widgets") + " in this group" : "") : panel.trayIcon ? (panel.inTray ? "In Omarchy's tray" : "Moved out of Omarchy's tray") : panel.record ? panel.record.id : ""
-                    role: "caption"
-                    elide: Text.ElideMiddle
+                    Layout.topMargin: Gap.xxs - Gap.m
+                    label: "Group"
+                    openLabel: "Choose a group"
+                    options: [
+                        {
+                            value: "",
+                            label: "Not grouped"
+                        }
+                    ].concat(editor.bar.groups.map(function (g) {
+                        return {
+                            value: g.id,
+                            label: g.label
+                        };
+                    }))
+                    value: ""
+                    onChanged: function (value) {
+                        if (value && panel.record)
+                            editor.bar.assignGroup(panel.record.instanceKey, value, "");
+                    }
                 }
             }
 
-            // Its layer: the way to move it without dragging.
-            LayerPicker {
-                id: layerPicker
-                Layout.fillWidth: true
-                Layout.preferredWidth: 1
-                Layout.alignment: Qt.AlignTop
-                value: panel.record ? panel.record.mode : ""
-                withTray: panel.trayIcon
-                animate: editor.bar.animationsEnabled
-                onChosen: function (mode) {
-                    if (panel.record)
-                        editor.setPlacement(panel.record, panel.record.section, mode);
+            // Its layer and zone: the way to move it without dragging.
+            DeskStrip {
+                title: "Where"
+                caption: "Its layer and zone"
+                LayerPicker {
+                    value: panel.record ? panel.record.mode : ""
+                    withTray: panel.trayIcon
+                    animate: editor.bar.animationsEnabled
+                    onChosen: function (mode) {
+                        if (panel.record)
+                            editor.setPlacement(panel.record, panel.record.section, mode);
+                    }
                 }
-            }
-
-            // Its zone, shortcut, activity and group.
-            ColumnLayout {
-                Layout.preferredWidth: Style.space(240)
-                Layout.maximumWidth: Style.space(240)
-                Layout.alignment: Qt.AlignTop
-                spacing: Gap.m
                 PrefsZoneMap {
                     zones: editor.zoneChoices
                     cameraOver: editor.previewCamera ? "center" : ""
@@ -1527,94 +1546,39 @@ Item {
                         editor.setPlacement(panel.record, value, panel.inTray ? "managed" : panel.record.mode);
                     }
                 }
-                InspectorHint {
-                    visible: panel.inTray
-                    text: "Placed on the bar, it leaves the tray and works as it does there: click, right-click menu, scroll"
-                }
+            }
+
+            // What opens it, and when it brings the bar out.
+            DeskStrip {
+                title: panel.isGroup ? "Keys" : "Keys and activity"
+                caption: panel.isGroup ? "What opens its drawer" : "What opens it, when it shows"
+                footnote: panel.inTray ? "Placed on the bar, it leaves the tray and works as it does there: click, right-click menu, scroll" : ""
                 // Opens its panel (a group: its drawer) from anywhere.
-                ShortcutRow {
+                DeskShortcutRow {
+                    stacked: true
+                    id: shortcutRow
                     visible: !panel.inTray
-                    Layout.fillWidth: true
                     store: editor.preferences.shortcuts
                     target: !panel.record ? "" : panel.isGroup ? "group:" + panel.record.groupId : "widget:" + panel.record.id
                     unavailable: !panel.record ? "" : panel.record.mode === "hidden" ? (panel.isGroup ? "Hidden groups can't open" : "Hidden widgets can't open") : panel.isGroup || editor.bar.findPanelWidget(panel.record.id) || store.ready && store.info(target).keys ? "" : "Nothing to open"
                 }
-                PrefsToggle {
-                    id: activityToggle
+                DeskRow {
                     readonly property bool clockDriven: !!panel.record && !!editor.bar.quietActivityId(panel.record.id)
                     visible: !panel.isGroup && !panel.inTray
                     label: "Peeks on activity"
+                    // Why it can't, when it can't.
+                    caption: clockDriven ? "It changes on a clock, so it never brings the bar out" : !editor.bar.autoHide ? "Autohide is off on the Behavior page" : !editor.bar.autoHideActivity ? "Turned off for every widget on the Behavior page" : ""
                     enabled: editor.bar.autoHide && editor.bar.autoHideActivity && !clockDriven
-                    opacity: enabled ? 1 : Ink.disabled
                     checked: !!panel.record && !clockDriven && editor.bar.activityPeeksFor(panel.record.instanceKey, panel.record.id)
-                    onToggled: function (checked) {
-                        editor.bar.setActivityPeek(panel.record.instanceKey, checked);
-                    }
+                    onActivated: editor.bar.setActivityPeek(panel.record.instanceKey, !checked)
                 }
-                InspectorHint {
-                    visible: !panel.isGroup && !panel.inTray && (activityToggle.clockDriven || editor.bar.autoHide && !editor.bar.autoHideActivity)
-                    dim: true
-                    text: activityToggle.clockDriven ? "It changes on a clock, so it never brings the bar out" : "Turned off for every widget on the Behavior page"
-                }
-                // A group's members, by their faces.
-                Flow {
+                faders: DeskRow {
                     visible: panel.isGroup
-                    Layout.fillWidth: true
-                    spacing: Gap.xs
-                    Repeater {
-                        model: panel.group ? panel.group.items : []
-                        WidgetIcon {
-                            required property string modelData
-                            preferences: editor.preferences
-                            record: editor.preferences.entries.find(function (e) {
-                                return e.instanceKey === modelData;
-                            }) || ({})
-                            size: Math.round(editor.iconSize * 0.85)
-                        }
-                    }
-                }
-                // Opens upward: the inspector sits at the window's bottom.
-                PrefsDropdown {
-                    id: groupPicker
-                    visible: !panel.isGroup && !panel.inTray
-                    Layout.fillWidth: true
-                    label: "Group"
-                    openLabel: "Choose a group"
-                    options: [
-                        {
-                            value: "",
-                            label: "Not grouped"
-                        }
-                    ].concat(editor.bar.groups.map(function (g) {
-                        return {
-                            value: g.id,
-                            label: g.label
-                        };
-                    }))
-                    value: ""
-                    onChanged: function (value) {
-                        if (value && panel.record)
-                            editor.bar.assignGroup(panel.record.instanceKey, value, "");
-                    }
-                }
-                Button {
-                    id: editGroupButton
-                    readonly property var keyHints: [
-                        {
-                            keys: "enter",
-                            label: "Edit the group"
-                        }
-                    ]
-                    visible: panel.isGroup
-                    text: "Edit group"
-                    iconText: "󰏫"
-                    focusable: true
-                    bordered: true
-                    foreground: Commons.Color.popups.text
-                    fontSize: Ink.label
-                    verticalPadding: Gap.xs
-                    horizontalPadding: Gap.s
-                    onClicked: editor.preferences.openGroup(panel.record.groupId)
+                    action: true
+                    trailing: true
+                    label: "Edit group"
+                    spaceHint: "Edit the group"
+                    onActivated: editor.preferences.openGroup(panel.record.groupId)
                 }
             }
         }

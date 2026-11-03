@@ -48,17 +48,9 @@ DeskPage {
     implicitHeight: 1
     color: Qt.alpha(Commons.Color.popups.text, 0.12)
   }
-  // A shortcut row as a desk control: one stop, its cursor in the desk's look.
-  component DeskShortcut: ShortcutRow {
-    readonly property int deskStops: 1
-    readonly property int deskHome: 0
-    function deskFocus(stop, reason) {
-      forceActiveFocus(reason === undefined ? Qt.OtherFocusReason : reason);
-    }
+  component DeskShortcut: DeskShortcutRow {
     store: behavior.preferences.shortcuts
     suggested: behavior.preferences.shortcuts.suggested(target)
-    cursor: activeFocus
-    activeFocusOnTab: false
   }
 
   // ---------------------------------------------------- 1 Comes and goes

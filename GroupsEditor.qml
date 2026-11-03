@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Window
 import QtQuick.Layouts
+import QtQuick.Shapes
 import qs.Commons
 import qs.Commons as Commons
 import qs.Ui
@@ -305,7 +306,10 @@ Item {
     Timer {
         id: syncLater
         interval: 0
-        onTriggered: editor.syncCursor()
+        onTriggered: {
+            editor.syncCursor();
+            Qt.callLater(editor.refreshChosenFace);
+        }
     }
     // A group is always chosen when there is one (PREFS-37): the first face.
     function chooseFirst() {
@@ -319,6 +323,7 @@ Item {
     // Chosen from outside (g on a group icon, PREFS-32): the cursor goes to its face.
     onSelectedIdChanged: {
         pendingDissolve = "";
+        Qt.callLater(refreshChosenFace);
         if (selectedId && Editor.groupAt(stepState, at) !== selectedId) {
             var face = Editor.facePlace(stepState, selectedId);
             if (face)
@@ -355,13 +360,10 @@ Item {
             if (key)
                 Groups.assign(config, key, id, "");
         });
+        renameOnShow = id;
         selectedId = id;
         cursorKey = "face:" + id;
         syncLater.restart();
-        Qt.callLater(function () {
-            nameField.forceActiveFocus(Qt.OtherFocusReason);
-            nameField.selectAll();
-        });
     }
     // x twice within 3 s (PREFS-39): the members stay on the bar, in the pool.
     function dissolve(id) {
@@ -383,6 +385,7 @@ Item {
         selectedId = next;
         cursorKey = next ? "face:" + next : "";
         syncLater.restart();
+        stage.forceActiveFocus(Qt.OtherFocusReason);
     }
     Timer {
         id: dissolveTimer
@@ -588,13 +591,12 @@ Item {
             lift();
         else if (k.act === "space" && faceId)
             liftFace(faceId);
-        else if (enter && faceId) {
-            nameField.forceActiveFocus(Qt.TabFocusReason);
-            nameField.selectAll();
-        } else if (enter && at.area === "plus" || k.c === "n" && zone)
+        else if (enter && faceId)
+            inspector.focusFirst();
+        else if (enter && at.area === "plus" || k.c === "n" && zone)
             createIn(zone, "");
         else if (enter && at.area === "member" && cursorRecord)
-            countField.forceActiveFocus(Qt.TabFocusReason);
+            countRow.deskFocus(0, Qt.TabFocusReason);
         else if (enter && at.area === "pool")
             addToChosen(cursorRecord);
         else if ((k.c === "x" || k.act === "delete") && faceId)
@@ -922,8 +924,9 @@ Item {
         onActiveFocusChanged: if (!activeFocus) {
             editor.filtering = false;
             editor.filterFrom = null;
+            // The page may be gone by then.
             Qt.callLater(function () {
-                if (!stage.activeFocus && editor.lifted && !editor.pointerLift)
+                if (stage && !stage.activeFocus && editor.lifted && !editor.pointerLift)
                     editor.cancel();
             });
         }
@@ -1195,7 +1198,10 @@ Item {
         keyLandingShown = true;
     }
     onLiftTargetChanged: { Qt.callLater(updateKeyLanding); keyLandingSettle.restart(); }
-    onLiftedChanged: Qt.callLater(updateKeyLanding)
+    onLiftedChanged: {
+        Qt.callLater(updateKeyLanding);
+        Qt.callLater(refreshChosenFace);
+    }
     onPointerLiftChanged: {
         if (!pointerLift)
             edgeScroll.aim(null);
@@ -1258,352 +1264,324 @@ Item {
     // -------------------------------------------------------- the inspector
     // The member the cursor is on, for its badge sources.
     readonly property var member: !lifted && at.area === "member" && at.id === selectedId ? cursorRecord : null
+    // A new group's name is typed at once, as soon as its face is in.
+    property string renameOnShow: ""
+    component FieldLabel: InkText {
+        Layout.fillWidth: true
+        elide: Text.ElideRight
+    }
     BoardInspector {
         id: inspector
         readonly property var group: editor.selectedGroup
         layout: editor.layout
         shown: !!editor.selectedGroup
-        // Tab and Shift+Tab wrap round inside it (PREFS-26).
-        first: nameField
-        // xl all round, its columns xl apart, its blocks l (PREFS-133).
-        bodyHeight: inspectorBody.implicitHeight
+        desk: inspectorDesk
+        // xl all round (PREFS-133).
+        bodyHeight: inspectorDesk.implicitHeight
         // Esc returns to the chosen face; a control that takes it gets it first.
         onEscaped: editor.toChosenFace()
-        ColumnLayout {
-            id: inspectorBody
+        onGroupChanged: if (group && group.id === editor.renameOnShow) {
+            editor.renameOnShow = "";
+            Qt.callLater(faceEditor.edit);
+        }
+        // Three strips (PREFS-116): the face and how it shows, where it is,
+        // its badge and keys, Dissolve last at the bottom right.
+        InspectorDesk {
+            id: inspectorDesk
+            layout: editor.layout
             anchors.left: parent.left
             anchors.right: parent.right
             anchors.top: parent.top
             anchors.margins: Gap.xl
-            spacing: Gap.l
-            RowLayout {
-                Layout.fillWidth: true
-                spacing: Gap.xl
-                // The face as the bar draws it, its name, where it is, Dissolve.
-                ColumnLayout {
-                    Layout.preferredWidth: Style.space(148)
-                    Layout.maximumWidth: Style.space(148)
-                    Layout.alignment: Qt.AlignTop
-                    spacing: Gap.m
-                    Rectangle {
-                        Layout.fillWidth: true
-                        Layout.preferredHeight: Gap.xxxl
-                        radius: Round.control
-                        color: editor.layout.barSurface
-                        clip: true
-                        BarFace {
-                            anchors.centerIn: parent
-                            face: inspector.group ? editor.layout.groupFace(inspector.group, "") : null
-                            barThickness: editor.layout.barThickness
-                            ink: editor.layout.barInk
+            // A new group's name, else Show: what is set most.
+            start: inspector.group && inspector.group.label === "New group" ? faceEditor : showChoice
+            escLabel: "Back to the faces"
+            DeskStrip {
+                readonly property int n: inspector.group ? (editor.memberLists[inspector.group.id] || []).length : 0
+                title: inspector.group ? inspector.group.label : ""
+                caption: !inspector.group ? "" : n + (n === 1 ? " widget, " : " widgets, ") + (inspector.group.visibility === "hidden" ? "hidden, zone " + editor.layout.zoneNames[inspector.group.section] : (inspector.group.visibility === "managed" ? "on demand at " : "on the bar at ") + String(editor.layout.zoneNames[inspector.group.section]).toLowerCase())
+                FaceEditor {
+                    id: faceEditor
+                    layout: editor.layout
+                    group: inspector.group
+                    onPickIcon: picker.open(inspector.group, faceEditor)
+                    onRenamed: function (group, text) {
+                        editor.edit(group.id, {
+                            label: text
+                        });
+                    }
+                }
+                FieldLabel {
+                    text: "Show"
+                }
+                DeskChoice {
+                    id: showChoice
+                    Layout.topMargin: Gap.xxs - Gap.m
+                    options: [
+                        {
+                            value: "glyph",
+                            label: "Icon"
+                        },
+                        {
+                            value: "text",
+                            label: "Name"
+                        },
+                        {
+                            value: "both",
+                            label: "Both"
+                        }
+                    ]
+                    value: inspector.group ? inspector.group.face : ""
+                    onChosen: function (value) {
+                        editor.edit(editor.selectedId, {
+                            face: value
+                        });
+                    }
+                }
+                FieldLabel {
+                    text: "Widgets show"
+                }
+                DeskChoice {
+                    Layout.topMargin: Gap.xxs - Gap.m
+                    options: [
+                        {
+                            value: "native",
+                            label: "Icon"
+                        },
+                        {
+                            value: "name",
+                            label: "Name"
+                        },
+                        {
+                            value: "both",
+                            label: "Both"
+                        }
+                    ]
+                    value: inspector.group ? inspector.group.memberDisplay : ""
+                    onChosen: function (value) {
+                        editor.edit(editor.selectedId, {
+                            memberDisplay: value
+                        });
+                    }
+                }
+                DeskRow {
+                    label: "Name on hover"
+                    checked: inspector.group ? (inspector.group.tooltip === undefined ? inspector.group.face === "glyph" : inspector.group.tooltip) : false
+                    onActivated: editor.edit(editor.selectedId, {
+                        tooltip: !checked
+                    })
+                }
+            }
+            DeskStrip {
+                title: "Where"
+                caption: "Its layer and zone"
+                LayerPicker {
+                    value: inspector.group ? inspector.group.visibility : ""
+                    animate: editor.bar.animationsEnabled
+                    onChosen: function (value) {
+                        editor.edit(editor.selectedId, {
+                            visibility: value
+                        });
+                    }
+                }
+                PrefsZoneMap {
+                    zones: editor.layout.zoneChoices
+                    cameraOver: editor.layout.previewCamera ? "center" : ""
+                    noteFor: function (zone) {
+                        return editor.layout.cameraNote(zone);
+                    }
+                    marker: Component {
+                        GroupFace {
+                            group: inspector.group
+                            faceMode: "glyph"
+                            color: Commons.Color.popups.text
                             fontFamily: editor.layout.barFont
+                            fontSize: Math.round(editor.layout.iconSize * 0.6)
                         }
                     }
-                    InspectorField {
-                        id: nameField
-                        Layout.fillWidth: true
-                        Layout.preferredHeight: Gap.control
-                        verticalPadding: Gap.xs
-                        horizontalPadding: Gap.s
-                        font.pixelSize: Ink.label
-                        placeholderText: "Group name"
-                        foreground: Commons.Color.popups.text
-                        Accessible.name: "Group name"
-                        readonly property var keyHints: [
-                            {
-                                keys: "enter",
-                                label: "Rename"
-                            }
-                        ]
-                        // The group the typing is for: a click elsewhere selects the
-                        // next one before this field loses focus and finishes.
-                        subject: inspector.group
-                        saved: inspector.group ? inspector.group.label : ""
-                        onCommitted: function (group, text) {
-                            if (text.trim() && text.trim() !== group.label)
-                                editor.edit(group.id, {
-                                    label: text
-                                });
-                        }
-                        Keys.onEscapePressed: function (event) {
-                            text = inspector.group ? inspector.group.label : "";
-                            editor.toChosenFace();
-                            event.accepted = true;
-                        }
-                    }
-                    InspectorHint {
-                        readonly property int n: inspector.group ? (editor.memberLists[inspector.group.id] || []).length : 0
-                        text: !inspector.group ? "" : n + (n === 1 ? " widget, " : " widgets, ") + (inspector.group.visibility === "hidden" ? "hidden, zone " + editor.layout.zoneNames[inspector.group.section] : (inspector.group.visibility === "managed" ? "on demand at " : "on the bar at ") + String(editor.layout.zoneNames[inspector.group.section]).toLowerCase())
-                    }
-                    // Dissolve, asked twice (PREFS-39).
-                    Item {
-                        id: dissolveButton
-                        readonly property bool confirming: !!inspector.group && editor.pendingDissolve === inspector.group.id
-                        readonly property var keyHints: [
-                            {
-                                keys: "enter",
-                                label: confirming ? "Again to dissolve" : "Dissolve, asked twice"
-                            }
-                        ]
-                        Layout.fillWidth: true
-                        Layout.preferredHeight: Gap.control
-                        activeFocusOnTab: true
-                        Accessible.role: Accessible.Button
-                        Accessible.name: dissolveLabel.text
-                        Keys.onPressed: function (event) {
-                            if (event.key !== Qt.Key_Return && event.key !== Qt.Key_Enter && event.key !== Qt.Key_Space)
-                                return;
-                            editor.dissolve(inspector.group ? inspector.group.id : "");
-                            event.accepted = true;
-                        }
-                        DashedFrame {
-                            anchors.fill: parent
-                            radius: editor.chipRadius
-                            stroke: dissolveButton.confirming ? Commons.Color.error : Qt.alpha(Commons.Color.popups.text, dissolveMouse.containsMouse ? 0.45 : 0.25)
-                        }
-                        InkText {
-                            id: dissolveLabel
-                            anchors.left: parent.left
-                            anchors.right: parent.right
-                            anchors.leftMargin: Gap.s
-                            anchors.rightMargin: Gap.s
-                            anchors.verticalCenter: parent.verticalCenter
-                            text: dissolveButton.confirming ? "Again to dissolve" : "Dissolve " + (inspector.group ? inspector.group.label : "")
-                            color: dissolveButton.confirming ? Commons.Color.error : Ink.tint(1)
-                            elide: Text.ElideRight
-                        }
-                        MouseArea {
-                            id: dissolveMouse
-                            anchors.fill: parent
-                            hoverEnabled: true
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: editor.dissolve(inspector.group ? inspector.group.id : "")
-                        }
-                    }
-                }
-                // How it shows.
-                ColumnLayout {
-                    Layout.fillWidth: true
-                    Layout.preferredWidth: 1
-                    Layout.alignment: Qt.AlignTop
-                    spacing: Gap.m
-                    PrefsChoice {
-                        label: "Show"
-                        options: [
-                            {
-                                value: "glyph",
-                                label: "Icon"
-                            },
-                            {
-                                value: "text",
-                                label: "Name"
-                            },
-                            {
-                                value: "both",
-                                label: "Both"
-                            }
-                        ]
-                        value: inspector.group ? inspector.group.face : ""
-                        onChosen: function (value) {
-                            editor.edit(editor.selectedId, {
-                                face: value
-                            });
-                        }
-                    }
-                    PrefsChoice {
-                        label: "Widgets show"
-                        options: [
-                            {
-                                value: "native",
-                                label: "Icon"
-                            },
-                            {
-                                value: "name",
-                                label: "Name"
-                            },
-                            {
-                                value: "both",
-                                label: "Both"
-                            }
-                        ]
-                        value: inspector.group ? inspector.group.memberDisplay : ""
-                        onChosen: function (value) {
-                            editor.edit(editor.selectedId, {
-                                memberDisplay: value
-                            });
-                        }
-                    }
-                    PrefsToggle {
-                        label: "Name on hover"
-                        checked: inspector.group ? (inspector.group.tooltip === undefined ? inspector.group.face === "glyph" : inspector.group.tooltip) : false
-                        onToggled: function (checked) {
-                            editor.edit(editor.selectedId, {
-                                tooltip: checked
-                            });
-                        }
-                    }
-                    // A sibling of the switch above: xs apart.
-                    PrefsToggle {
-                        Layout.topMargin: Gap.xs - Gap.m
-                        label: "Badge"
-                        checked: inspector.group ? inspector.group.badge : false
-                        onToggled: function (checked) {
-                            editor.edit(editor.selectedId, {
-                                badge: checked
-                            });
-                        }
-                    }
-                    PrefsChoice {
-                        enabled: !!inspector.group && inspector.group.badge
-                        opacity: enabled ? 1 : Ink.disabled
-                        label: "Counts"
-                        options: [
-                            {
-                                value: "sum",
-                                label: "Add up"
-                            },
-                            {
-                                value: "members",
-                                label: "Busy widgets"
-                            }
-                        ]
-                        value: inspector.group ? inspector.group.badgeMode : ""
-                        onChosen: function (value) {
-                            editor.edit(editor.selectedId, {
-                                badgeMode: value
-                            });
-                        }
-                    }
-                }
-                // Where it is: its layer and zone; its icon and shortcut.
-                ColumnLayout {
-                    Layout.preferredWidth: Style.space(240)
-                    Layout.maximumWidth: Style.space(240)
-                    Layout.alignment: Qt.AlignTop
-                    spacing: Gap.m
-                    LayerPicker {
-                        Layout.fillWidth: true
-                        value: inspector.group ? inspector.group.visibility : ""
-                        animate: editor.bar.animationsEnabled
-                        onChosen: function (value) {
-                            editor.edit(editor.selectedId, {
-                                visibility: value
-                            });
-                        }
-                    }
-                    PrefsZoneMap {
-                        zones: editor.layout.zoneChoices
-                        cameraOver: editor.layout.previewCamera ? "center" : ""
-                        noteFor: function (zone) {
-                            return editor.layout.cameraNote(zone);
-                        }
-                        marker: Component {
-                            GroupFace {
-                                group: inspector.group
-                                faceMode: "glyph"
-                                color: Commons.Color.popups.text
-                                fontFamily: editor.layout.barFont
-                                fontSize: Math.round(editor.layout.iconSize * 0.6)
-                            }
-                        }
-                        value: inspector.group ? inspector.group.section : ""
-                        onChosen: function (value) {
-                            var group = editor.groupOf(editor.selectedId);
-                            if (group)
-                                editor.moveToZone(group, value);
-                        }
-                    }
-                    // A hint: a text pair under the field it is about.
-                    InspectorHint {
-                        text: "Shift h l on its face moves it too"
-                    }
-                    Button {
-                        id: iconButton
-                        readonly property var keyHints: [
-                            {
-                                keys: "enter",
-                                label: "Choose an icon"
-                            }
-                        ]
-                        text: "Change icon"
-                        iconText: "󰏫"
-                        focusable: true
-                        bordered: true
-                        foreground: Commons.Color.popups.text
-                        fontSize: Ink.label
-                        verticalPadding: Gap.xs
-                        horizontalPadding: Gap.s
-                        Keys.onReturnPressed: picker.open(inspector.group, iconButton)
-                        Keys.onEnterPressed: picker.open(inspector.group, iconButton)
-                        onClicked: picker.open(inspector.group, iconButton)
-                    }
-                    ShortcutRow {
-                        Layout.fillWidth: true
-                        store: editor.preferences.shortcuts
-                        target: inspector.group ? "group:" + inspector.group.id : ""
-                        unavailable: inspector.group && inspector.group.visibility === "hidden" ? "Hidden groups can't open" : ""
+                    value: inspector.group ? inspector.group.section : ""
+                    onChosen: function (value) {
+                        var group = editor.groupOf(editor.selectedId);
+                        if (group)
+                            editor.moveToZone(group, value);
                     }
                 }
             }
-            // The member under the cursor: where its badge count comes from.
-            Rectangle {
-                Layout.fillWidth: true
-                Layout.preferredHeight: 1
-                color: Qt.alpha(Commons.Color.popups.text, 0.12)
-            }
-            RowLayout {
-                Layout.fillWidth: true
-                Layout.preferredHeight: Gap.control
-                spacing: Gap.m
-                InkText {
-                    Layout.fillWidth: true
-                    Layout.preferredWidth: 3
-                    text: editor.member ? editor.preferences.title(editor.member) + ", in " + (inspector.group ? inspector.group.label : "") : "Put the cursor on one of its widgets to set where its badge count comes from"
-                    role: "caption"
-                    tier: editor.member ? 1 : Ink.secondary
-                    elide: Text.ElideRight
+            DeskStrip {
+                title: "Badge and keys"
+                caption: "What it counts, what opens it"
+                // The member under the cursor: where its badge count comes from.
+                footnote: editor.member ? editor.preferences.title(editor.member) + "'s; x takes it out" : "Put the cursor on one of its widgets for these"
+                DeskRow {
+                    label: "Badge"
+                    checked: inspector.group ? inspector.group.badge : false
+                    onActivated: editor.edit(editor.selectedId, {
+                        badge: !checked
+                    })
                 }
-                InspectorField {
-                    id: countField
-                    visible: !!editor.member
-                    Layout.fillWidth: true
-                    Layout.preferredWidth: 2
-                    placeholderText: "Count from: detected"
-                    foreground: Commons.Color.popups.text
-                    font.pixelSize: Ink.caption
-                    verticalPadding: Gap.xs
-                    Accessible.name: "Badge count property"
-                    // The widget the typing is for (see nameField).
-                    subject: editor.member
-                    saved: editor.member ? editor.member.badgeProperty || "" : ""
-                    onCommitted: function (member, text) {
-                        editor.bar.editMemberBadge(member.instanceKey, "badgeProperty", text.trim());
+                FieldLabel {
+                    text: "Counts"
+                    opacity: countsChoice.enabled ? 1 : Ink.disabled
+                }
+                DeskChoice {
+                    id: countsChoice
+                    Layout.topMargin: Gap.xxs - Gap.m
+                    enabled: !!inspector.group && inspector.group.badge
+                    options: [
+                        {
+                            value: "sum",
+                            label: "Add up"
+                        },
+                        {
+                            value: "members",
+                            label: "Busy widgets"
+                        }
+                    ]
+                    value: inspector.group ? inspector.group.badgeMode : ""
+                    onChosen: function (value) {
+                        editor.edit(editor.selectedId, {
+                            badgeMode: value
+                        });
                     }
                 }
-                InspectorField {
-                    id: urgentField
-                    visible: !!editor.member
-                    Layout.fillWidth: true
-                    Layout.preferredWidth: 2
-                    placeholderText: "Urgent from: detected"
-                    foreground: Commons.Color.popups.text
-                    font.pixelSize: Ink.caption
-                    verticalPadding: Gap.xs
-                    Accessible.name: "Urgent property"
+                DeskTextRow {
+                    id: countRow
+                    enabled: !!editor.member
+                    label: "Count from"
+                    placeholder: "detected"
                     subject: editor.member
-                    saved: editor.member ? editor.member.urgentProperty || "" : ""
+                    value: editor.member ? editor.member.badgeProperty || "" : ""
                     onCommitted: function (member, text) {
-                        editor.bar.editMemberBadge(member.instanceKey, "urgentProperty", text.trim());
+                        editor.bar.editMemberBadge(member.instanceKey, "badgeProperty", text);
                     }
                 }
-                InkText {
-                    visible: !!editor.member
-                    text: "x takes it out"
-                    role: "caption"
+                DeskTextRow {
+                    enabled: !!editor.member
+                    label: "Urgent from"
+                    placeholder: "detected"
+                    subject: editor.member
+                    value: editor.member ? editor.member.urgentProperty || "" : ""
+                    onCommitted: function (member, text) {
+                        editor.bar.editMemberBadge(member.instanceKey, "urgentProperty", text);
+                    }
+                }
+                DeskShortcutRow {
+                    stacked: true
+                    store: editor.preferences.shortcuts
+                    target: inspector.group ? "group:" + inspector.group.id : ""
+                    unavailable: inspector.group && inspector.group.visibility === "hidden" ? "Hidden groups can't open" : ""
+                }
+                // Dissolve, asked twice (PREFS-39): the card's last word.
+                faders: DeskRow {
+                    readonly property bool confirming: !!inspector.group && editor.pendingDissolve === inspector.group.id
+                    action: true
+                    danger: confirming
+                    trailing: true
+                    label: confirming ? "Again to dissolve" : "Dissolve " + (inspector.group ? inspector.group.label : "")
+                    spaceHint: confirming ? "Again to dissolve" : "Dissolve, asked twice"
+                    onActivated: editor.dissolve(inspector.group ? inspector.group.id : "")
                 }
             }
         }
     }
+    // ------------------------------------------------------ the pulled face
+    // The chosen face pulled out of its zone's list to the front, as the
+    // Layout page pulls a chip (PREFS-101, PREFS-116): its place in the list
+    // an empty accent outline, a dashed accent leader from a dot there to a
+    // flat copy tilted over the inspector.
+    property Item chosenFaceItem: null
+    function faceItemOf(id) {
+        var tiles = listTiles.items;
+        for (var t = 0; t < tiles.length; t++) {
+            var win = tiles[t].tiles;
+            if (!win)
+                continue;
+            for (var i = 0; i < win.count; i++) {
+                var item = win.itemAt(i);
+                if (item && item.kind === "face" && item.groupId === id)
+                    return item;
+            }
+        }
+        return null;
+    }
+    function refreshChosenFace() {
+        var item = selectedId && !lifted ? faceItemOf(selectedId) : null;
+        if (item !== chosenFaceItem)
+            chosenFaceItem = item;
+        trackLeader();
+    }
+    property point leaderStart: Qt.point(0, 0)
+    // The leader starts at the face's middle; a face scrolled out of its
+    // zone's window is pointed at from the window's edge it went past.
+    function trackLeader() {
+        var item = chosenFaceItem;
+        if (!item)
+            return;
+        var tile = listTiles.find(function (t) {
+            return Board.within(item, t);
+        });
+        if (!tile) {
+            leaderStart = item.mapToItem(editor, item.width / 2, item.height / 2);
+            return;
+        }
+        var p = item.mapToItem(tile, item.width / 2, item.height / 2);
+        var y = Math.max(tile.viewTop, Math.min(tile.viewTop + tile.windowHeight, p.y));
+        leaderStart = tile.mapToItem(editor, p.x, y);
+    }
+    onChosenFaceItemChanged: trackLeader()
+    GeometryObserver {
+        target: editor.chosenFaceItem
+        host: editor
+        onChanged: editor.trackLeader()
+    }
+    readonly property bool leaderShown: inspector.shown && !!chosenFaceItem && !lifted && !picker.opened
+    Shape {
+        visible: editor.leaderShown
+        z: 115
+        anchors.fill: parent
+        ShapePath {
+            strokeColor: Commons.Color.accent
+            strokeWidth: 1
+            strokeStyle: ShapePath.DashLine
+            dashPattern: [4, 4]
+            fillColor: "transparent"
+            startX: editor.leaderStart.x
+            startY: editor.leaderStart.y
+            PathLine {
+                x: pulledFace.x + pulledFace.width / 2
+                y: pulledFace.y
+            }
+        }
+    }
+    Rectangle {
+        visible: editor.leaderShown
+        z: 116
+        x: editor.leaderStart.x - width / 2
+        y: editor.leaderStart.y - height / 2
+        width: Style.space(6)
+        height: width
+        radius: width / 2
+        color: Commons.Color.accent
+    }
+    FaceLook {
+        id: pulledFace
+        visible: editor.leaderShown
+        group: editor.selectedGroup
+        pulled: true
+        width: editor.chipWidth
+        z: 125
+        x: Math.max(inspector.x + Style.space(24), Math.min(inspector.x + inspector.width - width - Style.space(24), editor.leaderStart.x - width / 2))
+        y: inspector.y - Style.space(30)
+        rotation: -1.5
+        Behavior on x {
+            enabled: editor.bar.animationsEnabled
+            NumberAnimation {
+                duration: MotionModel.GLIDE_MS
+                easing.type: Easing.OutCubic
+            }
+        }
+    }
+
     readonly property Item focused: editor.Window.activeFocusItem
 
     IconPicker {
@@ -1615,7 +1593,7 @@ Item {
             editor.edit(editor.selectedId, patch);
             picker.close();
         }
-        onClosed: iconButton.forceActiveFocus(Qt.OtherFocusReason)
+        onClosed: faceEditor.deskFocus(0, Qt.OtherFocusReason)
     }
     // The picker belongs to this page while Preferences shows it (PREFS-91).
     Connections {
@@ -1739,7 +1717,7 @@ Item {
         },
         {
             keys: "enter",
-            label: "Inspect, at its name"
+            label: "Inspect it"
         }
     ] : at.area === "member" ? [
         {
@@ -1782,17 +1760,7 @@ Item {
             keys: "tab",
             label: "The inspector"
         }
-    ] : inspectorFocused ? [
-        {
-            keys: "tab shift+tab",
-            label: "Next, previous control"
-        }
-    ].concat(focused && focused.keyHints ? focused.keyHints : []).concat([
-        {
-            keys: "esc",
-            label: "Back to the faces"
-        }
-    ]) : [
+    ] : inspectorFocused ? inspectorDesk.legend : [
         {
             keys: "tab",
             label: "The groups"
@@ -1970,18 +1938,34 @@ Item {
         property bool isCursor: false
         property bool chosen: false
         property bool hovered: false
+        // The inspector's pulled-out copy, and the place it left (PREFS-116).
+        property bool pulled: false
+        property bool pulledOut: false
         readonly property string visibility: group ? group.visibility : "shown"
         readonly property int count: group ? (editor.memberLists[group.id] || []).length : 0
         height: editor.chipHeight
+        // The pulled copy's shadow band, as a pulled chip's (BoardChip).
+        Rectangle {
+            visible: look.pulled
+            x: 0.5
+            y: parent.height
+            width: parent.width - 1
+            height: Style.space(6)
+            radius: Round.control
+            topLeftRadius: 0
+            topRightRadius: 0
+            antialiasing: true
+            color: Ink.band(editor.layout.lightTheme)
+        }
         BorderSurface {
             anchors.fill: parent
             antialiasing: true
             radius: editor.chipRadius
-            color: look.ghost ? Qt.tint(editor.pageColor, Qt.alpha(Commons.Color.popups.text, 0.15)) : look.visibility === "shown" ? Qt.alpha(Commons.Color.accent, look.hovered ? 0.3 : 0.22) : look.visibility === "managed" ? Qt.alpha(Commons.Color.popups.text, look.hovered ? 0.12 : 0.06) : look.hovered ? Qt.alpha(Commons.Color.popups.text, 0.06) : "transparent"
-            borderSpec: look.ghost ? Border.flat(Commons.Color.accent, Math.max(1, Math.round(Style.space(1.5)))) : look.isCursor && editor.stageFocused ? Border.controlSpec("focus", Commons.Color.popups.text, Commons.Color.accent) : look.chosen ? Border.flat(Commons.Color.accent, 1) : look.isCursor ? Border.flat(Qt.alpha(Commons.Color.popups.text, 0.35), 1) : Border.none()
+            color: look.pulledOut ? "transparent" : look.ghost || look.pulled ? Qt.tint(editor.pageColor, Qt.alpha(Commons.Color.popups.text, 0.15)) : look.visibility === "shown" ? Qt.alpha(Commons.Color.accent, look.hovered ? 0.3 : 0.22) : look.visibility === "managed" ? Qt.alpha(Commons.Color.popups.text, look.hovered ? 0.12 : 0.06) : look.hovered ? Qt.alpha(Commons.Color.popups.text, 0.06) : "transparent"
+            borderSpec: look.ghost || look.pulled || look.pulledOut ? Border.flat(Commons.Color.accent, Math.max(1, Math.round(Style.space(1.5)))) : look.isCursor && editor.stageFocused ? Border.controlSpec("focus", Commons.Color.popups.text, Commons.Color.accent) : look.chosen ? Border.flat(Commons.Color.accent, 1) : look.isCursor ? Border.flat(Qt.alpha(Commons.Color.popups.text, 0.35), 1) : Border.none()
         }
         DashedFrame {
-            visible: look.visibility === "hidden" && !look.chosen && !look.isCursor && !look.ghost
+            visible: look.visibility === "hidden" && !look.chosen && !look.isCursor && !look.ghost && !look.pulled && !look.pulledOut
             anchors.fill: parent
             radius: editor.chipRadius
             stroke: Qt.alpha(Commons.Color.popups.text, 0.35)
@@ -1990,6 +1974,7 @@ Item {
         // name at the label size.
         Row {
             id: faceRow
+            visible: !look.pulledOut
             x: Gap.s
             anchors.verticalCenter: parent.verticalCenter
             spacing: Gap.m
@@ -2046,6 +2031,7 @@ Item {
         group: editor.groupOf(groupId)
         isCursor: !editor.lifted && editor.cursorKey === "face:" + groupId
         chosen: editor.selectedId === groupId
+        pulledOut: editor.leaderShown && editor.selectedId === groupId
         hovered: editor.hoverKey === "face:" + groupId
         opacity: editor.liftingFace && editor.lifted.face === groupId ? 0.35 : 1
     }
