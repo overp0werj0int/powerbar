@@ -541,12 +541,14 @@ Item {
             return;
         }
         if (carry && cursorRecord) {
-            // A moved widget stays among its zone's groups: a step that
-            // would land it on a "+" (a new group) or in the pool is not
-            // a move, so it stays put.
+            // A "+" (a new group) is not a move: going down the widget
+            // passes it, into the pool, so Shift+Down past the zone's last
+            // group takes it out as Shift+Up from the pool put it in.
             lift();
             step(dx, dy, false);
-            if (liftTarget && (liftTarget.area === "plus" || liftTarget.area === "pool"))
+            if (liftTarget && liftTarget.area === "plus" && dy > 0)
+                step(0, dy, false);
+            if (liftTarget && liftTarget.area === "plus")
                 cancel();
             else
                 drop();

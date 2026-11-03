@@ -475,16 +475,16 @@ TestCase {
     compare(calls[0][0], "editGroups");
     verify(/:New group@right/.test(calls[0][1]), "a new group in the plus's zone");
   }
-  function test_groupsCarryRefusedOntoPlus() {
+  // Shift+Down past the zone's last group passes the "+" (no new group) and
+  // takes the widget out, as Shift+Up from the pool puts one in.
+  function test_groupsCarryDownPastTheLastGroupTakesItOut() {
     var page = settledGroups();
     page.place({ area: "member", id: "g2", pos: 0 });
     page.focusFirst();
     tryVerify(function () { return page.stageFocused }, 1000);
-    var before = JSON.stringify(page.at);
-    keyClick(Qt.Key_J, Qt.ShiftModifier);
+    keyClick(Qt.Key_Down, Qt.ShiftModifier);
     compare(page.lifted, null, "nothing stays lifted");
-    compare(calls.length, 0, "nothing is written");
-    compare(JSON.stringify(page.at), before, "the cursor stays");
+    compare(JSON.stringify(calls), JSON.stringify([["assignGroup", "c1", "", ""]]), "taken out, no new group");
   }
   function test_groupsCarryRefusedOntoPool() {
     var page = settledGroups();
