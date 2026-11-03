@@ -1,6 +1,8 @@
 import QtQuick
 import QtQuick.Controls as Controls
 import QtQuick.Layouts
+import QtQuick.Shapes
+import QtQuick.Effects
 import QtQml.Models
 import qs.Commons
 import qs.Commons as Commons
@@ -12,6 +14,7 @@ import "RenderModel.js" as RenderModel
 import "NotchModel.js" as NotchModel
 import "SectionsModel.js" as SectionsModel
 import "MotionModel.js" as MotionModel
+import "ShelfModel.js" as ShelfModel
 
 // Lives in the bar's window: widgets keep the same QsWindow and popup anchors.
 Item {
@@ -35,15 +38,18 @@ Item {
   // A drag's landing outline slides on to the next landing spot (DRAG-75).
   readonly property HighlightGlide dropGlide: HighlightGlide {}
   readonly property bool presenting: opened || reveal > 0.001 || !!dragMount
-  onPresentingChanged: if (!presenting && bar.managedOwner === drawer) bar.managedOwner = null
+  onPresentingChanged: {
+    if (!presenting && bar.managedOwner === drawer) bar.managedOwner = null
+    reportJoin()
+  }
   Behavior on reveal {
     enabled: bar.animationsEnabled && !drawer.instantClose && !drawer.replaying
     // Drawers open a few dozen times a day: quick, a strong ease-out both
     // ways, and closing faster than opening. On the notch, the zones' slide
     // out of the camera: a spring held to a few px out, ease-out back in.
     NumberAnimation {
-      duration: MotionModel.drawerMs(drawer.opened, drawer.fromNotch)
-      easing.type: drawer.fromNotch ? (drawer.opened ? Easing.OutBack : Easing.OutCubic) : Easing.BezierSpline
+      duration: MotionModel.drawerMs(drawer.opened, drawer.attached)
+      easing.type: drawer.attached ? (drawer.opened ? Easing.OutBack : Easing.OutCubic) : Easing.BezierSpline
       easing.overshoot: NotchModel.backOvershoot(drawer.height, drawer.hostWindow.notchOvershoot)
       easing.bezierCurve: [0.23, 1, 0.32, 1, 1, 1]
     }
@@ -53,7 +59,15 @@ Item {
   readonly property bool fromNotch: !!hostWindow.notchLook && !bar.vertical && !isSubmenu
   // In the notch's colours: its drawers, and a submenu of a notch menu.
   readonly property bool notchColours: fromNotch || isSubmenu && parentMenu.fromNotch
-  opacity: (fromNotch ? 1 : Math.max(0, Math.min(1, reveal))) * asideOpacity
+  // On demand "shelf" (on-demand-drawers.md DEMAND-120): a strip drawer
+  // joined to the bar's edge, in the bar's colours, sliding out of the bar as
+  // the notch's do. Menus and submenus stay apart.
+  readonly property bool shelf: bar.onDemandShelf && !fromNotch && !isSubmenu && surfaceRole !== "menu"
+  // Joined to the bar: slides out of it, cut at its edge.
+  readonly property bool attached: fromNotch || shelf
+  // Drawn in the bar's own surface colour and ink.
+  readonly property bool barColours: notchColours || shelf
+  opacity: (attached ? 1 : Math.max(0, Math.min(1, reveal))) * asideOpacity
   // The opening motion starts on the second frame after the open: the first
   // lays out and paints the rows just mounted and the main bar's change,
   // which can take a few frames' time. Started before it, the motion was
@@ -119,8 +133,8 @@ Item {
       : bar.vertical ? (bar.position === "left" ? 0 : drawer.width) : drawer.originAlong
     origin.y: drawer.isSubmenu ? (bar.position === "bottom" ? drawer.height : 0)
       : !bar.vertical ? (bar.position === "top" ? 0 : drawer.height) : drawer.originAlong
-    xScale: drawer.fromNotch ? 1 : 0.96 + 0.04 * Math.max(0, drawer.reveal)
-    yScale: drawer.fromNotch ? 1 : 0.96 + 0.04 * Math.max(0, drawer.reveal)
+    xScale: drawer.attached ? 1 : 0.96 + 0.04 * Math.max(0, drawer.reveal)
+    yScale: drawer.attached ? 1 : 0.96 + 0.04 * Math.max(0, drawer.reveal)
   }
   property bool grabReady: false
   onOpenedChanged: {
@@ -129,7 +143,7 @@ Item {
     else grabDelay.stop()
     if (!opened) { asideEnd.stop(); steppedAside = false }
     if (opened) bar.ev("drawer", "open " + (isSubmenu ? "submenu " : "") + (groupId ? "group:" + groupId : token) + (keyboardMode ? " keys" : "")
-      + " on " + (hostWindow && hostWindow.screen ? hostWindow.screen.name : "?"), bar.animationsEnabled ? MotionModel.drawerMs(true, fromNotch) : 0)
+      + " on " + (hostWindow && hostWindow.screen ? hostWindow.screen.name : "?"), bar.animationsEnabled ? MotionModel.drawerMs(true, attached) : 0)
   }
   Timer { id: grabDelay; interval: 250; onTriggered: drawer.grabReady = drawer.opened }
   // A click pinning a hover drawer waits the same moment: a grab that starts
@@ -413,7 +427,42 @@ Item {
       zone: zone, snap: tokens.thickness / 2, inset: tokens.inset, row: tokens.thickness, vertical: bar.vertical }
     return namedMenu ? Model.placeMenu(o) : Model.placeStrip(o)
   }
-  readonly property real axisPosition: placement.start
+  // The surface a shelf hangs from (Bar shelfHost), and the shelf moved
+  // along so that neither end lands too close to that surface's end to curve
+  // cleanly: flush with it instead (DEMAND-121).
+  readonly property var shelfHost: {
+    if (!shelf) return null
+    var geometry = islandRevision
+    return hostWindow.shelfHost(zone)
+  }
+  readonly property real axisPosition: placement.start + (shelfHost ? ShelfModel.snapShift(placement.start, paintedLength, shelfHost, surfaceRadius,
+    Math.min(bar.edgeGap, shelfHost.start), Math.max(axisExtent - bar.edgeGap, shelfHost.end)) : 0)
+  // The shelf's outline in its own frame (ShelfModel.outline), as deep as
+  // the drawer plus the spring's overshoot, which it fills toward the bar.
+  readonly property real crossPainted: bar.vertical ? width : height
+  readonly property var shelfShape: shelfHost ? ShelfModel.outline({ length: paintedLength, depth: crossPainted + clipper.overshoot,
+    radius: surfaceRadius, barStart: shelfHost.start - axisPosition, barEnd: shelfHost.end - axisPosition, barRadius: shelfHost.radius }) : null
+  // Its border, as wide as the bar's (none where the bar has none).
+  readonly property real shelfBorder: shelf && !Border.isNone(bar.islandBorder) ? Border.top(bar.islandBorder) : 0
+  // While it shows, the bar squares the corners it joins (DEMAND-122).
+  readonly property string shelfCorners: shelfShape && presenting
+    ? ShelfModel.squaredCorners(bar.position, shelfShape.start, shelfShape.end).join(" ") : ""
+  function reportJoin() {
+    var held = hostWindow.shelfJoin
+    if (!shelfHost || !presenting) {
+      if (held && held.owner === drawer) hostWindow.shelfJoin = null
+      return
+    }
+    if (held && held.owner === drawer && held.surface === shelfHost.item && held.corners.join(" ") === shelfCorners) return
+    hostWindow.shelfJoin = { owner: drawer, surface: shelfHost.item, corners: shelfCorners ? shelfCorners.split(" ") : [] }
+  }
+  onShelfCornersChanged: reportJoin()
+  onShelfHostChanged: reportJoin()
+  // A shelf starts at the bar surface's far edge, with no gap.
+  readonly property real shelfEdge: {
+    var m = bar.metricsOf(hostWindow)
+    return (m.extent + m.size) / 2
+  }
   // A submenu beside its row (ManagedModel.placeSubmenu).
   property int rowRevision: 0
   readonly property var subPlace: {
@@ -427,9 +476,11 @@ Item {
   width: bar.vertical ? crossLength : length
   height: bar.vertical ? length : crossLength
   x: isSubmenu ? (subPlace ? subPlace.x : 0)
-    : bar.vertical ? (bar.position === "left" ? bar.metricsOf(hostWindow).extent + gap : hostWindow.drawerExtent - gap - width) : axisPosition
+    : bar.vertical ? (shelf ? (bar.position === "left" ? shelfEdge : hostWindow.drawerExtent + bar.metricsOf(hostWindow).extent - shelfEdge - width)
+      : bar.position === "left" ? bar.metricsOf(hostWindow).extent + gap : hostWindow.drawerExtent - gap - width) : axisPosition
   y: isSubmenu ? (subPlace ? subPlace.y : 0)
-    : bar.vertical ? axisPosition : (bar.position === "top" ? bar.metricsOf(hostWindow).extent + gap : hostWindow.drawerExtent - gap - height)
+    : bar.vertical ? axisPosition : shelf ? (bar.position === "top" ? shelfEdge : hostWindow.drawerExtent + bar.metricsOf(hostWindow).extent - shelfEdge - height)
+      : bar.position === "top" ? bar.metricsOf(hostWindow).extent + gap : hostWindow.drawerExtent - gap - height
   visible: presenting
   enabled: opened
   focus: opened && keyboardMode
@@ -621,7 +672,7 @@ Item {
   }
   function close(reason) {
     if (opened) bar.ev("drawer", "close " + (isSubmenu ? "submenu " : "") + (groupId ? "group:" + groupId : token) + " " + (reason || "-"),
-      bar.animationsEnabled && reason !== "immediate" ? MotionModel.drawerMs(false, fromNotch) : 0)
+      bar.animationsEnabled && reason !== "immediate" ? MotionModel.drawerMs(false, attached) : 0)
     closeMemberPanel()
     if (submenu) submenu.close("immediate")
     subIntent.stop()
@@ -826,24 +877,61 @@ Item {
   // cut at the bar's bottom edge, as a zone slides out of the camera: the
   // clip runs along the drawer's top, wide and deep enough for its shoulders
   // and shadow. Elsewhere it neither clips nor moves.
+  // A shelf running on past its bar surface's end: the fillets that curve up
+  // from its top edge into that end (ShelfModel.outline ups). They stand
+  // beside the bar, above the edge the shelf slides out of, so they are
+  // drawn here, outside its cut, and come in with it.
+  Shape {
+    id: shelfUps
+    visible: !!drawer.shelfShape && drawer.shelfShape.ups.length > 0
+    width: drawer.width
+    height: drawer.height
+    opacity: Math.max(0, Math.min(1, drawer.reveal))
+    preferredRendererType: Shape.CurveRenderer
+    transform: Matrix4x4 {
+      matrix: { var m = ShelfModel.frameMatrix(bar.position, shelfUps.width, shelfUps.height); return Qt.matrix4x4(m[0], m[1], m[2], m[3], m[4], m[5], m[6], m[7], m[8], m[9], m[10], m[11], m[12], m[13], m[14], m[15]) }
+    }
+    ShapePath {
+      fillColor: bar.mainSurfaceColor
+      strokeColor: "transparent"
+      PathSvg { path: drawer.shelfShape ? drawer.shelfShape.ups.map(function(u) { return u.fill }).join(" ") : "" }
+    }
+    ShapePath {
+      fillColor: "transparent"
+      strokeColor: drawer.shelfBorder > 0 ? Border.color(bar.islandBorder) : "transparent"
+      strokeWidth: drawer.shelfBorder
+      PathSvg { path: drawer.shelfShape && drawer.shelfBorder > 0 ? drawer.shelfShape.ups.map(function(u) { return u.edge }).join(" ") : "" }
+    }
+  }
   Item {
     id: clipper
-    readonly property real side: drawer.fromNotch ? bar.notchCorners.shoulder + Math.ceil(bar.surfaceEffects.shadowSize) * 2 : 0
+    // Room past the drawer's three free sides for its fillets and shadow;
+    // none on the bar's side, where it is cut.
+    readonly property real side: !drawer.attached ? 0
+      : (drawer.fromNotch ? bar.notchCorners.shoulder : drawer.surfaceRadius) + Math.ceil(bar.surfaceEffects.shadowSize) * 2
     // How far past its place the body is (OutBack's overshoot, a few px).
-    readonly property real overshoot: drawer.fromNotch ? Math.max(0, (drawer.reveal - 1) * drawer.height) : 0
-    x: -side
-    width: drawer.width + 2 * side
-    height: drawer.height + side
-    clip: drawer.fromNotch
+    readonly property real overshoot: drawer.attached ? Math.max(0, (drawer.reveal - 1) * drawer.crossPainted) : 0
+    readonly property string edge: drawer.attached ? bar.position : ""
+    x: edge === "left" ? 0 : -side
+    y: edge === "top" ? 0 : -side
+    width: drawer.width + (edge === "left" || edge === "right" ? side : 2 * side)
+    height: drawer.height + (edge === "top" || edge === "bottom" ? side : 2 * side)
+    clip: drawer.attached
     Item {
       id: body
-      x: clipper.side
+      x: -clipper.x
+      y: -clipper.y
       width: drawer.width
       height: drawer.height
-      transform: Translate { y: drawer.fromNotch ? -(1 - drawer.reveal) * drawer.height : 0 }
+      // Slides out of the bar's edge (the notch's, or a shelf's).
+      readonly property real tucked: (1 - drawer.reveal) * drawer.crossPainted
+      transform: Translate {
+        x: clipper.edge === "left" ? -body.tucked : clipper.edge === "right" ? body.tucked : 0
+        y: clipper.edge === "top" ? -body.tucked : clipper.edge === "bottom" ? body.tucked : 0
+      }
       EffectSurface {
         anchors.fill: parent
-        visible: !drawer.fromNotch
+        visible: !drawer.attached
         color: drawer.notchColours ? bar.mainSurfaceColor : bar.overlaySurfaceColor
         shadowEnabled: bar.surfaceEffects.shadow
         shadowSize: bar.surfaceEffects.shadowSize
@@ -868,6 +956,43 @@ Item {
         shadowEnabled: bar.surfaceEffects.shadow
         shadowSize: bar.surfaceEffects.shadowSize
         shadowOpacity: bar.surfaceEffects.shadowOpacity
+      }
+      // The shelf's: the bar's surface carried on down, its ends curving out
+      // into the bar's edge or on from its end (ShelfModel.outline), drawn in
+      // the shelf's own frame and turned to the bar's edge. Its shadow is the
+      // body's, cut at the bar's edge with the rest. Like the notch's, it
+      // reaches back toward the bar by the spring's overshoot.
+      RectangularShadow {
+        visible: drawer.shelf && bar.surfaceEffects.shadow
+        z: -1
+        anchors.fill: parent
+        radius: drawer.surfaceRadius
+        blur: bar.surfaceEffects.shadowSize
+        color: Qt.rgba(0, 0, 0, bar.surfaceEffects.shadowOpacity)
+      }
+      Shape {
+        id: shelfShape
+        visible: !!drawer.shelfShape
+        readonly property real reach: clipper.overshoot
+        x: clipper.edge === "left" ? -reach : 0
+        y: clipper.edge === "top" ? -reach : 0
+        width: drawer.width + (bar.vertical ? reach : 0)
+        height: drawer.height + (bar.vertical ? 0 : reach)
+        preferredRendererType: Shape.CurveRenderer
+        transform: Matrix4x4 {
+          matrix: { var m = ShelfModel.frameMatrix(bar.position, shelfShape.width, shelfShape.height); return Qt.matrix4x4(m[0], m[1], m[2], m[3], m[4], m[5], m[6], m[7], m[8], m[9], m[10], m[11], m[12], m[13], m[14], m[15]) }
+        }
+        ShapePath {
+          fillColor: bar.mainSurfaceColor
+          strokeColor: "transparent"
+          PathSvg { path: drawer.shelfShape ? drawer.shelfShape.fill : "" }
+        }
+        ShapePath {
+          fillColor: "transparent"
+          strokeColor: drawer.shelfBorder > 0 ? Border.color(bar.islandBorder) : "transparent"
+          strokeWidth: drawer.shelfBorder
+          PathSvg { path: drawer.shelfShape && drawer.shelfBorder > 0 ? drawer.shelfShape.edge : "" }
+        }
       }
       HoverHandler { id: hover }
       Flickable {
@@ -1078,8 +1203,8 @@ Item {
         motionEnabled: bar.animationsEnabled
         glide: rowGlide
         glideKey: "rows"
-        hoverColor: bar.highlightHoverColor
-        selectedColor: bar.highlightSelectedColor
+        hoverColor: drawer.shelf ? bar.onBarHoverColor : bar.highlightHoverColor
+        selectedColor: drawer.shelf ? bar.onBarSelectedColor : bar.highlightSelectedColor
         rounding: CellModel.radius(drawer.tokens, bar.islandRounding)
       }
       Text {
@@ -1088,7 +1213,7 @@ Item {
         textFormat: Text.PlainText
         text: mount.title
         // On the notch's black, the bar's own light text.
-        color: drawer.notchColours ? drawer.bar.barForeground : drawer.bar.textOn(drawer.namedMenu ? Commons.Color.menu.text : Commons.Color.popups.text)
+        color: drawer.barColours ? drawer.bar.barForeground : drawer.bar.textOn(drawer.namedMenu ? Commons.Color.menu.text : Commons.Color.popups.text)
         font.family: drawer.namedMenu ? Style.font.menuFamily : Style.font.family
         font.pixelSize: Style.font.bodySmall
         // Names end one air before the row's end, or before a trailing value.

@@ -36,7 +36,7 @@ Numbers below use Omarchy's default theme tokens: bar 26 px (horizontal) or 28 p
 
 ## Dots (drawer handle) and counts
 
-- **ZONE-14** A zone shows dots only while something waits behind them: widgets folded for lack of room, and with `powerbarOnDemand: "inline"` or `"menu"` also its hidden on-demand widgets. In the default `"drawer"` mode with nothing folded there are no dots. They draw as one small empty circle, 4 px across with a 1 px outline in the bar's foreground at 55 % opacity, on either orientation, centred in a glyph-sized cell so it is as easy to point at as an icon. Code: Bar.qml FoldHandle (shown when count > 0); ZoneDot.qml.
+- **ZONE-14** A zone shows dots only while something waits behind them: widgets folded for lack of room, and with `powerbarOnDemand: "inline"` or `"menu"` also its hidden on-demand widgets. In the default `"drawer"` mode, and in `"shelf"`, with nothing folded there are no dots. They draw as one small empty circle, 4 px across with a 1 px outline in the bar's foreground at 55 % opacity, on either orientation, centred in a glyph-sized cell so it is as easy to point at as an icon. Code: Bar.qml FoldHandle (shown when count > 0); ZoneDot.qml.
 
 - **ZONE-15** The dots take one glyph cell (a 12 px glyph's slot: 27 px at spacing 4) and the lasting fit reserves it, so a zone does not change length when its on-demand widgets hide or return. The cell eases in and out over 120 ms with Animations on. Code: ZoneFitModel.slotsOf; FoldHandle width Behavior.
 
@@ -106,7 +106,7 @@ Numbers below use Omarchy's default theme tokens: bar 26 px (horizontal) or 28 p
 
 - **ZONE-44** Default large bar is off (ZONE-23).
 
-- **ZONE-45** `bar.powerbarOnDemand` is `"drawer"` (default; any value except `"inline"` and `"menu"` reads as drawer), `"inline"` or `"menu"`. Switching it collapses an open expansion and closes an open drawer or menu at once. See on-demand-drawers.md. Code: BarModel.options; Bar.qml onOnDemandModeChanged.
+- **ZONE-45** `bar.powerbarOnDemand` is `"drawer"` (default; any value except `"shelf"`, `"inline"` and `"menu"` reads as drawer), `"shelf"` (a drawer joined to the bar, on-demand-drawers.md DEMAND-120), `"inline"` or `"menu"`. Switching it collapses an open expansion and closes an open drawer or menu at once. See on-demand-drawers.md. Code: BarModel.options; Bar.qml onOnDemandModeChanged.
 
 - **ZONE-46** `powerbarDotsBadge` is on unless set to false (ZONE-16).
 
@@ -221,7 +221,7 @@ Numbers below use Omarchy's default theme tokens: bar 26 px (horizontal) or 28 p
 
 - **ZONE-83** In the Notch style on the notched screen the bar is always large, and the large bar is exactly as tall as the notch, on every screen. `powerbarLargeBar` applies to the other styles, and to the Notch style where it draws as islands. Code: Bar.qml largeBar, barSizeFor.
 
-- **ZONE-84** On-demand widgets on the notch always wait behind their zone's dots: they expand in the bar, or with `powerbarOnDemand: "menu"` open in a menu under the dots (on-demand-drawers.md DEMAND-94); `"drawer"` reads as `"inline"` there, since the notch has no drawers. Code: Bar.qml onDemandMode.
+- **ZONE-84** On-demand widgets on the notch always wait behind their zone's dots: they expand in the bar, or with `powerbarOnDemand: "menu"` open in a menu under the dots (on-demand-drawers.md DEMAND-94); `"drawer"` and `"shelf"` read as `"inline"` there, since the notch has no drawers. Code: Bar.qml onDemandMode.
 
 - **ZONE-85** A zone that grows past the screen edge on the notch (an inline expansion on the notched screen) wraps onto a second row under the first:
   - **Which items move:** the left zone's first items or the right zone's last ones, as one block. The outermost still meets the screen edge, and the row reads from the edge toward the camera.
