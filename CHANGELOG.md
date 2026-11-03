@@ -1,6 +1,102 @@
 # Changelog
 
-## Unreleased
+## 0.10.0 — 2026-11-04
+
+Five zones, new ways to keep widgets out of the way, and a Preferences window
+rebuilt as an exploded view of your bar. Omarchy r7569 and later need this
+version.
+
+### Before you update
+
+- **Omarchy r7569 and later need 0.10.** Those builds remove
+  `ScreenMoveRemap`, and 0.9.6's bar fails to load on them. Powerbar now keeps
+  its own remap.
+- **Zone modes are gone.** Three zones, Two zones, "Pinned to screen center"
+  and "Keep at screen center" make way for the five zones. Your layout is read
+  into them once, and the arrangements each mode kept are copied to
+  `~/.cache/powerbar/zone-layouts-<date>.json` first. `set zones` and
+  `set centerAnchor` say what replaced them.
+
+### Out of the way
+
+- **On a shelf.** A fourth On demand display: the drawer grows out of the bar
+  as one surface with it, in the bar's colours, with curved corners and one
+  border round both (`omarchy-shell powerbar set onDemand shelf`).
+- **In a menu.** Each zone's dots open a menu of its On demand widgets with
+  their icons and names, walked with the pointer or the keys. An On demand
+  group is a row that opens a submenu.
+- **Tray icons on the bar.** Preferences > Layout has an In the tray plate.
+  Drag an icon onto the bar, On demand, Hidden or into a group and it works as
+  a widget, with the tray's click, right-click menu and scroll. Drag it back
+  and the tray shows it again.
+- **Readable over windows.** Drawers, menus, the key legend, search and
+  tooltips keep a minimum opacity on a clear bar (Look > Surface > Over
+  windows, 65 % by default).
+- **Activity peeks while the bar is off.** With the bar switched off, a widget
+  that changes still comes out alone on its badge.
+
+### The bar
+
+- **Five zones.** The bar's zones are now Omarchy's sections: Left, Left of
+  center, Center, Right of center and Right. Widgets Omarchy puts in its new
+  sections show on Powerbar, and the stock bar reads Powerbar's layout the
+  same way.
+- **Notch is a style.** Black ears on the notched screen's top edge, islands
+  elsewhere, and the bar can move to another edge. Drawers and menus hang from
+  the ears as one surface, and a zone's menu sits flush with its ear's end.
+- **Every style fits the camera.** A floating bar dips round it and follows
+  the screen's rounded corners, a flat bar ends level with it, and Center can
+  sit on either side of it. Highlights in a rounded corner round with it. The
+  notch's height can be set too, and every panel's camera is now measured on
+  Apple's artwork.
+- **Panels morph.** Moving from one widget's panel to another's in the same
+  zone morphs the card into place, as under Omarchy's bar.
+- **Quieter dots.** A zone's waiting widgets are marked by one small empty
+  circle instead of three dots.
+
+### Preferences
+
+- **The Layout page is an exploded view of your bar.** On the bar, On demand,
+  Hidden and In the tray are plates tilted back under the camera, split into
+  the five zones. Enter or a click pulls a widget forward on a dashed line to
+  its inspector.
+- **The Groups page uses the same plates.** Each zone lists its groups with
+  their widgets right under them. A group pulls forward to an inspector where
+  its icon and name are the controls.
+- **Look and Behavior replace the Bar page.** Two desks of strips, with
+  numbers on flat faders. The real bar shows every change, so there is no
+  preview to read.
+- **One scale throughout.** Type, gaps and corners follow a single golden scale
+  taken from your theme. A switch lays the pages flat if you prefer them that
+  way (Behavior > Pages in perspective).
+
+### Keyboard and motion
+
+- **Icon by icon.** The cursor reveals the indicators, and the keys walk their
+  icons and Workspaces' one at a time. Enter presses the one under the cursor.
+- **Esc cancels a drag** on the bar in the keyboard mode, and on the Layout and
+  Groups pages.
+- **Powerbar follows Hyprland.** With its animations off, Powerbar stands still
+  too, and the key legend fades at your layer-fade speed and curve.
+
+### Fixes
+
+- A double click on the bar no longer opens Omarchy's wallpaper selector.
+- Turning blur on or off with a card showing no longer ends the shell.
+- Widget panels open at the bar's edge on current Omarchy builds, not over the
+  bar.
+- Hover cards no longer stick after a quick pass, or close by themselves with
+  the pointer at rest.
+- A clicked drawer or menu closes on its own 1 s after the pointer leaves, and
+  a click on a window closes it and reaches the window.
+- A panel opened from a group menu or a drawer takes the mouse again.
+- Dragging out of menus and drawers keeps the icon under the pointer and the
+  drop place right, on empty workspaces too.
+- A shortcut changed while an earlier change was still being written now
+  reaches Hyprland.
+
+<details>
+<summary>Every change in this release</summary>
 
 - A shelf and its bar surface now share one border: the bar's line across the join is gone, and the shelf's border runs on from the bar's, on every join and screen edge. On a translucent bar the line still shows through. A flat bar's shelf has no border, as the bar has none.
 - The Layout and Groups pages show the Clock's clock icon again, not the first letters of the day ("Tu"). Any wide widget that draws only words gets its stock icon.
@@ -228,6 +324,8 @@
 - **Reset the notch's size.** Preferences > Bar > Notch has a Reset button
   while the width or height is set by hand; it goes back to the measured
   size. Before, only Backspace on a slider could.
+
+</details>
 
 ## 0.9.6 — 2026-10-17
 

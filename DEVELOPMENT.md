@@ -161,6 +161,7 @@ logical px of height) and only Preferences tall:
 | `search-tokyo-night.jpg` | tokyo-night, 2400x600 at 2.5 | flat; `set onDemand drawer`; `keysSearch`, keys `-t tail` |
 | `notch-kanagawa.jpg` | kanagawa, 3024x1964 at 2, `shot -g "400,0 760,180"` | `set style notch`; after setting the mode, `OMABOX_READY_TIMEOUT=2s omabox restart-shell -b gal` (the theme switch restarted the shell on the old mode, and it finds no notch); `group g-show-system`. `cutouts.json` in the box HOME: `{"panels":[{"connector":"HEADLESS-2","width":3024,"height":1964,"top":64}]}` |
 | `layout-jade-horse.jpg` | jade-horse, 2880x1500 at 2 | islands; `set onDemand drawer`; `preferencesPage 1` |
+| `groups-everforest.jpg` | everforest, 2880x1500 at 2 | islands; `set onDemand drawer`; `preferencesPage 2`; keys `Right` x4, `Down`, `Return` (Extras pulled forward) |
 | `look-catppuccin.jpg` | catppuccin, 2880x1400 at 2 | islands; `preferencesPage 3` |
 
 Preferences needs 1440 logical px of width, or the desk strips cut their
