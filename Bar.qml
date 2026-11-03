@@ -5159,6 +5159,11 @@ Item {
         // Out from the bar beside the target, never over an open drawer or
         // menu (TooltipModel).
         onAnchoring: {
+          // Only for a card that is up: the surface stays mapped (LOOK-153),
+          // so it is anchored again while a hovered widget's card still
+          // waits its 400 ms too, and words set then were never cleared when
+          // the pointer left before the card came up (LOOK-154).
+          if (!tooltipWindow.cardUp) return
           var target = root.tooltipTarget
           if (!root.targetBelongsToWindow(target, barWindow)) return
           // A widget not laid out yet (a zone opening under the cursor) has
@@ -5193,7 +5198,7 @@ Item {
 
       EffectSurface {
         id: tooltipBubble
-        visible: tooltipWindow.text !== "" && !barWindow.sliding
+        visible: tooltipWindow.cardUp && tooltipWindow.text !== "" && !barWindow.sliding
         x: tooltipWindow.at.x - tooltipWindow.originX
         y: tooltipWindow.at.y - tooltipWindow.originY
         width: implicitWidth
