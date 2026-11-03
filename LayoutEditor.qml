@@ -1572,14 +1572,14 @@ Item {
                     checked: !!panel.record && !clockDriven && editor.bar.activityPeeksFor(panel.record.instanceKey, panel.record.id)
                     onActivated: editor.bar.setActivityPeek(panel.record.instanceKey, !checked)
                 }
-                faders: DeskRow {
-                    visible: panel.isGroup
-                    action: true
-                    trailing: true
-                    label: "Edit group"
-                    spaceHint: "Edit the group"
-                    onActivated: editor.preferences.openGroup(panel.record.groupId)
-                }
+            }
+            actions: DeskRow {
+                visible: panel.isGroup
+                action: true
+                trailing: true
+                label: "Edit group"
+                spaceHint: "Edit the group"
+                onActivated: editor.preferences.openGroup(panel.record.groupId)
             }
         }
     }

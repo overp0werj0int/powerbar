@@ -1410,8 +1410,6 @@ Item {
             DeskStrip {
                 title: "Badge and keys"
                 caption: "What it counts, what opens it"
-                // The member under the cursor: where its badge count comes from.
-                footnote: editor.member ? editor.preferences.title(editor.member) + "'s; x takes it out" : "Put the cursor on one of its widgets for these"
                 DeskRow {
                     label: "Badge"
                     checked: inspector.group ? inspector.group.badge : false
@@ -1471,16 +1469,17 @@ Item {
                     target: inspector.group ? "group:" + inspector.group.id : ""
                     unavailable: inspector.group && inspector.group.visibility === "hidden" ? "Hidden groups can't open" : ""
                 }
-                // Dissolve, asked twice (PREFS-39): the card's last word.
-                faders: DeskRow {
-                    readonly property bool confirming: !!inspector.group && editor.pendingDissolve === inspector.group.id
-                    action: true
-                    danger: confirming
-                    trailing: true
-                    label: confirming ? "Again to dissolve" : "Dissolve " + (inspector.group ? inspector.group.label : "")
-                    spaceHint: confirming ? "Again to dissolve" : "Dissolve, asked twice"
-                    onActivated: editor.dissolve(inspector.group ? inspector.group.id : "")
-                }
+            }
+            // Dissolve, asked twice (PREFS-39): the card's last word, under
+            // the strips.
+            actions: DeskRow {
+                readonly property bool confirming: !!inspector.group && editor.pendingDissolve === inspector.group.id
+                action: true
+                danger: confirming
+                trailing: true
+                label: confirming ? "Again to dissolve" : "Dissolve " + (inspector.group ? inspector.group.label : "")
+                spaceHint: confirming ? "Again to dissolve" : "Dissolve, asked twice"
+                onActivated: editor.dissolve(inspector.group ? inspector.group.id : "")
             }
         }
     }

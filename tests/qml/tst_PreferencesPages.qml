@@ -620,10 +620,12 @@ TestCase {
     keyClick(Qt.Key_Return);
     tryVerify(function () { return page.inspectorFocused }, 1000, "enter on a face takes the inspector");
     compare(page.focused.options[0].value, "glyph", "the cursor starts on Show");
-    // Tab goes from strip to strip, to each one's first control, and round.
+    // Tab goes from strip to strip, to each one's first control, then to
+    // Dissolve under them, and round.
     keyClick(Qt.Key_Tab);
     var seen = tabWalk(page);
-    compare(seen.length, 3, "three strips");
+    compare(seen.length, 4, "three strips and Dissolve");
+    compare(seen[2].label, "Dissolve System", "Dissolve comes after the last strip");
     keyClick(Qt.Key_Tab, Qt.ShiftModifier);
     verify(page.inspectorFocused);
     compare(page.focused, seen[seen.length - 1], "Shift+Tab goes to the previous strip");
