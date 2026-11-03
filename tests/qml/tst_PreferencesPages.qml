@@ -350,6 +350,7 @@ TestCase {
     var page = createTemporaryObject(groupsPage, prefs);
     page.selectedId = "g1";
     wait(50);
+    page.inspect(false);
     var face = itemWith(page, function (k) { return k.deskStops === 2 && k.pickIcon !== undefined });
     verify(face, "the inspector has the face");
     face.deskFocus(1);
@@ -375,6 +376,7 @@ TestCase {
     wait(50);
     page.place({ area: "member", id: "g2", pos: 0 });
     compare(page.member.instanceKey, "c1");
+    page.inspect(false);
     wait(50);
     var row = itemWith(page, function (k) { return k.label === data.label && k.committed !== undefined });
     verify(row, "the inspector has the row");
@@ -617,7 +619,12 @@ TestCase {
     page.place({ area: "face", id: "g1" });
     page.focusFirst();
     tryVerify(function () { return page.stageFocused }, 1000);
+    verify(!page.inspecting, "no inspector until a group is pulled forward");
+    keyClick(Qt.Key_Tab);
+    verify(!page.inspectorFocused, "tab does not reach a hidden inspector");
+    page.focusFirst();
     keyClick(Qt.Key_Return);
+    verify(page.inspecting, "enter on a face pulls it forward");
     tryVerify(function () { return page.inspectorFocused }, 1000, "enter on a face takes the inspector");
     compare(page.focused.options[0].value, "glyph", "the cursor starts on Show");
     // Tab goes from strip to strip, to each one's first control, then to
@@ -632,6 +639,7 @@ TestCase {
     keyClick(Qt.Key_Tab);
     keyClick(Qt.Key_Escape);
     verify(page.stageFocused, "esc goes back to the chosen face");
+    verify(!page.inspecting, "esc pushes it back");
     verify(!page.inspectorFocused);
   }
 

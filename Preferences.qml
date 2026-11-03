@@ -266,8 +266,12 @@ Item {
         page = 1;
         show(screen);
     }
-    function openGroup(id) {
+    // On the Groups page at a group; `inspect` pulls it forward to the
+    // inspector, focused (Edit group, PREFS-26), else the cursor is on its face.
+    property bool pendingInspect: false
+    function openGroup(id, inspect) {
         selectGroup(id);
+        pendingInspect = !!inspect;
         setPage(1);
     }
     function setPage(index) {
@@ -283,6 +287,9 @@ Item {
         if (pendingKeyboard && item.keyboardRow) {
             pendingKeyboard = false;
             item.keyboardRow.deskFocus(0, Qt.OtherFocusReason);
+        } else if (pendingInspect && item.inspect) {
+            pendingInspect = false;
+            item.inspect(true);
         } else
             item.focusFirst();
     }

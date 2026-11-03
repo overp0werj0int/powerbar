@@ -10,8 +10,9 @@ import qs.Ui
 // a 14 px ring before the label, filled in the accent when chosen, a 6 px dot
 // in it (the same parity, so it sits on the ring's centre pixel); an action
 // row (`action`) has neither, its label in the accent, like a link (in the
-// error colour while it asks again, `danger`; at the row's right end with
-// `trailing`, as a card's last action). Space,
+// error colour while it asks again, `danger`; with `trailing` at the right
+// end and only as wide as its label and padding, as a card's own action).
+// Space,
 // Enter or a click toggles the switch, chooses the row or does the action.
 // With the cursor it looks and lifts as the Layout page's chip does
 // (PREFS-104): the focus fill over the strip's own colour, the focus ring,
@@ -66,7 +67,9 @@ BorderSurface {
   transform: Translate { y: -lift.raise }
   scale: lift.grown
   z: lift.raised ? 1 : 0
-  Layout.fillWidth: true
+  Layout.fillWidth: !trailing
+  Layout.alignment: trailing ? Qt.AlignRight : Qt.AlignLeft
+  implicitWidth: trailing ? labelText.implicitWidth + 2 * Gap.s : 0
   // The surface reaches into the strip's padding; the text stays in line.
   Layout.leftMargin: -Gap.s
   Layout.rightMargin: -Gap.s

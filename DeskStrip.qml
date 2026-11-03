@@ -149,10 +149,13 @@ ZoneTile {
       role: "caption"
       wrapMode: Text.WordWrap
     }
-    // Flat, each the strip's inner width, one under the other.
+    // Flat, each the strip's inner width, one under the other; a trailing
+    // action at its right end (a layout is only as wide as its widest
+    // child's maximum without the cap lifted).
     ColumnLayout {
       id: faderColumn
       Layout.fillWidth: true
+      Layout.maximumWidth: Number.POSITIVE_INFINITY
       visible: children.length > 0
       spacing: Gap.m
     }

@@ -1511,6 +1511,15 @@ Item {
                             editor.bar.assignGroup(panel.record.instanceKey, value, "");
                     }
                 }
+                // A group's: to the Groups page, pulled forward there.
+                faders: DeskRow {
+                    visible: panel.isGroup
+                    action: true
+                    trailing: true
+                    label: "Edit group"
+                    spaceHint: "Edit the group"
+                    onActivated: editor.preferences.openGroup(panel.record.groupId, true)
+                }
             }
 
             // Its layer and zone: the way to move it without dragging.
@@ -1572,14 +1581,6 @@ Item {
                     checked: !!panel.record && !clockDriven && editor.bar.activityPeeksFor(panel.record.instanceKey, panel.record.id)
                     onActivated: editor.bar.setActivityPeek(panel.record.instanceKey, !checked)
                 }
-            }
-            actions: DeskRow {
-                visible: panel.isGroup
-                action: true
-                trailing: true
-                label: "Edit group"
-                spaceHint: "Edit the group"
-                onActivated: editor.preferences.openGroup(panel.record.groupId)
             }
         }
     }
