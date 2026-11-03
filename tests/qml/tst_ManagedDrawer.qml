@@ -44,6 +44,7 @@ Item {
     property string position: "top"
     property bool animationsEnabled: false
     property bool onDemandMenu: false
+    property bool onDemandShelf: false
     property bool barHidden: false
     property bool barHovered: false
     property bool flat: false
@@ -120,6 +121,12 @@ Item {
     property var screen: null
     property var managedSubmenu: null
     property Item contentItem: host
+    // A shelf's surface (Bar shelfHost), and what the shelf reports of it.
+    property var shelfSpan: ({ start: 0, end: 800 })
+    property var shelfJoin: null
+    function shelfHost() {
+      return { item: host, start: shelfSpan.start, end: shelfSpan.end, radius: 10, hang: shelfSpan }
+    }
     Member { id: a; displayName: "a" }
     Member { id: b; displayName: "b" }
     Member { id: c; displayName: "c"; region: "right" }
@@ -147,6 +154,25 @@ Item {
     if (!drawer.dragMount) return
     mouseRelease(drawer.dragMount)
     drawer.releaseDrag(drawer.dragMount)
+  }
+
+  // The bar squares only the corners the shelf really joins (DEMAND-122).
+  function test_aShelfSquaresOnlyTheCornersItJoins_data() {
+    return [
+      { tag: "inside", span: { start: -100, end: 800 }, corners: [] },
+      { tag: "flush with the start", span: { start: 6, end: 800 }, corners: ["bl"] },
+      { tag: "past the end", span: { start: -100, end: 20 }, corners: ["br"] }
+    ]
+  }
+  function test_aShelfSquaresOnlyTheCornersItJoins(data) {
+    bar.members = { left: [a, b] }
+    bar.onDemandShelf = true
+    host.shelfSpan = data.span
+    drawer.openZone("left", false)
+    tryVerify(function() { return !!host.shelfJoin })
+    compare(host.shelfJoin.corners, data.corners)
+    drawer.close("immediate")
+    bar.onDemandShelf = false
   }
 
   function test_membersAreHostedOnlyWhileTheDrawerShows() {

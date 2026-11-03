@@ -4110,14 +4110,31 @@ Item {
       return !!j && !!surface && j.surface === surface && j.corners.indexOf(corner) >= 0
     }
     // The surface a shelf for `zone` hangs from, along the bar in the window's
-    // coordinates: { item, start, end, radius }. The island under `along` (the
-    // cell it hangs from, when known: a notch's ear), else its zone's island,
-    // the floating bar, or a flat bar's whole length (no item, square ends).
+    // coordinates: { item, start, end, radius, hang }. The island under
+    // `along` (the cell it hangs from, when known: a notch's ear), else its
+    // zone's island, the floating bar, or a flat bar's whole length (no item,
+    // square ends). `hang` is that surface's own ends; start and end are where
+    // its edge really stops, which for an ear is the band's ends, since its
+    // black runs on through the camera and the other ear.
     function shelfHost(zone, along) {
-      function span(island) {
-        var p = island.mapToItem(contentItem, 0, 0)
+      function ends(item) {
+        var p = item.mapToItem(contentItem, 0, 0)
         var start = root.vertical ? p.y : p.x
-        return { item: island, start: start, end: start + root.alongSize(island), radius: root.islandRounding }
+        return { start: start, end: start + root.alongSize(item) }
+      }
+      function span(island) {
+        var own = ends(island), edge = own
+        if (island.notchSide) {
+          var camera = ends(cameraShape)
+          edge = { start: Math.min(own.start, camera.start + cameraShape.sS), end: Math.max(own.end, camera.end - cameraShape.sE) }
+          for (var key in zoneIslands) {
+            var ear = zoneIslands[key]
+            if (!ear || !ear.visible || !ear.notchSide) continue
+            var e = ends(ear)
+            edge = { start: Math.min(edge.start, e.start), end: Math.max(edge.end, e.end) }
+          }
+        }
+        return { item: island, start: edge.start, end: edge.end, radius: root.islandRounding, hang: own }
       }
       if (root.islands) {
         var islands = zoneIslands || {}
@@ -4126,7 +4143,7 @@ Item {
             var island = islands[key]
             if (!island || !island.visible) continue
             var s = span(island)
-            if (along >= s.start && along <= s.end) return s
+            if (along >= s.hang.start && along <= s.hang.end) return s
           }
         }
         if (islands[zone] && islands[zone].visible) return span(islands[zone])

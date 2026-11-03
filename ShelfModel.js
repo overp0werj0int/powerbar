@@ -25,7 +25,8 @@ function joinOf(past, room) {
 }
 
 // The room an end needs for its fillet and the corners beside it: closer to
-// the bar's end than this, the shelf snaps flush with it.
+// the bar's end than this, the shelf snaps flush with it, or runs on to it
+// when it cannot move (fit).
 function snapRoom(radius, barRadius) {
   return radius + Math.max(radius, barRadius)
 }
@@ -46,6 +47,31 @@ function snapShift(start, length, bar, radius, min, max) {
   if (startNear && Math.abs(atEnd) > EPS && fits(-atStart)) return -atStart
   if (endNear && Math.abs(atStart) > EPS && fits(atEnd)) return atEnd
   return 0
+}
+
+// Where the shelf goes and how long it is: { start, length }. It moves as
+// snapShift does; then, when `grow`, an end the move could not help lengthens.
+// With the other end flush there is no moving it, and a step too short for
+// two curves reads as a nub: an end short of the bar's end by less than the
+// room runs on to it, and one past it by less than two radii runs on until
+// the corner and the fillet each have their radius, kept within [min, max].
+function fit(start, length, bar, radius, min, max, grow) {
+  var s = start + snapShift(start, length, bar, radius, min, max), l = length
+  if (!grow) return { start: s, length: l }
+  var room = snapRoom(radius, bar.radius || 0), curves = radius * 2
+  var atStart = s - bar.start, atEnd = bar.end - (s + l)
+  if (Math.abs(atStart) <= EPS) {
+    if (atEnd > EPS && atEnd < room) l += atEnd
+    else if (atEnd < -EPS && atEnd > -curves) l = Math.max(l, Math.min(bar.end + curves, max) - s)
+  } else if (Math.abs(atEnd) <= EPS) {
+    if (atStart > EPS && atStart < room) { l += atStart; s = bar.start }
+    else if (atStart < -EPS && atStart > -curves) {
+      var from = Math.min(s, Math.max(bar.start - curves, min))
+      l += s - from
+      s = from
+    }
+  }
+  return { start: s, length: l }
 }
 
 // Where a shelf `length` long starts when it is edge-aligned with its bar

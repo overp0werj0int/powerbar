@@ -121,15 +121,15 @@ omabox for desktop tests in a private Hyprland session
 rendered by `tools/showcase/render.sh` (headless Chromium, 1200x675 at 2x:
 16:9, the marketplace card's shape). The card is words on the left and two
 untouched captures on the right, both from one box set up like the gallery
-below with `powerbarOnDemand` "shelf", `powerbarStyle` "islands",
-`shape.rounding 12`, `shape.scope all` and `tuning false`:
+below, with `tuning false`:
 
 - `screenshots/hero-bar.jpg`: tokyo-night over a plain violet-to-teal
   gradient (`magick -size 2400x1500 gradient:'#5b4fa8'-'#2f7f8f'`, then
-  `omarchy-theme-bg-set`, so the islands stand out), a 1700x600 screen at
-  scale 2.5, `managed right` for the shelf, cropped to the top 1700x240.
-- `screenshots/hero-prefs.jpg`: catppuccin-latte, a 2560x1600 screen at
-  scale 2, `preferencesPage 1`, cropped to 2560x1200+0+74.
+  `omarchy-theme-bg-set`, so the bar stands out), a 1700x600 screen at scale
+  2.5, `set style floating`, `set onDemand menu`, `managed right`, cropped to
+  the top 1700x500.
+- `screenshots/hero-prefs.jpg`: catppuccin-latte, a 2880x1500 screen at
+  scale 2, `preferencesPage 1`, cropped to 2880x1348+0+114.
 
 Keep what matters inside 95..1105 x 88..588 of the page: catalogue cards
 crop the picture to between about 1.5:1 and 2.4:1. Re-run render.sh after
