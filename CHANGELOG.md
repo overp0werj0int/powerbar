@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Preferences: a dimmed fader's knob no longer shows the track and its marks through it.
 - Preferences: switching pages pushes a pulled-out inspector back, on the Layout and Groups pages, so coming back to the page the arrows walk the board again instead of the inspector's controls.
 - Groups page: Tab and Shift+Tab go from plate to plate (the groups, then "Not in a group"), the cursor and a lifted widget with them, as they go from layer to layer on the Layout page; the legend says "tab shift+tab Next layer, or back" on both plates (PREFS-117).
 - Groups page: the branch lines under a group start at the face's bottom edge and each tick ends on its widget's edge, with no gap before the widget and no overlap into the face.

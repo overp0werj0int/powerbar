@@ -117,6 +117,10 @@ Item {
   implicitWidth: Style.space(120)
   implicitHeight: column.implicitHeight
   opacity: enabled ? 1 : Ink.disabled
+  // Dimmed as one picture: faded part by part, the knob would let the
+  // ticks and the default's mark under it show through.
+  layer.enabled: !enabled
+  layer.smooth: true
   activeFocusOnTab: false
   Accessible.role: Accessible.Slider
   Accessible.name: label
