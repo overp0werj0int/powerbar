@@ -15,14 +15,6 @@ DeskPage {
   readonly property Item keyboardRow: barKeysRow
   pageLines: [
     {
-      keys: "j k",
-      label: "Down the strip, on to the next"
-    },
-    {
-      keys: "h l",
-      label: "Same row, next strip"
-    },
-    {
       keys: "space",
       label: "Turn it on, or choose it"
     },
@@ -31,8 +23,8 @@ DeskPage {
       label: "Record the shortcut"
     },
     {
-      keys: "tab",
-      label: "Next strip"
+      keys: "tab shift+tab",
+      label: "Next strip, or back"
     },
     {
       keys: "3",

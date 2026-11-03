@@ -30,10 +30,6 @@ Item {
   }
   readonly property var keyHints: [
     {
-      keys: "h l",
-      label: "Chip to chip, then the next strip"
-    },
-    {
       keys: "space",
       label: "Choose it"
     }

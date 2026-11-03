@@ -63,7 +63,7 @@ Item {
         property real dragX: 0
         readonly property var keyHints: [
             {
-                keys: "h l",
+                keys: "←→",
                 label: "Center left or right of the camera"
             },
             {

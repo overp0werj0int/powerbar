@@ -41,7 +41,7 @@ ColumnLayout {
     map.cursor = stop
     map.forceActiveFocus(reason === undefined ? Qt.OtherFocusReason : reason)
   }
-  readonly property var keyHints: [{ keys: "h l", label: "Zone to zone, then the next strip" }, { keys: "space", label: "Move it to that zone" }]
+  readonly property var keyHints: [{ keys: "space", label: "Move it to that zone" }]
   readonly property int shown: map.activeFocus && map.cursor >= 0 ? map.cursor : indexOf(value)
   readonly property var shownZone: shown >= 0 ? zones[shown] : null
 

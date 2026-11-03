@@ -626,6 +626,26 @@ TestCase {
     tryVerify(function () { return page.inspectorFocused }, 1000);
     compare(page.focused.options[0].value, "glyph", "the cursor starts on Show");
   }
+  // The legend leaves plain cursor movement out: no h/l or j/k line, the
+  // moves one arrows line, Tab with Shift+Tab.
+  function test_groupsLegendLeavesMovementOut() {
+    var page = createTemporaryObject(groupsPage, prefs);
+    page.selectedId = "g1";
+    wait(50);
+    page.place({ area: "member", id: "g1", pos: 0 });
+    page.focusFirst();
+    tryVerify(function () { return page.stageFocused }, 1000);
+    page.inspect(false);
+    var keys = page.legend.map(function (l) { return l.keys });
+    verify(!keys.some(function (k) { return /\b[hjkl]\b/.test(k) }), "no vim movement lines: " + keys);
+    verify(keys.indexOf("shift+←↑→↓") >= 0, "one line for the moves: " + keys);
+    verify(keys.indexOf("tab shift+tab") >= 0, "tab with shift+tab: " + keys);
+    page.inspect(true);
+    tryVerify(function () { return page.inspectorFocused }, 1000);
+    keys = page.legend.map(function (l) { return l.keys });
+    verify(!keys.some(function (k) { return /\b[hjkl]\b/.test(k) }), "none in the inspector either: " + keys);
+    verify(keys.indexOf("tab shift+tab") >= 0, "the inspector's tab with shift+tab: " + keys);
+  }
   function test_groupsInspectorTabWrapsAndEscReturns() {
     var page = createTemporaryObject(groupsPage, prefs);
     page.selectedId = "g1";

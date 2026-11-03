@@ -326,11 +326,17 @@ top edge (PREFS-106, PREFS-124).
 ### The key legend
 
 Bottom left of every page, beside the inspector (PREFS-103): one line per
-key, a column of keycaps (`xs` apart within a combo) and a column of words at
-caption size, secondary. Columns `l` apart, lines `s` apart. The keys'
-column is as wide as the widest set any page shows (Shift with h j k l), so
-the words start at one place on every page (`KeyLegend.qml:18`). The legend
-changes with focus and always says what the focused control's keys do. A
+key, a column of keycaps (`xs` apart) and a column of words at caption
+size, secondary. Columns `l` apart, lines `s` apart. In a line's keys a
+space separates alternatives ("enter esc") and "+" joins a combination,
+drawn as caps joined by "+" (`KeyCombo.qml`, "tab shift+tab"); keys made
+only of arrows are one cap, ← ↑ → ↓ parted by thin spaces, as the bar's
+keyboard mode draws them. The keys' column is as wide as the widest of
+"tab shift+tab", "shift+←↑→↓" and "enter esc", so the words start at one
+place on every page (`KeyLegend.qml:38`). The legend changes with focus and
+says what the focused control's keys do, but leaves plain cursor movement
+out: the arrows and h j k l get a line only where they do more (a lifted
+widget's move, Shift's move, a fader's value, the Center dot's side). A
 page with a legend has no footer, unless a save failed (PREFS-5).
 
 ### The keycap
@@ -814,7 +820,8 @@ layer tile 9 %):
    antialiased; stack by seen heights.
 8. Let the cursor rise and cast its band through `ZoneTile`, `Rise` or
    `CursorLift`; give it `lightTheme`.
-9. Give every control `keyHints` for the legend and, on a desk, the desk's
+9. Give every control `keyHints` for the legend (no line for plain cursor
+   movement) and, on a desk, the desk's
    stops; set `ownsFocusRing` if it draws its own cursor.
 10. Run every duration through `Style.duration(ms)` and gate anything that
     runs on its own on `!Style.reduceMotion`; durations from section 14.
