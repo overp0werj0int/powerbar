@@ -1,11 +1,15 @@
 import QtQuick
+import QtQuick.Layouts
 import qs.Commons
 import "DeskModel.js" as DeskModel
 
 // A board inspector's body as a small desk (docs/behavior/preferences.md
 // PREFS-26, PREFS-116): its strips (DeskStrip, its children) side by side,
 // flat, l apart, all as tall as the tallest, walked with the Look and
-// Behavior pages' keys (DeskWalk). No camera falls on it.
+// Behavior pages' keys (DeskWalk). No camera falls on it. Its actions (a
+// DeskRow that ends something, such as Dissolve) stand on their own under
+// the strips, at the right, in line with the last strip's text; the walk
+// reaches them after the last strip.
 Item {
   id: desk
   // The Layout page's editor: the theme and the Animations switch.
@@ -16,6 +20,7 @@ Item {
   // The legend's Esc line.
   property string escLabel: ""
   default property alias strips: face.data
+  property alias actions: actionColumn.data
   // Its controls draw the cursor, so Preferences' focus ring stays away.
   readonly property bool ownsFocusRings: true
 
@@ -50,7 +55,16 @@ Item {
     var i = stripList.indexOf(strip);
     return i >= 0 && boxes[i] ? boxes[i] : null;
   }
-  implicitHeight: stripHeight
+  readonly property var actionControls: {
+    var list = [];
+    var kids = actionColumn.children;
+    for (var i = 0; i < kids.length; i++)
+      if (kids[i].deskStops !== undefined && kids[i].visible && kids[i].enabled)
+        list.push(kids[i]);
+    return list;
+  }
+  readonly property bool hasActions: actionColumn.implicitHeight > 0
+  implicitHeight: stripHeight + (hasActions ? Gap.l + actionColumn.implicitHeight : 0)
   Component.onCompleted: {
     var kids = face.children;
     for (var i = 0; i < kids.length; i++)
@@ -59,20 +73,33 @@ Item {
   }
   Item {
     id: face
-    anchors.fill: parent
+    width: parent.width
+    height: desk.stripHeight
+  }
+  ColumnLayout {
+    id: actionColumn
+    readonly property var lastBox: desk.boxes.length ? desk.boxes[desk.boxes.length - 1] : null
+    x: lastBox ? lastBox.x + Gap.l : 0
+    width: lastBox ? lastBox.width - 2 * Gap.l : 0
+    y: desk.stripHeight + Gap.l
+    spacing: Gap.xs
+  }
+  // The actions as one more strip for the walk.
+  QtObject {
+    id: actionStrip
+    readonly property var controls: desk.actionControls
   }
 
   DeskWalk {
     id: walk
-    strips: desk.stripList
+    strips: desk.actionControls.length ? desk.stripList.concat([actionStrip]) : desk.stripList
     focusedItem: desk.Window.activeFocusItem
   }
   readonly property Item focusedControl: walk.focusedControl
   function usable(control) {
-    for (var s = 0; s < stripList.length; s++)
-      if (stripList[s].controls.indexOf(control) >= 0)
-        return true;
-    return false;
+    return walk.strips.some(function (s) {
+      return s.controls.indexOf(control) >= 0;
+    });
   }
   function focusFirst() {
     if (start && usable(start))

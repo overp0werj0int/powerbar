@@ -430,7 +430,8 @@ the thing under the cursor: Layout's (PREFS-101, PREFS-26) and Groups'
 (section 11). `xl` padding all round. Inside it, a small desk
 (`InspectorDesk`): three strips (`DeskStrip`, lying flat, no camera) `l`
 apart, all as tall as the tallest, so the card keeps one height while the
-cursor moves. Each strip keeps its own spacing (Desk strip, above) and the desk's
+cursor moves; an action of the card's own (Dissolve, Edit group) stands
+under them. Each strip keeps its own spacing (Desk strip, above) and the desk's
 keys (`DeskWalk`, shared with the Look and Behavior pages).
 
 Over the card, the thing it edits is pulled out of its plate: a flat copy,
@@ -452,7 +453,8 @@ and follow the desk's rules, not the kit's own sizes:
 |---|---|
 | Field label ("Show", "Layer", "Zone", "Group") | label role, primary, regular; `xxs` to its control |
 | Chips (`DeskChoice`) | a desk's chips (PREFS-128) |
-| Switch and action rows (`DeskRow`) | a desk's rows (PREFS-129); an action that ends something (Dissolve, Edit group) at the strip's bottom right, in the faders' place |
+| Switch rows (`DeskRow`) | a desk's rows (PREFS-129) |
+| Actions (`DeskRow`, Dissolve, Edit group) | not in a strip: under the strips, `l` below them, at the right in line with the last strip's text; the walk's last stop |
 | Value row (`DeskTextRow`) | `Gap.control` tall, label left, value or placeholder (caption, secondary) right; edits in place |
 | Shortcut (`DeskShortcutRow`, stacked) | label and owner on one line, keycaps `xxs` under them at the right |
 | Layer rows (`LayerPicker`) | `Gap.control` tall, `xs` apart, the parallelogram `m` before the label, `Round.small`; each a stop |
