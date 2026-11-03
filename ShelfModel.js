@@ -48,6 +48,16 @@ function snapShift(start, length, bar, radius, min, max) {
   return 0
 }
 
+// Where a shelf `length` long starts when it is edge-aligned with its bar
+// surface (bar = { start, end }): flush with the end of the surface nearest
+// `source` (the cell it hangs from, { start, end }, or none), running back
+// along the surface from there, and kept within [min, max].
+function alignStart(bar, length, source, min, max) {
+  var mid = source ? (source.start + source.end) / 2 : (bar.start + bar.end) / 2
+  var start = mid - bar.start <= bar.end - mid ? bar.start : bar.end - length
+  return Math.max(min, Math.min(max - length, start))
+}
+
 function n(v) { return Math.round(v * 100) / 100 }
 function arc(r, x, y, sweep) { return " A " + n(r) + " " + n(r) + " 0 0 " + sweep + " " + n(x) + " " + n(y) }
 function line(x, y) { return " L " + n(x) + " " + n(y) }

@@ -4110,15 +4110,28 @@ Item {
       return !!j && !!surface && j.surface === surface && j.corners.indexOf(corner) >= 0
     }
     // The surface a shelf for `zone` hangs from, along the bar in the window's
-    // coordinates: { item, start, end, radius }. Its zone's island, the
-    // floating bar, or a flat bar's whole length (no item, square ends).
-    function shelfHost(zone) {
-      var item = root.islands ? (zoneIslands && zoneIslands[zone] && zoneIslands[zone].visible ? zoneIslands[zone] : null)
-        : root.flat ? null : notchWrap ? wrapSurface : floatSurface
-      if (!item) return { item: null, start: 0, end: root.alongSize(barWindow), radius: 0 }
-      var p = item.mapToItem(contentItem, 0, 0)
-      var start = root.vertical ? p.y : p.x
-      return { item: item, start: start, end: start + root.alongSize(item), radius: root.islandRounding }
+    // coordinates: { item, start, end, radius }. The island under `along` (the
+    // cell it hangs from, when known: a notch's ear), else its zone's island,
+    // the floating bar, or a flat bar's whole length (no item, square ends).
+    function shelfHost(zone, along) {
+      function span(island) {
+        var p = island.mapToItem(contentItem, 0, 0)
+        var start = root.vertical ? p.y : p.x
+        return { item: island, start: start, end: start + root.alongSize(island), radius: root.islandRounding }
+      }
+      if (root.islands) {
+        var islands = zoneIslands || {}
+        if (along !== undefined) {
+          for (var key in islands) {
+            var island = islands[key]
+            if (!island || !island.visible) continue
+            var s = span(island)
+            if (along >= s.start && along <= s.end) return s
+          }
+        }
+        if (islands[zone] && islands[zone].visible) return span(islands[zone])
+      } else if (!root.flat) return span(notchWrap ? wrapSurface : floatSurface)
+      return { item: null, start: 0, end: root.alongSize(barWindow), radius: 0 }
     }
     // Those corners where they are drawn now, in `item`'s coordinates:
     // [{ corner, x, y, r }] for CellModel.nestedCorners, so a highlight or a
@@ -5563,7 +5576,7 @@ Item {
     bottomLeftRadius: squared("bl") ? 0 : undefined
     bottomRightRadius: squared("br") ? 0 : undefined
     borderSpec: root.notchMode ? Border.none() : root.islandBorder
-    NotchEnd { visible: island.notchSide !== ""; side: island.notchSide }
+    NotchEnd { visible: island.notchSide !== ""; side: island.notchSide; outerSquared: island.squared(island.notchSide === "left" ? "bl" : "br") }
   }
 
   // A notch zone's or badge's black, filling its parent: square where it
@@ -5578,8 +5591,11 @@ Item {
     height: parent ? parent.height : 0
     shoulderStart: leftSide ? root.notchCorners.shoulder : 0
     shoulderEnd: leftSide ? 0 : root.notchCorners.shoulder
-    radiusStart: leftSide ? root.notchCorners.radius : 0
-    radiusEnd: leftSide ? 0 : root.notchCorners.radius
+    // Its outer bottom corner goes square where a menu hangs flush with it
+    // or runs past it (on-demand-drawers.md DEMAND-122).
+    property bool outerSquared: false
+    radiusStart: leftSide && !outerSquared ? root.notchCorners.radius : 0
+    radiusEnd: leftSide || outerSquared ? 0 : root.notchCorners.radius
     color: root.mainSurfaceColor
     shadowEnabled: root.surfaceEffects.shadow
     shadowSize: root.surfaceEffects.shadowSize
