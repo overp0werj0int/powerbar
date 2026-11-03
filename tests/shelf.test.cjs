@@ -59,3 +59,11 @@ test('the bar corners a shelf squares, per bar edge', () => {
   assert.deepEqual(shelf.squaredCorners('left', 'flush', 'inside'), ['tr']);
   assert.deepEqual(shelf.squaredCorners('right', 'inside', 'flush'), ['bl']);
 });
+
+test("alignStart: flush with the surface's end nearest the source, kept on screen", () => {
+  const bar = { start: 100, end: 400 }
+  assert.equal(shelf.alignStart(bar, 150, { start: 110, end: 140 }, 4, 1508), 100)
+  assert.equal(shelf.alignStart(bar, 150, { start: 350, end: 380 }, 4, 1508), 250)
+  assert.equal(shelf.alignStart(bar, 500, { start: 350, end: 380 }, 4, 1508), 4)
+  assert.equal(shelf.alignStart({ start: 1300, end: 1508 }, 300, { start: 1310, end: 1340 }, 4, 1508), 1208)
+})

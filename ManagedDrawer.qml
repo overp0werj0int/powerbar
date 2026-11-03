@@ -427,16 +427,23 @@ Item {
       zone: zone, snap: tokens.thickness / 2, inset: tokens.inset, row: tokens.thickness, vertical: bar.vertical }
     return namedMenu ? Model.placeMenu(o) : Model.placeStrip(o)
   }
-  // The surface a shelf hangs from (Bar shelfHost), and the shelf moved
-  // along so that neither end lands too close to that surface's end to curve
-  // cleanly: flush with it instead (DEMAND-121).
+  // The surface a shelf, or a notch's drawer, hangs from (Bar shelfHost):
+  // the island under its source cell, so a notch's hangs from its ear.
   readonly property var shelfHost: {
-    if (!shelf) return null
+    if (!attached) return null
     var geometry = islandRevision
-    return hostWindow.shelfHost(zone)
+    return hostWindow.shelfHost(zone, sourceCell ? (sourceCell.start + sourceCell.end) / 2 : undefined)
   }
-  readonly property real axisPosition: placement.start + (shelfHost ? ShelfModel.snapShift(placement.start, paintedLength, shelfHost, surfaceRadius,
-    Math.min(bar.edgeGap, shelfHost.start), Math.max(axisExtent - bar.edgeGap, shelfHost.end)) : 0)
+  // Along the bar: a notch's zone menu is edge-aligned, flush with the end of
+  // its ear nearest its dots (layout-zones.md ZONE-88); anything else joined
+  // to the bar moves so that neither end lands too close to its surface's end
+  // to curve cleanly, flush with it instead (DEMAND-121).
+  readonly property real axisPosition: {
+    if (!shelfHost) return placement.start
+    var min = Math.min(bar.edgeGap, shelfHost.start), max = Math.max(axisExtent - bar.edgeGap, shelfHost.end)
+    if (fromNotch && anchorHandle && shelfHost.item) return ShelfModel.alignStart(shelfHost, paintedLength, sourceCell, min, max)
+    return placement.start + ShelfModel.snapShift(placement.start, paintedLength, shelfHost, surfaceRadius, min, max)
+  }
   // The shelf's outline in its own frame (ShelfModel.outline), as deep as
   // the drawer plus the spring's overshoot, which it fills toward the bar.
   readonly property real crossPainted: bar.vertical ? width : height
@@ -873,10 +880,6 @@ Item {
     cellAcross: drawer.namedMenu ? drawer.menuRowWidth : drawer.tokens.thickness
     ink: drawer.namedMenu && !drawer.notchColours ? drawer.bar.textOn(Commons.Color.menu.text) : drawer.bar.barForeground
   }
-  // On the notch (fromNotch) the drawer slides down out of the bar and is
-  // cut at the bar's bottom edge, as a zone slides out of the camera: the
-  // clip runs along the drawer's top, wide and deep enough for its shoulders
-  // and shadow. Elsewhere it neither clips nor moves.
   // A shelf running on past its bar surface's end: the fillets that curve up
   // from its top edge into that end (ShelfModel.outline ups). They stand
   // beside the bar, above the edge the shelf slides out of, so they are
@@ -903,12 +906,15 @@ Item {
       PathSvg { path: drawer.shelfShape && drawer.shelfBorder > 0 ? drawer.shelfShape.ups.map(function(u) { return u.edge }).join(" ") : "" }
     }
   }
+  // Joined to the bar (a shelf, or on the notch), the drawer slides out of
+  // the bar and is cut at its edge, as a zone slides out of the camera: the
+  // clip runs along the drawer's bar side, wide and deep enough for its
+  // corners and shadow. Elsewhere it neither clips nor moves.
   Item {
     id: clipper
     // Room past the drawer's three free sides for its fillets and shadow;
     // none on the bar's side, where it is cut.
-    readonly property real side: !drawer.attached ? 0
-      : (drawer.fromNotch ? bar.notchCorners.shoulder : drawer.surfaceRadius) + Math.ceil(bar.surfaceEffects.shadowSize) * 2
+    readonly property real side: drawer.attached ? drawer.surfaceRadius + Math.ceil(bar.surfaceEffects.shadowSize) * 2 : 0
     // How far past its place the body is (OutBack's overshoot, a few px).
     readonly property real overshoot: drawer.attached ? Math.max(0, (drawer.reveal - 1) * drawer.crossPainted) : 0
     readonly property string edge: drawer.attached ? bar.position : ""
@@ -939,31 +945,14 @@ Item {
         radius: drawer.surfaceRadius
         borderSpec: bar.islandBorder
       }
-      // The notch's: its shoulders curve up into the bar's bottom edge either
-      // side, as the screen's top edge curves into the camera, and its bottom
-      // corners are the camera's. While the spring overshoots, the body moves
-      // past its place and the shape reaches back up by as much, so its top
-      // stays on the bar and never shows a gap.
-      NotchShape {
-        visible: drawer.fromNotch
-        x: -bar.notchCorners.shoulder
-        y: -clipper.overshoot
-        width: parent.width + 2 * bar.notchCorners.shoulder
-        height: parent.height + clipper.overshoot
-        shoulderStart: bar.notchCorners.shoulder; shoulderEnd: bar.notchCorners.shoulder
-        radiusStart: bar.notchCorners.radius; radiusEnd: bar.notchCorners.radius
-        color: bar.mainSurfaceColor
-        shadowEnabled: bar.surfaceEffects.shadow
-        shadowSize: bar.surfaceEffects.shadowSize
-        shadowOpacity: bar.surfaceEffects.shadowOpacity
-      }
-      // The shelf's: the bar's surface carried on down, its ends curving out
-      // into the bar's edge or on from its end (ShelfModel.outline), drawn in
-      // the shelf's own frame and turned to the bar's edge. Its shadow is the
-      // body's, cut at the bar's edge with the rest. Like the notch's, it
-      // reaches back toward the bar by the spring's overshoot.
+      // A shelf's, and a notch drawer's: the bar's surface carried on down,
+      // its ends curving out into the bar's edge or on from its end
+      // (ShelfModel.outline), drawn in its own frame and turned to the bar's
+      // edge. Its shadow is the body's, cut at the bar's edge with the rest.
+      // While the spring overshoots, the body moves past its place and the
+      // shape reaches back toward the bar by as much, so it never shows a gap.
       RectangularShadow {
-        visible: drawer.shelf && bar.surfaceEffects.shadow
+        visible: !!drawer.shelfShape && bar.surfaceEffects.shadow
         z: -1
         anchors.fill: parent
         radius: drawer.surfaceRadius
