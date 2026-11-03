@@ -1922,24 +1922,29 @@ Item {
                 }
             }
         }
-        // The branch: from the face's bottom edge (or the row above's) down
-        // to this row's middle, and on past it to the next widget row, with a
-        // tick that ends on the widget's edge: touching, never under it.
+        // The branch: one line, drawn by the group's first widget row, from
+        // the face's bottom edge down to the last widget row's middle (the
+        // rows are a chip and a gap apart), so the tilt draws it smooth, with
+        // no joins; and on each row a tick from the line's right side to the
+        // widget's edge: touching, never under it. Antialiased: the plate's
+        // tilt slants them.
         Rectangle {
-            visible: listRow.widget
+            visible: listRow.widget && !!listRow.row.first
             x: Gap.s
             y: -editor.chipGap
             width: 1
-            height: (listRow.row.last ? Math.round(listRow.height / 2) : listRow.height) - y
+            height: editor.chipGap + ((listRow.row.count || 1) - 1) * (editor.chipHeight + editor.chipGap) + Math.round(listRow.height / 2) + 1
+            antialiasing: true
             color: Qt.alpha(Commons.Color.popups.text, 0.25)
             opacity: listRow.fade
         }
         Rectangle {
             visible: listRow.widget
-            x: Gap.s
+            x: Gap.s + 1
             y: Math.round(listRow.height / 2)
-            width: editor.indent - Gap.s
+            width: editor.indent - x
             height: 1
+            antialiasing: true
             color: Qt.alpha(Commons.Color.popups.text, 0.25)
             opacity: listRow.fade
         }

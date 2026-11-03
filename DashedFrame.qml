@@ -1,63 +1,32 @@
 import QtQuick
 import QtQuick.Shapes
 import qs.Commons as Commons
+import "DashModel.js" as DashModel
 
-// A dashed edge: the tray's (PREFS-97), a hidden face's, a "+" (the Groups page).
+// A dashed edge: the tray's (PREFS-97), the pool's, a hidden face's, a "+"
+// (the Groups page). Its dashes are placed (DashModel.frame): every corner
+// one solid piece, each side whole dashes with even gaps, so all corners
+// read alike.
 Shape {
     id: frame
     property real radius: 0
     property real topRadius: radius
     property color stroke: Qt.alpha(Commons.Color.popups.text, 0.3)
-    readonly property real r: Math.max(0, Math.min(radius, width / 2, height / 2))
-    readonly property real tr: Math.max(0, Math.min(topRadius, width / 2, height / 2))
+    property real dash: 3
+    property real gap: 3
     preferredRendererType: Shape.CurveRenderer
     ShapePath {
         strokeColor: frame.stroke
         strokeWidth: 1
-        strokeStyle: ShapePath.DashLine
-        dashPattern: [3, 3]
         fillColor: "transparent"
-        startX: frame.tr
-        startY: 0.5
-        PathLine {
-            x: frame.width - frame.tr
-            y: 0.5
-        }
-        PathArc {
-            x: frame.width - 0.5
-            y: frame.tr
-            radiusX: frame.tr
-            radiusY: frame.tr
-        }
-        PathLine {
-            x: frame.width - 0.5
-            y: frame.height - frame.r
-        }
-        PathArc {
-            x: frame.width - frame.r
-            y: frame.height - 0.5
-            radiusX: frame.r
-            radiusY: frame.r
-        }
-        PathLine {
-            x: frame.r
-            y: frame.height - 0.5
-        }
-        PathArc {
-            x: 0.5
-            y: frame.height - frame.r
-            radiusX: frame.r
-            radiusY: frame.r
-        }
-        PathLine {
-            x: 0.5
-            y: frame.tr
-        }
-        PathArc {
-            x: frame.tr
-            y: 0.5
-            radiusX: frame.tr
-            radiusY: frame.tr
+        capStyle: ShapePath.FlatCap
+        joinStyle: ShapePath.MiterJoin
+        PathMultiline {
+            paths: DashModel.frame(frame.width, frame.height, frame.topRadius, frame.radius, frame.dash, frame.gap).map(function (line) {
+                return line.map(function (p) {
+                    return Qt.point(p.x, p.y);
+                });
+            })
         }
     }
 }

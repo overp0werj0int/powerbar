@@ -1,5 +1,4 @@
 import QtQuick
-import QtQuick.Shapes
 import qs.Commons
 import qs.Commons as Commons
 import qs.Ui
@@ -158,59 +157,11 @@ Item {
         }
     }
     // The dashed edge.
-    Shape {
+    DashedFrame {
         visible: cell.dashed
         anchors.fill: parent
-        preferredRendererType: Shape.CurveRenderer
-        ShapePath {
-            strokeColor: Qt.alpha(Commons.Color.popups.text, cell.dashLit ? 0.6 : 0.3)
-            strokeWidth: 1
-            strokeStyle: ShapePath.DashLine
-            dashPattern: [3, 3]
-            fillColor: "transparent"
-            startX: cell.radius
-            startY: 0.5
-            PathLine {
-                x: cell.width - cell.radius
-                y: 0.5
-            }
-            PathArc {
-                x: cell.width - 0.5
-                y: cell.radius
-                radiusX: cell.radius
-                radiusY: cell.radius
-            }
-            PathLine {
-                x: cell.width - 0.5
-                y: cell.height - cell.radius
-            }
-            PathArc {
-                x: cell.width - cell.radius
-                y: cell.height - 0.5
-                radiusX: cell.radius
-                radiusY: cell.radius
-            }
-            PathLine {
-                x: cell.radius
-                y: cell.height - 0.5
-            }
-            PathArc {
-                x: 0.5
-                y: cell.height - cell.radius
-                radiusX: cell.radius
-                radiusY: cell.radius
-            }
-            PathLine {
-                x: 0.5
-                y: cell.radius
-            }
-            PathArc {
-                x: cell.radius
-                y: 0.5
-                radiusX: cell.radius
-                radiusY: cell.radius
-            }
-        }
+        radius: cell.radius
+        stroke: Qt.alpha(Commons.Color.popups.text, cell.dashLit ? 0.6 : 0.3)
     }
 
     // The zone's name, a caption in line with its rows' text (PREFS-133):

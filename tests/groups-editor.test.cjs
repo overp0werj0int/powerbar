@@ -35,12 +35,12 @@ test('a zone lists each face with its widgets under it, then its +', () => {
   assert.deepEqual(plain(m.rows(s, 'center')), [{ area: 'plus', zone: 'center' }]);
   assert.deepEqual(plain(m.drawnRows(['audio', 'net'], { audio: ['x', 'y'], net: [] })), [
     { kind: 'face', id: 'audio' },
-    { kind: 'member', id: 'audio', pos: 0, key: 'x', first: true, last: false },
-    { kind: 'member', id: 'audio', pos: 1, key: 'y', first: false, last: true },
+    { kind: 'member', id: 'audio', pos: 0, key: 'x', first: true, last: false, count: 2 },
+    { kind: 'member', id: 'audio', pos: 1, key: 'y', first: false, last: true, count: 2 },
     { kind: 'face', id: 'net' }, { kind: 'note', id: 'net' }
   ], 'an empty group has a note row');
   assert.deepEqual(plain(m.drawnRows(['audio', 'net'], { audio: ['x', 'y'], net: [] }, { area: 'gap', id: 'net', pos: 0 })).slice(3), [
-    { kind: 'face', id: 'net' }, { kind: 'gap', id: 'net', pos: 0, first: true, last: true }
+    { kind: 'face', id: 'net' }, { kind: 'gap', id: 'net', pos: 0, first: true, last: true, count: 1 }
   ], 'a landing place takes the note\'s row');
   assert.deepEqual(plain(m.drawnRows(['audio'], { audio: ['x', 'y'] }, { area: 'gap', id: 'audio', pos: 1 })).map(r => r.kind + (r.last ? '.' : '')), ['face', 'member', 'gap', 'member.']);
   assert.deepEqual(plain(m.drawnRows(['audio'], { audio: ['x'] }, { area: 'pool' })).length, 2, 'a landing elsewhere draws nothing here');
