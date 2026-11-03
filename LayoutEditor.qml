@@ -469,7 +469,12 @@ Item {
             keys: "esc",
             label: "Put it back"
         }
-    ] : gridFocused ? [
+    ] : gridFocused ? (cursorRecord || inspecting ? [
+        {
+            keys: inspecting ? "enter esc" : "enter",
+            label: inspecting ? "Push it back" : "Pull it forward to inspect"
+        }
+    ] : []).concat([
         {
             keys: "h l",
             label: slabbed(cursorCell.mode) ? "Along the slab" : editor.previewCamera ? "Along the layer, across the camera" : "Along the layer"
@@ -491,10 +496,6 @@ Item {
             label: "Move it to the next layer"
         },
         {
-            keys: inspecting ? "enter esc" : "enter",
-            label: inspecting ? "Push it back" : "Pull it forward to inspect"
-        },
-        {
             keys: "x",
             label: cursorRecord && cursorRecord.mode === "hidden" ? "Bring it back from the hidden layer" : "Send it to the hidden layer"
         },
@@ -502,7 +503,7 @@ Item {
             keys: "tab",
             label: "Next layer"
         }
-    ] : inspector.popupOpen ? inspector.popupHints : inspectorFocused ? inspector.legend : [
+    ]) : inspector.popupOpen ? inspector.popupHints : inspectorFocused ? inspector.legend : [
         {
             keys: "tab",
             label: "The layers"
