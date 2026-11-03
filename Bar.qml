@@ -4315,7 +4315,8 @@ Item {
     readonly property bool sliding: notchLook ? (zoneOut("left") && leftShift > 0.5) || (zoneOut("right") && rightShift > 0.5)
       : autoHideOffset > 0.5
 
-    // Omarchy's ScreenMoveRemap, waiting as the blur remap does: when the
+    // Powerbar's own screen-move remap (Omarchy's ScreenMoveRemap, which
+    // Omarchy removed in r7569), waiting as the blur remap does: when the
     // screen moves within the layout, Hyprland leaves the mapped surface at
     // its old place until it is unmapped and mapped again. Positions settle
     // for 200 ms, then the remap waits until the pointer is off the bar
