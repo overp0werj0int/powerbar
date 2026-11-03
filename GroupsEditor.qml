@@ -1868,12 +1868,13 @@ Item {
                 }
             }
         }
-        // The branch: from under the face's icon down to this row's middle,
-        // and on past it to the next widget row, with a tick to the row.
+        // The branch: from the face's bottom edge (or the row above's) down
+        // to this row's middle, and on past it to the next widget row, with a
+        // tick that ends on the widget's edge: touching, never under it.
         Rectangle {
             visible: listRow.widget
             x: Gap.s
-            y: listRow.row.first ? -(editor.chipGap + (editor.chipHeight - editor.faceIcon) / 2) : -editor.chipGap
+            y: -editor.chipGap
             width: 1
             height: (listRow.row.last ? Math.round(listRow.height / 2) : listRow.height) - y
             color: Qt.alpha(Commons.Color.popups.text, 0.25)
@@ -1883,7 +1884,7 @@ Item {
             visible: listRow.widget
             x: Gap.s
             y: Math.round(listRow.height / 2)
-            width: editor.indent - Gap.s - Gap.xxs
+            width: editor.indent - Gap.s
             height: 1
             color: Qt.alpha(Commons.Color.popups.text, 0.25)
             opacity: listRow.fade

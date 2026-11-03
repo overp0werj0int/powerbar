@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Groups page: the branch lines under a group start at the face's bottom edge and each tick ends on its widget's edge, with no gap before the widget and no overlap into the face.
 - Groups page: Shift+Down on a widget past its zone's last group takes it out to "Not in a group", the way Shift+Up from there puts one in the chosen group. Before, the step stopped at the "+" and nothing happened (PREFS-117).
 - Preferences: the key legends are shorter. Lines for plain cursor movement (h/l, j/k) are gone, since moving the cursor is obvious; the arrows get a line only where they do more, drawn in one keycap (←↑→↓) as the bar's keyboard mode draws them. A lifted widget reads "←↑→↓ Move it" and Shift's move one "shift+←↑→↓ Move it", whatever the layer or zone, instead of two lines; Tab lines show Tab and Shift+Tab. The keys themselves are unchanged: h/j/k/l and the arrows still work everywhere, and Shift+Tab walks back. With fewer lines, the legend's band on the Layout and Groups pages is shorter, so the plates get more room (PREFS-103).
 - Groups page: the inspector now comes out only when you pull a group forward, as a widget is on the Layout page: Enter on a face or one of its widgets (focus goes in and stays until Esc), a click on either, a new group, or Edit group on the Layout page, which now sits at the foot of the group's first strip there. Esc pushes it back (PREFS-116, PREFS-117).
