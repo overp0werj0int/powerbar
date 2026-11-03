@@ -612,6 +612,20 @@ TestCase {
     compare(page.focused, seen[seen.length - 1], "Shift+Tab from the first goes to the last");
     page.pushBack();
   }
+  // Enter on one of a group's widgets pulls the group forward, focus in
+  // the inspector's first strip, as on its face (PREFS-116).
+  function test_groupsMemberEnterStartsOnFirstStrip() {
+    var page = createTemporaryObject(groupsPage, prefs);
+    page.selectedId = "g1";
+    wait(50);
+    page.place({ area: "member", id: "g1", pos: 0 });
+    page.focusFirst();
+    tryVerify(function () { return page.stageFocused }, 1000);
+    keyClick(Qt.Key_Return);
+    verify(page.inspecting, "enter on a widget pulls its group forward");
+    tryVerify(function () { return page.inspectorFocused }, 1000);
+    compare(page.focused.options[0].value, "glyph", "the cursor starts on Show");
+  }
   function test_groupsInspectorTabWrapsAndEscReturns() {
     var page = createTemporaryObject(groupsPage, prefs);
     page.selectedId = "g1";
