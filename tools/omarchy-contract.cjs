@@ -113,8 +113,6 @@ const CONTRACT = [
   ["shell/Ui/WidgetButton.qml", "signal pressed(int button)", "group and custom buttons go dead"],
   ["shell/Ui/WidgetButton.qml", "property bool keepSpace: false", "custom command modules fail to load"],
   ["shell/Ui/BorderSurface.qml", "property var borderSpec: Border.none()", "islands and overlays fail to load"],
-  ["shell/Ui/ScreenMoveRemap.qml", "required property var window", "bar window fails to build"],
-  ["shell/Ui/ScreenMoveRemap.qml", "property bool remapping: false", "monitor-move remap"],
   ["shell/Ui/ButtonGroup.qml", "signal changed(string value)", "Preferences choices go dead"],
   ["shell/Ui/Dropdown.qml", "property bool showLabel: true", "Preferences dropdowns fail to load"],
   ["shell/Ui/TextField.qml", "property real verticalPadding: Style.spacing.inputPaddingY", "group text fields fail to load"],
@@ -186,9 +184,9 @@ const CONTRACT = [
 // REQUIRED: the required properties each one declares at its root today. One
 // Omarchy adds fails every place Powerbar creates the type without it.
 const UI_TYPES = ["BorderSurface", "ButtonGroup", "Dropdown", "PanelSectionHeader", "PluginBarApi",
-  "ScreenMoveRemap", "TextField", "Toggle", "ToggleSwitch", "WidgetButton"]
+  "TextField", "Toggle", "ToggleSwitch", "WidgetButton"]
 const COMMONS = ["Border", "Color", "Style", "Util"]
-const REQUIRED = { PluginBarApi: ["pluginId", "moduleName"], ScreenMoveRemap: ["window"] }
+const REQUIRED = { PluginBarApi: ["pluginId", "moduleName"] }
 // Facade members Powerbar leaves at their defaults, and why.
 const FACADE_UNFILLED = {
   traySectionDragActive: "Omarchy's tray section; Powerbar has none, so it stays false",
