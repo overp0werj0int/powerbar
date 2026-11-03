@@ -128,8 +128,10 @@ below, with `tuning false`:
   `omarchy-theme-bg-set`, so the bar stands out), a 1700x600 screen at scale
   2.5, `set style floating`, `set onDemand menu`, `managed right`, cropped to
   the top 1700x500.
-- `screenshots/hero-prefs.jpg`: catppuccin-latte, a 2880x1500 screen at
-  scale 2, `preferencesPage 1`, cropped to 2880x1348+0+114.
+- `screenshots/hero-prefs.jpg`: cumulus, a 2880x1500 screen at scale 2,
+  `set autoHide true` (so *Peeks on activity* is live), `preferencesPage 1`,
+  keys `Right` x3, `Return` (Weather pulled out to its inspector), cropped to
+  1620x1250+1240+236.
 
 Keep what matters inside 95..1105 x 88..588 of the page: catalogue cards
 crop the picture to between about 1.5:1 and 2.4:1. Re-run render.sh after
