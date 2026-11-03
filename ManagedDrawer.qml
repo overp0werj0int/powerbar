@@ -454,9 +454,9 @@ Item {
   // the drawer plus the spring's overshoot, which it fills toward the bar.
   readonly property real crossPainted: bar.vertical ? width : height
   readonly property var shelfShape: shelfHost ? ShelfModel.outline({ length: paintedLength, depth: crossPainted + clipper.overshoot,
-    radius: surfaceRadius, barStart: shelfHost.start - axisPosition, barEnd: shelfHost.end - axisPosition, barRadius: shelfHost.radius }) : null
+    radius: surfaceRadius, barStart: shelfHost.start - axisPosition, barEnd: shelfHost.end - axisPosition, barRadius: shelfHost.radius, border: shelfBorder }) : null
   // Its border, as wide as the bar's (none where the bar has none).
-  readonly property real shelfBorder: shelf && !Border.isNone(bar.islandBorder) ? Border.top(bar.islandBorder) : 0
+  readonly property real shelfBorder: shelf && !bar.flat && !Border.isNone(bar.islandBorder) ? Border.top(bar.islandBorder) : 0
   // While it shows, the bar squares the corners it joins (DEMAND-122).
   readonly property string shelfCorners: shelfShape && presenting
     ? ShelfModel.squaredCorners(bar.position, shelfShape.start, shelfShape.end).join(" ") : ""
@@ -488,6 +488,9 @@ Item {
   }
   width: bar.vertical ? crossLength : length
   height: bar.vertical ? length : crossLength
+  // Over the bar, for the row of it that covers its border (clipper); the
+  // rest is cut at the bar's edge.
+  z: shelf ? 1 : 0
   x: isSubmenu ? (subPlace ? subPlace.x : 0)
     : bar.vertical ? (shelf ? (bar.position === "left" ? shelfEdge : hostWindow.drawerExtent + bar.metricsOf(hostWindow).extent - shelfEdge - width)
       : bar.position === "left" ? bar.metricsOf(hostWindow).extent + gap : hostWindow.drawerExtent - gap - width) : axisPosition
@@ -889,9 +892,11 @@ Item {
   // A shelf running on past its bar surface's end: the fillets that curve up
   // from its top edge into that end (ShelfModel.outline ups). They stand
   // beside the bar, above the edge the shelf slides out of, so they are
-  // drawn here, outside its cut, and come in with it.
+  // drawn here, outside its cut, and come in with it, over the body so that
+  // their border's end stays on top of its fill.
   Shape {
     id: shelfUps
+    z: 1
     visible: !!drawer.shelfShape && drawer.shelfShape.ups.length > 0
     width: drawer.width
     height: drawer.height
@@ -909,6 +914,7 @@ Item {
       fillColor: "transparent"
       strokeColor: drawer.shelfBorder > 0 ? Border.color(bar.islandBorder) : "transparent"
       strokeWidth: drawer.shelfBorder
+      capStyle: ShapePath.FlatCap
       PathSvg { path: drawer.shelfShape && drawer.shelfBorder > 0 ? drawer.shelfShape.ups.map(function(u) { return u.edge }).join(" ") : "" }
     }
   }
@@ -918,16 +924,17 @@ Item {
   // corners and shadow. Elsewhere it neither clips nor moves.
   Item {
     id: clipper
-    // Room past the drawer's three free sides for its fillets and shadow;
-    // none on the bar's side, where it is cut.
+    // Room past the drawer's three free sides for its fillets and shadow; on
+    // the bar's side, where it is cut, the bar's border, which it covers
+    // (ShelfModel.outline).
     readonly property real side: drawer.attached ? drawer.surfaceRadius + Math.ceil(bar.surfaceEffects.shadowSize) * 2 : 0
     // How far past its place the body is (OutBack's overshoot, a few px).
     readonly property real overshoot: drawer.attached ? Math.max(0, (drawer.reveal - 1) * drawer.crossPainted) : 0
     readonly property string edge: drawer.attached ? bar.position : ""
-    x: edge === "left" ? 0 : -side
-    y: edge === "top" ? 0 : -side
-    width: drawer.width + (edge === "left" || edge === "right" ? side : 2 * side)
-    height: drawer.height + (edge === "top" || edge === "bottom" ? side : 2 * side)
+    x: edge === "left" ? -drawer.shelfBorder : -side
+    y: edge === "top" ? -drawer.shelfBorder : -side
+    width: drawer.width + (edge === "left" || edge === "right" ? side + drawer.shelfBorder : 2 * side)
+    height: drawer.height + (edge === "top" || edge === "bottom" ? side + drawer.shelfBorder : 2 * side)
     clip: drawer.attached
     Item {
       id: body
@@ -986,6 +993,7 @@ Item {
           fillColor: "transparent"
           strokeColor: drawer.shelfBorder > 0 ? Border.color(bar.islandBorder) : "transparent"
           strokeWidth: drawer.shelfBorder
+          capStyle: ShapePath.FlatCap
           PathSvg { path: drawer.shelfShape && drawer.shelfBorder > 0 ? drawer.shelfShape.edge : "" }
         }
       }
@@ -1101,9 +1109,9 @@ Item {
         ? DragModel.slot(bar.dragPreview, modelData.instanceKey, bar.dragSurfaceForDrawer(drawer))
         : ({ hidden: false, before: false, after: false })
       readonly property real baseWidth: !modelData ? 0 : drawer.namedMenu ? drawer.menuRowWidth
-        : bar.vertical ? drawer.thickness : place.extent
+        : bar.vertical ? drawer.thickness : modelData.cellPlace.extent
       readonly property real baseHeight: !modelData ? 0 : drawer.namedMenu ? drawer.tokens.thickness
-        : bar.vertical ? place.extent : Math.max(modelData.naturalHeight, drawer.thickness)
+        : bar.vertical ? modelData.cellPlace.extent : Math.max(modelData.naturalHeight, drawer.thickness)
       // Where the widget's own box sits: its ink centred in its cell (strips),
       // its glyph centred in the icon cell or its value right-aligned (menus).
       readonly property real contentOffsetX: animatedInsetX + (!modelData ? 0

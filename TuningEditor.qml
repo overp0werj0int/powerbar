@@ -20,10 +20,6 @@ DeskPage {
     {
       keys: "tab shift+tab",
       label: "Next strip, or back"
-    },
-    {
-      keys: "4",
-      label: "Behavior: how the bar comes, goes and answers keys"
     }
   ]
 

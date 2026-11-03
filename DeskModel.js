@@ -128,3 +128,13 @@ function legend(pageLines, controlLines) {
   })
   return extra.concat(out)
 }
+
+// A page's legend, kept short: the focused control's own lines, then the
+// page's until there are two.
+function pageLegend(pageLines, controlLines) {
+  var own = controlLines || []
+  var rest = (pageLines || []).filter(function(p) {
+    return !own.some(function(line) { return line.keys === p.keys })
+  })
+  return own.concat(rest).slice(0, Math.max(2, own.length))
+}

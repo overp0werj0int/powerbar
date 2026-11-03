@@ -3,9 +3,11 @@ import qs.Commons
 import qs.Commons as Commons
 
 // A widget's icon in a chip's square on the Layout and Groups pages: the
-// middle of its ink, or a wide face's first glyph, so nothing sticks out of
-// the square (docs/behavior/preferences.md PREFS-22). `layout` is the Layout
-// page's editor, which knows how the bar draws each widget (barFace).
+// middle of its ink, a wide face's first glyph, or, for a wide face that draws
+// no glyph, like the clock's words, its stock icon rather than their first
+// letters. So nothing sticks out of the square
+// (docs/behavior/preferences.md PREFS-22). `layout` is the Layout page's
+// editor, which knows how the bar draws each widget (barFace).
 Item {
     id: inkIcon
     required property var layout
@@ -13,6 +15,10 @@ Item {
     property real box: Style.space(20)
     readonly property bool hasImage: picture.hasImage
     readonly property var face: record && record.instanceKey ? layout.barFace(record) : null
+    readonly property bool wordsOnly: {
+        var f = face;
+        return !!f && f.kind === "image" && f.h > 0 && f.inkLength > f.h && !layout.preferences.readGlyph(record);
+    }
     width: box
     height: box
     // Widget images in the bar's text colour that barely show on the
@@ -39,6 +45,7 @@ Item {
             record: inkIcon.record
             size: inkIcon.box
             maxAspect: 8
+            glyphOnly: inkIcon.wordsOnly
             anchors.verticalCenter: parent.verticalCenter
             x: {
                 var f = inkIcon.face;

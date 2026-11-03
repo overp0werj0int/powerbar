@@ -147,8 +147,7 @@ a drawer or menu they still have their icons. Stock themes have square, bordered
 bars (Hyprland's rounding 0), which hide the shelf's fillets, so round the bar
 in Powerbar's own settings, for every theme:
 `set shape.scope all`, `set shape.rounding 12`, `set shape.borders false`,
-`set shadow.scope all`, `set shadow.enabled false` (a shadow draws a seam
-across a shelf's join). Set the screen per shot with
+`set shadow.scope all`, `set shadow.enabled false`. Set the screen per shot with
 `omabox -b gal hyprctl eval 'hl.monitor({ output = "HEADLESS-2", mode = "2400x300@60", position = "0x0", scale = 2.5 })'`;
 do that again after every `omarchy-theme-set`, which resets it. Commands below
 are `omabox run -b gal -- omarchy-shell powerbar ...`; `keys` is

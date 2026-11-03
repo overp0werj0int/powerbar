@@ -13,6 +13,8 @@ Item {
   property real size: Style.font.iconLarge
   property real maxAspect: 3.2
   property color color: Commons.Color.popups.text
+  // Draw the glyph even where there is an image.
+  property bool glyphOnly: false
   readonly property string key: record && record.instanceKey ? record.instanceKey : ""
   readonly property var live: key ? preferences.snapshots[key] : null
   readonly property string cachedUrl: !live && key !== "" && !record.groupId ? preferences.cachedImageUrl(key) : ""
@@ -24,7 +26,7 @@ Item {
   readonly property bool cacheUsable: useCache && cached.status === Image.Ready
     && (Math.abs(imageHeight - Style.bar.sizeHorizontal) <= 1
       || Math.abs(imageHeight - Style.bar.sizeHorizontal - (bar ? bar.largeBarLip * 2 : 0)) <= 1)
-  readonly property bool hasImage: !!live || cacheUsable
+  readonly property bool hasImage: !glyphOnly && (!!live || cacheUsable)
   // Images are grabbed at twice their size; a large bar's slots include a lip
   // above and below the widget (beside it on a vertical bar), trimmed here so
   // the icon shows the widget alone at either bar size.
@@ -60,7 +62,7 @@ Item {
   }
   Image {
     anchors.fill: frame
-    visible: !!icon.live
+    visible: !!icon.live && !icon.glyphOnly
     source: icon.live ? icon.live.url : ""
     fillMode: Image.PreserveAspectFit
     smooth: true
@@ -69,7 +71,7 @@ Item {
   Image {
     id: cached
     anchors.fill: frame
-    visible: icon.cacheUsable
+    visible: icon.cacheUsable && !icon.glyphOnly
     source: icon.cachedUrl
     asynchronous: true
     cache: true
