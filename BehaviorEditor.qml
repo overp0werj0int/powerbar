@@ -98,7 +98,7 @@ DeskPage {
   // saved drawer shows as the bar.
   DeskStrip {
     id: onDemand
-    readonly property string shown: behavior.preferences.notchMode && behavior.preferences.options.onDemand === "drawer" ? "inline" : behavior.preferences.options.onDemand
+    readonly property string shown: behavior.preferences.notchMode && behavior.preferences.options.onDemand !== "menu" ? "inline" : behavior.preferences.options.onDemand
     title: "On demand"
     caption: "Widgets behind a zone's dots. Where they show when asked."
     DeskPickGroup {
@@ -109,6 +109,14 @@ DeskPage {
         caption: "Hovering a zone's dots opens a drawer under the bar."
         checked: onDemand.shown === "drawer"
         onActivated: behavior.preferences.setOption("powerbarOnDemand", "drawer")
+      }
+      DeskRow {
+        visible: !behavior.preferences.notchMode
+        pick: true
+        label: "On a shelf"
+        caption: "Hovering a zone's dots pulls a shelf out of the bar, joined to it."
+        checked: onDemand.shown === "shelf"
+        onActivated: behavior.preferences.setOption("powerbarOnDemand", "shelf")
       }
       DeskRow {
         pick: true

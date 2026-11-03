@@ -41,7 +41,12 @@ _Avoid_: Main island when referring to this temporary surface.
 
 **On-demand display**:
 How a zone's Managed widgets are reached: in the Managed drawer when the zone
-is hovered ("drawer", the default), or by an inline expansion ("inline").
+is hovered ("drawer", the default), on a Shelf ("shelf"), by an inline
+expansion ("inline"), or in a menu from the zone's dots ("menu").
+
+**Shelf**:
+The Managed drawer of the "shelf" display: the same drawer, drawn as part of
+the bar surface it comes out of instead of as a floating island.
 
 **On-demand run**:
 Wherever a zone's Managed widgets appear on the bar (an inline expansion, an

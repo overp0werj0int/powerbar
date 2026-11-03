@@ -18,11 +18,15 @@ Item {
   // Corner radii, and the cut (wrapCut) or null.
   property real topRadius: 0
   property real bottomRadius: 0
+  // Each bottom corner on its own: square where a shelf joins it (Bar
+  // shelfSquares, on-demand-drawers.md DEMAND-122).
+  property real bottomLeftRadius: bottomRadius
+  property real bottomRightRadius: bottomRadius
   property var cut: null
 
   readonly property real borderWidth: Border.isNone(borderSpec) ? 0 : Border.top(borderSpec)
   function outline(inset, offset) {
-    return NotchModel.wrapOutline({ width: width, height: height, tl: topRadius, tr: topRadius, bl: bottomRadius, br: bottomRadius,
+    return NotchModel.wrapOutline({ width: width, height: height, tl: topRadius, tr: topRadius, bl: bottomLeftRadius, br: bottomRightRadius,
       cut: cut, inset: inset, x: offset, y: offset })
   }
 

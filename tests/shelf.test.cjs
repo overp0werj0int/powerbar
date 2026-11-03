@@ -1,0 +1,61 @@
+const { test } = require('node:test');
+const assert = require('node:assert/strict');
+const load = require('./load.cjs');
+const shelf = load('ShelfModel.js');
+
+test('each end joins the bar inside, flush or beyond it', () => {
+  const o = shelf.outline({ length: 200, depth: 30, radius: 8, barStart: -40, barEnd: 200, barRadius: 8 });
+  assert.equal(o.start, 'inside');
+  assert.equal(o.end, 'flush');
+  assert.equal(o.ups.length, 0);
+  // Inside: the fillet curves out into the bar's edge, 8 px past the side.
+  assert.match(o.fill, /^M 200 0 /);
+  assert.match(o.fill, /L 0 8 A 8 8 0 0 0 -8 0 Z$/);
+  const past = shelf.outline({ length: 200, depth: 30, radius: 8, barStart: 0, barEnd: 120 });
+  assert.equal(past.end, 'beyond');
+  assert.equal(past.ups.length, 1);
+  assert.match(past.ups[0].fill, /^M 120 -8 A 8 8 0 0 0 128 0 L 120 0 Z$/);
+  // Its top edge's border starts where the up fillet ends.
+  assert.match(past.edge, /^M 128 0 L 192 0 A 8 8 0 0 1 200 8/);
+});
+
+test('a fillet never runs into the bottom corner of a shallow shelf', () => {
+  const o = shelf.outline({ length: 100, depth: 12, radius: 8, barStart: -50, barEnd: 150 });
+  // Radius held to half the depth, the side fillet to what is left of it.
+  assert.match(o.fill, /A 6 6 0 0 0 100 6 /);
+});
+
+test('an end too close to the bar end to curve snaps flush with it', () => {
+  const bar = { start: 4, end: 1508, radius: 8 };
+  assert.equal(shelf.snapShift(10, 300, bar, 8), -6);       // 6 px in: flush
+  assert.equal(shelf.snapShift(40, 300, bar, 8), 0);        // room for the fillet
+  assert.equal(shelf.snapShift(1200, 300, bar, 8), 8);      // 8 px short of the end
+  assert.equal(shelf.snapShift(4, 300, bar, 8), 0);         // already flush
+  assert.equal(shelf.snapShift(-2, 300, { start: 4, end: 100, radius: 0 }, 6), 6);
+  // An end already flush stays, and the shelf stays on the screen: a shelf
+  // flush with its island's end and 10 px past its start does not move.
+  assert.equal(shelf.snapShift(1308, 200, { start: 1318, end: 1508, radius: 10 }, 10, 4, 1508), 0);
+  assert.equal(shelf.snapShift(1200, 300, { start: 4, end: 1508, radius: 8 }, 8, 4, 1500), 0);
+});
+
+test('an end it cannot snap curves in the room it has', () => {
+  // Flush at the end, 10 px past the island's start: corner and up fillet 5 px each.
+  const past = shelf.outline({ length: 200, depth: 30, radius: 10, barStart: 10, barEnd: 200, barRadius: 10 });
+  assert.equal(past.start, 'beyond');
+  assert.equal(past.end, 'flush');
+  assert.match(past.ups[0].fill, /^M 10 -5 L 10 0 L 5 0 A 5 5 0 0 0 10 -5 Z$/);
+  assert.match(past.edge, /L 0 5 A 5 5 0 0 1 5 0 L 5 0$/);
+  // 6 px inside the bar's end: tight, a 6 px fillet, the bar's corner square.
+  const tight = shelf.outline({ length: 200, depth: 30, radius: 10, barStart: -6, barEnd: 300, barRadius: 10 });
+  assert.equal(tight.start, 'tight');
+  assert.match(tight.fill, /L 0 6 A 6 6 0 0 0 -6 0 Z$/);
+  assert.deepEqual(shelf.squaredCorners('top', tight.start, tight.end), ['bl']);
+});
+
+test('the bar corners a shelf squares, per bar edge', () => {
+  assert.deepEqual(shelf.squaredCorners('top', 'flush', 'inside'), ['bl']);
+  assert.deepEqual(shelf.squaredCorners('top', 'inside', 'beyond'), ['br']);
+  assert.deepEqual(shelf.squaredCorners('bottom', 'flush', 'flush'), ['tl', 'tr']);
+  assert.deepEqual(shelf.squaredCorners('left', 'flush', 'inside'), ['tr']);
+  assert.deepEqual(shelf.squaredCorners('right', 'inside', 'flush'), ['bl']);
+});

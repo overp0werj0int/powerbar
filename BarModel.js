@@ -36,7 +36,7 @@ function options(config) {
     autoHideActivity: c.powerbarAutoHideActivity !== false,
     largeBar: c.powerbarLargeBar === true,
     spacingMode: c.powerbarSpacingMode === "gaps" ? "gaps" : "slots",
-    onDemand: c.powerbarOnDemand === "inline" || c.powerbarOnDemand === "menu" ? c.powerbarOnDemand : "drawer",
+    onDemand: ["inline", "menu", "shelf"].indexOf(c.powerbarOnDemand) >= 0 ? c.powerbarOnDemand : "drawer",
     animations: c.powerbarAnimations !== false,
     keyLegend: c.powerbarKeyLegend !== false,
     // Preferences' pages as tilted plates (PREFS-99); false lays them flat.

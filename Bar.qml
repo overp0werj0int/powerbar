@@ -512,12 +512,16 @@ Item {
   // On-demand widgets either open in a drawer island when their zone is
   // hovered ("drawer"), or wait behind the zone's dots and expand in the bar
   // when the dots are hovered ("inline"; docs/design/zone-fit.md), or open
-  // from the dots in a menu of icons and names ("menu").
+  // from the dots in a menu of icons and names ("menu"), or open in a shelf:
+  // the drawer's strip joined to the bar's edge, one surface with it
+  // ("shelf"; on-demand-drawers.md DEMAND-120). The shelf works as the drawer
+  // does; only its look and motion differ.
   // The notch has no drawers: its on-demand widgets expand in the bar, or
   // hang in a menu below the ear's dots.
   readonly property string onDemandMode: notchMode && barOptions.onDemand !== "menu" ? "inline" : barOptions.onDemand
   readonly property bool onDemandInline: onDemandMode === "inline"
   readonly property bool onDemandMenu: onDemandMode === "menu"
+  readonly property bool onDemandShelf: onDemandMode === "shelf"
   // On-demand widgets wait behind their zone's dots (inline and menu).
   readonly property bool onDemandDots: onDemandInline || onDemandMenu
   // The keyboard mode's key strip (Preferences → Behavior → Keyboard).
@@ -4097,6 +4101,25 @@ Item {
     readonly property var screenTop: { var m = panelMode; return root.vertical ? root.notchFor(screen, "top") : notch }
     readonly property var outerCorners: screenTop && !notchLook && !root.flat
       ? NotchModel.outerCorners(screenTop, root.edgeGap, root.islandRounding, barSize) : null
+    // The shelf open on this bar (ManagedDrawer shelf, on-demand-drawers.md
+    // DEMAND-122): the surface it hangs from and the corners of it that it
+    // squares, where it joins flush with the surface's end or runs past it.
+    property var shelfJoin: null
+    function shelfSquares(surface, corner) {
+      var j = shelfJoin
+      return !!j && !!surface && j.surface === surface && j.corners.indexOf(corner) >= 0
+    }
+    // The surface a shelf for `zone` hangs from, along the bar in the window's
+    // coordinates: { item, start, end, radius }. Its zone's island, the
+    // floating bar, or a flat bar's whole length (no item, square ends).
+    function shelfHost(zone) {
+      var item = root.islands ? (zoneIslands && zoneIslands[zone] && zoneIslands[zone].visible ? zoneIslands[zone] : null)
+        : root.flat ? null : notchWrap ? wrapSurface : floatSurface
+      if (!item) return { item: null, start: 0, end: root.alongSize(barWindow), radius: 0 }
+      var p = item.mapToItem(contentItem, 0, 0)
+      var start = root.vertical ? p.y : p.x
+      return { item: item, start: start, end: start + root.alongSize(item), radius: root.islandRounding }
+    }
     // Those corners where they are drawn now, in `item`'s coordinates:
     // [{ corner, x, y, r }] for CellModel.nestedCorners, so a highlight or a
     // drop outline in one nests its own corner in it (LOOK-150). The same
@@ -4648,8 +4671,13 @@ Item {
       radius: root.islandRounding
       // A side bar's top corner on the screen's edge follows the screen's
       // rounded corner (LOOK-149).
-      topLeftRadius: barWindow.outerCorners && root.position === "left" ? barWindow.outerCorners.top : undefined
-      topRightRadius: barWindow.outerCorners && root.position === "right" ? barWindow.outerCorners.top : undefined
+      topLeftRadius: barWindow.shelfSquares(floatSurface, "tl") ? 0
+        : barWindow.outerCorners && root.position === "left" ? barWindow.outerCorners.top : undefined
+      topRightRadius: barWindow.shelfSquares(floatSurface, "tr") ? 0
+        : barWindow.outerCorners && root.position === "right" ? barWindow.outerCorners.top : undefined
+      // Square where a shelf joins flush or runs past the end (DEMAND-122).
+      bottomLeftRadius: barWindow.shelfSquares(floatSurface, "bl") ? 0 : undefined
+      bottomRightRadius: barWindow.shelfSquares(floatSurface, "br") ? 0 : undefined
       borderSpec: root.islandBorder
     }
     // On the notched screen it dips round the camera and follows the
@@ -4668,6 +4696,8 @@ Item {
       borderSpec: root.islandBorder
       topRadius: barWindow.outerCorners ? barWindow.outerCorners.top : root.islandRounding
       bottomRadius: root.islandRounding
+      bottomLeftRadius: barWindow.shelfSquares(wrapSurface, "bl") ? 0 : root.islandRounding
+      bottomRightRadius: barWindow.shelfSquares(wrapSurface, "br") ? 0 : root.islandRounding
       cut: visible ? NotchModel.wrapCut(barWindow.notch, barWindow.width, x - mainStrip.x, y - mainStrip.y, root.edgeGap) : null
     }
     // The camera's own black, so the zones meet it however wide it really is,
@@ -5238,8 +5268,10 @@ Item {
             transform: Translate { x: barWindow.slideX("left", barWindow.leftShift); y: barWindow.slideY("left", barWindow.leftShift) }
             // The screen's rounded corner above it (LOOK-148), or beside it on
             // a side bar, where this island is the top one (LOOK-149).
-            topLeftRadius: barWindow.outerCorners && root.position !== "right" ? barWindow.outerCorners.top : undefined
-            topRightRadius: barWindow.outerCorners && root.position === "right" ? barWindow.outerCorners.top : undefined
+            topLeftRadius: barWindow.shelfSquares(leftIsland, "tl") ? 0
+              : barWindow.outerCorners && root.position !== "right" ? barWindow.outerCorners.top : undefined
+            topRightRadius: barWindow.shelfSquares(leftIsland, "tr") ? 0
+              : barWindow.outerCorners && root.position === "right" ? barWindow.outerCorners.top : undefined
             x: root.vertical ? (parent.width - width) / 2 : leftModules.x + leftModules.shownLead - barWindow.metrics.endPad(leftModules.leadSpill)
             y: root.vertical ? leftModules.y + leftModules.shownLead - barWindow.metrics.endPad(leftModules.leadSpill) : (parent.height - height) / 2
             width: root.vertical ? root.barSize : leftModules.width - leftModules.shownLead - leftModules.shownTrail + barWindow.metrics.endPad(leftModules.leadSpill) + barWindow.metrics.endPad(leftModules.trailSpill)
@@ -5295,7 +5327,8 @@ Item {
             zoneHidden: barWindow.zoneHidden("right")
             notchSide: barWindow.notchLook ? "right" : ""
             transform: Translate { x: barWindow.slideX("right", barWindow.rightShift); y: barWindow.slideY("right", barWindow.rightShift) }
-            topRightRadius: barWindow.outerCorners && !root.vertical ? barWindow.outerCorners.top : undefined
+            topRightRadius: barWindow.shelfSquares(rightIsland, "tr") ? 0
+              : barWindow.outerCorners && !root.vertical ? barWindow.outerCorners.top : undefined
             readonly property real start: barWindow.notchLook ? barWindow.notchRight - barWindow.notchTuck
               : rightModules.shownLength > 0
               ? root.along(rightModules) + rightModules.shownLead - barWindow.metrics.endPad(rightModules.leadSpill)
@@ -5522,6 +5555,13 @@ Item {
     shadowSize: root.surfaceEffects.shadowSize
     shadowOpacity: root.surfaceEffects.shadowOpacity
     radius: root.islandRounding
+    // Square where a shelf joins flush or runs past the end (DEMAND-122).
+    readonly property var hostWindow: root.targetWindow(island)
+    function squared(corner) { return !!hostWindow && typeof hostWindow.shelfSquares === "function" && hostWindow.shelfSquares(island, corner) }
+    topLeftRadius: squared("tl") ? 0 : undefined
+    topRightRadius: squared("tr") ? 0 : undefined
+    bottomLeftRadius: squared("bl") ? 0 : undefined
+    bottomRightRadius: squared("br") ? 0 : undefined
     borderSpec: root.notchMode ? Border.none() : root.islandBorder
     NotchEnd { visible: island.notchSide !== ""; side: island.notchSide }
   }
