@@ -2147,7 +2147,12 @@ Item {
   // the panels Omarchy's platform package describes, read as the shell starts
   // so a bar knows before it maps whether its screen may have one.
   // POWERBAR_DISPLAY_CUTOUTS points at another file (tests in a box).
-  readonly property var displayCutouts: displayCutoutsFile.missing ? [] : NotchModel.parseCutouts(displayCutoutsFile.text())
+  readonly property var displayCutouts: {
+    // text() runs a failed load, which writes `missing`: read it first, or
+    // this binding would be writing what it already depends on.
+    var text = displayCutoutsFile.text();
+    return displayCutoutsFile.missing ? [] : NotchModel.parseCutouts(text);
+  }
   FileView {
     id: displayCutoutsFile
     // A file that went away describes nothing, whatever text() still holds.

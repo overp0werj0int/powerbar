@@ -21,14 +21,6 @@ DeskPage {
     {
       keys: "enter",
       label: "Record the shortcut"
-    },
-    {
-      keys: "tab shift+tab",
-      label: "Next strip, or back"
-    },
-    {
-      keys: "3",
-      label: "Look: style, size, shape, surface, shadow, notch"
     }
   ]
 

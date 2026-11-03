@@ -174,7 +174,7 @@ Item {
   }
 
   // ------------------------------------------------------------ the legend
-  readonly property var legend: DeskModel.legend(pageLines, focusedControl && focusedControl.keyHints ? focusedControl.keyHints : [])
+  readonly property var legend: DeskModel.pageLegend(pageLines, focusedControl && focusedControl.keyHints ? focusedControl.keyHints : [])
   KeyLegend {
     anchors.left: parent.left
     anchors.bottom: parent.bottom

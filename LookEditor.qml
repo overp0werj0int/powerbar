@@ -19,14 +19,6 @@ DeskPage {
     {
       keys: "tab shift+tab",
       label: "Next strip, or back"
-    },
-    {
-      keys: "backspace",
-      label: "Back to the theme's value"
-    },
-    {
-      keys: "4",
-      label: "Behavior: how the bar comes, goes and answers keys"
     }
   ]
 

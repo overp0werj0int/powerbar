@@ -77,6 +77,16 @@ test('a place whose control has gone lands on the nearest one left', () => {
   assert.deepEqual(plain(model.valid(look, null)), at(0, 0, 0));
 });
 
+test('a page\'s legend: the control\'s own lines, then the page\'s until there are two', () => {
+  const page = [{ keys: 'space', label: 'Toggle, or choose' }, { keys: 'tab shift+tab', label: 'Next strip, or back' }];
+  const fader = [{ keys: '←→', label: 'Less, more' }, { keys: 'backspace', label: 'Back to the default' }];
+  const shortcut = [{ keys: 'enter', label: 'Change' }, { keys: 'x', label: 'Remove' }, { keys: 'backspace', label: 'Restore' }];
+  assert.deepEqual(plain(model.pageLegend(page, [])), page);
+  assert.deepEqual(plain(model.pageLegend(page, [{ keys: 'space', label: 'Choose it' }])), [{ keys: 'space', label: 'Choose it' }, page[1]]);
+  assert.deepEqual(plain(model.pageLegend(page, fader)), fader);
+  assert.deepEqual(plain(model.pageLegend(page, shortcut)), shortcut);
+});
+
 test('the legend: the control\'s own line for a key replaces the page\'s, the rest lead', () => {
   const page = [{ keys: 'h l', label: 'Same row, next strip' }, { keys: 'backspace', label: 'Back to the theme\'s value' }];
   assert.deepEqual(plain(model.legend(page, [])), page);

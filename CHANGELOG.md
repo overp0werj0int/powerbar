@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- A shelf and its bar surface now share one border: the bar's line across the join is gone, and the shelf's border runs on from the bar's, on every join and screen edge. On a translucent bar the line still shows through. A flat bar's shelf has no border, as the bar has none.
+- The Layout and Groups pages show the Clock's clock icon again, not the first letters of the day ("Tu"). Any wide widget that draws only words gets its stock icon.
+- The key legend on the Look, Behavior and Tuning pages is down to two lines: the focused control's own keys, then the page's until there are two. The other lines are gone; their keys still work.
+- No more warnings: the binding loop at startup on a machine with no camera file, and the error when a drawer opened after On demand went from menu to drawer.
 - The README's hero and screenshots show the current look: a floating bar with its menu open in front of the Preferences Layout page, and a new gallery.
 - On the notch and in shelves, the bar's corners go square only where the drawer really joins them. Every open shelf or notch drawer squared both, so an ear's outer corner went sharp with a menu nowhere near it (DEMAND-122).
 - On the notch, a drawer that runs past its ear under the camera now curves into the band on that side too, instead of showing a round corner with a sharp sliver of wallpaper above it: the ear's black runs on through the camera and the other ear (ZONE-88).
