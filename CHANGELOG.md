@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Bar: on a screen with rounded corners, the highlight, the keyboard cursor and the drop outline of a widget in the bar's rounded corner now round with that corner, keeping an even gap to its curve, instead of poking a square corner into it (LOOK-150).
 - Preferences: dashed outlines (the tray, "Not in a group", the "+" rows, a hidden group's face) have clean, matching corners. Each corner is one solid piece and each side gets whole dashes spaced evenly, so no corner starts mid-dash. The branch lines under a group are smooth on the tilted plate: one line per group, antialiased, instead of short pieces that stepped.
 - Preferences: a dimmed fader's knob no longer shows the track and its marks through it.
 - Preferences: switching pages pushes a pulled-out inspector back, on the Layout and Groups pages, so coming back to the page the arrows walk the board again instead of the inspector's controls.

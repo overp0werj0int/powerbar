@@ -38,6 +38,27 @@ function radius(k, rounding) {
   return Math.max(0, Math.min(k.thickness / 2, (Number(rounding) || 0) - k.inset))
 }
 
+// A highlight's or drop outline's four corners (tl, tr, bl, br), nested in
+// the bar's outer corners that follow the screen's (Bar outerArcs,
+// appearance.md LOOK-150). arcs: [{ corner: "tl" | "tr" | "bl" | "br", x, y,
+// r }], each the surface's corner point and its radius, in the rect's
+// coordinates. A rect corner in one keeps the gap to its curve that it keeps
+// to its sides: r less the larger of its two insets, so the curve stays
+// inside the surface's. Never below `base`, never past half the rect.
+function nestedCorners(rect, arcs, base) {
+  var cap = Math.max(0, Math.min(rect.width, rect.height) / 2)
+  var b = Math.max(0, Math.min(cap, Number(base) || 0))
+  var out = { tl: b, tr: b, bl: b, br: b }
+  for (var i = 0; arcs && i < arcs.length; i++) {
+    var a = arcs[i]
+    var dx = a.corner.charAt(1) === "l" ? rect.x - a.x : a.x - (rect.x + rect.width)
+    var dy = a.corner.charAt(0) === "t" ? rect.y - a.y : a.y - (rect.y + rect.height)
+    var r = Math.min(cap, a.r - Math.max(0, dx, dy))
+    if (r > out[a.corner]) out[a.corner] = r
+  }
+  return out
+}
+
 // A glyph is what reads as an icon: the kit says so, or it paints no wider
 // than a large icon glyph in one piece.
 function isGlyph(ink, glyphHint) {
