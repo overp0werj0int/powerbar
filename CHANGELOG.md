@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Preferences: switching pages pushes a pulled-out inspector back, on the Layout and Groups pages, so coming back to the page the arrows walk the board again instead of the inspector's controls.
 - Groups page: Tab and Shift+Tab go from plate to plate (the groups, then "Not in a group"), the cursor and a lifted widget with them, as they go from layer to layer on the Layout page; the legend says "tab shift+tab Next layer, or back" on both plates (PREFS-117).
 - Groups page: the branch lines under a group start at the face's bottom edge and each tick ends on its widget's edge, with no gap before the widget and no overlap into the face.
 - Groups page: Shift+Down on a widget past its zone's last group takes it out to "Not in a group", the way Shift+Up from there puts one in the chosen group. Before, the step stopped at the "+" and nothing happened (PREFS-117).
