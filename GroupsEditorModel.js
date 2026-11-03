@@ -72,7 +72,7 @@ function drawnRows(ids, lists, target) {
     if (target && target.area === "gap" && target.id === id)
       rows.splice(clamp(target.pos, 0, rows.length), 0, { kind: "gap", id: id, pos: clamp(target.pos, 0, rows.length) })
     if (!rows.length) { out.push({ kind: "note", id: id }); return }
-    rows.forEach(function(r, i) { r.first = i === 0; r.last = i === rows.length - 1; out.push(r) })
+    rows.forEach(function(r, i) { r.first = i === 0; r.last = i === rows.length - 1; r.count = rows.length; out.push(r) })
   })
   return out
 }

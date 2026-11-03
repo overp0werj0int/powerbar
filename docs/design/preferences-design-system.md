@@ -421,6 +421,14 @@ A slab (the Hidden layer, solid; the tray, dashed) is one tile across the
 five zones' columns, no zone names, its chips five to a row, `xs` apart, the
 same spacing as rows in a zone (PREFS-107, PREFS-97).
 
+A dashed outline (the tray slab, the pool, a "+" row, a hidden group's face)
+is a 1 px line of 3 px dashes. Each corner is one solid piece: its arc, or on
+a square corner two legs a dash long. Each side between two corners holds
+whole dashes, with the gaps stretched evenly so the side starts and ends on
+a gap. Every corner and every side reads the same at any size, instead of
+landing wherever a running dash pattern happens to fall (DashedFrame,
+DashModel.frame).
+
 ### Widget row (chip)
 
 A row in a zone (`LayoutEditor.qml` `Tile`): `Gap.control` tall, the tile's

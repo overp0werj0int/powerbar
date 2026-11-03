@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Preferences: dashed outlines (the tray, "Not in a group", the "+" rows, a hidden group's face) have clean, matching corners. Each corner is one solid piece and each side gets whole dashes spaced evenly, so no corner starts mid-dash. The branch lines under a group are smooth on the tilted plate: one line per group, antialiased, instead of short pieces that stepped.
 - Preferences: a dimmed fader's knob no longer shows the track and its marks through it.
 - Preferences: switching pages pushes a pulled-out inspector back, on the Layout and Groups pages, so coming back to the page the arrows walk the board again instead of the inspector's controls.
 - Groups page: Tab and Shift+Tab go from plate to plate (the groups, then "Not in a group"), the cursor and a lifted widget with them, as they go from layer to layer on the Layout page; the legend says "tab shift+tab Next layer, or back" on both plates (PREFS-117).
