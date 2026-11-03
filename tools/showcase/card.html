@@ -2,9 +2,9 @@
 <!-- Powerbar's README hero and plugin preview, rendered by render.sh (headless
      Chromium, 1200x675 at 2x: 16:9, the marketplace's card shape). Words on
      the left, two untouched captures on the right: screenshots/hero-bar.jpg
-     (a floating bar on tokyo-night with the right zone's menu open) in front
-     of screenshots/hero-prefs.jpg (Preferences on cumulus, a widget pulled
-     out to its inspector). Catalogue cards crop the picture to between about
+     (a floating bar on tokyo-night with the right zone's menu open) above
+     screenshots/hero-prefs.jpg (Preferences on cumulus on a notched screen,
+     a widget pulled out to its inspector, shown whole). Catalogue cards crop the picture to between about
      1.5:1 and 2.4:1, so what matters stays inside 95..1105 x 88..588. -->
 <html lang="en">
 <head>
@@ -83,14 +83,11 @@
   .shot { position: absolute; display: block; border-radius: 12px; overflow: hidden }
   .shot img { display: block; width: 100%; height: 100% }
   .prefs {
-    left: 600px; top: 202px; width: 500px; height: 386px;
-    mask-image: linear-gradient(90deg, transparent, black 14%);
-    transform: perspective(1600px) rotateY(-9deg) rotateZ(-1.5deg);
-    transform-origin: right center;
+    left: 612px; top: 262px; width: 493px; height: 306px;
     box-shadow: 0 30px 70px -20px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.10);
   }
   .bar {
-    left: 600px; top: 88px; width: 500px; height: 147px;
+    left: 612px; top: 92px; width: 493px; height: 145px;
     box-shadow: 0 0 0 1.5px rgba(139, 124, 246, 0.75), 0 0 40px rgba(139, 124, 246, 0.35),
                 0 30px 80px -20px rgba(0, 0, 0, 0.8);
   }

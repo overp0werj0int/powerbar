@@ -120,18 +120,19 @@ omabox for desktop tests in a private Hyprland session
 (the README hero and the plugin's preview) is `tools/showcase/card.html`
 rendered by `tools/showcase/render.sh` (headless Chromium, 1200x675 at 2x:
 16:9, the marketplace card's shape). The card is words on the left and two
-untouched captures on the right, both from one box set up like the gallery
-below, with `tuning false`:
+untouched captures on the right:
 
-- `screenshots/hero-bar.jpg`: tokyo-night over a plain violet-to-teal
+- `screenshots/hero-bar.jpg`: a box set up like the gallery below, with
+  `tuning false`: tokyo-night over a plain violet-to-teal
   gradient (`magick -size 2400x1500 gradient:'#5b4fa8'-'#2f7f8f'`, then
   `omarchy-theme-bg-set`, so the bar stands out), a 1700x600 screen at scale
   2.5, `set style floating`, `set onDemand menu`, `managed right`, cropped to
   the top 1700x500.
-- `screenshots/hero-prefs.jpg`: cumulus, a 2880x1500 screen at scale 2,
-  `set autoHide true` (so *Peeks on activity* is live), `preferencesPage 1`,
-  keys `Right` x3, `Return` (Weather pulled out to its inspector), cropped to
-  1620x1250+1240+236.
+- `screenshots/hero-prefs.jpg`: the same kind of box on cumulus, set up like
+  `notch-kanagawa.jpg` below (3024x1964 at 2, `cutouts.json`, `set style
+  notch`, restart), with `set autoHide true` so *Peeks on activity* is live,
+  `preferencesPage 1`, keys `Right` x3, `Return` (Weather pulled out to its
+  inspector), cropped to the window, 3004x1862+10+92, and shown whole.
 
 Keep what matters inside 95..1105 x 88..588 of the page: catalogue cards
 crop the picture to between about 1.5:1 and 2.4:1. Re-run render.sh after
