@@ -88,10 +88,10 @@ Item {
         if (!filtering)
             filterFrom = {
                 at: at,
-                item: focused && focused !== stage ? focused : null
+                item: focused && !stageFocused ? focused : null
             };
         filtering = true;
-        stage.forceActiveFocus(Qt.OtherFocusReason);
+        focusStage();
     }
     function cancelFilter() {
         var from = filterFrom;
@@ -103,7 +103,7 @@ Item {
             return;
         }
         place(Editor.normalize(stepState, from ? from.at : null));
-        stage.forceActiveFocus(Qt.OtherFocusReason);
+        focusStage();
     }
     function filterKey(event) {
         var key = event.key, t = event.text;
@@ -173,6 +173,57 @@ Item {
     property string pendingDissolve: ""
     readonly property string liftedKey: lifted && lifted.key ? lifted.key : ""
     readonly property bool liftingFace: !!lifted && !!lifted.face
+    // The two plates are Tab stops sharing the one cursor, as the Layout
+    // page's layers are (PREFS-27): Tab and Shift+Tab go from plate to plate,
+    // the cursor (or a lifted widget) with them, back where it was on that
+    // plate. Set while the editor moves focus itself.
+    property bool focusMoving: false
+    property var plateAt: null
+    property int poolAt: 0
+    onAtChanged: if (at.area === "pool")
+        poolAt = at.pos;
+    else
+        plateAt = at
+    // The plates' keys: the plate the cursor (or a lifted widget's landing
+    // place) is on.
+    function focusStage(reason) {
+        focusMoving = true;
+        (activeAt.area === "pool" ? poolKeys : groupKeys).forceActiveFocus(reason === undefined ? Qt.OtherFocusReason : reason);
+        focusMoving = false;
+    }
+    // Focus follows the cursor from plate to plate (j past the "+", k out of
+    // the pool's first row).
+    onActiveAtChanged: if (stageFocused && !(activeAt.area === "pool" ? poolKeys : groupKeys).activeFocus)
+        focusStage()
+    function plateFocusChanged(pool, focused) {
+        if (!focused || focusMoving || pool === (activeAt.area === "pool"))
+            return;
+        // Tab or Shift+Tab brought it here. A face stays on plate 1.
+        if (liftingFace)
+            return;
+        if (lifted)
+            liftTarget = pool ? {
+                area: "pool"
+            } : Editor.stepLift(stepState, {
+                area: "pool"
+            }, 0, -1, liftHome);
+        else
+            place(pool ? {
+                area: "pool",
+                pos: poolAt
+            } : Editor.normalize(stepState, plateAt));
+    }
+    onStageFocusedChanged: if (!stageFocused) {
+        // Leaving the plates ends the filter's hold on the keys, keeping
+        // its text, and puts a keyboard lift back.
+        filtering = false;
+        filterFrom = null;
+        // The page may be gone by then.
+        Qt.callLater(function () {
+            if (editor && !editor.stageFocused && editor.lifted && !editor.pointerLift)
+                editor.cancel();
+        });
+    }
     // Each group's member keys without a lifted widget, and how many.
     readonly property var liveKeys: {
         var out = ({});
@@ -567,12 +618,12 @@ Item {
     }
     function pushBack() {
         inspecting = false;
-        stage.forceActiveFocus(Qt.OtherFocusReason);
+        focusStage();
     }
     // Coming to the page: on the plates, nothing pulled forward.
     function focusFirst() {
         inspecting = false;
-        stage.forceActiveFocus(Qt.TabFocusReason);
+        focusStage(Qt.TabFocusReason);
     }
     function keyPressed(event) {
         var k = Board.keyCommand(event.key, event.text, event.modifiers);
@@ -826,7 +877,7 @@ Item {
             // text; closed with text, an accent edge says it still applies.
             BorderSurface {
                 id: filterBox
-                readonly property bool live: editor.filtering && stage.activeFocus
+                readonly property bool live: editor.filtering && editor.stageFocused
                 x: poolFace.labelX
                 // A field m under the label's caption, a control tall
                 // (PREFS-133).
@@ -922,30 +973,21 @@ Item {
     }
 
     // ------------------------------------------------------------- the stage
-    // The plates: one Tab stop with one cursor, and every pointer gesture
-    // over them, mapped through the tilt.
+    // The plates: two Tab stops (plate 1, the pool) with one cursor, and
+    // every pointer gesture over them, mapped through the tilt.
     Item {
         id: stage
-        readonly property bool ownsFocusRing: true
         anchors.fill: parent
         z: 50
-        activeFocusOnTab: true
-        Accessible.role: Accessible.List
-        Accessible.name: "Groups"
-        Accessible.description: editor.cursorRecord ? editor.preferences.title(editor.cursorRecord) : editor.selectedGroup ? editor.selectedGroup.label : "No groups yet"
-        Keys.onPressed: function (event) {
-            editor.keyPressed(event);
+        PlateKeys {
+            id: groupKeys
+            pool: false
+            Accessible.name: "Groups"
         }
-        // Leaving the plates ends the filter's hold on the keys, keeping
-        // its text, and puts a keyboard lift back.
-        onActiveFocusChanged: if (!activeFocus) {
-            editor.filtering = false;
-            editor.filterFrom = null;
-            // The page may be gone by then.
-            Qt.callLater(function () {
-                if (stage && !stage.activeFocus && editor.lifted && !editor.pointerLift)
-                    editor.cancel();
-            });
+        PlateKeys {
+            id: poolKeys
+            pool: true
+            Accessible.name: "Not in a group"
         }
         MouseArea {
             anchors.fill: parent
@@ -1005,7 +1047,7 @@ Item {
                 editor.pressed = hit && (hit.kind === "member" || hit.kind === "poolchip" || hit.kind === "face") ? hit : null;
                 if (hit && hit.place)
                     editor.place(hit.place);
-                stage.forceActiveFocus(Qt.MouseFocusReason);
+                editor.focusStage(Qt.MouseFocusReason);
             }
             onReleased: function (mouse) {
                 var clicked = !editor.pointerLift && !editor.pressSpent;
@@ -1632,7 +1674,7 @@ Item {
     }
 
     // ------------------------------------------------------------ the legend
-    readonly property bool stageFocused: stage.activeFocus
+    readonly property bool stageFocused: Board.within(focused, stage)
     readonly property bool inspectorFocused: Board.within(focused, inspector)
     // The row being worked on: where the lifted widget or face would land,
     // else the cursor's. Its zone's name reads brighter, bold while it is on
@@ -1646,13 +1688,11 @@ Item {
             keys: "/",
             label: "Filter the widgets not in a group"
         })
-    // Tab goes to the inspector only while it is out (a click pulled it).
-    readonly property var inspectorTab: inspector.shown ? [
-        {
+    // Tab and Shift+Tab: plate to plate, as on the Layout page.
+    readonly property var plateTab: ({
             keys: "tab shift+tab",
-            label: "The inspector"
-        }
-    ] : []
+            label: "Next layer, or back"
+        })
     // Enter to the inspector heads the legend where it applies.
     readonly property var inspectLines: at.area === "face" || at.area === "member" ? [
         {
@@ -1737,7 +1777,7 @@ Item {
             keys: "enter",
             label: "New group here"
         }
-    ]).concat([filterLine]).concat(inspectorTab) : stageFocused && at.area === "pool" ? [
+    ]).concat([filterLine, plateTab]) : stageFocused && at.area === "pool" ? [
         {
             keys: "space",
             label: "Pick up, then drop"
@@ -1746,8 +1786,9 @@ Item {
             keys: "enter",
             label: selectedGroup ? "Add to " + selectedGroup.label : "Add to the chosen group"
         },
-        filterLine
-    ].concat(inspectorTab) : inspectorFocused ? inspectorDesk.legend : [
+        filterLine,
+        plateTab
+    ] : inspectorFocused ? inspectorDesk.legend : [
         {
             keys: "tab shift+tab",
             label: "The groups"
@@ -1838,6 +1879,19 @@ Item {
             y: listTile.viewTop + listTile.windowHeight + listTile.plusGap
             width: editor.chipWidth
         }
+    }
+    // A plate's keys (a Tab stop): plate 1's or the pool's.
+    component PlateKeys: Item {
+        required property bool pool
+        readonly property bool ownsFocusRing: true
+        anchors.fill: parent
+        activeFocusOnTab: true
+        Accessible.role: Accessible.List
+        Accessible.description: editor.cursorRecord ? editor.preferences.title(editor.cursorRecord) : editor.selectedGroup ? editor.selectedGroup.label : "No groups yet"
+        Keys.onPressed: function (event) {
+            editor.keyPressed(event);
+        }
+        onActiveFocusChanged: editor.plateFocusChanged(pool, activeFocus)
     }
     // A row of a zone's list (Editor.drawnRows): a face; a widget, the
     // Layout page's chip indented under its face, a branch hairline tying it

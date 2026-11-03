@@ -646,6 +646,21 @@ TestCase {
     verify(!keys.some(function (k) { return /\b[hjkl]\b/.test(k) }), "none in the inspector either: " + keys);
     verify(keys.indexOf("tab shift+tab") >= 0, "the inspector's tab with shift+tab: " + keys);
   }
+  // The pool is the plates' last Tab stop: from there Tab reaches a pulled
+  // group's inspector.
+  function test_groupsTabFromThePoolReachesTheInspector() {
+    var page = createTemporaryObject(groupsPage, prefs);
+    page.selectedId = "g1";
+    wait(50);
+    page.place({ area: "face", id: "g1" });
+    page.focusFirst();
+    page.inspect(false);
+    tryVerify(function () { return page.stageFocused }, 1000);
+    keyClick(Qt.Key_Tab);
+    compare(page.at.area, "pool", "first the pool");
+    keyClick(Qt.Key_Tab);
+    tryVerify(function () { return page.inspectorFocused }, 1000, "then the inspector");
+  }
   function test_groupsInspectorTabWrapsAndEscReturns() {
     var page = createTemporaryObject(groupsPage, prefs);
     page.selectedId = "g1";
@@ -656,7 +671,10 @@ TestCase {
     verify(!page.inspecting, "no inspector until a group is pulled forward");
     keyClick(Qt.Key_Tab);
     verify(!page.inspectorFocused, "tab does not reach a hidden inspector");
-    page.focusFirst();
+    compare(page.at.area, "pool", "tab goes on to the pool, as the Layout page's next layer");
+    verify(page.stageFocused, "the pool is the plates' second Tab stop");
+    keyClick(Qt.Key_Backtab, Qt.ShiftModifier);
+    compare(page.at.area, "face", "shift+tab goes back, to where the cursor was");
     keyClick(Qt.Key_Return);
     verify(page.inspecting, "enter on a face pulls it forward");
     tryVerify(function () { return page.inspectorFocused }, 1000, "enter on a face takes the inspector");
