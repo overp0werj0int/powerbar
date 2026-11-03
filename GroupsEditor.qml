@@ -362,6 +362,7 @@ Item {
         });
         renameOnShow = id;
         selectedId = id;
+        inspecting = true;
         cursorKey = "face:" + id;
         syncLater.restart();
     }
@@ -385,7 +386,7 @@ Item {
         selectedId = next;
         cursorKey = next ? "face:" + next : "";
         syncLater.restart();
-        stage.forceActiveFocus(Qt.OtherFocusReason);
+        pushBack();
     }
     Timer {
         id: dissolveTimer
@@ -553,11 +554,26 @@ Item {
         }
         place(Editor.step(stepState, at, dx, dy));
     }
-    function toChosenFace() {
-        place(Editor.firstPlace(stepState));
+    // The chosen group pulled forward to the inspector (PREFS-116), as the
+    // Layout page pulls a chip: from the keyboard the inspector takes focus,
+    // at `control` when given; Esc, or Enter on the plates, pushes it back.
+    property bool inspecting: false
+    function inspect(byKey, control) {
+        inspecting = true;
+        if (!byKey)
+            return;
+        if (control)
+            control.deskFocus(0, Qt.TabFocusReason);
+        else
+            inspector.focusFirst();
+    }
+    function pushBack() {
+        inspecting = false;
         stage.forceActiveFocus(Qt.OtherFocusReason);
     }
+    // Coming to the page: on the plates, nothing pulled forward.
     function focusFirst() {
+        inspecting = false;
         stage.forceActiveFocus(Qt.TabFocusReason);
     }
     function keyPressed(event) {
@@ -591,12 +607,14 @@ Item {
             lift();
         else if (k.act === "space" && faceId)
             liftFace(faceId);
+        else if (enter && inspecting && (faceId || at.area === "member") || k.act === "escape" && inspecting)
+            pushBack();
         else if (enter && faceId)
-            inspector.focusFirst();
+            inspect(true);
         else if (enter && at.area === "plus" || k.c === "n" && zone)
             createIn(zone, "");
         else if (enter && at.area === "member" && cursorRecord)
-            countRow.deskFocus(0, Qt.TabFocusReason);
+            inspect(true, countRow);
         else if (enter && at.area === "pool")
             addToChosen(cursorRecord);
         else if ((k.c === "x" || k.act === "delete") && faceId)
@@ -1000,6 +1018,8 @@ Item {
                     var hit = editor.hitAt(Qt.point(mouse.x, mouse.y));
                     if (hit && hit.kind === "plus")
                         editor.createIn(hit.zone, "");
+                    else if (hit && (hit.kind === "face" || hit.kind === "member"))
+                        editor.inspect(false);
                 }
             }
             onCanceled: {
@@ -1274,12 +1294,12 @@ Item {
         id: inspector
         readonly property var group: editor.selectedGroup
         layout: editor.layout
-        shown: !!editor.selectedGroup
+        shown: editor.inspecting && !!editor.selectedGroup
         desk: inspectorDesk
         // xl all round (PREFS-133).
         bodyHeight: inspectorDesk.implicitHeight
         // Esc returns to the chosen face; a control that takes it gets it first.
-        onEscaped: editor.toChosenFace()
+        onEscaped: editor.pushBack()
         onGroupChanged: if (group && group.id === editor.renameOnShow) {
             editor.renameOnShow = "";
             Qt.callLater(faceEditor.edit);
@@ -1628,6 +1648,13 @@ Item {
             keys: "/",
             label: "Filter the widgets not in a group"
         })
+    // Tab goes to the inspector only while it is out (a click pulled it).
+    readonly property var inspectorTab: inspector.shown ? [
+        {
+            keys: "tab",
+            label: "The inspector"
+        }
+    ] : []
     readonly property var legend: picker.opened ? picker.hints : filtering && stageFocused ? [
         {
             keys: "type",
@@ -1715,8 +1742,8 @@ Item {
             label: pendingDissolve && pendingDissolve === cursorGroup ? "Again to dissolve" : "Dissolve, asked twice"
         },
         {
-            keys: "enter",
-            label: "Inspect it"
+            keys: inspecting ? "enter esc" : "enter",
+            label: inspecting ? "Push it back" : "Inspect it"
         }
     ] : at.area === "member" ? [
         {
@@ -1724,20 +1751,15 @@ Item {
             label: "Take it out"
         },
         {
-            keys: "enter",
-            label: "Count from"
+            keys: inspecting ? "enter esc" : "enter",
+            label: inspecting ? "Push it back" : "Inspect, at Count from"
         }
     ] : [
         {
             keys: "enter",
             label: "New group here"
         }
-    ]).concat([filterLine,
-        {
-            keys: "tab",
-            label: "The inspector"
-        }
-    ]) : stageFocused && at.area === "pool" ? [
+    ]).concat([filterLine]).concat(inspectorTab) : stageFocused && at.area === "pool" ? [
         {
             keys: "h l",
             label: "Walk the widgets"
@@ -1754,12 +1776,8 @@ Item {
             keys: "enter",
             label: selectedGroup ? "Add to " + selectedGroup.label : "Add to the chosen group"
         },
-        filterLine,
-        {
-            keys: "tab",
-            label: "The inspector"
-        }
-    ] : inspectorFocused ? inspectorDesk.legend : [
+        filterLine
+    ].concat(inspectorTab) : inspectorFocused ? inspectorDesk.legend : [
         {
             keys: "tab",
             label: "The groups"
