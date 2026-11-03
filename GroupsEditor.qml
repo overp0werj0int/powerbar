@@ -556,15 +556,11 @@ Item {
     }
     // The chosen group pulled forward to the inspector (PREFS-116), as the
     // Layout page pulls a chip: from the keyboard the inspector takes focus,
-    // at `control` when given; Esc, or Enter on the plates, pushes it back.
+    // in its first strip; Esc, or Enter on the plates, pushes it back.
     property bool inspecting: false
-    function inspect(byKey, control) {
+    function inspect(byKey) {
         inspecting = true;
-        if (!byKey)
-            return;
-        if (control)
-            control.deskFocus(0, Qt.TabFocusReason);
-        else
+        if (byKey)
             inspector.focusFirst();
     }
     function pushBack() {
@@ -614,7 +610,7 @@ Item {
         else if (enter && at.area === "plus" || k.c === "n" && zone)
             createIn(zone, "");
         else if (enter && at.area === "member" && cursorRecord)
-            inspect(true, countRow);
+            inspect(true);
         else if (enter && at.area === "pool")
             addToChosen(cursorRecord);
         else if ((k.c === "x" || k.act === "delete") && faceId)
@@ -1463,7 +1459,6 @@ Item {
                     }
                 }
                 DeskTextRow {
-                    id: countRow
                     enabled: !!editor.member
                     label: "Count from"
                     placeholder: "detected"
@@ -1659,7 +1654,7 @@ Item {
     readonly property var inspectLines: at.area === "face" || at.area === "member" ? [
         {
             keys: inspecting ? "enter esc" : "enter",
-            label: inspecting ? "Push it back" : at.area === "face" ? "Inspect it" : "Inspect, at Count from"
+            label: inspecting ? "Push it back" : "Inspect it"
         }
     ] : []
     readonly property var legend: picker.opened ? picker.hints : filtering && stageFocused ? [
