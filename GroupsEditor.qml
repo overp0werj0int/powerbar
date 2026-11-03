@@ -1655,6 +1655,13 @@ Item {
             label: "The inspector"
         }
     ] : []
+    // Enter to the inspector heads the legend where it applies.
+    readonly property var inspectLines: at.area === "face" || at.area === "member" ? [
+        {
+            keys: inspecting ? "enter esc" : "enter",
+            label: inspecting ? "Push it back" : at.area === "face" ? "Inspect it" : "Inspect, at Count from"
+        }
+    ] : []
     readonly property var legend: picker.opened ? picker.hints : filtering && stageFocused ? [
         {
             keys: "type",
@@ -1707,7 +1714,7 @@ Item {
             keys: "esc",
             label: "Put it back"
         }
-    ] : stageFocused && at.area !== "pool" ? [
+    ] : stageFocused && at.area !== "pool" ? inspectLines.concat([
         {
             keys: "h l",
             label: layout.previewCamera ? "The same row in the next zone, across the camera" : "The same row in the next zone"
@@ -1716,7 +1723,7 @@ Item {
             keys: "j k",
             label: "Down the zone, on to the pool"
         }
-    ].concat(at.area === "face" || at.area === "member" ? [
+    ]).concat(at.area === "face" || at.area === "member" ? [
         {
             keys: "space",
             label: "Pick up, then drop"
@@ -1740,19 +1747,11 @@ Item {
         {
             keys: "x",
             label: pendingDissolve && pendingDissolve === cursorGroup ? "Again to dissolve" : "Dissolve, asked twice"
-        },
-        {
-            keys: inspecting ? "enter esc" : "enter",
-            label: inspecting ? "Push it back" : "Inspect it"
         }
     ] : at.area === "member" ? [
         {
             keys: "x",
             label: "Take it out"
-        },
-        {
-            keys: inspecting ? "enter esc" : "enter",
-            label: inspecting ? "Push it back" : "Inspect, at Count from"
         }
     ] : [
         {

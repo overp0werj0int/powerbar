@@ -119,7 +119,8 @@ Item {
       id: iconPart
       stop: 0
       hot: iconMouse.containsMouse
-      width: glyph.implicitWidth + 2 * Gap.s
+      // A square at least.
+      width: Math.max(height, glyph.implicitWidth + 2 * Gap.s)
       height: face.height - 2 * Gap.xs
       GroupFace {
         id: glyph
