@@ -67,3 +67,32 @@ test("alignStart: flush with the surface's end nearest the source, kept on scree
   assert.equal(shelf.alignStart(bar, 500, { start: 350, end: 380 }, 4, 1508), 4)
   assert.equal(shelf.alignStart({ start: 1300, end: 1508 }, 300, { start: 1310, end: 1340 }, 4, 1508), 1208)
 })
+
+test('fit: an end that cannot move lengthens until both can curve cleanly', () => {
+  const bar = { start: 100, end: 400, radius: 12 };
+  const fit = (start, length, grow = true) => {
+    const { start: s, length: l } = shelf.fit(start, length, bar, 12, 4, 1500, grow);
+    return [s, l];
+  };
+  assert.deepEqual(fit(150, 100), [150, 100]);    // well inside: as it is
+  assert.deepEqual(fit(105, 295), [100, 300]);    // flush at the end, 5 px short of the start
+  assert.deepEqual(fit(100, 295), [100, 300]);    // the same at the other end
+  assert.deepEqual(fit(90, 310), [76, 324]);      // flush at the end, 10 px past: two radii past
+  assert.deepEqual(fit(100, 310), [100, 324]);
+  assert.deepEqual(fit(60, 340), [60, 340]);      // past by more than two radii: as it is
+  // Past a surface at the screen's edge: only as far as the screen.
+  assert.deepEqual(shelf.fit(90, 310, bar, 12, 80, 1500, true), { start: 80, length: 320 });
+  // A menu's rows have their own width: it moves but never lengthens.
+  assert.deepEqual(fit(105, 295, false), [105, 295]);
+});
+
+test('fit: a lengthened shelf joins flush, with no nub', () => {
+  const bar = { start: 100, end: 400, radius: 12 };
+  const { start, length } = shelf.fit(105, 295, bar, 12, 4, 1500, true);
+  const o = shelf.outline({ length, depth: 40, radius: 12, barStart: bar.start - start, barEnd: bar.end - start, barRadius: 12 });
+  assert.deepEqual([o.start, o.end], ['flush', 'flush']);
+  const past = shelf.fit(90, 310, bar, 12, 4, 1500, true);
+  const p = shelf.outline({ length: past.length, depth: 40, radius: 12, barStart: bar.start - past.start, barEnd: bar.end - past.start, barRadius: 12 });
+  assert.equal(p.start, 'beyond');
+  assert.match(p.ups[0].fill, /A 12 12/);
+});

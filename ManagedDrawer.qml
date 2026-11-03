@@ -377,7 +377,11 @@ Item {
   readonly property real desiredCross: (bar.vertical ? grid.width : grid.height) + 2 * padding
   readonly property real crossLength: namedMenu
     ? Math.min(Math.max(thickness, desiredCross), hostWindow.drawerExtent - gap - bar.edgeGap) : thickness
-  readonly property real length: opened ? Math.min(Math.max(thickness, desiredLength), Math.max(thickness, axisExtent - 2 * bar.edgeGap)) : closingLength
+  readonly property real contentLength: opened ? Math.min(Math.max(thickness, desiredLength), Math.max(thickness, axisExtent - 2 * bar.edgeGap)) : closingLength
+  // Joined to the bar, a strip can run a little longer so that its ends curve
+  // cleanly (shelfFit); its cells stay centred in the extra.
+  readonly property real length: shelfFit ? shelfFit.length : contentLength
+  readonly property real fitPad: (length - contentLength) / 2
   readonly property real paintedLength: bar.vertical ? height : width
   // The group icon's cell along the bar, in the window's coordinates. The icon
   // moves with its zone too (a zone grows, slides or yields), which its own x
@@ -423,7 +427,7 @@ Item {
     return bar.vertical ? { start: p.y, end: p.y + island.height } : { start: p.x, end: p.x + island.width }
   }
   readonly property var placement: {
-    var o = { length: paintedLength, screen: axisExtent, edge: bar.edgeGap, source: sourceCell, island: zoneIsland,
+    var o = { length: contentLength, screen: axisExtent, edge: bar.edgeGap, source: sourceCell, island: zoneIsland,
       zone: zone, snap: tokens.thickness / 2, inset: tokens.inset, row: tokens.thickness, vertical: bar.vertical }
     return namedMenu ? Model.placeMenu(o) : Model.placeStrip(o)
   }
@@ -436,14 +440,16 @@ Item {
   }
   // Along the bar: a notch's zone menu is edge-aligned, flush with the end of
   // its ear nearest its dots (layout-zones.md ZONE-88); anything else joined
-  // to the bar moves so that neither end lands too close to its surface's end
-  // to curve cleanly, flush with it instead (DEMAND-121).
-  readonly property real axisPosition: {
-    if (!shelfHost) return placement.start
+  // to the bar moves, and a strip lengthens, so that neither end lands too
+  // close to its surface's end to curve cleanly (DEMAND-121).
+  readonly property var shelfFit: {
+    if (!shelfHost) return null
     var min = Math.min(bar.edgeGap, shelfHost.start), max = Math.max(axisExtent - bar.edgeGap, shelfHost.end)
-    if (fromNotch && anchorHandle && shelfHost.item) return ShelfModel.alignStart(shelfHost, paintedLength, sourceCell, min, max)
-    return placement.start + ShelfModel.snapShift(placement.start, paintedLength, shelfHost, surfaceRadius, min, max)
+    var start = fromNotch && anchorHandle && shelfHost.item
+      ? ShelfModel.alignStart(shelfHost.hang, contentLength, sourceCell, min, max) : placement.start
+    return ShelfModel.fit(start, contentLength, shelfHost, surfaceRadius, min, max, !namedMenu)
   }
+  readonly property real axisPosition: shelfFit ? shelfFit.start : placement.start
   // The shelf's outline in its own frame (ShelfModel.outline), as deep as
   // the drawer plus the spring's overshoot, which it fills toward the bar.
   readonly property real crossPainted: bar.vertical ? width : height
@@ -691,7 +697,7 @@ Item {
     // Only explicit dismissal under the pointer waits for a fresh hover.
     // A timed dismissal must never lock out the next entry.
     suppressedZone = reason !== "timeout" && sourceHovered ? token : ""
-    closingLength = paintedLength
+    closingLength = contentLength
     // Keep widget presentations in the drawer until the contraction ends.
     // The presenting binding releases them back to the main bar afterward.
     opened = false
@@ -960,7 +966,7 @@ Item {
         color: Qt.rgba(0, 0, 0, bar.surfaceEffects.shadowOpacity)
       }
       Shape {
-        id: shelfShape
+        id: shelfSurface
         visible: !!drawer.shelfShape
         readonly property real reach: clipper.overshoot
         x: clipper.edge === "left" ? -reach : 0
@@ -969,7 +975,7 @@ Item {
         height: drawer.height + (bar.vertical ? 0 : reach)
         preferredRendererType: Shape.CurveRenderer
         transform: Matrix4x4 {
-          matrix: { var m = ShelfModel.frameMatrix(bar.position, shelfShape.width, shelfShape.height); return Qt.matrix4x4(m[0], m[1], m[2], m[3], m[4], m[5], m[6], m[7], m[8], m[9], m[10], m[11], m[12], m[13], m[14], m[15]) }
+          matrix: { var m = ShelfModel.frameMatrix(bar.position, shelfSurface.width, shelfSurface.height); return Qt.matrix4x4(m[0], m[1], m[2], m[3], m[4], m[5], m[6], m[7], m[8], m[9], m[10], m[11], m[12], m[13], m[14], m[15]) }
         }
         ShapePath {
           fillColor: bar.mainSurfaceColor
@@ -993,15 +999,15 @@ Item {
         anchors.margins: drawer.namedMenu ? drawer.padding : 0
         clip: true
         boundsBehavior: Flickable.StopAtBounds
-        contentWidth: grid.width + (drawer.namedMenu || bar.vertical ? 0 : drawer.leadPad + drawer.trailPad)
-        contentHeight: grid.height + (drawer.namedMenu || !bar.vertical ? 0 : drawer.leadPad + drawer.trailPad)
+        contentWidth: grid.width + (drawer.namedMenu || bar.vertical ? 0 : drawer.leadPad + drawer.trailPad + drawer.fitPad * 2)
+        contentHeight: grid.height + (drawer.namedMenu || !bar.vertical ? 0 : drawer.leadPad + drawer.trailPad + drawer.fitPad * 2)
         flickableDirection: drawer.stripVertical ? Flickable.VerticalFlick : Flickable.HorizontalFlick
         Controls.ScrollBar.horizontal: Controls.ScrollBar { policy: !drawer.stripVertical && viewport.contentWidth > viewport.width ? Controls.ScrollBar.AsNeeded : Controls.ScrollBar.AlwaysOff }
         Controls.ScrollBar.vertical: Controls.ScrollBar { policy: drawer.stripVertical && viewport.contentHeight > viewport.height ? Controls.ScrollBar.AsNeeded : Controls.ScrollBar.AlwaysOff }
         Item {
           id: grid
-          x: drawer.namedMenu || bar.vertical ? 0 : drawer.leadPad
-          y: drawer.namedMenu || !bar.vertical ? 0 : drawer.leadPad
+          x: drawer.namedMenu || bar.vertical ? 0 : drawer.leadPad + drawer.fitPad
+          y: drawer.namedMenu || !bar.vertical ? 0 : drawer.leadPad + drawer.fitPad
           implicitWidth: drawer.stripVertical ? Math.max(contents.width, drawer.thickness) : contents.width + endGap.width
           implicitHeight: drawer.stripVertical ? contents.height + endGap.height : Math.max(contents.height, drawer.thickness)
           transformOrigin: Item.TopLeft

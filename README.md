@@ -6,7 +6,7 @@
 [![Hyprland](https://img.shields.io/badge/Hyprland-Wayland-58e1ff?style=flat-square&logo=hyprland&logoColor=white)](https://hypr.land)
 [![License: MIT](https://img.shields.io/badge/License-MIT-6aa84f?style=flat-square)](LICENSE)
 
-![Powerbar: the bar on tokyo-night with the right zone's shelf open, in front of the Preferences Layout page](preview.jpg)
+![Powerbar: a floating bar on tokyo-night with the right zone's menu open, in front of the Preferences Layout page](preview.jpg)
 
 </div>
 
@@ -124,8 +124,8 @@ own wallpaper. The themes and wallpapers are Omarchy's (MIT).
 <p><img src="screenshots/search-tokyo-night.jpg" alt="A flat bar on tokyo-night; typing tail in the keyboard mode's search opens the System group with the cursor on Tailscale, and the indicators are revealed for the keys"><br>
 <sub><b>Flat</b>, tokyo-night: <code>/tail</code> opens the System group at Tailscale, with the key strip below</sub></p>
 
-<p><img src="screenshots/notch-kanagawa.jpg" alt="The Notch style on kanagawa: the zones form one black band around a MacBook's camera, and the System group's menu hangs flush from the left ear with curved joins"><br>
-<sub><b>Notch</b>, kanagawa, on a 14-inch MacBook screen: the zones grow out of the camera and a group hangs from its ear</sub></p>
+<p><img src="screenshots/notch-kanagawa.jpg" alt="The Notch style on kanagawa: the zones form one black band around a MacBook's camera, and the System group's menu curves out of the band under its icon"><br>
+<sub><b>Notch</b>, kanagawa, on a 14-inch MacBook screen: the zones grow out of the camera and a group hangs from the band</sub></p>
 
 <p><img src="screenshots/layout-jade-horse.jpg" alt="Preferences, Layout page on jade-horse: the bar's layers (On the bar, On demand, Hidden, In the tray) as plates tilted back, each split into the five zones with its widgets as tiles"><br>
 <sub><b>Preferences</b>, jade-horse: the Layout page, each layer a tilted plate of the five zones, with the keys along the bottom</sub></p>

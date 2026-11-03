@@ -2,7 +2,10 @@
 
 ## Unreleased
 
-- The README's hero and screenshots show the current look: the bar with a shelf open in front of the Preferences Layout page, and a new gallery.
+- The README's hero and screenshots show the current look: a floating bar with its menu open in front of the Preferences Layout page, and a new gallery.
+- On the notch and in shelves, the bar's corners go square only where the drawer really joins them. Every open shelf or notch drawer squared both, so an ear's outer corner went sharp with a menu nowhere near it (DEMAND-122).
+- On the notch, a drawer that runs past its ear under the camera now curves into the band on that side too, instead of showing a round corner with a sharp sliver of wallpaper above it: the ear's black runs on through the camera and the other ear (ZONE-88).
+- A shelf that would stop just short of its surface's end, flush at the other, now runs on to it, and one that would stop just past it runs on until both curves have their full radius. Before, the join was a small nub (DEMAND-121).
 - A widget's card no longer stays on the bar after the pointer has left. Crossing a widget quickly (to another zone and back, or off the screen) could leave its card showing until another card came and went. A card now draws only once it is really up (LOOK-154).
 - On the notch, a zone's menu now hangs flush with the end of its ear nearest the dots, and it and the ear are drawn as one surface. The ear's corner goes square where the menu is flush with it or runs past it, and where the ear runs on, the menu curves into it with the ear's own radius. Before, the menu hung from under the dots with small fixed shoulders whatever the ear did: a step where it ran past the ear's rounded end, and a nub where it almost lined up with it (ZONE-88).
 - On demand has a fourth display, On a shelf (`powerbarOnDemand: "shelf"`). It works as In a drawer does, but the drawer is no longer a separate island floating under the bar. It comes out of the bar as one surface with it, in the bar's colours, with reverse-rounded corners where it joins and the bar's corner squared where it runs flush or past the bar's end, and it slides out of the bar as the notch's drawers do. It is a separate option so its look can be tuned on its own (DEMAND-120 to DEMAND-125).
