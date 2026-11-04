@@ -1,6 +1,6 @@
 import QtQuick
 import QtTest
-import "../../"
+import Powerbar
 
 // The Look page's fader: drafts stay in the window while it is worked and
 // reach the config (edited) once, after the gesture settles; h/l and the
@@ -53,6 +53,19 @@ Item {
     var rail = findChild(slider, "faderTrack")
     verify(rail)
     return rail.mapToItem(slider, rail.inset + slider.xFor(v), rail.height / 2)
+  }
+
+  function test_theAreaClearsTheKnobRingAtBothEnds() {
+    var area = findChild(slider, "faderArea")
+    var ring = findChild(slider, "faderKnobRing")
+    verify(area && ring)
+    ;[0, 16].forEach(function(v) {
+      slider.value = v
+      var at = ring.mapToItem(area, 0, 0)
+      verify(at.x > 0, "ring inside the left edge at " + v)
+      verify(at.x + ring.width < area.width, "ring inside the right edge at " + v)
+      verify(at.y + ring.height < area.height, "ring inside the bottom edge at " + v)
+    })
   }
 
   function test_keysDraftThenApplyOnce() {

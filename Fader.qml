@@ -69,6 +69,11 @@ Item {
 
   readonly property real knobWidth: Style.space(8)
   readonly property real knobHeight: Style.space(16)
+  // The knob's ring stands this far off the knob, and a knob at the end of
+  // its travel sits on the fader's edge, so the fader's area clears the ring
+  // by xs along the rail and below it. The name needs only xs above.
+  readonly property real ringReach: Style.space(4)
+  readonly property real areaReach: ringReach + Gap.xs
   // The ticks and the default's mark: one height, told apart by strength.
   readonly property real markHeight: Style.space(8)
   // The knob's centre travels between half a knob in from each end.
@@ -93,19 +98,21 @@ Item {
     lightTheme: fader.strip ? fader.strip.lightTheme : false
     radius: Round.control
     plate: fader.strip ? fader.strip.surfaceColor : "transparent"
-    padX: Gap.s
+    padX: fader.areaReach
     padY: Gap.xs
+    padBottom: fader.areaReach
   }
   // Tuning's Mark the whole control (PREFS-132), on by default: the fader's
   // area takes the focus fill and ring as a switch row does, the knob
   // keeping its ring; off, only the knob is ringed.
   BorderSurface {
+    objectName: "faderArea"
     visible: fader.activeFocus && Tuning.values.areaRing !== 0
     anchors.fill: parent
-    anchors.leftMargin: -Gap.s
-    anchors.rightMargin: -Gap.s
+    anchors.leftMargin: -fader.areaReach
+    anchors.rightMargin: -fader.areaReach
     anchors.topMargin: -Gap.xs
-    anchors.bottomMargin: -Gap.xs
+    anchors.bottomMargin: -fader.areaReach
     radius: Round.control
     color: Qt.tint(fader.strip ? fader.strip.surfaceColor : "transparent", Style.focusFillFor(Commons.Color.popups.text, Commons.Color.accent))
     borderSpec: Border.controlSpec("focus", Commons.Color.popups.text, Commons.Color.accent)
@@ -211,11 +218,12 @@ Item {
       }
       // The focus ring: a gap in the page's colour, then the accent.
       Rectangle {
+        objectName: "faderKnobRing"
         visible: fader.activeFocus
         anchors.centerIn: knob
-        width: knob.width + Style.space(8)
-        height: knob.height + Style.space(8)
-        radius: knob.radius > 0 ? knob.radius + Style.space(4) : 0
+        width: knob.width + 2 * fader.ringReach
+        height: knob.height + 2 * fader.ringReach
+        radius: knob.radius > 0 ? knob.radius + fader.ringReach : 0
         color: "transparent"
         border.width: 1
         border.color: Border.controlSpec("focus", Commons.Color.popups.text, Commons.Color.accent).color

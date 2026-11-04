@@ -9,8 +9,8 @@ import qs.Commons
 // (Rise). Lighter on a light theme. A control with no surface of its own (a
 // fader, a row of chips) gives it `plate`, the strip's colour, drawn under
 // the control while it is up so what it rises over does not show through,
-// and `padX`/`padY` to reach past the control's edges as a row's surface
-// does.
+// and `padX`/`padY`/`padBottom` to reach past the control's edges as a row's
+// surface does.
 Item {
   id: lift
   property bool up: false
@@ -21,6 +21,7 @@ Item {
   property color plate: "transparent"
   property real padX: 0
   property real padY: 0
+  property real padBottom: padY
   readonly property real raise: rise.value
   readonly property bool raised: raise > 0
   // 103 % at the top, with the rise.
@@ -29,7 +30,7 @@ Item {
   anchors.leftMargin: -padX
   anchors.rightMargin: -padX
   anchors.topMargin: -padY
-  anchors.bottomMargin: -padY
+  anchors.bottomMargin: -padBottom
   z: -1
   // Tuning's Controls rise (PREFS-132): off, the default, nothing rises and
   // the item keeps only its fill and ring.
