@@ -4176,18 +4176,23 @@ Item {
     // drop outline in one nests its own corner in it (LOOK-150). The same
     // surfaces and corners as the radii set below.
     function outerArcs(item) {
-      var c = outerCorners
-      if (!c || !item) return []
+      if (!screenTop || notchLook || !item) return []
+      // A flat bar has no corner of its own: it runs into the screen's.
+      var r = root.flat ? screenTop.screenRadius : outerCorners.top
       var out = []
       function add(surface, corner) {
         if (!surface || !surface.visible || !(surface.width > 0)) return
         var p = surface.mapToItem(item, corner === "tr" ? surface.width : 0, 0)
-        out.push({ corner: corner, x: p.x, y: p.y, r: c.top })
+        out.push({ corner: corner, x: p.x, y: p.y, r: r })
       }
       var end = root.position === "right" ? "tr" : "tl"
-      if (root.islands) {
-        add(leftIsland, end)
-        if (!root.vertical) add(rightIsland, "tr")
+      if (root.flat) {
+        add(mainStrip, end)
+        if (!root.vertical) add(mainStrip, "tr")
+      } else if (root.islands) {
+        var islands = zoneIslands || {}
+        add(islands.left, end)
+        if (!root.vertical) add(islands.right, "tr")
       } else if (notchWrap) {
         add(wrapSurface, "tl")
         add(wrapSurface, "tr")
