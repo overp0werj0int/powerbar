@@ -186,7 +186,7 @@ Numbers below use Omarchy's default theme tokens: bar 26 px (horizontal) or 28 p
   - The keep-out is the camera's width (ZONE-80) plus a screen edge's inset (the window's `metrics.screenInset`) on each side. Each side's island edge sits exactly on it, from its own end pad.
   - The fit places the keep-out as a fixed slot just before the box, padded by the end pads of the cells beside it (`notchPads`). So the center never slides over the camera, and widgets fold towards their own side.
   - An inline expansion of the left zone makes Left of center yield up to the camera, never past it; one that still collides opens its drawer, as a second island under the bar (ZONE-31).
-  - In islands style each side is its own island. A screen without a notch keeps one center as before.
+  - In islands style the two sides are the arms of one island round the camera, as long as each other while the zones beside them leave room (appearance.md LOOK-155). A side that shows nothing leaves the other on its own island. A screen without a notch keeps one center as before.
 
   Code: Bar.qml notchSplit, notchKeepOut, notchSlotOf, CenterModules; ZoneFitModel zoneItems.
 
@@ -208,7 +208,7 @@ Numbers below use Omarchy's default theme tokens: bar 26 px (horizontal) or 28 p
 
   Code: NotchModel.notchOf, parsePanels, housingOf, cornersOf; notch-panels.json.
 
-- **ZONE-81** On a notched screen, the strip is at least as tall as the notch in every style (exactly as tall for a flat bar, ZONE-90). That way no window peeks out beside the camera. A floating bar that wraps the camera grows further, to keep a band under it (appearance.md LOOK-147). The exclusive zone, popups, drawers and the autohide distance all use that extent, and Omarchy's notch-height reports per screen take the same value (`screenBarSizes`). Code: Bar.qml extent, extentOf, screenBarSizes.
+- **ZONE-81** On a notched screen, the strip is at least as tall as the notch in every style (exactly as tall for a flat bar, ZONE-90). That way no window peeks out beside the camera. A floating bar that wraps the camera, and the Islands style with its island round it, grow further, to keep a band under it (appearance.md LOOK-147, LOOK-155). The exclusive zone, popups, drawers and the autohide distance all use that extent, and Omarchy's notch-height reports per screen take the same value (`screenBarSizes`). Code: Bar.qml extent, extentOf, screenBarSizes.
 
 - **ZONE-82** The Notch style (`powerbarStyle: "notch"`) grows the bar out of the camera:
   - On the notched screen's top edge the bar has two ears. The left ear holds Left and Left of center and ends at the camera's left edge; the right ear holds Center, Right of center and Right and starts at its right edge. Both are drawn as black islands that run on under the camera. Their outer ends have the camera's corners: its shoulder at the top, its bottom radius below (appearance.md LOOK-143).

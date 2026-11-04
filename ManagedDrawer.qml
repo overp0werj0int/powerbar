@@ -394,7 +394,7 @@ Item {
     onChanged: drawer.anchorRevision++
   }
   GeometryObserver {
-    target: drawer.presenting && drawer.hostWindow.zoneIslands ? drawer.hostWindow.zoneIslands[drawer.zone] || null : null
+    target: drawer.presenting ? drawer.zoneSurface : null
     host: drawer.hostWindow.contentItem
     onChanged: drawer.islandRevision++
   }
@@ -419,8 +419,13 @@ Item {
     var start = bar.along(p) + lead + (own - anchorSlot.cellLength) / 2
     return { start: start, end: start + anchorSlot.cellLength }
   }
-  readonly property var zoneIsland: {
+  // The zone's island, or the island round the camera that it is an arm of.
+  readonly property Item zoneSurface: {
     var island = hostWindow.zoneIslands ? hostWindow.zoneIslands[zone] : null
+    return island ? island.paintedBy || island : null
+  }
+  readonly property var zoneIsland: {
+    var island = zoneSurface
     if (!island || !island.visible || !bar.islands) return null
     var geometry = islandRevision + island.x + island.y + island.width + island.height
     var p = island.mapToItem(hostWindow.contentItem, 0, 0)

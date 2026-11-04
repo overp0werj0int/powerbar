@@ -4,10 +4,11 @@ import QtQuick.Shapes
 import qs.Commons
 import "NotchModel.js" as NotchModel
 
-// A floating bar on the notched screen (appearance.md LOOK-147): the surface,
-// its border and its shadow follow one outline, which dips round the camera
-// (NotchModel.wrapCut) and takes the screen's corners at the top
-// (NotchModel.outerCorners). An EffectSurface everywhere else.
+// A floating bar on the notched screen (appearance.md LOOK-147), or the
+// centre's island there (LOOK-155): the surface, its border and its shadow
+// follow one outline, which dips round the camera (NotchModel.wrapCut), and on
+// the bar takes the screen's corners at the top (NotchModel.outerCorners). An
+// EffectSurface everywhere else.
 Item {
   id: surface
   property color color: "transparent"

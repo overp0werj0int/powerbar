@@ -59,8 +59,9 @@ whenever Hyprland's animations are off too.
   that outgrows the screen wraps onto a second row at the edge. Drawers and
   menus hang from the ears as one surface. On other screens and edges it
   draws as islands. A floating bar on a notched screen dips round the camera
-  instead, its corners following the screen's, and a flat bar ends level with
-  the camera.
+  instead, its corners following the screen's, the Islands style has one
+  island round the camera, its arms equal where room allows, and a flat bar ends level
+  with the camera.
 - Rounding, borders, blur and shadow follow each theme until you change them,
   for every theme at once or just the one you're on.
 - You never need the mouse. A shortcut puts a cursor on the bar; the arrows

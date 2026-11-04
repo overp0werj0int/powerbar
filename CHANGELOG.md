@@ -11,6 +11,11 @@
 - Highlights in a flat bar's corners follow the screen's rounded corners, as
   they do on the other styles. Islands now nest there too: a scope error kept
   them from it, and warned in the shell log, on a notched screen.
+- On a notched screen the Islands style has one island round the camera, in
+  place of one on each side. Its arms are as long as each other while the zones
+  beside them leave room, so the camera is its exact middle, and the shorter
+  one keeps its widgets beside the camera.
+  A standard bar is 36 px thick there, to keep a band under the camera.
 
 ## 0.10.0 — 2026-11-04
 

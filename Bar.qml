@@ -2149,8 +2149,10 @@ Item {
   // or small (layout-zones.md ZONE-90); other screens keep the bar's size.
   function fitsNotch(notch) { return !!notch && !vertical && flat && !notchMode }
   // A floating bar there dips round the camera, a gap off it, and grows only
-  // to keep a band one gap thick under it (appearance.md LOOK-147).
-  function wrapsNotch(notch) { return !!notch && !vertical && floating && !notchMode }
+  // to keep a band one gap thick under it (appearance.md LOOK-147). The
+  // Islands style takes that thickness for its island round the camera
+  // (LOOK-155), on every island, whether or not that one shows.
+  function wrapsNotch(notch) { return !!notch && !vertical && (floating || islands) && !notchMode }
   // A bar window's sizes (CellModel.metrics): its own thickness and cells
   // where a notch changes them (notchFit, notchWrap), else the bar's, which
   // also stand in before a window is known.
@@ -3801,8 +3803,11 @@ Item {
       }
       return out
     }
+    // The pointer on the blank of an arm of the island round the camera.
+    property bool armBlankHovered: false
     // An expansion holds while the pointer is anywhere on its zone.
     readonly property bool inlineHovered: inlineZone !== "" && (inlineHandleZone === inlineZone
+      || inlineZoneName === "center" && armBlankHovered
       || moduleItems.some(function(s) { return s && s.region === barWindow.inlineZoneName && s.hovered && !s.drawerHost }))
     // A drag holds it only while it stays in the zone (or on its dots); it
     // closes on the exit grace once the drag leaves the bar, and at once when
@@ -4135,8 +4140,9 @@ Item {
     // `along` (the cell it hangs from, when known: a notch's ear), else its
     // zone's island, the floating bar, or a flat bar's whole length (no item,
     // square ends). `hang` is that surface's own ends; start and end are where
-    // its edge really stops, which for an ear is the band's ends, since its
-    // black runs on through the camera and the other ear.
+    // its edge really stops: for an ear the band's ends, since its black runs
+    // on through the camera and the other ear, and for an arm of the island
+    // round the camera that island's ends.
     function shelfHost(zone, along) {
       function ends(item) {
         var p = item.mapToItem(contentItem, 0, 0)
@@ -4144,7 +4150,7 @@ Item {
         return { start: start, end: start + root.alongSize(item) }
       }
       function span(island) {
-        var own = ends(island), edge = own
+        var own = ends(island), edge = island.paintedBy ? ends(island.paintedBy) : own
         if (island.notchSide) {
           var camera = ends(cameraShape)
           edge = { start: Math.min(own.start, camera.start + cameraShape.sS), end: Math.max(own.end, camera.end - cameraShape.sE) }
@@ -5287,6 +5293,8 @@ Item {
         CenterModules {
           anchors.fill: parent
           homeWindow: barWindow
+          leftEnd: leftIsland.visible ? leftIsland.x + leftIsland.width : barWindow.metrics.screenInset
+          rightStart: rightIsland.visible ? rightIsland.x : barWindow.width - barWindow.metrics.screenInset
           // An expanding zone lies over the zones it hides or yields, so the
           // pointer reaches its widgets first (Qt still hovers disabled items).
           z: barWindow.inlineZoneName === "center" ? 1 : 0
@@ -5337,7 +5345,7 @@ Item {
             y: root.vertical ? leftModules.y + leftModules.shownLead - barWindow.metrics.endPad(leftModules.leadSpill) : (parent.height - height) / 2
             width: root.vertical ? root.barSize : leftModules.width - leftModules.shownLead - leftModules.shownTrail + barWindow.metrics.endPad(leftModules.leadSpill) + barWindow.metrics.endPad(leftModules.trailSpill)
               + (barWindow.notchLook ? barWindow.metrics.screenInset + barWindow.notchTuck : 0)
-            height: root.vertical ? leftModules.height - leftModules.shownLead - leftModules.shownTrail + barWindow.metrics.endPad(leftModules.leadSpill) + barWindow.metrics.endPad(leftModules.trailSpill) : root.barSize
+            height: root.vertical ? leftModules.height - leftModules.shownLead - leftModules.shownTrail + barWindow.metrics.endPad(leftModules.leadSpill) + barWindow.metrics.endPad(leftModules.trailSpill) : barWindow.barSize
             visible: root.islands && leftModules.shownLength > 0 && opacity > 0 && !leftHanger.shown
           }
           HighlightLayer { zone: "left"; island: leftIsland; transform: Translate { x: barWindow.slideX("left", barWindow.leftShift); y: barWindow.slideY("left", barWindow.leftShift) } }
@@ -5399,7 +5407,7 @@ Item {
             // Measured from start, never from x or y: on a vertical bar x depends on
             // width, so width depending on x would loop when the orientation flips.
             width: root.vertical ? root.barSize : preferencesButton.x + preferencesButton.width + barWindow.metrics.endPad(preferencesButton.cellSpill) - start
-            height: root.vertical ? preferencesButton.y + preferencesButton.height + barWindow.metrics.endPad(preferencesButton.cellSpill) - start : root.barSize
+            height: root.vertical ? preferencesButton.y + preferencesButton.height + barWindow.metrics.endPad(preferencesButton.cellSpill) - start : barWindow.barSize
           }
           HighlightLayer { zone: "right"; island: rightIsland; transform: Translate { x: barWindow.slideX("right", barWindow.rightShift); y: barWindow.slideY("right", barWindow.rightShift) } }
           PreferencesButton {
@@ -5608,11 +5616,14 @@ Item {
     // side of the notch this zone grows from. Square where it meets the
     // camera; its outer end has the camera's corners (NotchEnd).
     property string notchSide: ""
+    // The island round the camera, when this is one of its arms: it draws for
+    // both, and this one keeps only its place (LOOK-155).
+    property Item paintedBy: null
     opacity: zoneHidden ? 0 : 1
     Behavior on opacity { enabled: root.animationsEnabled; YieldFade { leaving: zoneHidden } }
     visible: (root.islands || notchSide !== "") && opacity > 0
-    color: notchSide !== "" ? "transparent" : root.mainSurfaceColor
-    shadowEnabled: root.surfaceEffects.shadow && notchSide === ""
+    color: notchSide !== "" || paintedBy ? "transparent" : root.mainSurfaceColor
+    shadowEnabled: root.surfaceEffects.shadow && notchSide === "" && !paintedBy
     shadowSize: root.surfaceEffects.shadowSize
     shadowOpacity: root.surfaceEffects.shadowOpacity
     radius: root.islandRounding
@@ -5623,7 +5634,7 @@ Item {
     topRightRadius: squared("tr") ? 0 : undefined
     bottomLeftRadius: squared("bl") ? 0 : undefined
     bottomRightRadius: squared("br") ? 0 : undefined
-    borderSpec: root.notchMode ? Border.none() : root.islandBorder
+    borderSpec: root.notchMode || paintedBy ? Border.none() : root.islandBorder
     NotchEnd { visible: island.notchSide !== ""; side: island.notchSide; outerSquared: island.squared(island.notchSide === "left" ? "bl" : "br") }
   }
 
@@ -5906,10 +5917,15 @@ Item {
   // (SectionsModel.lists). The box is centred on the bar as one group, its two
   // neighbours hang off its edges. Under a camera (notchSplit) the box starts
   // right of the camera's slot and Left of center ends left of it, each side
-  // on its own island, each island edge keeping the slot from its own end pad.
+  // an arm of one island round the camera, or on its own island when the other
+  // side shows nothing (LOOK-155), each edge keeping the slot from its end pad.
   component CenterModules: Item {
     id: centerRoot
     property var homeWindow: null
+    // How far the arms may grow: to the Left and Right islands, or the
+    // screen's inset without them.
+    property real leftEnd: 0
+    property real rightStart: 0
     readonly property var metrics: root.metricsOf(homeWindow)
     readonly property real split: homeWindow && homeWindow.notchSplit ? homeWindow.notchKeepOut : 0
     // The box left of the camera (ZONE-96): it ends at the slot with Left of
@@ -5927,28 +5943,60 @@ Item {
     }
     readonly property var beginSpan: split > 0 ? span(boxBefore ? [beginModules, boxModules] : [beginModules]) : null
     readonly property var mainSpan: split > 0 ? span(boxBefore ? [endModules] : [boxModules, endModules]) : span([beginModules, boxModules, endModules])
+    function spanLength(run) { return run ? run.end - run.start + metrics.endPad(run.leadSpill) + metrics.endPad(run.trailSpill) : 0 }
+    // Both sides of the camera show something: one island round it, its arms
+    // as long as each other where their sides allow (LOOK-155). The blanks sit
+    // at the far ends, inside the dots, and take room from no zone: the fit
+    // never counts them.
+    readonly property bool roundCamera: root.islands && !!beginSpan && !!mainSpan && beginSpan.end > beginSpan.start && mainSpan.end > mainSpan.start
+    readonly property var armBlanks: {
+      if (!roundCamera) return { before: 0, after: 0 }
+      return NotchModel.armBlanks(spanLength(beginSpan), spanLength(mainSpan),
+        middle - split / 2 - leftEnd - metrics.zoneGap, rightStart - middle - split / 2 - metrics.zoneGap)
+    }
+    function shelfSquares(corner) { return centerBeginIsland.squared(corner) || centerIsland.squared(corner) }
+    NotchWrapSurface {
+      id: aroundCamera
+      visible: centerRoot.roundCamera && opacity > 0
+      opacity: centerIsland.opacity
+      x: centerBeginIsland.x
+      y: centerIsland.y
+      width: centerIsland.x + centerIsland.width - x
+      height: centerRoot.metrics.size
+      color: root.mainSurfaceColor
+      shadowEnabled: root.surfaceEffects.shadow
+      shadowSize: root.surfaceEffects.shadowSize
+      shadowOpacity: root.surfaceEffects.shadowOpacity
+      borderSpec: root.islandBorder
+      topRadius: root.islandRounding
+      bottomLeftRadius: centerRoot.shelfSquares("bl") ? 0 : root.islandRounding
+      bottomRightRadius: centerRoot.shelfSquares("br") ? 0 : root.islandRounding
+      cut: centerRoot.roundCamera ? NotchModel.wrapCut(centerRoot.homeWindow.notch, centerRoot.width, x, y, root.edgeGap) : null
+    }
     IslandSurface {
       id: centerBeginIsland
       readonly property var span: centerRoot.beginSpan
-      readonly property real lead: span ? centerRoot.metrics.endPad(span.leadSpill) : 0
-      readonly property real length: span ? span.end - span.start + lead + centerRoot.metrics.endPad(span.trailSpill) : 0
+      readonly property real lead: span ? centerRoot.metrics.endPad(span.leadSpill) + centerRoot.armBlanks.before : 0
+      readonly property real length: centerRoot.spanLength(span) + centerRoot.armBlanks.before
       zoneHidden: centerIsland.zoneHidden
+      paintedBy: centerRoot.roundCamera ? aroundCamera : null
       x: root.vertical ? (parent.width - width) / 2 : span ? span.start - lead : 0
       y: root.vertical ? (span ? span.start - lead : 0) : (parent.height - height) / 2
       width: root.vertical ? root.barSize : length
-      height: root.vertical ? length : root.barSize
+      height: root.vertical ? length : centerRoot.metrics.size
       visible: root.islands && !!span && span.end > span.start && opacity > 0
     }
     IslandSurface {
       id: centerIsland
       readonly property var span: centerRoot.mainSpan
       readonly property real lead: span ? centerRoot.metrics.endPad(span.leadSpill) : 0
-      readonly property real length: span ? span.end - span.start + lead + centerRoot.metrics.endPad(span.trailSpill) : 0
+      readonly property real length: centerRoot.spanLength(span) + centerRoot.armBlanks.after
       zoneHidden: !!centerRoot.homeWindow && centerRoot.homeWindow.zoneHidden("center")
+      paintedBy: centerRoot.roundCamera ? aroundCamera : null
       x: root.vertical ? (parent.width - width) / 2 : span ? span.start - lead : 0
       y: root.vertical ? (span ? span.start - lead : 0) : (parent.height - height) / 2
       width: root.vertical ? root.barSize : length
-      height: root.vertical ? length : root.barSize
+      height: root.vertical ? length : centerRoot.metrics.size
       visible: root.islands && !!span && span.end > span.start && opacity > 0
     }
     HighlightLayer { zone: "center"; island: centerIsland }
@@ -5979,6 +6027,7 @@ Item {
       listRole: "centerBegin"
       region: "center"
       previewEnd: false
+      armBlank: centerRoot.armBlanks.before
       readonly property real trailEdge: centerRoot.split > 0 && !centerRoot.boxBefore
         ? centerRoot.middle - centerRoot.split / 2 - centerRoot.metrics.endPad(trailSpill) + shownTrail
         : root.along(boxModules)
@@ -6006,6 +6055,7 @@ Item {
       homeWindow: centerRoot.homeWindow
       listRole: "centerEnd"
       region: "center"
+      armBlank: centerRoot.armBlanks.after
       // An empty box under a camera, or one left of it: Right of center
       // starts right of the camera.
       readonly property real lead: centerRoot.split > 0 && (centerRoot.boxBefore || !(boxModules.listLength > 0))
@@ -6321,6 +6371,10 @@ Item {
     // start side: none where the list hangs from its start, all where it hangs
     // from its end (Right, and Left of center off the box or the camera).
     property real startGrowth: listRole === "right" || listRole === "centerBegin" ? 1 : 0
+    // The blank between this list and its dots at the far end of an arm of
+    // the island round the camera. Outside the list: its length, and all that
+    // yields from it, is its widgets' alone.
+    property real armBlank: 0
     // Where this list draws its zone's drawer handle, as the zone fit says.
     readonly property var fitHandles: homeWindow && homeWindow.zoneFit ? homeWindow.zoneFit.handles : null
     readonly property bool centerStartDots: !!fitHandles && (fitHandles.center === "start" || fitHandles.center === "both")
@@ -6391,7 +6445,7 @@ Item {
       zone: moduleListRoot.region
       side: "start"
       active: moduleListRoot.handleAtStart
-      x: 0
+      x: -moduleListRoot.armBlank
       y: 0
     }
     YieldMarker {
@@ -6415,7 +6469,7 @@ Item {
       homeWindow: moduleListRoot.homeWindow
       zone: moduleListRoot.region
       active: moduleListRoot.handleAtEnd
-      x: root.vertical ? 0 : contents.x + contents.width
+      x: root.vertical ? 0 : contents.x + contents.width + moduleListRoot.armBlank
       y: root.vertical ? contents.y + contents.height : 0
     }
     // The slots, for the notch's second row (zoneWrap).
@@ -6429,6 +6483,12 @@ Item {
       columns: root.vertical ? 1 : 100000
       spacing: 0
       Repeater { model: moduleListRoot.slotModel }
+    }
+    Item {
+      x: moduleListRoot.listRole === "centerBegin" ? -moduleListRoot.armBlank : contents.x + contents.width
+      width: moduleListRoot.armBlank
+      height: moduleListRoot.height
+      HoverHandler { onHoveredChanged: moduleListRoot.homeWindow.armBlankHovered = hovered }
     }
     AnimatedSlot {
       id: endGap

@@ -170,6 +170,15 @@ function wrapThickness(notch, barSize, gap) {
 function floatingThickness(notch, barSize, gap, vertical) {
   return notch && !vertical ? wrapThickness(notch, barSize, gap) : Math.max(barSize, notch ? notch.height : 0)
 }
+// The blank each arm of the island round the camera takes to match the longer
+// one (docs/behavior/appearance.md LOOK-155): { before, after }, from each
+// arm's own length and how long its side lets it get. An arm out of room stops
+// there, and one already past it takes none.
+function armBlanks(before, after, roomBefore, roomAfter) {
+  var want = Math.max(before, after)
+  function blank(own, room) { return Math.max(0, Math.min(want, room) - own) }
+  return { before: blank(before, roomBefore), after: blank(after, roomAfter) }
+}
 // The outer corners of a surface held `gap` off the screen's rounded top
 // corners: the top ones concentric with the screen's (its radius less the
 // gap, or the rounding when that is more, as for a screen whose corners are
