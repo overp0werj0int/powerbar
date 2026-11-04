@@ -198,8 +198,17 @@ omarchy plugin update p0werj0int.powerbar
 ```
 
 It shows the code changes and asks before applying them (`--yes` skips the
-question); the shell then reloads its plugins and the bar redraws once.
-`omarchy-shell powerbar build` tells you which version the shell is running.
+question). Then restart the shell to finish:
+
+```sh
+omarchy restart shell
+```
+
+The bar redraws after the update, but on the old code: the shell keeps what it
+loaded until it restarts. If the new files don't suit the old code, the bar can
+stay down until then. Versions after 0.10.0 also send a notification when an
+update waits for that restart. `omarchy-shell powerbar build` tells you which
+version the shell is running, and its `restartNeeded` is `true` during the wait.
 
 ## Remove
 
@@ -521,7 +530,7 @@ keyboard focus in the keyboard mode, through Quickshell's Hyprland module.
 | `omarchy-bar-text-color` | A transparent bar picks its text colour over the wallpaper, as Omarchy's does |
 | `omarchy-bar background` (asked every 0.1 s with `seq` and `sleep`, for 3 s at most), `omarchy-bar sync-glass` | The bar's background changes, on an Omarchy with the glassy background |
 | `hyprctl -j animations` | As the bar loads and when Hyprland reloads: whether animations are on, and the layer fade's speed and curve for the key legend |
-| `notify-send` | First start: offers the bar shortcuts (free, or what holds them) in a notification that stays until dismissed; a click opens Preferences at them |
+| `notify-send` | First start: offers the bar shortcuts (free, or what holds them) in a notification that stays until dismissed; a click opens Preferences at them. After an update: asks for a shell restart, once, in a notification that stays until dismissed |
 | `hyprctl binds` (under `timeout 3s`), `head -c` | Reading shortcuts (Preferences, the keyboard mode, `shortcuts`): Hyprland's binds and each binding file, 1 MB at most |
 | `hyprctl reload config-only`, `hyprctl configerrors` | After writing the shortcut block (`ShortcutApply.sh`, with `mkdir`, `readlink`, `dirname`, `mktemp`, `cp`, `awk`, `grep`, `head`, `cut`, `sed`, `tr`, `chmod`, `mv`, `rm`, `sleep`, `date`) |
 | `hyprctl eval` | Recording a shortcut: a temporary submap so the keys reach Preferences, for 15 s at most |
@@ -530,7 +539,7 @@ keyboard focus in the keyboard mode, through Quickshell's Hyprland module.
 | `ls`, `mkdir`, `head -c` (under `timeout 2s`), `stat`, `rm` | The icon and image folders above, and the list of installed themes: an icon you pick is copied with `head -c` and checked against 512 KB with `stat`; icons no group uses are deleted |
 | `chmod -R go=` | As the bar loads: closes `$XDG_CACHE_HOME/powerbar` and `$XDG_DATA_HOME/powerbar` to other users, leaving alone a folder that is a link or not yours (INTEG-151) |
 | `[[ -f … ]]` (in `bash -c`) | Whether `toggles/bar-off` is set, at load and when it changes |
-| `BuildStamp.sh` (`find`, `sort`, `sha256sum`, `cut`, `xargs`, `git rev-parse`, `git status`) | Once as the bar loads, on Powerbar's own folder only, for `omarchy-shell powerbar build` |
+| `BuildStamp.sh` (`find`, `sort`, `sha256sum`, `cut`, `xargs`, `git rev-parse`, `git status`) | Each time the bar loads, on Powerbar's own folder only, for `omarchy-shell powerbar build` and the restart notification |
 | Your custom modules' `exec`, `onClick`…, and commands widgets ask the bar to run | Through `bash -lc`, as on Omarchy's bar |
 
 ## Troubleshooting

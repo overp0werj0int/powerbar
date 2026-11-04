@@ -2,8 +2,8 @@
 # build-check.sh: is the running Powerbar this checkout's code?
 #   tools/build-check.sh            the shell on this desktop
 #   tools/build-check.sh -b BOX     the shell in an omabox box
-# Compares `omarchy-shell powerbar build` (BuildStamp.sh, run as the bar
-# loaded) with BuildStamp.sh run on the checkout now. Exit 0 current, 1 stale
+# Compares `omarchy-shell powerbar build` (BuildStamp.sh, run as the shell
+# first loaded the bar) with BuildStamp.sh run on the checkout now. Exit 0 current, 1 stale
 # (the shell runs other code: restart it), 2 no answer (Powerbar not running,
 # or the shell still starting). Agents on a guarded desktop: omabox host -- …
 set -u
