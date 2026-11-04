@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const load = require('./load.cjs');
 const cell = load('CellModel.js');
 const zfc = load('ZoneFitModel.js');
-const zf = { fit: i => JSON.parse(JSON.stringify(zfc.fit(i))) }; // plain objects: vm arrays differ in realm
+const zf = { fit: i => JSON.parse(JSON.stringify(zfc.fit(i))), splitExpansion: zfc.splitExpansion }; // plain objects: vm arrays differ in realm
 
 // Inputs from real tokens. Ink widths <= 16 are glyphs.
 function make(o) {
@@ -127,6 +127,104 @@ test('too short: folds happen and the result is clear of overlap', () => {
   assert.ok(allFolded(r).length > 0);
   assert.equal(r.fits, true);
   assertClear(input, r);
+});
+
+// A side bar: Workspaces alone reaches past where the revealed Indicators end.
+test('a reveal its neighbour cannot clear takes the rest from its own zone (ZONE-34)', () => {
+  const zones = { left: [212, 30, 30], before: [30, 30, 31, 29], anchor: 89, after: [29, 27, 29], right: [31, 30, 28, 30, 30] };
+  const prev = zf.fit(make({ length: 982, zones }));
+  const grown = make({ length: 982, zones: Object.assign({}, zones, { before: [30, 30, 31, 145] }) });
+  const input = withIn(grown, { previous: prev, momentGap: 4, transient: { zone: 'center', sourceKey: 'B3', reveal: true } });
+  const r = zf.fit(input);
+  assert.deepEqual(r.fallbacks, []);
+  assert.ok(r.yielded.includes('L1') && r.yielded.includes('L2'), `left gives what it can: ${r.yielded}`);
+  assert.ok(r.yielded.includes('B0'), `the centre's facing widgets give the rest: ${r.yielded}`);
+  assert.ok(!r.yielded.includes('L0') && !r.yielded.includes('B3'), `no anchor and no revealed widget: ${r.yielded}`);
+  assertClear(withIn(input, { gap: 4 }), r);
+
+  const facing = zf.fit(withIn(input, { transient: { zone: 'center', sourceKey: 'B0', reveal: true } }));
+  assert.equal(facing.fallback, null, 'the revealed widget itself faces the neighbour');
+  assert.ok(facing.hidden.left, 'so the neighbour hides whole');
+  assert.ok(['L0', 'L1', 'L2'].every((key) => facing.yielded.includes(key)), `${facing.yielded}`);
+  assert.ok(!facing.yielded.includes('B0'));
+
+  const drag = zf.fit(withIn(input, { transient: { zone: 'center', sourceKey: 'B0' } }));
+  assert.deepEqual(drag.fallback, { zone: 'center', reason: 'anchor' }, 'a drag gap still falls back');
+  assert.deepEqual(drag.yielded, []);
+});
+
+test('a reveal past the end of the bar line gives up its own widgets there (ZONE-34)', () => {
+  const zones = { left: [12], before: [40, 40, 40, 29], anchor: 60, right: [12] };
+  const prev = zf.fit(make({ length: 420, zones }));
+  const grown = make({ length: 420, zones: Object.assign({}, zones, { before: [40, 40, 40, 300] }) });
+  const input = withIn(grown, { previous: prev, momentGap: 4, transient: { zone: 'center', sourceKey: 'B3', reveal: true } });
+  const r = zf.fit(input);
+  assert.deepEqual(r.fallbacks, [], 'it never runs off the screen');
+  assert.ok(r.yielded.includes('B0'), `its widgets at that end give way: ${r.yielded}`);
+  assert.ok(!r.yielded.includes('B3'));
+
+  const short = { left: [12], before: [29], anchor: 60, right: [12] };
+  const shortPrev = zf.fit(make({ length: 250, zones: short }));
+  const longer = make({ length: 250, zones: Object.assign({}, short, { before: [300] }) });
+  const whole = zf.fit(withIn(longer, { previous: shortPrev, momentGap: 4, transient: { zone: 'center', sourceKey: 'B0', reveal: true } }));
+  assert.deepEqual(whole.fallback, { zone: 'center', reason: 'screen' }, 'the widget and the anchor alone are longer than the bar');
+});
+
+// A left zone expanding from one widget, or a right one, with `count` on-demand
+// widgets behind its dots, on a bar too short for them all.
+function expansion(zone, count, length) {
+  const keys = Array.from({ length: count }, (_, i) => `X${i}`);
+  const base = { left: [20], right: [20], anchor: 40 };
+  const prev = zf.fit(make({ length, zones: base }));
+  const served = (shelf) => {
+    const shown = keys.filter((key) => !shelf.includes(key));
+    const input = make({ length, zones: Object.assign({}, base, { [zone]: [20].concat(shown.map(() => 30)) }) });
+    const list = input.zones[zone];
+    shown.forEach((key, i) => { list[i + 1].key = key; });
+    const r = zf.fit(withIn(input, { previous: prev, momentGap: 4, dots: { [zone]: shelf.length > 0 },
+      transient: { zone, sourceKey: null, unfold: zone, shelf } }));
+    return r.fallbacks.some((f) => f.zone === zone) ? null : r;
+  };
+  return { keys, served };
+}
+
+test('an expansion that fits whole needs no shelf (ZONE-97)', () => {
+  const { keys, served } = expansion('left', 3, 800);
+  const plan = zf.splitExpansion(keys, false, served);
+  assert.deepEqual(plan.shelf, []);
+  assert.equal(served([]) !== null, true);
+});
+
+test('what an expansion cannot fit, after its neighbours gave way, goes on a shelf at its dots (ZONE-97)', () => {
+  const { keys, served } = expansion('left', 20, 420);
+  assert.equal(served([]), null, 'the whole expansion is longer than the bar');
+  const plan = zf.splitExpansion(keys, false, served);
+  assert.ok(plan.shelf.length > 0 && plan.shelf.length < keys.length, `some stay, some go: ${plan.shelf}`);
+  assert.deepEqual(plan.shelf, keys.slice(keys.length - plan.shelf.length), 'the ones at the expanding end go');
+  assert.equal(served(plan.shelf.slice(1)), null, 'no fewer would do');
+  assert.ok(plan.fit.hidden.right || plan.fit.hidden.center || plan.fit.yielded.length > 0, 'the neighbours gave way first');
+});
+
+test('an expansion whose dots stand before it keeps its last widgets (ZONE-97)', () => {
+  const { keys, served } = expansion('right', 20, 420);
+  const plan = zf.splitExpansion(keys, true, served);
+  assert.ok(plan.shelf.length > 0);
+  assert.deepEqual(plan.shelf, keys.slice(0, plan.shelf.length));
+});
+
+test('an expansion with no room for one widget leaves all of them to the drawer (ZONE-97)', () => {
+  assert.equal(zf.splitExpansion(['X0', 'X1'], false, () => null), null);
+});
+
+test('folded widgets on the shelf stay folded while the rest come back (ZONE-97)', () => {
+  const zones = { left: [12, 40, 40, 12, 12], right: [12], before: [12], anchor: 60, after: [12] };
+  const tight = make({ length: 330, zones });
+  const prev = zf.fit(withIn(tight, { dots: { left: true } }));
+  assert.ok(prev.folded.left.length > 1, `${prev.folded.left}`);
+  const kept = prev.folded.left[0];
+  const r = zf.fit(withIn(tight, { previous: prev, momentGap: 4, dots: { left: true },
+    transient: { zone: 'left', sourceKey: null, unfold: 'left', shelf: [kept] } }));
+  assert.deepEqual(r.folded.left, [kept]);
 });
 
 test('anchors never fold, even when nothing fits', () => {

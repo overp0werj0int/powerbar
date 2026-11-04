@@ -323,31 +323,28 @@ function slotStarts(pad, slots, zoneStart) {
 // Yielded slots keep their space, so the others stay where they are. Once
 // anything yields, a marker cell (dots with a count) takes the freed space next
 // to the remaining slots, and the island ends past it.
-// Returns the yielded keys, or null when an anchor would have to yield.
-// range ({ first, last }) limits the slots that may yield and is narrowed by
-// what yields, so a centre can yield at both ends without counting twice.
+// Returns { keys, edge, blocked, first, last }: the yielded keys, the island's
+// end past them, whether an anchor stopped it, and the slots still showing.
+// range ({ first, last }) limits the slots that may yield; the caller narrows
+// it by what yields, so a centre can yield at both ends without counting twice.
 function yieldSlots(input, slots, zoneStart, fromStart, isAnchor, clear, range) {
-  var out = []
+  var keys = [], reached = 0, blocked = false
   var starts = slotStarts(input.pad, slots, zoneStart)
-  var r = range || { first: 0, last: slots.length - 1 }
-  var first = r.first, last = r.last
+  var first = range ? range.first : 0, last = range ? range.last : slots.length - 1
   var m = input.marker || input.handle
   while (first <= last) {
-    var edge
-    if (!out.length) edge = fromStart ? starts[first] - input.pad(slots[first].spill)
+    if (!keys.length) reached = fromStart ? starts[first] - input.pad(slots[first].spill)
       : starts[last] + slots[last].extent + input.pad(slots[last].spill)
-    else edge = fromStart ? starts[first] - m.extent - input.pad(m.spill)
+    else reached = fromStart ? starts[first] - m.extent - input.pad(m.spill)
       : starts[last] + slots[last].extent + m.extent + input.pad(m.spill)
-    if (clear(edge)) break
+    if (clear(reached)) break
     var k = fromStart ? first : last
-    if (isAnchor(slots[k], slots.slice(first, last + 1))) return null
-    out.push(slots[k].key)
+    if (isAnchor(slots[k], slots.slice(first, last + 1))) { blocked = true; break }
+    keys.push(slots[k].key)
     if (fromStart) first++
     else last--
   }
-  r.first = first
-  r.last = last
-  return out
+  return { keys: keys, edge: reached, blocked: blocked, first: first, last: last }
 }
 
 function transientsOf(input) {
@@ -367,7 +364,8 @@ function fitMoment(input) {
   var sides = centerFoldSides(input, was)
   ts.forEach(function (t) {
     if (!t.unfold) return
-    folded[t.unfold] = t.unfold === "center" && t.side ? sides[t.side === "start" ? "end" : "start"] : []
+    var stay = (t.unfold === "center" && t.side ? sides[t.side === "start" ? "end" : "start"] : []).concat(t.shelf || [])
+    folded[t.unfold] = folded[t.unfold].filter(function (key) { return stay.indexOf(key) >= 0 })
   })
   var all = folded.left.concat(folded.center, folded.right)
   var st = { folded: {}, order: prev.order.filter(function (key) { return all.indexOf(key) >= 0 }) }
@@ -402,11 +400,12 @@ function fitMoment(input) {
     center: [cs, cs + g.lenC],
     right: [length - inset - g.lenR, length - inset]
   }
+  function offLine(zone) { return span[zone][0] < inset - 0.5 || span[zone][1] > length - inset + 0.5 }
   var fallbacks = []
   var active = ts.filter(function (t) {
     var reason = null
     if (t.sourceKey && all.indexOf(t.sourceKey) >= 0) reason = "folded"
-    else if (!input.wrap && (span[t.zone][0] < inset - 0.5 || span[t.zone][1] > length - inset + 0.5)) reason = "screen"
+    else if (!input.wrap && !(t.reveal && t.sourceKey) && offLine(t.zone)) reason = "screen"
     if (reason) fallbacks.push({ zone: t.zone, reason: reason })
     return !reason
   })
@@ -429,20 +428,38 @@ function fitMoment(input) {
   // widgets that are growing never yield.
   var sources = {}
   ts.forEach(function (t) { if (t.sourceKey) sources[t.sourceKey] = true })
-  function yieldFrom(zone, fromStart, limit, centerRange) {
-    var clear = fromStart ? function (edge) { return edge >= limit - 1e-6 } : function (edge) { return edge <= limit + 1e-6 }
+  function runFrom(zone, fromStart, clear, centerRange) {
     if (zone === "left") return yieldSlots(input, g.left, inset, false, function (s) { return sources[s.key] || s.key === leftFirst }, clear)
     if (zone === "right") return yieldSlots(input, g.right, span.right[0], true, function (s) { return sources[s.key] || s.key === rightLast }, clear)
     return yieldSlots(input, g.center, cs, fromStart, function (s, rest) { return sources[s.key] || centerAnchor(s, rest) }, clear, centerRange)
   }
+  function commit(run, zone, centerRange) {
+    if (zone === "center" && centerRange) { centerRange.first = run.first; centerRange.last = run.last }
+    return run.keys
+  }
+  function yieldFrom(zone, fromStart, limit, centerRange) {
+    var clear = fromStart ? function (edge) { return edge >= limit - 1e-6 } : function (edge) { return edge <= limit + 1e-6 }
+    var run = runFrom(zone, fromStart, clear, centerRange)
+    return run.blocked ? null : commit(run, zone, centerRange)
+  }
+  // A reveal whose neighbour stops at its anchor: the neighbour gives all it
+  // can, and the grower's own widgets facing it give the rest, since nothing
+  // slides. Null when the revealed widget or an anchor would have to yield.
+  function shareYield(grower, other, growerFirst, centerRange) {
+    var given = runFrom(other, growerFirst, function () { return false }, centerRange)
+    var own = yieldFrom(grower, !growerFirst, given.edge + (growerFirst ? -gap : gap), centerRange)
+    return own ? commit(given, other, centerRange).concat(own) : null
+  }
   // The yields for a set of growing zones, or the zone that can't be served.
-  // An inline expansion (unfold) that meets an anchor hides the whole zone in
-  // its way, and then makes the zone past it give way in turn.
+  // An inline expansion (unfold), or a reveal shareYield can't serve, that
+  // meets an anchor hides the whole zone in its way, and then makes the zone
+  // past it give way in turn.
   function attempt(active) {
-    var rank = {}, unfolding = {}
+    var rank = {}, unfolding = {}, revealing = {}
     active.forEach(function(t, i) {
       if (rank[t.zone] === undefined) rank[t.zone] = i
       if (t.unfold) unfolding[t.zone] = true
+      if (t.reveal && t.sourceKey) revealing[t.zone] = true
     })
     var names = g.center.length ? ["left", "center", "right"] : ["left", "right"]
     var centerRange = { first: 0, last: g.center.length - 1 }
@@ -470,7 +487,9 @@ function fitMoment(input) {
       var limit = ga ? span[a][1] + gap : span[b][0] - gap
       var ys = yieldFrom(other, ga, limit, centerRange)
       if (ys) { y = y.concat(ys); continue }
-      if (!unfolding[grower]) return { fail: grower, reason: "anchor" }
+      var shared = revealing[grower] ? shareYield(grower, other, ga, centerRange) : null
+      if (shared) { y = y.concat(shared); continue }
+      if (!unfolding[grower] && !revealing[grower]) return { fail: grower, reason: "anchor" }
       // Nothing runs over the camera: the expansion opens as a drawer.
       if (other === "center" && hasNotch(input)) return { fail: grower, reason: "notch" }
       hide(other)
@@ -485,6 +504,15 @@ function fitMoment(input) {
       var yf = yieldFrom(beyond, ga, limit, null)
       if (yf) y = y.concat(yf)
       else hide(beyond)
+    }
+    // A reveal past an end of the bar line gives up its own widgets there.
+    for (var z = 0; z < names.length; z++) {
+      var zone = names[z]
+      if (!revealing[zone]) continue
+      var ownStart = span[zone][0] < inset - 0.5 ? yieldFrom(zone, true, inset, centerRange) : []
+      var ownEnd = span[zone][1] > length - inset + 0.5 ? yieldFrom(zone, false, length - inset, centerRange) : []
+      if (!ownStart || !ownEnd) return { fail: zone, reason: "screen" }
+      y = y.concat(ownStart, ownEnd)
     }
     var seen = {}
     y = y.filter(function(key) { if (seen[key]) return false; seen[key] = true; return true })
@@ -505,6 +533,20 @@ function fitMoment(input) {
   res.fallbacks = fallbacks
   res.fallback = fallbacks.length ? fallbacks[0] : null
   return res
+}
+
+// An inline expansion that can't fit whole (ZONE-97): the fewest of its widgets
+// that go on the shelf, taken from the end at its dots. keys: its widgets in
+// bar order; dotsAtStart: the dots stand before them; served(shelf): the fit
+// with those keys left out, or null. Returns { shelf, fit }, or null when not
+// even one widget fits on the bar.
+function splitExpansion(keys, dotsAtStart, served) {
+  for (var n = 0; n < keys.length; n++) {
+    var shelf = dotsAtStart ? keys.slice(0, n) : keys.slice(keys.length - n)
+    var fit = served(shelf)
+    if (fit) return { shelf: shelf, fit: fit }
+  }
+  return null
 }
 
 // fit(input) -> { fits, centerStart, anchorOffset, centerShift, folded, order,

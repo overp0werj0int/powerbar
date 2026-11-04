@@ -11,6 +11,15 @@
 - Highlights in a flat bar's corners follow the screen's rounded corners, as
   they do on the other styles. Islands now nest there too: a scope error kept
   them from it, and warned in the shell log, on a notched screen.
+- A hover reveal no longer runs over the zone beside it when that zone can't
+  give enough room, as on a side bar with long Workspaces. The widgets next to
+  the reveal give way too, and the hovered icon stays under the pointer. When
+  nothing else can give way, that zone hides until the pointer leaves.
+- A zone too long to expand fully in the bar now shows what fits, and the rest
+  goes on a shelf at its dots, once its neighbours have given way.
+- In keyboard mode the indicators reveal their icons while the cursor is on
+  them, not from the moment it enters the Center zone until the mode ends. The
+  arrows now reach every widget in order, including those that gave way.
 - On a notched screen the Islands style has one island round the camera, in
   place of one on each side. Its arms are as long as each other while the zones
   beside them leave room, so the camera is its exact middle, and the shorter

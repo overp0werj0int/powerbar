@@ -30,10 +30,15 @@ Item {
   property bool partFromEnd: false
   // A new stop starts at its first part; put() and the pointer then choose.
   onCursorChanged: { part = 0; partFromEnd = false }
-  // The cursor in the center zone counts as the pointer there, so the
-  // indicators reveal their folded icons to it as they do to a hover.
-  readonly property bool inCenter: here && !!cursor && !cursorIsDots && zone === "center"
-  onInCenterChanged: bar.setCenterSectionHovered(inCenter)
+  // The cursor on the indicators counts as the pointer in the center zone, so
+  // they reveal their folded icons to it as they do to a hover.
+  readonly property bool onReveal: active && !!cursor && !cursorIsDots && zone === "center"
+    && bar.canonicalWidgetId(cursor.moduleName) === "omarchy.indicators"
+  readonly property bool revealing: here && onReveal
+  onRevealingChanged: bar.setCenterSectionHovered(revealing)
+  // A reveal only the cursor holds closes as the cursor walks on, so what gave
+  // way to it stays on the walk.
+  readonly property bool revealGivesWay: bar.centerSectionRevealHeld && bar.centerHoverCount === (revealing ? 1 : 0)
   // A drawer opened from the cursor: a group's, or a zone's (drawer mode).
   property var drawer: null
   // The drawer is unfolded beside the icon but not entered.
@@ -80,6 +85,7 @@ Item {
   function seen(item) {
     if (!item || !item.visible || item.width <= 0 || item.height <= 0) return false
     var w = keys.window
+    if (revealGivesWay) return item.isFoldHandle ? item.shown : item.isPrefsButton || item.mainVisible || item.presence === "yielded"
     if (item.isFoldHandle) return item.shown && !item.fitYielded && !w.zoneHidden(item.zone)
     if (item.isPrefsButton) return !w.zoneHidden("right")
     return item.mainVisible && !w.zoneHidden(item.region)
@@ -243,8 +249,17 @@ Item {
     // Leaving an expanded zone folds it behind its dots again.
     var w = window
     if (w && w.inlineZone && w.inlineZoneName !== zone) w.inlineAsk("")
-    if (cursorIsDots && bar.onDemandInline) openDots(cursor.inlineToken, dir, "")
-    showCard()
+    if (cursorIsDots && bar.onDemandInline) {
+      // The dots of an expansion too long for the bar lead on to its shelf.
+      if (w && w.inlineZone === cursor.inlineToken && Object.keys(w.inlineShelf).length) {
+        w.managedDrawer.openOverflow(w.inlineZone, true)
+        if (w.managedDrawer.opened) adoptDrawer(w.managedDrawer)
+        return
+      }
+      openDots(cursor.inlineToken, dir, "")
+    }
+    if (revealing && !bar.centerSectionRevealHeld) showCardLater()
+    else showCard()
     focusLater()
   }
   function moveBy(dir) {
@@ -444,7 +459,7 @@ Item {
       if (seen(p.seek) || p.seek.inlineShown && w.inlineZone === p.token && landable(p.seek)) { pending = null; landOn(p.seek, p.member); if (p.open) openMatch(); return }
       // The expansion could not fit (the bar gave up on it): the zone's
       // drawer, as for the pointer.
-      var refused = p.token && w.inlineRequest !== p.token && w.inlineZone !== p.token
+      var refused = p.token && (w.inlineRequest !== p.token && w.inlineZone !== p.token || w.inlineShelf[p.seek.instanceKey])
       if (!refused && ++p.tries < 60) { landRetry.restart(); return }
       // Still out of view (another moment holds the room): its zone's
       // drawer, when it has a place there.
@@ -936,7 +951,7 @@ Item {
   // What the name card is on: the cursor, or the drawer's current member.
   property var cardTarget: null
   // On entering, the card comes up on the second frame: the frame the mode
-  // comes on opens the centre's reveal under a cursor there (inCenter), and
+  // comes on opens the indicators' reveal under a cursor there (onReveal), and
   // the card is measured and placed (Bar.qml tooltipWindow) once the bar
   // has been laid out for it, not in that same long frame.
   FrameAnimation {

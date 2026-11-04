@@ -39,7 +39,7 @@ Item {
 
   Preferences { id: preferencesPane; bar: root }
   // The keyboard mode (Super+B): a cursor on the bar (BarKeys.qml).
-  BarKeys { id: barKeysItem; bar: root; onActiveChanged: if (!active) centerSectionRevealTimer.restart() }
+  BarKeys { id: barKeysItem; bar: root; onActiveChanged: centerSectionRevealTimer.restart() }
   readonly property var barKeys: barKeysItem
   // The command line (omarchy-shell powerbar …), read by the IpcHandler below.
   BarCli { id: cliItem; bar: root; preferences: preferencesPane }
@@ -2810,8 +2810,17 @@ Item {
     interval: 120
     // Collapse only; opening is the center island's own hover, so a timer left
     // pending by a pointer that dipped off the bar cannot reveal anything.
-    onTriggered: if (!KeysModel.revealHeld({ centerHovered: root.centerSectionHovered, barHovered: root.barHovered,
-      keysActive: root.barKeys.active })) root.centerSectionRevealHeld = false
+    onTriggered: if (!KeysModel.revealHeld({ centerHovered: root.centerSectionHovered,
+      barHovered: root.barHovered && !root.anyZoneHidden(), keysActive: root.barKeys.active,
+      keysOnReveal: root.barKeys.onReveal })) root.centerSectionRevealHeld = false
+  }
+
+  // A zone hidden whole has no yield marker to release it (releaseYield), so
+  // a reveal that hid one closes as the pointer leaves the centre.
+  function anyZoneHidden() {
+    return barPanels.instances.some(function(w) {
+      return w.zoneHidden("left") || w.zoneHidden("center") || w.zoneHidden("right")
+    })
   }
 
   function setBarHovered(hovered) {
@@ -3530,6 +3539,7 @@ Item {
   }
 
   Variants {
+    id: barPanels
     model: Quickshell.screens
 
     delegate: Component {
@@ -3626,7 +3636,8 @@ Item {
     property var zoneFitYielded: ({})
     // The last fit without a moment: moments freeze it.
     property var zoneFitLasting: null
-    // A zone an inline expansion hides whole, island and all, while it lasts.
+    // A zone an inline expansion or a reveal hides whole, island and all, while
+    // it lasts.
     function zoneHidden(zone) { return !!(zoneFit && zoneFit.hidden && zoneFit.hidden[zone]) }
     // Everything growing right now, highest priority first: a drag gap, the
     // indicators' hover reveal, activity reveals (one per zone), and last the
@@ -3641,17 +3652,18 @@ Item {
         var indicators = items.find(function(s) {
           return s && s.region === "center" && root.canonicalWidgetId(s.moduleName) === "omarchy.indicators"
         })
-        out.push({ zone: "center", sourceKey: indicators ? indicators.instanceKey : null })
+        out.push({ zone: "center", sourceKey: indicators ? indicators.instanceKey : null, reveal: true })
       }
       var seen = {}
       for (var i = 0; i < items.length; i++) {
         var s = items[i]
         if (s && s.claim === "revealed" && !seen[s.region]) {
           seen[s.region] = true
-          out.push({ zone: s.region, sourceKey: s.instanceKey })
+          out.push({ zone: s.region, sourceKey: s.instanceKey, reveal: true })
         }
       }
-      if (inlineZone) out.push({ zone: inlineZoneName, sourceKey: null, unfold: inlineZoneName, side: inlineZone.split(":")[1] || "" })
+      if (inlineZone) out.push({ zone: inlineZoneName, sourceKey: null, unfold: inlineZoneName, side: inlineZone.split(":")[1] || "",
+        shelf: Object.keys(inlineShelf) })
       return out
     }
     // A moment that lasts longer than ten seconds counts as lasting content;
@@ -3678,13 +3690,14 @@ Item {
     Timer { id: zoneFitAge; onTriggered: barWindow.ageMoments() }
     // A zone's widgets as the fit sees them. With expand (an inline token), the
     // hidden on-demand widgets it shows count as shown, at their measured size:
-    // what the zone would be if it expanded inline.
-    function zoneFitList(model, expand) {
+    // what the zone would be if it expanded inline, the ones on its shelf
+    // left out.
+    function zoneFitList(model, expand, shelf) {
       var out = []
       for (var i = 0; model && i < model.count; i++) {
         var s = model.get(i)
         if (s && s.fitExtent > 0) out.push({ key: s.instanceKey, extent: s.fitExtent, spill: s.cellSpill })
-        else if (s && expand && s.inlineToken === expand && s.presence === "waiting" && s.cellExtent > 0)
+        else if (s && expand && s.inlineToken === expand && s.presence === "waiting" && s.cellExtent > 0 && !(shelf && shelf[s.instanceKey]))
           out.push({ key: s.instanceKey, extent: s.cellExtent, spill: s.cellSpill })
       }
       return out
@@ -3791,6 +3804,9 @@ Item {
     // for them (DEMAND-90). Measured before it is shown, as the widgets start
     // growing the moment the zone opens, before the bar is fitted again.
     property bool inlineGiveWay: false
+    // The expansion's widgets that did not fit on the bar, by key: they wait
+    // on the shelf at its dots (ZONE-97).
+    property var inlineShelf: ({})
     // Each zone's on-demand widgets waiting behind its dots (folded ones apart),
     // the centre's also by the side of the box they wait on.
     readonly property var inlineHidden: {
@@ -3808,6 +3824,7 @@ Item {
     // An expansion holds while the pointer is anywhere on its zone.
     readonly property bool inlineHovered: inlineZone !== "" && (inlineHandleZone === inlineZone
       || inlineZoneName === "center" && armBlankHovered
+      || drawer.overflow && drawer.containsMouse
       || moduleItems.some(function(s) { return s && s.region === barWindow.inlineZoneName && s.hovered && !s.drawerHost }))
     // A drag holds it only while it stays in the zone (or on its dots); it
     // closes on the exit grace once the drag leaves the bar, and at once when
@@ -3817,6 +3834,7 @@ Item {
     readonly property bool inlineInteraction: inlineZone !== "" && (inlineDragHere
       || root.barKeys.heldBy(barWindow) && root.barKeys.zone === inlineZoneName
       || (drawer.presenting && !!drawer.groupId)
+      || drawer.overflow && drawer.opened && drawer.interactionHeld
       || moduleItems.some(function(s) { return s && s.region === barWindow.inlineZoneName && s.panelOpen }))
     onInlineHoveredChanged: inlineSchedule()
     onInlineInteractionChanged: inlineSchedule()
@@ -3849,6 +3867,10 @@ Item {
     function inlineApply(zone) {
       if (inlineZone === zone) return
       if (inlineZone) inlineReadyAt = Date.now() + inlineSettleMs
+      if (!zone) {
+        inlineShelf = ({})
+        if (drawer.overflow && drawer.opened) drawer.close("immediate")
+      }
       inlineZone = zone
       // The dots give way to the widgets; from here the zone's slots hold it.
       if (zone) inlineHandleZone = ""
@@ -3886,31 +3908,56 @@ Item {
       // Not the drawer a drag is coming from: its row drives the drag.
       if (root.managedOwner && !root.managedOwner.dragMount) root.managedOwner.close("immediate")
       inlineGiveWay = plan.giveWay
+      inlineShelf = plan.shelf
       inlineApply(step.expand)
+      if (Object.keys(plan.shelf).length) drawer.openOverflow(step.expand, false)
     }
-    // Would the zone fit with its hidden widgets shown, beside every other
-    // moment running now? Null if not, else whether a widget not yielding
-    // now would have to: { giveWay }.
+    // The widgets of an expansion in bar order: the on-demand ones it shows,
+    // and those folded for lack of room.
+    function inlineCandidates(token) {
+      var zone = token.split(":")[0], out = []
+      var models = zone === "left" ? [leftModel] : zone === "right" ? [rightModel] : [centerBeginModel, centerModel, centerEndModel]
+      models.forEach(function(model) {
+        for (var i = 0; i < model.count; i++) {
+          var s = model.get(i)
+          if (s && s.inlineToken === token && (s.fitFolded || s.presence === "waiting" && s.cellExtent > 0)) out.push(s.instanceKey)
+        }
+      })
+      return out
+    }
+    // How the zone would expand beside every other moment running now, worked
+    // out before anything moves: the widgets that fit stay on the bar and the
+    // rest wait on a shelf at its dots (ZONE-97). Null if not one fits, else
+    // { giveWay, shelf }: whether a widget not yielding now would have to, and
+    // the shelf's widgets by key.
     function inlinePlan(token) {
-      var i = Object.assign({}, zoneFitInputs)
       var zone = token.split(":")[0], side = token.split(":")[1] || ""
       var models = zone === "left" ? { left: leftModel } : zone === "right" ? { right: rightModel }
         : { before: centerBeginModel, box: centerModel, after: centerEndModel }
-      for (var name in models) i[name] = zoneFitList(models[name], token)
-      if (zone === "right") {
-        var prefs = CellModel.place(barWindow.cellTokens, root.preferencesGlyphSize, true)
-        i.right.push({ key: "prefs", extent: prefs.extent, spill: prefs.spill })
+      if (!(zoneFitInputs.length > 0)) return null
+      function served(keys) {
+        var i = Object.assign({}, zoneFitInputs), shelf = {}
+        keys.forEach(function(key) { shelf[key] = true })
+        for (var name in models) i[name] = zoneFitList(models[name], token, shelf)
+        if (zone === "right") {
+          var prefs = CellModel.place(barWindow.cellTokens, root.preferencesGlyphSize, true)
+          i.right.push({ key: "prefs", extent: prefs.extent, spill: prefs.spill })
+        }
+        // The dots stay while anything waits behind them.
+        i.dots = Object.assign({}, i.dots)
+        if (zone === "center") {
+          i.dots.center = Object.assign({}, i.dots.center)
+          i.dots.center[side] = keys.length > 0
+        } else i.dots[zone] = keys.length > 0
+        var moments = i.moments.filter(function(m) { return !m.unfold }).concat([{ zone: zone, sourceKey: null, unfold: zone, side: side, shelf: keys }])
+        var result = ZoneFitModel.fit(zoneFitInput(i, moments))
+        return (result.fallbacks || []).some(function(f) { return f.zone === zone }) ? null : result
       }
-      i.dots = Object.assign({}, i.dots)
-      if (zone === "center") {
-        i.dots.center = Object.assign({}, i.dots.center)
-        i.dots.center[side] = false
-      } else i.dots[zone] = false
-      if (!(i.length > 0)) return null
-      var moments = i.moments.filter(function(m) { return !m.unfold }).concat([{ zone: zone, sourceKey: null, unfold: zone, side: side }])
-      var result = ZoneFitModel.fit(zoneFitInput(i, moments))
-      if ((result.fallbacks || []).some(function(f) { return f.zone === zone })) return null
-      return { giveWay: result.yielded.some(function(key) { return !zoneFitYielded[key] }) }
+      var plan = ZoneFitModel.splitExpansion(inlineCandidates(token), zone === "right" || side === "start", served)
+      if (!plan) return null
+      var shelf = {}
+      plan.shelf.forEach(function(key) { shelf[key] = true })
+      return { giveWay: plan.fit.yielded.some(function(key) { return !zoneFitYielded[key] }), shelf: shelf }
     }
     // The dots: hovering asks for the zone, clicking skips the hover intent.
     // A keyboard move is intent too, and skips the settle after a collapse:
@@ -3959,8 +4006,8 @@ Item {
     // A zone drawer (keyboard, IPC or the fallback) takes the zone's widgets.
     Connections {
       target: drawer
-      function onPresentingChanged() { if (drawer.presenting && !drawer.groupId) barWindow.inlineCollapseNow() }
-      function onZoneChanged() { if (drawer.presenting && !drawer.groupId) barWindow.inlineCollapseNow() }
+      function onPresentingChanged() { if (drawer.presenting && !drawer.groupId && !drawer.overflow) barWindow.inlineCollapseNow() }
+      function onZoneChanged() { if (drawer.presenting && !drawer.groupId && !drawer.overflow) barWindow.inlineCollapseNow() }
     }
     Models.ObjectModel { id: leftModel }
     Models.ObjectModel { id: centerBeginModel }
@@ -6594,6 +6641,7 @@ Item {
     property real activityUntil: 0
     // Shown in the bar by an inline expansion of its zone.
     readonly property bool inlineShown: managed && !!homeWindow && homeWindow.inlineZone !== "" && homeWindow.inlineZone === inlineToken
+      && !homeWindow.inlineShelf[instanceKey]
     // What it asks of its zone before the zone fit, and where it is after
     // it (PresenceModel.js).
     readonly property string claim: PresenceModel.claim(slot)

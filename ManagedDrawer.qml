@@ -40,6 +40,7 @@ Item {
   readonly property bool presenting: opened || reveal > 0.001 || !!dragMount
   onPresentingChanged: {
     if (!presenting && bar.managedOwner === drawer) bar.managedOwner = null
+    if (!presenting) overflow = false
     reportJoin()
   }
   Behavior on reveal {
@@ -62,7 +63,11 @@ Item {
   // On demand "shelf" (on-demand-drawers.md DEMAND-120): a strip drawer
   // joined to the bar's edge, in the bar's colours, sliding out of the bar as
   // the notch's do. Menus and submenus stay apart.
-  readonly property bool shelf: bar.onDemandShelf && !fromNotch && !isSubmenu && surfaceRole !== "menu"
+  readonly property bool shelf: (bar.onDemandShelf || overflow) && !fromNotch && !isSubmenu && surfaceRole !== "menu"
+  // The shelf of an inline expansion too long for the bar (layout-zones.md
+  // ZONE-97): it holds what did not fit, and the expansion decides how long
+  // it stays.
+  property bool overflow: false
   // Joined to the bar: slides out of it, cut at its edge.
   readonly property bool attached: fromNotch || shelf
   // Drawn in the bar's own surface colour and ink.
@@ -286,7 +291,8 @@ Item {
   readonly property bool selectionVisible: Model.cursorVisible(keyboardMode, cursorActive, slots.length)
   // A zone's menu counts its submenu as part of it.
   readonly property bool containsMouse: hover.hovered || (!!submenu && submenu.opened && submenu.containsMouse)
-  readonly property var slots: presenting ? (groupId ? bar.groupSlots(groupId, hostWindow) : bar.managedSlots(token || zone, hostWindow)) : []
+  readonly property var slots: !presenting ? [] : groupId ? bar.groupSlots(groupId, hostWindow)
+    : bar.managedSlots(token || zone, hostWindow).filter(function(s) { return !overflow || hostWindow.inlineShelf[s.instanceKey] })
   // One row (mount) per member, kept across opens, closes and zones while
   // its member's slot lives: building a row took milliseconds per member on
   // every open. An open moves the rows its members need into the drawer and
@@ -450,7 +456,7 @@ Item {
   readonly property var shelfFit: {
     if (!shelfHost) return null
     var min = Math.min(bar.edgeGap, shelfHost.start), max = Math.max(axisExtent - bar.edgeGap, shelfHost.end)
-    var start = fromNotch && anchorHandle && shelfHost.item
+    var start = (fromNotch || overflow && bar.islands) && anchorHandle && shelfHost.item
       ? ShelfModel.alignStart(shelfHost.hang, contentLength, sourceCell, min, max) : placement.start
     return ShelfModel.fit(start, contentLength, shelfHost, surfaceRadius, min, max, !namedMenu)
   }
@@ -509,8 +515,9 @@ Item {
   // nextZone: a region, or in menu mode a side's token ("center:end");
   // nextHandle: the dots a zone's menu hangs from; byClick: a click opened it
   // for the keys, so it is pinned by the click (DEMAND-104).
-  function openZone(nextZone, keyboard, nextGroup, nextAnchor, nextHandle, byClick) {
+  function openZone(nextZone, keyboard, nextGroup, nextAnchor, nextHandle, byClick, nextOverflow) {
     nextGroup = nextGroup || ""
+    overflow = nextOverflow === true
     // A click or key decides: a hover still waiting on its intent (the pointer
     // just arrived) would reopen the drawer for hovering only.
     if (keyboard === true) { zoneIntent.stop(); intentZone = ""; intentStill = null }
@@ -537,7 +544,7 @@ Item {
     token = nextToken
     groupId = nextGroup
     anchorSlot = nextAnchor || null
-    anchorHandle = bar.onDemandMenu && !nextGroup ? nextHandle || handleFor(nextToken) : null
+    anchorHandle = (bar.onDemandMenu || overflow) && !nextGroup ? nextHandle || handleFor(nextToken) : null
     anchorCenter = -1
     keyboardMode = keyboard === true
     clickPinned = keyboardMode && byClick === true
@@ -555,6 +562,7 @@ Item {
     if (clickPinned) scheduleDismissal()
     if (keyboardMode) Qt.callLater(function() { drawer.forceActiveFocus() })
   }
+  function openOverflow(token, keyboard) { openZone(token, keyboard, "", null, null, false, true) }
   function openGroup(id, slot, keyboard, byClick) {
     // A managed group header returns to its hidden main slot when switching
     // drawers. Keep the clicked position as the anchor during that switch.
@@ -786,8 +794,8 @@ Item {
   }
   function scheduleDismissal() {
     dismissal.stop()
-    // A submenu goes with its menu.
-    if (!opened || isSubmenu) return
+    // A submenu goes with its menu, an expansion's shelf with the expansion.
+    if (!opened || isSubmenu || overflow) return
     var delay = Model.dismissDelay(sourceHovered, containsMouse, interactionHeld, entered, bar.managedEntrySeconds, bar.managedExitSeconds,
       clickPinned, bar.barHovered)
     if (delay > 0) { dismissal.interval = delay; dismissal.start() }
