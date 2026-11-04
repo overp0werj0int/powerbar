@@ -39,7 +39,7 @@ Item {
 
   Preferences { id: preferencesPane; bar: root }
   // The keyboard mode (Super+B): a cursor on the bar (BarKeys.qml).
-  BarKeys { id: barKeysItem; bar: root; onActiveChanged: if (!active) centerSectionRevealTimer.restart() }
+  BarKeys { id: barKeysItem; bar: root; onActiveChanged: centerSectionRevealTimer.restart() }
   readonly property var barKeys: barKeysItem
   // The command line (omarchy-shell powerbar …), read by the IpcHandler below.
   BarCli { id: cliItem; bar: root; preferences: preferencesPane }
@@ -2149,8 +2149,10 @@ Item {
   // or small (layout-zones.md ZONE-90); other screens keep the bar's size.
   function fitsNotch(notch) { return !!notch && !vertical && flat && !notchMode }
   // A floating bar there dips round the camera, a gap off it, and grows only
-  // to keep a band one gap thick under it (appearance.md LOOK-147).
-  function wrapsNotch(notch) { return !!notch && !vertical && floating && !notchMode }
+  // to keep a band one gap thick under it (appearance.md LOOK-147). The
+  // Islands style takes that thickness for its island round the camera
+  // (LOOK-155), on every island, whether or not that one shows.
+  function wrapsNotch(notch) { return !!notch && !vertical && (floating || islands) && !notchMode }
   // A bar window's sizes (CellModel.metrics): its own thickness and cells
   // where a notch changes them (notchFit, notchWrap), else the bar's, which
   // also stand in before a window is known.
@@ -2808,8 +2810,17 @@ Item {
     interval: 120
     // Collapse only; opening is the center island's own hover, so a timer left
     // pending by a pointer that dipped off the bar cannot reveal anything.
-    onTriggered: if (!KeysModel.revealHeld({ centerHovered: root.centerSectionHovered, barHovered: root.barHovered,
-      keysActive: root.barKeys.active })) root.centerSectionRevealHeld = false
+    onTriggered: if (!KeysModel.revealHeld({ centerHovered: root.centerSectionHovered,
+      barHovered: root.barHovered && !root.anyZoneHidden(), keysActive: root.barKeys.active,
+      keysOnReveal: root.barKeys.onReveal })) root.centerSectionRevealHeld = false
+  }
+
+  // A zone hidden whole has no yield marker to release it (releaseYield), so
+  // a reveal that hid one closes as the pointer leaves the centre.
+  function anyZoneHidden() {
+    return barPanels.instances.some(function(w) {
+      return w.zoneHidden("left") || w.zoneHidden("center") || w.zoneHidden("right")
+    })
   }
 
   function setBarHovered(hovered) {
@@ -3528,6 +3539,7 @@ Item {
   }
 
   Variants {
+    id: barPanels
     model: Quickshell.screens
 
     delegate: Component {
@@ -3624,7 +3636,8 @@ Item {
     property var zoneFitYielded: ({})
     // The last fit without a moment: moments freeze it.
     property var zoneFitLasting: null
-    // A zone an inline expansion hides whole, island and all, while it lasts.
+    // A zone an inline expansion or a reveal hides whole, island and all, while
+    // it lasts.
     function zoneHidden(zone) { return !!(zoneFit && zoneFit.hidden && zoneFit.hidden[zone]) }
     // Everything growing right now, highest priority first: a drag gap, the
     // indicators' hover reveal, activity reveals (one per zone), and last the
@@ -3639,17 +3652,18 @@ Item {
         var indicators = items.find(function(s) {
           return s && s.region === "center" && root.canonicalWidgetId(s.moduleName) === "omarchy.indicators"
         })
-        out.push({ zone: "center", sourceKey: indicators ? indicators.instanceKey : null })
+        out.push({ zone: "center", sourceKey: indicators ? indicators.instanceKey : null, reveal: true })
       }
       var seen = {}
       for (var i = 0; i < items.length; i++) {
         var s = items[i]
         if (s && s.claim === "revealed" && !seen[s.region]) {
           seen[s.region] = true
-          out.push({ zone: s.region, sourceKey: s.instanceKey })
+          out.push({ zone: s.region, sourceKey: s.instanceKey, reveal: true })
         }
       }
-      if (inlineZone) out.push({ zone: inlineZoneName, sourceKey: null, unfold: inlineZoneName, side: inlineZone.split(":")[1] || "" })
+      if (inlineZone) out.push({ zone: inlineZoneName, sourceKey: null, unfold: inlineZoneName, side: inlineZone.split(":")[1] || "",
+        shelf: Object.keys(inlineShelf) })
       return out
     }
     // A moment that lasts longer than ten seconds counts as lasting content;
@@ -3676,13 +3690,14 @@ Item {
     Timer { id: zoneFitAge; onTriggered: barWindow.ageMoments() }
     // A zone's widgets as the fit sees them. With expand (an inline token), the
     // hidden on-demand widgets it shows count as shown, at their measured size:
-    // what the zone would be if it expanded inline.
-    function zoneFitList(model, expand) {
+    // what the zone would be if it expanded inline, the ones on its shelf
+    // left out.
+    function zoneFitList(model, expand, shelf) {
       var out = []
       for (var i = 0; model && i < model.count; i++) {
         var s = model.get(i)
         if (s && s.fitExtent > 0) out.push({ key: s.instanceKey, extent: s.fitExtent, spill: s.cellSpill })
-        else if (s && expand && s.inlineToken === expand && s.presence === "waiting" && s.cellExtent > 0)
+        else if (s && expand && s.inlineToken === expand && s.presence === "waiting" && s.cellExtent > 0 && !(shelf && shelf[s.instanceKey]))
           out.push({ key: s.instanceKey, extent: s.cellExtent, spill: s.cellSpill })
       }
       return out
@@ -3789,6 +3804,9 @@ Item {
     // for them (DEMAND-90). Measured before it is shown, as the widgets start
     // growing the moment the zone opens, before the bar is fitted again.
     property bool inlineGiveWay: false
+    // The expansion's widgets that did not fit on the bar, by key: they wait
+    // on the shelf at its dots (ZONE-97).
+    property var inlineShelf: ({})
     // Each zone's on-demand widgets waiting behind its dots (folded ones apart),
     // the centre's also by the side of the box they wait on.
     readonly property var inlineHidden: {
@@ -3801,8 +3819,12 @@ Item {
       }
       return out
     }
+    // The pointer on the blank of an arm of the island round the camera.
+    property bool armBlankHovered: false
     // An expansion holds while the pointer is anywhere on its zone.
     readonly property bool inlineHovered: inlineZone !== "" && (inlineHandleZone === inlineZone
+      || inlineZoneName === "center" && armBlankHovered
+      || drawer.overflow && drawer.containsMouse
       || moduleItems.some(function(s) { return s && s.region === barWindow.inlineZoneName && s.hovered && !s.drawerHost }))
     // A drag holds it only while it stays in the zone (or on its dots); it
     // closes on the exit grace once the drag leaves the bar, and at once when
@@ -3812,6 +3834,7 @@ Item {
     readonly property bool inlineInteraction: inlineZone !== "" && (inlineDragHere
       || root.barKeys.heldBy(barWindow) && root.barKeys.zone === inlineZoneName
       || (drawer.presenting && !!drawer.groupId)
+      || drawer.overflow && drawer.opened && drawer.interactionHeld
       || moduleItems.some(function(s) { return s && s.region === barWindow.inlineZoneName && s.panelOpen }))
     onInlineHoveredChanged: inlineSchedule()
     onInlineInteractionChanged: inlineSchedule()
@@ -3844,6 +3867,10 @@ Item {
     function inlineApply(zone) {
       if (inlineZone === zone) return
       if (inlineZone) inlineReadyAt = Date.now() + inlineSettleMs
+      if (!zone) {
+        inlineShelf = ({})
+        if (drawer.overflow && drawer.opened) drawer.close("immediate")
+      }
       inlineZone = zone
       // The dots give way to the widgets; from here the zone's slots hold it.
       if (zone) inlineHandleZone = ""
@@ -3881,31 +3908,56 @@ Item {
       // Not the drawer a drag is coming from: its row drives the drag.
       if (root.managedOwner && !root.managedOwner.dragMount) root.managedOwner.close("immediate")
       inlineGiveWay = plan.giveWay
+      inlineShelf = plan.shelf
       inlineApply(step.expand)
+      if (Object.keys(plan.shelf).length) drawer.openOverflow(step.expand, false)
     }
-    // Would the zone fit with its hidden widgets shown, beside every other
-    // moment running now? Null if not, else whether a widget not yielding
-    // now would have to: { giveWay }.
+    // The widgets of an expansion in bar order: the on-demand ones it shows,
+    // and those folded for lack of room.
+    function inlineCandidates(token) {
+      var zone = token.split(":")[0], out = []
+      var models = zone === "left" ? [leftModel] : zone === "right" ? [rightModel] : [centerBeginModel, centerModel, centerEndModel]
+      models.forEach(function(model) {
+        for (var i = 0; i < model.count; i++) {
+          var s = model.get(i)
+          if (s && s.inlineToken === token && (s.fitFolded || s.presence === "waiting" && s.cellExtent > 0)) out.push(s.instanceKey)
+        }
+      })
+      return out
+    }
+    // How the zone would expand beside every other moment running now, worked
+    // out before anything moves: the widgets that fit stay on the bar and the
+    // rest wait on a shelf at its dots (ZONE-97). Null if not one fits, else
+    // { giveWay, shelf }: whether a widget not yielding now would have to, and
+    // the shelf's widgets by key.
     function inlinePlan(token) {
-      var i = Object.assign({}, zoneFitInputs)
       var zone = token.split(":")[0], side = token.split(":")[1] || ""
       var models = zone === "left" ? { left: leftModel } : zone === "right" ? { right: rightModel }
         : { before: centerBeginModel, box: centerModel, after: centerEndModel }
-      for (var name in models) i[name] = zoneFitList(models[name], token)
-      if (zone === "right") {
-        var prefs = CellModel.place(barWindow.cellTokens, root.preferencesGlyphSize, true)
-        i.right.push({ key: "prefs", extent: prefs.extent, spill: prefs.spill })
+      if (!(zoneFitInputs.length > 0)) return null
+      function served(keys) {
+        var i = Object.assign({}, zoneFitInputs), shelf = {}
+        keys.forEach(function(key) { shelf[key] = true })
+        for (var name in models) i[name] = zoneFitList(models[name], token, shelf)
+        if (zone === "right") {
+          var prefs = CellModel.place(barWindow.cellTokens, root.preferencesGlyphSize, true)
+          i.right.push({ key: "prefs", extent: prefs.extent, spill: prefs.spill })
+        }
+        // The dots stay while anything waits behind them.
+        i.dots = Object.assign({}, i.dots)
+        if (zone === "center") {
+          i.dots.center = Object.assign({}, i.dots.center)
+          i.dots.center[side] = keys.length > 0
+        } else i.dots[zone] = keys.length > 0
+        var moments = i.moments.filter(function(m) { return !m.unfold }).concat([{ zone: zone, sourceKey: null, unfold: zone, side: side, shelf: keys }])
+        var result = ZoneFitModel.fit(zoneFitInput(i, moments))
+        return (result.fallbacks || []).some(function(f) { return f.zone === zone }) ? null : result
       }
-      i.dots = Object.assign({}, i.dots)
-      if (zone === "center") {
-        i.dots.center = Object.assign({}, i.dots.center)
-        i.dots.center[side] = false
-      } else i.dots[zone] = false
-      if (!(i.length > 0)) return null
-      var moments = i.moments.filter(function(m) { return !m.unfold }).concat([{ zone: zone, sourceKey: null, unfold: zone, side: side }])
-      var result = ZoneFitModel.fit(zoneFitInput(i, moments))
-      if ((result.fallbacks || []).some(function(f) { return f.zone === zone })) return null
-      return { giveWay: result.yielded.some(function(key) { return !zoneFitYielded[key] }) }
+      var plan = ZoneFitModel.splitExpansion(inlineCandidates(token), zone === "right" || side === "start", served)
+      if (!plan) return null
+      var shelf = {}
+      plan.shelf.forEach(function(key) { shelf[key] = true })
+      return { giveWay: plan.fit.yielded.some(function(key) { return !zoneFitYielded[key] }), shelf: shelf }
     }
     // The dots: hovering asks for the zone, clicking skips the hover intent.
     // A keyboard move is intent too, and skips the settle after a collapse:
@@ -3954,8 +4006,8 @@ Item {
     // A zone drawer (keyboard, IPC or the fallback) takes the zone's widgets.
     Connections {
       target: drawer
-      function onPresentingChanged() { if (drawer.presenting && !drawer.groupId) barWindow.inlineCollapseNow() }
-      function onZoneChanged() { if (drawer.presenting && !drawer.groupId) barWindow.inlineCollapseNow() }
+      function onPresentingChanged() { if (drawer.presenting && !drawer.groupId && !drawer.overflow) barWindow.inlineCollapseNow() }
+      function onZoneChanged() { if (drawer.presenting && !drawer.groupId && !drawer.overflow) barWindow.inlineCollapseNow() }
     }
     Models.ObjectModel { id: leftModel }
     Models.ObjectModel { id: centerBeginModel }
@@ -4135,8 +4187,9 @@ Item {
     // `along` (the cell it hangs from, when known: a notch's ear), else its
     // zone's island, the floating bar, or a flat bar's whole length (no item,
     // square ends). `hang` is that surface's own ends; start and end are where
-    // its edge really stops, which for an ear is the band's ends, since its
-    // black runs on through the camera and the other ear.
+    // its edge really stops: for an ear the band's ends, since its black runs
+    // on through the camera and the other ear, and for an arm of the island
+    // round the camera that island's ends.
     function shelfHost(zone, along) {
       function ends(item) {
         var p = item.mapToItem(contentItem, 0, 0)
@@ -4144,7 +4197,7 @@ Item {
         return { start: start, end: start + root.alongSize(item) }
       }
       function span(island) {
-        var own = ends(island), edge = own
+        var own = ends(island), edge = island.paintedBy ? ends(island.paintedBy) : own
         if (island.notchSide) {
           var camera = ends(cameraShape)
           edge = { start: Math.min(own.start, camera.start + cameraShape.sS), end: Math.max(own.end, camera.end - cameraShape.sE) }
@@ -5287,6 +5340,8 @@ Item {
         CenterModules {
           anchors.fill: parent
           homeWindow: barWindow
+          leftEnd: leftIsland.visible ? leftIsland.x + leftIsland.width : barWindow.metrics.screenInset
+          rightStart: rightIsland.visible ? rightIsland.x : barWindow.width - barWindow.metrics.screenInset
           // An expanding zone lies over the zones it hides or yields, so the
           // pointer reaches its widgets first (Qt still hovers disabled items).
           z: barWindow.inlineZoneName === "center" ? 1 : 0
@@ -5337,7 +5392,7 @@ Item {
             y: root.vertical ? leftModules.y + leftModules.shownLead - barWindow.metrics.endPad(leftModules.leadSpill) : (parent.height - height) / 2
             width: root.vertical ? root.barSize : leftModules.width - leftModules.shownLead - leftModules.shownTrail + barWindow.metrics.endPad(leftModules.leadSpill) + barWindow.metrics.endPad(leftModules.trailSpill)
               + (barWindow.notchLook ? barWindow.metrics.screenInset + barWindow.notchTuck : 0)
-            height: root.vertical ? leftModules.height - leftModules.shownLead - leftModules.shownTrail + barWindow.metrics.endPad(leftModules.leadSpill) + barWindow.metrics.endPad(leftModules.trailSpill) : root.barSize
+            height: root.vertical ? leftModules.height - leftModules.shownLead - leftModules.shownTrail + barWindow.metrics.endPad(leftModules.leadSpill) + barWindow.metrics.endPad(leftModules.trailSpill) : barWindow.barSize
             visible: root.islands && leftModules.shownLength > 0 && opacity > 0 && !leftHanger.shown
           }
           HighlightLayer { zone: "left"; island: leftIsland; transform: Translate { x: barWindow.slideX("left", barWindow.leftShift); y: barWindow.slideY("left", barWindow.leftShift) } }
@@ -5399,7 +5454,7 @@ Item {
             // Measured from start, never from x or y: on a vertical bar x depends on
             // width, so width depending on x would loop when the orientation flips.
             width: root.vertical ? root.barSize : preferencesButton.x + preferencesButton.width + barWindow.metrics.endPad(preferencesButton.cellSpill) - start
-            height: root.vertical ? preferencesButton.y + preferencesButton.height + barWindow.metrics.endPad(preferencesButton.cellSpill) - start : root.barSize
+            height: root.vertical ? preferencesButton.y + preferencesButton.height + barWindow.metrics.endPad(preferencesButton.cellSpill) - start : barWindow.barSize
           }
           HighlightLayer { zone: "right"; island: rightIsland; transform: Translate { x: barWindow.slideX("right", barWindow.rightShift); y: barWindow.slideY("right", barWindow.rightShift) } }
           PreferencesButton {
@@ -5608,11 +5663,14 @@ Item {
     // side of the notch this zone grows from. Square where it meets the
     // camera; its outer end has the camera's corners (NotchEnd).
     property string notchSide: ""
+    // The island round the camera, when this is one of its arms: it draws for
+    // both, and this one keeps only its place (LOOK-155).
+    property Item paintedBy: null
     opacity: zoneHidden ? 0 : 1
     Behavior on opacity { enabled: root.animationsEnabled; YieldFade { leaving: zoneHidden } }
     visible: (root.islands || notchSide !== "") && opacity > 0
-    color: notchSide !== "" ? "transparent" : root.mainSurfaceColor
-    shadowEnabled: root.surfaceEffects.shadow && notchSide === ""
+    color: notchSide !== "" || paintedBy ? "transparent" : root.mainSurfaceColor
+    shadowEnabled: root.surfaceEffects.shadow && notchSide === "" && !paintedBy
     shadowSize: root.surfaceEffects.shadowSize
     shadowOpacity: root.surfaceEffects.shadowOpacity
     radius: root.islandRounding
@@ -5623,7 +5681,7 @@ Item {
     topRightRadius: squared("tr") ? 0 : undefined
     bottomLeftRadius: squared("bl") ? 0 : undefined
     bottomRightRadius: squared("br") ? 0 : undefined
-    borderSpec: root.notchMode ? Border.none() : root.islandBorder
+    borderSpec: root.notchMode || paintedBy ? Border.none() : root.islandBorder
     NotchEnd { visible: island.notchSide !== ""; side: island.notchSide; outerSquared: island.squared(island.notchSide === "left" ? "bl" : "br") }
   }
 
@@ -5906,10 +5964,15 @@ Item {
   // (SectionsModel.lists). The box is centred on the bar as one group, its two
   // neighbours hang off its edges. Under a camera (notchSplit) the box starts
   // right of the camera's slot and Left of center ends left of it, each side
-  // on its own island, each island edge keeping the slot from its own end pad.
+  // an arm of one island round the camera, or on its own island when the other
+  // side shows nothing (LOOK-155), each edge keeping the slot from its end pad.
   component CenterModules: Item {
     id: centerRoot
     property var homeWindow: null
+    // How far the arms may grow: to the Left and Right islands, or the
+    // screen's inset without them.
+    property real leftEnd: 0
+    property real rightStart: 0
     readonly property var metrics: root.metricsOf(homeWindow)
     readonly property real split: homeWindow && homeWindow.notchSplit ? homeWindow.notchKeepOut : 0
     // The box left of the camera (ZONE-96): it ends at the slot with Left of
@@ -5927,28 +5990,60 @@ Item {
     }
     readonly property var beginSpan: split > 0 ? span(boxBefore ? [beginModules, boxModules] : [beginModules]) : null
     readonly property var mainSpan: split > 0 ? span(boxBefore ? [endModules] : [boxModules, endModules]) : span([beginModules, boxModules, endModules])
+    function spanLength(run) { return run ? run.end - run.start + metrics.endPad(run.leadSpill) + metrics.endPad(run.trailSpill) : 0 }
+    // Both sides of the camera show something: one island round it, its arms
+    // as long as each other where their sides allow (LOOK-155). The blanks sit
+    // at the far ends, inside the dots, and take room from no zone: the fit
+    // never counts them.
+    readonly property bool roundCamera: root.islands && !!beginSpan && !!mainSpan && beginSpan.end > beginSpan.start && mainSpan.end > mainSpan.start
+    readonly property var armBlanks: {
+      if (!roundCamera) return { before: 0, after: 0 }
+      return NotchModel.armBlanks(spanLength(beginSpan), spanLength(mainSpan),
+        middle - split / 2 - leftEnd - metrics.zoneGap, rightStart - middle - split / 2 - metrics.zoneGap)
+    }
+    function shelfSquares(corner) { return centerBeginIsland.squared(corner) || centerIsland.squared(corner) }
+    NotchWrapSurface {
+      id: aroundCamera
+      visible: centerRoot.roundCamera && opacity > 0
+      opacity: centerIsland.opacity
+      x: centerBeginIsland.x
+      y: centerIsland.y
+      width: centerIsland.x + centerIsland.width - x
+      height: centerRoot.metrics.size
+      color: root.mainSurfaceColor
+      shadowEnabled: root.surfaceEffects.shadow
+      shadowSize: root.surfaceEffects.shadowSize
+      shadowOpacity: root.surfaceEffects.shadowOpacity
+      borderSpec: root.islandBorder
+      topRadius: root.islandRounding
+      bottomLeftRadius: centerRoot.shelfSquares("bl") ? 0 : root.islandRounding
+      bottomRightRadius: centerRoot.shelfSquares("br") ? 0 : root.islandRounding
+      cut: centerRoot.roundCamera ? NotchModel.wrapCut(centerRoot.homeWindow.notch, centerRoot.width, x, y, root.edgeGap) : null
+    }
     IslandSurface {
       id: centerBeginIsland
       readonly property var span: centerRoot.beginSpan
-      readonly property real lead: span ? centerRoot.metrics.endPad(span.leadSpill) : 0
-      readonly property real length: span ? span.end - span.start + lead + centerRoot.metrics.endPad(span.trailSpill) : 0
+      readonly property real lead: span ? centerRoot.metrics.endPad(span.leadSpill) + centerRoot.armBlanks.before : 0
+      readonly property real length: centerRoot.spanLength(span) + centerRoot.armBlanks.before
       zoneHidden: centerIsland.zoneHidden
+      paintedBy: centerRoot.roundCamera ? aroundCamera : null
       x: root.vertical ? (parent.width - width) / 2 : span ? span.start - lead : 0
       y: root.vertical ? (span ? span.start - lead : 0) : (parent.height - height) / 2
       width: root.vertical ? root.barSize : length
-      height: root.vertical ? length : root.barSize
+      height: root.vertical ? length : centerRoot.metrics.size
       visible: root.islands && !!span && span.end > span.start && opacity > 0
     }
     IslandSurface {
       id: centerIsland
       readonly property var span: centerRoot.mainSpan
       readonly property real lead: span ? centerRoot.metrics.endPad(span.leadSpill) : 0
-      readonly property real length: span ? span.end - span.start + lead + centerRoot.metrics.endPad(span.trailSpill) : 0
+      readonly property real length: centerRoot.spanLength(span) + centerRoot.armBlanks.after
       zoneHidden: !!centerRoot.homeWindow && centerRoot.homeWindow.zoneHidden("center")
+      paintedBy: centerRoot.roundCamera ? aroundCamera : null
       x: root.vertical ? (parent.width - width) / 2 : span ? span.start - lead : 0
       y: root.vertical ? (span ? span.start - lead : 0) : (parent.height - height) / 2
       width: root.vertical ? root.barSize : length
-      height: root.vertical ? length : root.barSize
+      height: root.vertical ? length : centerRoot.metrics.size
       visible: root.islands && !!span && span.end > span.start && opacity > 0
     }
     HighlightLayer { zone: "center"; island: centerIsland }
@@ -5979,6 +6074,7 @@ Item {
       listRole: "centerBegin"
       region: "center"
       previewEnd: false
+      armBlank: centerRoot.armBlanks.before
       readonly property real trailEdge: centerRoot.split > 0 && !centerRoot.boxBefore
         ? centerRoot.middle - centerRoot.split / 2 - centerRoot.metrics.endPad(trailSpill) + shownTrail
         : root.along(boxModules)
@@ -6006,6 +6102,7 @@ Item {
       homeWindow: centerRoot.homeWindow
       listRole: "centerEnd"
       region: "center"
+      armBlank: centerRoot.armBlanks.after
       // An empty box under a camera, or one left of it: Right of center
       // starts right of the camera.
       readonly property real lead: centerRoot.split > 0 && (centerRoot.boxBefore || !(boxModules.listLength > 0))
@@ -6321,6 +6418,10 @@ Item {
     // start side: none where the list hangs from its start, all where it hangs
     // from its end (Right, and Left of center off the box or the camera).
     property real startGrowth: listRole === "right" || listRole === "centerBegin" ? 1 : 0
+    // The blank between this list and its dots at the far end of an arm of
+    // the island round the camera. Outside the list: its length, and all that
+    // yields from it, is its widgets' alone.
+    property real armBlank: 0
     // Where this list draws its zone's drawer handle, as the zone fit says.
     readonly property var fitHandles: homeWindow && homeWindow.zoneFit ? homeWindow.zoneFit.handles : null
     readonly property bool centerStartDots: !!fitHandles && (fitHandles.center === "start" || fitHandles.center === "both")
@@ -6391,7 +6492,7 @@ Item {
       zone: moduleListRoot.region
       side: "start"
       active: moduleListRoot.handleAtStart
-      x: 0
+      x: -moduleListRoot.armBlank
       y: 0
     }
     YieldMarker {
@@ -6415,7 +6516,7 @@ Item {
       homeWindow: moduleListRoot.homeWindow
       zone: moduleListRoot.region
       active: moduleListRoot.handleAtEnd
-      x: root.vertical ? 0 : contents.x + contents.width
+      x: root.vertical ? 0 : contents.x + contents.width + moduleListRoot.armBlank
       y: root.vertical ? contents.y + contents.height : 0
     }
     // The slots, for the notch's second row (zoneWrap).
@@ -6429,6 +6530,12 @@ Item {
       columns: root.vertical ? 1 : 100000
       spacing: 0
       Repeater { model: moduleListRoot.slotModel }
+    }
+    Item {
+      x: moduleListRoot.listRole === "centerBegin" ? -moduleListRoot.armBlank : contents.x + contents.width
+      width: moduleListRoot.armBlank
+      height: moduleListRoot.height
+      HoverHandler { onHoveredChanged: moduleListRoot.homeWindow.armBlankHovered = hovered }
     }
     AnimatedSlot {
       id: endGap
@@ -6534,6 +6641,7 @@ Item {
     property real activityUntil: 0
     // Shown in the bar by an inline expansion of its zone.
     readonly property bool inlineShown: managed && !!homeWindow && homeWindow.inlineZone !== "" && homeWindow.inlineZone === inlineToken
+      && !homeWindow.inlineShelf[instanceKey]
     // What it asks of its zone before the zone fit, and where it is after
     // it (PresenceModel.js).
     readonly property string claim: PresenceModel.claim(slot)

@@ -302,6 +302,14 @@ test("a floating bar's thickness, whatever the style, for Preferences' page (PRE
   assert.equal(notch.floatingThickness(null, 30, 4, true), 30, 'a side bar: its own size');
 });
 
+test('the arms of the island round the camera match, as far as their sides allow', () => {
+  assert.deepEqual(J(notch.armBlanks(280, 165, 300, 300)), { before: 0, after: 115 }, 'the shorter arm takes the difference');
+  assert.deepEqual(J(notch.armBlanks(165, 280, 300, 300)), { before: 115, after: 0 }, 'on either side');
+  assert.deepEqual(J(notch.armBlanks(200, 200, 300, 300)), { before: 0, after: 0 }, 'equal arms take none');
+  assert.deepEqual(J(notch.armBlanks(280, 165, 300, 220)), { before: 0, after: 55 }, 'an arm stops where its side runs out');
+  assert.deepEqual(J(notch.armBlanks(280, 165, 300, 100)), { before: 0, after: 0 }, 'one already past it takes none');
+});
+
 test("outer top corners are concentric with the screen's, bottom ones keep the rounding", () => {
   assert.deepEqual(J(notch.outerCorners(n14, 4, 8, 38)), { top: 16, bottom: 8 });
   assert.deepEqual(J(notch.outerCorners(n14, 4, 8, 20)), { top: 12, bottom: 8 }, 'kept within the height left by the bottom');

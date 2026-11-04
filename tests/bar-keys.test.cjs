@@ -269,9 +269,13 @@ test('a widget sent into a drawer or a run, or out to the bar, lands beside the 
   assert.equal(keys.besideNearest([], 20), null, 'nothing to land beside');
 });
 
-test('the keyboard mode holds the indicators reveal until it ends, on every edge (KEYS-88)', () => {
-  assert.equal(keys.revealHeld({ centerHovered: false, barHovered: false, keysActive: true }), true,
-    'the cursor left the centre and the pointer is off the bar: still held');
+test('in the keyboard mode the indicators reveal lasts while the cursor is on them (KEYS-88)', () => {
+  assert.equal(keys.revealHeld({ centerHovered: false, barHovered: false, keysActive: true, keysOnReveal: true }), true,
+    'a panel opened from the indicators suspends the mode: still held');
+  assert.equal(keys.revealHeld({ centerHovered: false, barHovered: true, keysActive: true, keysOnReveal: false }), false,
+    'the cursor walked on: the pointer resting on the bar does not hold it');
+  assert.equal(keys.revealHeld({ centerHovered: true, barHovered: false, keysActive: true, keysOnReveal: false }), true,
+    'the pointer in the centre does');
   assert.equal(keys.revealHeld({ centerHovered: false, barHovered: true, keysActive: false }), true, 'a hover on the bar holds it');
   assert.equal(keys.revealHeld({ centerHovered: true, barHovered: false, keysActive: false }), true);
   assert.equal(keys.revealHeld({ centerHovered: false, barHovered: false, keysActive: false }), false, 'mode over, pointer away: it closes');

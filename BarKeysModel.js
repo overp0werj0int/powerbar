@@ -348,8 +348,9 @@ function cardText(name, own, namedMenu) {
 }
 
 // Whether the indicators' reveal stays open (KEYS-88): a hover holds it until
-// the pointer leaves the bar, and the mode, whose cursor on the centre counts
-// as the pointer there, holds it until the mode ends.
+// the pointer leaves the bar. In the mode the cursor decides: the reveal lasts
+// while it rests on the indicators, a panel it opened included, so walking on
+// brings back what gave way.
 function revealHeld(s) {
-  return !!(s.centerHovered || s.barHovered || s.keysActive)
+  return !!(s.centerHovered || (s.keysActive ? s.keysOnReveal : s.barHovered))
 }
