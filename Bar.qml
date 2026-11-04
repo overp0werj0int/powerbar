@@ -10,6 +10,7 @@ import qs.Commons
 import qs.Commons as Commons
 import qs.Ui
 import "BarModel.js" as BarModel
+import "BuildModel.js" as BuildModel
 import "PreferencesModel.js" as PreferencesModel
 import "ManagedModel.js" as ManagedModel
 import "GroupsModel.js" as GroupsModel
@@ -785,18 +786,33 @@ Item {
     function help(): string { return cliItem.help() }
   }
 
-  // The code this shell loaded (`powerbar build`): BuildStamp.sh run once on
-  // the plugin's own folder as it loads. tools/build-check.sh compares it with
-  // the checkout, so a restart that kept older code is caught.
+  // The code this shell runs (`powerbar build`): BuildStamp.sh runs on the
+  // plugin's own folder each time the bar loads, and BuildModel keeps the
+  // process's first answer. tools/build-check.sh compares that with the
+  // checkout, so a restart that kept older code is caught. `omarchy plugin
+  // update` rescans plugins, which rebuilds the bar on the old code, so a later
+  // answer that differs is the moment to ask for a restart (INTEG-160).
   readonly property string pluginDir: decodeURIComponent(Qt.resolvedUrl(".").toString().replace(/^file:\/\//, "")).replace(/\/$/, "")
-  property var buildStamp: ({ digest: "", commit: "", dirty: false })
-  property string loadedAt: new Date().toISOString()
+  property var buildStamp: ({ digest: "", commit: "", dirty: false, version: "", loadedAt: "" })
+  property bool restartNeeded: false
   Process {
     running: true
     command: ["bash", root.pluginDir + "/BuildStamp.sh", root.pluginDir]
     stdout: SplitParser { onRead: function(line) {
-      try { root.buildStamp = JSON.parse(line) } catch (e) { console.warn("powerbar: build stamp unreadable: " + line) }
+      try {
+        var build = BuildModel.observe(JSON.parse(line), new Date().toISOString())
+        root.buildStamp = build.running
+        root.restartNeeded = build.behind
+        if (build.notify) restartNotice.running = true
+      } catch (e) { console.warn("powerbar: build stamp unreadable: " + line) }
     } }
+  }
+  // Critical, so it stays until dismissed: the bar is on old code until then.
+  // Transient, so Omarchy doesn't restore it after the restart it asks for.
+  Process {
+    id: restartNotice
+    command: ["notify-send", "-a", "Powerbar", "-u", "critical", "--transient", "Powerbar updated",
+      "The bar runs the old code until you restart the shell: omarchy restart shell"]
   }
 
   // The omarchy-shell host injects omarchyPath from OMARCHY_PATH.

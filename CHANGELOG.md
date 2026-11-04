@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+- After `omarchy plugin update`, the bar keeps running the old code until the
+  shell restarts. Powerbar now says so in a notification, and the README's
+  Update section says to run `omarchy restart shell`.
+- `omarchy-shell powerbar build` reports the code the shell really runs. It
+  used to report the new files after an update. Its new `restartNeeded` field
+  tells you when an update waits for that restart.
+
 ## 0.10.0 — 2026-11-04
 
 Five zones, new ways to keep widgets out of the way, and a Preferences window

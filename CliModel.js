@@ -311,7 +311,7 @@ var functions = [
   ["preferencesKeyboard", "", "open Preferences at the keyboard mode's shortcuts (Behavior → Keyboard)"],
   ["groupsPreferences", "", "open Preferences at Groups"],
   ["closePreferences", "", "close Preferences"],
-  ["build", "", "the code this shell is running: version, digest of the loaded files, git commit, when it loaded (tools/build-check.sh compares it with a checkout)"],
+  ["build", "", "the code this shell is running: version, digest of the loaded files, git commit, when it loaded, whether newer files wait for a shell restart (tools/build-check.sh compares it with a checkout)"],
   ["help", "", "this list"]
 ]
 function help() {

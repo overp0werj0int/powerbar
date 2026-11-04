@@ -53,6 +53,7 @@ const CONTRACT = [
   ["shell/services/PluginBarWidgetRegistryApi.qml", "property var widgets: ({})", "slots get no component; WidgetRepair never fires"],
   ["shell/services/PluginBarWidgetRegistryApi.qml", "property int revision: 0", "Preferences stops refreshing on rescan"],
   ["shell/services/PluginBarWidgetRegistryApi.qml", "function metadataFor(id) {", "first-party detection and widget names"],
+  ["shell/shell.qml", "active: !shell.pluginReloading && shell.activeBarId !== shell.defaultBarId", "a plugin update no longer rebuilds the bar, so the restart notice (INTEG-160) never fires"],
   ["shell/shell.qml", "widgets: shell.publicBarWidgetSnapshot(),", "the stale copy WidgetRepair works around"],
   ["shell/shell.qml", "widgetApi.widgets = shell.publicBarWidgetSnapshot()", "WidgetRepair's refresh trigger"],
   ["shell/shell.qml", "metadata: JSON.parse(JSON.stringify(entry.metadata || {}))", "stale detection needs the {component, metadata} shape"],
