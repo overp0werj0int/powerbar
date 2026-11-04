@@ -761,6 +761,11 @@ Item {
         return { id: s.moduleName, key: s.instanceKey, zone: s.region, revealed: s.activityVisible, mainVisible: s.mainVisible, inDrawer: !!s.drawerHost, panelOpen: s.panelOpen, observing: s.activityTargets.length }
       }))
     }
+    function fitStatus(): string {
+      return JSON.stringify(barPanels.instances.map(function(w) {
+        return { screen: w.screen ? w.screen.name : "", moments: w.zoneFitMoments, fit: w.zoneFit }
+      }))
+    }
     // Everything Preferences reads and changes, without Preferences
     // (BarCli.qml; `help` lists every function).
     function status(): string { return cliItem.status() }
@@ -907,6 +912,10 @@ Item {
   property int centerHoverCount: 0
   readonly property bool centerSectionHovered: centerHoverCount > 0
   property bool centerSectionRevealHeld: false
+  // The indicators widen on their own hover, a step before openCenterReveal
+  // holds the reveal: the fit counts the moment from the hover, or that step
+  // would pass for the bar's resting layout.
+  readonly property bool centerRevealMoment: centerSectionRevealHeld || (centerSectionHovered && centerRevealBlocks === 0)
   // A centre side expanding inline, or asked for on its dots, keeps the
   // indicators' hover reveal from opening; it never closes one already open.
   // The dots sit at the outer end of the side the indicators grow, so either
@@ -3634,8 +3643,10 @@ Item {
     property var zoneFit: null
     property var zoneFitFolded: ({})
     property var zoneFitYielded: ({})
+    property var zoneFitOwn: ({})
     // The last fit without a moment: moments freeze it.
     property var zoneFitLasting: null
+    property string zoneFitLine: ""
     // A zone an inline expansion or a reveal hides whole, island and all, while
     // it lasts.
     function zoneHidden(zone) { return !!(zoneFit && zoneFit.hidden && zoneFit.hidden[zone]) }
@@ -3648,7 +3659,7 @@ Item {
       if (preview.ready && preview.targetSurface.indexOf("bar:") === 0)
         out.push({ zone: preview.targetSurface.slice(4), sourceKey: preview.sourceKey })
       var items = moduleItems
-      if (root.centerSectionRevealHeld) {
+      if (root.centerRevealMoment) {
         var indicators = items.find(function(s) {
           return s && s.region === "center" && root.canonicalWidgetId(s.moduleName) === "omarchy.indicators"
         })
@@ -3748,6 +3759,13 @@ Item {
       if (!(i.length > 0)) return
       if (force !== true && RenderModel.equal(i, zoneFitSeen)) return
       zoneFitSeen = i
+      // A moment keeps the lasting fit's places, which hold only on the line
+      // they were fitted on: moving the bar mid-moment refits them first.
+      var line = i.length + "|" + i.notch
+      if (line !== zoneFitLine) {
+        zoneFitLine = line
+        zoneFitLasting = ZoneFitModel.fit(zoneFitInput(i, null))
+      }
       var result = ZoneFitModel.fit(zoneFitInput(i, i.moments))
       // An inline expansion that can't be served (a higher moment needs the
       // room, or a widget measured differently once shown) gives way to the
@@ -3764,12 +3782,14 @@ Item {
         root.reportZoneFit(barWindow.screen ? barWindow.screen.name : "", result.folded)
       }
       if (RenderModel.equal(result, zoneFit)) return
-      var folded = {}, yielded = {}
+      var folded = {}, yielded = {}, own = {}
       result.folded.left.concat(result.folded.center, result.folded.right).forEach(function(key) { folded[key] = true })
       result.yielded.forEach(function(key) { yielded[key] = true })
+      result.ownYielded.forEach(function(key) { own[key] = true })
       zoneFit = result
       if (!RenderModel.equal(folded, zoneFitFolded)) zoneFitFolded = folded
       if (!RenderModel.equal(yielded, zoneFitYielded)) zoneFitYielded = yielded
+      if (!RenderModel.equal(own, zoneFitOwn)) zoneFitOwn = own
     }
 
     // Inline mode: hovering a zone's dots expands its hidden widgets in the
@@ -6228,7 +6248,9 @@ Item {
       && homeWindow.inlineGiveWay ? MotionModel.GIVE_WAY_MS : 0
     readonly property var cellPlace: CellModel.place(root.metricsOf(homeWindow).tokens, CellModel.TYPICAL_GLYPH, true)
     readonly property real cellSpill: cellPlace.spill
-    readonly property bool fitYielded: !!(homeWindow && homeWindow.zoneFitYielded["handle:" + (zone === "center" ? "center:" + side : zone)])
+    readonly property string fitKey: "handle:" + (zone === "center" ? "center:" + side : zone)
+    readonly property bool fitYielded: !!(homeWindow && homeWindow.zoneFitYielded[fitKey])
+    readonly property bool fitOwn: !!(homeWindow && homeWindow.zoneFitOwn[fitKey])
     readonly property var drawerRef: homeWindow ? homeWindow.managedDrawer : null
     readonly property bool drawerOpen: !!drawerRef && drawerRef.showsZone(zone)
       && (!root.onDemandMenu || drawerRef.token === inlineToken)
@@ -6434,10 +6456,10 @@ Item {
       || (listRole === "centerEnd" && centerEndDots))
     width: root.vertical ? Math.max(root.barSize, contents.width) : startHandle.width + contents.width + endHandle.width + endGap.width
     height: root.vertical ? startHandle.height + contents.height + endHandle.height + endGap.height : Math.max(root.barSize, contents.height)
-    readonly property real leadSpill: leadRun > 0 ? markerPlace.spill
+    readonly property real leadSpill: leadRun > 0 && !leadUnmarked ? markerPlace.spill
       : startHandle.shown && !startHandle.fitYielded ? startHandle.cellSpill : root.edgeSpill(contents, false)
     readonly property real trailSpill: previewEndGap && root.barDragSource ? root.barDragSource.cellSpill
-      : trailRun > 0 ? markerPlace.spill
+      : trailRun > 0 && !trailUnmarked ? markerPlace.spill
       : endHandle.shown && !endHandle.fitYielded ? endHandle.cellSpill : root.edgeSpill(contents, true)
     // Yielded slots keep their space, but the island ends at the last one
     // still showing: the length of yielded slots at each end of the list.
@@ -6461,8 +6483,9 @@ Item {
         var size = c ? root.alongSize(c) : 0
         if (!c || c.cellSpill === undefined || !(size > 0)) continue
         if (!c.fitYielded) break
+        // A growing zone's own widgets are not counted: they leave no marker.
         // A yielded drawer handle stands for the widgets folded behind it.
-        count += c.isFoldHandle === true ? c.count : 1
+        if (!c.fitOwn) count += c.isFoldHandle === true ? c.count : 1
       }
       return count
     }
@@ -6478,8 +6501,14 @@ Item {
     readonly property var markerPlace: CellModel.place(root.metricsOf(homeWindow).tokens, CellModel.TYPICAL_GLYPH, true)
     // A zone hidden whole leaves no marker; its island fades where it stands.
     readonly property bool zoneHidden: !!homeWindow && homeWindow.zoneHidden(region)
-    readonly property real trimLead: leadRun > 0 && !zoneHidden ? leadRun - markerPlace.extent : 0
-    readonly property real trimTrail: trailRun > 0 && !zoneHidden ? trailRun - markerPlace.extent : 0
+    readonly property int leadCount: leadRun > 0 && !zoneHidden ? yieldCount(false) : 0
+    readonly property int trailCount: trailRun > 0 && !zoneHidden ? yieldCount(true) : 0
+    // A growing zone's own run leaves no marker, and its island ends at the
+    // widgets still showing.
+    readonly property bool leadUnmarked: leadRun > 0 && !zoneHidden && leadCount === 0
+    readonly property bool trailUnmarked: trailRun > 0 && !zoneHidden && trailCount === 0
+    readonly property real trimLead: leadRun > 0 && !zoneHidden ? leadRun - (leadUnmarked ? 0 : markerPlace.extent) : 0
+    readonly property real trimTrail: trailRun > 0 && !zoneHidden ? trailRun - (trailUnmarked ? 0 : markerPlace.extent) : 0
     // The list's length without them, and the same eased for island ends.
     readonly property real shownLength: listLength - trimLead - trimTrail
     property real shownLead: trimLead
@@ -6498,7 +6527,7 @@ Item {
     YieldMarker {
       homeWindow: moduleListRoot.homeWindow
       zone: moduleListRoot.region
-      count: moduleListRoot.leadRun > 0 && !moduleListRoot.zoneHidden ? moduleListRoot.yieldCount(false) : 0
+      count: moduleListRoot.leadCount
       readonly property real along: moduleListRoot.leadRun - moduleListRoot.markerPlace.extent
       x: root.vertical ? 0 : along
       y: root.vertical ? along : 0
@@ -6506,7 +6535,7 @@ Item {
     YieldMarker {
       homeWindow: moduleListRoot.homeWindow
       zone: moduleListRoot.region
-      count: moduleListRoot.trailRun > 0 && !moduleListRoot.zoneHidden ? moduleListRoot.yieldCount(true) : 0
+      count: moduleListRoot.trailCount
       readonly property real along: moduleListRoot.listLength - moduleListRoot.trailRun
       x: root.vertical ? 0 : along
       y: root.vertical ? along : 0
@@ -6647,6 +6676,7 @@ Item {
     readonly property string claim: PresenceModel.claim(slot)
     readonly property bool fitFolded: !!(homeWindow && homeWindow.zoneFitFolded[instanceKey])
     readonly property bool fitYielded: !!(homeWindow && homeWindow.zoneFitYielded[instanceKey])
+    readonly property bool fitOwn: !!(homeWindow && homeWindow.zoneFitOwn[instanceKey])
     readonly property string presence: PresenceModel.presence(slot)
     readonly property bool mainVisible: presence === "bar"
     // Fades only for zone-fit changes: a yield or fold fades the widget out

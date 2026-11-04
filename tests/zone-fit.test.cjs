@@ -59,8 +59,9 @@ function islands(input, r) {
     slots.forEach(s => { if (!yielded.has(s.key)) vis.push([x - 0, x + s.extent, s]); x += s.extent; });
     // A zone that yielded shows a marker cell next to its remaining slots, on the yielded side.
     const m = input.marker || input.handle;
-    if (vis.length && yielded.has(slots[0].key)) vis.unshift([vis[0][0] - m.extent, vis[0][0], m]);
-    if (vis.length && yielded.has(slots[slots.length - 1].key)) vis.push([vis[vis.length - 1][1], vis[vis.length - 1][1] + m.extent, m]);
+    const marked = s => yielded.has(s.key) && !r.ownYielded.includes(s.key);
+    if (vis.length && marked(slots[0])) vis.unshift([vis[0][0] - m.extent, vis[0][0], m]);
+    if (vis.length && marked(slots[slots.length - 1])) vis.push([vis[vis.length - 1][1], vis[vis.length - 1][1] + m.extent, m]);
     out[n] = vis.length ? [vis[0][0] - input.pad(vis[0][2].spill), vis[vis.length - 1][1] + input.pad(vis[vis.length - 1][2].spill)] : null;
   }
   return out;
@@ -129,6 +130,17 @@ test('too short: folds happen and the result is clear of overlap', () => {
   assertClear(input, r);
 });
 
+// One cell short of a second widget: with no marker to make room for, one goes.
+test('a growing zone gives up no widget to make room for a marker (ZONE-30)', () => {
+  const zones = { left: [212, 30, 30], before: [30, 30, 31, 29], anchor: 89, after: [29, 27, 29], right: [31, 30, 28, 30, 30] };
+  const prev = zf.fit(make({ length: 982, zones }));
+  const grown = make({ length: 982, zones: Object.assign({}, zones, { before: [30, 30, 31, 144] }) });
+  const input = withIn(grown, { previous: prev, momentGap: 4, transient: { zone: 'center', sourceKey: 'B3', reveal: true } });
+  const r = zf.fit(input);
+  assert.deepEqual(r.ownYielded, ['B0']);
+  assertClear(withIn(input, { gap: 4 }), r);
+});
+
 // A side bar: Workspaces alone reaches past where the revealed Indicators end.
 test('a reveal its neighbour cannot clear takes the rest from its own zone (ZONE-34)', () => {
   const zones = { left: [212, 30, 30], before: [30, 30, 31, 29], anchor: 89, after: [29, 27, 29], right: [31, 30, 28, 30, 30] };
@@ -140,6 +152,8 @@ test('a reveal its neighbour cannot clear takes the rest from its own zone (ZONE
   assert.ok(r.yielded.includes('L1') && r.yielded.includes('L2'), `left gives what it can: ${r.yielded}`);
   assert.ok(r.yielded.includes('B0'), `the centre's facing widgets give the rest: ${r.yielded}`);
   assert.ok(!r.yielded.includes('L0') && !r.yielded.includes('B3'), `no anchor and no revealed widget: ${r.yielded}`);
+  assert.ok(r.ownYielded.includes('B0') && !r.ownYielded.some((key) => key.startsWith('L')),
+    `only the growing zone's own widgets leave no marker (ZONE-30): ${r.ownYielded}`);
   assertClear(withIn(input, { gap: 4 }), r);
 
   const facing = zf.fit(withIn(input, { transient: { zone: 'center', sourceKey: 'B0', reveal: true } }));
@@ -161,6 +175,7 @@ test('a reveal past the end of the bar line gives up its own widgets there (ZONE
   const r = zf.fit(input);
   assert.deepEqual(r.fallbacks, [], 'it never runs off the screen');
   assert.ok(r.yielded.includes('B0'), `its widgets at that end give way: ${r.yielded}`);
+  assert.ok(r.ownYielded.includes('B0'), 'and leave no marker');
   assert.ok(!r.yielded.includes('B3'));
 
   const short = { left: [12], before: [29], anchor: 60, right: [12] };

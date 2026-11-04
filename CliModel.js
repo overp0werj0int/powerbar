@@ -304,6 +304,7 @@ var functions = [
   ["group", "<id>", "open a group's drawer"],
   ["toggleGroup", "<id>", "open or close a group's drawer"],
   ["drawerStatus", "", "the open drawer, as JSON"],
+  ["fitStatus", "", "each screen's zone fit, as JSON"],
   ["managedStatus", "", "On demand widgets: where they are and whether they show, as JSON"],
   ["popupStatus", "", "the open widget panel, as JSON"],
   ["preferences", "", "open Preferences on the focused monitor"],

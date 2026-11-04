@@ -111,6 +111,7 @@ omabox for desktop tests in a private Hyprland session
 | `keysStatus` | keyboard mode: cursor, stops, search, drawer, focus, name card |
 | `drawerStatus` | the open drawer or group menu |
 | `managedStatus` | on-demand widgets: zone, revealed, on the bar |
+| `fitStatus` | each screen's zone fit: moments, folded, yielded, and what a growing zone gave up itself |
 | `popupStatus` | the open widget panel |
 | `keys` | toggles the keyboard mode (Super+B by default) |
 
