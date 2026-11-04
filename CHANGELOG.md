@@ -8,6 +8,9 @@
 - `omarchy-shell powerbar build` reports the code the shell really runs. It
   used to report the new files after an update. Its new `restartNeeded` field
   tells you when an update waits for that restart.
+- Highlights in a flat bar's corners follow the screen's rounded corners, as
+  they do on the other styles. Islands now nest there too: a scope error kept
+  them from it, and warned in the shell log, on a notched screen.
 
 ## 0.10.0 — 2026-11-04
 

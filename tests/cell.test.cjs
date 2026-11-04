@@ -194,4 +194,6 @@ test('a highlight in a rounded outer corner nests in it, the gap kept to the cur
   assert.equal(cell.nestedCorners({ x: 40, y: 7, width: 20, height: 20 }, arcs, 3).tl, 3);
   assert.equal(cell.nestedCorners({ x: 7, y: 7, width: 16, height: 16 }, [{ corner: 'tl', x: 4, y: 4, r: 30 }], 3).tl, 8);
   assert.deepEqual(cell.nestedCorners({ x: 7, y: 7, width: 20, height: 20 }, [], 3), { tl: 3, tr: 3, bl: 3, br: 3 });
+  // A flat bar's corner is the screen's: the arc at the window's corner, its whole radius.
+  assert.equal(cell.nestedCorners({ x: 3, y: 3, width: 40, height: 26 }, [{ corner: 'tl', x: 0, y: 0, r: 20 }], 0).tl, 13);
 });
