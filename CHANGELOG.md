@@ -13,8 +13,14 @@
   them from it, and warned in the shell log, on a notched screen.
 - A hover reveal no longer runs over the zone beside it when that zone can't
   give enough room, as on a side bar with long Workspaces. The widgets next to
-  the reveal give way too, and the hovered icon stays under the pointer. When
+  the reveal give way too, and the hovered icon stays under the pointer. They
+  leave no dots of their own, so only the zone beside it shows dots. When
   nothing else can give way, that zone hides until the pointer leaves.
+- Hovering the indicators no longer sometimes folds widgets and slides the
+  centre, in place of the neighbours giving way.
+- Moving the bar to another edge while a reveal is open no longer leaves the
+  centre where it sat on the old edge. On a notched screen it used to cover the
+  camera until the reveal ended.
 - A zone too long to expand fully in the bar now shows what fits, and the rest
   goes on a shelf at its dots, once its neighbours have given way.
 - In keyboard mode the indicators reveal their icons while the cursor is on

@@ -281,6 +281,7 @@ function resultOf(input, st, g, fits) {
     handles: handlesOf(input, st),
     centerFolded: centerFoldSides(input, st),
     yielded: [],
+    ownYielded: [],
     fallback: null
   }
 }
@@ -327,13 +328,14 @@ function slotStarts(pad, slots, zoneStart) {
 // end past them, whether an anchor stopped it, and the slots still showing.
 // range ({ first, last }) limits the slots that may yield; the caller narrows
 // it by what yields, so a centre can yield at both ends without counting twice.
-function yieldSlots(input, slots, zoneStart, fromStart, isAnchor, clear, range) {
+// unmarked: a growing zone giving up its own slots, which leaves no marker.
+function yieldSlots(input, slots, zoneStart, fromStart, isAnchor, clear, range, unmarked) {
   var keys = [], reached = 0, blocked = false
   var starts = slotStarts(input.pad, slots, zoneStart)
   var first = range ? range.first : 0, last = range ? range.last : slots.length - 1
   var m = input.marker || input.handle
   while (first <= last) {
-    if (!keys.length) reached = fromStart ? starts[first] - input.pad(slots[first].spill)
+    if (!keys.length || unmarked) reached = fromStart ? starts[first] - input.pad(slots[first].spill)
       : starts[last] + slots[last].extent + input.pad(slots[last].spill)
     else reached = fromStart ? starts[first] - m.extent - input.pad(m.spill)
       : starts[last] + slots[last].extent + m.extent + input.pad(m.spill)
@@ -390,6 +392,7 @@ function fitMoment(input) {
     handles: handlesOf(input, st),
     centerFolded: centerFoldSides(input, st),
     yielded: [],
+    ownYielded: [],
     hidden: { left: false, center: false, right: false },
     fallback: null,
     fallbacks: []
@@ -428,18 +431,18 @@ function fitMoment(input) {
   // widgets that are growing never yield.
   var sources = {}
   ts.forEach(function (t) { if (t.sourceKey) sources[t.sourceKey] = true })
-  function runFrom(zone, fromStart, clear, centerRange) {
-    if (zone === "left") return yieldSlots(input, g.left, inset, false, function (s) { return sources[s.key] || s.key === leftFirst }, clear)
-    if (zone === "right") return yieldSlots(input, g.right, span.right[0], true, function (s) { return sources[s.key] || s.key === rightLast }, clear)
-    return yieldSlots(input, g.center, cs, fromStart, function (s, rest) { return sources[s.key] || centerAnchor(s, rest) }, clear, centerRange)
+  function runFrom(zone, fromStart, clear, centerRange, unmarked) {
+    if (zone === "left") return yieldSlots(input, g.left, inset, false, function (s) { return sources[s.key] || s.key === leftFirst }, clear, null, unmarked)
+    if (zone === "right") return yieldSlots(input, g.right, span.right[0], true, function (s) { return sources[s.key] || s.key === rightLast }, clear, null, unmarked)
+    return yieldSlots(input, g.center, cs, fromStart, function (s, rest) { return sources[s.key] || centerAnchor(s, rest) }, clear, centerRange, unmarked)
   }
   function commit(run, zone, centerRange) {
     if (zone === "center" && centerRange) { centerRange.first = run.first; centerRange.last = run.last }
     return run.keys
   }
-  function yieldFrom(zone, fromStart, limit, centerRange) {
+  function yieldFrom(zone, fromStart, limit, centerRange, unmarked) {
     var clear = fromStart ? function (edge) { return edge >= limit - 1e-6 } : function (edge) { return edge <= limit + 1e-6 }
-    var run = runFrom(zone, fromStart, clear, centerRange)
+    var run = runFrom(zone, fromStart, clear, centerRange, unmarked)
     return run.blocked ? null : commit(run, zone, centerRange)
   }
   // A reveal whose neighbour stops at its anchor: the neighbour gives all it
@@ -447,8 +450,8 @@ function fitMoment(input) {
   // slides. Null when the revealed widget or an anchor would have to yield.
   function shareYield(grower, other, growerFirst, centerRange) {
     var given = runFrom(other, growerFirst, function () { return false }, centerRange)
-    var own = yieldFrom(grower, !growerFirst, given.edge + (growerFirst ? -gap : gap), centerRange)
-    return own ? commit(given, other, centerRange).concat(own) : null
+    var own = yieldFrom(grower, !growerFirst, given.edge + (growerFirst ? -gap : gap), centerRange, true)
+    return own ? { given: commit(given, other, centerRange), own: own } : null
   }
   // The yields for a set of growing zones, or the zone that can't be served.
   // An inline expansion (unfold), or a reveal shareYield can't serve, that
@@ -463,7 +466,7 @@ function fitMoment(input) {
     })
     var names = g.center.length ? ["left", "center", "right"] : ["left", "right"]
     var centerRange = { first: 0, last: g.center.length - 1 }
-    var y = [], hidden = {}
+    var y = [], own = [], hidden = {}
     function hide(zone) {
       hidden[zone] = true
       y = y.concat(g[zone].map(function(s) { return s.key }))
@@ -488,7 +491,7 @@ function fitMoment(input) {
       var ys = yieldFrom(other, ga, limit, centerRange)
       if (ys) { y = y.concat(ys); continue }
       var shared = revealing[grower] ? shareYield(grower, other, ga, centerRange) : null
-      if (shared) { y = y.concat(shared); continue }
+      if (shared) { y = y.concat(shared.given); own = own.concat(shared.own); continue }
       if (!unfolding[grower] && !revealing[grower]) return { fail: grower, reason: "anchor" }
       // Nothing runs over the camera: the expansion opens as a drawer.
       if (other === "center" && hasNotch(input)) return { fail: grower, reason: "notch" }
@@ -509,16 +512,16 @@ function fitMoment(input) {
     for (var z = 0; z < names.length; z++) {
       var zone = names[z]
       if (!revealing[zone]) continue
-      var ownStart = span[zone][0] < inset - 0.5 ? yieldFrom(zone, true, inset, centerRange) : []
-      var ownEnd = span[zone][1] > length - inset + 0.5 ? yieldFrom(zone, false, length - inset, centerRange) : []
+      var ownStart = span[zone][0] < inset - 0.5 ? yieldFrom(zone, true, inset, centerRange, true) : []
+      var ownEnd = span[zone][1] > length - inset + 0.5 ? yieldFrom(zone, false, length - inset, centerRange, true) : []
       if (!ownStart || !ownEnd) return { fail: zone, reason: "screen" }
-      y = y.concat(ownStart, ownEnd)
+      own = own.concat(ownStart, ownEnd)
     }
     var seen = {}
-    y = y.filter(function(key) { if (seen[key]) return false; seen[key] = true; return true })
-    return { yielded: y, hidden: hidden }
+    y = y.concat(own).filter(function(key) { if (seen[key]) return false; seen[key] = true; return true })
+    return { yielded: y, ownYielded: own, hidden: hidden }
   }
-  var out = input.wrap ? { yielded: [], hidden: {} } : attempt(active)
+  var out = input.wrap ? { yielded: [], ownYielded: [], hidden: {} } : attempt(active)
   while (out.fail) {
     var failed = out.fail, reason = out.reason
     active = active.filter(function (t) {
@@ -529,6 +532,7 @@ function fitMoment(input) {
     out = attempt(active)
   }
   res.yielded = out.yielded
+  res.ownYielded = out.ownYielded
   for (var zone in out.hidden) res.hidden[zone] = true
   res.fallbacks = fallbacks
   res.fallback = fallbacks.length ? fallbacks[0] : null
@@ -550,7 +554,7 @@ function splitExpansion(keys, dotsAtStart, served) {
 }
 
 // fit(input) -> { fits, centerStart, anchorOffset, centerShift, folded, order,
-//                 handles, centerFolded, yielded, fallback, fallbacks (moments) }.
+//                 handles, centerFolded, yielded, ownYielded, fallback, fallbacks (moments) }.
 //                 input.zones: { left, before, box, after, right }, each a list
 //                 of { key, extent, spill } in bar order.
 function fit(input) {
